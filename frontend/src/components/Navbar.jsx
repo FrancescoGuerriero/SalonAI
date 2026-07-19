@@ -1,58 +1,120 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import {
+  NavLink,
+  useNavigate
+} from "react-router-dom";
 
 import useAuth from "../hooks/useAuth.js";
-import "./Navbar.css";
 
 function Navbar() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+
+  const {
+    user,
+    isAuthenticated,
+    logout
+  } = useAuth();
+
+  function getLinkClass({ isActive }) {
+    return isActive
+      ? "navbar-link navbar-link-active"
+      : "navbar-link";
+  }
 
   function handleLogout() {
     logout();
-    navigate("/login", { replace: true });
-  }
 
-  function getNavLinkClass({ isActive }) {
-    return isActive
-      ? "navbar__link navbar__link--active"
-      : "navbar__link";
+    navigate("/login", {
+      replace: true
+    });
   }
-
-  const displayName =
-    user?.name ||
-    user?.fullName ||
-    user?.email ||
-    "My account";
 
   return (
     <header className="navbar">
-      <div className="navbar__container">
-        <NavLink to="/" className="navbar__brand">
-          SalonAI
+      <div className="navbar-container">
+        <NavLink
+          to="/"
+          className="navbar-brand"
+          aria-label="SalonAI homepage"
+        >
+          <span className="navbar-brand-mark">
+            S
+          </span>
+
+          <span className="navbar-brand-text">
+            SalonAI
+          </span>
         </NavLink>
 
-        <nav className="navbar__navigation" aria-label="Main navigation">
-          <NavLink to="/" end className={getNavLinkClass}>
+        <nav
+          className="navbar-navigation"
+          aria-label="Main navigation"
+        >
+          <NavLink
+            to="/"
+            end
+            className={getLinkClass}
+          >
             Home
           </NavLink>
 
-          <NavLink to="/services" className={getNavLinkClass}>
+          <NavLink
+            to="/services"
+            className={getLinkClass}
+          >
             Services
           </NavLink>
 
-          {isAuthenticated ? (
+          <NavLink
+            to="/stylists"
+            className={getLinkClass}
+          >
+            Stylists
+          </NavLink>
+
+          {isAuthenticated && (
             <>
-              <NavLink to="/dashboard" className={getNavLinkClass}>
-                Dashboard
+              <NavLink
+                to="/booking"
+                className={getLinkClass}
+              >
+                Book
               </NavLink>
 
-              <span className="navbar__user" title={displayName}>
-                {displayName}
-              </span>
+              <NavLink
+                to="/dashboard"
+                className={getLinkClass}
+              >
+                Dashboard
+              </NavLink>
+            </>
+          )}
+        </nav>
+
+        <div className="navbar-actions">
+          {isAuthenticated ? (
+            <>
+              <div className="navbar-user">
+                <span className="navbar-user-avatar">
+                  {user?.name
+                    ?.trim()
+                    ?.charAt(0)
+                    ?.toUpperCase() || "U"}
+                </span>
+
+                <div className="navbar-user-details">
+                  <span className="navbar-user-name">
+                    {user?.name || "Customer"}
+                  </span>
+
+                  <span className="navbar-user-role">
+                    Customer
+                  </span>
+                </div>
+              </div>
 
               <button
                 type="button"
-                className="navbar__logout"
+                className="navbar-logout-button"
                 onClick={handleLogout}
               >
                 Logout
@@ -60,19 +122,22 @@ function Navbar() {
             </>
           ) : (
             <>
-              <NavLink to="/login" className={getNavLinkClass}>
+              <NavLink
+                to="/login"
+                className="navbar-login-link"
+              >
                 Login
               </NavLink>
 
               <NavLink
                 to="/register"
-                className="navbar__register"
+                className="navbar-register-link"
               >
-                Register
+                Create Account
               </NavLink>
             </>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   );
