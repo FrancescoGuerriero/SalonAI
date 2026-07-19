@@ -1,0 +1,30 @@
+.application-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #faf7f9;
+}
+
+.application-shell__content {
+  flex: 1;
+  width: 100%;
+}
+
+.application-footer {
+  margin-top: auto;
+  border-top: 1px solid #eadde4;
+  background: #ffffff;
+}
+
+.application-footer__container {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.25rem 0;
+  color: #746269;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.application-footer__container p {
+  margin: 0;
+}

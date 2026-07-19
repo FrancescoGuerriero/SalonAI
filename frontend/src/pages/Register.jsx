@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 
-const API_BASE_URL = "http://localhost:5000/api";
+import {
+  Link,
+  useNavigate
+} from "react-router-dom";
+
+import useAuth from "../hooks/useAuth.js";
 
 function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const [form, setForm] = useState({
     name: "",
@@ -12,14 +17,16 @@ function Register() {
     password: ""
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
+
   const [error, setError] = useState("");
 
   function handleChange(event) {
     const { name, value } = event.target;
 
-    setForm((previousForm) => ({
-      ...previousForm,
+    setForm((currentForm) => ({
+      ...currentForm,
       [name]: value
     }));
   }
@@ -31,25 +38,29 @@ function Register() {
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(form)
+      await register({
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        password: form.password
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.message || "Registration failed.");
-      }
-
-      console.log("Account created:", data);
-      navigate("/login");
+      navigate("/login", {
+        replace: true,
+        state: {
+          registrationComplete: true
+        }
+      });
     } catch (requestError) {
-      console.error("Registration failed:", requestError);
-      setError(requestError.message || "Registration failed.");
+      console.error(
+        "Registration failed:",
+        requestError
+      );
+
+      setError(
+        requestError.response?.data?.message ||
+        requestError.message ||
+        "Registration failed."
+      );
     } finally {
       setLoading(false);
     }
@@ -59,46 +70,77 @@ function Register() {
     <main className="page narrow-page">
       <h1>Create Account</h1>
 
-      {error && <p className="error-message">{error}</p>}
+      {error && (
+        <p
+          className="error-message"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
 
-      <form onSubmit={handleSubmit} className="form">
-        <label htmlFor="registerName">Full name</label>
+      <form
+        onSubmit={handleSubmit}
+        className="form"
+      >
+        <label htmlFor="registerName">
+          Full name
+        </label>
+
         <input
           id="registerName"
           name="name"
+          type="text"
           value={form.name}
           onChange={handleChange}
+          autoComplete="name"
           required
         />
 
-        <label htmlFor="registerEmail">Email</label>
+        <label htmlFor="registerEmail">
+          Email
+        </label>
+
         <input
           id="registerEmail"
           name="email"
           type="email"
           value={form.email}
           onChange={handleChange}
+          autoComplete="email"
           required
         />
 
-        <label htmlFor="registerPassword">Password</label>
+        <label htmlFor="registerPassword">
+          Password
+        </label>
+
         <input
           id="registerPassword"
           name="password"
           type="password"
-          minLength="6"
+          minLength={6}
           value={form.password}
           onChange={handleChange}
+          autoComplete="new-password"
           required
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating account..." : "Register"}
+        <button
+          type="submit"
+          disabled={loading}
+        >
+          {loading
+            ? "Creating account..."
+            : "Register"}
         </button>
       </form>
 
       <p>
-        Already registered? <Link to="/login">Login</Link>
+        Already registered?{" "}
+        <Link to="/login">
+          Login
+        </Link>
       </p>
     </main>
   );

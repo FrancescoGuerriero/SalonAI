@@ -4,62 +4,64 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
+import appointmentRoutes from "./routes/appointmentRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
+import stylistRoutes from "./routes/stylistRoutes.js";
 
 const app = express();
 
-// Security middleware
+const frontendOrigin =
+  process.env.FRONTEND_URL ||
+  "http://localhost:5173";
+
 app.use(helmet());
-
-// Logging
 app.use(morgan("dev"));
-
-// Parse JSON requests
 app.use(express.json());
-
-// Parse cookies
 app.use(cookieParser());
 
-// Enable CORS for React frontend
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    credentials: true,
+    origin: frontendOrigin,
+    credentials: true
   })
 );
 
-
-// Health check route
 app.get("/", (req, res) => {
   res.json({
-    message: "SalonAI Backend API is running 🚀",
+    message:
+      "SalonAI Backend API is running."
   });
 });
 
-
-// API Routes
 app.use("/api/auth", authRoutes);
-
 app.use("/api/services", serviceRoutes);
+app.use("/api/stylists", stylistRoutes);
+app.use(
+  "/api/appointments",
+  appointmentRoutes
+);
 
-
-// Handle unknown routes
 app.use((req, res) => {
   res.status(404).json({
-    message: "Route not found",
+    message: "Route not found."
   });
 });
 
+app.use((error, req, res, next) => {
+  console.error(error);
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
+  if (res.headersSent) {
+    return next(error);
+  }
 
-  res.status(500).json({
-    message: "Internal Server Error",
+  return res.status(
+    error.status || 500
+  ).json({
+    message:
+      error.message ||
+      "Internal server error."
   });
 });
-
 
 export default app;

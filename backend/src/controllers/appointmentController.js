@@ -1,91 +1,134 @@
+import mongoose from "mongoose";
+
 import Appointment from "../models/Appointment.js";
+import Service from "../models/service.js";
+import Stylist from "../models/Stylist.js";
 
+export async function createAppointment(
+  req,
+  res,
+  next
+) {
+  try {
+    const {
+      service,
+      stylist,
+      date,
+      time
+    } = req.body;
 
-// Create appointment
+    if (
+      !service ||
+      !stylist ||
+      !date ||
+      !time
+    ) {
+      return res.status(400).json({
+        message:
+          "Service, stylist, date and time are required."
+      });
+    }
 
-export const createAppointment = async(req,res)=>{
+    if (
+      !mongoose.isValidObjectId(service) ||
+      !mongoose.isValidObjectId(stylist)
+    ) {
+      return res.status(400).json({
+        message:
+          "The selected service or stylist is invalid."
+      });
+    }
 
+    const appointmentDate = new Date(date);
 
-try{
+    if (
+      Number.isNaN(appointmentDate.getTime())
+    ) {
+      return res.status(400).json({
+        message:
+          "The appointment date is invalid."
+      });
+    }
 
+    const [serviceExists, stylistExists] =
+      await Promise.all([
+        Service.exists({
+          _id: service,
+          active: true
+        }),
+        Stylist.exists({
+          _id: stylist,
+          active: true
+        })
+      ]);
 
-const appointment =
-await Appointment.create({
+    if (!serviceExists) {
+      return res.status(404).json({
+        message:
+          "The selected service was not found."
+      });
+    }
 
-    customer:req.body.customer,
+    if (!stylistExists) {
+      return res.status(404).json({
+        message:
+          "The selected stylist was not found."
+      });
+    }
 
-    service:req.body.service,
+    const appointment =
+      await Appointment.create({
+        customer: req.user._id,
+        service,
+        stylist,
+        date: appointmentDate,
+        time
+      });
 
-    stylist:req.body.stylist,
+    const populatedAppointment =
+      await Appointment.findById(
+        appointment._id
+      )
+        .populate(
+          "customer",
+          "name email"
+        )
+        .populate("service")
+        .populate("stylist");
 
-    date:req.body.date,
-
-    time:req.body.time
-
-
-});
-
-
-
-res.status(201).json({
-
-    message:"Appointment created",
-
-    appointment
-
-});
-
-
+    return res.status(201).json({
+      message:
+        "Appointment created successfully.",
+      appointment: populatedAppointment
+    });
+  } catch (error) {
+    next(error);
+  }
 }
 
-catch(error){
+export async function getAppointments(
+  req,
+  res,
+  next
+) {
+  try {
+    const appointments =
+      await Appointment.find({
+        customer: req.user._id
+      })
+        .populate(
+          "customer",
+          "name email"
+        )
+        .populate("service")
+        .populate("stylist")
+        .sort({
+          date: 1,
+          time: 1
+        });
 
-res.status(500).json({
-
-message:error.message
-
-});
-
+    return res.json(appointments);
+  } catch (error) {
+    next(error);
+  }
 }
-
-
-};
-
-
-
-
-// Get appointments
-
-export const getAppointments = async(req,res)=>{
-
-
-try{
-
-
-const appointments =
-await Appointment
-.find()
-.populate("customer")
-.populate("service")
-.populate("stylist");
-
-
-
-res.json(appointments);
-
-
-
-}
-
-catch(error){
-
-res.status(500).json({
-
-message:error.message
-
-});
-
-}
-
-
-};

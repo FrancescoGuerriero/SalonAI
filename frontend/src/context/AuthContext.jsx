@@ -1,52 +1,59 @@
-import { createContext, useEffect, useMemo, useState } from "react";
-import authService from "../services/authService";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
+
+import authService from "../services/authService.js";
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = authService.getCurrentUser();
+    const storedToken = authService.getToken();
+    const storedUser = authService.getCurrentUser();
 
-    if (currentUser) {
-      setUser(currentUser);
-    }
-
+    setToken(storedToken);
+    setUser(storedUser);
     setLoading(false);
   }, []);
 
-  async function login(credentials) {
+  const login = useCallback(async (credentials) => {
     const response = await authService.login(credentials);
 
-    if (response.user) {
-      setUser(response.user);
-    }
+    setToken(response.token);
+    setUser(response.user ?? null);
 
     return response;
-  }
+  }, []);
 
-  async function register(payload) {
+  const register = useCallback(async (payload) => {
     return authService.register(payload);
-  }
+  }, []);
 
-  function logout() {
+  const logout = useCallback(() => {
     authService.logout();
+    setToken(null);
     setUser(null);
-  }
+  }, []);
 
   const value = useMemo(
     () => ({
       user,
+      token,
       loading,
       login,
-      logout,
       register,
-      isAuthenticated: authService.isAuthenticated()
+      logout,
+      isAuthenticated: Boolean(token)
     }),
-    [user, loading]
+    [user, token, loading, login, register, logout]
   );
 
   return (

@@ -1,62 +1,81 @@
-import { Link } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 
+import useAuth from "../hooks/useAuth.js";
+import "./Navbar.css";
 
-function Navbar(){
+function Navbar() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
 
-return (
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+  }
 
-<nav className="
-flex
-justify-between
-items-center
-p-4
-bg-white
-shadow
-">
+  function getNavLinkClass({ isActive }) {
+    return isActive
+      ? "navbar__link navbar__link--active"
+      : "navbar__link";
+  }
 
-<h1 className="
-text-xl
-font-bold
-text-pink-600
-">
-SalonAI
-</h1>
+  const displayName =
+    user?.name ||
+    user?.fullName ||
+    user?.email ||
+    "My account";
 
+  return (
+    <header className="navbar">
+      <div className="navbar__container">
+        <NavLink to="/" className="navbar__brand">
+          SalonAI
+        </NavLink>
 
-<div className="
-space-x-4
-">
+        <nav className="navbar__navigation" aria-label="Main navigation">
+          <NavLink to="/" end className={getNavLinkClass}>
+            Home
+          </NavLink>
 
-<Link to="/">
-Home
-</Link>
+          <NavLink to="/services" className={getNavLinkClass}>
+            Services
+          </NavLink>
 
+          {isAuthenticated ? (
+            <>
+              <NavLink to="/dashboard" className={getNavLinkClass}>
+                Dashboard
+              </NavLink>
 
-<Link to="/services">
-Services
-</Link>
+              <span className="navbar__user" title={displayName}>
+                {displayName}
+              </span>
 
+              <button
+                type="button"
+                className="navbar__logout"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink to="/login" className={getNavLinkClass}>
+                Login
+              </NavLink>
 
-<Link to="/login">
-Login
-</Link>
-
-<Link to="/register">
-Register
-</Link>
-
-<Link to="/booking">
-Book
-</Link>
-
-</div>
-
-
-</nav>
-
-);
-
+              <NavLink
+                to="/register"
+                className="navbar__register"
+              >
+                Register
+              </NavLink>
+            </>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
 }
-
 
 export default Navbar;

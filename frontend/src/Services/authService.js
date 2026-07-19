@@ -1,21 +1,30 @@
-import API from "../api/axios";
-import { storage } from "../utils/storage";
+import API from "../api/axios.js";
+import { storage } from "../utils/storage.js";
 
 class AuthService {
   async login(credentials) {
-    const { data } = await API.post("/auth/login", credentials);
+    const { data } = await API.post(
+      "/auth/login",
+      credentials
+    );
+
+    if (!data?.token) {
+      throw new Error(
+        "The server did not return an authentication token."
+      );
+    }
 
     storage.setToken(data.token);
-
-    if (data.user) {
-      storage.setUser(data.user);
-    }
+    storage.setUser(data.user ?? null);
 
     return data;
   }
 
   async register(payload) {
-    const { data } = await API.post("/auth/register", payload);
+    const { data } = await API.post(
+      "/auth/register",
+      payload
+    );
 
     return data;
   }
@@ -30,10 +39,6 @@ class AuthService {
 
   getCurrentUser() {
     return storage.getUser();
-  }
-
-  isAuthenticated() {
-    return !!storage.getToken();
   }
 }
 

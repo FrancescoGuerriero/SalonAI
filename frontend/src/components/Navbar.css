@@ -1,0 +1,105 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  border-bottom: 1px solid #eadde4;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.navbar__container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1200px, calc(100% - 2rem));
+  min-height: 68px;
+  margin: 0 auto;
+  gap: 2rem;
+}
+
+.navbar__brand {
+  color: #b56576;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.navbar__navigation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navbar__link {
+  padding: 0.55rem 0.7rem;
+  border-radius: 7px;
+  color: #4d4045;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.navbar__link:hover {
+  color: #9f5062;
+  background: #faf0f3;
+}
+
+.navbar__link--active {
+  color: #9f5062;
+  background: #f8e8ed;
+}
+
+.navbar__register,
+.navbar__logout {
+  min-height: 40px;
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #b56576;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.navbar__register:hover,
+.navbar__logout:hover {
+  background: #984c5e;
+  transform: translateY(-1px);
+}
+
+.navbar__user {
+  max-width: 180px;
+  overflow: hidden;
+  color: #6d5a61;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .navbar__container {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0.9rem 0;
+    gap: 0.75rem;
+  }
+
+  .navbar__navigation {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .navbar__user {
+    display: none;
+  }
+}
