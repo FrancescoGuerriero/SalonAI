@@ -8,6 +8,12 @@ import appointmentRoutes from "./routes/appointmentRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import stylistRoutes from "./routes/stylistRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import customerRoutes from "./routes/customerRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import dashboardInsightsRoutes from "./routes/dashboardInsightsRoutes.js";
+import customerRetentionRoutes from "./routes/customerRetentionRoutes.js";
+import customerContactRoutes from "./routes/customerContactRoutes.js";
 
 const app = express();
 
@@ -37,9 +43,19 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/stylists", stylistRoutes);
+app.use("/api/appointments",appointmentRoutes);
+
+app.use("/api/admin", adminRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use(
-  "/api/appointments",
-  appointmentRoutes
+  "/api/dashboard/customer-retention",
+  customerRetentionRoutes
+);
+
+app.use(
+  "/api/customer-contacts",
+  customerContactRoutes
 );
 
 app.use((req, res) => {
@@ -47,6 +63,8 @@ app.use((req, res) => {
     message: "Route not found."
   });
 });
+
+
 
 app.use((error, req, res, next) => {
   console.error(error);
@@ -63,5 +81,8 @@ app.use((error, req, res, next) => {
       "Internal server error."
   });
 });
+
+// Must be LAST
+app.use(errorHandler);
 
 export default app;

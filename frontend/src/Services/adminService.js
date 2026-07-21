@@ -1,0 +1,3 @@
+getDashboard()
+getCustomers()
+getAppointments()

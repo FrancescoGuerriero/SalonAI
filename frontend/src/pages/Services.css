@@ -71,3 +71,41 @@
   border-radius: 8px;
   cursor: pointer;
 }
+.admin-page{
+    max-width:1200px;
+    margin:auto;
+    padding:30px;
+}
+
+.admin-form{
+    display:flex;
+    gap:15px;
+    margin-bottom:30px;
+    flex-wrap:wrap;
+}
+
+.admin-form input{
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+.admin-form button{
+    padding:12px 20px;
+    cursor:pointer;
+}
+
+.admin-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.admin-table th,
+.admin-table td{
+    padding:14px;
+    border-bottom:1px solid #ddd;
+}
+
+.admin-table tr:hover{
+    background:#f6f6f6;
+}

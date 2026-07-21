@@ -26,12 +26,12 @@ export async function createService(
   next
 ) {
   try {
-    const service =
-      await Service.create(req.body);
+    const service = await Service.create(
+      req.body
+    );
 
     return res.status(201).json({
-      message:
-        "Service created successfully.",
+      message: "Service created successfully.",
       service
     });
   } catch (error) {
@@ -56,19 +56,95 @@ export async function getServiceById(
       });
     }
 
+    const service = await Service.findById(
+      req.params.id
+    );
+
+    if (!service) {
+      return res.status(404).json({
+        message: "Service not found."
+      });
+    }
+
+    return res.json(service);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateService(
+  req,
+  res,
+  next
+) {
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "The service identifier is invalid."
+      });
+    }
+
     const service =
-      await Service.findById(
+      await Service.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        {
+          new: true,
+          runValidators: true
+        }
+      );
+
+    if (!service) {
+      return res.status(404).json({
+        message: "Service not found."
+      });
+    }
+
+    return res.json({
+      message: "Service updated successfully.",
+      service
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteService(
+  req,
+  res,
+  next
+) {
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "The service identifier is invalid."
+      });
+    }
+
+    const service =
+      await Service.findByIdAndDelete(
         req.params.id
       );
 
     if (!service) {
       return res.status(404).json({
-        message:
-          "Service not found."
+        message: "Service not found."
       });
     }
 
-    return res.json(service);
+    return res.json({
+      message: "Service deleted successfully."
+    });
   } catch (error) {
     next(error);
   }

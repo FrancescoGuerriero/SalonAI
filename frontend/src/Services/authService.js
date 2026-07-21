@@ -1,44 +1,106 @@
 import API from "../api/axios.js";
-import { storage } from "../utils/storage.js";
+
+const TOKEN_KEY = "salonai_token";
+const USER_KEY = "salonai_user";
 
 class AuthService {
+  async register(userData) {
+    const response = await API.post(
+      "/auth/register",
+      userData
+    );
+
+    return response.data;
+  }
+
   async login(credentials) {
-    const { data } = await API.post(
+    const response = await API.post(
       "/auth/login",
       credentials
     );
 
-    if (!data?.token) {
+    const data = response.data;
+
+    const token =
+      data.token ||
+      data.accessToken ||
+      data.jwt;
+
+    const user =
+      data.user ||
+      data.account ||
+      data.profile;
+
+    if (!token) {
       throw new Error(
-        "The server did not return an authentication token."
+        "The login response did not include an authentication token."
       );
     }
 
-    storage.setToken(data.token);
-    storage.setUser(data.user ?? null);
+    if (!user) {
+      throw new Error(
+        "The login response did not include the user."
+      );
+    }
 
-    return data;
-  }
-
-  async register(payload) {
-    const { data } = await API.post(
-      "/auth/register",
-      payload
+    localStorage.setItem(
+      TOKEN_KEY,
+      token
     );
 
-    return data;
+    localStorage.setItem(
+      USER_KEY,
+      JSON.stringify(user)
+    );
+
+    return {
+      token,
+      user
+    };
   }
 
   logout() {
-    storage.clear();
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
   }
 
   getToken() {
-    return storage.getToken();
+    return localStorage.getItem(TOKEN_KEY);
   }
 
   getCurrentUser() {
-    return storage.getUser();
+    const storedUser =
+      localStorage.getItem(USER_KEY);
+
+    if (!storedUser) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(storedUser);
+    } catch (error) {
+      console.error(
+        "Invalid user data in local storage:",
+        error
+      );
+
+      localStorage.removeItem(USER_KEY);
+
+      return null;
+    }
+  }
+
+  isAuthenticated() {
+    return Boolean(
+      this.getToken() &&
+      this.getCurrentUser()
+    );
+  }
+
+  isAdmin() {
+    const user = this.getCurrentUser();
+
+    return user?.role === "admin";
   }
 }
 
