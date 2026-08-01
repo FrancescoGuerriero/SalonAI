@@ -1,4 +1,4 @@
-import {
+﻿import {
   lazy,
   Suspense,
 } from "react";
@@ -12,9 +12,9 @@ import {
 import MainLayout from "./components/MainLayout.jsx";
 import PageLoader from "./components/ui/PageLoader.jsx";
 
-import AdminRoute from "./routes/AdminRoute.jsx";
-import ManagementRoute from "./routes/ManagementRoute.jsx";
-import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import AdminRoute from "./Routes/AdminRoute.jsx";
+import ManagementRoute from "./Routes/ManagementRoute.jsx";
+import ProtectedRoute from "./Routes/ProtectedRoute.jsx";
 import SkipLink from "./components/accessibility/SkipLink.jsx";
 import RouteAnnouncer from "./components/accessibility/RouteAnnouncer.jsx";
 

@@ -1,6 +1,6 @@
-import jwt from "jsonwebtoken";
+﻿import jwt from "jsonwebtoken";
 
-import User from "../models/User.js";
+import User from "../models/user.js";
 
 function createHttpError(message, statusCode) {
   const error = new Error(message);
