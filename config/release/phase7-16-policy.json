@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "phase": "7.16",
+  "name": "Production Cutover Preparation and Launch Rehearsal",
+  "dependsOn": {
+    "phase": "7.15",
+    "requiredCommit": "153f8ef3cf9fa2b085ff8fa125c266afa032ea5b",
+    "requiredPullRequest": 11,
+    "mustBeMergedToMain": true
+  },
+  "repository": "FrancescoGuerriero/SalonAI",
+  "production": {
+    "strictPhase715ReadinessRequired": true,
+    "approvedReleaseManifestRequired": true,
+    "rollbackManifestRequired": true,
+    "recentBackupEvidenceRequired": true,
+    "changeWindowRequired": true,
+    "namedOperatorsRequired": true,
+    "explicitCutoverConfirmationRequired": true,
+    "postDeploymentHypercareRequired": true,
+    "closureEvidenceRequired": true,
+    "installerDeploys": false,
+    "dryRunDeploys": false
+  },
+  "confirmationTokens": {
+    "cutover": "DEPLOY-SALONAI-PRODUCTION",
+    "rollback": "ROLLBACK-SALONAI-PRODUCTION"
+  },
+  "prohibited": [
+    "Embedding secrets in tracked files",
+    "Deploying from the installer, verifier, preflight or dry-run scripts",
+    "Using tag-only production images",
+    "Running docker compose --remove-orphans",
+    "Bypassing Phase 7.15 strict readiness",
+    "Starting a cutover without a rollback manifest and recent backup evidence",
+    "Treating generated local credentials as evidence of external credential rotation"
+  ],
+  "evidenceDirectory": "deployment-evidence/phase7-16"
+}
