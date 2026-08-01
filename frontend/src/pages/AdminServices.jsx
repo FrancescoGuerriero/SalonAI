@@ -4,7 +4,7 @@ import {
   useState
 } from "react";
 
-import serviceService from "../services/serviceService.js";
+import serviceService from "../Services/serviceService.js";
 
 const initialForm = {
   name: "",

@@ -1,0 +1,75 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:00'
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:10'
+      timezone: Europe/London
+    versioning-strategy: increase-if-necessary
+    open-pull-requests-limit: 5
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:20'
+      timezone: Europe/London
+    versioning-strategy: increase-if-necessary
+    open-pull-requests-limit: 5
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /ai-service
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:30'
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    groups:
+      ai-service-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:40'
+      timezone: Europe/London
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '18:50'
+      timezone: Europe/London
+
+  - package-ecosystem: docker
+    directory: /ai-service
+    schedule:
+      interval: weekly
+      day: sunday
+      time: '19:00'
+      timezone: Europe/London

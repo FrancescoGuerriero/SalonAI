@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import ActivityTimeline from "../components/dashboard/ActivityTimeline";
 import AppointmentsByStatusChart from "../components/dashboard/AppointmentsByStatusChart";
@@ -10,23 +14,92 @@ import DashboardStats from "../components/dashboard/DashboardStats";
 import RevenueByServiceChart from "../components/dashboard/RevenueByServiceChart";
 import RevenueChart from "../components/dashboard/RevenueChart";
 import TodayAppointments from "../components/dashboard/TodayAppointments";
+import TodayOperationsPanel from "../components/dashboard/TodayOperationsPanel";
 import TopStylistsChart from "../components/dashboard/TopStylistsChart";
 import Card from "../components/ui/Card";
 
-import { getDashboardData } from "../services/dashboardApi";
-import { getDashboardInsights } from "../services/dashboardInsightsApi";
+import {
+  getDashboardData,
+} from "../Services/dashboardApi";
+
+import {
+  getDashboardInsights,
+} from "../Services/dashboardInsightsApi";
+
+import {
+  getDashboardOperations,
+} from "../Services/dashboardOperationsApi";
 
 export default function DashboardPage() {
-  const [dashboard, setDashboard] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [
+    dashboard,
+    setDashboard,
+  ] = useState(null);
 
-  const [insightsData, setInsightsData] = useState(null);
-  const [insightsLoading, setInsightsLoading] =
-    useState(true);
-  const [insightsError, setInsightsError] = useState("");
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const [revenueDays, setRevenueDays] = useState(30);
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    insightsData,
+    setInsightsData,
+  ] = useState(null);
+
+  const [
+    insightsLoading,
+    setInsightsLoading,
+  ] = useState(true);
+
+  const [
+    insightsError,
+    setInsightsError,
+  ] = useState("");
+
+  const [
+    operations,
+    setOperations,
+  ] = useState(null);
+
+  const [
+    operationsLoading,
+    setOperationsLoading,
+  ] = useState(true);
+
+  const [
+    operationsError,
+    setOperationsError,
+  ] = useState("");
+
+  const [
+    revenueDays,
+    setRevenueDays,
+  ] = useState(30);
+
+  const loadOperations =
+    useCallback(async () => {
+      setOperationsLoading(true);
+      setOperationsError("");
+
+      try {
+        const result =
+          await getDashboardOperations();
+
+        setOperations(result);
+      } catch (requestError) {
+        setOperationsError(
+          requestError?.message ||
+            "Unable to load today's operations."
+        );
+      } finally {
+        setOperationsLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,69 +107,120 @@ export default function DashboardPage() {
     async function loadDashboard() {
       setLoading(true);
       setInsightsLoading(true);
+      setOperationsLoading(true);
 
       setError("");
       setInsightsError("");
+      setOperationsError("");
 
-      const dashboardRequest = getDashboardData({
-        revenueDays,
-        activityLimit: 10,
-        stylistLimit: 10,
-      });
+      const dashboardRequest =
+        getDashboardData({
+          revenueDays,
+          activityLimit: 10,
+          stylistLimit: 10,
+        });
 
       const insightsRequest =
-        getDashboardInsights(revenueDays);
+        getDashboardInsights(
+          revenueDays
+        );
 
-      const [dashboardResult, insightsResult] =
-        await Promise.allSettled([
-          dashboardRequest,
-          insightsRequest,
-        ]);
+      const operationsRequest =
+        getDashboardOperations();
+
+      const [
+        dashboardResult,
+        insightsResult,
+        operationsResult,
+      ] = await Promise.allSettled([
+        dashboardRequest,
+        insightsRequest,
+        operationsRequest,
+      ]);
 
       if (!isMounted) {
         return;
       }
 
-      if (dashboardResult.status === "fulfilled") {
-        setDashboard(dashboardResult.value);
+      if (
+        dashboardResult.status ===
+        "fulfilled"
+      ) {
+        setDashboard(
+          dashboardResult.value
+        );
       } else {
         setError(
-          dashboardResult.reason?.message ||
+          dashboardResult.reason
+            ?.message ||
             "Unable to load the dashboard."
         );
       }
 
-      if (insightsResult.status === "fulfilled") {
-        setInsightsData(insightsResult.value);
+      if (
+        insightsResult.status ===
+        "fulfilled"
+      ) {
+        setInsightsData(
+          insightsResult.value
+        );
       } else {
         setInsightsError(
-          insightsResult.reason?.message ||
+          insightsResult.reason
+            ?.message ||
             "Unable to load business insights."
+        );
+      }
+
+      if (
+        operationsResult.status ===
+        "fulfilled"
+      ) {
+        setOperations(
+          operationsResult.value
+        );
+      } else {
+        setOperationsError(
+          operationsResult.reason
+            ?.message ||
+            "Unable to load today's operations."
         );
       }
 
       setLoading(false);
       setInsightsLoading(false);
+      setOperationsLoading(false);
     }
 
-    loadDashboard();
+    void loadDashboard();
 
     return () => {
       isMounted = false;
     };
   }, [revenueDays]);
 
-  const stats = dashboard?.stats ?? {};
-  const revenue = dashboard?.revenue ?? [];
-  const appointments = dashboard?.appointments ?? [];
-  const activity = dashboard?.activity ?? [];
-  const alerts = dashboard?.alerts ?? {};
+  const stats =
+    dashboard?.stats ?? {};
+
+  const revenue =
+    dashboard?.revenue ?? [];
+
+  const appointments =
+    dashboard?.appointments ?? [];
+
+  const activity =
+    dashboard?.activity ?? [];
+
+  const alerts =
+    dashboard?.alerts ?? {};
 
   const revenueByService =
-    dashboard?.revenueByService ?? [];
+    dashboard?.revenueByService ??
+    [];
 
   const appointmentStatus =
-    dashboard?.appointmentStatus ?? [];
+    dashboard?.appointmentStatus ??
+    [];
 
   const topStylists =
     dashboard?.topStylists ?? [];
@@ -133,10 +257,17 @@ export default function DashboardPage() {
           role="alert"
           className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800"
         >
-          Some dashboard data could not be refreshed:{" "}
-          {error}
+          Some dashboard data could not
+          be refreshed: {error}
         </div>
       ) : null}
+
+      <TodayOperationsPanel
+        data={operations}
+        loading={operationsLoading}
+        error={operationsError}
+        onRefresh={loadOperations}
+      />
 
       <section aria-label="Dashboard statistics">
         <DashboardStats
@@ -154,12 +285,16 @@ export default function DashboardPage() {
             data={revenue}
             loading={loading}
             days={revenueDays}
-            onDaysChange={setRevenueDays}
+            onDaysChange={
+              setRevenueDays
+            }
           />
         </div>
 
         <TodayAppointments
-          appointments={appointments}
+          appointments={
+            appointments
+          }
           loading={loading}
         />
       </section>
@@ -167,7 +302,9 @@ export default function DashboardPage() {
       <section aria-label="Business insights">
         <BusinessInsightsPanel
           insights={insights}
-          loading={insightsLoading}
+          loading={
+            insightsLoading
+          }
           error={insightsError}
           days={revenueDays}
         />
@@ -178,12 +315,16 @@ export default function DashboardPage() {
         className="grid gap-6 lg:grid-cols-2"
       >
         <RevenueByServiceChart
-          data={revenueByService}
+          data={
+            revenueByService
+          }
           loading={loading}
         />
 
         <AppointmentsByStatusChart
-          data={appointmentStatus}
+          data={
+            appointmentStatus
+          }
           loading={loading}
         />
       </section>

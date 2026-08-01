@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "phase": "7.12",
+  "generatedFor": "SalonAI",
+  "exceptions": [
+    {
+      "id": "CVE-2026-14257",
+      "aliases": [
+        "GHSA-mh99-v99m-4gvg"
+      ],
+      "package": "brace-expansion",
+      "installedVersion": "1.1.16",
+      "purl": "pkg:npm/brace-expansion@1.1.16",
+      "status": "fix_deferred",
+      "approvedAt": "2026-07-31",
+      "expiresAt": "2026-08-14",
+      "rationale": "The affected package is a transitive dependency of the backend glob toolchain. The available fixed major line is not a safe forced override for the installed CommonJS parent. SalonAI runtime source is prohibited from directly importing brace-expansion, glob, or minimatch while the parent dependency upgrade is prepared.",
+      "controls": [
+        "Automated runtime-source reachability scan",
+        "Exact package-version and PURL scoping",
+        "Raw unfiltered Trivy evidence retained",
+        "Fourteen-day expiry",
+        "Release gate rejects expired or invalid exceptions"
+      ]
+    },
+    {
+      "id": "GHSA-qwww-vcr4-c8h2",
+      "aliases": [],
+      "package": "react-router",
+      "installedVersion": "7.18.1",
+      "purl": "pkg:npm/react-router@7.18.1",
+      "status": "not_reachable",
+      "approvedAt": "2026-07-31",
+      "expiresAt": "2026-08-14",
+      "rationale": "The advisory affects unstable React Server Components APIs. SalonAI uses the declarative browser-router compatibility package and automated source scanning prohibits the affected unstable RSC APIs. react-router-dom 8.3.0 is not published, so a direct version substitution is invalid.",
+      "controls": [
+        "Automated frontend source scan for unstable RSC APIs",
+        "Exact package-version and PURL scoping",
+        "react-router-dom remains pinned to 7.18.1",
+        "Raw unfiltered Trivy evidence retained",
+        "Fourteen-day expiry",
+        "Release gate rejects expired or invalid exceptions"
+      ]
+    }
+  ]
+}

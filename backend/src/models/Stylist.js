@@ -163,5 +163,9 @@ stylistSchema.set("toJSON", {
 stylistSchema.set("toObject", {
   virtuals: true
 });
+const Stylist =
+  mongoose.models.Stylist ||
+  mongoose.model("Stylist", stylistSchema);
 
-export default mongoose.model("Stylist", stylistSchema);
+export default Stylist;
+

@@ -53,8 +53,4 @@ mongoose.model(
     serviceSchema
 );
 
-console.log("Using Service model from:", import.meta.url);
-console.log("=== Service model loaded ===");
-console.log(serviceSchema.obj);
-
 

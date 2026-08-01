@@ -1,100 +1,260 @@
-import { useContext, useEffect, useState } from "react";
+import {
+  RefreshCw,
+  Scissors,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
+import {
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
+import Alert from "../components/ui/Alert.jsx";
+import EmptyState from "../components/ui/EmptyState.jsx";
+import Skeleton from "../components/ui/Skeleton.jsx";
+import BookingProgress from "../components/customer/BookingProgress.jsx";
+import ServiceCard from "../components/customer/ServiceCard.jsx";
 import { BookingContext } from "../context/BookingContext.jsx";
+import serviceService from "../Services/serviceService.js";
+import "../styles/customerExperience.css";
 
-const API_BASE_URL = "http://localhost:5000/api";
+function normaliseServices(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.services)) return data.services;
+  return [];
+}
 
-function Services() {
+export default function Services() {
   const [services, setServices] = useState([]);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const bookingContext = useContext(BookingContext);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    async function fetchServices() {
-      try {
-        setError("");
+  async function loadServices() {
+    try {
+      setLoading(true);
+      setError("");
 
-        const response = await fetch(`${API_BASE_URL}/services`);
-
-        if (!response.ok) {
-          throw new Error(`Services request failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
-        setServices(Array.isArray(data) ? data : []);
-      } catch (requestError) {
-        console.error("Unable to load services:", requestError);
-        setError(
-          "Unable to load services. Confirm that the backend is running on port 5000."
-        );
-      } finally {
-        setLoading(false);
-      }
+      const data = await serviceService.getServices();
+      setServices(
+        normaliseServices(data).filter(
+          (service) => service.active !== false
+        )
+      );
+    } catch (requestError) {
+      console.error("Unable to load services", requestError);
+      setError(
+        requestError.response?.data?.message ||
+          "We could not load the services. Check that the backend is running and try again."
+      );
+    } finally {
+      setLoading(false);
     }
+  }
 
-    fetchServices();
+  useEffect(() => {
+    loadServices();
   }, []);
 
-  function handleBookNow(service) {
-    if (!bookingContext) {
-      setError("Booking context is unavailable.");
+  const categories = useMemo(() => {
+    return [
+      "all",
+      ...new Set(
+        services
+          .map((service) => service.category)
+          .filter(Boolean)
+      ),
+    ];
+  }, [services]);
+
+  const filteredServices = useMemo(() => {
+    const normalisedQuery = query.trim().toLowerCase();
+
+    return services.filter((service) => {
+      const matchesCategory =
+        category === "all" ||
+        service.category === category;
+
+      const searchableText = [
+        service.name,
+        service.category,
+        service.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        matchesCategory &&
+        (!normalisedQuery ||
+          searchableText.includes(normalisedQuery))
+      );
+    });
+  }, [category, query, services]);
+
+  function handleSelect(service) {
+    if (!bookingContext?.setBooking) {
+      setError("The booking session is unavailable.");
       return;
     }
 
-    bookingContext.setBooking((previousBooking) => ({
-      ...previousBooking,
+    bookingContext.setBooking((current) => ({
+      ...current,
       service,
       stylist: null,
       appointmentDate: "",
-      appointmentTime: ""
+      appointmentTime: "",
     }));
 
     navigate("/stylists");
   }
 
-  if (loading) {
-    return <main className="page"><h1>Loading services...</h1></main>;
-  }
-
   return (
-    <main className="page">
-      <h1>Our Services</h1>
+    <main className="customer-page">
+      <div className="customer-page-container">
+        <BookingProgress currentStep={1} />
 
-      {error && <p className="error-message">{error}</p>}
+        <header className="customer-page-header">
+          <div>
+            <p className="customer-eyebrow">
+              <Scissors size={16} />
+              Step 1 of 3
+            </p>
+            <h1>Choose your service</h1>
+            <p>
+              Browse treatments, compare duration and price,
+              then select the service that suits you.
+            </p>
+          </div>
+        </header>
 
-      {!error && services.length === 0 && <p>No services are available.</p>}
+        <section
+          className="customer-filter-bar"
+          aria-label="Service filters"
+        >
+          <label className="customer-search-field">
+            <Search size={19} />
+            <span className="sr-only">
+              Search services
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) =>
+                setQuery(event.target.value)
+              }
+              placeholder="Search services"
+            />
+          </label>
 
-      <div className="card-grid">
-        {services.map((service) => (
-          <article className="card" key={service._id}>
-            {service.image ? (
-              <img
-                src={service.image}
-                alt={service.name}
-                className="card-image"
-              />
-            ) : (
-              <div className="image-placeholder">Salon Service</div>
-            )}
+          <label className="customer-select-field">
+            <SlidersHorizontal size={18} />
+            <span className="sr-only">
+              Filter by category
+            </span>
+            <select
+              value={category}
+              onChange={(event) =>
+                setCategory(event.target.value)
+              }
+            >
+              {categories.map((item) => (
+                <option key={item} value={item}>
+                  {item === "all"
+                    ? "All categories"
+                    : item}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
 
-            <h2>{service.name}</h2>
-            <p><strong>{service.category}</strong></p>
-            <p>{service.description}</p>
-            <p>Price: £{service.price}</p>
-            <p>Duration: {service.duration} minutes</p>
-
-            <button type="button" onClick={() => handleBookNow(service)}>
-              Book Now
+        {error ? (
+          <Alert type="error" title="Services unavailable">
+            <p>{error}</p>
+            <button
+              type="button"
+              className="customer-inline-button"
+              onClick={loadServices}
+            >
+              <RefreshCw size={16} />
+              Try again
             </button>
-          </article>
-        ))}
+          </Alert>
+        ) : null}
+
+        {loading ? (
+          <section
+            className="customer-card-grid"
+            aria-label="Loading services"
+          >
+            {Array.from({ length: 6 }).map((_, index) => (
+              <article
+                className="customer-card customer-card-skeleton"
+                key={index}
+              >
+                <Skeleton className="customer-skeleton-media" />
+                <div className="customer-card-body">
+                  <Skeleton className="customer-skeleton-title" />
+                  <Skeleton className="customer-skeleton-line" />
+                  <Skeleton className="customer-skeleton-line short" />
+                </div>
+              </article>
+            ))}
+          </section>
+        ) : null}
+
+        {!loading &&
+        !error &&
+        filteredServices.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="No matching services"
+            description="Change your search or category filter to see more treatments."
+            action={
+              <button
+                type="button"
+                className="customer-inline-button"
+                onClick={() => {
+                  setQuery("");
+                  setCategory("all");
+                }}
+              >
+                Clear filters
+              </button>
+            }
+          />
+        ) : null}
+
+        {!loading && filteredServices.length > 0 ? (
+          <>
+            <p className="customer-results-count">
+              {filteredServices.length}{" "}
+              {filteredServices.length === 1
+                ? "service"
+                : "services"}{" "}
+              available
+            </p>
+
+            <section className="customer-card-grid">
+              {filteredServices.map((service) => (
+                <ServiceCard
+                  key={service._id}
+                  service={service}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </section>
+          </>
+        ) : null}
       </div>
     </main>
   );
 }
-
-export default Services;
