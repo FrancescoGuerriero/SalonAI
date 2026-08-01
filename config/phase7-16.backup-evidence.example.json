@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "status": "PENDING",
+  "completedAtUtc": "2026-08-01T00:00:00Z",
+  "backupReference": "BACKUP-PENDING",
+  "restoreTestReference": "RESTORE-TEST-PENDING",
+  "database": "salonai",
+  "operator": ""
+}
