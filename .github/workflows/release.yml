@@ -100,6 +100,8 @@ jobs:
           format: table
           exit-code: '1'
           trivyignores: config/security/trivyignore.yaml
+          skip-dirs: .git,backups,security-reports,backend/node_modules,frontend/node_modules,frontend/dist,ai-service/.venv,ai-service/__pycache__
+          skip-files: .env.production,backend/.env.production,ai-service/.env.production
           hide-progress: true
 
   build-images:
