@@ -1,0 +1,69 @@
+name: salonai-production
+
+services:
+  mongo-backup:
+    image: mongo:7.0
+    container_name: salonai-mongo-backup
+    restart: unless-stopped
+
+    entrypoint:
+      - /bin/bash
+      - /opt/salonai/mongo-backup-loop.sh
+
+    environment:
+      MONGO_HOST: mongo
+      MONGO_PORT: "27017"
+      MONGO_DATABASE: ${MONGO_DATABASE:-salonai}
+      MONGO_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-salonai}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-salonai-production-password}
+      MONGO_AUTH_DATABASE: admin
+
+      MONGO_BACKUP_INTERVAL_SECONDS: ${MONGO_BACKUP_INTERVAL_SECONDS:-86400}
+      MONGO_BACKUP_RETENTION_DAYS: ${MONGO_BACKUP_RETENTION_DAYS:-14}
+      MONGO_BACKUP_MIN_COUNT: ${MONGO_BACKUP_MIN_COUNT:-3}
+      MONGO_BACKUP_PREFIX: salonai-mongodb
+      HOME: /tmp
+
+    read_only: true
+
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+    volumes:
+      - ./scripts/resilience/mongo-backup-common.sh:/opt/salonai/mongo-backup-common.sh:ro
+      - ./scripts/resilience/mongo-backup-once.sh:/opt/salonai/mongo-backup-once.sh:ro
+      - ./scripts/resilience/mongo-backup-loop.sh:/opt/salonai/mongo-backup-loop.sh:ro
+      - ./backups/mongodb:/backups
+
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "test -s /backups/status/last-success.epoch && test -s /backups/status/last-success.json && last=$$(cat /backups/status/last-success.epoch) && now=$$(date +%s) && max_age=$$(($${MONGO_BACKUP_INTERVAL_SECONDS:-86400} + 3600)) && test $$((now - last)) -le $$max_age"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

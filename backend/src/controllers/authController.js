@@ -10,7 +10,9 @@ function createToken(user) {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn:
+        process.env.JWT_EXPIRES_IN ||
+        "7d",
     }
   );
 }
@@ -37,6 +39,12 @@ export async function registerUser(req, res) {
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Name, email and password are required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must contain at least 8 characters.",
       });
     }
 
@@ -67,11 +75,8 @@ export async function registerUser(req, res) {
       user: serialiseUser(user),
     });
   } catch (error) {
-    console.error("REGISTER ERROR");
-    console.error(error);
-
     return res.status(500).json({
-      message: error.message,
+      message: "Unable to register the account.",
     });
   }
 }
@@ -94,6 +99,12 @@ export async function createUserByAdmin(req, res) {
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Name, email and password are required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must contain at least 8 characters.",
       });
     }
 
@@ -138,11 +149,8 @@ export async function createUserByAdmin(req, res) {
       user: serialiseUser(user),
     });
   } catch (error) {
-    console.error("ADMIN CREATE USER ERROR");
-    console.error(error);
-
     return res.status(500).json({
-      message: error.message,
+      message: "Unable to create the account.",
     });
   }
 }
@@ -155,8 +163,6 @@ export async function createUserByAdmin(req, res) {
 
 export async function loginUser(req, res) {
   try {
-    console.log("\n========== LOGIN REQUEST ==========");
-
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -202,11 +208,8 @@ export async function loginUser(req, res) {
       user: serialiseUser(user),
     });
   } catch (error) {
-    console.error("LOGIN ERROR");
-    console.error(error);
-
     return res.status(500).json({
-      message: error.message,
+      message: "Unable to sign in.",
     });
   }
 }

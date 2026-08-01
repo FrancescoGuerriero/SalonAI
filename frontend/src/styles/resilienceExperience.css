@@ -1,0 +1,228 @@
+.network-status {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, calc(100% - 36px));
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  font-weight: 750;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2);
+}
+
+.network-status-offline {
+  border: 1px solid #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.network-status-online {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.page-loader {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  min-height: 280px;
+  padding: 36px;
+  color: #64748b;
+  text-align: center;
+}
+
+.page-loader-compact {
+  min-height: 120px;
+  padding: 20px;
+}
+
+.page-loader-spinner {
+  width: 38px;
+  height: 38px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: salonai-spin 0.8s linear infinite;
+}
+
+.async-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 260px;
+  padding: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #fff;
+  color: #64748b;
+  text-align: center;
+}
+
+.async-state h2,
+.async-state p {
+  margin: 0;
+}
+
+.async-state p {
+  max-width: 560px;
+  line-height: 1.65;
+}
+
+.async-state-error {
+  border-color: #fecaca;
+  background: #fffafa;
+  color: #991b1b;
+}
+
+.async-state button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  margin-top: 8px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 12px;
+  background: #6d28d9;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.app-error-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px 16px;
+  background:
+    radial-gradient(circle at top, rgba(196, 181, 253, 0.24), transparent 34%),
+    #f8fafc;
+}
+
+.app-error-card {
+  width: min(100%, 650px);
+  padding: clamp(30px, 6vw, 58px);
+  border: 1px solid #fecaca;
+  border-radius: 28px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+}
+
+.app-error-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.app-error-eyebrow {
+  margin: 19px 0 6px;
+  color: #b91c1c;
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.app-error-card h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  letter-spacing: -0.045em;
+}
+
+.app-error-card > p:not(.app-error-eyebrow) {
+  max-width: 520px;
+  margin: 14px auto 0;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.app-error-details {
+  max-height: 160px;
+  overflow: auto;
+  margin: 20px 0 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.app-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}
+
+.app-error-primary,
+.app-error-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 17px;
+  border-radius: 13px;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-error-primary {
+  border: 1px solid #6d28d9;
+  background: #6d28d9;
+  color: #fff;
+}
+
+.app-error-secondary {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1e293b;
+}
+
+@keyframes salonai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-loader-spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+@media (max-width: 520px) {
+  .network-status {
+    right: 10px;
+    bottom: 10px;
+    width: calc(100% - 20px);
+  }
+
+  .app-error-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-error-primary,
+  .app-error-secondary {
+    width: 100%;
+  }
+}

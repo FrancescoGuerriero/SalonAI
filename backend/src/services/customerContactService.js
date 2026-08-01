@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 import CustomerContactLog from "../models/customerContactLog.js";
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 
 const CONTACT_STATUSES = [
   "draft",

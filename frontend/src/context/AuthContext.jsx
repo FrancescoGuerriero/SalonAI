@@ -6,7 +6,7 @@ import {
   useState
 } from "react";
 
-import authService from "../services/authService.js";
+import authService from "../Services/authService.js";
 
 export const AuthContext = createContext(null);
 

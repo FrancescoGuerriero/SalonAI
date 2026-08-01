@@ -1,0 +1,310 @@
+name: salonai-production
+
+services:
+  alertmanager:
+    image: prom/alertmanager:v0.33.1
+    container_name: salonai-alertmanager
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=0.0.0.0:9093
+      - --web.external-url=http://localhost:9093
+
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - salonai-alertmanager-data:/alertmanager
+
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/bin/amtool",
+          "--alertmanager.url=http://127.0.0.1:9093",
+          "config",
+          "routes"
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: salonai-blackbox
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+      - --web.listen-address=0.0.0.0:9115
+
+    volumes:
+      - ./monitoring/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+
+    ports:
+      - "127.0.0.1:${BLACKBOX_PORT:-9115}:9115"
+
+    networks:
+      - salonai-private
+
+    stop_signal: SIGTERM
+    stop_grace_period: 20s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  prometheus:
+    depends_on:
+      backend:
+        condition: service_healthy
+
+      alertmanager:
+        condition: service_healthy
+
+      blackbox:
+        condition: service_started
+
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+      - --web.listen-address=0.0.0.0:9090
+
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./monitoring/slo-rules.yml:/etc/prometheus/slo-rules.yml:ro
+      - salonai-prometheus-data:/prometheus
+
+
+  loki:
+    image: grafana/loki:3.7.4
+    container_name: salonai-loki
+    restart: unless-stopped
+
+    command:
+      - -config.file=/etc/loki/loki.yml
+
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/loki.yml:ro
+      - salonai-loki-data:/loki
+
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+
+    networks:
+      - salonai-private
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  tempo:
+    image: grafana/tempo:2.9.4
+    container_name: salonai-tempo
+    restart: unless-stopped
+
+    command:
+      - -config.file=/etc/tempo/tempo.yml
+
+    volumes:
+      - ./monitoring/tempo.yml:/etc/tempo/tempo.yml:ro
+      - salonai-tempo-data:/var/tempo
+
+    ports:
+      - "127.0.0.1:${TEMPO_PORT:-3200}:3200"
+
+    expose:
+      - "4317"
+      - "4318"
+
+    networks:
+      - salonai-private
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    container_name: salonai-alloy
+    restart: unless-stopped
+
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - salonai-alloy-data:/var/lib/alloy/data
+
+    ports:
+      - "127.0.0.1:${ALLOY_PORT:-12345}:12345"
+
+    expose:
+      - "4317"
+      - "4318"
+
+    depends_on:
+      loki:
+        condition: service_started
+
+      tempo:
+        condition: service_started
+
+    networks:
+      - salonai-private
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: salonai-grafana
+    restart: unless-stopped
+
+    environment:
+      GF_SERVER_HTTP_ADDR: 0.0.0.0
+      GF_SERVER_HTTP_PORT: 3000
+
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-immediately}
+
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/salonai-production-overview.json
+
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - salonai-grafana-data:/var/lib/grafana
+
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+      loki:
+        condition: service_started
+
+      tempo:
+        condition: service_started
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1"
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+networks:
+  salonai-private:
+    external: true
+    name: salonai-private
+
+
+volumes:
+  salonai-prometheus-data:
+    external: true
+    name: salonai-prometheus-data
+
+  salonai-alertmanager-data:
+    name: salonai-alertmanager-data
+
+  salonai-grafana-data:
+    name: salonai-grafana-data
+
+  salonai-loki-data:
+    name: salonai-loki-data
+
+  salonai-alloy-data:
+    name: salonai-alloy-data
+
+  salonai-tempo-data:
+    name: salonai-tempo-data

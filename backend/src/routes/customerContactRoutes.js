@@ -2,7 +2,15 @@ import express from "express";
 
 import customerContactController from "../controllers/customerContactController.js";
 
+import {
+  managementOnly,
+  protect,
+} from "../middleware/authMiddleware.js";
+
 const router = express.Router();
+
+router.use(protect);
+router.use(managementOnly);
 
 /*
  * Customer contact and re-engagement routes

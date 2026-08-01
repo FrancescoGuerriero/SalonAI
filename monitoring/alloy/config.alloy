@@ -1,0 +1,133 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "salonai" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "salonai" {
+  targets = discovery.docker.salonai.targets
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+
+    regex = "/salonai-(.+)"
+    action = "keep"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_name",
+    ]
+
+    regex       = "/(.*)"
+    target_label = "container"
+    replacement = "$1"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+
+    target_label = "service_name"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_project",
+    ]
+
+    target_label = "compose_project"
+  }
+}
+
+loki.source.docker "salonai" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.salonai.output
+  refresh_interval = "5s"
+
+  forward_to = [
+    loki.process.salonai.receiver,
+  ]
+}
+
+loki.process "salonai" {
+  stage.decolorize {}
+
+  stage.static_labels {
+    values = {
+      application = "salonai",
+      environment = "production",
+    }
+  }
+
+  forward_to = [
+    loki.write.local.receiver,
+  ]
+}
+
+loki.write "local" {
+  external_labels = {
+    cluster = "salonai-local",
+  }
+
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// -------------------------------------------------------------------------
+// Phase 7.8: distributed tracing
+// -------------------------------------------------------------------------
+
+otelcol.receiver.otlp "salonai_traces" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [
+      otelcol.processor.memory_limiter.salonai_traces.input,
+    ]
+  }
+}
+
+otelcol.processor.memory_limiter "salonai_traces" {
+  check_interval = "1s"
+  limit          = "256MiB"
+  spike_limit    = "64MiB"
+
+  output {
+    traces = [
+      otelcol.processor.batch.salonai_traces.input,
+    ]
+  }
+}
+
+otelcol.processor.batch "salonai_traces" {
+  output {
+    traces = [
+      otelcol.exporter.otlphttp.tempo.input,
+    ]
+  }
+}
+
+otelcol.exporter.otlphttp "tempo" {
+  encoding = "proto"
+
+  client {
+    endpoint    = "http://tempo:4318"
+    compression = "gzip"
+  }
+
+}

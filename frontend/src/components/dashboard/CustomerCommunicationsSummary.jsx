@@ -17,7 +17,7 @@ import {
 
 import { Link } from "react-router-dom";
 
-import { getCustomerContactCampaignSummary } from "../../services/customerContactApi";
+import { getCustomerContactCampaignSummary } from "../../Services/customerContactApi";
 
 const numberFormatter = new Intl.NumberFormat("en-GB");
 

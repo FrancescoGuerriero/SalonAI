@@ -1,101 +1,53 @@
-import {
-  CalendarDays,
-  LayoutDashboard,
-  MessageCircle,
-  Scissors,
-  Users,
-} from "lucide-react";
-
+import { useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, PackagePlus, Scissors, Search, Send, Share2, Sparkles, UsersRound, Workflow } from "lucide-react";
 
-const navigationItems = [
-  {
-    label: "Dashboard",
-    path: "/dashboard",
-    icon: LayoutDashboard,
-    end: true,
-  },
-  {
-    label: "Customers",
-    path: "/customers",
-    icon: Users,
-  },
-  {
-    label: "Appointments",
-    path: "/appointments",
-    icon: CalendarDays,
-  },
-  {
-    label: "Communications",
-    path: "/communications",
-    icon: MessageCircle,
-  },
-  {
-    label: "Manage Services",
-    path: "/manage/services",
-    icon: Scissors,
-  },
-];
+export const MANAGEMENT_SECTIONS = [
+  { id: "operations", label: "Salon operations", links: [
+    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors],
+  ]},
+  { id: "communications", label: "Communications", links: [
+    ["/communications", "Communications", "Contact history", Mail], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock], ["/message-delivery", "Message delivery", "Monitor and retry", Send],
+  ]},
+  { id: "inventory", label: "Inventory and purchasing", links: [
+    ["/suppliers", "Suppliers", "Accounts and terms", Building2], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus],
+  ]},
+  { id: "ai", label: "SalonAI tools", links: [
+    ["/ai/haircare", "Haircare AI", "Recommendations", Sparkles], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", FileText], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", UsersRound], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", BarChart3], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", Megaphone], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", CalendarClock], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", BadgePoundSterling], ["/management-copilot", "Management copilot", "Prioritised actions", Sparkles],
+  ]},
+  { id: "premium", label: "Premium features", links: [
+    ["/loyalty", "Loyalty programme", "Points and tiers", Award], ["/gift-cards", "Gift cards", "Issue and redeem", Gift], ["/referrals", "Referral system", "Rewards and tracking", Share2], ["/notification-centre", "Notification centre", "Delivery status", BellRing], ["/push-notifications", "Push notifications", "Browser delivery", BellRing], ["/email-campaigns", "Email campaigns", "Targeted emails", Mail], ["/sms-reminders", "SMS reminders", "Reminder rules", MessageSquareText], ["/whatsapp-booking", "WhatsApp booking", "Conversations", MessageCircle], ["/retention-automation", "Retention automation", "Customer journeys", Workflow], ["/premium-analytics", "Premium analytics", "Feature performance", BarChart3],
+  ]},
+].map((section) => ({ ...section, links: section.links.map(([to, label, description, icon]) => ({ to, label, description, icon })) }));
 
-function getNavigationClass({ isActive }) {
-  const baseClasses =
-    "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition";
+export const MANAGEMENT_LINKS = MANAGEMENT_SECTIONS.flatMap((section) => section.links);
 
-  if (isActive) {
-    return `${baseClasses} bg-blue-600 text-white shadow-sm`;
+export default function ManagementNavigation({ collapsed = false, onNavigate }) {
+  const [query, setQuery] = useState("");
+  const [closed, setClosed] = useState(new Set());
+  const sections = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return MANAGEMENT_SECTIONS;
+    return MANAGEMENT_SECTIONS.map((section) => ({ ...section, links: section.links.filter((link) => `${link.label} ${link.description}`.toLowerCase().includes(term)) })).filter((section) => section.links.length);
+  }, [query]);
+
+  function toggle(id) {
+    setClosed((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
 
-  return `${baseClasses} text-gray-600 hover:bg-gray-100 hover:text-gray-900`;
-}
-
-export default function ManagementNavigation({
-  collapsed = false,
-  onNavigate,
-  className = "",
-}) {
   return (
-    <nav
-      className={`space-y-1 ${className}`}
-      aria-label="Salon management navigation"
-    >
-      {navigationItems.map((item) => {
-        const Icon = item.icon;
-
-        return (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.end}
-            onClick={() => onNavigate?.()}
-            className={getNavigationClass}
-            title={collapsed ? item.label : undefined}
-          >
-            {({ isActive }) => (
-              <>
-                <Icon
-                  size={20}
-                  className={
-                    isActive
-                      ? "shrink-0 text-white"
-                      : "shrink-0 text-gray-400 transition group-hover:text-gray-700"
-                  }
-                  aria-hidden="true"
-                />
-
-                {!collapsed ? (
-                  <span className="truncate">
-                    {item.label}
-                  </span>
-                ) : (
-                  <span className="sr-only">
-                    {item.label}
-                  </span>
-                )}
-              </>
-            )}
-          </NavLink>
-        );
-      })}
-    </nav>
+    <div className="management-navigation">
+      {!collapsed && <label className="management-search"><Search size={16} /><span className="sr-only">Search management navigation</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a workspace…" /></label>}
+      <div className="management-sections">
+        {sections.map((section) => {
+          const isClosed = !query && closed.has(section.id);
+          return <section key={section.id} className="management-section">
+            {!collapsed && <button type="button" className="management-section-toggle" onClick={() => toggle(section.id)} aria-expanded={!isClosed}><span>{section.label}</span><ChevronDown size={15} className={isClosed ? "is-closed" : ""} /></button>}
+            {!isClosed && <div className="management-link-list">{section.links.map(({ to, label, description, icon: Icon }) => <NavLink key={to} to={to} onClick={onNavigate} title={collapsed ? label : undefined} className={({ isActive }) => `management-link${isActive ? " management-link-active" : ""}`}><span className="management-link-icon"><Icon size={18} /></span>{!collapsed && <span className="management-link-copy"><strong>{label}</strong><small>{description}</small></span>}</NavLink>)}</div>}
+          </section>;
+        })}
+        {!sections.length && !collapsed && <div className="app-empty-state compact"><Search size={22} /><strong>No tools found</strong><p>Try another search term.</p></div>}
+      </div>
+    </div>
   );
 }

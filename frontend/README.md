@@ -1,16 +1,23 @@
-# React + Vite
+# SalonAI Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 and Vite client for the SalonAI management application. Use Node.js 20.19+ or 22.12+ and npm 10+.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```powershell
+Copy-Item .env.example .env
+npm ci
+npm run dev
+```
 
-## React Compiler
+Install dependencies locally on the current operating system; do not reuse a `node_modules` folder copied from another platform.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The API base URL is configured through `VITE_API_URL` and defaults to `http://localhost:5000/api`.
 
-## Expanding the ESLint configuration
+## Build
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```powershell
+npm run build
+```
+
+The production output is written to `dist/` and is excluded from source control.
