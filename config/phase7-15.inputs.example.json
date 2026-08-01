@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "domain": "salon.example.com",
+  "expectedPublicIp": "",
+  "releaseManifestPath": "deployment/release/release-manifest.json",
+  "tlsCertDirectory": "deployment/tls",
+  "githubRepository": "FrancescoGuerriero/SalonAI",
+  "githubEnvironment": "production",
+  "runnerLabel": "salonai-production",
+  "mongoCredentialRotationConfirmed": false,
+  "jwtCredentialRotationConfirmed": false,
+  "githubEnvironmentConfigured": false,
+  "selfHostedRunnerConfigured": false,
+  "dnsConfigured": false,
+  "tlsConfigured": false,
+  "notes": "Replace placeholders and set confirmations only after completing each external action."
+}
