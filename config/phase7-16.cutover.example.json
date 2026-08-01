@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "phase": "7.16",
+  "domain": "salon.example.com",
+  "environmentFile": ".env.production",
+  "releaseManifestPath": "deployment/release-manifest.json",
+  "rollbackManifestPath": "deployment/rollback-release-manifest.json",
+  "readinessEvidencePath": "deployment-evidence/phase7-15/readiness-evidence.json",
+  "backupEvidencePath": "deployment-evidence/phase7-16/backup-evidence.json",
+  "expectedReleaseManifestSha256": "",
+  "expectedSourceCommit": "",
+  "changeWindowStartUtc": "2026-08-02T00:00:00Z",
+  "changeWindowEndUtc": "2026-08-02T02:00:00Z",
+  "maxBackupAgeHours": 24,
+  "ticketReference": "CHANGE-PENDING",
+  "operators": {
+    "primary": "",
+    "rollback": ""
+  },
+  "approvals": {
+    "businessOwner": false,
+    "technicalOwner": false,
+    "securityOwner": false,
+    "backupRestorePoint": false,
+    "rollbackOwner": false,
+    "customerCommunications": false
+  },
+  "hypercare": {
+    "baseUrl": "https://salon.example.com",
+    "samples": 6,
+    "intervalSeconds": 30
+  }
+}
