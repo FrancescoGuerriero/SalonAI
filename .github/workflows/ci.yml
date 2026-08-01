@@ -1,0 +1,235 @@
+name: SalonAI CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Validate backend
+        run: npm run validate
+        working-directory: backend
+
+  frontend:
+    name: Frontend production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-frontend-dist-${{ github.sha }}
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  ai-service:
+    name: AI-service validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            ai-service/requirements*.txt
+            ai-service/pyproject.toml
+
+      - name: Install AI-service dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [[ -f ai-service/requirements.txt ]]; then
+            python -m pip install -r ai-service/requirements.txt
+          elif [[ -f ai-service/pyproject.toml ]]; then
+            python -m pip install -e ai-service
+          else
+            echo "No supported AI-service dependency manifest was found." >&2
+            exit 1
+          fi
+          python -m pip install pytest
+
+      - name: Compile AI-service
+        run: python -m compileall -q app
+        working-directory: ai-service
+
+      - name: Test AI-service
+        shell: bash
+        working-directory: ai-service
+        run: |
+          set -euo pipefail
+          if [[ -d tests ]] && find tests -type f -name 'test_*.py' -print -quit | grep -q .; then
+            python -m pytest -q
+          else
+            echo "No AI-service pytest files were found; compile validation completed."
+          fi
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4.8.3
+        with:
+          config-file: ./.github/dependency-review-config.yml
+
+  repository-security:
+    name: Repository security gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enforce workflow security policy
+        run: node scripts/ci/check-workflow-security.mjs
+
+      - name: Trivy release-policy scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          format: json
+          output: trivy-repository.json
+          exit-code: '1'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
+
+      - name: Trivy SARIF scan
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          format: sarif
+          output: trivy-repository.sarif
+          exit-code: '0'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
+
+      - name: Upload SARIF to code scanning
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-repository.sarif
+          category: trivy-repository
+
+      - name: Upload security evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-ci-security-${{ github.sha }}
+          path: |
+            trivy-repository.json
+            trivy-repository.sarif
+          if-no-files-found: warn
+          retention-days: 30
+
+  ci-complete:
+    name: CI complete
+    if: always()
+    needs:
+      - backend
+      - frontend
+      - ai-service
+      - dependency-review
+      - repository-security
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce required results
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          AI_RESULT: ${{ needs.ai-service.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependency-review.result }}
+          SECURITY_RESULT: ${{ needs.repository-security.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKEND_RESULT" == "success" ]]
+          [[ "$FRONTEND_RESULT" == "success" ]]
+          [[ "$AI_RESULT" == "success" ]]
+          [[ "$SECURITY_RESULT" == "success" ]]
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            [[ "$DEPENDENCY_RESULT" == "success" ]]
+          else
+            [[ "$DEPENDENCY_RESULT" == "skipped" || "$DEPENDENCY_RESULT" == "success" ]]
+          fi
+          echo "All required SalonAI CI jobs passed."

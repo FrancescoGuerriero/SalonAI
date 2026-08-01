@@ -1,7 +1,7 @@
-import Customer from "../models/customer.js";
-import Stylist from "../models/stylist.js";
-import Appointment from "../models/appointment.js";
-import Service from "../models/service.js";
+import Customer from "../models/Customer.js";
+import Stylist from "../models/Stylist.js";
+import Appointment from "../models/Appointment.js";
+import Service from "../models/Service.js";
 
 function normalizePositiveInteger(value, fallback, maximum = 365) {
   const parsedValue = Number.parseInt(value, 10);
@@ -53,7 +53,9 @@ class DashboardService {
       completedAppointments,
     ] = await Promise.all([
       Customer.countDocuments({ archived: false }),
-      Stylist.countDocuments({ active: true }),
+      Stylist.countDocuments({
+  isActive: { $ne: false },
+}),
       Service.countDocuments({ active: true }),
       Appointment.find({
         appointmentDate: {

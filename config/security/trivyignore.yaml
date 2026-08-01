@@ -1,0 +1,14 @@
+# SalonAI Phase 7.12 time-limited vulnerability exceptions.
+# The release gate retains an unfiltered baseline report before applying this file.
+vulnerabilities:
+  - id: CVE-2026-14257
+    purls:
+      - "pkg:npm/brace-expansion@1.1.16"
+    statement: "Fix deferred until the CommonJS parent dependency can be upgraded safely. Direct runtime imports are prohibited and verified automatically. Exception expires 2026-08-14."
+    expired_at: "2026-08-14T23:59:59Z"
+
+  - id: GHSA-qwww-vcr4-c8h2
+    purls:
+      - "pkg:npm/react-router@7.18.1"
+    statement: "Advisory is limited to unstable RSC APIs. SalonAI source is scanned to prohibit those APIs. react-router-dom 8.3.0 is not published. Exception expires 2026-08-14."
+    expired_at: "2026-08-14T23:59:59Z"

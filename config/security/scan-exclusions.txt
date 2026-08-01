@@ -1,0 +1,13 @@
+# SalonAI Phase 7.11 scanner exclusions
+# These paths contain generated, cached, private runtime, or recovery data.
+.git
+backups
+security-reports
+backend/node_modules
+frontend/node_modules
+frontend/dist
+ai-service/.venv
+ai-service/__pycache__
+.env.production
+backend/.env.production
+ai-service/.env.production

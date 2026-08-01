@@ -1,0 +1,172 @@
+groups:
+  - name: salonai-backend-availability
+
+    rules:
+      - alert: SalonAIBackendDown
+
+        expr: |
+          up{job="salonai-backend"} == 0
+
+        for: 1m
+
+        labels:
+          severity: critical
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend is unavailable
+          description: Prometheus has been unable to scrape the SalonAI backend for at least one minute.
+
+      - alert: SalonAIBackendNotReady
+
+        expr: |
+          salonai_backend_ready == 0
+
+        for: 2m
+
+        labels:
+          severity: critical
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend is not ready
+          description: The backend process is running but one or more readiness checks are failing.
+
+      - alert: SalonAIMongoNotReady
+
+        expr: |
+          salonai_mongodb_ready == 0
+
+        for: 1m
+
+        labels:
+          severity: critical
+          service: mongodb
+
+        annotations:
+          summary: SalonAI MongoDB connection is not ready
+          description: The backend cannot confirm a healthy MongoDB connection.
+
+      - alert: SalonAISchedulerNotReady
+
+        expr: |
+          salonai_scheduler_ready == 0
+
+        for: 5m
+
+        labels:
+          severity: warning
+          service: message-delivery-scheduler
+
+        annotations:
+          summary: SalonAI message scheduler is not ready
+          description: The message-delivery scheduler has failed its readiness condition for five minutes.
+
+  - name: salonai-backend-performance
+
+    rules:
+      - alert: SalonAIHighServerErrorRate
+
+        expr: |
+          (
+            sum(
+              rate(
+                salonai_http_requests_total{
+                  status_class="5xx"
+                }[5m]
+              )
+            )
+            /
+            clamp_min(
+              sum(
+                rate(
+                  salonai_http_requests_total[5m]
+                )
+              ),
+              0.001
+            )
+          ) > 0.05
+
+        for: 5m
+
+        labels:
+          severity: critical
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend server-error rate is high
+          description: More than five percent of backend HTTP requests have returned a 5xx response during the last five minutes.
+
+      - alert: SalonAIHighRequestLatency
+
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(
+                salonai_http_request_duration_seconds_bucket[5m]
+              )
+            )
+          ) > 1.5
+
+        for: 10m
+
+        labels:
+          severity: warning
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend latency is high
+          description: The backend 95th-percentile request duration has exceeded 1.5 seconds for ten minutes.
+
+      - alert: SalonAIHighActiveRequestCount
+
+        expr: |
+          salonai_http_requests_active > 100
+
+        for: 5m
+
+        labels:
+          severity: warning
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend has many active requests
+          description: More than 100 backend HTTP requests have remained active for five minutes.
+
+      - alert: SalonAIHighEventLoopDelay
+
+        expr: |
+          salonai_nodejs_eventloop_lag_p99_seconds > 0.25
+
+        for: 5m
+
+        labels:
+          severity: warning
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI Node.js event-loop delay is high
+          description: The 99th-percentile Node.js event-loop delay has exceeded 250 milliseconds.
+
+      - alert: SalonAIHighHeapUsage
+
+        expr: |
+          (
+            salonai_nodejs_heap_used_bytes
+            /
+            clamp_min(
+              salonai_nodejs_heap_total_bytes,
+              1
+            )
+          ) > 0.90
+
+        for: 10m
+
+        labels:
+          severity: warning
+          service: salonai-backend
+
+        annotations:
+          summary: SalonAI backend heap usage is high
+          description: Node.js heap usage has exceeded 90 percent for ten minutes.

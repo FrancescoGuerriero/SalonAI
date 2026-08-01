@@ -1,7 +1,59 @@
+# Dependencies
 node_modules/
+
+# Environment secrets
 .env
+.env.*
+!.env.example
+
+# Build and test output
 dist/
 build/
-__pycache__/
-.venv/
+coverage/
 *.log
+*-output.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local repair and backup output
+.salonai-*-backups/
+_repair_backup_*/
+
+# Local tool and runtime caches
+.cache/
+.codex/
+
+# Dependencies and virtual environments
+**/node_modules/
+**/.venv/
+**/venv/
+**/__pycache__/
+*.pyc
+
+# Generated builds and reports
+frontend/dist/
+backups/
+security-reports/
+
+# Runtime and temporary files
+*.tmp
+*.bak
+*.zip
+
+# Secrets
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx

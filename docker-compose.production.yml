@@ -1,0 +1,337 @@
+name: salonai-production
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: salonai-mongo
+    restart: unless-stopped
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-salonai}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-salonai-production-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-salonai}
+
+    volumes:
+      - salonai-mongo-data:/data/db
+
+    expose:
+      - "27017"
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --host 127.0.0.1 --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile.production
+
+    image: salonai/ai-service:${APP_VERSION:-7.2.0}
+    container_name: salonai-ai-service
+    restart: unless-stopped
+
+    env_file:
+      - ./ai-service/.env.production
+
+    environment:
+      APP_VERSION: ${APP_VERSION:-7.2.0}
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      TRACE_EXPORT_TIMEOUT_MS: ${TRACE_EXPORT_TIMEOUT_MS:-5000}
+      OTEL_SERVICE_NAME: salonai-ai-service
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_RESOURCE_ATTRIBUTES: >-
+        service.namespace=salonai,deployment.environment.name=production,service.version=${APP_VERSION:-7.2.0}
+
+    expose:
+      - "8000"
+
+    volumes:
+      - salonai-ai-model-cache:/app/model-cache
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)\""
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+
+    image: salonai/backend:${APP_VERSION:-7.2.0}
+    container_name: salonai-backend
+    restart: unless-stopped
+
+    env_file:
+      - ./backend/.env.production
+
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 5000
+
+      MONGODB_URI: >-
+        mongodb://${MONGO_ROOT_USERNAME:-salonai}:${MONGO_ROOT_PASSWORD:-salonai-production-password}@mongo:27017/${MONGO_DATABASE:-salonai}?authSource=admin
+
+      AI_SERVICE_URL: http://ai-service:8000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+
+      APP_VERSION: ${APP_VERSION:-7.2.0}
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+
+      SERVER_SHUTDOWN_TIMEOUT_MS: ${SERVER_SHUTDOWN_TIMEOUT_MS:-30000}
+      LOG_LEVEL: ${BACKEND_LOG_LEVEL:-info}
+
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      TRACE_EXPORT_TIMEOUT_MS: ${TRACE_EXPORT_TIMEOUT_MS:-5000}
+      OTEL_SERVICE_NAME: salonai-backend
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://alloy:4318/v1/traces
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1.0}
+      OTEL_RESOURCE_ATTRIBUTES: >-
+        service.namespace=salonai,deployment.environment.name=production,service.version=${APP_VERSION:-7.2.0}
+
+    expose:
+      - "5000"
+
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+      ai-service:
+        condition: service_healthy
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:5000/api/health/ready').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 40s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production
+
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_AI_API_URL: ${VITE_AI_API_URL:-/ai}
+
+    image: salonai/frontend:${APP_VERSION:-7.2.0}
+    container_name: salonai-frontend
+    restart: unless-stopped
+
+    expose:
+      - "8080"
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://127.0.0.1:8080/health || exit 1"
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 20s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  edge:
+    image: nginx:1.27-alpine
+    container_name: salonai-edge
+    restart: unless-stopped
+
+    ports:
+      - "${EDGE_HTTP_PORT:-80}:80"
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d/salonai.conf:/etc/nginx/conf.d/default.conf:ro
+
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+      backend:
+        condition: service_healthy
+
+      ai-service:
+        condition: service_healthy
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --tries=1 --spider http://127.0.0.1/healthz || exit 1"
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    stop_signal: SIGQUIT
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    container_name: salonai-prometheus
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+      - --web.listen-address=0.0.0.0:9090
+
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - salonai-prometheus-data:/prometheus
+
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    networks:
+      - salonai-private
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/bin/promtool",
+          "query",
+          "instant",
+          "http://127.0.0.1:9090",
+          "up"
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+
+networks:
+  salonai-private:
+    name: salonai-private
+    driver: bridge
+
+
+volumes:
+  salonai-mongo-data:
+    name: salonai-mongo-data
+
+  salonai-ai-model-cache:
+    name: salonai-ai-model-cache
+
+  salonai-prometheus-data:
+    name: salonai-prometheus-data

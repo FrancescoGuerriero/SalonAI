@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "phase": "7.13",
+  "defaultBranch": "main",
+  "releaseTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+  "registry": "ghcr.io",
+  "nodeVersion": "22",
+  "pythonVersion": "3.13",
+  "services": [
+    {
+      "name": "backend",
+      "context": "backend",
+      "dockerfile": "backend/Dockerfile.production"
+    },
+    {
+      "name": "frontend",
+      "context": "frontend",
+      "dockerfile": "frontend/Dockerfile.production"
+    },
+    {
+      "name": "ai-service",
+      "context": "ai-service",
+      "dockerfile": "ai-service/Dockerfile.production"
+    }
+  ],
+  "requiredPullRequestChecks": [
+    "Backend validation",
+    "Frontend production build",
+    "AI-service validation",
+    "Dependency review",
+    "Repository security gate",
+    "CI complete",
+    "CodeQL (javascript-typescript)",
+    "CodeQL (python)"
+  ],
+  "security": {
+    "repositorySeverityGate": [
+      "CRITICAL",
+      "HIGH"
+    ],
+    "imageSeverityGate": [
+      "CRITICAL",
+      "HIGH"
+    ],
+    "trivyIgnoreFile": "config/security/trivyignore.yaml",
+    "allowPullRequestTarget": false,
+    "requirePersistCredentialsFalse": true,
+    "requiredAttestations": [
+      "slsa-provenance",
+      "cyclonedx-sbom"
+    ]
+  },
+  "releaseEvidence": {
+    "sbomFormat": "CycloneDX JSON",
+    "artifactRetentionDays": 90,
+    "publishGitHubRelease": true,
+    "publishGhcrImages": true,
+    "generateRollbackMetadata": true
+  }
+}

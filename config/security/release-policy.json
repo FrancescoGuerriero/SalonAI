@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 2,
+  "phase": "7.12",
+  "trivyImage": "aquasec/trivy:0.70.0",
+  "enforcement": {
+    "blockDetectedSecrets": true,
+    "maximumCriticalRepositoryVulnerabilities": 0,
+    "maximumHighRepositoryVulnerabilities": 0,
+    "maximumCriticalImageVulnerabilities": 0,
+    "maximumHighOrCriticalMisconfigurations": 0,
+    "blockTrackedProductionEnvironmentFiles": true,
+    "requireValidDependencyExceptions": true
+  },
+  "audit": {
+    "reportHighVulnerabilities": true,
+    "ignoreUnfixedVulnerabilities": true,
+    "generateCycloneDxSbom": true,
+    "retainUnfilteredRepositoryBaseline": true
+  }
+}

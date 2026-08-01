@@ -1,14 +1,17 @@
+import { useEffect, useState } from "react";
 import {
-  useEffect,
-  useState
-} from "react";
-
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+} from "lucide-react";
 import {
   Link,
   useLocation,
-  useNavigate
+  useNavigate,
 } from "react-router-dom";
 
+import AuthShell from "../components/auth/AuthShell.jsx";
 import useAuth from "../hooks/useAuth.js";
 
 function Login() {
@@ -18,34 +21,34 @@ function Login() {
   const {
     login,
     loading: authLoading,
-    isAuthenticated
+    isAuthenticated,
   } = useAuth();
 
   const [form, setForm] = useState({
     email: "",
-    password: ""
+    password: "",
   });
-
-  const [submitting, setSubmitting] =
-    useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const redirectPath =
     location.state?.from?.pathname ||
+    location.state?.redirectTo ||
     "/dashboard";
+
+  const registrationComplete =
+    Boolean(location.state?.registrationComplete);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate(redirectPath, {
-        replace: true
-      });
+      navigate(redirectPath, { replace: true });
     }
   }, [
     authLoading,
     isAuthenticated,
     navigate,
-    redirectPath
+    redirectPath,
   ]);
 
   function handleChange(event) {
@@ -53,7 +56,7 @@ function Login() {
 
     setForm((currentForm) => ({
       ...currentForm,
-      [name]: value
+      [name]: value,
     }));
   }
 
@@ -66,95 +69,103 @@ function Login() {
 
       await login({
         email: form.email.trim().toLowerCase(),
-        password: form.password
+        password: form.password,
       });
 
-      navigate(redirectPath, {
-        replace: true
-      });
+      navigate(redirectPath, { replace: true });
     } catch (requestError) {
       console.error("Login failed:", requestError);
 
       setError(
         requestError.response?.data?.message ||
-        requestError.message ||
-        "Login failed. Check your email and password."
+          requestError.message ||
+          "Login failed. Check your email and password."
       );
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (authLoading) {
-    return (
-      <main className="page narrow-page">
-        <p>Loading...</p>
-      </main>
-    );
-  }
-
   return (
-    <main className="page narrow-page">
-      <h1>Login</h1>
-
-      {error && (
-        <p
-          className="error-message"
-          role="alert"
-        >
-          {error}
+    <AuthShell
+      eyebrow="Customer access"
+      title="Welcome back"
+      description="Sign in to continue to your SalonAI account."
+      footer={
+        <p>
+          No account yet? <Link to="/register">Create one</Link>
         </p>
+      }
+    >
+      {registrationComplete ? (
+        <div className="auth-feedback auth-feedback-success" role="status">
+          Your account was created successfully. You can now sign in.
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="auth-feedback auth-feedback-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+
+      {authLoading ? (
+        <div className="auth-loading" role="status">
+          Checking your account…
+        </div>
+      ) : (
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label htmlFor="loginEmail">Email address</label>
+          <div className="auth-input">
+            <Mail size={18} aria-hidden="true" />
+            <input
+              id="loginEmail"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              autoComplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div className="auth-label-row">
+            <label htmlFor="loginPassword">Password</label>
+            <span>Use your registered password</span>
+          </div>
+
+          <div className="auth-input">
+            <LockKeyhole size={18} aria-hidden="true" />
+            <input
+              id="loginPassword"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              value={form.password}
+              onChange={handleChange}
+              autoComplete="current-password"
+              required
+            />
+            <button
+              className="auth-password-toggle"
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+
+          <button
+            className="auth-submit"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
       )}
-
-      <form
-        onSubmit={handleSubmit}
-        className="form"
-      >
-        <label htmlFor="loginEmail">
-          Email
-        </label>
-
-        <input
-          id="loginEmail"
-          name="email"
-          type="email"
-          value={form.email}
-          onChange={handleChange}
-          autoComplete="email"
-          required
-        />
-
-        <label htmlFor="loginPassword">
-          Password
-        </label>
-
-        <input
-          id="loginPassword"
-          name="password"
-          type="password"
-          value={form.password}
-          onChange={handleChange}
-          autoComplete="current-password"
-          required
-        />
-
-        <button
-          type="submit"
-          disabled={submitting}
-        >
-          {submitting
-            ? "Logging in..."
-            : "Login"}
-        </button>
-      </form>
-
-      <p>
-        No account?{" "}
-        <Link to="/register">
-          Register
-        </Link>
-      </p>
-    </main>
+    </AuthShell>
   );
 }
 

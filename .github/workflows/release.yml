@@ -1,0 +1,295 @@
+name: SalonAI Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing annotated release tag, for example v7.3.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: salonai-release-${{ github.ref_name }}-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      registry_namespace: ${{ steps.release.outputs.registry_namespace }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+
+      - name: Validate release identity
+        id: release
+        shell: bash
+        env:
+          REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          node scripts/ci/validate-release-tag.mjs "$REQUESTED_TAG"
+          git rev-parse --verify "$REQUESTED_TAG^{commit}" >/dev/null
+          owner_lower="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          echo "release_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          echo "registry_namespace=$REGISTRY/$owner_lower" >> "$GITHUB_OUTPUT"
+
+  release-quality:
+    name: Release quality gate
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.release_tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Validate backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix backend
+          npm --prefix backend run validate
+
+      - name: Build frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix frontend
+          npm --prefix frontend run build
+
+      - name: Enforce workflow security policy
+        run: node scripts/ci/check-workflow-security.mjs
+
+      - name: Trivy repository release gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          format: table
+          exit-code: '1'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
+
+  build-images:
+    name: Build, scan and attest ${{ matrix.service }}
+    needs:
+      - prepare
+      - release-quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: backend
+            dockerfile: backend/Dockerfile.production
+          - service: frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile.production
+          - service: ai-service
+            context: ai-service
+            dockerfile: ai-service/Dockerfile.production
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.release_tag }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image name
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "name=${{ needs.prepare.outputs.registry_namespace }}/salonai-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.release_tag }}
+            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.release_tag }}
+          cache-from: type=gha,scope=salonai-${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=salonai-${{ matrix.service }}
+
+      - name: Scan published image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          format: json
+          output: release-evidence/${{ matrix.service }}.trivy.json
+          exit-code: '1'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
+
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx
+          output: release-evidence/${{ matrix.service }}.cdx.json
+          exit-code: '0'
+          hide-progress: true
+
+      - name: Write immutable image evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/write-image-evidence.mjs \
+            --service "${{ matrix.service }}" \
+            --image "${{ steps.image.outputs.name }}" \
+            --tag "${{ needs.prepare.outputs.release_tag }}" \
+            --digest "${{ steps.build.outputs.digest }}" \
+            --commit "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --output "release-evidence/${{ matrix.service }}.image.json"
+
+      - name: Attest image provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest image SBOM
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: release-evidence/${{ matrix.service }}.cdx.json
+          push-to-registry: true
+
+      - name: Upload service evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-evidence-${{ matrix.service }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+  publish-release:
+    name: Publish release evidence
+    needs:
+      - prepare
+      - build-images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.release_tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Download service evidence
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-evidence-*
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Generate release and rollback manifests
+        run: node scripts/ci/create-release-manifest.mjs release-evidence "${{ needs.prepare.outputs.release_tag }}"
+
+      - name: Generate evidence checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-evidence
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS.txt
+
+      - name: Attest release evidence
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            release-evidence/release-manifest.json
+            release-evidence/rollback-metadata.json
+            release-evidence/SHA256SUMS.txt
+
+      - name: Upload consolidated release evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-release-${{ needs.prepare.outputs.release_tag }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-evidence/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-evidence/* \
+              --verify-tag \
+              --generate-notes \
+              --title "SalonAI $RELEASE_TAG"
+          fi
+          echo "Published SalonAI release $RELEASE_TAG."

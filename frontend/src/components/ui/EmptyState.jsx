@@ -1,0 +1,2 @@
+import { Inbox } from "lucide-react";
+export default function EmptyState({ icon: Icon = Inbox, title = "Nothing here yet", description = "New information will appear here when it becomes available.", action }) { return <div className="app-empty-state"><span className="app-empty-icon"><Icon size={26} /></span><h3>{title}</h3><p>{description}</p>{action && <div className="app-empty-action">{action}</div>}</div>; }

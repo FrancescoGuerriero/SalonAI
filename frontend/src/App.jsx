@@ -1,162 +1,1098 @@
 import {
+  lazy,
+  Suspense,
+} from "react";
+
+import {
   BrowserRouter,
-  Navigate,
   Route,
   Routes,
 } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout.jsx";
+import PageLoader from "./components/ui/PageLoader.jsx";
 
-import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import AdminRoute from "./routes/AdminRoute.jsx";
+import ManagementRoute from "./routes/ManagementRoute.jsx";
+import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import SkipLink from "./components/accessibility/SkipLink.jsx";
+import RouteAnnouncer from "./components/accessibility/RouteAnnouncer.jsx";
 
-import Home from "./pages/Home.jsx";
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import Services from "./pages/Services.jsx";
-import Stylists from "./pages/Stylists.jsx";
-import Booking from "./pages/Booking.jsx";
+const LoyaltyProgrammePage = lazy(() => import("./pages/LoyaltyProgrammePage.jsx"));
+const GiftCardsPage = lazy(() => import("./pages/GiftCardsPage.jsx"));
+const CustomerAccountPage = lazy(() => import("./pages/CustomerAccountPage.jsx"));
+const ReferralManagementPage = lazy(() => import("./pages/ReferralManagementPage.jsx"));
+const NotificationCentrePage = lazy(() => import("./pages/NotificationCentrePage.jsx"));
+const PushNotificationsPage = lazy(() => import("./pages/PushNotificationsPage.jsx"));
+const EmailCampaignsPage = lazy(() => import("./pages/EmailCampaignsPage.jsx"));
+const SmsRemindersPage = lazy(() => import("./pages/SmsRemindersPage.jsx"));
+const WhatsAppBookingPage = lazy(() => import("./pages/WhatsAppBookingPage.jsx"));
+const RetentionAutomationPage = lazy(() => import("./pages/RetentionAutomationPage.jsx"));
+const PremiumAnalyticsPage = lazy(() => import("./pages/PremiumAnalyticsPage.jsx"));
+const HelpCentrePage = lazy(() => import("./pages/HelpCentrePage.jsx"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
+const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
+const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienceSuitePage.jsx"));
+const Home = lazy(
+  () => import("./pages/Home.jsx")
+);
 
-import DashboardPage from "./pages/DashboardPage.jsx";
-import CustomersPage from "./pages/CustomersPage.jsx";
-import ServicesPage from "./pages/ServicesPage.jsx";
-import AppointmentsPage from "./pages/AppointmentsPage.jsx";
-import CommunicationsPage from "./pages/CommunicationsPage.jsx";
+const Login = lazy(
+  () => import("./pages/Login.jsx")
+);
 
-import AdminDashboard from "./pages/AdminDashboard.jsx";
-import AdminServices from "./pages/AdminServices.jsx";
-import AdminStylists from "./pages/AdminStylists.jsx";
+const Register = lazy(
+  () => import("./pages/Register.jsx")
+);
 
-function App() {
+const Services = lazy(
+  () => import("./pages/Services.jsx")
+);
+
+const Stylists = lazy(
+  () => import("./pages/Stylists.jsx")
+);
+
+const Booking = lazy(
+  () => import("./pages/Booking.jsx")
+);
+
+const Shop = lazy(
+  () => import("./pages/Shop.jsx")
+);
+
+const Cart = lazy(
+  () => import("./pages/Cart.jsx")
+);
+
+const Checkout = lazy(
+  () => import("./pages/Checkout.jsx")
+);
+
+const CheckoutSuccess = lazy(
+  () =>
+    import(
+      "./pages/CheckoutSuccess.jsx"
+    )
+);
+
+const OrderHistory = lazy(
+  () =>
+    import(
+      "./pages/OrderHistory.jsx"
+    )
+);
+
+const InventoryManagement = lazy(
+  () =>
+    import(
+      "./pages/InventoryManagement.jsx"
+    )
+);
+
+const OrderManagement = lazy(
+  () =>
+    import(
+      "./pages/OrderManagement.jsx"
+    )
+);
+
+
+const DashboardPage = lazy(
+  () =>
+    import(
+      "./pages/DashboardPage.jsx"
+    )
+);
+
+const CustomersPage = lazy(
+  () =>
+    import(
+      "./pages/CustomersPage.jsx"
+    )
+);
+
+const CustomerProfilePage = lazy(
+  () =>
+    import(
+      "./pages/CustomerProfilePage.jsx"
+    )
+);
+
+const CustomerFollowUpsPage = lazy(
+  () =>
+    import(
+      "./pages/CustomerFollowUpsPage.jsx"
+    )
+);
+
+const CustomerSegmentationPage = lazy(
+  () =>
+    import(
+      "./pages/CustomerSegmentationPage.jsx"
+    )
+);
+
+const CustomerValuePage = lazy(
+  () =>
+    import(
+      "./pages/CustomerValuePage.jsx"
+    )
+);
+
+const RetentionActionsPage = lazy(
+  () =>
+    import(
+      "./pages/RetentionActionsPage.jsx"
+    )
+);
+
+const RetentionPredictionsPage = lazy(
+  () =>
+    import(
+      "./pages/RetentionPredictionsPage.jsx"
+    )
+);
+
+const RebookingOpportunitiesPage = lazy(
+  () =>
+    import(
+      "./pages/RebookingOpportunitiesPage.jsx"
+    )
+);
+
+
+const AppointmentsPage = lazy(
+  () =>
+    import(
+      "./pages/AppointmentsPage.jsx"
+    )
+);
+
+const CalendarPage = lazy(
+  () =>
+    import(
+      "./pages/CalendarPage.jsx"
+    )
+);
+
+const WaitlistPage = lazy(
+  () =>
+    import(
+      "./pages/WaitlistPage.jsx"
+    )
+);
+
+const BookingDemandPage = lazy(
+  () =>
+    import(
+      "./pages/BookingDemandPage.jsx"
+    )
+);
+
+const BookingLossPage = lazy(
+  () =>
+    import(
+      "./pages/BookingLossPage.jsx"
+    )
+);
+
+
+const RevenueForecastPage = lazy(
+  () =>
+    import(
+      "./pages/RevenueForecastPage.jsx"
+    )
+);
+
+const ReportsCentrePage = lazy(
+  () =>
+    import(
+      "./pages/ReportsCentrePage.jsx"
+    )
+);
+
+const DailyClosePage = lazy(
+  () =>
+    import(
+      "./pages/DailyClosePage.jsx"
+    )
+);
+
+const StaffRotaPage = lazy(
+  () =>
+    import(
+      "./pages/StaffRotaPage.jsx"
+    )
+);
+
+const StaffManagementPage = lazy(
+  () =>
+    import(
+      "./pages/StaffManagementPage.jsx"
+    )
+);
+
+const StaffPerformancePage = lazy(
+  () =>
+    import(
+      "./pages/StaffPerformancePage.jsx"
+    )
+);
+
+const ServicePerformancePage = lazy(
+  () =>
+    import(
+      "./pages/ServicePerformancePage.jsx"
+    )
+);
+
+
+const HaircareRecommendationsPage = lazy(
+  () =>
+    import(
+      "./pages/HaircareRecommendationsPage.jsx"
+    )
+);
+
+const CustomerAiSummariesPage = lazy(
+  () =>
+    import(
+      "./pages/CustomerAiSummariesPage.jsx"
+    )
+);
+
+const AiCustomerSegmentationPage = lazy(
+  () =>
+    import(
+      "./pages/AiCustomerSegmentationPage.jsx"
+    )
+);
+
+const AiDemandForecastingPage = lazy(
+  () =>
+    import(
+      "./pages/AiDemandForecastingPage.jsx"
+    )
+);
+
+const AiSalesForecastingPage = lazy(
+  () =>
+    import(
+      "./pages/AiSalesForecastingPage.jsx"
+    )
+);
+
+const AiMarketingInsightsPage = lazy(
+  () =>
+    import(
+      "./pages/AiMarketingInsightsPage.jsx"
+    )
+);
+
+const AiNoShowPredictionPage = lazy(
+  () =>
+    import(
+      "./pages/AiNoShowPredictionPage.jsx"
+    )
+);
+
+const CommunicationsPage = lazy(
+  () =>
+    import(
+      "./pages/CommunicationsPage.jsx"
+    )
+);
+
+const CommunicationTemplatesPage = lazy(
+  () =>
+    import(
+      "./pages/CommunicationTemplatesPage.jsx"
+    )
+);
+
+const CommunicationCampaignsPage = lazy(
+  () =>
+    import(
+      "./pages/CommunicationCampaignsPage.jsx"
+    )
+);
+
+const ScheduledCommunicationsPage = lazy(
+  () =>
+    import(
+      "./pages/ScheduledCommunicationsPage.jsx"
+    )
+);
+
+const MessageDeliveryPage = lazy(
+  () =>
+    import(
+      "./pages/MessageDeliveryPage.jsx"
+    )
+);
+
+
+const ServicesPage = lazy(
+  () =>
+    import(
+      "./pages/ServicesPage.jsx"
+    )
+);
+
+
+const RebookingCampaignsPage = lazy(
+  () =>
+    import(
+      "./pages/RebookingCampaignsPage.jsx"
+    )
+);
+
+const MarketingAttributionPage = lazy(
+  () =>
+    import(
+      "./pages/MarketingAttributionPage.jsx"
+    )
+);
+
+const SmartAppointmentsPage = lazy(
+  () =>
+    import(
+      "./pages/SmartAppointmentsPage.jsx"
+    )
+);
+
+const CapacityPlanningPage = lazy(
+  () =>
+    import(
+      "./pages/CapacityPlanningPage.jsx"
+    )
+);
+
+const DynamicPricingPage = lazy(
+  () =>
+    import(
+      "./pages/DynamicPricingPage.jsx"
+    )
+);
+
+const InventoryForecastingPage = lazy(
+  () =>
+    import(
+      "./pages/InventoryForecastingPage.jsx"
+    )
+);
+
+const FeedbackAnalyticsPage = lazy(
+  () =>
+    import(
+      "./pages/FeedbackAnalyticsPage.jsx"
+    )
+);
+
+const ManagementCopilotPage = lazy(
+  () =>
+    import(
+      "./pages/ManagementCopilotPage.jsx"
+    )
+);
+
+const ExecutiveCommandCentrePage = lazy(
+  () =>
+    import(
+      "./pages/ExecutiveCommandCentrePage.jsx"
+    )
+);
+
+const DataExportAuditPage = lazy(
+  () =>
+    import(
+      "./pages/DataExportAuditPage.jsx"
+    )
+);
+
+
+const AdminDashboard = lazy(
+  () =>
+    import(
+      "./pages/AdminDashboard.jsx"
+    )
+);
+
+const AdminServices = lazy(
+  () =>
+    import(
+      "./pages/AdminServices.jsx"
+    )
+);
+
+const AdminStylists = lazy(
+  () =>
+    import(
+      "./pages/AdminStylists.jsx"
+    )
+);
+
+const AdminAppointments = lazy(
+  () =>
+    import(
+      "./pages/AdminAppointments.jsx"
+    )
+);
+
+const AdminCustomers = lazy(
+  () =>
+    import(
+      "./pages/AdminCustomers.jsx"
+    )
+);
+
+const SupplierManagementPage = lazy(
+  () =>
+    import(
+      "./pages/SupplierManagementPage.jsx"
+    )
+);
+
+const PurchaseOrdersPage = lazy(
+  () =>
+    import(
+      "./pages/PurchaseOrdersPage.jsx"
+    )
+);
+
+const CreatePurchaseOrderPage = lazy(
+  () =>
+    import(
+      "./pages/CreatePurchaseOrderPage.jsx"
+    )
+);
+
+const PurchaseOrderDetailsPage = lazy(
+  () =>
+    import(
+      "./pages/PurchaseOrderDetailsPage.jsx"
+    )
+);
+
+const ReorderRecommendationsPage = lazy(
+  () =>
+    import(
+      "./pages/ReorderRecommendationsPage.jsx"
+    )
+);
+
+function protectedPage(
+  PageComponent
+) {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<MainLayout />}>
-          {/* Public routes */}
-          <Route index element={<Home />} />
-
-          <Route
-            path="services"
-            element={<Services />}
-          />
-
-          <Route
-            path="stylists"
-            element={<Stylists />}
-          />
-
-          <Route
-            path="login"
-            element={<Login />}
-          />
-
-          <Route
-            path="register"
-            element={<Register />}
-          />
-
-          {/* Authenticated customer booking */}
-          <Route
-            path="booking"
-            element={
-              <ProtectedRoute>
-                <Booking />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Salon management routes */}
-          <Route
-            path="dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="customers"
-            element={
-              <ProtectedRoute>
-                <CustomersPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="appointments"
-            element={
-              <ProtectedRoute>
-                <AppointmentsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="communications"
-            element={
-              <ProtectedRoute>
-                <CommunicationsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/*
-            The management services page uses /manage/services
-            because /services is already the public services page.
-          */}
-          <Route
-            path="manage/services"
-            element={
-              <ProtectedRoute>
-                <ServicesPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Administrator routes */}
-          <Route
-            path="admin"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
-
-          <Route
-            path="admin/services"
-            element={
-              <AdminRoute>
-                <AdminServices />
-              </AdminRoute>
-            }
-          />
-
-          <Route
-            path="admin/stylists"
-            element={
-              <AdminRoute>
-                <AdminStylists />
-              </AdminRoute>
-            }
-          />
-
-          {/* Unknown routes */}
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
-          />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ProtectedRoute>
+      <PageComponent />
+    </ProtectedRoute>
   );
 }
 
-export default App;
+
+function managementPage(
+  PageComponent
+) {
+  return (
+    <ManagementRoute>
+      <PageComponent />
+    </ManagementRoute>
+  );
+}
+
+
+function adminPage(
+  PageComponent
+) {
+  return (
+    <AdminRoute>
+      <PageComponent />
+    </AdminRoute>
+  );
+}
+
+
+function AppRoutes() {
+  return (
+    <Routes>
+        <Route path="experience" element={<CustomerExperienceSuitePage />} />
+        <Route path="experience/:featureId" element={<CustomerExperienceSuitePage />} />
+
+      <Route
+        path="settings"
+        element={protectedPage(CustomerSettingsPage)}
+      />
+      <Route path="help" element={<HelpCentrePage />} />
+      <Route
+        path="account"
+        element={protectedPage(CustomerAccountPage)}
+      />
+      <Route
+  path="suppliers"
+  element={managementPage(
+    SupplierManagementPage
+  )}
+/>
+
+<Route
+  path="purchase-orders"
+  element={managementPage(
+    PurchaseOrdersPage
+  )}
+/>
+
+<Route
+  path="purchase-orders/new"
+  element={managementPage(
+    CreatePurchaseOrderPage
+  )}
+/>
+
+<Route
+  path="purchase-orders/:purchaseOrderId"
+  element={managementPage(
+    PurchaseOrderDetailsPage
+  )}
+/>
+
+<Route
+  path="reorder-recommendations"
+  element={managementPage(
+    ReorderRecommendationsPage
+  )}
+/>
+
+      <Route element={<MainLayout />}>
+        {/*
+        |--------------------------------------------------------------------------
+        | Public routes
+        |--------------------------------------------------------------------------
+        */}
+<Route path="loyalty" element={managementPage(LoyaltyProgrammePage)} />
+<Route path="gift-cards" element={managementPage(GiftCardsPage)} />
+<Route path="referrals" element={managementPage(ReferralManagementPage)} />
+<Route path="notification-centre" element={managementPage(NotificationCentrePage)} />
+<Route path="push-notifications" element={managementPage(PushNotificationsPage)} />
+<Route path="email-campaigns" element={managementPage(EmailCampaignsPage)} />
+<Route path="sms-reminders" element={managementPage(SmsRemindersPage)} />
+<Route path="whatsapp-booking" element={managementPage(WhatsAppBookingPage)} />
+<Route path="retention-automation" element={managementPage(RetentionAutomationPage)} />
+<Route path="premium-analytics" element={managementPage(PremiumAnalyticsPage)} />
+        <Route
+          index
+          element={<Home />}
+        />
+
+        <Route
+          path="services"
+          element={<Services />}
+        />
+
+        <Route
+          path="stylists"
+          element={<Stylists />}
+        />
+
+        <Route
+          path="login"
+          element={<Login />}
+        />
+
+        <Route
+          path="register"
+          element={<Register />}
+        />
+
+        <Route
+          path="shop"
+          element={<Shop />}
+        />
+
+        <Route
+          path="cart"
+          element={<Cart />}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Protected customer routes
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="checkout"
+          element={protectedPage(
+            Checkout
+          )}
+        />
+
+        <Route
+          path="checkout/success"
+          element={protectedPage(
+            CheckoutSuccess
+          )}
+        />
+
+        <Route
+          path="orders"
+          element={protectedPage(
+            OrderHistory
+          )}
+        />
+
+        <Route
+          path="booking"
+          element={protectedPage(
+            Booking
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Dashboard and customer management
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="dashboard"
+          element={managementPage(
+            DashboardPage
+          )}
+        />
+
+        <Route
+          path="customers"
+          element={managementPage(
+            CustomersPage
+          )}
+        />
+
+        <Route
+          path="customers/:customerId"
+          element={managementPage(
+            CustomerProfilePage
+          )}
+        />
+
+        <Route
+          path="customers/:customerId/profile"
+          element={managementPage(
+            CustomerProfilePage
+          )}
+        />
+
+        <Route
+          path="customer-follow-ups"
+          element={managementPage(
+            CustomerFollowUpsPage
+          )}
+        />
+
+        <Route
+          path="customer-segments"
+          element={managementPage(
+            CustomerSegmentationPage
+          )}
+        />
+
+        <Route
+          path="customer-value"
+          element={managementPage(
+            CustomerValuePage
+          )}
+        />
+
+        <Route
+          path="retention-actions"
+          element={managementPage(
+            RetentionActionsPage
+          )}
+        />
+
+        <Route
+          path="retention-predictions"
+          element={managementPage(
+            RetentionPredictionsPage
+          )}
+        />
+
+        <Route
+          path="rebooking-opportunities"
+          element={managementPage(
+            RebookingOpportunitiesPage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Appointment management
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="appointments"
+          element={managementPage(
+            AppointmentsPage
+          )}
+        />
+
+        <Route
+          path="calendar"
+          element={managementPage(
+            CalendarPage
+          )}
+        />
+
+        <Route
+          path="waitlist"
+          element={managementPage(
+            WaitlistPage
+          )}
+        />
+
+        <Route
+          path="booking-demand"
+          element={managementPage(
+            BookingDemandPage
+          )}
+        />
+
+        <Route
+          path="booking-loss"
+          element={managementPage(
+            BookingLossPage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Reports and salon operations
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="revenue-forecast"
+          element={managementPage(
+            RevenueForecastPage
+          )}
+        />
+
+        <Route
+          path="reports"
+          element={managementPage(
+            ReportsCentrePage
+          )}
+        />
+
+        <Route
+          path="daily-close"
+          element={managementPage(
+            DailyClosePage
+          )}
+        />
+
+        <Route
+          path="staff-rota"
+          element={managementPage(
+            StaffRotaPage
+          )}
+        />
+
+        <Route
+          path="staff-management"
+          element={managementPage(
+            StaffManagementPage
+          )}
+        />
+
+        <Route
+          path="staff-performance"
+          element={managementPage(
+            StaffPerformancePage
+          )}
+        />
+
+        <Route
+          path="service-performance"
+          element={managementPage(
+            ServicePerformancePage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Phase 4 AI features
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="ai/haircare"
+          element={managementPage(
+            HaircareRecommendationsPage
+          )}
+        />
+
+        <Route
+          path="ai/customer-segmentation"
+          element={managementPage(
+            AiCustomerSegmentationPage
+          )}
+        />
+
+        <Route
+          path="ai/customer-summaries"
+          element={managementPage(
+            CustomerAiSummariesPage
+          )}
+        />
+
+        <Route
+          path="ai/demand-forecasting"
+          element={managementPage(
+            AiDemandForecastingPage
+          )}
+        />
+
+        <Route
+          path="ai/marketing-insights"
+          element={managementPage(
+            AiMarketingInsightsPage
+          )}
+        />
+
+        <Route
+          path="ai/no-show-predictions"
+          element={managementPage(
+            AiNoShowPredictionPage
+          )}
+        />
+
+        <Route
+          path="ai/sales-forecasting"
+          element={managementPage(
+            AiSalesForecastingPage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Communications
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="communications"
+          element={managementPage(
+            CommunicationsPage
+          )}
+        />
+
+        <Route
+          path="communication-templates"
+          element={managementPage(
+            CommunicationTemplatesPage
+          )}
+        />
+
+        <Route
+          path="communication-campaigns"
+          element={managementPage(
+            CommunicationCampaignsPage
+          )}
+        />
+
+        <Route
+          path="scheduled-communications"
+          element={managementPage(
+            ScheduledCommunicationsPage
+          )}
+        />
+
+        <Route
+          path="message-delivery"
+          element={managementPage(
+            MessageDeliveryPage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Commerce management
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="manage/services"
+          element={managementPage(
+            ServicesPage
+          )}
+        />
+
+        <Route
+          path="manage/inventory"
+          element={managementPage(
+            InventoryManagement
+          )}
+        />
+
+        <Route
+          path="manage/orders"
+          element={managementPage(
+            OrderManagement
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Advanced management features
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="rebooking-campaigns"
+          element={managementPage(
+            RebookingCampaignsPage
+          )}
+        />
+
+        <Route
+          path="marketing-attribution"
+          element={managementPage(
+            MarketingAttributionPage
+          )}
+        />
+
+        <Route
+          path="smart-appointments"
+          element={managementPage(
+            SmartAppointmentsPage
+          )}
+        />
+
+        <Route
+          path="capacity-planning"
+          element={managementPage(
+            CapacityPlanningPage
+          )}
+        />
+
+        <Route
+          path="dynamic-pricing"
+          element={managementPage(
+            DynamicPricingPage
+          )}
+        />
+
+        <Route
+          path="inventory-forecasting"
+          element={managementPage(
+            InventoryForecastingPage
+          )}
+        />
+
+        <Route
+          path="feedback-analytics"
+          element={managementPage(
+            FeedbackAnalyticsPage
+          )}
+        />
+
+        <Route
+          path="management-copilot"
+          element={managementPage(
+            ManagementCopilotPage
+          )}
+        />
+
+        <Route
+          path="executive-command-centre"
+          element={managementPage(
+            ExecutiveCommandCentrePage
+          )}
+        />
+
+        <Route
+          path="data-export-audit"
+          element={managementPage(
+            DataExportAuditPage
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Administrator routes
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route
+          path="admin"
+          element={adminPage(
+            AdminDashboard
+          )}
+        />
+
+        <Route
+          path="admin/services"
+          element={adminPage(
+            AdminServices
+          )}
+        />
+
+        <Route
+          path="admin/stylists"
+          element={adminPage(
+            AdminStylists
+          )}
+        />
+
+        <Route
+          path="admin/appointments"
+          element={adminPage(
+            AdminAppointments
+          )}
+        />
+
+        <Route
+          path="admin/customers"
+          element={adminPage(
+            AdminCustomers
+          )}
+        />
+
+
+        {/*
+        |--------------------------------------------------------------------------
+        | Unknown route
+        |--------------------------------------------------------------------------
+        */}
+
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <SkipLink />
+      <RouteAnnouncer />
+      <Suspense fallback={<PageLoader />}>
+        <AppRoutes />
+      </Suspense>
+    </BrowserRouter>
+  );
+}

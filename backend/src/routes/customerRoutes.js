@@ -1,47 +1,33 @@
 import express from "express";
 
 import {
-  createCustomer,
-  getCustomers,
-  getCustomer,
-  updateCustomer,
   archiveCustomer,
-  restoreCustomer,
+  createCustomer,
   deleteCustomer,
+  getCustomer,
+  getCustomers,
+  restoreCustomer,
+  updateCustomer,
 } from "../controllers/customerController.js";
 
 import {
-  protect,
   adminOnly,
+  managementOnly,
+  protect,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-/*
-|--------------------------------------------------------------------------
-| Customer Routes
-|--------------------------------------------------------------------------
-*/
+router.use(protect);
+router.use(managementOnly);
 
-// View customers
-router.get("/", protect, getCustomers);
+router.get("/", getCustomers);
+router.get("/:id", getCustomer);
 
-// View single customer
-router.get("/:id", protect, getCustomer);
-
-// Create customer
-router.post("/", protect, adminOnly, createCustomer);
-
-// Update customer
-router.put("/:id", protect, adminOnly, updateCustomer);
-
-// Archive customer
-router.patch("/:id/archive", protect, adminOnly, archiveCustomer);
-
-// Restore customer
-router.patch("/:id/restore", protect, adminOnly, restoreCustomer);
-
-// Soft delete customer
-router.delete("/:id", protect, adminOnly, deleteCustomer);
+router.post("/", adminOnly, createCustomer);
+router.put("/:id", adminOnly, updateCustomer);
+router.patch("/:id/archive", adminOnly, archiveCustomer);
+router.patch("/:id/restore", adminOnly, restoreCustomer);
+router.delete("/:id", adminOnly, deleteCustomer);
 
 export default router;
