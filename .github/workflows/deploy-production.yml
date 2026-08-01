@@ -1,0 +1,281 @@
+name: SalonAI Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable SalonAI release tag, for example v7.14.0
+        required: true
+        type: string
+      confirm_production:
+        description: Type DEPLOY to confirm production deployment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate deployment request
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require explicit confirmation
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirm_production }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == "DEPLOY" ]]
+
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release_tag }}
+
+      - name: Validate immutable release tag
+        run: node scripts/ci/validate-release-tag.mjs "${{ inputs.release_tag }}"
+
+      - name: Verify release and manifest exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          evidence_dir="$RUNNER_TEMP/salonai-release-evidence"
+          rm -rf "$evidence_dir"
+          mkdir -p "$evidence_dir"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern release-manifest.json \
+            --dir "$evidence_dir"
+          test -s "$evidence_dir/release-manifest.json"
+
+  deploy:
+    name: Deploy production
+    needs: validate
+    environment: production
+    runs-on:
+      - self-hosted
+      - salonai-production
+    timeout-minutes: 45
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release_tag }}
+
+      - name: Validate runner configuration
+        shell: pwsh
+        env:
+          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_ROOT)) {
+              throw "SALONAI_DEPLOY_ROOT is not configured."
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:PRODUCTION_ENV_FILE)) {
+              throw "PRODUCTION_ENV_FILE is not configured."
+          }
+
+          docker version
+          if ($LASTEXITCODE -ne 0) {
+              throw "Docker is unavailable on the production runner."
+          }
+
+          docker compose version
+          if ($LASTEXITCODE -ne 0) {
+              throw "Docker Compose v2 is unavailable on the production runner."
+          }
+
+          gh --version
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub CLI is unavailable on the production runner."
+          }
+
+      - name: Prepare stable deployment directory
+        shell: pwsh
+        env:
+          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-StrictMode -Version Latest
+
+          function Set-EnvironmentValue {
+              param(
+                  [Parameter(Mandatory)][string]$Path,
+                  [Parameter(Mandatory)][string]$Name,
+                  [Parameter(Mandatory)][string]$Value
+              )
+
+              $Lines = @()
+              if (Test-Path -LiteralPath $Path -PathType Leaf) {
+                  $Lines = @(
+                      Get-Content -LiteralPath $Path |
+                          Where-Object { $_ -notmatch "^\s*$([regex]::Escape($Name))=" }
+                  )
+              }
+
+              $Lines += "$Name=$Value"
+              [System.IO.File]::WriteAllLines(
+                  $Path,
+                  [string[]]$Lines,
+                  [System.Text.UTF8Encoding]::new($false)
+              )
+          }
+
+          $DeployRoot = [System.IO.Path]::GetFullPath($env:DEPLOY_ROOT)
+          New-Item -ItemType Directory -Path $DeployRoot -Force | Out-Null
+
+          $EvidenceDownload = Join-Path $env:RUNNER_TEMP "salonai-release-$env:RELEASE_TAG"
+          Remove-Item -LiteralPath $EvidenceDownload -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $EvidenceDownload -Force | Out-Null
+
+          gh release download $env:RELEASE_TAG `
+              --repo $env:GITHUB_REPOSITORY `
+              --pattern "release-manifest.json" `
+              --dir $EvidenceDownload
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Release manifest download failed."
+          }
+
+          $DownloadedManifest = Join-Path $EvidenceDownload "release-manifest.json"
+          if (-not (Test-Path -LiteralPath $DownloadedManifest -PathType Leaf)) {
+              throw "release-manifest.json was not downloaded."
+          }
+
+          $Manifest = Get-Content -LiteralPath $DownloadedManifest -Raw |
+              ConvertFrom-Json
+
+          if ($Manifest.releaseTag -ne $env:RELEASE_TAG) {
+              throw "Release manifest tag does not match the requested release."
+          }
+
+          if ($Manifest.sourceCommit -notmatch "^[a-f0-9]{40}$") {
+              throw "Release manifest source commit is invalid."
+          }
+
+          $Images = @{}
+          foreach ($Image in @($Manifest.images)) {
+              if ($Image.service -notin @("ai-service", "backend", "frontend")) {
+                  throw "Unexpected release service: $($Image.service)"
+              }
+
+              if ($Image.immutableReference -notmatch "^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$") {
+                  throw "Invalid immutable image reference for $($Image.service)."
+              }
+
+              $Images[$Image.service] = $Image.immutableReference
+          }
+
+          foreach ($Service in @("ai-service", "backend", "frontend")) {
+              if (-not $Images.ContainsKey($Service)) {
+                  throw "Release manifest is missing $Service."
+              }
+          }
+
+          $Directories = @(
+              "ai-service",
+              "backend",
+              "config",
+              "frontend",
+              "monitoring",
+              "nginx",
+              "scripts"
+          )
+
+          foreach ($RelativePath in $Directories) {
+              $Destination = Join-Path $DeployRoot $RelativePath
+              Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction SilentlyContinue
+              Copy-Item `
+                  -LiteralPath $RelativePath `
+                  -Destination $Destination `
+                  -Recurse `
+                  -Force
+          }
+
+          foreach ($RelativePath in @(
+              "docker-compose.observability.yml",
+              "docker-compose.production.yml"
+          )) {
+              Copy-Item `
+                  -LiteralPath $RelativePath `
+                  -Destination (Join-Path $DeployRoot $RelativePath) `
+                  -Force
+          }
+
+          $EnvironmentPath = Join-Path $DeployRoot ".env.production"
+          [System.IO.File]::WriteAllText(
+              $EnvironmentPath,
+              $env:PRODUCTION_ENV_FILE,
+              [System.Text.UTF8Encoding]::new($false)
+          )
+
+          Set-EnvironmentValue -Path $EnvironmentPath -Name "APP_VERSION" -Value $Manifest.releaseTag
+          Set-EnvironmentValue -Path $EnvironmentPath -Name "RELEASE_SOURCE_COMMIT" -Value $Manifest.sourceCommit
+          Set-EnvironmentValue -Path $EnvironmentPath -Name "AI_SERVICE_IMAGE" -Value $Images["ai-service"]
+          Set-EnvironmentValue -Path $EnvironmentPath -Name "BACKEND_IMAGE" -Value $Images["backend"]
+          Set-EnvironmentValue -Path $EnvironmentPath -Name "FRONTEND_IMAGE" -Value $Images["frontend"]
+
+          $ReleaseEvidenceDirectory = Join-Path $DeployRoot "release-evidence"
+          New-Item -ItemType Directory -Path $ReleaseEvidenceDirectory -Force | Out-Null
+
+          $StableManifest = Join-Path $ReleaseEvidenceDirectory "release-manifest.json"
+          Copy-Item -LiteralPath $DownloadedManifest -Destination $StableManifest -Force
+
+      - name: Log in to GHCR
+        shell: pwsh
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $env:GHCR_TOKEN |
+              docker login ghcr.io `
+                  --username "${{ github.actor }}" `
+                  --password-stdin
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "GHCR login failed."
+          }
+
+      - name: Deploy and smoke test
+        shell: pwsh
+        env:
+          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
+        run: |
+          $DeployRoot = [System.IO.Path]::GetFullPath($env:DEPLOY_ROOT)
+
+          & "$DeployRoot/scripts/deployment/Deploy-Production.ps1" `
+              -ProjectRoot $DeployRoot `
+              -EnvironmentFile "$DeployRoot/.env.production" `
+              -ReleaseManifestPath "$DeployRoot/release-evidence/release-manifest.json"
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Production deployment failed."
+          }
+
+      - name: Upload deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-deployment-${{ inputs.release_tag }}-${{ github.run_id }}
+          path: ${{ vars.SALONAI_DEPLOY_ROOT }}/deployment-evidence
+          if-no-files-found: warn
+          retention-days: 90
