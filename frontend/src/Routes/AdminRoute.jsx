@@ -1,30 +1,27 @@
 import { Navigate } from "react-router-dom";
 
-import authService from "../services/authService.js";
+import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import useAuth from "../hooks/useAuth.js";
+import { isAdminRole } from "../utils/roles.js";
 
-function AdminRoute({ children }) {
-  const token = authService.getToken();
-  const user = authService.getCurrentUser();
+export default function AdminRoute({ children }) {
+  const {
+    loading,
+    isAuthenticated,
+    user,
+  } = useAuth();
 
-  if (!token || !user) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
-  if (user.role !== "admin") {
-    return (
-      <Navigate
-        to="/"
-        replace
-      />
-    );
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdminRole(user?.role)) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
 }
-
-export default AdminRoute;

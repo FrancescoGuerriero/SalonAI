@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import Service from "../models/service.js";
+import Service from "../models/Service.js";
 
 export async function getServices(
   req,

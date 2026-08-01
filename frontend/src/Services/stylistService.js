@@ -1,10 +1,10 @@
-import api from "./api";
+import API from "../api/axios.js";
 
 const ENDPOINT = "/stylists";
 
 const stylistService = {
   async getStylists(params = {}) {
-    const { data } = await api.get(ENDPOINT, {
+    const { data } = await API.get(ENDPOINT, {
       params,
     });
 
@@ -12,7 +12,7 @@ const stylistService = {
   },
 
   async getStylist(id) {
-    const { data } = await api.get(
+    const { data } = await API.get(
       `${ENDPOINT}/${id}`
     );
 
@@ -20,7 +20,7 @@ const stylistService = {
   },
 
   async createStylist(stylist) {
-    const { data } = await api.post(
+    const { data } = await API.post(
       ENDPOINT,
       stylist
     );
@@ -29,7 +29,7 @@ const stylistService = {
   },
 
   async updateStylist(id, stylist) {
-    const { data } = await api.put(
+    const { data } = await API.put(
       `${ENDPOINT}/${id}`,
       stylist
     );
@@ -38,7 +38,7 @@ const stylistService = {
   },
 
   async deleteStylist(id) {
-    const { data } = await api.delete(
+    const { data } = await API.delete(
       `${ENDPOINT}/${id}`
     );
 
@@ -46,7 +46,7 @@ const stylistService = {
   },
 
   async toggleStatus(id) {
-    const { data } = await api.patch(
+    const { data } = await API.patch(
       `${ENDPOINT}/${id}/status`
     );
 

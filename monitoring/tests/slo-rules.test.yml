@@ -1,0 +1,76 @@
+rule_files:
+  - /etc/prometheus/slo-rules.yml
+
+evaluation_interval: 30s
+
+tests:
+  - interval: 30s
+
+    input_series:
+      - series: salonai_backend_ready{service="salonai-backend"}
+        values: 0x20
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SalonAIBackendUnavailableSLO
+
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: salonai-backend
+              slo: availability
+              objective: "99.9"
+
+            exp_annotations:
+              summary: SalonAI backend is unavailable
+              description: The backend readiness metric has remained zero for two minutes.
+              runbook_url: docs/runbooks/backend-unavailable.md
+
+  - interval: 30s
+
+    input_series:
+      - series: salonai_http_requests_total{method="GET",path="/api/test",status_class="2xx"}
+        values: 0+98x30
+
+      - series: salonai_http_requests_total{method="GET",path="/api/test",status_class="5xx"}
+        values: 0+2x30
+
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: SalonAIBackendSLOBurnRateCritical
+
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: salonai-backend
+              slo: availability
+              objective: "99.9"
+
+            exp_annotations:
+              summary: SalonAI is consuming error budget rapidly
+              description: The backend error ratio is above the 14.4x burn-rate threshold in both the 5-minute and 30-minute windows.
+              runbook_url: docs/runbooks/high-error-rate.md
+
+  - interval: 30s
+
+    input_series:
+      - series: probe_success{job="salonai-endpoints",service="salonai-edge",instance="http://edge/healthz"}
+        values: 0x20
+
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SalonAIEndpointProbeFailed
+
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              slo: endpoint-availability
+              objective: "99.9"
+              job: salonai-endpoints
+              service: salonai-edge
+              instance: http://edge/healthz
+
+            exp_annotations:
+              summary: SalonAI endpoint probe failed
+              description: Black-box monitoring cannot reach salonai-edge at http://edge/healthz.
+              runbook_url: docs/runbooks/backend-unavailable.md

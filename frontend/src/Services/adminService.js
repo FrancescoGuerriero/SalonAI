@@ -1,3 +1,0 @@
-getDashboard()
-getCustomers()
-getAppointments()

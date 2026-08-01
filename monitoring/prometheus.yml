@@ -1,0 +1,84 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+  external_labels:
+    application: salonai
+    environment: production
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+  - /etc/prometheus/slo-rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+        labels:
+          service: salonai-prometheus
+
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+          - alertmanager:9093
+        labels:
+          service: salonai-alertmanager
+
+  - job_name: salonai-backend
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets:
+          - backend:5000
+        labels:
+          service: salonai-backend
+          environment: production
+
+  - job_name: salonai-endpoints
+    metrics_path: /probe
+    params:
+      module:
+        - http_2xx
+
+    static_configs:
+      - targets:
+          - http://edge/healthz
+        labels:
+          service: salonai-edge
+          component: edge
+
+      - targets:
+          - http://backend:5000/api/health/ready
+        labels:
+          service: salonai-backend
+          component: backend
+
+      - targets:
+          - http://ai-service:8000/health
+        labels:
+          service: salonai-ai-service
+          component: ai-service
+
+      - targets:
+          - http://frontend:8080/health
+        labels:
+          service: salonai-frontend
+          component: frontend
+
+    relabel_configs:
+      - source_labels:
+          - __address__
+        target_label: __param_target
+
+      - source_labels:
+          - __param_target
+        target_label: instance
+
+      - target_label: __address__
+        replacement: blackbox:9115

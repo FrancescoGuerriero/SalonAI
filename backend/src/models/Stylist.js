@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const workingHoursSchema = new mongoose.Schema(
   {
@@ -163,5 +163,9 @@ stylistSchema.set("toJSON", {
 stylistSchema.set("toObject", {
   virtuals: true
 });
+const Stylist =
+  mongoose.models.Stylist ||
+  mongoose.model("Stylist", stylistSchema);
 
-export default mongoose.model("Stylist", stylistSchema);
+export default Stylist;
+

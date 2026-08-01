@@ -1,31 +1,36 @@
 import mongoose from "mongoose";
 
+const connectDB = async (
+  uri =
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI
+) => {
+  if (!uri || typeof uri !== "string") {
+    throw new Error(
+      "MONGODB_URI is missing from the backend environment configuration."
+    );
+  }
 
-const connectDB = async () => {
+  try {
+    const connection = await mongoose.connect(
+      uri,
+      {
+        serverSelectionTimeoutMS: 15000,
+      }
+    );
 
-    try {
+    console.log(
+      `MongoDB Connected: ${connection.connection.host}`
+    );
 
-        const conn = await mongoose.connect(
-            process.env.MONGO_URI
-        );
+    return connection;
+  } catch (error) {
+    console.error(
+      `MongoDB connection failed: ${error.message}`
+    );
 
-        console.log(
-            `MongoDB Connected: ${conn.connection.host}`
-        );
-
-
-    } catch(error) {
-
-        console.error(
-            "MongoDB Error:",
-            error.message
-        );
-
-        process.exit(1);
-
-    }
-
+    throw error;
+  }
 };
-
 
 export default connectDB;
