@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "phase": "7.15",
+  "name": "Production Environment Provisioning and Go-Live Readiness",
+  "dependsOn": {
+    "phase": "7.14",
+    "requiredCommit": "f2a5ab5276565dec2a4f8ba25fcbdef6a190bd20",
+    "requiredPullRequest": 10,
+    "mustBeMergedToMain": true
+  },
+  "repository": "FrancescoGuerriero/SalonAI",
+  "production": {
+    "githubEnvironment": "production",
+    "runnerLabel": "salonai-production",
+    "httpsRequired": true,
+    "immutableImageDigestsRequired": true,
+    "releaseManifestRequired": true,
+    "credentialRotationEvidenceRequired": true,
+    "dnsValidationRequired": true,
+    "tlsValidationRequired": true,
+    "composeValidationRequired": true,
+    "deploymentDuringThisPhase": false
+  },
+  "prohibited": [
+    "Embedding secrets in tracked files",
+    "Using tag-only production images",
+    "Running docker compose --remove-orphans",
+    "Running a public production deployment from the readiness script",
+    "Treating generated local credentials as proof that external credentials were rotated"
+  ],
+  "evidenceDirectory": "deployment-evidence/phase7-15"
+}
