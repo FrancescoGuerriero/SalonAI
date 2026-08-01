@@ -9,7 +9,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
-import { getPremiumFeatureData } from "../services/premiumFeaturesService.js";
+import { getPremiumFeatureData } from "../Services/premiumFeaturesService.js";
 import NotificationRecordCard from "../components/notifications/NotificationRecordCard.jsx";
 import NotificationSummaryCard from "../components/notifications/NotificationSummaryCard.jsx";
 

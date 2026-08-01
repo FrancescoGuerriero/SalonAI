@@ -1,7 +1,7 @@
 import { AlertTriangle, Boxes, PackagePlus, PoundSterling } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import commerceService from "../services/commerceService.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 const emptyProduct = {

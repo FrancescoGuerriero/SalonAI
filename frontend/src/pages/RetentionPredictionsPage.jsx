@@ -32,7 +32,7 @@ import {
   getRetentionPredictions,
   getRetentionPredictionSummary,
   RETENTION_RISK_LEVELS,
-} from "../services/retentionPredictionService.js";
+} from "../Services/retentionPredictionService.js";
 
 const PAGE_SIZE = 20;
 

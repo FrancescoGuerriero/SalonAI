@@ -1,4 +1,4 @@
-﻿import API from "../api/axios.js";
+import API from "../api/axios.js";
 
 const BASE_URL =
   "/future/revenue-forecast";

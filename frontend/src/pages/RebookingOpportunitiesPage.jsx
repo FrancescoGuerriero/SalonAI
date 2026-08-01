@@ -28,7 +28,7 @@ import {
 
 import {
   getRebookingOpportunities,
-} from "../services/rebookingOpportunityService.js";
+} from "../Services/rebookingOpportunityService.js";
 
 function formatCurrency(
   value,

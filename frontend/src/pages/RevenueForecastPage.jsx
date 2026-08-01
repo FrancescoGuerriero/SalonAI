@@ -1,4 +1,4 @@
-﻿
+
 import {
   useCallback,
   useEffect,
@@ -21,7 +21,7 @@ import {
 
 import {
   getRevenueForecast,
-} from "../services/revenueForecastService.js";
+} from "../Services/revenueForecastService.js";
 
 import RevenueForecastSnapshotsPanel from "../components/revenue/RevenueForecastSnapshotsPanel.jsx";
 

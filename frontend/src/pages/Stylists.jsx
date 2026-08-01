@@ -18,7 +18,7 @@ import Alert from "../components/ui/Alert.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
 import { BookingContext } from "../context/BookingContext.jsx";
-import stylistService from "../services/stylistService.js";
+import stylistService from "../Services/stylistService.js";
 import "../styles/customerExperience.css";
 
 function normaliseStylists(data) {

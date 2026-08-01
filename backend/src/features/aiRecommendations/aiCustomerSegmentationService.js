@@ -1,6 +1,6 @@
 import Order from "../commerce/Order.js";
 import Appointment from "../../models/Appointment.js";
-import Customer from "../../models/Customer.js";
+import Customer from "../../models/customer.js";
 import CustomerContactLog from "../../models/customerContactLog.js";
 import {
   analyseCustomerSegments,

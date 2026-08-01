@@ -36,7 +36,7 @@ import {
   getDormantCustomers,
   queueDormantOutreach,
   queuePostAppointmentFollowUps,
-} from "../services/retentionActionService.js";
+} from "../Services/retentionActionService.js";
 
 const DEFAULT_DORMANT_FORM = {
   dormantDays: 60,

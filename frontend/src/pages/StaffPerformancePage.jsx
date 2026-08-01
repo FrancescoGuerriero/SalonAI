@@ -31,7 +31,7 @@ import {
   assignRetailOrder,
   getStaffPerformance,
   saveStaffCompensationPlan,
-} from "../services/staffPerformanceService.js";
+} from "../Services/staffPerformanceService.js";
 
 function formatCurrency(value, currency = "GBP") {
   return new Intl.NumberFormat("en-GB", {

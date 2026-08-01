@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BadgePoundSterling, BarChart3, ShieldCheck, TrendingUp } from "lucide-react";
 
-import { getDynamicPricingRecommendations } from "../services/dynamicPricingService.js";
+import { getDynamicPricingRecommendations } from "../Services/dynamicPricingService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatCurrency, formatPercentage, getErrorMessage } from "../shared/formatters.js";
 

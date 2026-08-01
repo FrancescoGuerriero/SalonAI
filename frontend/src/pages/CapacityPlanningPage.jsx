@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Clock3, Gauge, UsersRound } from "lucide-react";
 
-import { getCapacityPlan } from "../services/capacityPlanningService.js";
+import { getCapacityPlan } from "../Services/capacityPlanningService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatNumber, formatPercentage, getErrorMessage } from "../shared/formatters.js";
 

@@ -10,7 +10,7 @@ import {
 
 import app from "../app.js";
 import Appointment from "../models/Appointment.js";
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 import CustomerNote from "../models/CustomerNote.js";
 import CustomerContactLog from "../models/customerContactLog.js";
 import Stylist from "../models/Stylist.js";

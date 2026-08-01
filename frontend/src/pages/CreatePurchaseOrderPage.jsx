@@ -12,7 +12,7 @@ import {
 import {
   createPurchaseOrder,
   getSuppliers,
-} from "../services/inventoryPurchasingService.js";
+} from "../Services/inventoryPurchasingService.js";
 
 
 function emptyItem() {

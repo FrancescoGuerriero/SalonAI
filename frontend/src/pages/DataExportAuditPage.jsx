@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList, Database, Download, FileJson, FileSpreadsheet } from "lucide-react";
 
-import { exportDataset, getAuditEvents } from "../services/dataExportAuditService.js";
+import { exportDataset, getAuditEvents } from "../Services/dataExportAuditService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatDateTime, getErrorMessage } from "../shared/formatters.js";
 

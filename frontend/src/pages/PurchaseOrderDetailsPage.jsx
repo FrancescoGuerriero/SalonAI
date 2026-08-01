@@ -17,7 +17,7 @@ import {
   getPurchaseOrder,
   receivePurchaseOrder,
   submitPurchaseOrder,
-} from "../services/inventoryPurchasingService.js";
+} from "../Services/inventoryPurchasingService.js";
 
 
 const money = (value) =>

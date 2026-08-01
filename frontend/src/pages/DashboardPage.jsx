@@ -20,15 +20,15 @@ import Card from "../components/ui/Card";
 
 import {
   getDashboardData,
-} from "../services/dashboardApi";
+} from "../Services/dashboardApi";
 
 import {
   getDashboardInsights,
-} from "../services/dashboardInsightsApi";
+} from "../Services/dashboardInsightsApi";
 
 import {
   getDashboardOperations,
-} from "../services/dashboardOperationsApi";
+} from "../Services/dashboardOperationsApi";
 
 export default function DashboardPage() {
   const [

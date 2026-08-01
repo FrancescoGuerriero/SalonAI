@@ -23,7 +23,7 @@ import { Link } from "react-router-dom";
 
 import {
   getCustomerOperations,
-} from "../../services/customerProfileService.js";
+} from "../../Services/customerProfileService.js";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-GB", {

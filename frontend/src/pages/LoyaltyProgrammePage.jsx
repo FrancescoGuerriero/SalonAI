@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
-import { getPremiumFeatureData } from "../services/premiumFeaturesService.js";
+import { getPremiumFeatureData } from "../Services/premiumFeaturesService.js";
 
 export default function LoyaltyProgrammePage() {
   const [result, setResult] = useState(null);

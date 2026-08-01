@@ -23,7 +23,7 @@ import {
 import {
   getCommunicationTemplateErrorMessage,
   renderCommunicationTemplate,
-} from "../../services/communicationTemplateApi";
+} from "../../Services/communicationTemplateApi";
 
 const CHANNEL_CONFIG = {
   email: {

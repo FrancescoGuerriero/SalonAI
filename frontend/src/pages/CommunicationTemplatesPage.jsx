@@ -35,7 +35,7 @@ import CommunicationTemplatePreviewModal from "../components/communications/Comm
 
 import {
   getCommunicationTemplates,
-} from "../services/communicationTemplateApi.js";
+} from "../Services/communicationTemplateApi.js";
 
 const CHANNELS = {
   email: {

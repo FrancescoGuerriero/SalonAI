@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
-import Customer from "../models/Customer.js";
-import User from "../models/User.js";
+import Customer from "../models/customer.js";
+import User from "../models/user.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck2, Clock3, Search, Sparkles, UserRound } from "lucide-react";
 
-import { getSmartAppointmentRecommendations } from "../services/smartAppointmentService.js";
+import { getSmartAppointmentRecommendations } from "../Services/smartAppointmentService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatDateTime, getErrorMessage } from "../shared/formatters.js";
 

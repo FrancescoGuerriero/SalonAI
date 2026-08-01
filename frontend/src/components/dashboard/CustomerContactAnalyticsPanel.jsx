@@ -25,7 +25,7 @@ import {
   getCustomerContactCampaignSummary,
   getCustomerContactLogs,
   updateCustomerContactStatus,
-} from "../../services/customerContactApi";
+} from "../../Services/customerContactApi";
 
 const CAMPAIGN_OPTIONS = [
   {

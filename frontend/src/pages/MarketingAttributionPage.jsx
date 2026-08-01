@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, CheckCircle2, Megaphone, MousePointerClick, PoundSterling } from "lucide-react";
-import { getMarketingAttribution } from "../services/marketingAttributionService.js";
+import { getMarketingAttribution } from "../Services/marketingAttributionService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatCurrency, formatPercentage, getErrorMessage } from "../shared/formatters.js";
 function AttributionTable({

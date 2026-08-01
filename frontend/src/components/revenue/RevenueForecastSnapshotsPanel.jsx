@@ -1,4 +1,4 @@
-﻿import {
+import {
   useCallback,
   useEffect,
   useState,
@@ -19,7 +19,7 @@ import {
   deleteRevenueForecastSnapshot,
   getRevenueForecastSnapshot,
   listRevenueForecastSnapshots,
-} from "../../services/revenueForecastService.js";
+} from "../../Services/revenueForecastService.js";
 
 function getErrorMessage(error) {
   return (

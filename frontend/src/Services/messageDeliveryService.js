@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 
 const TOKEN_STORAGE_KEY = "salonai_token";
 const USER_STORAGE_KEY = "salonai_user";

@@ -32,10 +32,10 @@ import { Link } from "react-router-dom";
 
 import {
   getAiServiceStatus,
-} from "../services/haircareRecommendationService.js";
+} from "../Services/haircareRecommendationService.js";
 import {
   getAiCustomerSegmentation,
-} from "../services/aiCustomerSegmentationService.js";
+} from "../Services/aiCustomerSegmentationService.js";
 
 const DEFAULT_THRESHOLDS = {
   newCustomerDays: 45,

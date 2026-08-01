@@ -17,7 +17,7 @@ import {
   listRebookingCampaigns,
   scheduleRebookingCampaign,
   sendRebookingCampaign,
-} from "../services/rebookingCampaignService.js";
+} from "../Services/rebookingCampaignService.js";
 import {
   EmptyState,
   ErrorBanner,

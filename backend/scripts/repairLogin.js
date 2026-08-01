@@ -3,7 +3,7 @@ import "dotenv/config";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 
-import User from "../src/models/User.js";
+import User from "../src/models/user.js";
 
 function requiredEnvironmentValue(...names) {
   for (const name of names) {

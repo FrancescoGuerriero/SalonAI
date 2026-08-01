@@ -1,5 +1,5 @@
 import Appointment from "../models/Appointment.js";
-import Service from "../models/Service.js";
+import Service from "../models/service.js";
 import Stylist from "../models/Stylist.js";
 
 function normalizePositiveInteger(

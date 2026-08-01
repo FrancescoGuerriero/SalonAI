@@ -22,7 +22,7 @@ import {
 
 import {
   getCustomerValueAnalytics,
-} from "../services/customerValueService.js";
+} from "../Services/customerValueService.js";
 
 function formatCurrency(
   value,

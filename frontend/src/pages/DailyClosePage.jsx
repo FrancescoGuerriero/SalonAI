@@ -30,7 +30,7 @@ import {
 } from "react";
 
 import useAuth from "../hooks/useAuth.js";
-import dailyCloseApi from "../services/dailyCloseApi.js";
+import dailyCloseApi from "../Services/dailyCloseApi.js";
 
 const CHECKLIST_ITEMS = [
   {

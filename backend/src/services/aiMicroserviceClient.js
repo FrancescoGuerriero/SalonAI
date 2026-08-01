@@ -1,4 +1,4 @@
-﻿const DEFAULT_AI_SERVICE_URL =
+const DEFAULT_AI_SERVICE_URL =
   "http://127.0.0.1:8000";
 
 const DEFAULT_TIMEOUT_MS = 20_000;

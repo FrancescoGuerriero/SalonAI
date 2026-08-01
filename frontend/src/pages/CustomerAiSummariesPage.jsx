@@ -32,14 +32,14 @@ import {
 
 import {
   getAiServiceStatus,
-} from "../services/haircareRecommendationService.js";
+} from "../Services/haircareRecommendationService.js";
 import {
   generateCustomerAiSummary,
-} from "../services/customerAiSummaryService.js";
+} from "../Services/customerAiSummaryService.js";
 import {
   getCustomerDisplayName,
   listCustomerProfiles,
-} from "../services/customerProfileService.js";
+} from "../Services/customerProfileService.js";
 
 function customerId(customer) {
   return String(customer?._id || customer?.id || "").trim();

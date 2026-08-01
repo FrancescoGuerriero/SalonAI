@@ -1,4 +1,4 @@
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 
 const DEFAULT_SEGMENT_SETTINGS = {
   newCustomerDays: 30,
