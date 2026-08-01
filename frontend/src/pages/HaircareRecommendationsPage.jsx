@@ -30,7 +30,7 @@ import {
   HAIR_TEXTURES,
   HAIR_TYPES,
   MAINTENANCE_PREFERENCES,
-} from "../services/haircareRecommendationService.js";
+} from "../Services/haircareRecommendationService.js";
 
 const INITIAL_FORM = {
   customerId: "",

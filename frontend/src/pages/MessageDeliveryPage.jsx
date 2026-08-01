@@ -1,4 +1,4 @@
-﻿import {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -25,9 +25,9 @@ import {
   XCircle,
 } from "lucide-react";
 
-import * as messageDeliveryService from "../services/messageDeliveryService.js";
+import * as messageDeliveryService from "../Services/messageDeliveryService.js";
 
-import * as scheduledCommunicationService from "../services/scheduledCommunicationService.js";
+import * as scheduledCommunicationService from "../Services/scheduledCommunicationService.js";
 
 const STATUS_OPTIONS = [
   {

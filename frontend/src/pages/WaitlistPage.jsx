@@ -37,7 +37,7 @@ import {
   getWaitlistSummary,
   matchWaitlistEntries,
   updateWaitlistEntry,
-} from "../services/waitlistService.js";
+} from "../Services/waitlistService.js";
 
 const PAGE_SIZE = 15;
 

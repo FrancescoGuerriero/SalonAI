@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 import CustomerNote from "../models/CustomerNote.js";
 import CustomerContactLog from "../models/customerContactLog.js";
 

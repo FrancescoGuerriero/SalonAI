@@ -20,7 +20,7 @@ import {
 
 import {
   getBookingDemandAnalytics,
-} from "../services/bookingDemandService.js";
+} from "../Services/bookingDemandService.js";
 
 function formatCurrency(
   value,

@@ -1,4 +1,4 @@
-import Customer from "../../models/Customer.js";
+import Customer from "../../models/customer.js";
 import Campaign from "./Campaign.js";
 import CommunicationTemplate from "../../models/CommunicationTemplate.js";
 import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";

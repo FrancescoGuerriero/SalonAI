@@ -1,6 +1,6 @@
 import {
   processBatch,
-} from "../features/scheduler/schedulerService.js";
+} from "./scheduler/schedulerService.js";
 
 const DEFAULT_INTERVAL_MS =
   60 * 1000;

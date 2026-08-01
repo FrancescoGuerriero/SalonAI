@@ -27,7 +27,7 @@ import {
   getCommunicationCampaign,
   getCommunicationCampaignErrorMessage,
   previewExistingCampaignAudience,
-} from "../../services/communicationCampaignApi";
+} from "../../Services/communicationCampaignApi";
 
 const CHANNEL_CONFIG = {
   email: {

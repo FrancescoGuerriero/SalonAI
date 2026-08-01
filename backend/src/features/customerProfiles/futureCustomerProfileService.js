@@ -1,4 +1,4 @@
-import Customer from "../../models/Customer.js";
+import Customer from "../../models/customer.js";
 import Appointment from "../../models/Appointment.js";
 import CustomerContactLog from "../../models/customerContactLog.js";
 import CustomerNote from "../../models/CustomerNote.js";

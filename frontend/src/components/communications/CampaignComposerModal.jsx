@@ -36,11 +36,11 @@ import {
   getCommunicationCampaignErrorMessage,
   previewNewCampaignAudience,
   updateCommunicationCampaign,
-} from "../../services/communicationCampaignApi";
+} from "../../Services/communicationCampaignApi";
 
 import {
   getCommunicationTemplates,
-} from "../../services/communicationTemplateApi";
+} from "../../Services/communicationTemplateApi";
 
 import CampaignAiWriterPanel from "./CampaignAiWriterPanel.jsx";
 

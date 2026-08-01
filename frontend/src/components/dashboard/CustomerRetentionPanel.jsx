@@ -12,7 +12,7 @@ import DormantCustomersTable from "./DormantCustomersTable";
 import NewVsReturningChart from "./NewVsReturningChart";
 import TopCustomersTable from "./TopCustomersTable";
 
-import { getCustomerRetentionAnalytics } from "../../services/customerRetentionApi";
+import { getCustomerRetentionAnalytics } from "../../Services/customerRetentionApi";
 
 function normalizePositiveInteger(
   value,

@@ -1,6 +1,6 @@
 import {
   queueUpcomingReminders,
-} from "../features/appointments/appointmentManagementService.js";
+} from "./appointments/appointmentManagementService.js";
 
 const DEFAULT_INTERVAL_MS =
   30 * 60 * 1000;

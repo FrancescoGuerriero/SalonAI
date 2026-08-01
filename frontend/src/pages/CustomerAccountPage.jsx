@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
-import { getAppointments } from "../services/appointmentApi.js";
-import commerceService from "../services/commerceService.js";
+import { getAppointments } from "../Services/appointmentApi.js";
+import commerceService from "../Services/commerceService.js";
 import AccountSection from "../components/account/AccountSection.jsx";
 import AccountSummaryCard from "../components/account/AccountSummaryCard.jsx";
 import Alert from "../components/ui/Alert.jsx";

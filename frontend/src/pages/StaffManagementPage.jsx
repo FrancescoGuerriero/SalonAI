@@ -15,8 +15,8 @@ import {
   X,
 } from "lucide-react";
 
-import stylistService from "../services/stylistService.js";
-import { staffApi } from "../services/futureFeaturesApi.js";
+import stylistService from "../Services/stylistService.js";
+import { staffApi } from "../Services/futureFeaturesApi.js";
 
 const DAYS = [
   { value: 1, label: "Monday" },

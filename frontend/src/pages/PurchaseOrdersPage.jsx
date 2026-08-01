@@ -12,7 +12,7 @@ import {
 
 import {
   getPurchaseOrders,
-} from "../services/inventoryPurchasingService.js";
+} from "../Services/inventoryPurchasingService.js";
 
 
 const money = (value) =>

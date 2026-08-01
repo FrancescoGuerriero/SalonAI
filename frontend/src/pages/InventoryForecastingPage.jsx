@@ -6,7 +6,7 @@ import {
   deleteInventoryItem,
   getInventoryForecast,
   updateInventoryItem,
-} from "../services/inventoryService.js";
+} from "../Services/inventoryService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatCurrency, formatDate, getErrorMessage } from "../shared/formatters.js";
 

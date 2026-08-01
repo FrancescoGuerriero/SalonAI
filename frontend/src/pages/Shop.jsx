@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import CommerceTrustBar from "../components/commerce/CommerceTrustBar.jsx";
 import useCart from "../hooks/useCart.js";
-import commerceService from "../services/commerceService.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 function ProductImage({ product }) {

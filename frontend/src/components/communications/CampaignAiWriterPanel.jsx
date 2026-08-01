@@ -17,7 +17,7 @@ import {
   AI_CAMPAIGN_TONES,
   generateAiCampaignCopy,
   getAiCampaignWritingErrorMessage,
-} from "../../services/aiCampaignWritingService.js";
+} from "../../Services/aiCampaignWritingService.js";
 
 const REPLACEMENT_MODES = [
   {

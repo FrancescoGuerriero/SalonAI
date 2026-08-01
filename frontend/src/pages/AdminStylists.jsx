@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import StylistCard from "../components/StylistCard";
 import StylistForm from "../components/StylistForm";
-import stylistService from "../services/stylistService";
+import stylistService from "../Services/stylistService";
 
 export default function AdminStylists() {
   const [stylists, setStylists] = useState([]);

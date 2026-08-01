@@ -25,7 +25,7 @@ import {
 import {
   communicationCampaignClient,
   getCommunicationCampaignErrorMessage,
-} from "../../services/communicationCampaignApi";
+} from "../../Services/communicationCampaignApi";
 
 const AUDIENCE_TYPES = [
   {

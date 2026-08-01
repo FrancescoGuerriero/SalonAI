@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 
 import CustomerNote, {
   CUSTOMER_NOTE_TYPES,

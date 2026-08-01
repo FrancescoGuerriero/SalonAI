@@ -1,7 +1,7 @@
 import { ClipboardList } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import commerceService from "../services/commerceService.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 const statuses = ["paid", "processing", "ready", "completed", "cancelled", "refunded"];

@@ -12,7 +12,7 @@ import {
 
 import {
   getReorderRecommendations,
-} from "../services/inventoryPurchasingService.js";
+} from "../Services/inventoryPurchasingService.js";
 
 
 export default function ReorderRecommendationsPage() {

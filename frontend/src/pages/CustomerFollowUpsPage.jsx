@@ -23,7 +23,7 @@ import {
 
 import { Link } from "react-router-dom";
 
-import customerFollowUpApi from "../services/customerFollowUpApi.js";
+import customerFollowUpApi from "../Services/customerFollowUpApi.js";
 
 const FOLLOW_UP_STATES = [
   {

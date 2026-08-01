@@ -18,7 +18,7 @@ import Skeleton from "../components/ui/Skeleton.jsx";
 import BookingProgress from "../components/customer/BookingProgress.jsx";
 import ServiceCard from "../components/customer/ServiceCard.jsx";
 import { BookingContext } from "../context/BookingContext.jsx";
-import serviceService from "../services/serviceService.js";
+import serviceService from "../Services/serviceService.js";
 import "../styles/customerExperience.css";
 
 function normaliseServices(data) {

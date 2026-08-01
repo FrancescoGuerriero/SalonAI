@@ -22,9 +22,9 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 
-import appointmentManagementApi from "../services/appointmentManagementApi.js";
-import serviceService from "../services/serviceService.js";
-import stylistService from "../services/stylistService.js";
+import appointmentManagementApi from "../Services/appointmentManagementApi.js";
+import serviceService from "../Services/serviceService.js";
+import stylistService from "../Services/stylistService.js";
 
 const STATUS_OPTIONS = [
   "pending",

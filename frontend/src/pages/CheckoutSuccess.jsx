@@ -2,7 +2,7 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import commerceService from "../services/commerceService.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 export default function CheckoutSuccess() {

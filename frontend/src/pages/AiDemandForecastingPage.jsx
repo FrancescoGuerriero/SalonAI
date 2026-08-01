@@ -28,7 +28,7 @@ import {
 import {
   getAiAppointmentDemandForecast,
   getDemandForecastErrorMessage,
-} from "../services/aiDemandForecastingService.js";
+} from "../Services/aiDemandForecastingService.js";
 
 
 const DEFAULT_OPTIONS = {

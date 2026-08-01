@@ -40,7 +40,7 @@ import {
   pauseCommunicationCampaign,
   refreshCommunicationCampaignDeliveryCounts,
   resumeCommunicationCampaign,
-} from "../services/communicationCampaignApi.js";
+} from "../Services/communicationCampaignApi.js";
 
 const TEMPLATE_STORAGE_KEY =
   "salonai-campaign-template";

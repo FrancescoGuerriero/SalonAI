@@ -25,7 +25,7 @@ import {
   useState,
 } from "react";
 
-import customerSegmentationService from "../services/customerSegmentationService.js";
+import customerSegmentationService from "../Services/customerSegmentationService.js";
 
 const DEFAULT_SETTINGS = {
   newCustomerDays: 30,

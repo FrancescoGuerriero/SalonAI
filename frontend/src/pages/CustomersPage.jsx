@@ -25,7 +25,7 @@ import {
 
 import {
   listCustomerProfiles,
-} from "../services/customerProfileService.js";
+} from "../Services/customerProfileService.js";
 
 function extractCustomers(responseData) {
   if (Array.isArray(responseData)) {

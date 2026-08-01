@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
-import Customer from "../models/Customer.js";
-import Service from "../models/Service.js";
+import Customer from "../models/customer.js";
+import Service from "../models/service.js";
 import Stylist from "../models/Stylist.js";
-import User from "../models/User.js";
+import User from "../models/user.js";
 
 import {
   findConflict,

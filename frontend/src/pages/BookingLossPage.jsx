@@ -21,7 +21,7 @@ import {
 
 import {
   getBookingLossAnalytics,
-} from "../services/bookingLossService.js";
+} from "../Services/bookingLossService.js";
 
 function formatCurrency(
   value,

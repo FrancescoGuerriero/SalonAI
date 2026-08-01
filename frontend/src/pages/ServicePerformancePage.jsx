@@ -23,7 +23,7 @@ import {
 
 import {
   getServicePerformance,
-} from "../services/servicePerformanceService.js";
+} from "../Services/servicePerformanceService.js";
 
 function formatCurrency(
   value,

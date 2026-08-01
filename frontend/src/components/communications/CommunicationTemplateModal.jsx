@@ -24,7 +24,7 @@ import {
   createCommunicationTemplate,
   getCommunicationTemplateErrorMessage,
   updateCommunicationTemplate,
-} from "../../services/communicationTemplateApi";
+} from "../../Services/communicationTemplateApi";
 
 const CAMPAIGN_OPTIONS = [
   {

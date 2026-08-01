@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Boxes, Building2, CalendarDays, MessageSquareText, PoundSterling, Send } from "lucide-react";
 
-import { getExecutiveCommandCentre } from "../services/executiveCommandService.js";
+import { getExecutiveCommandCentre } from "../Services/executiveCommandService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatCurrency, formatPercentage, getErrorMessage } from "../shared/formatters.js";
 

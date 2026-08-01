@@ -1,5 +1,5 @@
 import Appointment from "../models/Appointment.js";
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 
 function normalizePositiveInteger(
   value,

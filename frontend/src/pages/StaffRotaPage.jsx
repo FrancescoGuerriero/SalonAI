@@ -25,7 +25,7 @@ import {
 } from "react";
 
 import useAuth from "../hooks/useAuth.js";
-import staffRotaApi from "../services/staffRotaApi.js";
+import staffRotaApi from "../Services/staffRotaApi.js";
 
 const DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   weekday: "long",

@@ -1,7 +1,7 @@
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 import Stylist from "../models/Stylist.js";
 import Appointment from "../models/Appointment.js";
-import Service from "../models/Service.js";
+import Service from "../models/service.js";
 
 function normalizePositiveInteger(value, fallback, maximum = 365) {
   const parsedValue = Number.parseInt(value, 10);

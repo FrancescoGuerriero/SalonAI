@@ -6,7 +6,7 @@ import CheckoutProgress from "../components/commerce/CheckoutProgress.jsx";
 import CommerceTrustBar from "../components/commerce/CommerceTrustBar.jsx";
 import useAuth from "../hooks/useAuth.js";
 import useCart from "../hooks/useCart.js";
-import commerceService from "../services/commerceService.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 const emptyAddress = {

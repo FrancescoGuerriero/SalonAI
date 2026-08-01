@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import Order from "../commerce/Order.js";
 import Appointment from "../../models/Appointment.js";
-import Customer from "../../models/Customer.js";
+import Customer from "../../models/customer.js";
 import CustomerNote from "../../models/CustomerNote.js";
 import {
   getCustomerSummary,

@@ -1,4 +1,4 @@
-﻿import {
+import {
   lazy,
   Suspense,
 } from "react";

@@ -7,7 +7,7 @@ import moment from "moment";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-import { getAppointments } from "../../services/appointmentApi.js";
+import { getAppointments } from "../../Services/appointmentApi.js";
 
 const localizer = momentLocalizer(moment);
 

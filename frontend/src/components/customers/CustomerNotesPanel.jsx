@@ -51,7 +51,7 @@ import {
   restoreCustomerNote,
   setCustomerNotePinned,
   updateCustomerNote,
-} from "../../services/customerNoteService.js";
+} from "../../Services/customerNoteService.js";
 
 const NOTE_TYPES = [
   "general",

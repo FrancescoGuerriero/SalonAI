@@ -12,7 +12,7 @@ import LoadingBlock from "../components/features/LoadingBlock.jsx";
 import StatusBadge from "../components/features/StatusBadge.jsx";
 import {
   schedulerApi,
-} from "../services/futureFeaturesApi.js";
+} from "../Services/futureFeaturesApi.js";
 
 function customerName(customer = {}) {
   return (

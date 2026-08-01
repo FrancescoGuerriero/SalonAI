@@ -34,7 +34,7 @@ import {
 import {
   DEFAULT_MARKETING_INSIGHTS_PARAMETERS,
   getAiMarketingInsights,
-} from "../services/aiMarketingInsightsService.js";
+} from "../Services/aiMarketingInsightsService.js";
 
 
 const DEFAULT_FILTERS = {

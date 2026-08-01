@@ -26,7 +26,7 @@ import {
 
 import {
   getAiSalesForecast,
-} from "../services/aiSalesForecastingService.js";
+} from "../Services/aiSalesForecastingService.js";
 
 
 const DEFAULT_FILTERS = {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Frown, MessageSquareText, Smile, Star, ThumbsUp } from "lucide-react";
 
-import { createFeedback, getFeedbackAnalytics, resolveFeedback } from "../services/feedbackAnalyticsService.js";
+import { createFeedback, getFeedbackAnalytics, resolveFeedback } from "../Services/feedbackAnalyticsService.js";
 import { EmptyState, ErrorBanner, FeatureHeader, LoadingPanel, Pill, SummaryCard } from "../shared/FutureUi.jsx";
 import { formatDateTime, getErrorMessage } from "../shared/formatters.js";
 

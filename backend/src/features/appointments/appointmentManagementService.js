@@ -4,15 +4,15 @@ import mongoose from "mongoose";
  * Register every model referenced by Appointment.populate().
  * These imports are intentionally executed for their side effects.
  */
-import "../../models/Customer.js";
+import "../../models/customer.js";
 import "../../models/Stylist.js";
-import "../../models/User.js";
+import "../../models/user.js";
 
 import Appointment, {
   APPOINTMENT_STATUSES,
   PAYMENT_STATUSES,
 } from "../../models/Appointment.js";
-import Service from "../../models/Service.js";
+import Service from "../../models/service.js";
 import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";
 import {
   assertAppointmentWithinStaffAvailability,

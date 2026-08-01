@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 
 import Appointment from "../../models/Appointment.js";
-import Customer from "../../models/Customer.js";
+import Customer from "../../models/customer.js";
 import CustomerContactLog from "../../models/customerContactLog.js";
 import Campaign from "../campaigns/Campaign.js";
 import { dateRange } from "../../shared/dateUtils.js";

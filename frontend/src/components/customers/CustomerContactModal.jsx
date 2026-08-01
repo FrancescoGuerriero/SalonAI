@@ -13,7 +13,7 @@ import {
 
 import {
   createCustomerContactLog,
-} from "../../services/customerContactApi";
+} from "../../Services/customerContactApi";
 
 const CHANNEL_OPTIONS = [
   {

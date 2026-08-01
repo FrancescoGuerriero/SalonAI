@@ -16,7 +16,7 @@ import CommunicationCampaignRecipient, {
 } from "../models/CommunicationCampaignRecipient.js";
 
 import CommunicationTemplate from "../models/CommunicationTemplate.js";
-import Customer from "../models/Customer.js";
+import Customer from "../models/customer.js";
 import CustomerContactLog from "../models/customerContactLog.js";
 
 const DEFAULT_PAGE_SIZE = 12;

@@ -47,7 +47,7 @@ import {
   restoreCustomerProfile,
   updateCustomerConsent,
   updateCustomerProfile,
-} from "../services/customerProfileService.js";
+} from "../Services/customerProfileService.js";
 
 const PROFILE_TABS = [
   {
