@@ -126,7 +126,7 @@ jobs:
     name: Dependency review
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -135,10 +135,53 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check dependency review API availability
+        id: dependency-api
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          api_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/dependency-graph/compare/${BASE_SHA}...${HEAD_SHA}"
+          http_status="$(curl --silent --show-error --location \
+            --output dependency-review-api.json \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "${api_url}")"
+
+          echo "http_status=${http_status}" >> "${GITHUB_OUTPUT}"
+
+          if [[ "${http_status}" == "200" ]]; then
+            echo "available=true" >> "${GITHUB_OUTPUT}"
+            echo "GitHub dependency review API is available."
+          else
+            echo "available=false" >> "${GITHUB_OUTPUT}"
+            echo "GitHub dependency review API returned HTTP ${http_status}; using the governed Trivy fallback."
+            cat dependency-review-api.json || true
+          fi
+
       - name: Review dependency changes
+        if: steps.dependency-api.outputs.available == 'true'
         uses: actions/dependency-review-action@v4.8.3
         with:
           config-file: ./.github/dependency-review-config.yml
+
+      - name: Dependency vulnerability fallback
+        if: steps.dependency-api.outputs.available != 'true'
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          format: table
+          exit-code: '1'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
 
   repository-security:
     name: Repository security gate
