@@ -1,0 +1,38 @@
+{
+  "phase": "7.14",
+  "name": "Production deployment",
+  "requiredBranch": "phase-7.14-production-deployment",
+  "productionEnvironment": "production",
+  "deployment": {
+    "composeFile": "docker-compose.production.yml",
+    "observabilityOverlay": "docker-compose.observability.yml",
+    "environmentFile": ".env.production",
+    "releaseManifest": "release-evidence/release-manifest.json",
+    "immutableImageDigests": true,
+    "requireHttps": true,
+    "requireManualApproval": true,
+    "manualRollbackFromReleaseManifest": true,
+    "evidenceRetentionDays": 90
+  },
+  "requiredServices": [
+    "mongo",
+    "ai-service",
+    "backend",
+    "frontend",
+    "edge",
+    "prometheus"
+  ],
+  "healthEndpoints": [
+    "/healthz",
+    "/api/health/ready",
+    "/ai/health",
+    "/"
+  ],
+  "secretPolicy": {
+    "trackedSecretFilesForbidden": true,
+    "exampleFilesMustUsePlaceholders": true,
+    "minimumJwtSecretCharacters": 64,
+    "minimumPasswordCharacters": 24,
+    "rotatePreviouslyExposedValues": true
+  }
+}

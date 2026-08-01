@@ -29,6 +29,7 @@ Thumbs.db
 # Local repair and backup output
 .salonai-*-backups/
 _repair_backup_*/
+backups/
 
 # Local tool and runtime caches
 .cache/
@@ -43,8 +44,12 @@ _repair_backup_*/
 
 # Generated builds and reports
 frontend/dist/
-backups/
 security-reports/
+deployment-evidence/
+
+# Local production deployment material
+deployment/tls/
+*.before-rollback-*
 
 # Runtime and temporary files
 *.tmp
