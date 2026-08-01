@@ -169,6 +169,10 @@ jobs:
           cache-from: type=gha,scope=salonai-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=salonai-${{ matrix.service }}
 
+      - name: Prepare release evidence directory
+        shell: bash
+        run: mkdir -p release-evidence
+
       - name: Scan published image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
