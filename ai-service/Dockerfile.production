@@ -1,28 +1,61 @@
-FROM python:3.13-slim AS builder
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PIP_NO_CACHE_DIR=1
+# syntax=docker/dockerfile:1
+FROM docker.io/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS dependencies
+
 WORKDIR /build
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-COPY requirements.txt ./
-RUN pip install --upgrade pip     && pip install --no-cache-dir -r requirements.txt
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
 
-FROM python:3.13-slim AS runtime
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+RUN python -m venv /opt/venv
+
 ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.runtime.txt ./
+
+RUN python -m pip install --upgrade pip setuptools==83.0.0 wheel \
+    && python -m pip install --no-cache-dir -r requirements.runtime.txt
+
+FROM dependencies AS test
+
+WORKDIR /workspace
+
+COPY requirements.txt requirements.runtime.txt pyproject.toml ./
+COPY app ./app
+COPY tests ./tests
+
+RUN python -m pip install --no-cache-dir -r requirements.txt \
+    && python -m pytest
+
+FROM dependencies AS runtime-dependencies
+
+RUN python -m pip uninstall -y pip setuptools wheel \
+    && find /opt/venv -type d -name '__pycache__' -prune -exec rm -rf '{}' + \
+    && find /opt/venv -type f -name '*.pyc' -delete
+
+FROM docker.io/library/python@sha256:399babc8b49529dabfd9c922f2b5eea81d611e4512e3ed250d75bd2e7683f4b0 AS runtime
+
+# SALONAI_PHASE_7_17_AI_IMAGE_REMEDIATION_ALPINE=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app" \
+    PATH="/opt/venv/bin:$PATH"
+
 WORKDIR /app
 
-RUN addgroup --system --gid 10002 salonai     && adduser --system --uid 10002 --ingroup salonai --no-create-home salonai
+RUN addgroup -S -g 10002 salonai \
+    && adduser -S -D -H -u 10002 -G salonai salonai \
+    && rm -rf /usr/local/lib/python*/site-packages/pip* /usr/local/bin/pip*
 
-COPY --from=builder /opt/venv /opt/venv
-COPY --chown=salonai:salonai app ./app
-COPY --chown=salonai:salonai requirements.txt pyproject.toml ./
+COPY --from=runtime-dependencies --chown=10002:10002 /opt/venv /opt/venv
+COPY --chown=10002:10002 app ./app
+COPY --chown=10002:10002 requirements.runtime.txt pyproject.toml ./
 
-USER salonai
+USER 10002
+
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["/opt/venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers"]
+ENTRYPOINT ["/opt/venv/bin/python"]
+CMD ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers"]
