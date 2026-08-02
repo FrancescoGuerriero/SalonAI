@@ -33,7 +33,7 @@ jobs:
       registry_namespace: ${{ steps.release.outputs.registry_namespace }}
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -59,7 +59,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.release_tag }}
@@ -127,7 +127,7 @@ jobs:
 
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.release_tag }}
@@ -151,7 +151,7 @@ jobs:
 
       - name: Build and push image
         id: build
-        uses: docker/build-push-action@v7.2.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -239,7 +239,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -251,7 +251,7 @@ jobs:
           node-version: '22'
 
       - name: Download service evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: release-evidence-*
           path: release-evidence
