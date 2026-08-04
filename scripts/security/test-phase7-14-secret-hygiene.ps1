@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 $ProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot)
 
 $ExampleFiles = @(
+    "ai-service\.env.example",
     "backend\.env.example",
     "backend\env.example",
     "config\phase7-14.env.example"
