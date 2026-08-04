@@ -122,6 +122,15 @@ jobs:
             echo "No AI-service pytest files were found; compile validation completed."
           fi
 
+      - name: Build AI-service production image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            --file ai-service/Dockerfile.production \
+            --tag salonai-ai-service:ci \
+            ai-service
+
   dependency-review:
     name: Dependency review
     if: github.event_name == 'pull_request'
