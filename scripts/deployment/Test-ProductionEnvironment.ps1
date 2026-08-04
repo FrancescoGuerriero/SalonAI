@@ -58,6 +58,9 @@ $Required = @(
     "MONGO_ROOT_PASSWORD",
     "MONGO_DATABASE",
     "JWT_SECRET",
+    "AI_SERVICE_KEY",
+    "SERVICE_KEY",
+    "ENVIRONMENT",
     "TLS_CERT_DIR",
     "GRAFANA_ADMIN_USER",
     "GRAFANA_ADMIN_PASSWORD"
@@ -128,6 +131,22 @@ if ($Values["MONGO_ROOT_PASSWORD"].Length -lt 24) {
 
 if ($Values["JWT_SECRET"].Length -lt 64) {
     throw "JWT_SECRET must be at least 64 characters."
+}
+
+if ($Values["AI_SERVICE_KEY"].Length -lt 32) {
+    throw "AI_SERVICE_KEY must be at least 32 characters."
+}
+
+if ($Values["SERVICE_KEY"].Length -lt 32) {
+    throw "SERVICE_KEY must be at least 32 characters."
+}
+
+if ($Values["AI_SERVICE_KEY"] -cne $Values["SERVICE_KEY"]) {
+    throw "AI_SERVICE_KEY and SERVICE_KEY must contain the same shared secret."
+}
+
+if ($Values["ENVIRONMENT"] -cne "production") {
+    throw "ENVIRONMENT must be production."
 }
 
 if ($Values["GRAFANA_ADMIN_PASSWORD"].Length -lt 24) {
