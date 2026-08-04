@@ -117,6 +117,7 @@ if (Test-Path -LiteralPath $EnvironmentPath -PathType Leaf) {
 
 $MongoPassword = New-RandomSecret -Bytes 36
 $JwtSecret = New-RandomSecret -Bytes 64
+$AiServiceKey = New-RandomSecret -Bytes 48
 $GrafanaPassword = New-RandomSecret -Bytes 36
 
 $Lines = @(
@@ -137,6 +138,9 @@ $Lines = @(
     "MONGO_ROOT_PASSWORD=$MongoPassword",
     "MONGO_DATABASE=salonai",
     "JWT_SECRET=$JwtSecret",
+    "AI_SERVICE_KEY=$AiServiceKey",
+    "SERVICE_KEY=$AiServiceKey",
+    "ENVIRONMENT=production",
     "",
     "TLS_CERT_DIR=$TlsDirectory",
     "EDGE_HTTP_PORT=80",
