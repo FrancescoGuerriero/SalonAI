@@ -1,0 +1,28 @@
+.manage-account-page{width:min(100% - 2rem,1060px);margin-inline:auto;padding:2rem 0 4rem;color:var(--app-ink)}
+.manage-account-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:1rem;padding:1.5rem;border:1px solid var(--app-line);border-radius:14px;background:linear-gradient(135deg,var(--palette-white),var(--palette-sand-100));box-shadow:var(--shadow-small)}
+.manage-account-hero-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:12px;color:var(--palette-black);background:var(--palette-gold)}
+.manage-account-hero span{color:var(--app-gold-dark);font-size:.68rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.manage-account-hero h1{margin:.35rem 0 0;font-size:clamp(1.7rem,4vw,2.55rem);letter-spacing:-.045em}
+.manage-account-hero p{margin:.45rem 0 0;color:var(--app-muted);line-height:1.6}
+.manage-account-email{display:flex;align-items:center;gap:.55rem;padding:.75rem .85rem;border:1px solid var(--app-line);border-radius:10px;background:var(--palette-white)}
+.manage-account-email>span{display:grid;color:var(--app-ink);font-size:.76rem;font-weight:750;text-transform:none;letter-spacing:0}
+.manage-account-email small{color:var(--app-muted);font-size:.62rem;font-weight:650}
+.manage-account-alert{display:flex;align-items:center;gap:.5rem;margin-top:1rem;padding:.85rem 1rem;border:1px solid var(--palette-grey-500);border-radius:9px;background:var(--palette-grey-100);color:var(--palette-black)}
+.manage-account-alert.is-success{border-color:var(--palette-gold);background:var(--palette-sand-100)}
+.manage-account-form{display:grid;gap:1rem;margin-top:1rem}
+.manage-account-form>section{padding:1.4rem;border:1px solid var(--app-line);border-radius:13px;background:var(--palette-white);box-shadow:var(--shadow-small)}
+.manage-account-form section>header{display:flex;align-items:flex-start;gap:.7rem;margin-bottom:1.1rem;color:var(--app-gold-dark)}
+.manage-account-form h2{margin:0;color:var(--app-ink);font-size:1.1rem}
+.manage-account-form header p{margin:.25rem 0 0;color:var(--app-muted);font-size:.75rem}
+.manage-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}
+.manage-account-grid label{display:grid;gap:.42rem;color:var(--app-ink);font-size:.72rem;font-weight:800}
+.manage-account-grid input{width:100%;min-height:45px;padding:.72rem .8rem;border:1px solid var(--palette-grey-400);border-radius:8px;background:var(--palette-white);color:var(--palette-black);font:inherit}
+.manage-account-grid input:focus{border-color:var(--palette-gold-dark);box-shadow:0 0 0 3px var(--palette-gold-focus);outline:0}
+.manage-account-wide{grid-column:1/-1}
+.manage-account-form>footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.3rem 0}
+.manage-account-form>footer p{display:flex;align-items:center;gap:.45rem;margin:0;color:var(--app-muted);font-size:.72rem}
+.manage-account-checkout-note{display:flex;align-items:flex-start;gap:.7rem;margin-top:1rem;padding:1rem;border:1px solid var(--palette-gold);border-radius:10px;background:var(--palette-sand-100);color:var(--app-gold-dark)}
+.manage-account-checkout-note strong{color:var(--app-ink)}
+.manage-account-checkout-note p{margin:.25rem 0 0;color:var(--app-muted);font-size:.74rem;line-height:1.55}
+@media(max-width:760px){.manage-account-hero{grid-template-columns:auto 1fr}.manage-account-email{grid-column:1/-1}.manage-account-grid{grid-template-columns:1fr}.manage-account-wide{grid-column:auto}.manage-account-form>footer{align-items:stretch;flex-direction:column}.manage-account-form>footer .app-button{width:100%}}
+@media(max-width:520px){.manage-account-page{width:min(100% - 1rem,1060px);padding-top:.8rem}.manage-account-hero{grid-template-columns:1fr}.manage-account-hero-icon{width:44px;height:44px}.manage-account-form>section{padding:1rem}}

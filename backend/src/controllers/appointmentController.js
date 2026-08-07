@@ -14,6 +14,10 @@ import {
   assertAppointmentWithinStaffAvailability,
 } from "../features/staff/staffService.js";
 
+import {
+  stylistOffersService,
+} from "../services/bookingAvailabilityService.js";
+
 function normaliseText(value) {
   return String(value ?? "")
     .trim()
@@ -503,11 +507,22 @@ async function getBookingResources(
 
   if (
     !stylist ||
+    stylist.isActive === false ||
     stylist.active === false
   ) {
     throw createHttpError(
       "The selected stylist was not found or is inactive.",
       404
+    );
+  }
+
+  if (!stylistOffersService(stylist, service._id)) {
+    throw createHttpError(
+      "The selected stylist does not offer this service.",
+      409,
+      {
+        field: "service",
+      }
     );
   }
 
@@ -533,7 +548,7 @@ async function populateAppointment(
     )
     .populate(
       "stylist",
-      "name firstName lastName email phone active"
+      "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive active"
     );
 }
 
@@ -601,6 +616,16 @@ export async function createAppointment(
         dateValue,
         timeValue
       );
+
+    if (startsAt <= new Date()) {
+      throw createHttpError(
+        "The appointment date and time must be in the future.",
+        409,
+        {
+          field: "appointmentDate",
+        }
+      );
+    }
 
     const duration =
       Math.max(
@@ -794,7 +819,7 @@ export async function getAppointments(
         )
         .populate(
           "stylist",
-          "name firstName lastName email phone active"
+          "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive active"
         )
         .sort({
           startsAt: 1,

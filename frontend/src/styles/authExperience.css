@@ -13,8 +13,8 @@
   gap: 40px;
   padding: clamp(32px, 6vw, 72px);
   background:
-    radial-gradient(circle at 85% 15%, rgba(196, 181, 253, 0.28), transparent 30%),
-    linear-gradient(145deg, #24113f, #4c1d95 55%, #6d28d9);
+    radial-gradient(circle at 85% 15%, rgba(223,199,126, 0.28), transparent 30%),
+    linear-gradient(145deg, #171716, #62501d 55%, #8a6b16);
   color: #fff;
 }
 
@@ -106,10 +106,10 @@
 .auth-form-card {
   width: min(100%, 500px);
   padding: clamp(24px, 4vw, 42px);
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e6e6e2;
   border-radius: 28px;
   background: #fff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 24px 70px rgba(17,17,16, 0.1);
 }
 
 .auth-form-header {
@@ -117,7 +117,7 @@
 }
 
 .auth-form-header > span {
-  color: #6d28d9;
+  color: #8a6b16;
   font-size: 0.76rem;
   font-weight: 850;
   letter-spacing: 0.09em;
@@ -132,7 +132,7 @@
 
 .auth-form-header p {
   margin: 0;
-  color: #64748b;
+  color: #73736f;
   line-height: 1.6;
 }
 
@@ -145,7 +145,7 @@
 .auth-label-row label {
   font-size: 0.88rem;
   font-weight: 800;
-  color: #1e293b;
+  color: #292927;
 }
 
 .auth-label-row {
@@ -157,7 +157,7 @@
 }
 
 .auth-label-row span {
-  color: #94a3b8;
+  color: #93938e;
   font-size: 0.78rem;
 }
 
@@ -169,19 +169,19 @@
   min-height: 50px;
   margin-bottom: 8px;
   padding: 0 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d1d1cc;
   border-radius: 14px;
   background: #fff;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .auth-input:focus-within {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.11);
+  border-color: #b28a20;
+  box-shadow: 0 0 0 4px rgba(178,138,32, 0.11);
 }
 
 .auth-input > svg {
-  color: #94a3b8;
+  color: #93938e;
 }
 
 .auth-input input {
@@ -191,7 +191,7 @@
   outline: 0;
   padding: 13px 0;
   background: transparent;
-  color: #0f172a;
+  color: #111110;
   font: inherit;
 }
 
@@ -201,7 +201,7 @@
   padding: 5px;
   border: 0;
   background: transparent;
-  color: #64748b;
+  color: #73736f;
   cursor: pointer;
 }
 
@@ -210,12 +210,12 @@
   margin-top: 9px;
   border: 0;
   border-radius: 14px;
-  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+  background: linear-gradient(135deg, #8a6b16, #c9a227);
   color: #fff;
   font: inherit;
   font-weight: 850;
   cursor: pointer;
-  box-shadow: 0 14px 30px rgba(109, 40, 217, 0.22);
+  box-shadow: 0 14px 30px rgba(138,107,22, 0.22);
 }
 
 .auth-submit:disabled {
@@ -232,23 +232,23 @@
 }
 
 .auth-feedback-error {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: #f5f5f3;
+  color: #454542;
+  border: 1px solid #eadbbd;
 }
 
 .auth-feedback-success {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  background: #f7f0df;
+  color: #62501d;
+  border: 1px solid #eadbbd;
 }
 
 .auth-form-footer {
   margin-top: 24px;
   padding-top: 22px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #e6e6e2;
   text-align: center;
-  color: #64748b;
+  color: #73736f;
 }
 
 .auth-form-footer p {
@@ -256,7 +256,7 @@
 }
 
 .auth-form-footer a {
-  color: #6d28d9;
+  color: #8a6b16;
   font-weight: 800;
   text-decoration: none;
 }
@@ -265,13 +265,13 @@
   padding: 22px;
   border-radius: 14px;
   background: #f8fafc;
-  color: #64748b;
+  color: #73736f;
   text-align: center;
 }
 
 .auth-terms {
   margin: 4px 0 0;
-  color: #94a3b8;
+  color: #93938e;
   font-size: 0.76rem;
   line-height: 1.5;
   text-align: center;
@@ -291,21 +291,21 @@
   gap: 12px;
   margin-bottom: 8px;
   font-size: 0.76rem;
-  color: #64748b;
+  color: #73736f;
 }
 
 .password-strength-track {
   height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: #e6e6e2;
 }
 
 .password-strength-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f59e0b, #7c3aed);
+  background: linear-gradient(90deg, #f59e0b, #b28a20);
   transition: width 180ms ease;
 }
 
@@ -316,7 +316,7 @@
   margin: 11px 0 0;
   padding: 0;
   list-style: none;
-  color: #94a3b8;
+  color: #93938e;
   font-size: 0.75rem;
 }
 
@@ -327,7 +327,7 @@
 }
 
 .password-strength li.is-complete {
-  color: #15803d;
+  color: #8a6b16;
 }
 
 @media (max-width: 860px) {

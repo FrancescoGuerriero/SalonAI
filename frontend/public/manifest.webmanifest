@@ -1,0 +1,18 @@
+{
+  "name": "SalonAI Hair Salon",
+  "short_name": "SalonAI",
+  "description": "Salon services, bookings, customer care and professional haircare.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbfaf7",
+  "theme_color": "#111110",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

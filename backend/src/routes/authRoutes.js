@@ -4,6 +4,8 @@ import {
   registerUser,
   loginUser,
   createUserByAdmin,
+  getCurrentAccount,
+  updateCurrentAccount,
 } from "../controllers/authController.js";
 
 import {
@@ -16,6 +18,11 @@ const router = express.Router();
 router.post("/register", registerUser);
 
 router.post("/login", loginUser);
+
+router
+  .route("/me")
+  .get(protect, getCurrentAccount)
+  .patch(protect, updateCurrentAccount);
 
 router.post(
   "/admin/users",

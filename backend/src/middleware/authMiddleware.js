@@ -31,10 +31,6 @@ export async function protect(
         .trim();
     }
 
-    if (!token && request.cookies?.token) {
-      token = request.cookies.token;
-    }
-
     if (!token) {
       return next(
         createHttpError(

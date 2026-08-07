@@ -373,6 +373,29 @@ const appointmentSchema =
         maxlength: 5000,
       },
 
+      bookingSource: {
+        type: String,
+        enum: [
+          "website",
+          "whatsapp",
+          "phone",
+          "walk_in",
+          "management",
+          "import",
+        ],
+        default: "website",
+        index: true,
+      },
+
+      externalBookingReference: {
+        type: String,
+        trim: true,
+        default: undefined,
+        unique: true,
+        sparse: true,
+        maxlength: 180,
+      },
+
       internalNotes: {
         type: String,
         trim: true,

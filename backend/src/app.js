@@ -2,12 +2,16 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import cookieParser from "cookie-parser";
+
+import { apiRateLimiter } from "./middleware/securityMiddleware.js";
 
 import aiRecommendationRoutes from "./features/aiRecommendations/aiRecommendationRoutes.js";
 import futureFeatureRoutes from "./features/futureFeatureRoutes.js";
 import commerceRoutes from "./features/commerce/commerceRoutes.js";
 import commerceWebhookRoutes from "./features/commerce/commerceWebhookRoutes.js";
+import chatbotRoutes from "./features/chatbot/chatbotRoutes.js";
+import customerExperienceRoutes from "./features/customerExperience/customerExperienceRoutes.js";
+import dataImportRoutes from "./features/dataImport/dataImportRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
@@ -111,6 +115,11 @@ app.use(
 );
 
 app.use(
+  "/api",
+  apiRateLimiter
+);
+
+app.use(
   express.json({
     limit: "2mb",
   })
@@ -123,14 +132,12 @@ app.use(
   })
 );
 
-app.use(cookieParser());
-
 /*
 |--------------------------------------------------------------------------
 | Premium feature routes
 |--------------------------------------------------------------------------
-| Mounted after JSON, URL-encoded and cookie middleware so authenticated
-| premium endpoints can read request bodies and cookie-based access tokens.
+| Mounted after the API rate limiter and body-parsing middleware so authenticated
+| premium endpoints can safely read request bodies.
 */
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/gift-cards", giftCardRoutes);
@@ -142,6 +149,8 @@ app.use("/api/sms", smsRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/retention-automation", automationRoutes);
 app.use("/api/premium-analytics", premiumAnalyticsRoutes);
+app.use("/api/customer-experience", customerExperienceRoutes);
+app.use("/api/data-imports", dataImportRoutes);
 
 /*
 |--------------------------------------------------------------------------
@@ -199,6 +208,11 @@ app.use(
 app.use(
   "/api/commerce",
   commerceRoutes
+);
+
+app.use(
+  "/api/chatbot",
+  chatbotRoutes
 );
 
 /*

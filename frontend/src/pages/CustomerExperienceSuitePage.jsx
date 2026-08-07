@@ -1,99 +1,150 @@
-import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Copy, Save, Sparkles, Star } from "lucide-react";
-import { roadmapFeatureMap, roadmapFeatures } from "../features/roadmap/roadmapFeatures.js";
+import {
+  ArrowRight,
+  Bot,
+  CalendarCheck,
+  CheckCircle2,
+  HeartHandshake,
+  Scissors,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { roadmapFeatures } from "../features/roadmap/roadmapFeatures.js";
 
-const keyFor = (id) => `salonai.sprint-suite.${id}`;
-const readSaved = (id) => {
-  try { return JSON.parse(localStorage.getItem(keyFor(id)) || "{}"); }
-  catch { return {}; }
-};
+import "../styles/salonExperience.css";
 
-function Workspace({ feature }) {
-  const initial = readSaved(feature.id);
-  const [notes, setNotes] = useState(initial.notes || "");
-  const [complete, setComplete] = useState(Boolean(initial.complete));
-  const [rating, setRating] = useState(Number(initial.rating || 0));
-  const [copied, setCopied] = useState(false);
+const experiences = [
+  {
+    icon: Scissors,
+    eyebrow: "Discover",
+    title: "Find your service",
+    description:
+      "Compare available treatments with clear prices and appointment durations.",
+    to: "/services",
+    action: "Browse services",
+  },
+  {
+    icon: UsersRound,
+    eyebrow: "Choose",
+    title: "Meet the salon team",
+    description:
+      "Explore active stylists, specialties, experience, and the services they offer.",
+    to: "/stylists",
+    action: "View stylists",
+  },
+  {
+    icon: CalendarCheck,
+    eyebrow: "Book",
+    title: "Pick a live appointment",
+    description:
+      "Choose a service, stylist, date, and currently available time in one guided journey.",
+    to: "/services",
+    action: "Start booking",
+  },
+  {
+    icon: ShoppingBag,
+    eyebrow: "Maintain",
+    title: "Shop haircare",
+    description:
+      "Browse salon haircare products and keep your routine connected to your visits.",
+    to: "/shop",
+    action: "Open the shop",
+  },
+];
 
-  const referralCode = useMemo(
-    () => `SALON-${feature.sprint}-${feature.id.slice(0, 4).toUpperCase()}`,
-    [feature]
-  );
-
-  function save() {
-    localStorage.setItem(keyFor(feature.id), JSON.stringify({ notes, complete, rating }));
-  }
-
-  async function copyCode() {
-    await navigator.clipboard?.writeText(referralCode);
-    setCopied(true);
-  }
-
-  return (
-    <section className="suite-workspace">
-      <header>
-        <span>Interactive frontend workspace</span>
-        <p>Data is stored locally until a matching backend API is connected.</p>
-      </header>
-
-      {(feature.id === "reviews" || feature.id === "feedback") && (
-        <div className="suite-rating" aria-label="Rating">
-          {[1,2,3,4,5].map((value) => (
-            <button key={value} type="button" className={value <= rating ? "is-selected" : ""} onClick={() => setRating(value)} aria-label={`${value} stars`}>
-              <Star size={22} />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {feature.id === "referrals" && (
-        <div className="suite-referral">
-          <span>Your referral reference</span>
-          <strong>{referralCode}</strong>
-          <button type="button" onClick={copyCode}><Copy size={17} />{copied ? "Copied" : "Copy code"}</button>
-        </div>
-      )}
-
-      <label htmlFor="suite-notes">Sprint notes or preferences</label>
-      <textarea id="suite-notes" rows="8" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={`Record ${feature.title.toLowerCase()} details here`} />
-
-      <label className="suite-complete">
-        <input type="checkbox" checked={complete} onChange={(event) => setComplete(event.target.checked)} />
-        Mark this frontend workspace as reviewed
-      </label>
-
-      <button className="suite-primary" type="button" onClick={save}><Save size={17} />Save locally</button>
-    </section>
-  );
-}
+const journey = [
+  "Browse the live salon catalogue",
+  "Choose a stylist who offers your service",
+  "Select a verified available time",
+  "Review appointments from your account",
+];
 
 export default function CustomerExperienceSuitePage() {
-  const { featureId = "privacy" } = useParams();
-  const feature = roadmapFeatureMap[featureId] || roadmapFeatures[0];
-
   return (
-    <main className="suite-page" id="main-content" tabIndex="-1">
-      <header className="suite-hero">
+    <main className="salon-experience-page" id="main-content" tabIndex="-1">
+      <section className="salon-experience-hero">
         <div>
-          <Link to="/experience" className="suite-back"><ArrowLeft size={16} />All experience sprints</Link>
-          <span className="suite-eyebrow"><Sparkles size={15} />Frontend Sprint {feature.sprint}</span>
-          <h1>{feature.title}</h1>
-          <p>{feature.summary}</p>
+          <p className="customer-eyebrow"><Sparkles size={16} /> Your salon journey</p>
+          <h1>Everything you need for a confident salon visit.</h1>
+          <p>
+            Explore treatments, meet the team, book a live appointment, and get
+            guidance whenever you need it—all in one connected experience.
+          </p>
+          <div className="salon-experience-actions">
+            <Link to="/services" className="customer-primary-link">Book an appointment <ArrowRight size={17} /></Link>
+            <Link to="/account" className="customer-secondary-link"><UserRound size={17} /> My account</Link>
+          </div>
         </div>
-        <span className="suite-status"><CheckCircle2 size={17} />Installed</span>
-      </header>
 
-      <div className="suite-layout">
-        <nav className="suite-nav" aria-label="Frontend sprint suite">
-          {roadmapFeatures.map((item) => (
-            <Link className={item.id === feature.id ? "is-active" : ""} to={`/experience/${item.id}`} key={item.id}>
-              <span>{item.sprint}</span><strong>{item.title}</strong>
+        <aside className="salon-experience-assistant-card">
+          <span><Bot size={25} /></span>
+          <p className="customer-eyebrow">SalonAI assistant</p>
+          <h2>Not sure where to start?</h2>
+          <p>
+            Open “Ask SalonAI” at the bottom of the page for services, prices,
+            booking steps, stylists, haircare guidance, and support.
+          </p>
+          <small><ShieldCheck size={15} /> General salon guidance without sharing passwords or payment details.</small>
+        </aside>
+      </section>
+
+      <section className="salon-experience-section">
+        <header>
+          <p className="customer-eyebrow">Plan your visit</p>
+          <h2>A simple route from idea to appointment</h2>
+        </header>
+
+        <div className="salon-experience-grid">
+          {experiences.map(({ icon: Icon, eyebrow, title, description, to, action }) => (
+            <article key={title}>
+              <span><Icon size={22} /></span>
+              <small>{eyebrow}</small>
+              <h3>{title}</h3>
+              <p>{description}</p>
+              <Link to={to}>{action}<ArrowRight size={15} /></Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="salon-experience-journey">
+        <div>
+          <p className="customer-eyebrow">Designed around you</p>
+          <h2>Care before, during, and after your appointment</h2>
+          <p>
+            Your SalonAI account brings booking information and salon support
+            together, while the management team works with one accurate appointment record.
+          </p>
+          <Link to="/help"><HeartHandshake size={17} /> Visit the Help centre</Link>
+        </div>
+        <ol>
+          {journey.map((step, index) => (
+            <li key={step}><span>{index + 1}</span><p>{step}</p><CheckCircle2 size={18} /></li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="salon-connected-features">
+        <header>
+          <p className="customer-eyebrow"><Sparkles size={16} /> Connected customer care</p>
+          <h2>More than a booking form</h2>
+          <p>Sign in to use persistent account tools for privacy, salon planning, rewards, communication and service feedback.</p>
+        </header>
+        <div className="salon-connected-grid">
+          {roadmapFeatures.map((feature) => (
+            <Link key={feature.id} to={`/experience/${feature.id}`}>
+              <span>{feature.sprint}</span>
+              <small>{feature.group}</small>
+              <strong>{feature.title}</strong>
+              <p>{feature.summary}</p>
+              <b>Open feature <ArrowRight size={14} /></b>
             </Link>
           ))}
-        </nav>
-        <Workspace feature={feature} />
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
