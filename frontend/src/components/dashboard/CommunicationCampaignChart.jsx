@@ -24,37 +24,37 @@ import Card from "../ui/Card";
 const CAMPAIGN_CONFIG = {
   dormant_customer: {
     label: "Dormant Customers",
-    colour: "#2563eb",
+    colour: "#555552",
     icon: UserRoundCheck,
   },
 
   appointment_reminder: {
     label: "Reminders",
-    colour: "#7c3aed",
+    colour: "#b28a20",
     icon: BellRing,
   },
 
   follow_up: {
     label: "Follow-ups",
-    colour: "#059669",
+    colour: "#8a6b16",
     icon: RefreshCcw,
   },
 
   promotion: {
     label: "Promotions",
-    colour: "#ea580c",
+    colour: "#d8c395",
     icon: Megaphone,
   },
 
   birthday: {
     label: "Birthdays",
-    colour: "#db2777",
+    colour: "#dfc77e",
     icon: Cake,
   },
 
   general: {
     label: "General",
-    colour: "#4f46e5",
+    colour: "#8a6b16",
     icon: MessageCircle,
   },
 };
@@ -125,7 +125,7 @@ function normalizeCampaignData(data) {
           : 0,
         colour:
           CAMPAIGN_CONFIG[campaignType]?.colour ||
-          "#64748b",
+          "#73736f",
       };
     })
     .filter(
@@ -369,7 +369,7 @@ export default function CommunicationCampaignChart({
                   height={75}
                   tick={{
                     fontSize: 11,
-                    fill: "#4b5563",
+                    fill: "#454542",
                   }}
                   axisLine={false}
                   tickLine={false}
@@ -379,7 +379,7 @@ export default function CommunicationCampaignChart({
                   allowDecimals={false}
                   tick={{
                     fontSize: 12,
-                    fill: "#6b7280",
+                    fill: "#93938e",
                   }}
                   axisLine={false}
                   tickLine={false}

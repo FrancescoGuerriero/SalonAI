@@ -82,6 +82,9 @@ const orderSchema = new mongoose.Schema(
     subtotal: { type: Number, min: 0, default: 0 },
     deliveryFee: { type: Number, min: 0, default: 0 },
     discountTotal: { type: Number, min: 0, default: 0 },
+    offer: { type: mongoose.Schema.Types.ObjectId, ref: "SalonOffer", default: null },
+    offerCode: { type: String, trim: true, uppercase: true, default: "" },
+    discountDescription: { type: String, trim: true, maxlength: 200, default: "" },
     total: { type: Number, min: 0, default: 0 },
     currency: { type: String, default: "GBP", uppercase: true },
     status: {

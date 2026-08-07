@@ -59,6 +59,30 @@ class AuthService {
     };
   }
 
+  async getAccount() {
+    const response = await API.get("/auth/me");
+    return response.data;
+  }
+
+  async updateAccount(payload) {
+    const response = await API.patch("/auth/me", payload);
+    const data = response.data;
+
+    if (data.user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+
+    return data;
+  }
+
+  storeUser(user) {
+    if (user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(USER_KEY);
+    }
+  }
+
   logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

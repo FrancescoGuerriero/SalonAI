@@ -19,6 +19,11 @@ import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
 import { BookingContext } from "../context/BookingContext.jsx";
 import stylistService from "../Services/stylistService.js";
+import {
+  getStylistSearchText,
+  isStylistActive,
+  stylistOffersService,
+} from "../utils/stylists.js";
 import "../styles/customerExperience.css";
 
 function normaliseStylists(data) {
@@ -48,7 +53,12 @@ export default function Stylists() {
 
       setStylists(
         normaliseStylists(data).filter(
-          (stylist) => stylist.active !== false
+          (stylist) =>
+            isStylistActive(stylist) &&
+            stylistOffersService(
+              stylist,
+              booking?.service?._id
+            )
         )
       );
     } catch (requestError) {
@@ -72,16 +82,7 @@ export default function Stylists() {
     if (!value) return stylists;
 
     return stylists.filter((stylist) =>
-      [
-        stylist.name,
-        stylist.speciality,
-        stylist.specialty,
-        stylist.bio,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(value)
+      getStylistSearchText(stylist).includes(value)
     );
   }, [query, stylists]);
 
@@ -209,15 +210,29 @@ export default function Stylists() {
         filteredStylists.length === 0 ? (
           <EmptyState
             icon={UserRoundSearch}
-            title="No matching stylists"
-            description="Try a different name or speciality."
+            title={
+              stylists.length === 0
+                ? "No stylists are available for this service"
+                : "No matching stylists"
+            }
+            description={
+              stylists.length === 0
+                ? "Choose a different service or try again shortly."
+                : "Try a different name or speciality."
+            }
             action={
               <button
                 type="button"
                 className="customer-inline-button"
-                onClick={() => setQuery("")}
+                onClick={
+                  stylists.length === 0
+                    ? () => navigate("/services")
+                    : () => setQuery("")
+                }
               >
-                Clear search
+                {stylists.length === 0
+                  ? "Choose another service"
+                  : "Clear search"}
               </button>
             }
           />

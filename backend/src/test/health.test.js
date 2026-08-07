@@ -87,6 +87,63 @@ test(
 );
 
 test(
+  "GET /api/stylists/:id/availability is public and validates identifiers",
+  async () => {
+    const response = await fetch(
+      `${baseUrl}/api/stylists/not-an-id/availability?date=2030-06-15&service=also-not-an-id`
+    );
+
+    assert.equal(response.status, 400);
+
+    const body = await response.json();
+
+    assert.equal(body.success, false);
+    assert.equal(body.code, "BAD_REQUEST");
+    assert.equal(body.details.field, "stylist");
+  }
+);
+
+test(
+  "POST /api/chatbot/message is public and validates messages before catalogue access",
+  async () => {
+    const response = await fetch(`${baseUrl}/api/chatbot/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: "" }),
+    });
+
+    assert.equal(response.status, 400);
+
+    const body = await response.json();
+    assert.equal(body.success, false);
+    assert.equal(body.code, "BAD_REQUEST");
+    assert.equal(body.details.field, "message");
+  }
+);
+
+test(
+  "POST /api/whatsapp/webhook rejects malformed public webhook payloads",
+  async () => {
+    const response = await fetch(`${baseUrl}/api/whatsapp/webhook`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phone: "invalid", body: "Book" }),
+    });
+
+    assert.equal(response.status, 400);
+
+    const body = await response.json();
+    assert.equal(body.success, false);
+    assert.equal(body.code, "BAD_REQUEST");
+    assert.equal(body.details.field, "phone");
+  }
+);
+
+test(
   "unknown routes return structured JSON",
   async () => {
     const response =
@@ -129,6 +186,14 @@ const protectedRequests = [
   ["GET", "/api/commerce/inventory/summary"],
   ["POST", "/api/commerce/checkout"],
   ["GET", "/api/commerce/orders/mine"],
+  ["GET", "/api/whatsapp/conversations"],
+  ["GET", "/api/auth/me"],
+  ["PATCH", "/api/auth/me"],
+  ["GET", "/api/customer-experience/me"],
+  ["GET", "/api/customer-experience/management/overview"],
+  ["GET", "/api/data-imports/history"],
+  ["POST", "/api/data-imports/preview"],
+  ["POST", "/api/data-imports/commit"],
 ];
 
 for (const [method, pathname] of protectedRequests) {

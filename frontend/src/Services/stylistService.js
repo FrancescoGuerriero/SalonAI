@@ -19,6 +19,18 @@ const stylistService = {
     return data;
   },
 
+  async getAvailability(id, params = {}, config = {}) {
+    const { data } = await API.get(
+      `${ENDPOINT}/${id}/availability`,
+      {
+        ...config,
+        params,
+      }
+    );
+
+    return data;
+  },
+
   async createStylist(stylist) {
     const { data } = await API.post(
       ENDPOINT,

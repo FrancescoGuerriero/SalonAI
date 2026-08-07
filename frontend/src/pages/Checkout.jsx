@@ -26,10 +26,14 @@ export default function Checkout() {
   const [contact, setContact] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: "",
+    phone: user?.phone || "",
   });
-  const [deliveryAddress, setDeliveryAddress] = useState(emptyAddress);
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    ...emptyAddress,
+    ...(user?.homeAddress || {}),
+  });
   const [notes, setNotes] = useState("");
+  const [offerCode, setOfferCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [demoCheckout, setDemoCheckout] = useState(null);
@@ -57,6 +61,7 @@ export default function Checkout() {
         contact,
         deliveryAddress: fulfilmentType === "delivery" ? deliveryAddress : undefined,
         notes,
+        offerCode: offerCode.trim() || undefined,
       });
 
       if (result.payment?.checkoutUrl) {
@@ -155,6 +160,11 @@ export default function Checkout() {
           )}
 
           <section className="commerce-form-section">
+            <label>Saved offer code<input value={offerCode} onChange={(event) => setOfferCode(event.target.value.toUpperCase())} placeholder="Optional promotion code" /></label>
+            <small>Offers must first be claimed in your SalonAI Offers account. The server verifies eligibility and recalculates the final payment total.</small>
+          </section>
+
+          <section className="commerce-form-section">
             <label>Order notes<textarea rows="3" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Collection or delivery instructions" /></label>
           </section>
         </div>
@@ -166,6 +176,7 @@ export default function Checkout() {
           ))}
           <div><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
           <div><span>Delivery</span><strong>{deliveryFee ? formatCurrency(deliveryFee) : "Free"}</strong></div>
+          {offerCode ? <div><span>Promotion</span><strong>Verified at payment</strong></div> : null}
           <div className="commerce-summary-total"><span>Total</span><strong>{formatCurrency(subtotal + deliveryFee, commerceConfig.currency)}</strong></div>
           <button type="submit" disabled={submitting}>
             {submitting ? "Creating checkout…" : "Proceed to secure payment"}

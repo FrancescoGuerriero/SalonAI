@@ -43,6 +43,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const refreshAccount = useCallback(async () => {
+    const response = await authService.getAccount();
+    const nextUser = response.user ?? null;
+    setUser(nextUser);
+    authService.storeUser(nextUser);
+    return nextUser;
+  }, []);
+
+  const updateAccount = useCallback(async (payload) => {
+    const response = await authService.updateAccount(payload);
+    setUser(response.user ?? null);
+    return response;
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -51,9 +65,11 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      refreshAccount,
+      updateAccount,
       isAuthenticated: Boolean(token)
     }),
-    [user, token, loading, login, register, logout]
+    [user, token, loading, login, register, logout, refreshAccount, updateAccount]
   );
 
   return (

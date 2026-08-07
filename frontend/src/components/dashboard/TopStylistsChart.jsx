@@ -124,7 +124,7 @@ export default function TopStylistsChart({
 
               <Bar
                 dataKey="revenue"
-                fill="#2563eb"
+                fill="#555552"
                 radius={[0, 6, 6, 0]}
               />
             </BarChart>

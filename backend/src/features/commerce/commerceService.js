@@ -18,11 +18,48 @@ import {
   paginationResult,
 } from "../../shared/pagination.js";
 import { escapedRegex } from "../../shared/modelHelpers.js";
+import CustomerExperienceProfile from "../customerExperience/CustomerExperienceProfile.js";
+import SalonOffer from "../customerExperience/SalonOffer.js";
 
 const MANAGEMENT_ROLES = new Set(["admin", "manager", "stylist"]);
 
 function money(value) {
   return Number(Number(value || 0).toFixed(2));
+}
+
+export function calculateOfferDiscount(offer, subtotal) {
+  const safeSubtotal = money(Math.max(0, Number(subtotal) || 0));
+  if (!offer || safeSubtotal <= 0) return 0;
+  const raw = offer.discountType === "percentage"
+    ? safeSubtotal * (Number(offer.value) / 100)
+    : Number(offer.value);
+  return money(Math.min(safeSubtotal, Math.max(0, raw || 0)));
+}
+
+async function claimedOfferForCheckout(codeValue, user, subtotal) {
+  const code = String(codeValue || "").trim().toUpperCase();
+  if (!code) return null;
+  const now = new Date();
+  const offer = await SalonOffer.findOne({
+    code,
+    active: true,
+    startsAt: { $lte: now },
+    endsAt: { $gt: now },
+  });
+  if (!offer || (offer.maxClaims && offer.claimCount >= offer.maxClaims)) {
+    throw createServiceError("This offer is invalid, unavailable or expired.", 409);
+  }
+  const claimed = await CustomerExperienceProfile.exists({
+    user: user._id,
+    claimedOffers: { $elemMatch: { offer: offer._id, code } },
+  });
+  if (!claimed) {
+    throw createServiceError("Save this offer to your customer account before checkout.", 409);
+  }
+  if (Number(subtotal) < Number(offer.minimumSpend || 0)) {
+    throw createServiceError(`This offer requires a minimum spend of £${Number(offer.minimumSpend).toFixed(2)}.`, 409);
+  }
+  return offer;
 }
 
 function slugify(value) {
@@ -366,11 +403,20 @@ function checkoutUrls(order) {
 export async function createCheckout(payload, user) {
   const items = await buildOrderItems(payload.items);
   const subtotal = money(items.reduce((sum, item) => sum + item.lineTotal, 0));
+  const offer = await claimedOfferForCheckout(payload.offerCode, user, subtotal);
+  const discountTotal = calculateOfferDiscount(offer, subtotal);
   const fulfilmentType = payload.fulfilmentType === "delivery" ? "delivery" : "collection";
   const deliveryFee = fulfilmentType === "delivery"
     ? money(Number(process.env.DELIVERY_FEE_GBP || 4.95))
     : 0;
-  const total = money(subtotal + deliveryFee);
+  const total = money(subtotal - discountTotal + deliveryFee);
+
+  if (offer && total <= 0) {
+    throw createServiceError(
+      "This offer would reduce the order below the payment minimum. Add another item or choose delivery.",
+      409
+    );
+  }
 
   const contact = {
     name: String(payload.contact?.name || user.name || "").trim(),
@@ -396,7 +442,10 @@ export async function createCheckout(payload, user) {
     items,
     subtotal,
     deliveryFee,
-    discountTotal: 0,
+    discountTotal,
+    offer: offer?._id || null,
+    offerCode: offer?.code || "",
+    discountDescription: offer?.title || "",
     total,
     currency: "GBP",
     status: "pending_payment",
@@ -409,7 +458,15 @@ export async function createCheckout(payload, user) {
     const urls = checkoutUrls(order);
     const providerResult = await createCheckoutPayment({
       order,
-      items: deliveryFee
+      items: discountTotal > 0
+        ? [{
+            name: `SalonAI order ${order.orderNumber}`,
+            sku: offer?.code ? `Offer ${offer.code}` : "SalonAI order",
+            quantity: 1,
+            unitPrice: total,
+            image: "",
+          }]
+        : deliveryFee
         ? [
             ...items,
             {

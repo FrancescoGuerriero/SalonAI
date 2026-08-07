@@ -5,6 +5,13 @@ import {
   UserRound,
 } from "lucide-react";
 
+import {
+  getStylistBiography,
+  getStylistImage,
+  getStylistName,
+  getStylistSpecialtyLabel,
+} from "../../utils/stylists.js";
+
 export default function StylistCard({
   stylist,
   onSelect,
@@ -12,14 +19,16 @@ export default function StylistCard({
   const experience = Number(
     stylist.experience ?? stylist.yearsExperience ?? 0
   );
+  const name = getStylistName(stylist);
+  const image = getStylistImage(stylist);
 
   return (
     <article className="customer-card stylist-card">
       <div className="stylist-avatar">
-        {stylist.image || stylist.avatar ? (
+        {image ? (
           <img
-            src={stylist.image || stylist.avatar}
-            alt=""
+            src={image}
+            alt={`${name}, stylist`}
             loading="lazy"
           />
         ) : (
@@ -30,15 +39,10 @@ export default function StylistCard({
       <div className="customer-card-body">
         <div>
           <p className="customer-card-kicker">
-            {stylist.speciality ||
-              stylist.specialty ||
-              "Hair stylist"}
+            {getStylistSpecialtyLabel(stylist)}
           </p>
-          <h2>{stylist.name}</h2>
-          <p>
-            {stylist.bio ||
-              "Focused on personalised consultations and polished, wearable results."}
-          </p>
+          <h2>{name}</h2>
+          <p>{getStylistBiography(stylist)}</p>
         </div>
 
         <div className="stylist-facts">
@@ -48,7 +52,9 @@ export default function StylistCard({
           </span>
           <span>
             <Star size={16} />
-            Professional stylist
+            {Number.isFinite(Number(stylist.rating))
+              ? `${Number(stylist.rating).toFixed(1)} rating`
+              : "Professional stylist"}
           </span>
         </div>
 

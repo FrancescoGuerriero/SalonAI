@@ -3,6 +3,7 @@ import express from "express";
 import {
   getStylists,
   getStylist,
+  getStylistAvailability,
   createStylist,
   updateStylist,
   deleteStylist,
@@ -23,6 +24,11 @@ const router = express.Router();
 */
 
 router.get("/", getStylists);
+
+router.get(
+  "/:id/availability",
+  getStylistAvailability
+);
 
 router.get("/:id", getStylist);
 

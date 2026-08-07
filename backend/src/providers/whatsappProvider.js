@@ -13,17 +13,41 @@ function whatsappAddress(value) {
 }
 
 export async function sendWhatsApp({ to, message }) {
-  if (mode() === "console") {
+  const providerMode = mode();
+
+  if (["console", "mock", "sandbox"].includes(providerMode)) {
     console.log("[SalonAI WhatsApp]", {
       to,
       message,
     });
 
     return {
-      provider: "console",
+      provider: providerMode,
       status: "sent",
-      messageId: `console_whatsapp_${Date.now()}`,
+      messageId: `${providerMode}_whatsapp_${Date.now()}`,
     };
+  }
+
+  if (!["twilio", "live"].includes(providerMode)) {
+    const error = new Error(
+      "WHATSAPP_PROVIDER_MODE must be mock, console, sandbox, twilio or live."
+    );
+    error.statusCode = 500;
+    error.code = "WHATSAPP_PROVIDER_MODE_INVALID";
+    throw error;
+  }
+
+  if (
+    !process.env.TWILIO_ACCOUNT_SID ||
+    !process.env.TWILIO_AUTH_TOKEN ||
+    !process.env.TWILIO_WHATSAPP_FROM
+  ) {
+    const error = new Error(
+      "Twilio WhatsApp credentials and sender are required for live delivery."
+    );
+    error.statusCode = 500;
+    error.code = "WHATSAPP_TWILIO_CONFIGURATION_MISSING";
+    throw error;
   }
 
   const client = twilio(

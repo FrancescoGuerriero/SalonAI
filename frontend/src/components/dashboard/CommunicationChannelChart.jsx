@@ -40,11 +40,11 @@ const CHANNEL_CONFIG = {
 };
 
 const CHART_COLOURS = [
-  "#2563eb",
-  "#7c3aed",
-  "#16a34a",
-  "#ea580c",
-  "#4f46e5",
+  "#555552",
+  "#b28a20",
+  "#c9a227",
+  "#d8c395",
+  "#8a6b16",
 ];
 
 function normalizeChannelData(data) {

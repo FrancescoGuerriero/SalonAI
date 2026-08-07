@@ -1,4 +1,25 @@
+import mongoose from "mongoose";
+
 import Stylist from "../models/Stylist.js";
+import Service from "../models/service.js";
+import {
+  dayAvailability,
+} from "../features/staff/staffService.js";
+import {
+  buildAvailableSlots,
+  parseBookingDate,
+  stylistOffersService,
+} from "../services/bookingAvailabilityService.js";
+
+function createHttpError(message, statusCode, details = null) {
+  const error = new Error(message);
+
+  error.statusCode = statusCode;
+  error.status = statusCode;
+  error.details = details;
+
+  return error;
+}
 
 /*
     GET /api/stylists
@@ -90,6 +111,97 @@ export async function getStylist(req, res) {
       message: error.message
     });
 
+  }
+}
+
+/*
+    GET /api/stylists/:id/availability
+    Public booking-safe availability. No customer or appointment details are exposed.
+*/
+export async function getStylistAvailability(req, res, next) {
+  try {
+    const stylistId = String(req.params.id || "").trim();
+    const serviceId = String(req.query.service || "").trim();
+    const dateText = String(req.query.date || "").trim();
+
+    if (!mongoose.isValidObjectId(stylistId)) {
+      throw createHttpError(
+        "The stylist identifier is invalid.",
+        400,
+        { field: "stylist" }
+      );
+    }
+
+    if (!mongoose.isValidObjectId(serviceId)) {
+      throw createHttpError(
+        "A valid service identifier is required.",
+        400,
+        { field: "service" }
+      );
+    }
+
+    const targetDate = parseBookingDate(dateText);
+    const [service, stylist] = await Promise.all([
+      Service.findOne({
+        _id: serviceId,
+        active: { $ne: false },
+      }).lean(),
+      Stylist.findById(stylistId)
+        .select("services isActive")
+        .lean(),
+    ]);
+
+    if (!service) {
+      throw createHttpError(
+        "The selected service was not found or is inactive.",
+        404
+      );
+    }
+
+    if (!stylist || stylist.isActive === false) {
+      throw createHttpError(
+        "The selected stylist was not found or is inactive.",
+        404
+      );
+    }
+
+    if (!stylistOffersService(stylist, serviceId)) {
+      throw createHttpError(
+        "The selected stylist does not offer this service.",
+        409,
+        { field: "service" }
+      );
+    }
+
+    const availability = await dayAvailability(
+      stylistId,
+      targetDate
+    );
+
+    const ranges = availability.availability?.ranges || [];
+    const slots = buildAvailableSlots({
+      date: targetDate,
+      ranges,
+      appointments: availability.appointments,
+      timeOff: availability.timeOff,
+      duration: service.duration,
+    });
+
+    return res.json({
+      success: true,
+      date: dateText,
+      stylist: stylistId,
+      service: {
+        _id: service._id,
+        name: service.name,
+        duration: service.duration,
+      },
+      ranges,
+      slots,
+      available: slots.length > 0,
+    });
+  } catch (error) {
+    return next(error);
   }
 }
 
