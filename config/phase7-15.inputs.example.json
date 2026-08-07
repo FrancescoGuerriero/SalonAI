@@ -6,11 +6,10 @@
   "tlsCertDirectory": "deployment/tls",
   "githubRepository": "FrancescoGuerriero/SalonAI",
   "githubEnvironment": "production",
-  "runnerLabel": "salonai-production",
   "mongoCredentialRotationConfirmed": false,
   "jwtCredentialRotationConfirmed": false,
   "githubEnvironmentConfigured": false,
-  "selfHostedRunnerConfigured": false,
+  "sshTransportConfigured": false,
   "dnsConfigured": false,
   "tlsConfigured": false,
   "notes": "Replace placeholders and set confirmations only after completing each external action."

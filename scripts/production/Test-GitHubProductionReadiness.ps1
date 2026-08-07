@@ -1,11 +1,17 @@
 param(
     [string]$Repository = "FrancescoGuerriero/SalonAI",
-    [string]$Environment = "production",
-    [string]$RunnerLabel = "salonai-production"
+    [string]$Environment = "production"
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$RequiredSecretNames = @(
+    "PRODUCTION_HOST",
+    "PRODUCTION_USER",
+    "PRODUCTION_SSH_KEY",
+    "PRODUCTION_KNOWN_HOSTS"
+)
 
 $Gh = Get-Command gh -ErrorAction SilentlyContinue
 if ($null -eq $Gh) {
@@ -27,26 +33,23 @@ if ([string]$EnvironmentData.name -ne $Environment) {
     throw "GitHub returned the wrong production environment."
 }
 
-$RunnersJson = & gh api "repos/$Repository/actions/runners?per_page=100" 2>$null
+$SecretsJson = & gh api "repos/$Repository/environments/$Environment/secrets?per_page=100" 2>$null
 if ($LASTEXITCODE -ne 0) {
-    throw "Unable to query repository self-hosted runners."
+    throw "Unable to list GitHub production environment secret names."
 }
 
-$Runners = ($RunnersJson | ConvertFrom-Json).runners
-$MatchingRunner = @(
-    $Runners | Where-Object {
-        $Labels = @($_.labels | ForEach-Object { [string]$_.name })
-        $Labels -contains $RunnerLabel
-    }
-) | Select-Object -First 1
+$ConfiguredSecretNames = @(
+    ($SecretsJson | ConvertFrom-Json).secrets |
+        ForEach-Object { [string]$_.name }
+)
+$MissingSecretNames = @(
+    $RequiredSecretNames |
+        Where-Object { $_ -notin $ConfiguredSecretNames }
+)
 
-if ($null -eq $MatchingRunner) {
-    throw "No self-hosted runner has the required label: $RunnerLabel"
-}
-
-if ([string]$MatchingRunner.status -ne "online") {
-    throw "The '$RunnerLabel' runner exists but is not online."
+if ($MissingSecretNames.Count -gt 0) {
+    throw "Missing GitHub production environment secrets: $($MissingSecretNames -join ', ')"
 }
 
 Write-Host "[PASS] GitHub production environment exists." -ForegroundColor Green
-Write-Host "[PASS] Required self-hosted runner is online." -ForegroundColor Green
+Write-Host "[PASS] GitHub-hosted SSH deployment secrets are configured." -ForegroundColor Green
