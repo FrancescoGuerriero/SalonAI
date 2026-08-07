@@ -141,12 +141,14 @@ export async function getStylistAvailability(req, res, next) {
     }
 
     const targetDate = parseBookingDate(dateText);
+    const stylistObjectId = new mongoose.Types.ObjectId(stylistId);
+    const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
     const [service, stylist] = await Promise.all([
       Service.findOne({
-        _id: serviceId,
+        _id: serviceObjectId,
         active: { $ne: false },
       }).lean(),
-      Stylist.findById(stylistId)
+      Stylist.findById(stylistObjectId)
         .select("services isActive")
         .lean(),
     ]);
@@ -165,7 +167,7 @@ export async function getStylistAvailability(req, res, next) {
       );
     }
 
-    if (!stylistOffersService(stylist, serviceId)) {
+    if (!stylistOffersService(stylist, serviceObjectId)) {
       throw createHttpError(
         "The selected stylist does not offer this service.",
         409,
@@ -174,7 +176,7 @@ export async function getStylistAvailability(req, res, next) {
     }
 
     const availability = await dayAvailability(
-      stylistId,
+      stylistObjectId,
       targetDate
     );
 

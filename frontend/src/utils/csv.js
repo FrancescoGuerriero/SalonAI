@@ -54,9 +54,14 @@ export function parseCsv(source) {
   const nonEmptyRows = matrix.filter((values) => values.some((value) => String(value).trim()));
   if (!nonEmptyRows.length) throw csvError("The CSV file is empty.");
 
-  const headers = nonEmptyRows[0].map((value, index) =>
-    String(value).replace(index === 0 ? /^\uFEFF/ : /^$/, "").trim()
-  );
+  const headers = nonEmptyRows[0].map((value, index) => {
+    const textValue = String(value);
+    const withoutBom = index === 0 && textValue.startsWith("\uFEFF")
+      ? textValue.slice(1)
+      : textValue;
+
+    return withoutBom.trim();
+  });
   if (headers.some((header) => !header)) throw csvError("Every CSV column must have a header.");
 
   const duplicateHeaders = headers.filter((header, index) => headers.indexOf(header) !== index);
