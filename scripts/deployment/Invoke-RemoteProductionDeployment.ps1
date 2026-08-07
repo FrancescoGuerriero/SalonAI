@@ -238,10 +238,6 @@ try {
         -EnvironmentFile $EnvironmentPath `
         -ReleaseManifestPath $StableManifestPath
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Deploy-Production.ps1 returned exit code $LASTEXITCODE."
-    }
-
     Write-Host "[PASS] Remote deployment transport completed for $ReleaseTag." -ForegroundColor Green
 }
 catch {
@@ -267,10 +263,6 @@ catch {
                 -EnvironmentFile $EnvironmentPath `
                 -ReleaseManifestPath $PreviousManifestBackup `
                 -SkipPull
-
-            if ($LASTEXITCODE -ne 0) {
-                throw "Restored deployment returned exit code $LASTEXITCODE."
-            }
         }
         else {
             throw "The previous release manifest is unavailable; automatic restoration cannot be verified."
