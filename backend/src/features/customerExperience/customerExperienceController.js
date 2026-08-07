@@ -40,10 +40,10 @@ async function customerFor(user) {
 }
 
 async function ownedAppointment(user, appointmentId) {
-  objectId(appointmentId, "Appointment");
+  const safeAppointmentId = objectId(appointmentId, "Appointment");
   const customer = await customerFor(user);
   if (!customer) throw httpError("No salon customer profile is linked to this account.", 404);
-  const appointment = await Appointment.findOne({ _id: appointmentId, customer: customer._id });
+  const appointment = await Appointment.findOne({ _id: safeAppointmentId, customer: customer._id });
   if (!appointment) throw httpError("Appointment not found for this account.", 404);
   return appointment;
 }

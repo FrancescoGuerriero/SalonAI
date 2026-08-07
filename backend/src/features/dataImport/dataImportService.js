@@ -292,10 +292,17 @@ export function normaliseCustomerImportRow(row = {}, rowNumber = 2) {
 }
 
 function slugify(value) {
-  return normaliseText(value)
+  const slug = normaliseText(value)
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, "-");
+
+  const withoutLeadingSeparator = slug.startsWith("-")
+    ? slug.slice(1)
+    : slug;
+
+  return withoutLeadingSeparator.endsWith("-")
+    ? withoutLeadingSeparator.slice(0, -1)
+    : withoutLeadingSeparator;
 }
 
 export function normaliseProductImportRow(row = {}, rowNumber = 2) {

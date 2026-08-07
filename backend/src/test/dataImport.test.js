@@ -69,6 +69,16 @@ test("product import normalises catalogue, price and opening stock fields", () =
   assert.deepEqual(row.data.images, ["https://example.com/shampoo.jpg"]);
 });
 
+test("product import safely normalises names with repeated separators", () => {
+  const row = normaliseProductImportRow({
+    name: `${"-".repeat(40)}Hydrating Shampoo${"-".repeat(40)}`,
+    sku: "HAIR-002",
+    price: "18.50",
+  });
+
+  assert.equal(row.data.sku, "HAIR-002");
+});
+
 test("product import rejects negative, fractional stock and insecure images", () => {
   assert.throws(
     () =>
