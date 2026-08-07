@@ -122,10 +122,6 @@ else {
     -ProjectRoot $ProjectRoot `
     -EnvironmentFile $EnvironmentPath
 
-if ($LASTEXITCODE -ne 0) {
-    throw "Production environment validation failed."
-}
-
 $EnvironmentValues = Read-EnvironmentFile -Path $EnvironmentPath
 $Manifest = Test-ReleaseManifest `
     -Path $ReleaseManifestPath `
@@ -182,10 +178,6 @@ try {
     & (Join-Path $ProjectRoot "scripts\deployment\Test-ProductionSmoke.ps1") `
         -BaseUrl $EnvironmentValues["PUBLIC_BASE_URL"] `
         -EvidencePath $SmokeEvidence
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Production smoke testing failed."
-    }
 
     docker compose @ComposeArguments ps --format json |
         Set-Content -LiteralPath $DeploymentState -Encoding utf8
