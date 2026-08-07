@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      CI_JWT_KEY: ci-only-placeholder-key-for-production-smoke
+      CI_JWT_KEY: ci-only-placeholder-access-key-for-production-smoke
+      CI_JWT_REFRESH_KEY: ci-only-placeholder-refresh-key-for-production-smoke
 
     steps:
       - name: Checkout repository
@@ -54,6 +55,7 @@ jobs:
             --env HOST=0.0.0.0 \
             --env MONGODB_URI=mongodb://salonai-production-smoke-mongo:27017/salonai_smoke \
             --env JWT_SECRET="$CI_JWT_KEY" \
+            --env JWT_REFRESH_SECRET="$CI_JWT_REFRESH_KEY" \
             --env FRONTEND_URL=http://localhost:5173 \
             --env MESSAGE_DELIVERY_SCHEDULER_ENABLED=true \
             --env MESSAGE_DELIVERY_SCHEDULER_RUN_IMMEDIATELY=true \
