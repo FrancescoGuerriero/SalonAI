@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const workflowDirectory = path.join(root, '.github', 'workflows');
-const requiredWorkflows = ['ci.yml', 'codeql.yml', 'release.yml'];
+const requiredWorkflows = ['ci.yml', 'codeql.yml', 'release.yml', 'deploy-production.yml'];
 const failures = [];
 const passes = [];
 
@@ -44,6 +44,33 @@ check(/npm run build/.test(ci), 'CI builds the frontend');
 check(/python -m pytest/.test(ci), 'CI runs AI-service tests when present');
 check(/dependency-review-action@v4\.8\.3/.test(ci), 'CI runs dependency review');
 check(/config\/security\/trivyignore\.yaml/.test(ci), 'CI uses the controlled Phase 7.12 Trivy exceptions');
+check(/test-deployment-evidence\.mjs/.test(ci), 'CI tests deployment evidence validation');
+check(/Validate PowerShell syntax/.test(ci), 'CI validates deployment PowerShell syntax');
+
+const deployment = fs.readFileSync(path.join(workflowDirectory, 'deploy-production.yml'), 'utf8');
+check(!/runs-on:\s*(?:\r?\n\s*-\s*)?self-hosted/.test(deployment), 'Production deployment does not require a persistent self-hosted runner');
+check(/name:\s*Deploy production[\s\S]*?runs-on:\s*ubuntu-24\.04/.test(deployment), 'Production deployment uses a GitHub-hosted runner');
+for (const secretName of [
+  'PRODUCTION_HOST',
+  'PRODUCTION_USER',
+  'PRODUCTION_SSH_KEY',
+  'PRODUCTION_KNOWN_HOSTS',
+]) {
+  check(deployment.includes(`secrets.${secretName}`), `Production deployment requires ${secretName}`);
+}
+check(/StrictHostKeyChecking=yes/.test(deployment), 'Production SSH requires strict host-key checking');
+check(/UserKnownHostsFile=/.test(deployment), 'Production SSH uses the protected known-hosts file');
+check(/BatchMode=yes/.test(deployment), 'Production SSH is non-interactive');
+check(/IdentitiesOnly=yes/.test(deployment), 'Production SSH uses only the deployment identity');
+check(!/StrictHostKeyChecking=no/.test(deployment), 'Production SSH never disables host-key checking');
+check(!/UserKnownHostsFile=\/dev\/null/.test(deployment), 'Production SSH never discards known-host verification');
+check(!/sshpass\b/.test(deployment), 'Production deployment does not use password-based SSH automation');
+check(/sha256sum --check SHA256SUMS\.txt/.test(deployment), 'Production deployment verifies release evidence checksums');
+check(/validate-deployment-evidence\.mjs/.test(deployment), 'Production deployment validates release and rollback evidence');
+check(/ref:\s*\$\{\{ github\.sha \}\}/.test(deployment), 'Deployment controls are checked out from the dispatch commit');
+check(/Invoke-RemoteProductionDeployment\.ps1/.test(deployment), 'Production deployment uses the guarded remote wrapper');
+check(/docker logout ghcr\.io/.test(deployment), 'Transient GHCR credentials are removed from production');
+check(/operation-evidence\.tgz/.test(deployment), 'Remote deployment evidence is returned to GitHub Actions');
 
 console.log(`Workflow security checks passed: ${passes.length}`);
 for (const message of failures) console.error(`[FAIL] ${message}`);

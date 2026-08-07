@@ -26,11 +26,12 @@ Create the repository environment named `production`. Configure required
 reviewers and environment protection rules. Add only the secrets and variables
 required by the production workflow.
 
-### Self-hosted runner is unavailable
+### GitHub-hosted SSH transport is unavailable
 
-Register a dedicated runner on the production host with the exact label
-`salonai-production`. Run it under a restricted service account. Confirm it is
-online and not shared with untrusted repositories.
+Configure `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY` and
+`PRODUCTION_KNOWN_HOSTS` in the protected `production` environment. Keep strict
+host-key checking enabled and use only the restricted `salonai-deploy` account.
+A persistent GitHub Actions runner must not be installed on production.
 
 ### DNS does not resolve correctly
 
