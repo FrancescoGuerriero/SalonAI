@@ -12,6 +12,24 @@ function check(condition, message) {
   else failures.push(message);
 }
 
+function hasStaleExitCodeCheckAfterPowerShellScript(content) {
+  const lines = content.split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/&\s*\(Join-Path\b.*\.ps1"\)/.test(lines[index])) continue;
+
+    let end = index;
+    while (end < lines.length && lines[end].trimEnd().endsWith('`')) end += 1;
+
+    let next = end + 1;
+    while (next < lines.length && lines[next].trim() === '') next += 1;
+
+    if (/^\s*if\s*\(\$LASTEXITCODE\b/.test(lines[next] ?? '')) return true;
+  }
+
+  return false;
+}
+
 for (const fileName of requiredWorkflows) {
   const filePath = path.join(workflowDirectory, fileName);
   check(fs.existsSync(filePath), `Workflow exists: ${fileName}`);
@@ -71,6 +89,18 @@ check(/ref:\s*\$\{\{ github\.sha \}\}/.test(deployment), 'Deployment controls ar
 check(/Invoke-RemoteProductionDeployment\.ps1/.test(deployment), 'Production deployment uses the guarded remote wrapper');
 check(/docker logout ghcr\.io/.test(deployment), 'Transient GHCR credentials are removed from production');
 check(/operation-evidence\.tgz/.test(deployment), 'Remote deployment evidence is returned to GitHub Actions');
+
+for (const scriptPath of [
+  'scripts/deployment/Deploy-Production.ps1',
+  'scripts/deployment/Invoke-RemoteProductionDeployment.ps1',
+  'scripts/deployment/Rollback-Production.ps1',
+]) {
+  const script = fs.readFileSync(path.join(root, scriptPath), 'utf8');
+  check(
+    !hasStaleExitCodeCheckAfterPowerShellScript(script),
+    `${scriptPath} relies on terminating PowerShell errors instead of stale LASTEXITCODE state`,
+  );
+}
 
 console.log(`Workflow security checks passed: ${passes.length}`);
 for (const message of failures) console.error(`[FAIL] ${message}`);
