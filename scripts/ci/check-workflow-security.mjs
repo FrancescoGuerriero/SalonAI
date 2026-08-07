@@ -87,8 +87,33 @@ check(/sha256sum --check SHA256SUMS\.txt/.test(deployment), 'Production deployme
 check(/validate-deployment-evidence\.mjs/.test(deployment), 'Production deployment validates release and rollback evidence');
 check(/ref:\s*\$\{\{ github\.sha \}\}/.test(deployment), 'Deployment controls are checked out from the dispatch commit');
 check(/Invoke-RemoteProductionDeployment\.ps1/.test(deployment), 'Production deployment uses the guarded remote wrapper');
+check(
+  /rm -rf "\$payload_directory\/scripts\/deployment"[\s\S]*?cp -a[\s\S]*?"\$CONTROL_SOURCE_DIR\/scripts\/deployment"[\s\S]*?"\$payload_directory\/scripts\/deployment"/.test(deployment),
+  'Production payload replaces tagged deployment scripts with the complete trusted control set',
+);
 check(/docker logout ghcr\.io/.test(deployment), 'Transient GHCR credentials are removed from production');
 check(/operation-evidence\.tgz/.test(deployment), 'Remote deployment evidence is returned to GitHub Actions');
+
+const remoteWrapper = fs.readFileSync(
+  path.join(root, 'scripts/deployment/Invoke-RemoteProductionDeployment.ps1'),
+  'utf8',
+);
+check(
+  /TrustedDeploymentControlRoot[\s\S]*?Join-Path \$StagingRoot "scripts\/deployment"/.test(remoteWrapper),
+  'Remote deployment resolves controls from the protected staging directory',
+);
+check(
+  (remoteWrapper.match(/Join-Path \$TrustedDeploymentControlRoot "Deploy-Production\.ps1"/g) ?? []).length === 2,
+  'Deployment and automatic restoration both execute trusted staged controls',
+);
+check(
+  !/Join-Path \$DeployRoot "scripts\/deployment\/Deploy-Production\.ps1"/.test(remoteWrapper),
+  'Remote deployment never executes release-tagged or rollback-snapshot deployment controls',
+);
+check(
+  (remoteWrapper.match(/Install-TrustedDeploymentControls/g) ?? []).length >= 3,
+  'Trusted deployment controls are installed for deployment and restoration',
+);
 
 for (const scriptPath of [
   'scripts/deployment/Deploy-Production.ps1',
