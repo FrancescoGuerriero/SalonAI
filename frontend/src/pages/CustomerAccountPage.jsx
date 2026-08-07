@@ -10,6 +10,7 @@ import {
   Sparkles,
   Star,
   UserRound,
+  MapPin,
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
@@ -252,6 +253,14 @@ export default function CustomerAccountPage() {
           description="Quick access to your most-used customer features."
         >
           <nav className="account-shortcuts" aria-label="Account shortcuts">
+            <Link to="/account/manage">
+              <MapPin size={20} />
+              <span>
+                <strong>Manage account</strong>
+                <small>Contact details and home address</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
             <Link to="/orders">
               <PackageCheck size={20} />
               <span>

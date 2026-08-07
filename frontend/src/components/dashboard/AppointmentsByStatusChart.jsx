@@ -15,27 +15,27 @@ const STATUS_CONFIG = {
   },
   confirmed: {
     label: "Confirmed",
-    color: "#2563eb",
+    color: "#555552",
   },
   checked_in: {
     label: "Checked In",
-    color: "#7c3aed",
+    color: "#b28a20",
   },
   in_progress: {
     label: "In Progress",
-    color: "#0891b2",
+    color: "#73736f",
   },
   completed: {
     label: "Completed",
-    color: "#16a34a",
+    color: "#c9a227",
   },
   cancelled: {
     label: "Cancelled",
-    color: "#dc2626",
+    color: "#292927",
   },
   no_show: {
     label: "No Show",
-    color: "#6b7280",
+    color: "#93938e",
   },
 };
 
@@ -66,7 +66,7 @@ function normalizeData(data) {
             item.value ??
             0
         ),
-        color: config?.color ?? "#94a3b8",
+        color: config?.color ?? "#b7b7b1",
       };
     })
     .filter((item) => item.value > 0);

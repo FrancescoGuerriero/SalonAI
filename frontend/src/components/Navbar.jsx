@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Menu, ShoppingBag, Sparkles, X } from "lucide-react";
 import useAuth from "../hooks/useAuth.js";
 import useCart from "../hooks/useCart.js";
@@ -20,6 +20,7 @@ function navClass({ isActive }) {
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const { itemCount } = useCart();
   const [open, setOpen] = useState(false);
@@ -32,6 +33,15 @@ export default function Navbar() {
     return () => document.removeEventListener("keydown", close);
   }, [open]);
 
+  useEffect(() => setOpen(false), [location.pathname]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [open]);
+
   function handleLogout() {
     logout();
     setOpen(false);
@@ -41,13 +51,14 @@ export default function Navbar() {
   const customerLinks = isAuthenticated ? [
     { to: "/booking", label: "Book" },
     { to: "/account", label: "My account" },
-    { to: "/settings", label: "Settings" },
+    { to: "/account/manage", label: "Manage account" },
   ] : [];
 
   const mobileLinks = [
     ...PUBLIC_LINKS,
     ...customerLinks,
     ...(isAuthenticated ? [{ to: "/orders", label: "Orders" }] : []),
+    ...(isAuthenticated ? [{ to: "/settings", label: "Preferences" }] : []),
     ...(showManagement ? [{ to: "/dashboard", label: "Management" }] : []),
   ];
 
@@ -84,14 +95,14 @@ export default function Navbar() {
               <NavLink to="/register" className="app-button app-button-primary">Create account</NavLink>
             </div>
           )}
-          <button type="button" className="app-icon-button app-mobile-only" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
+          <button type="button" className="app-icon-button app-mobile-only" onClick={() => setOpen(true)} aria-label="Open navigation" aria-expanded={open} aria-controls="salonai-mobile-navigation"><Menu size={21} /></button>
         </div>
       </div>
 
       {open ? (
         <div className="app-mobile-overlay" role="dialog" aria-modal="true" aria-label="Mobile navigation">
           <button className="app-mobile-backdrop" onClick={() => setOpen(false)} aria-label="Close navigation" />
-          <aside className="app-mobile-panel">
+          <aside className="app-mobile-panel" id="salonai-mobile-navigation">
             <div className="app-mobile-panel-head">
               <span className="app-brand"><span className="app-brand-mark"><Sparkles size={18} /></span><strong>SalonAI</strong></span>
               <button className="app-icon-button" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button>

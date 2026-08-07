@@ -10,14 +10,14 @@ import {
 import Card from "../ui/Card";
 
 const COLORS = [
-  "#2563eb",
-  "#16a34a",
+  "#555552",
+  "#c9a227",
   "#f59e0b",
-  "#dc2626",
-  "#7c3aed",
-  "#0891b2",
-  "#ea580c",
-  "#db2777",
+  "#292927",
+  "#b28a20",
+  "#73736f",
+  "#d8c395",
+  "#dfc77e",
 ];
 
 const currencyFormatter = new Intl.NumberFormat("en-GB", {

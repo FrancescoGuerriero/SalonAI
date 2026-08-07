@@ -11,12 +11,12 @@ import Card from "../ui/Card";
 const CUSTOMER_TYPE_CONFIG = {
   new: {
     label: "New Customers",
-    color: "#16a34a",
+    color: "#c9a227",
   },
 
   returning: {
     label: "Returning Customers",
-    color: "#7c3aed",
+    color: "#b28a20",
   },
 };
 
@@ -37,7 +37,7 @@ function normalizeData(data) {
           config?.label ??
           "Other Customers",
         count: Number(item.count) || 0,
-        color: config?.color ?? "#94a3b8",
+        color: config?.color ?? "#b7b7b1",
       };
     })
     .filter((item) => item.count > 0);

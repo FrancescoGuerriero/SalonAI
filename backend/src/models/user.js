@@ -11,6 +11,51 @@ const USER_ROLES = [
   "admin",
 ];
 
+const addressSchema = new Schema(
+  {
+    line1: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 150,
+    },
+    line2: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 150,
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 100,
+    },
+    county: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 100,
+    },
+    postcode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      maxlength: 20,
+    },
+    country: {
+      type: String,
+      trim: true,
+      default: "United Kingdom",
+      maxlength: 100,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const userSchema = new Schema(
   {
     name: {
@@ -67,6 +112,18 @@ const userSchema = new Schema(
       },
       default: "customer",
       index: true,
+    },
+
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 30,
+    },
+
+    homeAddress: {
+      type: addressSchema,
+      default: () => ({}),
     },
 
     /*

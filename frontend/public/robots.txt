@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /settings
+Disallow: /checkout
+Disallow: /orders
+Disallow: /dashboard
+Disallow: /manage
+Sitemap: https://salonai.francescopicardi.co.uk/sitemap.xml
