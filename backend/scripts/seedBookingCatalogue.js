@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import connectDB from "../src/config/db.js";
 import Service from "../src/models/service.js";
 import Stylist from "../src/models/Stylist.js";
+import { isEmailAddress } from "../src/shared/inputValidation.js";
 
 function parseArguments(values) {
   const options = {
@@ -116,7 +117,7 @@ function normaliseStylists(stylists, serviceNames) {
       `stylists[${index}].email`
     ).toLowerCase();
 
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    if (!isEmailAddress(email)) {
       throw new Error(`stylists[${index}].email is invalid.`);
     }
 

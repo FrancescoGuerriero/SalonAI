@@ -11,6 +11,7 @@ import {
   createProduct,
   updateProduct,
 } from "../commerce/commerceService.js";
+import { isEmailAddress } from "../../shared/inputValidation.js";
 import DataImportJob from "./DataImportJob.js";
 
 export const MAXIMUM_IMPORT_ROWS = 500;
@@ -56,7 +57,6 @@ export const PRODUCT_IMPORT_COLUMNS = [
   "active",
 ];
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CUSTOMER_TITLES = new Set(["", "Mr", "Mrs", "Miss", "Ms", "Mx", "Dr", "Other"]);
 const CUSTOMER_GENDERS = new Set([
   "male",
@@ -209,7 +209,7 @@ export function normaliseCustomerImportRow(row = {}, rowNumber = 2) {
       "CUSTOMER_CONTACT_REQUIRED"
     );
   }
-  if (email && !EMAIL_PATTERN.test(email)) rowError("email is invalid.", "email");
+  if (email && !isEmailAddress(email)) rowError("email is invalid.", "email");
 
   const title = normaliseText(row.title);
   if (!CUSTOMER_TITLES.has(title)) rowError("title is not supported.", "title");

@@ -58,6 +58,12 @@ test(
       200
     );
 
+    assert.ok(
+      response.headers.get("ratelimit") ||
+        response.headers.get("ratelimit-policy"),
+      "API responses should include rate-limit headers"
+    );
+
     const body =
       await response.json();
 
