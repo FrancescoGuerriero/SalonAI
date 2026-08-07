@@ -57,6 +57,12 @@ $InputData = Get-Content -LiteralPath $InputPath -Raw | ConvertFrom-Json
 $Domain = [string]$InputData.domain
 $ManifestPath = Resolve-ProjectPath -Path ([string]$InputData.releaseManifestPath)
 $TlsDirectory = Resolve-ProjectPath -Path ([string]$InputData.tlsCertDirectory)
+$SshTransportConfigured = if ($InputData.PSObject.Properties.Name -contains "sshTransportConfigured") {
+    [bool]$InputData.sshTransportConfigured
+}
+else {
+    $false
+}
 
 $Phase714Verifier = Join-Path $ProjectRoot "scripts\verify-phase7-14.ps1"
 if (Test-Path -LiteralPath $Phase714Verifier -PathType Leaf) {
@@ -76,7 +82,7 @@ foreach ($Pair in @(
     @("MongoDB credential rotation", [bool]$InputData.mongoCredentialRotationConfirmed),
     @("JWT credential rotation", [bool]$InputData.jwtCredentialRotationConfirmed),
     @("GitHub production environment configuration", [bool]$InputData.githubEnvironmentConfigured),
-    @("Self-hosted runner configuration", [bool]$InputData.selfHostedRunnerConfigured),
+    @("GitHub-hosted SSH transport configuration", $SshTransportConfigured),
     @("DNS configuration", [bool]$InputData.dnsConfigured),
     @("TLS configuration", [bool]$InputData.tlsConfigured)
 )) {
@@ -164,14 +170,13 @@ if ($RunGitHubChecks) {
             -ExecutionPolicy Bypass `
             -File (Join-Path $ProjectRoot "scripts\production\Test-GitHubProductionReadiness.ps1") `
             -Repository ([string]$InputData.githubRepository) `
-            -Environment ([string]$InputData.githubEnvironment) `
-            -RunnerLabel ([string]$InputData.runnerLabel)
+            -Environment ([string]$InputData.githubEnvironment)
 
         if ($LASTEXITCODE -ne 0) {
             throw "GitHub readiness script failed."
         }
 
-        Add-Check -Name "GitHub production control plane" -Status "PASS" -Detail "Environment and runner checks passed."
+        Add-Check -Name "GitHub production control plane" -Status "PASS" -Detail "Environment and protected SSH secret checks passed."
     }
     catch {
         Add-Check -Name "GitHub production control plane" -Status "FAIL" -Detail $_.Exception.Message

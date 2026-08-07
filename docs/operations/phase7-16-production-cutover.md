@@ -14,7 +14,7 @@ run.
 3. Complete the external Phase 7.15 prerequisites:
    - rotate the exposed MongoDB and JWT credentials;
    - configure the protected GitHub `production` environment;
-   - register an online self-hosted runner labelled `salonai-production`;
+   - configure the protected GitHub-hosted SSH deployment secrets;
    - configure the real domain and DNS;
    - install valid TLS certificates;
    - approve an immutable release manifest.

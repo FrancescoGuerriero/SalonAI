@@ -31,7 +31,7 @@ package:
 - choose the real production domain and configure DNS;
 - obtain and install valid TLS certificate files;
 - configure the protected GitHub `production` environment;
-- register and secure the self-hosted runner labelled `salonai-production`;
+- configure the four protected GitHub-hosted SSH deployment secrets;
 - publish an approved semantic release and download its `release-manifest.json`.
 
 Mark a confirmation as `true` only after completing and independently verifying

@@ -10,13 +10,13 @@ health verification, rollback capability and retained evidence.
 
 - Phase 7.13 merged and verified.
 - A published semantic GitHub release containing `release-manifest.json`.
-- A production host with Docker Engine, Docker Compose v2, GitHub CLI and PowerShell 7.
-- A self-hosted GitHub Actions runner labelled `salonai-production`.
+- A production host with Docker Engine, Docker Compose v2 and PowerShell 7.
 - DNS for `SALONAI_DOMAIN` resolving to the production host.
 - TLS files `fullchain.pem` and `privkey.pem`.
 - A GitHub environment named `production` with required reviewers.
-- Environment variable `SALONAI_DEPLOY_ROOT`.
-- Environment secret `PRODUCTION_ENV_FILE`.
+- GitHub production environment secrets `PRODUCTION_HOST`, `PRODUCTION_USER`,
+  `PRODUCTION_SSH_KEY` and `PRODUCTION_KNOWN_HOSTS`.
+- An untracked `/opt/salonai/.env.production` owned by the restricted deployment user.
 - Previously exposed MongoDB and JWT credentials rotated.
 
 ## Immutable release contract
@@ -35,13 +35,10 @@ manually choose application image tags.
 
 ## Secret handling
 
-Real production values belong only in the untracked `.env.production` file or the
-GitHub `production` environment secret. Example files contain placeholders. Never
-commit `.env.production`, certificates, private keys or provider tokens.
-
-The production secret must include all non-release-derived values from
-`config/phase7-14.env.example`, including a rotated `JWT_SECRET`, MongoDB password
-and Grafana administrator password.
+Application secrets remain only in the untracked server-side `.env.production`
+file. GitHub stores only the SSH connection identity and pinned known-host record.
+Example files contain placeholders. Never commit `.env.production`, certificates,
+private keys or provider tokens.
 
 ## Release deployment
 
@@ -51,11 +48,13 @@ and Grafana administrator password.
 4. Trigger `SalonAI Production Deployment`.
 5. Enter the release tag and type `DEPLOY`.
 6. Approve the protected `production` environment.
-7. The runner downloads the release manifest, refreshes the stable deployment
-   directory, injects immutable image references, validates the environment,
-   validates merged Compose configuration, pulls images and deploys the stack.
+7. A GitHub-hosted runner verifies every release checksum, opens a strict
+   host-key-verified SSH connection, refreshes the stable deployment directory,
+   injects immutable image references, validates the environment and merged
+   Compose configuration, pulls images and deploys the stack.
 8. HTTPS smoke tests run against edge, backend, AI-service and frontend.
-9. Download and retain the deployment evidence artifact.
+9. GHCR credentials and remote staging files are removed, and deployment evidence
+   is returned as a retained GitHub Actions artifact.
 
 ## Observability compatibility
 

@@ -11,7 +11,8 @@
   "repository": "FrancescoGuerriero/SalonAI",
   "production": {
     "githubEnvironment": "production",
-    "runnerLabel": "salonai-production",
+    "deploymentTransport": "github-hosted-ssh",
+    "persistentProductionRunnerProhibited": true,
     "httpsRequired": true,
     "immutableImageDigestsRequired": true,
     "releaseManifestRequired": true,
