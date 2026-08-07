@@ -203,9 +203,10 @@ jobs:
             cp "$RELEASE_SOURCE_DIR/$file" "$payload_directory/$file"
           done
 
-          cp \
-            "$CONTROL_SOURCE_DIR/scripts/deployment/Invoke-RemoteProductionDeployment.ps1" \
-            "$payload_directory/scripts/deployment/Invoke-RemoteProductionDeployment.ps1"
+          rm -rf "$payload_directory/scripts/deployment"
+          cp -a \
+            "$CONTROL_SOURCE_DIR/scripts/deployment" \
+            "$payload_directory/scripts/deployment"
           cp -a "$RELEASE_EVIDENCE_DIR" "$payload_directory/release-evidence"
 
           tar -C "$payload_directory" \
