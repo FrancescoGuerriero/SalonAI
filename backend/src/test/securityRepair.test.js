@@ -3,6 +3,7 @@ import test from "node:test";
 
 import mongoose from "mongoose";
 
+import { objectId } from "../features/customerExperience/customerExperienceService.js";
 import { isEmailAddress } from "../shared/inputValidation.js";
 
 test("email validation accepts ordinary customer addresses", () => {
@@ -20,7 +21,9 @@ test("email validation rejects malformed and oversized addresses", () => {
 
 test("validated request identifiers can be converted to MongoDB ObjectIds", () => {
   const value = "507f1f77bcf86cd799439011";
+  const converted = objectId(value, "Identifier");
 
   assert.equal(mongoose.isValidObjectId(value), true);
-  assert.ok(new mongoose.Types.ObjectId(value) instanceof mongoose.Types.ObjectId);
+  assert.ok(converted instanceof mongoose.Types.ObjectId);
+  assert.equal(converted.toString(), value);
 });

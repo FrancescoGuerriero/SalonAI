@@ -23,7 +23,7 @@ export function objectId(value, fieldName) {
     error.statusCode = 400;
     throw error;
   }
-  return value;
+  return new mongoose.Types.ObjectId(value);
 }
 
 export function safeHttpsUrl(value) {
