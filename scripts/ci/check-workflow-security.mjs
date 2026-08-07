@@ -124,8 +124,12 @@ check(
   'Production deployment retries one transient Docker Compose rollout failure',
 );
 check(
-  /function Wait-CoreServicesHealthy[\s\S]*?TimeoutSeconds = 75[\s\S]*?salonai-backend[\s\S]*?ready = \(\$State -eq "running" -and \$Health -eq "healthy"\)/.test(productionDeployScript),
-  'Production deployment uses a bounded health grace period and still requires backend health',
+  /function Wait-CoreServicesHealthy[\s\S]*?TimeoutSeconds = 75[\s\S]*?salonai-backend/.test(productionDeployScript),
+  'Production deployment uses a bounded health grace period that includes the backend',
+);
+check(
+  /function Get-ContainerHealthSnapshot[\s\S]*?ready = \(\$State -eq "running" -and \$Health -eq "healthy"\)/.test(productionDeployScript),
+  'Production health convergence still requires containers to be running and Docker-healthy',
 );
 check(
   /function Invoke-ComposeDeployment[\s\S]*?docker compose @ComposeArguments up -d --no-build[\s\S]*?Wait-CoreServicesHealthy -TimeoutSeconds \$HealthGraceSeconds/.test(productionDeployScript),
