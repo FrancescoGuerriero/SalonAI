@@ -3,6 +3,8 @@ import express from "express";
 import {
   registerUser,
   loginUser,
+  logoutUser,
+  refreshSession,
   createUserByAdmin,
   getCurrentAccount,
   updateCurrentAccount,
@@ -13,16 +15,39 @@ import {
   adminOnly,
 } from "../middleware/authMiddleware.js";
 
-const router = express.Router();
+const router =
+  express.Router();
 
-router.post("/register", registerUser);
+router.post(
+  "/register",
+  registerUser
+);
 
-router.post("/login", loginUser);
+router.post(
+  "/login",
+  loginUser
+);
+
+router.post(
+  "/refresh",
+  refreshSession
+);
+
+router.post(
+  "/logout",
+  logoutUser
+);
 
 router
   .route("/me")
-  .get(protect, getCurrentAccount)
-  .patch(protect, updateCurrentAccount);
+  .get(
+    protect,
+    getCurrentAccount
+  )
+  .patch(
+    protect,
+    updateCurrentAccount
+  );
 
 router.post(
   "/admin/users",
