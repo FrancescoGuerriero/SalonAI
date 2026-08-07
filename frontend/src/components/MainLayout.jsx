@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import Navbar from "./Navbar.jsx";
+import Footer from "./Footer.jsx";
 import ManagementNavigation, { MANAGEMENT_LINKS } from "./navigation/ManagementNavigation.jsx";
+import SalonChatbot from "./chatbot/SalonChatbot.jsx";
+import Seo from "./Seo.jsx";
 
 const KEY = "salonai-management-sidebar-collapsed";
 const ROUTES = MANAGEMENT_LINKS.map(({ to }) => to);
@@ -26,8 +29,9 @@ export default function MainLayout() {
   }, [mobileOpen]);
 
   return <div className="app-shell">
+    <Seo />
     <Navbar />
-    {!management ? <main className="app-public-main"><Outlet /></main> : <div className="management-shell">
+    {!management ? <><main className="app-public-main"><Outlet /></main><Footer /><SalonChatbot /></> : <div className="management-shell">
       <aside className={`management-sidebar${collapsed ? " is-collapsed" : ""}`}>
         <div className="management-sidebar-head">
           {!collapsed && <div><span className="app-eyebrow">Workspace</span><strong>Management</strong></div>}

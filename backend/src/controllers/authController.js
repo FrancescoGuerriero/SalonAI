@@ -23,6 +23,51 @@ function serialiseUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    phone: user.phone || "",
+    homeAddress: {
+      line1: user.homeAddress?.line1 || "",
+      line2: user.homeAddress?.line2 || "",
+      city: user.homeAddress?.city || "",
+      county: user.homeAddress?.county || "",
+      postcode: user.homeAddress?.postcode || "",
+      country: user.homeAddress?.country || "United Kingdom",
+    },
+  };
+}
+
+function cleanText(value, maximumLength) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, maximumLength);
+}
+
+export function normaliseAccountUpdate(body = {}) {
+  const address = body.homeAddress && typeof body.homeAddress === "object"
+    ? body.homeAddress
+    : {};
+
+  const name = cleanText(body.name, 120);
+  const phone = cleanText(body.phone, 30);
+  const postcode = cleanText(address.postcode, 20).toUpperCase();
+
+  if (!name) {
+    const error = new Error("Your name is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    name,
+    phone,
+    homeAddress: {
+      line1: cleanText(address.line1, 150),
+      line2: cleanText(address.line2, 150),
+      city: cleanText(address.city, 100),
+      county: cleanText(address.county, 100),
+      postcode,
+      country: cleanText(address.country || "United Kingdom", 100),
+    },
   };
 }
 
@@ -211,5 +256,31 @@ export async function loginUser(req, res) {
     return res.status(500).json({
       message: "Unable to sign in.",
     });
+  }
+}
+
+export async function getCurrentAccount(req, res) {
+  return res.status(200).json({
+    success: true,
+    user: serialiseUser(req.user),
+  });
+}
+
+export async function updateCurrentAccount(req, res, next) {
+  try {
+    const update = normaliseAccountUpdate(req.body);
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Account details updated successfully.",
+      user: serialiseUser(user),
+    });
+  } catch (error) {
+    return next(error);
   }
 }

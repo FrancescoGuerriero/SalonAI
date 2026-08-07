@@ -1,0 +1,57 @@
+{
+  "productionReady": false,
+  "services": [
+    {
+      "name": "Cut and Finish",
+      "category": "Cutting",
+      "description": "Consultation, precision haircut and professional finish.",
+      "price": 45,
+      "duration": 60,
+      "image": "",
+      "active": true
+    },
+    {
+      "name": "Blow-dry",
+      "category": "Styling",
+      "description": "Professional blow-dry tailored to your preferred finish.",
+      "price": 32,
+      "duration": 45,
+      "image": "",
+      "active": true
+    },
+    {
+      "name": "Root Colour",
+      "category": "Colour",
+      "description": "Root colour application with consultation and finish.",
+      "price": 65,
+      "duration": 90,
+      "image": "",
+      "active": true
+    }
+  ],
+  "stylists": [
+    {
+      "firstName": "Alex",
+      "lastName": "Morgan",
+      "email": "stylist@example.com",
+      "phone": "",
+      "biography": "Example profile — replace with the stylist's real details before production use.",
+      "profileImage": "",
+      "yearsExperience": 8,
+      "specialties": [
+        "Cutting",
+        "Styling",
+        "Colour"
+      ],
+      "languages": [
+        "English"
+      ],
+      "services": [
+        "Cut and Finish",
+        "Blow-dry",
+        "Root Colour"
+      ],
+      "isActive": true
+    }
+  ]
+}

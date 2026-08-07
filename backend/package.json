@@ -12,7 +12,8 @@
                     "validate":  "npm run check \u0026\u0026 node --input-type=module -e \"await import(\u0027./src/app.js\u0027); console.log(\u0027Backend application import passed.\u0027)\" \u0026\u0026 npm test",
                     "seed:future":  "node scripts/seedFutureFeatures.js",
                     "admin:set":  "node scripts/setAdmin.js",
-                    "seed:commerce":  "node scripts/seedCommerce.js"
+                    "seed:commerce":  "node scripts/seedCommerce.js",
+                    "seed:booking":  "node scripts/seedBookingCatalogue.js"
                 },
     "dependencies":  {
                          "bcrypt":  "^6.0.0",

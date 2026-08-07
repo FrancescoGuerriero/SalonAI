@@ -8,6 +8,9 @@ import aiRecommendationRoutes from "./features/aiRecommendations/aiRecommendatio
 import futureFeatureRoutes from "./features/futureFeatureRoutes.js";
 import commerceRoutes from "./features/commerce/commerceRoutes.js";
 import commerceWebhookRoutes from "./features/commerce/commerceWebhookRoutes.js";
+import chatbotRoutes from "./features/chatbot/chatbotRoutes.js";
+import customerExperienceRoutes from "./features/customerExperience/customerExperienceRoutes.js";
+import dataImportRoutes from "./features/dataImport/dataImportRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
@@ -142,6 +145,8 @@ app.use("/api/sms", smsRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/retention-automation", automationRoutes);
 app.use("/api/premium-analytics", premiumAnalyticsRoutes);
+app.use("/api/customer-experience", customerExperienceRoutes);
+app.use("/api/data-imports", dataImportRoutes);
 
 /*
 |--------------------------------------------------------------------------
@@ -199,6 +204,11 @@ app.use(
 app.use(
   "/api/commerce",
   commerceRoutes
+);
+
+app.use(
+  "/api/chatbot",
+  chatbotRoutes
 );
 
 /*

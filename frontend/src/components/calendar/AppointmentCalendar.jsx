@@ -12,10 +12,10 @@ import { getAppointments } from "../../Services/appointmentApi.js";
 const localizer = momentLocalizer(moment);
 
 const stylistColours = {
-  Emma: "#2563eb",
-  Lisa: "#7c3aed",
-  Maria: "#16a34a",
-  James: "#ea580c",
+  Emma: "#555552",
+  Lisa: "#b28a20",
+  Maria: "#c9a227",
+  James: "#d8c395",
 };
 
 function extractAppointments(responseData) {
@@ -181,7 +181,7 @@ export default function AppointmentCalendar() {
   }, [appointments]);
 
   function eventStyleGetter(event) {
-    const colour = stylistColours[event.stylist] || "#475569";
+    const colour = stylistColours[event.stylist] || "#555552";
 
     return {
       style: {

@@ -25,7 +25,7 @@ import Card from "../ui/Card";
 const STATUS_CONFIG = {
   draft: {
     label: "Draft",
-    colour: "#6b7280",
+    colour: "#93938e",
     icon: Clock,
   },
 
@@ -37,37 +37,37 @@ const STATUS_CONFIG = {
 
   sent: {
     label: "Sent",
-    colour: "#2563eb",
+    colour: "#555552",
     icon: Send,
   },
 
   delivered: {
     label: "Delivered",
-    colour: "#16a34a",
+    colour: "#c9a227",
     icon: CheckCheck,
   },
 
   opened: {
     label: "Opened",
-    colour: "#7c3aed",
+    colour: "#b28a20",
     icon: Eye,
   },
 
   responded: {
     label: "Responded",
-    colour: "#059669",
+    colour: "#8a6b16",
     icon: MessageSquareReply,
   },
 
   failed: {
     label: "Failed",
-    colour: "#dc2626",
+    colour: "#292927",
     icon: CircleAlert,
   },
 
   cancelled: {
     label: "Cancelled",
-    colour: "#ea580c",
+    colour: "#d8c395",
     icon: XCircle,
   },
 };
@@ -120,7 +120,7 @@ function normalizeStatusData(data) {
         value: Number.isFinite(value) ? value : 0,
         colour:
           STATUS_CONFIG[status]?.colour ||
-          "#64748b",
+          "#73736f",
       };
     })
     .filter((item) => item.value > 0);
@@ -303,7 +303,7 @@ export default function CommunicationStatusChart({
                   allowDecimals={false}
                   tick={{
                     fontSize: 12,
-                    fill: "#6b7280",
+                    fill: "#93938e",
                   }}
                   axisLine={false}
                   tickLine={false}
@@ -315,7 +315,7 @@ export default function CommunicationStatusChart({
                   width={85}
                   tick={{
                     fontSize: 12,
-                    fill: "#4b5563",
+                    fill: "#454542",
                   }}
                   axisLine={false}
                   tickLine={false}

@@ -20,6 +20,7 @@ import "./styles/accessibilityExperience.css";
 import "./styles/resilienceExperience.css";
 import "./styles/customerSettings.css";
 import "./styles/customerExperienceSuite.css";
+import "./styles/manageAccount.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -35,3 +36,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </AuthProvider>
   </React.StrictMode>
 );
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  window.__salonaiInstallPrompt = event;
+});
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // The application remains fully usable online if registration is blocked.
+    });
+  });
+}

@@ -116,12 +116,12 @@ export default function RevenueChart({
                 >
                   <stop
                     offset="5%"
-                    stopColor="#2563eb"
+                    stopColor="#555552"
                     stopOpacity={0.25}
                   />
                   <stop
                     offset="95%"
-                    stopColor="#2563eb"
+                    stopColor="#555552"
                     stopOpacity={0}
                   />
                 </linearGradient>
@@ -154,7 +154,7 @@ export default function RevenueChart({
               <Area
                 type="monotone"
                 dataKey="total"
-                stroke="#2563eb"
+                stroke="#555552"
                 strokeWidth={3}
                 fill="url(#revenueGradient)"
                 activeDot={{ r: 5 }}

@@ -216,18 +216,37 @@ export default function Services() {
         filteredServices.length === 0 ? (
           <EmptyState
             icon={Search}
-            title="No matching services"
-            description="Change your search or category filter to see more treatments."
+            title={
+              services.length === 0
+                ? "Online bookings are not available yet"
+                : "No matching services"
+            }
+            description={
+              services.length === 0
+                ? "The salon service catalogue is being prepared. Please try again shortly."
+                : "Change your search or category filter to see more treatments."
+            }
             action={
               <button
                 type="button"
                 className="customer-inline-button"
-                onClick={() => {
-                  setQuery("");
-                  setCategory("all");
-                }}
+                onClick={
+                  services.length === 0
+                    ? loadServices
+                    : () => {
+                        setQuery("");
+                        setCategory("all");
+                      }
+                }
               >
-                Clear filters
+                {services.length === 0 ? (
+                  <>
+                    <RefreshCw size={16} />
+                    Try again
+                  </>
+                ) : (
+                  "Clear filters"
+                )}
               </button>
             }
           />

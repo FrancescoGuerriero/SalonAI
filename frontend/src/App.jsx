@@ -33,6 +33,9 @@ const HelpCentrePage = lazy(() => import("./pages/HelpCentrePage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
 const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienceSuitePage.jsx"));
+const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperienceFeaturePage.jsx"));
+const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
+const CustomerExperienceManagementPage = lazy(() => import("./pages/CustomerExperienceManagementPage.jsx"));
 const Home = lazy(
   () => import("./pages/Home.jsx")
 );
@@ -482,6 +485,13 @@ const ReorderRecommendationsPage = lazy(
     )
 );
 
+const DataImportPage = lazy(
+  () =>
+    import(
+      "./pages/DataImportPage.jsx"
+    )
+);
+
 function protectedPage(
   PageComponent
 ) {
@@ -518,53 +528,6 @@ function adminPage(
 function AppRoutes() {
   return (
     <Routes>
-        <Route path="experience" element={<CustomerExperienceSuitePage />} />
-        <Route path="experience/:featureId" element={<CustomerExperienceSuitePage />} />
-
-      <Route
-        path="settings"
-        element={protectedPage(CustomerSettingsPage)}
-      />
-      <Route path="help" element={<HelpCentrePage />} />
-      <Route
-        path="account"
-        element={protectedPage(CustomerAccountPage)}
-      />
-      <Route
-  path="suppliers"
-  element={managementPage(
-    SupplierManagementPage
-  )}
-/>
-
-<Route
-  path="purchase-orders"
-  element={managementPage(
-    PurchaseOrdersPage
-  )}
-/>
-
-<Route
-  path="purchase-orders/new"
-  element={managementPage(
-    CreatePurchaseOrderPage
-  )}
-/>
-
-<Route
-  path="purchase-orders/:purchaseOrderId"
-  element={managementPage(
-    PurchaseOrderDetailsPage
-  )}
-/>
-
-<Route
-  path="reorder-recommendations"
-  element={managementPage(
-    ReorderRecommendationsPage
-  )}
-/>
-
       <Route element={<MainLayout />}>
         {/*
         |--------------------------------------------------------------------------
@@ -581,6 +544,7 @@ function AppRoutes() {
 <Route path="whatsapp-booking" element={managementPage(WhatsAppBookingPage)} />
 <Route path="retention-automation" element={managementPage(RetentionAutomationPage)} />
 <Route path="premium-analytics" element={managementPage(PremiumAnalyticsPage)} />
+<Route path="customer-experience-management" element={managementPage(CustomerExperienceManagementPage)} />
         <Route
           index
           element={<Home />}
@@ -609,6 +573,21 @@ function AppRoutes() {
         <Route
           path="shop"
           element={<Shop />}
+        />
+
+        <Route
+          path="experience"
+          element={<CustomerExperienceSuitePage />}
+        />
+
+        <Route
+          path="experience/:featureId"
+          element={protectedPage(CustomerExperienceFeaturePage)}
+        />
+
+        <Route
+          path="help"
+          element={<HelpCentrePage />}
         />
 
         <Route
@@ -641,6 +620,27 @@ function AppRoutes() {
           path="orders"
           element={protectedPage(
             OrderHistory
+          )}
+        />
+
+        <Route
+          path="account"
+          element={protectedPage(
+            CustomerAccountPage
+          )}
+        />
+
+        <Route
+          path="settings"
+          element={protectedPage(
+            CustomerSettingsPage
+          )}
+        />
+
+        <Route
+          path="account/manage"
+          element={protectedPage(
+            ManageAccountPage
           )}
         />
 
@@ -946,9 +946,51 @@ function AppRoutes() {
         />
 
         <Route
+          path="data-imports"
+          element={adminPage(
+            DataImportPage
+          )}
+        />
+
+        <Route
           path="manage/orders"
           element={managementPage(
             OrderManagement
+          )}
+        />
+
+        <Route
+          path="suppliers"
+          element={managementPage(
+            SupplierManagementPage
+          )}
+        />
+
+        <Route
+          path="purchase-orders"
+          element={managementPage(
+            PurchaseOrdersPage
+          )}
+        />
+
+        <Route
+          path="purchase-orders/new"
+          element={managementPage(
+            CreatePurchaseOrderPage
+          )}
+        />
+
+        <Route
+          path="purchase-orders/:purchaseOrderId"
+          element={managementPage(
+            PurchaseOrderDetailsPage
+          )}
+        />
+
+        <Route
+          path="reorder-recommendations"
+          element={managementPage(
+            ReorderRecommendationsPage
           )}
         />
 
