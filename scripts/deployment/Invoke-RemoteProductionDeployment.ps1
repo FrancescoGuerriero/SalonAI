@@ -106,6 +106,28 @@ function Copy-AssetSet {
     }
 }
 
+function Install-TrustedDeploymentControls {
+    param(
+        [Parameter(Mandatory)][string]$TrustedControlRoot,
+        [Parameter(Mandatory)][string]$DestinationRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $TrustedControlRoot -PathType Container)) {
+        throw "Trusted deployment controls are missing: $TrustedControlRoot"
+    }
+
+    $DestinationScriptsRoot = Join-Path $DestinationRoot "scripts"
+    $DestinationControlRoot = Join-Path $DestinationScriptsRoot "deployment"
+
+    New-Item -ItemType Directory -Path $DestinationScriptsRoot -Force | Out-Null
+    Remove-Item -LiteralPath $DestinationControlRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item `
+        -LiteralPath $TrustedControlRoot `
+        -Destination $DestinationControlRoot `
+        -Recurse `
+        -Force
+}
+
 function Write-JsonEvidence {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -162,6 +184,7 @@ $AssetFiles = @(
     "docker-compose.observability.yml",
     "docker-compose.production.yml"
 )
+$TrustedDeploymentControlRoot = Join-Path $StagingRoot "scripts/deployment"
 $RollbackRoot = Join-Path $StagingRoot "rollback-snapshot"
 $OperationEvidence = Join-Path $StagingRoot "operation-evidence"
 $TransportEvidencePath = Join-Path $OperationEvidence "deployment-transport.json"
@@ -226,6 +249,9 @@ try {
         -DestinationRoot $DeployRoot `
         -Directories $AssetDirectories `
         -Files $AssetFiles
+    Install-TrustedDeploymentControls `
+        -TrustedControlRoot $TrustedDeploymentControlRoot `
+        -DestinationRoot $DeployRoot
 
     Set-EnvironmentValue -Path $EnvironmentPath -Name "APP_VERSION" -Value $Release.Manifest.releaseTag
     Set-EnvironmentValue -Path $EnvironmentPath -Name "RELEASE_SOURCE_COMMIT" -Value $Release.Manifest.sourceCommit
@@ -233,7 +259,7 @@ try {
     Set-EnvironmentValue -Path $EnvironmentPath -Name "BACKEND_IMAGE" -Value $Release.Images["backend"]
     Set-EnvironmentValue -Path $EnvironmentPath -Name "FRONTEND_IMAGE" -Value $Release.Images["frontend"]
 
-    & (Join-Path $DeployRoot "scripts/deployment/Deploy-Production.ps1") `
+    & (Join-Path $TrustedDeploymentControlRoot "Deploy-Production.ps1") `
         -ProjectRoot $DeployRoot `
         -EnvironmentFile $EnvironmentPath `
         -ReleaseManifestPath $StableManifestPath
@@ -252,13 +278,16 @@ catch {
             -Directories $AssetDirectories `
             -Files $AssetFiles `
             -AllowMissing
+        Install-TrustedDeploymentControls `
+            -TrustedControlRoot $TrustedDeploymentControlRoot `
+            -DestinationRoot $DeployRoot
         Copy-Item `
             -LiteralPath (Join-Path $RollbackRoot ".env.production") `
             -Destination $EnvironmentPath `
             -Force
 
         if (Test-Path -LiteralPath $PreviousManifestBackup -PathType Leaf) {
-            & (Join-Path $DeployRoot "scripts/deployment/Deploy-Production.ps1") `
+            & (Join-Path $TrustedDeploymentControlRoot "Deploy-Production.ps1") `
                 -ProjectRoot $DeployRoot `
                 -EnvironmentFile $EnvironmentPath `
                 -ReleaseManifestPath $PreviousManifestBackup `
