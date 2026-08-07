@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Immutable SalonAI release tag, for example v7.14.0
+        description: Immutable SalonAI release tag, for example v8.0.0
         required: true
         type: string
       confirm_production:
@@ -24,6 +24,7 @@ jobs:
   validate:
     name: Validate deployment request
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Require explicit confirmation
         shell: bash
@@ -43,7 +44,7 @@ jobs:
       - name: Validate immutable release tag
         run: node scripts/ci/validate-release-tag.mjs "${{ inputs.release_tag }}"
 
-      - name: Verify release and manifest exist
+      - name: Verify release evidence exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.release_tag }}
@@ -51,231 +52,300 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
-          evidence_dir="$RUNNER_TEMP/salonai-release-evidence"
-          rm -rf "$evidence_dir"
-          mkdir -p "$evidence_dir"
-          gh release download "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern release-manifest.json \
-            --dir "$evidence_dir"
-          test -s "$evidence_dir/release-manifest.json"
+          for asset in release-manifest.json rollback-metadata.json SHA256SUMS.txt; do
+            gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json assets \
+              --jq ".assets[].name" |
+              grep -Fx -- "$asset" >/dev/null
+          done
 
   deploy:
     name: Deploy production
     needs: validate
     environment: production
-    runs-on:
-      - self-hosted
-      - salonai-production
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      DEPLOY_ROOT: /opt/salonai
+      RELEASE_SOURCE_DIR: release-source
+      CONTROL_SOURCE_DIR: deployment-control
+      RELEASE_EVIDENCE_DIR: release-evidence
     steps:
-      - name: Checkout release source
+      - name: Checkout immutable release source
         uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
+          path: ${{ env.RELEASE_SOURCE_DIR }}
           persist-credentials: false
           ref: ${{ inputs.release_tag }}
 
-      - name: Validate runner configuration
-        shell: pwsh
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+          path: ${{ env.CONTROL_SOURCE_DIR }}
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Configure strict SSH transport
+        shell: bash
         env:
-          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
-          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
         run: |
-          $ErrorActionPreference = "Stop"
+          set -euo pipefail
 
-          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_ROOT)) {
-              throw "SALONAI_DEPLOY_ROOT is not configured."
-          }
+          for name in \
+            PRODUCTION_HOST \
+            PRODUCTION_USER \
+            PRODUCTION_SSH_KEY \
+            PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
 
-          if ([string]::IsNullOrWhiteSpace($env:PRODUCTION_ENV_FILE)) {
-              throw "PRODUCTION_ENV_FILE is not configured."
-          }
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
 
-          docker version
-          if ($LASTEXITCODE -ne 0) {
-              throw "Docker is unavailable on the production runner."
-          }
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
 
-          docker compose version
-          if ($LASTEXITCODE -ne 0) {
-              throw "Docker Compose v2 is unavailable on the production runner."
-          }
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
 
-          gh --version
-          if ($LASTEXITCODE -ne 0) {
-              throw "GitHub CLI is unavailable on the production runner."
-          }
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
 
-      - name: Prepare stable deployment directory
-        shell: pwsh
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Validate production host
+        shell: bash
         env:
-          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
-          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             test -f /opt/salonai/.env.production
+             docker version >/dev/null
+             docker compose version >/dev/null
+             export PATH="$HOME/.local/bin:$PATH"
+             command -v pwsh >/dev/null'
+
+      - name: Download and verify release evidence
+        shell: bash
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          $ErrorActionPreference = "Stop"
-          Set-StrictMode -Version Latest
+          set -euo pipefail
+          mkdir -p "$RELEASE_EVIDENCE_DIR"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$RELEASE_EVIDENCE_DIR"
 
-          function Set-EnvironmentValue {
-              param(
-                  [Parameter(Mandatory)][string]$Path,
-                  [Parameter(Mandatory)][string]$Name,
-                  [Parameter(Mandatory)][string]$Value
-              )
-
-              $Lines = @()
-              if (Test-Path -LiteralPath $Path -PathType Leaf) {
-                  $Lines = @(
-                      Get-Content -LiteralPath $Path |
-                          Where-Object { $_ -notmatch "^\s*$([regex]::Escape($Name))=" }
-                  )
-              }
-
-              $Lines += "$Name=$Value"
-              [System.IO.File]::WriteAllLines(
-                  $Path,
-                  [string[]]$Lines,
-                  [System.Text.UTF8Encoding]::new($false)
-              )
-          }
-
-          $DeployRoot = [System.IO.Path]::GetFullPath($env:DEPLOY_ROOT)
-          New-Item -ItemType Directory -Path $DeployRoot -Force | Out-Null
-
-          $EvidenceDownload = Join-Path $env:RUNNER_TEMP "salonai-release-$env:RELEASE_TAG"
-          Remove-Item -LiteralPath $EvidenceDownload -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $EvidenceDownload -Force | Out-Null
-
-          gh release download $env:RELEASE_TAG `
-              --repo $env:GITHUB_REPOSITORY `
-              --pattern "release-manifest.json" `
-              --dir $EvidenceDownload
-
-          if ($LASTEXITCODE -ne 0) {
-              throw "Release manifest download failed."
-          }
-
-          $DownloadedManifest = Join-Path $EvidenceDownload "release-manifest.json"
-          if (-not (Test-Path -LiteralPath $DownloadedManifest -PathType Leaf)) {
-              throw "release-manifest.json was not downloaded."
-          }
-
-          $Manifest = Get-Content -LiteralPath $DownloadedManifest -Raw |
-              ConvertFrom-Json
-
-          if ($Manifest.releaseTag -ne $env:RELEASE_TAG) {
-              throw "Release manifest tag does not match the requested release."
-          }
-
-          if ($Manifest.sourceCommit -notmatch "^[a-f0-9]{40}$") {
-              throw "Release manifest source commit is invalid."
-          }
-
-          $Images = @{}
-          foreach ($Image in @($Manifest.images)) {
-              if ($Image.service -notin @("ai-service", "backend", "frontend")) {
-                  throw "Unexpected release service: $($Image.service)"
-              }
-
-              if ($Image.immutableReference -notmatch "^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$") {
-                  throw "Invalid immutable image reference for $($Image.service)."
-              }
-
-              $Images[$Image.service] = $Image.immutableReference
-          }
-
-          foreach ($Service in @("ai-service", "backend", "frontend")) {
-              if (-not $Images.ContainsKey($Service)) {
-                  throw "Release manifest is missing $Service."
-              }
-          }
-
-          $Directories = @(
-              "ai-service",
-              "backend",
-              "config",
-              "frontend",
-              "monitoring",
-              "nginx",
-              "scripts"
+          (
+            cd "$RELEASE_EVIDENCE_DIR"
+            sha256sum --check SHA256SUMS.txt
           )
 
-          foreach ($RelativePath in $Directories) {
-              $Destination = Join-Path $DeployRoot $RelativePath
-              Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction SilentlyContinue
-              Copy-Item `
-                  -LiteralPath $RelativePath `
-                  -Destination $Destination `
-                  -Recurse `
-                  -Force
-          }
+          source_commit="$(git -C "$RELEASE_SOURCE_DIR" rev-parse HEAD)"
+          node "$CONTROL_SOURCE_DIR/scripts/ci/validate-deployment-evidence.mjs" \
+            "$RELEASE_EVIDENCE_DIR" \
+            "$RELEASE_TAG" \
+            "$source_commit"
 
-          foreach ($RelativePath in @(
-              "docker-compose.observability.yml",
-              "docker-compose.production.yml"
-          )) {
-              Copy-Item `
-                  -LiteralPath $RelativePath `
-                  -Destination (Join-Path $DeployRoot $RelativePath) `
-                  -Force
-          }
+      - name: Prepare immutable deployment payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload_directory="$RUNNER_TEMP/salonai-deployment-payload"
+          rm -rf "$payload_directory"
+          install -d -m 0700 "$payload_directory"
 
-          $EnvironmentPath = Join-Path $DeployRoot ".env.production"
-          [System.IO.File]::WriteAllText(
-              $EnvironmentPath,
-              $env:PRODUCTION_ENV_FILE,
-              [System.Text.UTF8Encoding]::new($false)
+          for directory in \
+            ai-service \
+            backend \
+            config \
+            frontend \
+            monitoring \
+            nginx \
+            scripts; do
+            cp -a "$RELEASE_SOURCE_DIR/$directory" "$payload_directory/$directory"
+          done
+
+          for file in \
+            docker-compose.production.yml \
+            docker-compose.observability.yml; do
+            cp "$RELEASE_SOURCE_DIR/$file" "$payload_directory/$file"
+          done
+
+          cp \
+            "$CONTROL_SOURCE_DIR/scripts/deployment/Invoke-RemoteProductionDeployment.ps1" \
+            "$payload_directory/scripts/deployment/Invoke-RemoteProductionDeployment.ps1"
+          cp -a "$RELEASE_EVIDENCE_DIR" "$payload_directory/release-evidence"
+
+          tar -C "$payload_directory" \
+            -czf "$RUNNER_TEMP/salonai-deployment-payload.tgz" \
+            .
+
+      - name: Upload payload to protected staging directory
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
           )
+          remote_staging="$DEPLOY_ROOT/.deployments/$RELEASE_TAG-$GITHUB_RUN_ID"
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
 
-          Set-EnvironmentValue -Path $EnvironmentPath -Name "APP_VERSION" -Value $Manifest.releaseTag
-          Set-EnvironmentValue -Path $EnvironmentPath -Name "RELEASE_SOURCE_COMMIT" -Value $Manifest.sourceCommit
-          Set-EnvironmentValue -Path $EnvironmentPath -Name "AI_SERVICE_IMAGE" -Value $Images["ai-service"]
-          Set-EnvironmentValue -Path $EnvironmentPath -Name "BACKEND_IMAGE" -Value $Images["backend"]
-          Set-EnvironmentValue -Path $EnvironmentPath -Name "FRONTEND_IMAGE" -Value $Images["frontend"]
+          ssh "${ssh_options[@]}" "$target" \
+            "install -d -m 0700 '$remote_staging'"
+          scp "${ssh_options[@]}" \
+            "$RUNNER_TEMP/salonai-deployment-payload.tgz" \
+            "$target:$remote_staging/payload.tgz"
+          ssh "${ssh_options[@]}" "$target" \
+            "tar -xzf '$remote_staging/payload.tgz' -C '$remote_staging'"
 
-          $ReleaseEvidenceDirectory = Join-Path $DeployRoot "release-evidence"
-          New-Item -ItemType Directory -Path $ReleaseEvidenceDirectory -Force | Out-Null
-
-          $StableManifest = Join-Path $ReleaseEvidenceDirectory "release-manifest.json"
-          Copy-Item -LiteralPath $DownloadedManifest -Destination $StableManifest -Force
-
-      - name: Log in to GHCR
-        shell: pwsh
+      - name: Log in to GHCR on production host
+        shell: bash
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
         run: |
-          $env:GHCR_TOKEN |
-              docker login ghcr.io `
-                  --username "${{ github.actor }}" `
-                  --password-stdin
+          set -euo pipefail
+          [[ "$GITHUB_ACTOR" =~ ^[A-Za-z0-9-]+$ ]]
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
 
-          if ($LASTEXITCODE -ne 0) {
-              throw "GHCR login failed."
-          }
+          printf '%s' "$GHCR_TOKEN" |
+            ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+              "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
 
       - name: Deploy and smoke test
-        shell: pwsh
+        shell: bash
         env:
-          DEPLOY_ROOT: ${{ vars.SALONAI_DEPLOY_ROOT }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          $DeployRoot = [System.IO.Path]::GetFullPath($env:DEPLOY_ROOT)
+          set -euo pipefail
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          remote_staging="$DEPLOY_ROOT/.deployments/$RELEASE_TAG-$GITHUB_RUN_ID"
 
-          & "$DeployRoot/scripts/deployment/Deploy-Production.ps1" `
-              -ProjectRoot $DeployRoot `
-              -EnvironmentFile "$DeployRoot/.env.production" `
-              -ReleaseManifestPath "$DeployRoot/release-evidence/release-manifest.json"
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "export PATH=\"\$HOME/.local/bin:\$PATH\"; \
+             pwsh -NoLogo -NoProfile -NonInteractive \
+               -File '$remote_staging/scripts/deployment/Invoke-RemoteProductionDeployment.ps1' \
+               -StagingRoot '$remote_staging' \
+               -DeployRoot '$DEPLOY_ROOT' \
+               -ReleaseTag '$RELEASE_TAG' \
+               -EvidenceArchivePath '$remote_staging/operation-evidence.tgz'"
 
-          if ($LASTEXITCODE -ne 0) {
-              throw "Production deployment failed."
-          }
+      - name: Collect deployment evidence
+        if: always()
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -u
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          remote_staging="$DEPLOY_ROOT/.deployments/$RELEASE_TAG-$GITHUB_RUN_ID"
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+          install -d -m 0700 deployment-evidence
+
+          if scp "${ssh_options[@]}" \
+            "$target:$remote_staging/operation-evidence.tgz" \
+            deployment-evidence/operation-evidence.tgz; then
+            tar -C deployment-evidence \
+              -xzf deployment-evidence/operation-evidence.tgz
+          else
+            echo "Remote deployment evidence was unavailable." >&2
+          fi
 
       - name: Upload deployment evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: salonai-production-deployment-${{ inputs.release_tag }}-${{ github.run_id }}
-          path: ${{ vars.SALONAI_DEPLOY_ROOT }}/deployment-evidence
+          path: deployment-evidence
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Remove transient production credentials and staging files
+        if: always()
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -u
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          remote_staging="$DEPLOY_ROOT/.deployments/$RELEASE_TAG-$GITHUB_RUN_ID"
+
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker logout ghcr.io >/dev/null 2>&1 || true; \
+             rm -rf -- '$remote_staging'" || true

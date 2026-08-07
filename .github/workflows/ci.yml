@@ -206,7 +206,38 @@ jobs:
           persist-credentials: false
 
       - name: Enforce workflow security policy
-        run: node scripts/ci/check-workflow-security.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/check-workflow-security.mjs
+          node scripts/ci/test-deployment-evidence.mjs
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $Failures = @()
+
+          foreach ($File in Get-ChildItem -Path . -Recurse -File -Filter "*.ps1") {
+              $Tokens = $null
+              $Errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile(
+                  $File.FullName,
+                  [ref]$Tokens,
+                  [ref]$Errors
+              )
+
+              foreach ($ErrorRecord in @($Errors)) {
+                  $Failures += "$($File.FullName): $($ErrorRecord.Message)"
+              }
+          }
+
+          if ($Failures.Count -gt 0) {
+              $Failures | ForEach-Object { Write-Error $_ }
+              throw "PowerShell syntax validation failed."
+          }
+
+          Write-Host "[PASS] PowerShell syntax validation passed."
 
       - name: Trivy release-policy scan
         uses: aquasecurity/trivy-action@v0.36.0

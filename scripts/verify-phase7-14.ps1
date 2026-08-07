@@ -77,6 +77,7 @@ $RequiredFiles = @(
     "scripts\deployment\Test-ProductionEnvironment.ps1",
     "scripts\deployment\Test-ProductionSmoke.ps1",
     "scripts\deployment\Deploy-Production.ps1",
+    "scripts\deployment\Invoke-RemoteProductionDeployment.ps1",
     "scripts\deployment\Rollback-Production.ps1",
     "scripts\security\test-phase7-14-secret-hygiene.ps1",
     "docs\operations\phase7-14-production-deployment.md",
@@ -100,6 +101,7 @@ $BackendExample = Read-ProjectFile "backend\.env.example"
 $LegacyBackendExample = Read-ProjectFile "backend\env.example"
 $DeploymentExample = Read-ProjectFile "config\phase7-14.env.example"
 $DeployScript = Read-ProjectFile "scripts\deployment\Deploy-Production.ps1"
+$RemoteDeployScript = Read-ProjectFile "scripts\deployment\Invoke-RemoteProductionDeployment.ps1"
 $RollbackScript = Read-ProjectFile "scripts\deployment\Rollback-Production.ps1"
 
 Write-Host "`n==> Immutable deployment controls" -ForegroundColor Cyan
@@ -131,13 +133,22 @@ Write-Host "`n==> Release-manifest deployment workflow" -ForegroundColor Cyan
 Check ($Workflow -match "workflow_dispatch:") "Manual production trigger"
 Check ($Workflow -match "environment: production") "GitHub production environment"
 Check ($Workflow -match "confirm_production") "Explicit confirmation"
-Check ($Workflow -match "self-hosted") "Dedicated production runner"
+Check ($Workflow -notmatch "self-hosted") "No persistent production runner"
+Check ($Workflow -match "name:\s*Deploy production(?s:.*?)runs-on:\s*ubuntu-24\.04") "GitHub-hosted deployment runner"
+Check ($Workflow -match "PRODUCTION_HOST") "Protected production host secret"
+Check ($Workflow -match "PRODUCTION_USER") "Protected production user secret"
+Check ($Workflow -match "PRODUCTION_SSH_KEY") "Protected production SSH key secret"
+Check ($Workflow -match "PRODUCTION_KNOWN_HOSTS") "Protected production known-hosts secret"
+Check ($Workflow -match "StrictHostKeyChecking=yes") "Strict SSH host-key checking"
 Check ($Workflow -match "release-manifest\.json") "Release manifest is downloaded"
-Check ($Workflow -match "immutableReference") "Immutable manifest image references are enforced"
-Check ($Workflow -match "RELEASE_SOURCE_COMMIT") "Release source commit is injected"
-Check ($Workflow -match 'Remove-Item -LiteralPath \$Destination') "Stable deployment directories are refreshed"
-Check ($Workflow -match "Deploy-Production\.ps1") "Guarded deploy script"
-Check ($Workflow -match "ReleaseManifestPath") "Deployment receives the release manifest"
+Check ($Workflow -match "sha256sum --check SHA256SUMS\.txt") "Release evidence checksums are verified"
+Check ($Workflow -match "validate-deployment-evidence\.mjs") "Immutable release evidence validation"
+Check ($RemoteDeployScript -match "immutableReference") "Immutable manifest image references are enforced"
+Check ($RemoteDeployScript -match "RELEASE_SOURCE_COMMIT") "Release source commit is injected"
+Check ($RemoteDeployScript -match 'Remove-Item -LiteralPath \$Destination') "Stable deployment directories are refreshed"
+Check ($RemoteDeployScript -match "Deploy-Production\.ps1") "Guarded deploy script"
+Check ($RemoteDeployScript -match "ReleaseManifestPath") "Deployment receives the release manifest"
+Check ($RemoteDeployScript -match "Previous production release restored") "Automatic restoration path"
 Check ($Workflow -match "retention-days: 90") "Deployment evidence retention"
 
 Write-Host "`n==> Environment contract" -ForegroundColor Cyan
@@ -190,6 +201,7 @@ $PowerShellFiles = @(
     "scripts\deployment\Test-ProductionEnvironment.ps1",
     "scripts\deployment\Test-ProductionSmoke.ps1",
     "scripts\deployment\Deploy-Production.ps1",
+    "scripts\deployment\Invoke-RemoteProductionDeployment.ps1",
     "scripts\deployment\Rollback-Production.ps1",
     "scripts\security\test-phase7-14-secret-hygiene.ps1",
     "scripts\verify-phase7-14.ps1"
