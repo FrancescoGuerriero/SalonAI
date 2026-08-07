@@ -100,6 +100,40 @@ function Ensure-DockerVolume {
     }
 }
 
+function Invoke-ComposeDeployment {
+    param(
+        [Parameter(Mandatory)][string[]]$ComposeArguments,
+        [int]$MaximumAttempts = 2,
+        [int]$RetryDelaySeconds = 5
+    )
+
+    for ($Attempt = 1; $Attempt -le $MaximumAttempts; $Attempt++) {
+        docker compose @ComposeArguments up -d --no-build
+
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
+
+        if ($Attempt -eq $MaximumAttempts) {
+            throw "Docker Compose deployment failed after $MaximumAttempts attempts."
+        }
+
+        Write-Host `
+            "[WARN] Docker Compose deployment attempt $Attempt failed; retrying after $RetryDelaySeconds seconds." `
+            -ForegroundColor Yellow
+        Start-Sleep -Seconds $RetryDelaySeconds
+    }
+}
+
+function Restart-EdgeProxy {
+    param([Parameter(Mandatory)][string[]]$ComposeArguments)
+
+    docker compose @ComposeArguments restart edge
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to restart the edge proxy after service recreation."
+    }
+}
+
 $ProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot)
 $ComposeFile = Join-Path $ProjectRoot "docker-compose.production.yml"
 $ObservabilityFile = Join-Path $ProjectRoot "docker-compose.observability.yml"
@@ -169,11 +203,12 @@ try {
         }
     }
 
-    docker compose @ComposeArguments up -d --no-build
+    Invoke-ComposeDeployment -ComposeArguments $ComposeArguments
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "Docker Compose deployment failed."
-    }
+    # Nginx resolves Docker service names when it starts. Application containers can
+    # receive new bridge-network addresses after recreation, so restart edge before
+    # external smoke tests to force fresh upstream resolution.
+    Restart-EdgeProxy -ComposeArguments $ComposeArguments
 
     & (Join-Path $ProjectRoot "scripts\deployment\Test-ProductionSmoke.ps1") `
         -BaseUrl $EnvironmentValues["PUBLIC_BASE_URL"] `
