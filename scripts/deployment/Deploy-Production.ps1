@@ -100,11 +100,88 @@ function Ensure-DockerVolume {
     }
 }
 
+function Get-ContainerHealthSnapshot {
+    param([Parameter(Mandatory)][string]$ContainerName)
+
+    $RawState = & docker inspect `
+        --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}|{{.RestartCount}}' `
+        $ContainerName `
+        2>$null
+
+    if ($LASTEXITCODE -ne 0 -or $null -eq $RawState) {
+        return [pscustomobject]@{
+            name = $ContainerName
+            state = "missing"
+            health = "missing"
+            restartCount = -1
+            ready = $false
+        }
+    }
+
+    $Line = [string]($RawState | Select-Object -Last 1)
+    $Parts = $Line.Trim().Split("|")
+    $State = if ($Parts.Count -gt 0) { $Parts[0] } else { "unknown" }
+    $Health = if ($Parts.Count -gt 1) { $Parts[1] } else { "unknown" }
+    $RestartCount = if ($Parts.Count -gt 2) { [int]$Parts[2] } else { 0 }
+
+    return [pscustomobject]@{
+        name = $ContainerName
+        state = $State
+        health = $Health
+        restartCount = $RestartCount
+        ready = ($State -eq "running" -and $Health -eq "healthy")
+    }
+}
+
+function Wait-CoreServicesHealthy {
+    param(
+        [int]$TimeoutSeconds = 75,
+        [int]$PollSeconds = 5
+    )
+
+    $RequiredContainers = @(
+        "salonai-mongo",
+        "salonai-ai-service",
+        "salonai-backend",
+        "salonai-frontend"
+    )
+    $Deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    do {
+        $Snapshots = @(
+            foreach ($ContainerName in $RequiredContainers) {
+                Get-ContainerHealthSnapshot -ContainerName $ContainerName
+            }
+        )
+        $NotReady = @($Snapshots | Where-Object { -not $_.ready })
+
+        if ($NotReady.Count -eq 0) {
+            Write-Host "[PASS] Core application containers reached healthy state during deployment grace period." -ForegroundColor Green
+            return $true
+        }
+
+        $Summary = ($Snapshots | ForEach-Object {
+            "$($_.name)=$($_.state)/$($_.health)/restarts:$($_.restartCount)"
+        }) -join "; "
+        Write-Host "[INFO] Waiting for core container health: $Summary"
+
+        if ((Get-Date) -ge $Deadline) {
+            break
+        }
+
+        Start-Sleep -Seconds $PollSeconds
+    }
+    while ($true)
+
+    return $false
+}
+
 function Invoke-ComposeDeployment {
     param(
         [Parameter(Mandatory)][string[]]$ComposeArguments,
         [int]$MaximumAttempts = 2,
-        [int]$RetryDelaySeconds = 5
+        [int]$RetryDelaySeconds = 5,
+        [int]$HealthGraceSeconds = 75
     )
 
     for ($Attempt = 1; $Attempt -le $MaximumAttempts; $Attempt++) {
@@ -119,8 +196,17 @@ function Invoke-ComposeDeployment {
         }
 
         Write-Host `
-            "[WARN] Docker Compose deployment attempt $Attempt failed; retrying after $RetryDelaySeconds seconds." `
+            "[WARN] Docker Compose deployment attempt $Attempt reported a dependency failure; allowing up to $HealthGraceSeconds seconds for recreated core containers to become healthy." `
             -ForegroundColor Yellow
+
+        $Recovered = Wait-CoreServicesHealthy -TimeoutSeconds $HealthGraceSeconds
+        if ($Recovered) {
+            Write-Host "[INFO] Core services are healthy; retrying Compose to converge dependent services." -ForegroundColor Cyan
+        }
+        else {
+            Write-Host "[WARN] Core services did not all become healthy during the grace period; retrying Compose once before rollback." -ForegroundColor Yellow
+        }
+
         Start-Sleep -Seconds $RetryDelaySeconds
     }
 }
