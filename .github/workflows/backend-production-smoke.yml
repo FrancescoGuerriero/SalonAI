@@ -1,0 +1,83 @@
+name: Backend Production Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-backend-smoke:
+    name: Production backend startup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI_JWT_KEY: ci-only-placeholder-access-key-for-production-smoke
+      CI_JWT_REFRESH_KEY: ci-only-placeholder-refresh-key-for-production-smoke
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Build production backend image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --file backend/Dockerfile.production --tag salonai-backend:production-smoke backend
+
+      - name: Start disposable MongoDB
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create salonai-production-smoke
+          docker run --detach --name salonai-production-smoke-mongo --network salonai-production-smoke mongo:7.0
+          for attempt in $(seq 1 30); do
+            if docker exec salonai-production-smoke-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep -q '^1$'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Run disposable production backend in foreground
+        shell: bash
+        run: |
+          set +e
+          timeout --signal=TERM --kill-after=5s 15s docker run --rm \
+            --name salonai-production-smoke-backend \
+            --network salonai-production-smoke \
+            --env NODE_ENV=production \
+            --env PORT=5000 \
+            --env HOST=0.0.0.0 \
+            --env MONGODB_URI=mongodb://salonai-production-smoke-mongo:27017/salonai_smoke \
+            --env JWT_SECRET="$CI_JWT_KEY" \
+            --env JWT_REFRESH_SECRET="$CI_JWT_REFRESH_KEY" \
+            --env FRONTEND_URL=http://localhost:5173 \
+            --env MESSAGE_DELIVERY_SCHEDULER_ENABLED=true \
+            --env MESSAGE_DELIVERY_SCHEDULER_RUN_IMMEDIATELY=true \
+            --env EMAIL_PROVIDER_MODE=console \
+            --env SMS_PROVIDER_MODE=console \
+            --env WHATSAPP_PROVIDER_MODE=console \
+            salonai-backend:production-smoke
+          status=$?
+          set -e
+
+          if [[ "$status" -eq 124 ]]; then
+            echo "Production backend remained running for the bounded diagnostic window."
+            exit 0
+          fi
+
+          echo "Production backend exited during startup with code $status." >&2
+          exit "$status"
+
+      - name: Clean up disposable containers
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force salonai-production-smoke-backend >/dev/null 2>&1 || true
+          docker rm --force salonai-production-smoke-mongo >/dev/null 2>&1 || true
+          docker network rm salonai-production-smoke >/dev/null 2>&1 || true

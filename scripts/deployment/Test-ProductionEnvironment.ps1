@@ -58,6 +58,7 @@ $Required = @(
     "MONGO_ROOT_PASSWORD",
     "MONGO_DATABASE",
     "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
     "AI_SERVICE_KEY",
     "SERVICE_KEY",
     "ENVIRONMENT",
@@ -131,6 +132,10 @@ if ($Values["MONGO_ROOT_PASSWORD"].Length -lt 24) {
 
 if ($Values["JWT_SECRET"].Length -lt 64) {
     throw "JWT_SECRET must be at least 64 characters."
+}
+
+if ($Values["JWT_REFRESH_SECRET"].Length -lt 64) {
+    throw "JWT_REFRESH_SECRET must be at least 64 characters."
 }
 
 if ($Values["AI_SERVICE_KEY"].Length -lt 32) {
