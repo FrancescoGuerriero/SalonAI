@@ -115,6 +115,35 @@ check(
   'Trusted deployment controls are installed for deployment and restoration',
 );
 
+const productionDeployScript = fs.readFileSync(
+  path.join(root, 'scripts/deployment/Deploy-Production.ps1'),
+  'utf8',
+);
+check(
+  /function Invoke-ComposeDeployment[\s\S]*?MaximumAttempts = 2[\s\S]*?docker compose @ComposeArguments up -d --no-build/.test(productionDeployScript),
+  'Production deployment retries one transient Docker Compose rollout failure',
+);
+check(
+  /function Wait-CoreServicesHealthy[\s\S]*?TimeoutSeconds = 75[\s\S]*?salonai-backend/.test(productionDeployScript),
+  'Production deployment uses a bounded health grace period that includes the backend',
+);
+check(
+  /function Get-ContainerHealthSnapshot[\s\S]*?ready = \(\$State -eq "running" -and \$Health -eq "healthy"\)/.test(productionDeployScript),
+  'Production health convergence still requires containers to be running and Docker-healthy',
+);
+check(
+  /function Invoke-ComposeDeployment[\s\S]*?docker compose @ComposeArguments up -d --no-build[\s\S]*?Wait-CoreServicesHealthy -TimeoutSeconds \$HealthGraceSeconds/.test(productionDeployScript),
+  'Production deployment waits for core health before its bounded Compose convergence retry',
+);
+check(
+  /function Restart-EdgeProxy[\s\S]*?docker compose @ComposeArguments restart edge/.test(productionDeployScript),
+  'Production deployment restarts edge so Nginx refreshes recreated upstream addresses',
+);
+check(
+  /Invoke-ComposeDeployment -ComposeArguments \$ComposeArguments[\s\S]*?Restart-EdgeProxy -ComposeArguments \$ComposeArguments[\s\S]*?Test-ProductionSmoke\.ps1/.test(productionDeployScript),
+  'Production deployment refreshes edge before external smoke tests',
+);
+
 for (const scriptPath of [
   'scripts/deployment/Deploy-Production.ps1',
   'scripts/deployment/Invoke-RemoteProductionDeployment.ps1',
