@@ -10,6 +10,30 @@ import {
   parseBookingDate,
   stylistOffersService,
 } from "../services/bookingAvailabilityService.js";
+import {
+  normaliseProfileImage,
+  normalisePublicProfileUrl,
+} from "../utils/profileMedia.js";
+
+const PUBLIC_STYLIST_FIELDS = [
+  "firstName",
+  "lastName",
+  "jobTitle",
+  "biography",
+  "profileImage",
+  "yearsExperience",
+  "specialties",
+  "services",
+  "languages",
+  "instagram",
+  "facebook",
+  "website",
+  "rating",
+  "reviews",
+  "displayOrder",
+  "profilePublished",
+  "isActive",
+].join(" ");
 
 function createHttpError(message, statusCode, details = null) {
   const error = new Error(message);
@@ -21,9 +45,201 @@ function createHttpError(message, statusCode, details = null) {
   return error;
 }
 
+function cleanText(value, maximumLength) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, maximumLength);
+}
+
+function cleanList(value, maximumItems, maximumLength) {
+  const input = Array.isArray(value)
+    ? value
+    : String(value ?? "")
+        .split(",");
+
+  const unique = new Set();
+
+  for (const item of input) {
+    const cleaned = cleanText(
+      item,
+      maximumLength
+    );
+
+    if (cleaned) {
+      unique.add(cleaned);
+    }
+
+    if (unique.size >= maximumItems) {
+      break;
+    }
+  }
+
+  return [...unique];
+}
+
+function splitUserName(name) {
+  const parts = cleanText(
+    name,
+    120
+  ).split(/\s+/).filter(Boolean);
+
+  if (!parts.length) {
+    return {
+      firstName: "Salon",
+      lastName: "Professional",
+    };
+  }
+
+  if (parts.length === 1) {
+    return {
+      firstName: parts[0],
+      lastName: "Stylist",
+    };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+export function normaliseStaffProfileUpdate(body = {}) {
+  const yearsExperience =
+    Number(body.yearsExperience);
+
+  return {
+    jobTitle: cleanText(
+      body.jobTitle || "Hair professional",
+      120
+    ),
+    biography: cleanText(
+      body.biography,
+      2000
+    ),
+    profileImage:
+      normaliseProfileImage(
+        body.profileImage
+      ),
+    yearsExperience:
+      Number.isFinite(
+        yearsExperience
+      )
+        ? Math.min(
+            80,
+            Math.max(
+              0,
+              Math.round(
+                yearsExperience
+              )
+            )
+          )
+        : 0,
+    specialties: cleanList(
+      body.specialties,
+      12,
+      120
+    ),
+    languages: cleanList(
+      body.languages,
+      10,
+      80
+    ),
+    instagram:
+      normalisePublicProfileUrl(
+        body.instagram,
+        {
+          allowHandle: true,
+        }
+      ),
+    facebook:
+      normalisePublicProfileUrl(
+        body.facebook
+      ),
+    website:
+      normalisePublicProfileUrl(
+        body.website
+      ),
+    profilePublished:
+      body.profilePublished !==
+      false,
+  };
+}
+
+async function findOwnedStylist(
+  user,
+  {
+    createForStylist = false,
+  } = {}
+) {
+  let stylist =
+    await Stylist.findOne({
+      $or: [
+        {
+          userAccount:
+            user._id,
+        },
+        {
+          email:
+            String(
+              user.email ||
+                ""
+            )
+              .trim()
+              .toLowerCase(),
+        },
+      ],
+    });
+
+  if (
+    !stylist &&
+    createForStylist &&
+    user.role === "stylist"
+  ) {
+    const {
+      firstName,
+      lastName,
+    } = splitUserName(
+      user.name
+    );
+
+    stylist =
+      await Stylist.create({
+        userAccount:
+          user._id,
+        firstName,
+        lastName,
+        email:
+          String(
+            user.email
+          )
+            .trim()
+            .toLowerCase(),
+        phone:
+          user.phone || "",
+        jobTitle:
+          "Hair professional",
+        profilePublished:
+          false,
+      });
+  }
+
+  if (
+    stylist &&
+    !stylist.userAccount
+  ) {
+    stylist.userAccount =
+      user._id;
+
+    await stylist.save();
+  }
+
+  return stylist;
+}
+
 /*
     GET /api/stylists
-    Public
+    Public legacy catalogue route.
 */
 export async function getStylists(req, res) {
   try {
@@ -32,8 +248,22 @@ export async function getStylists(req, res) {
       limit = 10,
       search = "",
       active,
-      sort = "firstName"
+      sort = "firstName",
     } = req.query;
+
+    const pageNumber =
+      Math.max(
+        1,
+        Number(page) || 1
+      );
+    const limitNumber =
+      Math.min(
+        100,
+        Math.max(
+          1,
+          Number(limit) || 10
+        )
+      );
 
     const filter = {};
 
@@ -42,49 +272,212 @@ export async function getStylists(req, res) {
         {
           firstName: {
             $regex: search,
-            $options: "i"
-          }
+            $options: "i",
+          },
         },
         {
           lastName: {
             $regex: search,
-            $options: "i"
-          }
+            $options: "i",
+          },
         },
         {
           specialties: {
             $regex: search,
-            $options: "i"
-          }
-        }
+            $options: "i",
+          },
+        },
       ];
     }
 
-    if (active !== undefined) {
-      filter.isActive = active === "true";
+    if (
+      active !==
+      undefined
+    ) {
+      filter.isActive =
+        active === "true";
     }
 
-    const total = await Stylist.countDocuments(filter);
+    const total =
+      await Stylist.countDocuments(
+        filter
+      );
 
-    const stylists = await Stylist.find(filter)
-      .populate("services")
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    const stylists =
+      await Stylist.find(
+        filter
+      )
+        .populate(
+          "services"
+        )
+        .sort(sort)
+        .skip(
+          (pageNumber - 1) *
+            limitNumber
+        )
+        .limit(
+          limitNumber
+        );
 
-    res.json({
+    return res.json({
       total,
-      page: Number(page),
-      pages: Math.ceil(total / limit),
-      stylists
+      page:
+        pageNumber,
+      pages:
+        Math.ceil(
+          total /
+            limitNumber
+        ),
+      stylists,
     });
-
   } catch (error) {
-    console.error(error);
+    console.error(
+      error
+    );
 
-    res.status(500).json({
-      message: error.message
+    return res
+      .status(500)
+      .json({
+        message:
+          error.message,
+      });
+  }
+}
+
+/*
+    GET /api/stylists/public
+    Public, privacy-minimised team catalogue for About/team pages.
+*/
+export async function getPublicStylists(
+  req,
+  res,
+  next
+) {
+  try {
+    const stylists =
+      await Stylist.find({
+        isActive: {
+          $ne: false,
+        },
+        profilePublished: {
+          $ne: false,
+        },
+      })
+        .select(
+          PUBLIC_STYLIST_FIELDS
+        )
+        .populate(
+          "services",
+          "name category price duration active"
+        )
+        .sort({
+          displayOrder: 1,
+          firstName: 1,
+          lastName: 1,
+        })
+        .limit(50)
+        .lean();
+
+    return res.json({
+      success: true,
+      total:
+        stylists.length,
+      stylists,
     });
+  } catch (error) {
+    return next(
+      error
+    );
+  }
+}
+
+/*
+    GET /api/stylists/me/profile
+    Authenticated stylist/management self-service public profile.
+*/
+export async function getMyStylistProfile(
+  req,
+  res,
+  next
+) {
+  try {
+    const stylist =
+      await findOwnedStylist(
+        req.user,
+        {
+          createForStylist:
+            true,
+        }
+      );
+
+    if (!stylist) {
+      throw createHttpError(
+        "No stylist profile is linked to this account. Ask an administrator to create a stylist record using your sign-in email.",
+        404
+      );
+    }
+
+    return res.json({
+      success: true,
+      stylist,
+    });
+  } catch (error) {
+    return next(
+      error
+    );
+  }
+}
+
+/*
+    PATCH /api/stylists/me/profile
+    Lets a linked staff member publish only public-facing profile fields.
+*/
+export async function updateMyStylistProfile(
+  req,
+  res,
+  next
+) {
+  try {
+    const stylist =
+      await findOwnedStylist(
+        req.user,
+        {
+          createForStylist:
+            true,
+        }
+      );
+
+    if (!stylist) {
+      throw createHttpError(
+        "No stylist profile is linked to this account.",
+        404
+      );
+    }
+
+    const update =
+      normaliseStaffProfileUpdate(
+        req.body
+      );
+
+    Object.assign(
+      stylist,
+      update
+    );
+
+    await stylist.save();
+
+    return res.json({
+      success: true,
+      message:
+        update.profilePublished
+          ? "Your public stylist profile has been published."
+          : "Your stylist profile has been saved as unpublished.",
+      stylist,
+    });
+  } catch (error) {
+    return next(
+      error
+    );
   }
 }
 
@@ -93,24 +486,32 @@ export async function getStylists(req, res) {
 */
 export async function getStylist(req, res) {
   try {
-
-    const stylist = await Stylist.findById(req.params.id)
-      .populate("services");
+    const stylist =
+      await Stylist.findById(
+        req.params.id
+      ).populate(
+        "services"
+      );
 
     if (!stylist) {
-      return res.status(404).json({
-        message: "Stylist not found"
-      });
+      return res
+        .status(404)
+        .json({
+          message:
+            "Stylist not found",
+        });
     }
 
-    res.json(stylist);
-
+    return res.json(
+      stylist
+    );
   } catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
+    return res
+      .status(500)
+      .json({
+        message:
+          error.message,
+      });
   }
 }
 
@@ -211,126 +612,169 @@ export async function getStylistAvailability(req, res, next) {
     POST /api/stylists
 */
 export async function createStylist(req, res) {
-
   try {
+    const payload = {
+      ...req.body,
+      profileImage:
+        normaliseProfileImage(
+          req.body?.profileImage
+        ),
+    };
 
-    const stylist = await Stylist.create(req.body);
+    const stylist =
+      await Stylist.create(
+        payload
+      );
 
-    const populated = await Stylist.findById(stylist._id)
-      .populate("services");
+    const populated =
+      await Stylist.findById(
+        stylist._id
+      ).populate(
+        "services"
+      );
 
-    res.status(201).json(populated);
-
+    return res
+      .status(201)
+      .json(
+        populated
+      );
   } catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
+    return res
+      .status(
+        error.statusCode ||
+          500
+      )
+      .json({
+        message:
+          error.message,
+      });
   }
-
 }
 
 /*
     PUT /api/stylists/:id
 */
 export async function updateStylist(req, res) {
-
   try {
+    const payload = {
+      ...req.body,
+    };
 
-    const stylist = await Stylist.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    ).populate("services");
-
-    if (!stylist) {
-
-      return res.status(404).json({
-        message: "Stylist not found"
-      });
-
+    if (
+      Object.prototype.hasOwnProperty.call(
+        payload,
+        "profileImage"
+      )
+    ) {
+      payload.profileImage =
+        normaliseProfileImage(
+          payload.profileImage
+        );
     }
 
-    res.json(stylist);
+    const stylist =
+      await Stylist.findByIdAndUpdate(
+        req.params.id,
+        payload,
+        {
+          new: true,
+          runValidators: true,
+        }
+      ).populate(
+        "services"
+      );
 
+    if (!stylist) {
+      return res
+        .status(404)
+        .json({
+          message:
+            "Stylist not found",
+        });
+    }
+
+    return res.json(
+      stylist
+    );
   } catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
+    return res
+      .status(
+        error.statusCode ||
+          500
+      )
+      .json({
+        message:
+          error.message,
+      });
   }
-
 }
 
 /*
     DELETE /api/stylists/:id
 */
 export async function deleteStylist(req, res) {
-
   try {
-
-    const stylist = await Stylist.findByIdAndDelete(
-      req.params.id
-    );
+    const stylist =
+      await Stylist.findByIdAndDelete(
+        req.params.id
+      );
 
     if (!stylist) {
-
-      return res.status(404).json({
-        message: "Stylist not found"
-      });
-
+      return res
+        .status(404)
+        .json({
+          message:
+            "Stylist not found",
+        });
     }
 
-    res.json({
-      message: "Stylist deleted successfully"
+    return res.json({
+      message:
+        "Stylist deleted successfully",
     });
-
   } catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
+    return res
+      .status(500)
+      .json({
+        message:
+          error.message,
+      });
   }
-
 }
 
 /*
     PATCH /api/stylists/:id/status
 */
 export async function toggleStylistStatus(req, res) {
-
   try {
-
-    const stylist = await Stylist.findById(
-      req.params.id
-    );
+    const stylist =
+      await Stylist.findById(
+        req.params.id
+      );
 
     if (!stylist) {
-
-      return res.status(404).json({
-        message: "Stylist not found"
-      });
-
+      return res
+        .status(404)
+        .json({
+          message:
+            "Stylist not found",
+        });
     }
 
-    stylist.isActive = !stylist.isActive;
+    stylist.isActive =
+      !stylist.isActive;
 
     await stylist.save();
 
-    res.json(stylist);
-
+    return res.json(
+      stylist
+    );
   } catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
+    return res
+      .status(500)
+      .json({
+        message:
+          error.message,
+      });
   }
-
 }

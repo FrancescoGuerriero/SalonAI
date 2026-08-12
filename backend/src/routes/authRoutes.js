@@ -15,6 +15,16 @@ import {
   adminOnly,
 } from "../middleware/authMiddleware.js";
 
+import {
+  authRateLimiter,
+  passwordResetRateLimiter,
+} from "../middleware/securityMiddleware.js";
+
+import {
+  requestPasswordReset,
+  resetPassword,
+} from "../controllers/passwordResetController.js";
+
 const router =
   express.Router();
 
@@ -25,7 +35,20 @@ router.post(
 
 router.post(
   "/login",
+  authRateLimiter,
   loginUser
+);
+
+router.post(
+  "/forgot-password",
+  passwordResetRateLimiter,
+  requestPasswordReset
+);
+
+router.post(
+  "/reset-password",
+  passwordResetRateLimiter,
+  resetPassword
 );
 
 router.post(

@@ -21,6 +21,9 @@ import AccountSummaryCard from "../components/account/AccountSummaryCard.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
+import {
+  profileInitials,
+} from "../utils/profileMedia.js";
 
 function unwrapList(response, keys = []) {
   const payload = response?.data ?? response ?? {};
@@ -148,20 +151,39 @@ export default function CustomerAccountPage() {
   return (
     <main className="account-page">
       <section className="account-hero">
-        <div>
-          <span className="account-eyebrow">
-            <Sparkles size={16} />
-            Customer account
+        <div className="account-hero-identity">
+          <span className="account-profile-avatar">
+            {user?.profilePhoto ? (
+              <img
+                src={user.profilePhoto}
+                alt={`${user?.name || "Customer"} profile`}
+              />
+            ) : (
+              profileInitials(user?.name || firstName)
+            )}
           </span>
-          <h1>Welcome back, {firstName}</h1>
-          <p>
-            Manage appointments, purchases and your SalonAI customer journey
-            from one place.
-          </p>
+
+          <div>
+            <span className="account-eyebrow">
+              <Sparkles size={16} />
+              Customer account
+            </span>
+            <h1>Welcome back, {firstName}</h1>
+            <p>
+              Manage appointments, purchases and your SalonAI customer journey
+              from one place.
+            </p>
+          </div>
         </div>
-        <Link to="/booking" className="app-button app-button-primary">
-          Book an appointment
-        </Link>
+
+        <div className="account-hero-actions">
+          <Link to="/account/manage" className="app-button app-button-secondary">
+            Edit profile
+          </Link>
+          <Link to="/booking" className="app-button app-button-primary">
+            Book an appointment
+          </Link>
+        </div>
       </section>
 
       {error ? <Alert variant="error">{error}</Alert> : null}

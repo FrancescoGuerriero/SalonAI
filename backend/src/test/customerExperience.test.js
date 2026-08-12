@@ -41,6 +41,26 @@ test("account updates retain only supported personal and home-address fields", (
   assert.equal("isVerified" in result.homeAddress, false);
 });
 
+
+
+test("account updates accept a supported customer profile photograph", () => {
+  const image =
+    "data:image/jpeg;base64,/9j/2Q==";
+
+  const result =
+    normaliseAccountUpdate({
+      name: "Salon Client",
+      phone: "",
+      profilePhoto: image,
+      homeAddress: {},
+    });
+
+  assert.equal(
+    result.profilePhoto,
+    image
+  );
+});
+
 test("discovery preferences are normalised, deduplicated and bounded", () => {
   const result = normaliseDiscovery({
     postcode: " ig11 0fa ",

@@ -56,6 +56,10 @@ export function validateEnvironment() {
     process.env.REFRESH_TOKEN_DAYS,
     7
   );
+  const passwordResetMinutes = readNumber(
+    process.env.PASSWORD_RESET_MINUTES,
+    20
+  );
 
   if (accessTokenMinutes <= 0) {
     throw new Error(
@@ -66,6 +70,12 @@ export function validateEnvironment() {
   if (refreshTokenDays <= 0) {
     throw new Error(
       "REFRESH_TOKEN_DAYS must be greater than zero."
+    );
+  }
+
+  if (passwordResetMinutes <= 0) {
+    throw new Error(
+      "PASSWORD_RESET_MINUTES must be greater than zero."
     );
   }
 }
@@ -105,6 +115,10 @@ export const env = Object.freeze({
   refreshTokenDays: readNumber(
     process.env.REFRESH_TOKEN_DAYS,
     7
+  ),
+  passwordResetMinutes: readNumber(
+    process.env.PASSWORD_RESET_MINUTES,
+    20
   ),
   rateLimitWindowMs: readNumber(
     process.env.RATE_LIMIT_WINDOW_MS,
