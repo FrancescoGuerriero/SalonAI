@@ -2,8 +2,11 @@ import express from "express";
 
 import {
   getStylists,
+  getPublicStylists,
   getStylist,
   getStylistAvailability,
+  getMyStylistProfile,
+  updateMyStylistProfile,
   createStylist,
   updateStylist,
   deleteStylist,
@@ -13,6 +16,7 @@ import {
 import {
   protect,
   adminOnly,
+  managementOnly,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -23,14 +27,51 @@ const router = express.Router();
 |--------------------------------------------------------------------------
 */
 
-router.get("/", getStylists);
+router.get(
+  "/public",
+  getPublicStylists
+);
+
+router.get(
+  "/",
+  getStylists
+);
+
+/*
+|--------------------------------------------------------------------------
+| Staff self-service profile routes
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/me/profile",
+  protect,
+  managementOnly,
+  getMyStylistProfile
+);
+
+router.patch(
+  "/me/profile",
+  protect,
+  managementOnly,
+  updateMyStylistProfile
+);
+
+/*
+|--------------------------------------------------------------------------
+| Public booking routes
+|--------------------------------------------------------------------------
+*/
 
 router.get(
   "/:id/availability",
   getStylistAvailability
 );
 
-router.get("/:id", getStylist);
+router.get(
+  "/:id",
+  getStylist
+);
 
 /*
 |--------------------------------------------------------------------------

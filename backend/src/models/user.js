@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+import {
+  isSupportedProfileImage,
+} from "../utils/profileMedia.js";
+
 const {
   Schema,
 } = mongoose;
@@ -119,6 +123,25 @@ const userSchema = new Schema(
       trim: true,
       default: "",
       maxlength: 30,
+    },
+
+    profilePhoto: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: [
+        650000,
+        "Profile photo data is too large.",
+      ],
+      validate: {
+        validator(value) {
+          return isSupportedProfileImage(
+            value
+          );
+        },
+        message:
+          "Profile photo must be an HTTPS URL or a supported JPEG, PNG or WebP upload.",
+      },
     },
 
     homeAddress: {

@@ -1,0 +1,143 @@
+.profile-photo-field {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 1.15rem;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid var(--app-line, #e4d9c6);
+  border-radius: 12px;
+  background: var(--palette-white, #fff);
+}
+
+.profile-photo-preview {
+  display: grid;
+  place-items: center;
+  width: 116px;
+  height: 116px;
+  overflow: hidden;
+  border: 1px solid var(--palette-sand-200, #eadbbd);
+  border-radius: 50%;
+  color: var(--app-gold-dark, #8a6b16);
+  background: var(--palette-sand-100, #f7f0df);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.profile-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-photo-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.profile-photo-copy p {
+  margin: .45rem 0 0;
+  color: var(--app-muted, #676762);
+  line-height: 1.55;
+}
+
+.profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  margin-top: .8rem;
+}
+
+.profile-photo-upload {
+  cursor: pointer;
+}
+
+.profile-photo-upload input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.profile-photo-upload.is-disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.profile-photo-error {
+  color: #292927 !important;
+  font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .profile-photo-field {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-photo-preview {
+    width: 96px;
+    height: 96px;
+  }
+}
+
+
+.account-hero-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-profile-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  border: 1px solid var(--palette-sand-200, #eadbbd);
+  border-radius: 50%;
+  color: var(--app-gold-dark, #8a6b16);
+  background: var(--palette-sand-100, #f7f0df);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.account-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .55rem;
+}
+
+.app-user-avatar {
+  overflow: hidden;
+}
+
+.app-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 640px) {
+  .account-hero-identity {
+    align-items: flex-start;
+  }
+
+  .account-profile-avatar {
+    width: 62px;
+    height: 62px;
+  }
+
+  .account-hero-actions {
+    justify-content: flex-start;
+  }
+}

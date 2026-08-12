@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+
 import { env } from "../config/env.js";
 
 export const securityHeaders = helmet({
@@ -46,6 +47,18 @@ export const authRateLimiter = rateLimit({
     success: false,
     code: "AUTH_RATE_LIMIT_EXCEEDED",
     message: "Too many authentication attempts.",
+  },
+});
+
+export const passwordResetRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    code: "PASSWORD_RESET_RATE_LIMIT_EXCEEDED",
+    message: "Too many password reset attempts. Please try again later.",
   },
 });
 

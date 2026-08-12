@@ -1,0 +1,136 @@
+[
+  {
+    "firstName": "Maya",
+    "lastName": "Thompson",
+    "email": "maya.thompson@salonai.invalid",
+    "phone": "",
+    "jobTitle": "Senior Colourist",
+    "biography": "Maya specialises in dimensional colour, polished finishes and low-maintenance colour plans that grow out beautifully.",
+    "yearsExperience": 11,
+    "specialties": [
+      "Balayage",
+      "Highlights",
+      "Colour correction"
+    ],
+    "languages": [
+      "English",
+      "French"
+    ],
+    "profileImage": "",
+    "instagram": "",
+    "facebook": "",
+    "website": "",
+    "rating": 5,
+    "reviews": 0,
+    "profilePublished": true,
+    "displayOrder": 10,
+    "isActive": true
+  },
+  {
+    "firstName": "Luca",
+    "lastName": "Romano",
+    "email": "luca.romano@salonai.invalid",
+    "phone": "",
+    "jobTitle": "Cutting Specialist",
+    "biography": "Luca combines precision cutting with practical styling advice, creating shapes that are easy to maintain between appointments.",
+    "yearsExperience": 9,
+    "specialties": [
+      "Precision cutting",
+      "Restyles",
+      "Blow-dries"
+    ],
+    "languages": [
+      "English",
+      "Italian"
+    ],
+    "profileImage": "",
+    "instagram": "",
+    "facebook": "",
+    "website": "",
+    "rating": 5,
+    "reviews": 0,
+    "profilePublished": true,
+    "displayOrder": 20,
+    "isActive": true
+  },
+  {
+    "firstName": "Amara",
+    "lastName": "Okafor",
+    "email": "amara.okafor@salonai.invalid",
+    "phone": "",
+    "jobTitle": "Texture & Curl Specialist",
+    "biography": "Amara focuses on textured and curly hair, helping clients build healthy routines while celebrating natural movement and shape.",
+    "yearsExperience": 8,
+    "specialties": [
+      "Curly hair",
+      "Texture care",
+      "Protective styling"
+    ],
+    "languages": [
+      "English"
+    ],
+    "profileImage": "",
+    "instagram": "",
+    "facebook": "",
+    "website": "",
+    "rating": 5,
+    "reviews": 0,
+    "profilePublished": true,
+    "displayOrder": 30,
+    "isActive": true
+  },
+  {
+    "firstName": "Sophie",
+    "lastName": "Bennett",
+    "email": "sophie.bennett@salonai.invalid",
+    "phone": "",
+    "jobTitle": "Balayage & Styling Artist",
+    "biography": "Sophie creates soft, wearable colour and event-ready styling with an emphasis on shine, movement and a premium client experience.",
+    "yearsExperience": 7,
+    "specialties": [
+      "Balayage",
+      "Event styling",
+      "Glossing"
+    ],
+    "languages": [
+      "English",
+      "Spanish"
+    ],
+    "profileImage": "",
+    "instagram": "",
+    "facebook": "",
+    "website": "",
+    "rating": 5,
+    "reviews": 0,
+    "profilePublished": true,
+    "displayOrder": 40,
+    "isActive": true
+  },
+  {
+    "firstName": "Daniel",
+    "lastName": "Kim",
+    "email": "daniel.kim@salonai.invalid",
+    "phone": "",
+    "jobTitle": "Grooming & Precision Stylist",
+    "biography": "Daniel delivers clean, modern cuts and grooming with detail-led consultations tailored to face shape, texture and lifestyle.",
+    "yearsExperience": 10,
+    "specialties": [
+      "Men's grooming",
+      "Scissor cuts",
+      "Short hair"
+    ],
+    "languages": [
+      "English",
+      "Korean"
+    ],
+    "profileImage": "",
+    "instagram": "",
+    "facebook": "",
+    "website": "",
+    "rating": 5,
+    "reviews": 0,
+    "profilePublished": true,
+    "displayOrder": 50,
+    "isActive": true
+  }
+]

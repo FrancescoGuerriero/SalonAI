@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+import {
+  isSupportedProfileImage,
+} from "../utils/profileMedia.js";
+
 const workingHoursSchema = new mongoose.Schema(
   {
     day: {
@@ -11,41 +15,48 @@ const workingHoursSchema = new mongoose.Schema(
         "Thursday",
         "Friday",
         "Saturday",
-        "Sunday"
+        "Sunday",
       ],
-      required: true
+      required: true,
     },
 
     start: {
       type: String,
-      default: "09:00"
+      default: "09:00",
     },
 
     end: {
       type: String,
-      default: "17:00"
+      default: "17:00",
     },
 
     available: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
   { _id: false }
 );
 
 const stylistSchema = new mongoose.Schema(
   {
+    userAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     firstName: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      maxlength: 60,
     },
 
     lastName: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      maxlength: 60,
     },
 
     email: {
@@ -53,40 +64,68 @@ const stylistSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
+      maxlength: 254,
     },
 
     phone: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: 40,
+    },
+
+    jobTitle: {
+      type: String,
+      trim: true,
+      default: "Hair professional",
+      maxlength: 120,
     },
 
     biography: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: 2000,
     },
 
     profileImage: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: [
+        650000,
+        "Profile image data is too large.",
+      ],
+      validate: {
+        validator(value) {
+          return isSupportedProfileImage(value);
+        },
+        message:
+          "Profile image must be an HTTPS URL or a supported JPEG, PNG or WebP upload.",
+      },
     },
 
     yearsExperience: {
       type: Number,
-      default: 0
+      default: 0,
+      min: 0,
+      max: 80,
     },
 
     specialties: [
       {
-        type: String
-      }
+        type: String,
+        trim: true,
+        maxlength: 120,
+      },
     ],
 
     services: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Service"
-      }
+        ref: "Service",
+      },
     ],
 
     workingHours: {
@@ -100,72 +139,119 @@ const stylistSchema = new mongoose.Schema(
         {
           day: "Saturday",
           start: "09:00",
-          end: "15:00"
+          end: "15:00",
         },
         {
           day: "Sunday",
-          available: false
-        }
-      ]
+          available: false,
+        },
+      ],
     },
 
     languages: [
       {
-        type: String
-      }
+        type: String,
+        trim: true,
+        maxlength: 80,
+      },
     ],
 
     instagram: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: 300,
     },
 
     facebook: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: 300,
     },
 
     website: {
       type: String,
-      default: ""
+      default: "",
+      trim: true,
+      maxlength: 300,
     },
 
     rating: {
       type: Number,
       default: 5,
       min: 0,
-      max: 5
+      max: 5,
     },
 
     reviews: {
       type: Number,
-      default: 0
+      default: 0,
+      min: 0,
+    },
+
+    profilePublished: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    displayOrder: {
+      type: Number,
+      default: 100,
+      min: 0,
+      max: 10000,
     },
 
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+      index: true,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
-stylistSchema.virtual("fullName").get(function () {
+stylistSchema.virtual("fullName").get(function getFullName() {
   return `${this.firstName} ${this.lastName}`;
 });
 
 stylistSchema.set("toJSON", {
-  virtuals: true
+  virtuals: true,
 });
 
 stylistSchema.set("toObject", {
-  virtuals: true
+  virtuals: true,
 });
+
+stylistSchema.index(
+  {
+    userAccount: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      userAccount: {
+        $type: "objectId",
+      },
+    },
+  }
+);
+
+stylistSchema.index({
+  isActive: 1,
+  profilePublished: 1,
+  displayOrder: 1,
+  firstName: 1,
+});
+
 const Stylist =
   mongoose.models.Stylist ||
-  mongoose.model("Stylist", stylistSchema);
+  mongoose.model(
+    "Stylist",
+    stylistSchema
+  );
 
 export default Stylist;
-

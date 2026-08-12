@@ -98,7 +98,7 @@ async function uniqueSlug(name, currentId = null) {
 
 function normaliseProductPayload(payload, { partial = false } = {}) {
   const output = {};
-  const stringFields = ["name", "sku", "brand", "description", "category", "size"];
+  const stringFields = ["name", "sku", "brand", "description", "category", "collectionName", "badge", "size"];
   const numberFields = ["price", "costPrice", "stockQuantity", "reorderLevel"];
   const booleanFields = ["featured", "active"];
 
@@ -164,6 +164,14 @@ export async function listProducts(query = {}, { management = false } = {}) {
     match.category = query.category;
   }
 
+  if (query.brand) {
+    match.brand = query.brand;
+  }
+
+  if (query.collection) {
+    match.collectionName = query.collection;
+  }
+
   if (query.featured !== undefined) {
     match.featured = String(query.featured).toLowerCase() === "true";
   }
@@ -184,6 +192,8 @@ export async function listProducts(query = {}, { management = false } = {}) {
       { brand: expression },
       { description: expression },
       { category: expression },
+      { collectionName: expression },
+      { badge: expression },
     ];
   }
 
@@ -194,7 +204,7 @@ export async function listProducts(query = {}, { management = false } = {}) {
     name: { name: 1 },
   };
 
-  const [items, total, categories] = await Promise.all([
+  const [items, total, categories, brands, collections] = await Promise.all([
     Product.find(match)
       .select(productFields(management))
       .sort(sortMap[query.sort] || { featured: -1, name: 1 })
@@ -203,11 +213,15 @@ export async function listProducts(query = {}, { management = false } = {}) {
       .lean({ virtuals: true }),
     Product.countDocuments(match),
     Product.distinct("category", { active: true }),
+    Product.distinct("brand", { active: true }),
+    Product.distinct("collectionName", { active: true }),
   ]);
 
   return {
     items,
     categories: categories.filter(Boolean).sort(),
+    brands: brands.filter(Boolean).sort(),
+    collections: collections.filter(Boolean).sort(),
     pagination: paginationResult(page, limit, total),
   };
 }

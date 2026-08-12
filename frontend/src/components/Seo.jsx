@@ -7,6 +7,7 @@ const publicMetadata = {
   "/": ["SalonAI | Premium Hair Salon Booking & Haircare", "Discover salon services, professional stylists, online booking and salon-quality haircare with SalonAI."],
   "/services": ["Hair Services & Prices | SalonAI", "Explore SalonAI hair services with clear prices, durations and online booking."],
   "/stylists": ["Meet the Salon Team | SalonAI", "Meet SalonAI stylists, explore their specialties and choose the right professional for your appointment."],
+  "/about": ["About SalonAI | Hair Professionals & Connected Salon Care", "Learn about SalonAI, meet published salon professionals and discover how connected booking, profiles and haircare support the client journey."],
   "/shop": ["Professional Haircare Shop | SalonAI", "Shop professional haircare products selected to support healthy, manageable hair between salon visits."],
   "/experience": ["Your Connected Salon Experience | SalonAI", "Plan a confident salon visit with services, stylists, live appointment booking, haircare and customer support."],
   "/help": ["SalonAI Help Centre", "Get help with salon bookings, accounts, orders, payments and customer support."],
