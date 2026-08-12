@@ -1,0 +1,15 @@
+{
+  "phase": "8.4.3",
+  "revision": "R3.4",
+  "fixes": [
+    "Resolve absolute, protocol-relative, and relative official image URLs before download.",
+    "Stage all product media in frontend/public/products/davines.__staging.",
+    "Do not replace active media until every image has downloaded successfully.",
+    "Do not replace catalogue JSON until media staging succeeds.",
+    "Emit product/SKU/image-index/source diagnostics for any future image failure.",
+    "Clean staging/temp files on failure while leaving active catalogue/media unchanged."
+  ],
+  "reason": "R3.3 downloaded 205 files successfully, then failed with Invalid URL before the catalogue JSON was written.",
+  "database_changes": false,
+  "stock_changes": false
+}
