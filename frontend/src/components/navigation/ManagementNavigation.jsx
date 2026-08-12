@@ -7,7 +7,7 @@ import { isAdminRole } from "../../utils/roles.js";
 
 export const MANAGEMENT_SECTIONS = [
   { id: "operations", label: "Salon operations", links: [
-    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors], ["/data-imports", "Data imports", "Customers and products", Upload, true],
+    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/staff/profile", "My public profile", "Photo, bio and specialties", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors], ["/data-imports", "Data imports", "Customers and products", Upload, true],
   ]},
   { id: "communications", label: "Communications", links: [
     ["/communications", "Communications", "Contact history", Mail], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock], ["/message-delivery", "Message delivery", "Monitor and retry", Send],

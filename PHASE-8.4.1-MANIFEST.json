@@ -1,0 +1,23 @@
+{
+  "phase": "8.4.1",
+  "name": "Davines Summer Retail Catalogue",
+  "generated": "2026-08-12",
+  "source": "https://uk.davines.com/collections/summer-hair-edit",
+  "source_products": 43,
+  "retail_eligible": 39,
+  "reference_only": 4,
+  "production_deployment": false,
+  "files": {
+    "PHASE-8.4.1-README.md": "5fbadbec7e6d31662c3258f6f27791ab391d3d96860364640796c215cb11b113",
+    "backend/data/davines-summer-favourites.json": "dfb80fb0f5454c1c6ecc192da5bb461127d44f0a83d8da6b0827590a2b98e58d",
+    "backend/package.json": "6019346fd349fbbac4934ed9bdf3a0a99a9ec244648511ff9016df6471a2d715",
+    "backend/scripts/seedDavinesSummerProducts.js": "45dbfa4dc99775d55e1bbee7d2809de573f69210390816fd2dee767eea8370e5",
+    "backend/src/features/commerce/Product.js": "10e558c78113c725840245461da2a1bd3c1ba89fbd74b1817af3eae72b0770c5",
+    "backend/src/features/commerce/commerceService.js": "600889a84a0f2c1de24a1e71c125c71f0c3e6725dabfb36fc53f1a6f993b9add",
+    "backend/src/test/davinesSummerProducts.test.js": "7cf8e68c539c56c5546b775a71d878175b3dc7a6167f604a104a8e9de8999911",
+    "frontend/src/App.jsx": "857bda87c8d0ff95396650fe88831e725ceca6246b948ad3735c4e583005de93",
+    "frontend/src/commerce.css": "77e2f46d131f51921668ce6a3c4acc64981f5be972598ec43a6a5f402896cbb9",
+    "frontend/src/pages/ProductDetailsPage.jsx": "c7d6495e9ca9505b0ceec23a2774fdedbf7683dd7d59cace10e3aded1a53afe2",
+    "frontend/src/pages/Shop.jsx": "f7b0c8daf0dc6285a455bb2ce07e77c08e88d232804247534219b4588a6a1d4d"
+  }
+}

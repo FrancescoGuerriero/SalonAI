@@ -41,6 +41,19 @@ const productSchema = new mongoose.Schema(
       index: true,
       default: "Haircare",
     },
+    collectionName: {
+      type: String,
+      trim: true,
+      index: true,
+      default: "",
+      maxlength: 120,
+    },
+    badge: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 80,
+    },
     size: {
       type: String,
       trim: true,

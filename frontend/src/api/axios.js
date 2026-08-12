@@ -1,8 +1,28 @@
 import axios from "axios";
 
+const configuredApiBaseUrl =
+  String(
+    import.meta.env
+      .VITE_API_URL ||
+      ""
+  ).trim();
+
+/*
+|--------------------------------------------------------------------------
+| API origin strategy
+|--------------------------------------------------------------------------
+| During Vite development always use the same-origin /api path. Vite proxies
+| /api to the local backend (127.0.0.1:5000), which prevents localhost vs
+| 127.0.0.1 CORS mismatches.
+|
+| In production an explicit VITE_API_URL can still be supplied. If it is not,
+| /api is used so the deployed frontend can use the same public origin/edge.
+*/
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:5000/api";
+  import.meta.env.DEV
+    ? "/api"
+    : configuredApiBaseUrl ||
+      "/api";
 
 const TOKEN_KEY =
   "salonai_token";

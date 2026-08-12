@@ -1,0 +1,73 @@
+{
+  "phase": "8.4",
+  "name": "About, Team Profiles and Profile Photography",
+  "generated": "2026-08-12",
+  "production_deployment": false,
+  "database_seed_is_optional": true,
+  "demo_employee_count": 5,
+  "backend_validation": {
+    "javascript_files_checked": 523,
+    "tests": 185,
+    "passed": 185,
+    "failed": 0,
+    "app_import": "passed"
+  },
+  "frontend_validation": {
+    "pure_tests": 13,
+    "passed": 13,
+    "failed": 0,
+    "production_build_in_audit_environment": "not rerun; Windows dependencies in uploaded archive are not portable to Linux"
+  },
+  "ai_service_validation": {
+    "tests": 60,
+    "passed": 60,
+    "failed": 0
+  },
+  "git_audit": {
+    "local_branch": "phase-8.1-session-resilience",
+    "local_head": "b8b9a29",
+    "archive_main": "62cecfd21e24814e182b1e87d9aa24815322b42b",
+    "live_github_main": "50c96f39f62ba0e1349648be8f1f38c9957a3868",
+    "live_main_ahead_of_archive_main": 11,
+    "local_branch_present_on_github": false
+  },
+  "files": {
+    "PHASE-8.4-README.md": "a8576c2db34c47a018178e265cad868dca179d1567a08e6a0c2ec22c46c1b920",
+    "SALONAI-DEVELOPMENT-AUDIT-AND-ROADMAP.md": "7e9c8890bd9ad1afd081c2683f2610ca1b1c16a75bca962f196dd7dc011a20ba",
+    "backend/data/demo-stylists.json": "be0fcdc6dd4fddeebe72d1b5062013691837d25c6407f466ef80fb9cec07120b",
+    "backend/package.json": "8386a802919d0978ba177b19c881a006f2ac2fb9e8b8e493cbf2a613ea18e7c1",
+    "backend/scripts/seedDemoStylists.js": "9a5179f47fffbb7ceaccd24436f869e09793fc524fbdc1b8d72a8999729eaa00",
+    "backend/src/controllers/authController.js": "c865c0164e088b5c60bccd9585a44524d4c26f74c97ce77d36d1ab4c00ead24a",
+    "backend/src/controllers/stylistController.js": "b056f6fb622ffe3e315463ca2afb0984826bcb7da6848bea059df9162c87baac",
+    "backend/src/models/Stylist.js": "150657631093912f659ef03bc384f565e125c58c616951aedfcdad341d89346a",
+    "backend/src/models/user.js": "03b777f57c443e6f6ab2b47bfbc716677f2884522986a7699359c6c83a9fadc0",
+    "backend/src/routes/stylistRoutes.js": "8f23eb19acc0ec021bf63d04e936f44923dcd50255a1e65aaa5ad17c28eccef4",
+    "backend/src/test/customerExperience.test.js": "6289282a34281faf5d2aadb96313262d95dcb8606f667820531024c2e4cbb419",
+    "backend/src/test/demoStylists.test.js": "c6561d3aa8ff07fe6609399edaa61b0a673a77af7778bd2d510fb9a6c531889f",
+    "backend/src/test/profileMedia.test.js": "42543a2a12a90321e6ce21ee62435a6ab7f9b9c6bbfb5812f1972c9c1bed2c35",
+    "backend/src/test/staffProfile.test.js": "e424f1a415b3b2218184dd508c1dde12ed38a5d2af9fcef2ecb333aa01290fa7",
+    "backend/src/utils/profileMedia.js": "a1ddbcca1edc65e25518e6108534550da335663a6a138d5960f04c3deba7794a",
+    "frontend/package.json": "0dd206a5dbd4f5177bd621560e3f058a8e62ea0ab990f60e0fbca65bc1f9d1e0",
+    "frontend/src/App.jsx": "a347685472d84238e20d3a6cde5778a6bb30a1e2207bc30368caeb000cd55636",
+    "frontend/src/Services/stylistService.js": "bf3bb7772f7266b2191c0367d667728b65c662ec55e30da72180ac115a5890e1",
+    "frontend/src/components/Footer.jsx": "eedcd06042b00b8495259d074645ecf27148b068b953cd5324922091896d0f81",
+    "frontend/src/components/Navbar.jsx": "58c53c257b8e3e1f7d6fa5255cb43345ce568e50dfd682cd8c40cab83ba91e2c",
+    "frontend/src/components/Seo.jsx": "78b726c942f6a76a99781b367fc3aa5143576ba121fc4d812a5d68f493dc0107",
+    "frontend/src/components/StylistForm.jsx": "5b3c8c1be9df78b0de1bd844d976c805a1b50060a4a058a31ce96cc90436ce6b",
+    "frontend/src/components/customer/StylistCard.jsx": "ae90d0833c67c30f336c47d15c7b35168659e6f2d86b4e633589029696dda762",
+    "frontend/src/components/navigation/ManagementNavigation.jsx": "87cc30baba3755dedeaac1bbb06557f4cefcc01b12b0a4f1dc92ba8a6bd3667f",
+    "frontend/src/components/profile/ProfilePhotoUploader.jsx": "aea75234fe82cacff76cd28e5b17aa5732907db2f5ed4eab3041f1894716340a",
+    "frontend/src/main.jsx": "ca7c703e3d3616b9059025e32895f69560cccfc478f9c6362347c88e53f81644",
+    "frontend/src/pages/AboutPage.jsx": "a80cc2030f967a33b550c87a922b9bfb29374427d0fec761a86aee19a48af1ab",
+    "frontend/src/pages/CustomerAccountPage.jsx": "53a39d9ebf4cdd81a84472ab3450bfd5713dcdb8e3e87c1deafc972101123169",
+    "frontend/src/pages/ManageAccountPage.jsx": "e2222f37e533c341f042d1dc1a9aa6dc4a778ed77e36a82ac1a299b18e31f702",
+    "frontend/src/pages/StaffProfileEditorPage.jsx": "8ff937147c1430d0c96604ca06ca21233c30d5a0fb5bc3c6175e442ea8cdbbb0",
+    "frontend/src/pages/Stylists.jsx": "23d71b9b1b2c3d2370a2da26784d5ffb599302523603268dec97738cf0fab49c",
+    "frontend/src/styles/about.css": "92309c02b92d4c8ccb7695fc71ea4a2379b4e94451a56aa76675853e2fbabcb2",
+    "frontend/src/styles/profileMedia.css": "8551f468437f9e177f8e08c1179c9241399234285b23c34e41f2505c2cb9540a",
+    "frontend/src/styles/staffProfile.css": "45faec7dfeea54349f6612bd9b452488bdce93436879c3313ed8cd694b6ebb85",
+    "frontend/src/utils/profileMedia.js": "c84394f64e44a869ca376bdc3c7c2fc9bbb3b40ad7e0a112822142d6d21a00d9",
+    "frontend/src/utils/profileMedia.test.js": "410bc598ce2c083a063906695f741807989e5312d6a3d52783e5d86cf4604952",
+    "scripts/dev/New-TrackedSourceArchive.ps1": "a1ff1a0a91203bfe68814a07f04bfbafeb31f40c15f9d303dc429081a48a7190"
+  }
+}

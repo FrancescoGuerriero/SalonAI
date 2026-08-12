@@ -75,6 +75,44 @@ class AuthService {
     };
   }
 
+  async requestPasswordReset(
+    email
+  ) {
+    const response =
+      await API.post(
+        "/auth/forgot-password",
+        { email },
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    return response.data;
+  }
+
+  async resetPassword(
+    token,
+    password
+  ) {
+    const response =
+      await API.post(
+        "/auth/reset-password",
+        {
+          token,
+          password,
+        },
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    this.clearSession();
+
+    return response.data;
+  }
+
   async getAccount() {
     const response =
       await API.get(

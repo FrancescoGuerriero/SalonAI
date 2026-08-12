@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 
 import { env } from "../config/env.js";
 import User from "../models/user.js";
+import {
+  normaliseProfileImage,
+} from "../utils/profileMedia.js";
 
 export const REFRESH_COOKIE_NAME =
   "salonai_refresh_token";
@@ -157,6 +160,8 @@ function serialiseUser(user) {
     email: user.email,
     role: user.role,
     phone: user.phone || "",
+    profilePhoto:
+      user.profilePhoto || "",
     homeAddress: {
       line1:
         user.homeAddress?.line1 ||
@@ -202,6 +207,35 @@ function refreshTokenUserId(
   );
 }
 
+
+function tokenPredatesPasswordChange(
+  decodedToken,
+  user
+) {
+  if (!user?.passwordChangedAt) {
+    return false;
+  }
+
+  const issuedAtSeconds =
+    Number(decodedToken?.iat || 0);
+
+  if (!issuedAtSeconds) {
+    return true;
+  }
+
+  const passwordChangedAtSeconds =
+    Math.floor(
+      new Date(
+        user.passwordChangedAt
+      ).getTime() / 1000
+    );
+
+  return (
+    issuedAtSeconds <
+    passwordChangedAtSeconds
+  );
+}
+
 export function normaliseAccountUpdate(
   body = {}
 ) {
@@ -227,6 +261,17 @@ export function normaliseAccountUpdate(
       address.postcode,
       20
     ).toUpperCase();
+  const hasProfilePhoto =
+    Object.prototype.hasOwnProperty.call(
+      body,
+      "profilePhoto"
+    );
+  const profilePhoto =
+    hasProfilePhoto
+      ? normaliseProfileImage(
+          body.profilePhoto
+        )
+      : undefined;
 
   if (!name) {
     const error =
@@ -240,6 +285,9 @@ export function normaliseAccountUpdate(
   return {
     name,
     phone,
+    ...(hasProfilePhoto
+      ? { profilePhoto }
+      : {}),
     homeAddress: {
       line1: cleanText(
         address.line1,
@@ -767,6 +815,29 @@ export async function refreshSession(
             "This account has been disabled.",
           code:
             "ACCOUNT_DISABLED",
+        });
+    }
+    if (
+      tokenPredatesPasswordChange(
+        decodedToken,
+        user
+      )
+    ) {
+      clearRefreshCookie(
+        res
+      );
+      setNoStoreHeaders(
+        res
+      );
+
+      return res
+        .status(401)
+        .json({
+          success: false,
+          message:
+            "Your password changed after this session was issued. Please sign in again.",
+          code:
+            "SESSION_INVALIDATED",
         });
     }
 
