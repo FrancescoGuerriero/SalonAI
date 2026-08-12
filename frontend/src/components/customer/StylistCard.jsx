@@ -15,6 +15,7 @@ import {
 export default function StylistCard({
   stylist,
   onSelect,
+  actionLabel = "Select stylist",
 }) {
   const experience = Number(
     stylist.experience ?? stylist.yearsExperience ?? 0
@@ -61,9 +62,9 @@ export default function StylistCard({
         <button
           type="button"
           className="customer-card-action"
-          onClick={() => onSelect(stylist)}
+          onClick={() => onSelect?.(stylist)}
         >
-          Select stylist
+          {actionLabel}
           <ArrowRight size={17} />
         </button>
       </div>

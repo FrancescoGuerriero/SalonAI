@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
+import ProfilePhotoUploader from "./profile/ProfilePhotoUploader.jsx";
+
 const emptyStylist = {
   firstName: "",
   lastName: "",
   email: "",
   phone: "",
+  jobTitle: "Hair professional",
   biography: "",
   yearsExperience: 0,
   specialties: "",
@@ -13,6 +16,7 @@ const emptyStylist = {
   facebook: "",
   website: "",
   profileImage: "",
+  profilePublished: true,
   isActive: true,
 };
 
@@ -47,6 +51,7 @@ export default function StylistForm({
         lastName: stylist.lastName || "",
         email: stylist.email || "",
         phone: stylist.phone || "",
+        jobTitle: stylist.jobTitle || "Hair professional",
         biography: stylist.biography || "",
         yearsExperience:
           Number(stylist.yearsExperience) || 0,
@@ -58,6 +63,10 @@ export default function StylistForm({
         facebook: stylist.facebook || "",
         website: stylist.website || "",
         profileImage: stylist.profileImage || "",
+        profilePublished:
+          typeof stylist.profilePublished === "boolean"
+            ? stylist.profilePublished
+            : true,
         isActive:
           typeof stylist.isActive === "boolean"
             ? stylist.isActive
@@ -97,6 +106,7 @@ export default function StylistForm({
       lastName: form.lastName.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
+      jobTitle: form.jobTitle.trim(),
       biography: form.biography.trim(),
       yearsExperience: Math.max(
         0,
@@ -114,6 +124,7 @@ export default function StylistForm({
       facebook: form.facebook.trim(),
       website: form.website.trim(),
       profileImage: form.profileImage.trim(),
+      profilePublished: form.profilePublished,
       isActive: form.isActive,
     };
   }
@@ -206,7 +217,20 @@ export default function StylistForm({
                 </div>
               )}
 
-              <div className="row g-3">
+              <ProfilePhotoUploader
+                value={form.profileImage}
+                onChange={(value) =>
+                  setForm((previous) => ({
+                    ...previous,
+                    profileImage: value,
+                  }))
+                }
+                name={`${form.firstName} ${form.lastName}`}
+                label="Stylist profile photograph"
+                disabled={submitting}
+              />
+
+              <div className="row g-3 mt-1">
                 <div className="col-md-6">
                   <label
                     htmlFor="firstName"
@@ -334,20 +358,21 @@ export default function StylistForm({
 
                 <div className="col-md-6">
                   <label
-                    htmlFor="profileImage"
+                    htmlFor="jobTitle"
                     className="form-label"
                   >
-                    Profile image URL
+                    Public job title
                   </label>
 
                   <input
-                    id="profileImage"
-                    name="profileImage"
-                    type="url"
+                    id="jobTitle"
+                    name="jobTitle"
+                    type="text"
                     className="form-control"
-                    value={form.profileImage}
+                    value={form.jobTitle}
                     onChange={handleChange}
-                    placeholder="https://example.com/stylist.jpg"
+                    maxLength={120}
+                    placeholder="Senior Colourist"
                   />
                 </div>
 
@@ -454,6 +479,26 @@ export default function StylistForm({
                     onChange={handleChange}
                     placeholder="https://example.com"
                   />
+                </div>
+
+                <div className="col-12">
+                  <div className="form-check form-switch">
+                    <input
+                      id="profilePublished"
+                      name="profilePublished"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={form.profilePublished}
+                      onChange={handleChange}
+                    />
+
+                    <label
+                      htmlFor="profilePublished"
+                      className="form-check-label"
+                    >
+                      Publish this profile on the public About/team page
+                    </label>
+                  </div>
                 </div>
 
                 <div className="col-12">

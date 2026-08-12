@@ -30,6 +30,8 @@ const WhatsAppBookingPage = lazy(() => import("./pages/WhatsAppBookingPage.jsx")
 const RetentionAutomationPage = lazy(() => import("./pages/RetentionAutomationPage.jsx"));
 const PremiumAnalyticsPage = lazy(() => import("./pages/PremiumAnalyticsPage.jsx"));
 const HelpCentrePage = lazy(() => import("./pages/HelpCentrePage.jsx"));
+const AboutPage = lazy(() => import("./pages/AboutPage.jsx"));
+const StaffProfileEditorPage = lazy(() => import("./pages/StaffProfileEditorPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
 const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienceSuitePage.jsx"));
@@ -62,6 +64,10 @@ const Booking = lazy(
 
 const Shop = lazy(
   () => import("./pages/Shop.jsx")
+);
+
+const ProductDetailsPage = lazy(
+  () => import("./pages/ProductDetailsPage.jsx")
 );
 
 const Cart = lazy(
@@ -561,6 +567,11 @@ function AppRoutes() {
         />
 
         <Route
+          path="about"
+          element={<AboutPage />}
+        />
+
+        <Route
           path="login"
           element={<Login />}
         />
@@ -573,6 +584,11 @@ function AppRoutes() {
         <Route
           path="shop"
           element={<Shop />}
+        />
+
+        <Route
+          path="shop/:identifier"
+          element={<ProductDetailsPage />}
         />
 
         <Route
@@ -809,6 +825,13 @@ function AppRoutes() {
           path="staff-management"
           element={managementPage(
             StaffManagementPage
+          )}
+        />
+
+        <Route
+          path="staff/profile"
+          element={managementPage(
+            StaffProfileEditorPage
           )}
         />
 

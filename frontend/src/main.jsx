@@ -21,6 +21,9 @@ import "./styles/resilienceExperience.css";
 import "./styles/customerSettings.css";
 import "./styles/customerExperienceSuite.css";
 import "./styles/manageAccount.css";
+import "./styles/profileMedia.css";
+import "./styles/about.css";
+import "./styles/staffProfile.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

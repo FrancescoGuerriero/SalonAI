@@ -11,9 +11,34 @@ const stylistService = {
     return data;
   },
 
+  async getPublicTeam() {
+    const { data } = await API.get(
+      `${ENDPOINT}/public`
+    );
+
+    return data;
+  },
+
   async getStylist(id) {
     const { data } = await API.get(
       `${ENDPOINT}/${id}`
+    );
+
+    return data;
+  },
+
+  async getMyProfile() {
+    const { data } = await API.get(
+      `${ENDPOINT}/me/profile`
+    );
+
+    return data;
+  },
+
+  async updateMyProfile(profile) {
+    const { data } = await API.patch(
+      `${ENDPOINT}/me/profile`,
+      profile
     );
 
     return data;
