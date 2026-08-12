@@ -35,6 +35,11 @@ const productSchema = new mongoose.Schema(
       maxlength: 3000,
       default: "",
     },
+    officialDescription: {
+      type: String,
+      maxlength: 15000,
+      default: "",
+    },
     category: {
       type: String,
       trim: true,
@@ -114,6 +119,9 @@ productSchema.virtual("lowStock").get(function lowStock() {
 
 const Product =
   mongoose.models.Product ||
-  mongoose.model("Product", productSchema);
+  mongoose.model(
+    "Product",
+    productSchema
+  );
 
 export default Product;

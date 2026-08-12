@@ -10,7 +10,11 @@
       "Prices are reference retail prices observed from the Davines UK Summer Favourites collection during research.",
       "SalonAI stock defaults to zero on new records so products cannot be sold until physical inventory is confirmed.",
       "Items shown as unavailable or without a retail price remain reference-only and are not inserted into the sellable product catalogue."
-    ]
+    ],
+    "mediaSyncedAt": "2026-08-12T20:42:34.328Z",
+    "mediaSource": "https://uk.davines.com/collections/summer-hair-edit",
+    "mediaPolicy": "Authorised official Davines UK product text and images.",
+    "syncRevision": "R3.4"
   },
   "products": [
     {
@@ -21,10 +25,27 @@
       "collection": "Summer Favourites",
       "description": "Nourishing oil for processed or stressed hair.",
       "badge": "New",
-      "referencePrice": 30.0,
+      "referencePrice": 30,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15692742984054,
+      "officialHandle": "nounou-oil",
+      "officialTitle": "NOUNOU Oil",
+      "officialProductUrl": "https://uk.davines.com/products/nounou-oil",
+      "officialPrice": 30,
+      "officialAvailability": "available",
+      "size": "50 ml",
+      "officialDescription": "Nourishing oil for processed hair Nourishing and repairing oil for processed and briIttle hair. It delivers luminous shine while helping to strengthen hair and protect against breakage. It forms a protective barrier on the hair, leaving it smoother and more resilient with every use. With certified regenerative lupin extract, it has proteins to strengthen and repair the hair fiber and polysaccharides that lock in moisture. Provides heat protection up to 230°C (446°F), Get up to 12 time noticeably shinier hair, that is up to 5 times stronger after one use.*",
+      "images": [
+        "/products/davines/nounou-oil/01.jpg",
+        "/products/davines/nounou-oil/02.jpg",
+        "/products/davines/nounou-oil/03.jpg",
+        "/products/davines/nounou-oil/04.jpg",
+        "/products/davines/nounou-oil/05.jpg",
+        "/products/davines/nounou-oil/06.jpg",
+        "/products/davines/nounou-oil/07.jpg"
+      ]
     },
     {
       "name": "SU Hair Milk",
@@ -34,10 +55,28 @@
       "collection": "Summer Favourites",
       "description": "Protective hydrating leave-in milk for hair exposed to sun.",
       "badge": "Improved formula",
-      "referencePrice": 26.0,
+      "referencePrice": 26,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15757174407542,
+      "officialHandle": "su-hair-milk",
+      "officialTitle": "SU Hair Milk",
+      "officialProductUrl": "https://uk.davines.com/products/su-hair-milk",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "135 ml / 50 ml",
+      "officialDescription": "Protective hydrating milk for sun-exposed hair Leave-on protective hair milk formulated to preserve the hair integrity during sun exposure. This lightweight formula keeps the hair soft, shiny and easy to comb even after extended time in the sun, with a lightweight feel. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection and promoting hair health. With UV protection and heat protection up to 230°C (446°F).",
+      "images": [
+        "/products/davines/su-hair-milk/01.jpg",
+        "/products/davines/su-hair-milk/02.jpg",
+        "/products/davines/su-hair-milk/03.jpg",
+        "/products/davines/su-hair-milk/04.jpg",
+        "/products/davines/su-hair-milk/05.jpg",
+        "/products/davines/su-hair-milk/06.jpg",
+        "/products/davines/su-hair-milk/07.jpg",
+        "/products/davines/su-hair-milk/08.jpg"
+      ]
     },
     {
       "name": "This is a Sea Salt Spray",
@@ -50,7 +89,29 @@
       "referencePrice": 23.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 6169383895210,
+      "officialHandle": "this-is-a-sea-salt-spray",
+      "officialTitle": "This is a Sea Salt Spray",
+      "officialProductUrl": "https://uk.davines.com/products/this-is-a-sea-salt-spray",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "250 ml / 100 ml",
+      "officialDescription": "For a tousled, beachy, full-bodied look with a matte finish Adds volume, texture, and matte hold for effortless beachy waves. The lightweight, non-drying formula gives flat, dull hair immediate volume, lift, and definition without causing buildup. Brings out natural waves and texture with just a few sprays, creating beachy, full-bodied styles with a matte finish. Ideal for fine, medium, and thick hair looking to enhance texture and achieve natural beachy volume.",
+      "images": [
+        "/products/davines/this-is-a-sea-salt-spray/01.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/02.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/03.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/04.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/05.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/06.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/07.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/08.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/09.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/10.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/11.jpg",
+        "/products/davines/this-is-a-sea-salt-spray/12.jpg"
+      ]
     },
     {
       "name": "MOMO Shampoo",
@@ -60,10 +121,29 @@
       "collection": "Summer Favourites",
       "description": "Moisturising shampoo designed for dry hair.",
       "badge": "Improved formula",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15710742380918,
+      "officialHandle": "momo-shampoo",
+      "officialTitle": "MOMO Shampoo",
+      "officialProductUrl": "https://uk.davines.com/products/momo-shampoo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "250 ml / 500 ml",
+      "officialDescription": "Moisturizing shampoo for dry hair Moisturizing shampoo for dry or dehydrated hair. This gentle cleanser enhances hair hydration, leaving locks feeling soft, incredibly manageable, and looking naturally shiny. The lightweight formula delivers a natural sense of bounce and movement, revitalizing lifeless hair. With certified regenerative apricot extract, it has polysaccharides to lock in moisture and vitamin A for soft, nourished hair. Delivers up to 11 times more hydrated hair, making it look and feel healthier with every wash.*",
+      "images": [
+        "/products/davines/momo-shampoo/01.jpg",
+        "/products/davines/momo-shampoo/02.jpg",
+        "/products/davines/momo-shampoo/03.jpg",
+        "/products/davines/momo-shampoo/04.jpg",
+        "/products/davines/momo-shampoo/05.jpg",
+        "/products/davines/momo-shampoo/06.jpg",
+        "/products/davines/momo-shampoo/07.jpg",
+        "/products/davines/momo-shampoo/08.jpg",
+        "/products/davines/momo-shampoo/09.jpg"
+      ]
     },
     {
       "name": "MINU Mask",
@@ -73,10 +153,23 @@
       "collection": "Summer Favourites",
       "description": "Fast conditioning mask intended to support colour-treated hair.",
       "badge": "Improved formula",
-      "referencePrice": 30.0,
+      "referencePrice": 30,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15710965924214,
+      "officialHandle": "minu-mask",
+      "officialTitle": "MINU Mask",
+      "officialProductUrl": "https://uk.davines.com/products/minu-mask",
+      "officialPrice": 30,
+      "officialAvailability": "available",
+      "size": "250 ml",
+      "officialDescription": "Illuminating fast mask for coloured hair Illuminating colour protective fast mask for colour-treated hair. This rich yet lightweight formula combines nourishment with anti-breakage action, helping to reinforce weakened strands and reduce the risk of breakage often caused by chemical treatments, brushing, or heat styling. With certified regenerative green coffee extract, it has antioxidant properties that shield hair from oxidative stress that can lead to colour fading. Get manageable, radiant, silky hair with long-lasting vibrant color for up to 4 weeks with use of the full routine.*",
+      "images": [
+        "/products/davines/minu-mask/01.jpg",
+        "/products/davines/minu-mask/02.jpg",
+        "/products/davines/minu-mask/03.jpg"
+      ]
     },
     {
       "name": "OI All In One Milk",
@@ -89,7 +182,26 @@
       "referencePrice": 20.5,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 6169382584490,
+      "officialHandle": "oi-all-in-one-milk",
+      "officialTitle": "OI All In One Milk",
+      "officialProductUrl": "https://uk.davines.com/products/oi-all-in-one-milk",
+      "officialPrice": 20.5,
+      "officialAvailability": "available",
+      "size": "50 ml / 135 ml",
+      "officialDescription": "Leave-in hydrating treatment controls frizz, protects from heat, and adds shine and softness Our best-selling multi-functional leave-in treatment milk controls frizz, hydrates, protects, and softens, leaving hair shiny and silky. This hydrating milk conditioning spray tames and detangles for a smooth, naturally shiny look. Formulated with Roucou oil, rich in beta-carotene and natural antioxidants, it also contains deeply moisturizing provitamin B5 and a functional amino complex that provides resistance to stress and heat protection up to 230°. Ideal for fine to medium hair, this leave-in conditioner spray provides hydration for coarse hair. Enjoy your best hair with its delightful, long-lasting sensory scent.",
+      "images": [
+        "/products/davines/oi-all-in-one-milk/01.jpg",
+        "/products/davines/oi-all-in-one-milk/02.jpg",
+        "/products/davines/oi-all-in-one-milk/03.jpg",
+        "/products/davines/oi-all-in-one-milk/04.jpg",
+        "/products/davines/oi-all-in-one-milk/05.jpg",
+        "/products/davines/oi-all-in-one-milk/06.jpg",
+        "/products/davines/oi-all-in-one-milk/07.jpg",
+        "/products/davines/oi-all-in-one-milk/08.jpg",
+        "/products/davines/oi-all-in-one-milk/09.jpg"
+      ]
     },
     {
       "name": "SU SPF30",
@@ -99,10 +211,27 @@
       "collection": "Summer Favourites",
       "description": "Hydrating SPF 30 sun cream for face and body.",
       "badge": "Improved formula",
-      "referencePrice": 31.0,
+      "referencePrice": 31,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15757206618486,
+      "officialHandle": "su-protective-cream-spf-30",
+      "officialTitle": "SU SPF30",
+      "officialProductUrl": "https://uk.davines.com/products/su-protective-cream-spf-30",
+      "officialPrice": 31,
+      "officialAvailability": "available",
+      "size": "100 ml",
+      "officialDescription": "Hydrating face and body sun cream SPF 30 sunscreen for face and body formulated to offer high broad-spectrum UVA & UVB protection.It helps prevent dehydration and supports the defense against signs of photoaging. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection for skin. Formulated to reduce marine impact.",
+      "images": [
+        "/products/davines/su-protective-cream-spf-30/01.jpg",
+        "/products/davines/su-protective-cream-spf-30/02.jpg",
+        "/products/davines/su-protective-cream-spf-30/03.jpg",
+        "/products/davines/su-protective-cream-spf-30/04.jpg",
+        "/products/davines/su-protective-cream-spf-30/05.jpg",
+        "/products/davines/su-protective-cream-spf-30/06.jpg",
+        "/products/davines/su-protective-cream-spf-30/07.jpg"
+      ]
     },
     {
       "name": "MINU Conditioner for coloured hair",
@@ -112,10 +241,27 @@
       "collection": "Summer Favourites",
       "description": "Fast conditioner formulated for coloured hair.",
       "badge": "Improved formula",
-      "referencePrice": 26.0,
+      "referencePrice": 26,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15710966055286,
+      "officialHandle": "minu-conditioner",
+      "officialTitle": "MINU Conditioner for coloured hair",
+      "officialProductUrl": "https://uk.davines.com/products/minu-conditioner",
+      "officialPrice": 26,
+      "officialAvailability": "available",
+      "size": "250 ml",
+      "officialDescription": "Illuminating fast conditioner for coloured hair Illuminating, colour-protective fast conditioner for colour-treated hair. This lightweight formula delivers instant care, helping to protect colour against fading and dullness from external aggressors. It keeps hair vibrant, silky, and easy to detangle. With certified regenerative green coffee extract, it has antioxidant properties that shield hair from oxidative stress that can lead to colour fading. Experience manageable, radiant, silky hair and long-lasting vibrant colour for up to 4 weeks with use of the full routine.*",
+      "images": [
+        "/products/davines/minu-conditioner/01.jpg",
+        "/products/davines/minu-conditioner/02.jpg",
+        "/products/davines/minu-conditioner/03.jpg",
+        "/products/davines/minu-conditioner/04.jpg",
+        "/products/davines/minu-conditioner/05.jpg",
+        "/products/davines/minu-conditioner/06.jpg",
+        "/products/davines/minu-conditioner/07.jpg"
+      ]
     },
     {
       "name": "MINU Shampoo for coloured hair",
@@ -125,10 +271,29 @@
       "collection": "Summer Favourites",
       "description": "Illuminating shampoo for colour-treated hair.",
       "badge": "Improved formula",
-      "referencePrice": 43.0,
+      "referencePrice": 43,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15710965891446,
+      "officialHandle": "minu-shampoo",
+      "officialTitle": "MINU Shampoo for coloured hair",
+      "officialProductUrl": "https://uk.davines.com/products/minu-shampoo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "250 ml / 500 ml",
+      "officialDescription": "Illuminating shampoo for coloured hair Illuminating and colour protective shampoo for colour-treated hair. This gentle yet effective shampoo helps preserve vibrancy and prolongs colour intensity wash after wash. Its new chelating feature removes dulling residues, like hard water metals and minerals, which can compromise colour shine. With certified regenerative green coffee extract, it shields hair from oxidative stress that can lead to colour fading. Experience radiant looking, silky smooth hair and long-lasting vibrant colour for up to 4 weeks with use of the full routine.*",
+      "images": [
+        "/products/davines/minu-shampoo/01.jpg",
+        "/products/davines/minu-shampoo/02.jpg",
+        "/products/davines/minu-shampoo/03.jpg",
+        "/products/davines/minu-shampoo/04.jpg",
+        "/products/davines/minu-shampoo/05.jpg",
+        "/products/davines/minu-shampoo/06.jpg",
+        "/products/davines/minu-shampoo/07.jpg",
+        "/products/davines/minu-shampoo/08.jpg",
+        "/products/davines/minu-shampoo/09.jpg"
+      ]
     },
     {
       "name": "SU Hair & Body Wash",
@@ -141,7 +306,24 @@
       "referencePrice": 22.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15757006766454,
+      "officialHandle": "su-hair-body-wash",
+      "officialTitle": "SU Hair &amp; Body Wash",
+      "officialProductUrl": "https://uk.davines.com/products/su-hair-body-wash",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "250 ml / 75 ml",
+      "officialDescription": "Aftersun hydrating hair and body wash Aftersun hydrating hair and body wash for sun-exposed skin and hair. This dual-purpose cleanser gently yet effectively removes impurities while providing essential hydration. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection and promoting hair and skin health. For skin that feels soft and revitalized, and hair that maintains silkiness and manageability.",
+      "images": [
+        "/products/davines/su-hair-body-wash/01.jpg",
+        "/products/davines/su-hair-body-wash/02.jpg",
+        "/products/davines/su-hair-body-wash/03.jpg",
+        "/products/davines/su-hair-body-wash/04.jpg",
+        "/products/davines/su-hair-body-wash/05.jpg",
+        "/products/davines/su-hair-body-wash/06.jpg",
+        "/products/davines/su-hair-body-wash/07.jpg"
+      ]
     },
     {
       "name": "MOMO Discovery Kit",
@@ -151,10 +333,25 @@
       "collection": "Summer Favourites",
       "description": "Discovery routine for hydration, softness and healthy-looking hair.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15737192448374,
+      "officialHandle": "momo-discovery-kit",
+      "officialTitle": "MOMO Discovery Kit",
+      "officialProductUrl": "https://uk.davines.com/products/momo-discovery-kit",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Routine for hydrated, soft, and healthy-looking hair Discover the MOMO/ discovery kit, a travel-sized duo designed to hydrate and revitalize dry or dehydrated hair. The shampoo gently cleanses while locking in moisture, and the conditioner detangles and enhances shine for soft, manageable, and healthy-looking hair. Enriched with certified regenerative apricot extract that has moisture and vitamin A to lock in moisture, this duo helps restore moisture balance and leaves hair silky and manageable.",
+      "images": [
+        "/products/davines/momo-discovery-kit/01.jpg",
+        "/products/davines/momo-discovery-kit/02.jpg",
+        "/products/davines/momo-discovery-kit/03.jpg",
+        "/products/davines/momo-discovery-kit/04.jpg",
+        "/products/davines/momo-discovery-kit/05.jpg"
+      ]
     },
     {
       "name": "Ocean Keeper Rucksack",
@@ -164,10 +361,27 @@
       "collection": "Summer Favourites",
       "description": "Summer rucksack made with certified cotton.",
       "badge": "Limited edition",
-      "referencePrice": 25.0,
+      "referencePrice": 25,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15770594935158,
+      "officialHandle": "ocean-keeper-rucksack",
+      "officialTitle": "Ocean Keeper Rucksack",
+      "officialProductUrl": "https://uk.davines.com/products/ocean-keeper-rucksack",
+      "officialPrice": 25,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Spacious summer rucksack made from ROC certified cotton. This spacious (28×25×46 cm) and elegant rucksack is the perfect companion for a day at the beach. ​Designed to hold everything you need, it keeps you prepared ​for fun in the sun. Lightweight and easy to carry, it’s made ​in India from ROC certified cotton, tying into the storytelling ​of the new SU line’s active ingredient, regenerative organic certified bitter orange from Sicily.​ Regenerative Organic Certified™ (ROC) cotton is grown using regenerative agricultural practices.​",
+      "images": [
+        "/products/davines/ocean-keeper-rucksack/01.jpg",
+        "/products/davines/ocean-keeper-rucksack/02.jpg",
+        "/products/davines/ocean-keeper-rucksack/03.jpg",
+        "/products/davines/ocean-keeper-rucksack/04.jpg",
+        "/products/davines/ocean-keeper-rucksack/05.jpg",
+        "/products/davines/ocean-keeper-rucksack/06.jpg",
+        "/products/davines/ocean-keeper-rucksack/07.jpg"
+      ]
     },
     {
       "name": "SU SPF50",
@@ -177,10 +391,27 @@
       "collection": "Summer Favourites",
       "description": "Hydrating SPF 50 sun cream for face and body.",
       "badge": "New",
-      "referencePrice": 31.0,
+      "referencePrice": 31,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15757247185270,
+      "officialHandle": "su-protective-cream-spf-50",
+      "officialTitle": "SU SPF50",
+      "officialProductUrl": "https://uk.davines.com/products/su-protective-cream-spf-50",
+      "officialPrice": 31,
+      "officialAvailability": "available",
+      "size": "100 ml",
+      "officialDescription": "Hydrating SPF 50 face and body sun cream SPF 50 sunscreen for face and body formulated to offer high broad-spectrum UVA & UVB protection. It helps prevent dehydration and supports the defense against signs of photoaging. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection for skin. Formulated to reduce marine impact.",
+      "images": [
+        "/products/davines/su-protective-cream-spf-50/01.jpg",
+        "/products/davines/su-protective-cream-spf-50/02.jpg",
+        "/products/davines/su-protective-cream-spf-50/03.jpg",
+        "/products/davines/su-protective-cream-spf-50/04.jpg",
+        "/products/davines/su-protective-cream-spf-50/05.jpg",
+        "/products/davines/su-protective-cream-spf-50/06.jpg",
+        "/products/davines/su-protective-cream-spf-50/07.jpg"
+      ]
     },
     {
       "name": "SU Aftersun Cream",
@@ -193,7 +424,24 @@
       "referencePrice": 28.25,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15756656083318,
+      "officialHandle": "su-aftersun",
+      "officialTitle": "SU Aftersun Cream",
+      "officialProductUrl": "https://uk.davines.com/products/su-aftersun",
+      "officialPrice": 28.25,
+      "officialAvailability": "available",
+      "size": "150 ml",
+      "officialDescription": "Aftersun softening hydrating cream for face and body Fast-absorbing after-sun cream, instantly hydrates and provides comfort for face and body after sun exposure. This nourishing formula replenishes moisture lost during sun exposure, soothing and rejuvenating sun-stressed skin. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection and promoting hair and skin health. Get skin feeling silky smooth and incredibly soft.",
+      "images": [
+        "/products/davines/su-aftersun/01.jpg",
+        "/products/davines/su-aftersun/02.jpg",
+        "/products/davines/su-aftersun/03.jpg",
+        "/products/davines/su-aftersun/04.jpg",
+        "/products/davines/su-aftersun/05.jpg",
+        "/products/davines/su-aftersun/06.jpg",
+        "/products/davines/su-aftersun/07.jpg"
+      ]
     },
     {
       "name": "ENERGIZING Shampoo",
@@ -206,7 +454,25 @@
       "referencePrice": 25.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 6169380520106,
+      "officialHandle": "energizing-shampoo",
+      "officialTitle": "ENERGIZING Shampoo",
+      "officialProductUrl": "https://uk.davines.com/products/energizing-shampoo",
+      "officialPrice": 14.5,
+      "officialAvailability": "available",
+      "size": "250 ml / 100 ml",
+      "officialDescription": "Revitalising mild shampoo for fragile scalp and hair prone to falling outOur mild shampoo for fragile scalp and hair, prone to falling. It moisturizes and stimulates for shiny, invigorated, and healthy hair without breakage. Reinforces weak hair, preventing breakage, and reinvigorates the scalp to promote new growth. Nourishes and softens strands for silky, shiny, thickened hair without weighing it down. Its gentle cleansing action gives a sensation of energy and wellbeing to the scalp. Free from parabens and sulfates.",
+      "images": [
+        "/products/davines/energizing-shampoo/01.jpg",
+        "/products/davines/energizing-shampoo/02.jpg",
+        "/products/davines/energizing-shampoo/03.jpg",
+        "/products/davines/energizing-shampoo/04.jpg",
+        "/products/davines/energizing-shampoo/05.jpg",
+        "/products/davines/energizing-shampoo/06.jpg",
+        "/products/davines/energizing-shampoo/07.jpg",
+        "/products/davines/energizing-shampoo/08.jpg"
+      ]
     },
     {
       "name": "SU Travel Set",
@@ -216,10 +482,23 @@
       "collection": "Summer Favourites",
       "description": "Travel set for maintaining hydrated hair during summer.",
       "badge": "",
-      "referencePrice": 36.0,
+      "referencePrice": 36,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 7769734054058,
+      "officialHandle": "su-travel-set",
+      "officialTitle": "SU Travel Set",
+      "officialProductUrl": "https://uk.davines.com/products/su-travel-set",
+      "officialPrice": 36,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Set for healthy. hydrated hair during the hot summer months.Summer Essentials Travel Set ideal for all hair types.The Summer Essentials Travel set was designed to keep your hair healthy, hydrated and protected during the hot Summer months. This set includes travel size products of SU Milk, SU Hair & Body Wash and The Quick Fix Hair Mask.",
+      "images": [
+        "/products/davines/su-travel-set/01.jpg",
+        "/products/davines/su-travel-set/02.jpg",
+        "/products/davines/su-travel-set/03.jpg"
+      ]
     },
     {
       "name": "LOVE Curl Duo",
@@ -229,10 +508,23 @@
       "collection": "Summer Favourites",
       "description": "Shampoo and conditioner duo for wavy or curly hair.",
       "badge": "Improved formula",
-      "referencePrice": 50.0,
+      "referencePrice": 50,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 7677962322090,
+      "officialHandle": "love-curl-duo",
+      "officialTitle": "LOVE Curl Duo",
+      "officialProductUrl": "https://uk.davines.com/products/love-curl-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Curl shampoo and conditioner set for wavy or curly hairGive your curls the nourishment and definition they deserve with the LOVE Curl Duo. This essential haircare kit combines our moisturising LOVE Curl Shampoo and Conditioner, specially formulated for textured, wavy, or curly hair. Together, they deliver hydration, elasticity, and long-lasting softness, helping your curls look beautifully defined and full of life.",
+      "images": [
+        "/products/davines/love-curl-duo/01.jpg",
+        "/products/davines/love-curl-duo/02.jpg",
+        "/products/davines/love-curl-duo/03.jpg"
+      ]
     },
     {
       "name": "SU Travel Duo",
@@ -242,10 +534,23 @@
       "collection": "Summer Favourites",
       "description": "Travel-sized sun-care duo.",
       "badge": "Improved formula",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 7806500634794,
+      "officialHandle": "su-travel-duo",
+      "officialTitle": "SU Travel Duo",
+      "officialProductUrl": "https://uk.davines.com/products/su-travel-duo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Travel-sized sunscreen duo Travel-sized sunscreen duo that you can take anywhere with\nyou. SU Hair & Body Wash is the moisturizing and protective cleanser for\nbody and hair. Perfect with SU Milk, the leave-on spray cream\nwith UV protection, ideal during and after exposure to the sun.",
+      "images": [
+        "/products/davines/su-travel-duo/01.jpg",
+        "/products/davines/su-travel-duo/02.jpg",
+        "/products/davines/su-travel-duo/03.jpg"
+      ]
     },
     {
       "name": "VOLU Duo",
@@ -255,10 +560,23 @@
       "collection": "Summer Favourites",
       "description": "Volumising duo designed for fine hair.",
       "badge": "New",
-      "referencePrice": 50.0,
+      "referencePrice": 50,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15746641297782,
+      "officialHandle": "volu-duo",
+      "officialTitle": "VOLU Duo",
+      "officialProductUrl": "https://uk.davines.com/products/volu-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Volumising duo for fine hair The combination of VOLU Shampoo and Conditioner gently cleanses hair, adds fullness , and supports natural movement without weighing it down. The light, coordinated formulas remove impurities, improve manageability, and leave hair feeling airy and smooth with visibly more volume. Enriched with certified regenerative clementine peel extract, the duo contains proteins that support hair volume, as well as antioxidants that protect and maintain healthy hair. For silky-soft, vibrant hair with 16% more volume after just one use .*",
+      "images": [
+        "/products/davines/volu-duo/01.jpg",
+        "/products/davines/volu-duo/02.jpg",
+        "/products/davines/volu-duo/03.jpg"
+      ]
     },
     {
       "name": "MOMO Duo",
@@ -268,10 +586,21 @@
       "collection": "Summer Favourites",
       "description": "Moisturising duo for dry hair.",
       "badge": "Improved formula",
-      "referencePrice": 50.0,
+      "referencePrice": 50,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15170907439478,
+      "officialHandle": "momo-duo",
+      "officialTitle": "MOMO Duo",
+      "officialProductUrl": "https://uk.davines.com/products/momo-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Moisturizing kit for dry hair The MOMO Shampoo and Conditioner duo is ideal for dry or dehydrated hair. Its nourishing formula helps to detangle, deeply hydrate, and leave hair feeling soft, smooth, and silky.",
+      "images": [
+        "/products/davines/momo-duo/01.jpg"
+      ]
     },
     {
       "name": "MINU Discovery Kit",
@@ -281,10 +610,21 @@
       "collection": "Summer Favourites",
       "description": "Compact routine designed to protect and enhance colour-treated hair.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15737192415606,
+      "officialHandle": "minu-discovery-kit",
+      "officialTitle": "MINU Discovery Kit",
+      "officialProductUrl": "https://uk.davines.com/products/minu-discovery-kit",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Routine to protect and enhance colour-treated hair Discover the MINU/ discovery kit, a travel-sized duo designed to protect and enhance colour-treated hair.\n\nThe MINU/ shampoo gently cleanses while removing dulling residues, and the conditioner hydrates and detangles, keeping hair vibrant, silky, and manageable. Enriched with certified regenerative green coffee extract  that has antioxidants, this duo helps shield hair from oxidative stress and preserves long-lasting colour intensity for up to 4 weeks.\nCarry your routine wherever you go—or gift it as a thoughtful, ready-to-give discovery set. Complete with our signature pochette, crafted from regenerative, certified organic cotton, it’s beauty with purpose in every detail.",
+      "images": [
+        "/products/davines/minu-discovery-kit/01.jpg"
+      ]
     },
     {
       "name": "Prime & Refresh Trial Duo",
@@ -294,10 +634,21 @@
       "collection": "Summer Favourites",
       "description": "Travel duo for priming hair and refreshing finished styles.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15188986691958,
+      "officialHandle": "prime-refresh-trial-duo",
+      "officialTitle": "Prime & Refresh Trial Duo",
+      "officialProductUrl": "https://uk.davines.com/products/prime-refresh-trial-duo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Priming and refreshing travel duo for clean, ready-to-style hair This duo pairs a primer that prepares all hair types for styling—while providing heat protection up to 230°C (450°F)—with a dry shampoo that refreshes hair by absorbing excess oil without leaving residue, perfect for maintaining hair between washes. Together, they reveal two secret styling steps that maximize your look’s potential in manageability, lasting blow-dry life, and effortless style refresh between washes. Your hair feels clean, protected, and effortlessly ready anytime.",
+      "images": [
+        "/products/davines/prime-refresh-trial-duo/01.jpg"
+      ]
     },
     {
       "name": "DEDE Leave-in Conditioner",
@@ -310,7 +661,20 @@
       "referencePrice": 28.5,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15710976508278,
+      "officialHandle": "dede-leave-in-conditioner",
+      "officialTitle": "DEDE Leave-in Conditioner",
+      "officialProductUrl": "https://uk.davines.com/products/dede-leave-in-conditioner",
+      "officialPrice": 28.5,
+      "officialAvailability": "available",
+      "size": "250 ml",
+      "officialDescription": "Leave-in conditioner for all hair types Lightweight leave-in conditioner suitable for all hair types, for daily use. This leave-in spray instantly detangles hair while delivering softness and shine without weighing it down. It provides essential heat protection up to 230°C (446°F) , safeguarding your locks during styling. With certified regenerative white hibiscus extract, it contains antioxidants that protect it against damage to keep hair healthy. Get hair that is smooth and 50% more manageable, with a silky finish.*",
+      "images": [
+        "/products/davines/dede-leave-in-conditioner/01.jpg",
+        "/products/davines/dede-leave-in-conditioner/02.jpg",
+        "/products/davines/dede-leave-in-conditioner/03.jpg"
+      ]
     },
     {
       "name": "MINU Milk",
@@ -323,7 +687,20 @@
       "referencePrice": 29.5,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15692750979446,
+      "officialHandle": "minu-milk",
+      "officialTitle": "MINU Milk",
+      "officialProductUrl": "https://uk.davines.com/products/minu-milk",
+      "officialPrice": 29.5,
+      "officialAvailability": "available",
+      "size": "150 ml",
+      "officialDescription": "Illuminating heat protectant milk for coloured hair Illuminating and protecting leave-in milk for colour-treated hair. This milky formula hydrates and strengthens hair while helping to maintain colour intensity and vibrancy. Provides heat protection up to 230°C (446 °F), to protect hair during styling. With certified regenerative green coffee extract, it has antioxidant properties that shield hair from oxidative stress that can lead to colour fading. Get up to 6 times shinier hair, with a glossy finish that enhances your colour's vibrancy.",
+      "images": [
+        "/products/davines/minu-milk/01.jpg",
+        "/products/davines/minu-milk/02.jpg",
+        "/products/davines/minu-milk/03.jpg"
+      ]
     },
     {
       "name": "SU Holiday Set",
@@ -336,7 +713,18 @@
       "referencePrice": 71.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 7806500602026,
+      "officialHandle": "su-holiday-set",
+      "officialTitle": "SU Holiday Set",
+      "officialProductUrl": "https://uk.davines.com/products/su-holiday-set",
+      "officialPrice": 71.75,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Perfect kit for your holidays SU Hair & Body Wash is the protective cleanser for body\nand hair. Perfect with SU Milk, the spray cream with UV\nprotection for your hair and with SU Protective ceam SPF30, water resistant\nbody cream with a high protection factor.",
+      "images": [
+        "/products/davines/su-holiday-set/01.jpg"
+      ]
     },
     {
       "name": "SU Mask",
@@ -349,7 +737,20 @@
       "referencePrice": 25.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15757151764854,
+      "officialHandle": "su-hair-mask",
+      "officialTitle": "SU Mask",
+      "officialProductUrl": "https://uk.davines.com/products/su-hair-mask",
+      "officialPrice": 25.75,
+      "officialAvailability": "available",
+      "size": "150 ml",
+      "officialDescription": "Aftersun nourishing replenishing fast hair mask Aftersun nourishing hair mask designed to treat sun-exposed hair, replenishing lost moisture while restoring softness, strength and manageability. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection and promoting hair health.It deeply conditions and revitalizes dry, stressed strands, making it the ideal post-sun treatment to bring balance and resilience back to the hair.",
+      "images": [
+        "/products/davines/su-hair-mask/01.jpg",
+        "/products/davines/su-hair-mask/02.jpg",
+        "/products/davines/su-hair-mask/03.jpg"
+      ]
     },
     {
       "name": "SU Tan Maximizer",
@@ -362,7 +763,18 @@
       "referencePrice": 27.5,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 6786888663210,
+      "officialHandle": "su-tan-maximizer",
+      "officialTitle": "SU Tan Maximizer",
+      "officialProductUrl": "https://uk.davines.com/products/su-tan-maximizer",
+      "officialPrice": 27.5,
+      "officialAvailability": "available",
+      "size": "150 ml",
+      "officialDescription": "Cream stimulating melanin to prepare the skin to sun exposure. It naturally intensifies the normal skin pigmentation process and prepares the skin to sun exposure.\nThe creamy texture favours application and quick absorption.",
+      "images": [
+        "/products/davines/su-tan-maximizer/01.jpg"
+      ]
     },
     {
       "name": "OI Travel Set",
@@ -375,7 +787,18 @@
       "referencePrice": null,
       "referenceAvailability": "unavailable",
       "retailEligible": false,
-      "featured": true
+      "featured": true,
+      "officialProductId": 7707174699178,
+      "officialHandle": "oi-travel-set",
+      "officialTitle": "OI Travel Set",
+      "officialProductUrl": "https://uk.davines.com/products/oi-travel-set",
+      "officialPrice": 31,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Perfect for all hair types The ultimate duo for all hair types. These bestsellers are perfect for nourishing and softening your hair on the go. This set includes travel size products of OI Shampoo and OI Conditioner.",
+      "images": [
+        "/products/davines/oi-travel-set/01.jpg"
+      ]
     },
     {
       "name": "LOVE SMOOTHING Discovery Kit",
@@ -385,10 +808,21 @@
       "collection": "Summer Favourites",
       "description": "Discovery routine for smoother, shinier and more manageable hair.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15737192382838,
+      "officialHandle": "love-smoothing-discovery-kit",
+      "officialTitle": "LOVE SMOOTHING Discovery Kit",
+      "officialProductUrl": "https://uk.davines.com/products/love-smoothing-discovery-kit",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Routine for frizz-free, smooth, and shiny hair Discover the LOVE SMOOTHING/ discovery kit, a travel-sized duo designed to tame frizz and leave hair smooth, soft, and shiny. The shampoo gently cleanses while controlling frizz, and the conditioner hydrates and enhances smoothness.\n\nBoth formulas are enriched with certified regenerative apple pulp extract which contains carbohydrates that lock in moisture and smoothen hair. For manageable, silky hair, that shines. \nCarry your routine wherever you go—or gift it as a thoughtful, ready-to-give discovery set. Complete with our signature pochette, crafted from regenerative, certified organic cotton, it’s beauty with purpose in every detail.",
+      "images": [
+        "/products/davines/love-smoothing-discovery-kit/01.jpg"
+      ]
     },
     {
       "name": "The Circle Chronicles Set",
@@ -398,10 +832,21 @@
       "collection": "Summer Favourites",
       "description": "Set containing three Circle Chronicles treatment masks.",
       "badge": "",
-      "referencePrice": 36.0,
+      "referencePrice": 36,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 7707174731946,
+      "officialHandle": "the-circle-chronicles-set",
+      "officialTitle": "The Circle Chronicles Set",
+      "officialProductUrl": "https://uk.davines.com/products/the-circle-chronicles-set",
+      "officialPrice": 36,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Our three best selling The Circles Chronicles. The Spotlight Circle, Let It Go Circle and Renaissance Circle are treatments to keep your hair healthy repairing damage, adding shine, and relieving stress.",
+      "images": [
+        "/products/davines/the-circle-chronicles-set/01.jpg"
+      ]
     },
     {
       "name": "DEDE Duo",
@@ -411,10 +856,21 @@
       "collection": "Summer Favourites",
       "description": "Gentle daily-care shampoo and conditioner duo.",
       "badge": "Improved formula",
-      "referencePrice": 50.0,
+      "referencePrice": 50,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15166759338358,
+      "officialHandle": "dede-duo",
+      "officialTitle": "DEDE Duo",
+      "officialProductUrl": "https://uk.davines.com/products/dede-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Daily delicate kit The combination of DEDE Shampoo and Conditioner is perfect for gently cleansing hair, making it light and shiny. Ideal for medium-fine, fine hair and for daily cleansing.",
+      "images": [
+        "/products/davines/dede-duo/01.jpg"
+      ]
     },
     {
       "name": "MINU Duo",
@@ -427,7 +883,18 @@
       "referencePrice": null,
       "referenceAvailability": "unavailable",
       "retailEligible": false,
-      "featured": true
+      "featured": true,
+      "officialProductId": 7718013337770,
+      "officialHandle": "minu-duo",
+      "officialTitle": "MINU Duo",
+      "officialProductUrl": "https://uk.davines.com/products/minu-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Illuminating and protective duo for coloured hair Illuminating and protective duo for coloured hair. Its formula is designed to untangle coloured hair and make it soft and silky, protecting cosmetic colour.",
+      "images": [
+        "/products/davines/minu-duo/01.jpg"
+      ]
     },
     {
       "name": "SU Hair & Body Oil",
@@ -437,10 +904,23 @@
       "collection": "Summer Favourites",
       "description": "Protective nourishing oil designed for hair and body.",
       "badge": "New",
-      "referencePrice": 31.0,
+      "referencePrice": 31,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15756579602806,
+      "officialHandle": "su-hair-body-oil",
+      "officialTitle": "SU Hair & Body Oil",
+      "officialProductUrl": "https://uk.davines.com/products/su-hair-body-oil",
+      "officialPrice": 31,
+      "officialAvailability": "available",
+      "size": "135 ml",
+      "officialDescription": "Protective and nourishing hair and body oil Nourishing multitasking oil for sun-exposed hair and skin. This lightweight formula provides UV protection for hair while hydrating and restoring moisture to both hair and skin during or after sun exposure. With certified regenerative bitter orange extract, it has a high content of flavonoids and antioxidants, providing effective protection and promoting hair and skin health. It absorbs quickly, leaving skin soft, silky, and radiant without feeling greasy.",
+      "images": [
+        "/products/davines/su-hair-body-oil/01.jpg",
+        "/products/davines/su-hair-body-oil/02.jpg",
+        "/products/davines/su-hair-body-oil/03.jpg"
+      ]
     },
     {
       "name": "Texture & Refresh trial duo",
@@ -450,10 +930,21 @@
       "collection": "Summer Favourites",
       "description": "Travel duo for texture and between-wash refresh.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15188981416310,
+      "officialHandle": "texture-refresh-trial-duo",
+      "officialTitle": "Texture & Refresh trial duo",
+      "officialProductUrl": "https://uk.davines.com/products/texture-refresh-trial-duo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Texturizing and refreshing travel duo for effortless, beachy styles A go-to duo for undone texture and quick touch-ups. The sea salt spray adds body, volume, and effortless beachy movement. The dry shampoo refreshes hair between washes—absorbing excess oil without residue. A low-effort styling essential to revive your look on the go.",
+      "images": [
+        "/products/davines/texture-refresh-trial-duo/01.jpg"
+      ]
     },
     {
       "name": "LOVE Smoothing Duo",
@@ -463,10 +954,21 @@
       "collection": "Summer Favourites",
       "description": "Smoothing duo for soft, shiny and controlled hair.",
       "badge": "Improved formula",
-      "referencePrice": 50.0,
+      "referencePrice": 50,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 7678143725738,
+      "officialHandle": "love-smoothing-duo",
+      "officialTitle": "LOVE Smoothing Duo",
+      "officialProductUrl": "https://uk.davines.com/products/love-smoothing-duo",
+      "officialPrice": 50,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "For smooth, silky and shiny hair. Created to hydrate and tame frizz, this set will give you smooth, silky and shiny hair.",
+      "images": [
+        "/products/davines/love-smoothing-duo/01.jpg"
+      ]
     },
     {
       "name": "Hold & Refresh Trial Duo",
@@ -476,10 +978,21 @@
       "collection": "Summer Favourites",
       "description": "Travel duo for refreshing hair and extending styled looks.",
       "badge": "New",
-      "referencePrice": 24.0,
+      "referencePrice": 24,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 15188983972214,
+      "officialHandle": "hold-refresh-trial-duo",
+      "officialTitle": "Hold & Refresh Trial Duo",
+      "officialProductUrl": "https://uk.davines.com/products/hold-refresh-trial-duo",
+      "officialPrice": 24,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Refreshing and setting travel duo for flawless, extended blowouts The ultimate duo for your must-have bag. A dry shampoo that instantly refreshes by absorbing excess oil without residue, paired with a strong hold hairspray that locks your style in place all day.\nYour go-to solution for maintaining and prolonging your blowout.\nPerfect for on-the-go touch-ups and keeping your look flawless wherever you are.",
+      "images": [
+        "/products/davines/hold-refresh-trial-duo/01.jpg"
+      ]
     },
     {
       "name": "OI Minis Set",
@@ -492,7 +1005,18 @@
       "referencePrice": null,
       "referenceAvailability": "unavailable",
       "retailEligible": false,
-      "featured": true
+      "featured": true,
+      "officialProductId": 6717479190698,
+      "officialHandle": "oi-minis-set",
+      "officialTitle": "OI Minis Set",
+      "officialProductUrl": "https://uk.davines.com/products/oi-minis-set",
+      "officialPrice": 51.5,
+      "officialAvailability": "available",
+      "size": "",
+      "officialDescription": "Luxurious hair travel set for all hair types The Davines OI Minis Set is a luxurious travel hair care set designed for all hair types, featuring travel-size versions of the bestselling OI Shampoo, OI Conditioner, and OI All In One Milk. Enriched with antioxidant-rich Roucou oil, this trio gently cleanses, deeply nourishes, and protects hair, leaving it soft, shiny, and delicately fragranced. Ideal for holidays, gym bags or as an introduction to the OI range,  it offers a complete routine in compact sizes, perfect for maintaining healthy, radiant hair on the go.",
+      "images": [
+        "/products/davines/oi-minis-set/01.jpg"
+      ]
     },
     {
       "name": "The Renaissance Circle",
@@ -502,10 +1026,21 @@
       "collection": "Summer Favourites",
       "description": "Repair-focused mask for damaged hair.",
       "badge": "",
-      "referencePrice": 12.0,
+      "referencePrice": 12,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 6169382977706,
+      "officialHandle": "the-renaissance-circle",
+      "officialTitle": "The Renaissance Circle",
+      "officialProductUrl": "https://uk.davines.com/products/the-renaissance-circle",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "50 ml",
+      "officialDescription": "Repairing mask for damaged hair without hope Repairing mask, it gives new life to very damaged hair. It restores a healthy look to the hair giving it shine, nourishment and softness. Perfect for people who use hot tools.",
+      "images": [
+        "/products/davines/the-renaissance-circle/01.jpg"
+      ]
     },
     {
       "name": "OI Oil",
@@ -518,7 +1053,23 @@
       "referencePrice": 47.75,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 6169382551722,
+      "officialHandle": "oi-oil",
+      "officialTitle": "OI Oil",
+      "officialProductUrl": "https://uk.davines.com/products/oi-oil",
+      "officialPrice": 31.5,
+      "officialAvailability": "available",
+      "size": "50 ml / 135 ml",
+      "officialDescription": "Multifunctional hair oil designed to fight frizz and boost shine Our best-selling Oi Oil delivers extraordinary softness , intense shine , and frizz control in every drop. This multi-purpose hair oil hydrates , detangles, and enhances combability. The film-forming properties of the oil tame the frizz while the naturally rich anti-oxidant Roucou oil, contribute to protecting the hair from environmental stressors without weighing it down. Ideal for all hair types—dry, damaged , frizzy , curly , or color-treated . Whether used before styling or as a finishing touch, this hair oil leaves hair silky-smooth and radiant with a warm, long-lasting fragrance for an indulgent experience. Trusted by professionals, Oi Oil is your go-to for healthy, luminous hair—every day.",
+      "images": [
+        "/products/davines/oi-oil/01.jpg",
+        "/products/davines/oi-oil/02.jpg",
+        "/products/davines/oi-oil/03.jpg",
+        "/products/davines/oi-oil/04.jpg",
+        "/products/davines/oi-oil/05.jpg",
+        "/products/davines/oi-oil/06.jpg"
+      ]
     },
     {
       "name": "WE STAND/for regeneration hair, body and face butter",
@@ -531,7 +1082,16 @@
       "referencePrice": null,
       "referenceAvailability": "promotional",
       "retailEligible": false,
-      "featured": false
+      "featured": false,
+      "officialProductId": null,
+      "officialHandle": "",
+      "officialTitle": "",
+      "officialProductUrl": "",
+      "officialPrice": null,
+      "officialAvailability": "promotional",
+      "size": "",
+      "officialDescription": "",
+      "images": []
     },
     {
       "name": "Dry Shampoo",
@@ -544,7 +1104,20 @@
       "referencePrice": 29.25,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 6877030777002,
+      "officialHandle": "dry-shampoo",
+      "officialTitle": "Dry Shampoo",
+      "officialProductUrl": "https://uk.davines.com/products/dry-shampoo",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "250 ml / 100 ml",
+      "officialDescription": "Invisible Dry Shampoo for refreshing and volumizing wihout any residues Waterless style extender that cleanses the hair, thus adding volume without any residue. It absorbs oil and impurities leaving behind a soft and natural finish. It helps to prolong the duration of the blow-dry by delaying the time of washing.",
+      "images": [
+        "/products/davines/dry-shampoo/01.jpg",
+        "/products/davines/dry-shampoo/02.jpg",
+        "/products/davines/dry-shampoo/03.jpg"
+      ]
     },
     {
       "name": "This is a Dry Texturizer",
@@ -557,7 +1130,18 @@
       "referencePrice": 30.5,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": true
+      "featured": true,
+      "officialProductId": 6169383567530,
+      "officialHandle": "this-is-a-dry-texturizer",
+      "officialTitle": "This is a Dry Texturizer",
+      "officialProductUrl": "https://uk.davines.com/products/this-is-a-dry-texturizer",
+      "officialPrice": 30.5,
+      "officialAvailability": "available",
+      "size": "250 ml",
+      "officialDescription": "Dry texturising spray for volume and effortless definition Create full-bodied, piecey texture with a natural, reworkable finish. This Is A Dry Texturiser is your go-to texturising spray for tousled volume and defined movement, without stiffness or residue. Formulated to deliver a lightweight yet full effect, this dry texturing spray instantly adds body and hold to both roots and lengths, leaving hair touchable and styled with a casual, effortless look.",
+      "images": [
+        "/products/davines/this-is-a-dry-texturizer/01.jpg"
+      ]
     },
     {
       "name": "The Restless Circle",
@@ -567,10 +1151,21 @@
       "collection": "Summer Favourites",
       "description": "Elasticising anti-breakage mask for busy routines.",
       "badge": "",
-      "referencePrice": 12.0,
+      "referencePrice": 12,
       "referenceAvailability": "available",
       "retailEligible": true,
-      "featured": false
+      "featured": false,
+      "officialProductId": 6169383076010,
+      "officialHandle": "the-restless-circle",
+      "officialTitle": "The Restless Circle",
+      "officialProductUrl": "https://uk.davines.com/products/the-restless-circle",
+      "officialPrice": 12,
+      "officialAvailability": "available",
+      "size": "50 ml",
+      "officialDescription": "Invisible elasticizing anti-breakage mask for the hair of people always on the go Invisible mask for those who want to take care of their hair whilst carrying out other activities. It gives body and elasticity protecting the hair from mechanical breakage, such as friction with hair clips and elastics.",
+      "images": [
+        "/products/davines/the-restless-circle/01.jpg"
+      ]
     }
   ]
 }
