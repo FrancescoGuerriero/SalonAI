@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -15,19 +16,79 @@ import {
 import Seo from "../components/Seo.jsx";
 import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
+import "../styles/productGallery.css";
 import { formatCurrency } from "../utils/currency.js";
 
-function ProductVisual({
+function ProductGallery({
   product,
 }) {
+  const images = useMemo(
+    () =>
+      Array.isArray(
+        product?.images
+      )
+        ? product.images.filter(
+            Boolean
+          )
+        : [],
+    [product]
+  );
   const [
-    failed,
-    setFailed,
-  ] = useState(false);
-  const image =
-    product.images?.[0];
+    selectedIndex,
+    setSelectedIndex,
+  ] = useState(0);
+  const [
+    failedImages,
+    setFailedImages,
+  ] = useState(
+    () => new Set()
+  );
 
-  if (!image || failed) {
+  useEffect(() => {
+    setSelectedIndex(0);
+    setFailedImages(
+      new Set()
+    );
+  }, [
+    product?._id,
+    product?.slug,
+  ]);
+
+  const availableImages =
+    images.filter(
+      (image) =>
+        !failedImages.has(
+          image
+        )
+    );
+
+  const selectedImage =
+    availableImages[
+      Math.min(
+        selectedIndex,
+        Math.max(
+          availableImages.length -
+            1,
+          0
+        )
+      )
+    ];
+
+  function markFailed(
+    image
+  ) {
+    setFailedImages(
+      (current) => {
+        const next =
+          new Set(current);
+        next.add(image);
+        return next;
+      }
+    );
+    setSelectedIndex(0);
+  }
+
+  if (!selectedImage) {
     return (
       <div
         className="commerce-product-detail-placeholder"
@@ -41,14 +102,70 @@ function ProductVisual({
   }
 
   return (
-    <img
-      className="commerce-product-detail-image"
-      src={image}
-      alt={product.name}
-      onError={() =>
-        setFailed(true)
-      }
-    />
+    <div className="commerce-product-gallery">
+      <div className="commerce-product-gallery-main">
+        <img
+          className="commerce-product-detail-image"
+          src={selectedImage}
+          alt={`${product.name} product view ${Math.min(
+            selectedIndex + 1,
+            availableImages.length
+          )}`}
+          onError={() =>
+            markFailed(
+              selectedImage
+            )
+          }
+        />
+      </div>
+
+      {availableImages.length >
+        1 && (
+        <div
+          className="commerce-product-thumbnails"
+          aria-label={`${product.name} product images`}
+        >
+          {availableImages.map(
+            (
+              image,
+              index
+            ) => (
+              <button
+                key={image}
+                type="button"
+                className={
+                  index ===
+                  selectedIndex
+                    ? "is-selected"
+                    : ""
+                }
+                onClick={() =>
+                  setSelectedIndex(
+                    index
+                  )
+                }
+                aria-label={`Show ${product.name} image ${index + 1}`}
+                aria-pressed={
+                  index ===
+                  selectedIndex
+                }
+              >
+                <img
+                  src={image}
+                  alt=""
+                  loading="lazy"
+                  onError={() =>
+                    markFailed(
+                      image
+                    )
+                  }
+                />
+              </button>
+            )
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -91,7 +208,9 @@ export default function ProductDetailsPage() {
           );
 
         if (active) {
-          setProduct(result);
+          setProduct(
+            result
+          );
         }
       } catch (
         requestError
@@ -128,7 +247,10 @@ export default function ProductDetailsPage() {
     );
   }
 
-  if (error || !product) {
+  if (
+    error ||
+    !product
+  ) {
     return (
       <main className="page">
         <div className="error-message">
@@ -150,7 +272,10 @@ export default function ProductDetailsPage() {
     0;
 
   function handleAdd() {
-    addItem(product, 1);
+    addItem(
+      product,
+      1
+    );
     setAdded(true);
 
     setTimeout(
@@ -159,6 +284,11 @@ export default function ProductDetailsPage() {
       1200
     );
   }
+
+  const detailDescription =
+    product.officialDescription ||
+    product.description ||
+    "Professional salon haircare product.";
 
   return (
     <main className="page commerce-page">
@@ -181,7 +311,7 @@ export default function ProductDetailsPage() {
       </Link>
 
       <section className="commerce-product-detail">
-        <ProductVisual
+        <ProductGallery
           product={product}
         />
 
@@ -207,7 +337,9 @@ export default function ProductDetailsPage() {
             )}
             {product.badge && (
               <strong>
-                {product.badge}
+                {
+                  product.badge
+                }
               </strong>
             )}
           </div>
@@ -216,14 +348,16 @@ export default function ProductDetailsPage() {
             {product.name}
           </h1>
 
-          <p className="commerce-product-detail-description">
-            {product.description ||
-              "Professional salon haircare product."}
+          <p className="commerce-product-detail-description commerce-product-long-description">
+            {
+              detailDescription
+            }
           </p>
 
           {product.size && (
             <p className="commerce-size">
-              Size: {product.size}
+              Size:{" "}
+              {product.size}
             </p>
           )}
 
@@ -249,7 +383,9 @@ export default function ProductDetailsPage() {
             <button
               type="button"
               disabled={!inStock}
-              onClick={handleAdd}
+              onClick={
+                handleAdd
+              }
             >
               <ShoppingBag
                 size={18}
@@ -262,12 +398,14 @@ export default function ProductDetailsPage() {
 
           {!inStock && (
             <p className="commerce-stock-note">
-              This product is in
-              the SalonAI catalogue
-              but cannot be
+              This product is
+              in the SalonAI
+              catalogue but
+              cannot be
               purchased until
-              verified salon stock
-              is available.
+              verified salon
+              stock is
+              available.
             </p>
           )}
         </div>
