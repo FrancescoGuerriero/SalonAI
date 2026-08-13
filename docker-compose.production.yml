@@ -1,40 +1,6 @@
 name: salonai-production
 
 services:
-  mongo:
-    image: mongo:7.0
-    container_name: salonai-mongo
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?MONGO_ROOT_USERNAME is required}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
-      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:?MONGO_DATABASE is required}
-    volumes:
-      - salonai-mongo-data:/data/db
-    expose:
-      - "27017"
-    networks:
-      - salonai-private
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mongosh --quiet --host 127.0.0.1 --username \"$${MONGO_INITDB_ROOT_USERNAME}\" --password \"$${MONGO_INITDB_ROOT_PASSWORD}\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    stop_signal: SIGTERM
-    stop_grace_period: 30s
-    security_opt:
-      - no-new-privileges:true
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-
   ai-service:
     image: ${AI_SERVICE_IMAGE:?AI_SERVICE_IMAGE is required}
     container_name: salonai-ai-service
@@ -85,7 +51,7 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 5000
-      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/${MONGO_DATABASE}?authSource=admin
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI is required}
       AI_SERVICE_URL: http://ai-service:8000
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       APPLICATION_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}
@@ -104,8 +70,6 @@ services:
     expose:
       - "5000"
     depends_on:
-      mongo:
-        condition: service_healthy
       ai-service:
         condition: service_healthy
     networks:
@@ -251,8 +215,6 @@ networks:
     driver: bridge
 
 volumes:
-  salonai-mongo-data:
-    name: salonai-mongo-data
   salonai-ai-model-cache:
     name: salonai-ai-model-cache
   salonai-prometheus-data:

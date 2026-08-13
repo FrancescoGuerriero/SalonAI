@@ -20,7 +20,7 @@ function Read-EnvironmentFile {
 
         $Separator = $Line.IndexOf("=")
         if ($Separator -lt 1) {
-            throw "Invalid environment line: $RawLine"
+            throw "Invalid environment syntax. Secret values are not displayed."
         }
 
         $Name = $Line.Substring(0, $Separator).Trim()
@@ -54,9 +54,7 @@ $Required = @(
     "SALONAI_DOMAIN",
     "PUBLIC_BASE_URL",
     "FRONTEND_URL",
-    "MONGO_ROOT_USERNAME",
-    "MONGO_ROOT_PASSWORD",
-    "MONGO_DATABASE",
+    "MONGODB_URI",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
     "AI_SERVICE_KEY",
@@ -126,8 +124,18 @@ if ($FrontendUri.DnsSafeHost -ne $Values["SALONAI_DOMAIN"]) {
     throw "FRONTEND_URL host must match SALONAI_DOMAIN."
 }
 
-if ($Values["MONGO_ROOT_PASSWORD"].Length -lt 24) {
-    throw "MONGO_ROOT_PASSWORD must be at least 24 characters."
+$MongoUri = $Values["MONGODB_URI"]
+
+if ($MongoUri -notmatch "^mongodb\+srv://") {
+    throw "MONGODB_URI must use a MongoDB Atlas SRV connection string."
+}
+
+if ($MongoUri -notmatch "@[^/]+\.mongodb\.net(?:/|\?|$)") {
+    throw "MONGODB_URI must reference a MongoDB Atlas mongodb.net deployment."
+}
+
+if ($MongoUri -match "\s") {
+    throw "MONGODB_URI must not contain whitespace."
 }
 
 if ($Values["JWT_SECRET"].Length -lt 64) {
