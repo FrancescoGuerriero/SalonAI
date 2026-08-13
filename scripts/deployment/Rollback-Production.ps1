@@ -21,7 +21,7 @@ function Read-EnvironmentFile {
 
         $Separator = $Line.IndexOf("=")
         if ($Separator -lt 1) {
-            throw "Invalid environment line: $RawLine"
+            throw "Invalid environment syntax. Secret values are not displayed."
         }
 
         $Values[$Line.Substring(0, $Separator).Trim()] =
