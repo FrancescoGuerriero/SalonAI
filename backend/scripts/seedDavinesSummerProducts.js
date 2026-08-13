@@ -63,6 +63,16 @@ function text(
     .slice(0, max);
 }
 
+function longText(
+  value,
+  max = 15000
+) {
+  return String(value || "")
+    .replace(/\r/g, "")
+    .trim()
+    .slice(0, max);
+}
+
 function slugify(value) {
   return text(value, 180)
     .toLowerCase()
@@ -94,6 +104,46 @@ function money(
   return Number(
     parsed.toFixed(2)
   );
+}
+
+function normaliseImages(
+  value,
+  index
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `products[${index}].images must be an array.`
+    );
+  }
+
+  const images = value
+    .map((item) =>
+      text(item, 1000)
+    )
+    .filter(Boolean);
+
+  for (const image of images) {
+    const valid =
+      image.startsWith(
+        "/products/davines/"
+      ) ||
+      /^https:\/\//i.test(image);
+
+    if (!valid) {
+      throw new Error(
+        `products[${index}].images contains an unsupported image path.`
+      );
+    }
+  }
+
+  return [...new Set(images)];
 }
 
 function normaliseProduct(
@@ -168,10 +218,24 @@ function normaliseProduct(
       product?.description,
       3000
     ),
+    officialDescription:
+      longText(
+        product?.officialDescription,
+        15000
+      ),
     badge: text(
       product?.badge,
       80
     ),
+    size: text(
+      product?.size,
+      80
+    ),
+    images:
+      normaliseImages(
+        product?.images,
+        index
+      ),
     referencePrice,
     referenceAvailability: text(
       product?.referenceAvailability,
@@ -226,6 +290,7 @@ async function loadCatalogue(
             `Duplicate product name: ${normalised.name}`
           );
         }
+
         if (
           skus.has(
             normalised.sku
@@ -240,6 +305,7 @@ async function loadCatalogue(
         skus.add(
           normalised.sku
         );
+
         return normalised;
       }
     );
@@ -281,7 +347,11 @@ async function upsertProduct(
       product.collectionName,
     description:
       product.description,
+    officialDescription:
+      product.officialDescription,
     badge: product.badge,
+    size: product.size,
+    images: product.images,
     featured:
       product.featured,
     active: true,
@@ -317,7 +387,6 @@ async function upsertProduct(
         product.referencePrice,
       stockQuantity: 0,
       reorderLevel: 5,
-      images: [],
     });
 
   return {
@@ -326,9 +395,10 @@ async function upsertProduct(
   };
 }
 
-const options = parseArguments(
-  process.argv.slice(2)
-);
+const options =
+  parseArguments(
+    process.argv.slice(2)
+  );
 
 try {
   const catalogue =
@@ -346,6 +416,18 @@ try {
       (product) =>
         !product.retailEligible
     );
+  const withImages =
+    retail.filter(
+      (product) =>
+        product.images.length > 0
+    );
+  const withOfficialText =
+    retail.filter(
+      (product) =>
+        Boolean(
+          product.officialDescription
+        )
+    );
 
   console.log(
     `Catalogue: ${catalogue.absolutePath}`
@@ -358,6 +440,12 @@ try {
   );
   console.log(
     `Reference only: ${referenceOnly.length}`
+  );
+  console.log(
+    `Retail products with images: ${withImages.length}/${retail.length}`
+  );
+  console.log(
+    `Retail products with official text: ${withOfficialText.length}/${retail.length}`
   );
 
   for (
@@ -408,7 +496,7 @@ try {
       `[PASS] Davines catalogue upsert complete. Created ${created}; updated ${updated}.`
     );
     console.log(
-      "New products default to stockQuantity=0. Add verified physical inventory before selling."
+      "New products default to stockQuantity=0. Existing stock quantities are preserved."
     );
 
     if (
