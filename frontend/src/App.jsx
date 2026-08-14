@@ -442,6 +442,13 @@ const AdminStylists = lazy(
     )
 );
 
+const AdminStaffAccountsPage = lazy(
+  () =>
+    import(
+      "./pages/AdminStaffAccountsPage.jsx"
+    )
+);
+
 const AdminAppointments = lazy(
   () =>
     import(
@@ -1119,6 +1126,13 @@ function AppRoutes() {
           path="admin/stylists"
           element={adminPage(
             AdminStylists
+          )}
+        />
+
+        <Route
+          path="admin/staff-accounts"
+          element={adminPage(
+            AdminStaffAccountsPage
           )}
         />
 
