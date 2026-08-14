@@ -64,6 +64,7 @@ export async function notifyOrderPaid(orderId) {
 
   return sendTransactionalNotification({
     event: "commerce.order_paid",
+    eventKey: `commerce.order_paid:${order._id}`,
     channels,
     recipient: {
       name,
@@ -93,7 +94,11 @@ export async function notifyOrderPaid(orderId) {
   });
 }
 
-export async function notifyOrderRefunded(orderId, paymentId = null) {
+export async function notifyOrderRefunded(
+  orderId,
+  paymentId = null,
+  refundKey = ""
+) {
   const order = await loadOrder(orderId);
   if (!order) return { success: false, skipped: true, reason: "order_not_found" };
 
@@ -113,9 +118,11 @@ export async function notifyOrderRefunded(orderId, paymentId = null) {
   const fullRefund = payment?.status === "refunded";
   const refundLabel = fullRefund ? "refund" : "partial refund";
   const body = `Hi ${name}, a ${refundLabel} of £${refundedAmount} has been recorded for SalonAI order ${order.orderNumber}. Your bank or card provider may take additional time to display the funds.`;
+  const safeRefundKey = text(refundKey) || `${payment?._id || order._id}:${refundedAmount}:${fullRefund}`;
 
   return sendTransactionalNotification({
     event: fullRefund ? "commerce.order_refunded" : "commerce.order_partially_refunded",
+    eventKey: `commerce.refund:${safeRefundKey}`,
     channels,
     recipient: {
       name,
@@ -140,6 +147,7 @@ export async function notifyOrderRefunded(orderId, paymentId = null) {
       orderId: String(order._id),
       orderNumber: order.orderNumber,
       paymentId: payment?._id ? String(payment._id) : null,
+      refundKey: safeRefundKey,
       refundedAmount: payment?.refundedAmount || order.total,
       currency: payment?.currency || order.currency,
       fullRefund,
