@@ -62,3 +62,7 @@ deployment/tls/
 *.key
 *.p12
 *.pfx
+
+# Playwright generated output
+frontend/playwright-report/
+frontend/test-results/
