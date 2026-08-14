@@ -147,6 +147,7 @@ export const adminOnly = authorize("admin");
 export const managementOnly = authorize(
   "admin",
   "stylist",
+  "receptionist",
   "manager"
 );
 
