@@ -6,6 +6,11 @@ import {
   reconcileStripeRefund,
 } from "./orderRefundService.js";
 import {
+  notifyOrderPaid,
+  notifyOrderRefunded,
+  notifySafely,
+} from "./commerceNotificationService.js";
+import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
 
@@ -166,6 +171,28 @@ export async function handleStripeCheckoutWebhook(
         object
       );
 
+    if (
+      reconciliation.reconciled &&
+      reconciliation.status === "succeeded" &&
+      reconciliation.orderId
+    ) {
+      await notifySafely(
+        () => notifyOrderRefunded(
+          reconciliation.orderId,
+          reconciliation.paymentId,
+          reconciliation.providerRefundId
+        ),
+        {
+          eventType: type,
+          eventId: event.id || "",
+          orderId: reconciliation.orderId,
+          paymentId: reconciliation.paymentId,
+          providerRefundId:
+            reconciliation.providerRefundId,
+        }
+      );
+    }
+
     return {
       received: true,
       handled: true,
@@ -212,6 +239,19 @@ export async function handleStripeCheckoutWebhook(
               .payment_status ||
             session.status ||
             "paid",
+        }
+      );
+
+      await notifySafely(
+        () => notifyOrderPaid(
+          orderId
+        ),
+        {
+          eventType: type,
+          eventId: event.id || "",
+          orderId,
+          providerPaymentId:
+            session.id || "",
         }
       );
     }
