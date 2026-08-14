@@ -126,7 +126,7 @@
 .appointment-preview-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: .9rem; background: #f3e6cf; color: #93601b; }
 .appointment-preview-top div { display: grid; gap: .12rem; }
 .appointment-preview-top small, .appointment-preview-details small { color: #858585; }
-.appointment-status { border-radius: 999px; background: #f7f0df; color: #8a6b16; padding: .38rem .7rem; font-size: .72rem; font-weight: 800; }
+.appointment-status { border-radius: 999px; background: #f7f0df; color: #62501d; padding: .38rem .7rem; font-size: .72rem; font-weight: 800; }
 .appointment-preview-details { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-top: 1.25rem; padding-top: 1.15rem; border-top: 1px solid #ece9e4; }
 .appointment-preview-details > div { display: flex; align-items: center; gap: .65rem; color: #9a6b21; }
 .appointment-preview-details span { display: grid; color: #303030; font-size: .84rem; }
