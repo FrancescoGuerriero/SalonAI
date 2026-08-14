@@ -11,6 +11,13 @@ import {
   notifySafely,
 } from "./commerceNotificationService.js";
 import {
+  failAppointmentPayment,
+  settleAppointmentPayment,
+} from "../appointments/appointmentPaymentService.js";
+import {
+  notifyAppointmentPaymentReceived,
+} from "../appointments/appointmentPaymentNotificationService.js";
+import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
 
@@ -38,6 +45,16 @@ function sessionOrderId(
   return String(
     session.metadata
       ?.orderId ||
+      ""
+  ).trim();
+}
+
+function sessionAppointmentId(
+  session = {}
+) {
+  return String(
+    session.metadata
+      ?.appointmentId ||
       ""
   ).trim();
 }
@@ -208,6 +225,10 @@ export async function handleStripeCheckoutWebhook(
     sessionOrderId(
       session
     );
+  const appointmentId =
+    sessionAppointmentId(
+      session
+    );
 
   if (
     SUCCESS_EVENT_TYPES.has(
@@ -220,6 +241,9 @@ export async function handleStripeCheckoutWebhook(
       completedSessionIsPaid(
         session
       );
+
+    let settled = false;
+    let paymentId = null;
 
     if (
       shouldSettle &&
@@ -242,6 +266,8 @@ export async function handleStripeCheckoutWebhook(
         }
       );
 
+      settled = true;
+
       await notifySafely(
         () => notifyOrderPaid(
           orderId
@@ -256,6 +282,53 @@ export async function handleStripeCheckoutWebhook(
       );
     }
 
+    if (
+      shouldSettle &&
+      appointmentId
+    ) {
+      const result =
+        await settleAppointmentPayment(
+          appointmentId,
+          {
+            providerPaymentId:
+              session.id,
+            providerIntentId:
+              sessionIntentId(
+                session
+              ),
+            rawStatus:
+              session
+                .payment_status ||
+              session.status ||
+              "paid",
+          }
+        );
+
+      paymentId =
+        result.payment?._id
+          ? String(result.payment._id)
+          : null;
+      settled = true;
+
+      if (paymentId) {
+        await notifySafely(
+          () =>
+            notifyAppointmentPaymentReceived(
+              appointmentId,
+              paymentId
+            ),
+          {
+            eventType: type,
+            eventId: event.id || "",
+            appointmentId,
+            paymentId,
+            providerPaymentId:
+              session.id || "",
+          }
+        );
+      }
+    }
+
     return {
       received: true,
       handled: true,
@@ -264,11 +337,10 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
-      settled:
-        Boolean(
-          shouldSettle &&
-          orderId
-        ),
+      appointmentId:
+        appointmentId || null,
+      paymentId,
+      settled,
       pending:
         !shouldSettle,
     };
@@ -279,9 +351,27 @@ export async function handleStripeCheckoutWebhook(
       type
     )
   ) {
-    await markFailed(
-      session
-    );
+    if (appointmentId) {
+      await failAppointmentPayment(
+        appointmentId,
+        {
+          providerPaymentId:
+            session.id,
+          rawStatus:
+            session
+              .payment_status ||
+            session.status ||
+            "failed",
+          eventKey:
+            event.id ||
+            session.id,
+        }
+      );
+    } else {
+      await markFailed(
+        session
+      );
+    }
 
     return {
       received: true,
@@ -291,6 +381,8 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
+      appointmentId:
+        appointmentId || null,
       settled: false,
       failed: true,
     };
@@ -312,6 +404,8 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
+      appointmentId:
+        appointmentId || null,
       settled: false,
       expired: true,
     };
@@ -325,6 +419,8 @@ export async function handleStripeCheckoutWebhook(
     eventType: type,
     orderId:
       orderId || null,
+    appointmentId:
+      appointmentId || null,
   };
 }
 
