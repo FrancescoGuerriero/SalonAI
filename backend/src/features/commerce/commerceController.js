@@ -1,4 +1,5 @@
 import * as service from "./commerceService.js";
+import { refundOrder } from "./orderRefundService.js";
 
 export function getCommerceConfig(req, res) {
   res.json(service.commerceConfig());
@@ -62,6 +63,10 @@ export async function listOrders(req, res) {
 
 export async function updateOrderStatus(req, res) {
   res.json(await service.updateOrderStatus(req.params.id, req.body.status));
+}
+
+export async function refundOrderPayment(req, res) {
+  res.json(await refundOrder(req.params.id, req.body, req.user));
 }
 
 export async function stripeWebhook(req, res) {
