@@ -40,15 +40,7 @@ function normaliseMetadata(metadata = {}) {
   );
 }
 
-/**
- * Compatibility payment method used by older
- * appointment and order payment services.
- */
-export async function createProviderPayment({
-  amount,
-  currency = "GBP",
-  metadata = {},
-}) {
+function assertPositiveAmount(amount) {
   const paymentAmount = Number(amount);
 
   if (
@@ -62,6 +54,20 @@ export async function createProviderPayment({
     error.statusCode = 400;
     throw error;
   }
+
+  return paymentAmount;
+}
+
+/**
+ * Compatibility payment method used by older
+ * appointment and order payment services.
+ */
+export async function createProviderPayment({
+  amount,
+  currency = "GBP",
+  metadata = {},
+}) {
+  const paymentAmount = assertPositiveAmount(amount);
 
   if (
     paymentProviderMode() === "console"
@@ -227,6 +233,107 @@ export async function createCheckoutPayment({
 
     rawStatus:
       session.status || "",
+  };
+}
+
+export async function createAppointmentCheckoutPayment({
+  appointment,
+  amount,
+  purpose = "appointment_deposit",
+  customerEmail = "",
+  successUrl,
+  cancelUrl,
+  metadata = {},
+}) {
+  const paymentAmount = assertPositiveAmount(amount);
+  const appointmentId = String(appointment?._id || "").trim();
+
+  if (!appointmentId) {
+    const error = new Error(
+      "An appointment identifier is required to create Checkout."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (
+    !["appointment_deposit", "appointment_balance"].includes(purpose)
+  ) {
+    const error = new Error(
+      "Appointment payment purpose must be appointment_deposit or appointment_balance."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (paymentProviderMode() === "console") {
+    const id = `console_appointment_checkout_${Date.now()}`;
+    return {
+      provider: "console",
+      providerPaymentId: id,
+      providerIntentId: "",
+      checkoutUrl: "",
+      status: "pending",
+      rawStatus: "demo_pending",
+    };
+  }
+
+  const currency = String(
+    appointment.currency || "GBP"
+  ).trim().toLowerCase();
+
+  const serviceName = String(
+    appointment.service?.name ||
+      appointment.serviceName ||
+      "Salon appointment"
+  ).trim();
+
+  const paymentMetadata = normaliseMetadata({
+    appointmentId,
+    purpose,
+    ...metadata,
+  });
+
+  const session = await stripeClient().checkout.sessions.create({
+    mode: "payment",
+    customer_email: customerEmail || undefined,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency,
+          unit_amount: Math.round(paymentAmount * 100),
+          product_data: {
+            name:
+              purpose === "appointment_deposit"
+                ? `${serviceName} deposit`
+                : `${serviceName} balance`,
+            description: `SalonAI appointment ${appointmentId}`,
+          },
+        },
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: paymentMetadata,
+    payment_intent_data: {
+      metadata: paymentMetadata,
+    },
+  });
+
+  return {
+    provider: "stripe",
+    providerPaymentId: session.id,
+    providerIntentId:
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id || "",
+    checkoutUrl: session.url || "",
+    status:
+      session.payment_status === "paid"
+        ? "paid"
+        : "pending",
+    rawStatus: session.status || "",
   };
 }
 
