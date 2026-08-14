@@ -3,6 +3,9 @@ import {
   settlePaidOrder,
 } from "./commerceService.js";
 import {
+  reconcileStripeRefund,
+} from "./orderRefundService.js";
+import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
 
@@ -15,6 +18,13 @@ const SUCCESS_EVENT_TYPES =
 const FAILURE_EVENT_TYPES =
   new Set([
     "checkout.session.async_payment_failed",
+  ]);
+
+const REFUND_EVENT_TYPES =
+  new Set([
+    "refund.created",
+    "refund.updated",
+    "refund.failed",
   ]);
 
 function sessionOrderId(
@@ -146,10 +156,27 @@ export async function handleStripeCheckoutWebhook(
       event.type || ""
     );
 
-  const session =
+  const object =
     event.data?.object ||
     {};
 
+  if (REFUND_EVENT_TYPES.has(type)) {
+    const reconciliation =
+      await reconcileStripeRefund(
+        object
+      );
+
+    return {
+      received: true,
+      handled: true,
+      eventId:
+        event.id || "",
+      eventType: type,
+      ...reconciliation,
+    };
+  }
+
+  const session = object;
   const orderId =
     sessionOrderId(
       session
