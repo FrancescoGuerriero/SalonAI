@@ -11,6 +11,12 @@ import {
 } from "../controllers/authController.js";
 
 import {
+  listAdminUsers,
+  createStaffUserByAdmin,
+  updateAdminUserStatus,
+} from "../controllers/adminUserController.js";
+
+import {
   protect,
   adminOnly,
 } from "../middleware/authMiddleware.js";
@@ -72,11 +78,38 @@ router
     updateCurrentAccount
   );
 
+/*
+ * Legacy/general admin user creation.
+ * Retained for compatibility.
+ */
 router.post(
   "/admin/users",
   protect,
   adminOnly,
   createUserByAdmin
+);
+
+/*
+ * Dedicated staff-account administration.
+ */
+router
+  .route("/admin/staff")
+  .get(
+    protect,
+    adminOnly,
+    listAdminUsers
+  )
+  .post(
+    protect,
+    adminOnly,
+    createStaffUserByAdmin
+  );
+
+router.patch(
+  "/admin/staff/:id/status",
+  protect,
+  adminOnly,
+  updateAdminUserStatus
 );
 
 export default router;
