@@ -444,33 +444,7 @@ export default function Navbar() {
                       My account
                     </NavLink>
 
-                    <NavLink
-                      to="/account/manage"
-                      role="menuitem"
-                      className={
-                        accountLinkClass
-                      }
-                    >
-                      <Settings
-                        size={17}
-                      />
-                      Manage my account
-                    </NavLink>
 
-                    {showManagement ? (
-                      <NavLink
-                        to="/staff/profile"
-                        role="menuitem"
-                        className={
-                          accountLinkClass
-                        }
-                      >
-                        <Sparkles
-                          size={17}
-                        />
-                        My staff profile
-                      </NavLink>
-                    ) : null}
                   </div>
 
                   <div className="border-t border-slate-100 p-2">
@@ -642,41 +616,7 @@ export default function Navbar() {
                       My account
                     </NavLink>
 
-                    <NavLink
-                      to="/account/manage"
-                      className={
-                        accountLinkClass
-                      }
-                      onClick={() =>
-                        setMobileOpen(
-                          false
-                        )
-                      }
-                    >
-                      <Settings
-                        size={17}
-                      />
-                      Manage my account
-                    </NavLink>
 
-                    {showManagement ? (
-                      <NavLink
-                        to="/staff/profile"
-                        className={
-                          accountLinkClass
-                        }
-                        onClick={() =>
-                          setMobileOpen(
-                            false
-                          )
-                        }
-                      >
-                        <Sparkles
-                          size={17}
-                        />
-                        My staff profile
-                      </NavLink>
-                    ) : null}
                   </div>
                 </div>
               ) : null}
