@@ -1,4 +1,5 @@
 import Customer from "../models/customer.js";
+import TransactionalNotificationEvent from "../models/TransactionalNotificationEvent.js";
 import { deliverAndRecordMessage } from "./messageDeliveryRecordService.js";
 import { sendWhatsApp } from "../providers/whatsappProvider.js";
 import WhatsAppConversation from "../features/premium/whatsapp/WhatsAppConversation.js";
@@ -45,11 +46,8 @@ function customerAllowsTransactionalMessage(customer, channel) {
 
   const preferences = customer.communicationPreferences || {};
   if (preferences.unsubscribed === true) return false;
-
-  const disabled = preferences.disabledChannels;
-  if (Array.isArray(disabled) && disabled.map((value) => text(value).toLowerCase()).includes(channel)) {
-    return false;
-  }
+  if (channel === "email" && preferences.emailUnsubscribed === true) return false;
+  if (channel === "sms" && preferences.smsUnsubscribed === true) return false;
 
   return true;
 }
@@ -90,6 +88,64 @@ async function findCustomer(customerId, recipient) {
   }
 
   return conditions.length ? Customer.findOne({ $or: conditions }) : null;
+}
+
+async function claimNotificationEvent({ eventKey, event, channels, metadata }) {
+  const key = text(eventKey);
+  if (!key) return { record: null, duplicate: false };
+
+  try {
+    const record = await TransactionalNotificationEvent.create({
+      eventKey: key,
+      event,
+      requestedChannels: channels,
+      status: "processing",
+      metadata,
+    });
+    return { record, duplicate: false };
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+
+    const record = await TransactionalNotificationEvent.findOne({ eventKey: key }).lean();
+    return { record, duplicate: true };
+  }
+}
+
+function summariseChannelResult(result) {
+  const providerResult = result?.result?.result || result?.result?.delivery || null;
+  return {
+    channel: result?.channel || "",
+    success: Boolean(result?.success),
+    skipped: Boolean(result?.skipped),
+    reason: result?.reason || "",
+    provider: providerResult?.provider || null,
+    providerMessageId:
+      providerResult?.providerMessageId ||
+      providerResult?.messageId ||
+      result?.result?.result?.messageId ||
+      null,
+    status:
+      providerResult?.status ||
+      result?.result?.result?.status ||
+      null,
+    error: result?.error || null,
+  };
+}
+
+async function completeNotificationEvent(record, summary) {
+  if (!record) return;
+
+  record.successful = summary.successful;
+  record.skipped = summary.skipped;
+  record.failed = summary.failed;
+  record.results = summary.results.map(summariseChannelResult);
+  record.status = summary.failed === 0
+    ? "completed"
+    : summary.successful > 0 || summary.skipped > 0
+      ? "partial"
+      : "failed";
+  record.completedAt = new Date();
+  await record.save();
 }
 
 async function sendRecordedEmail({ recipient, subject, textBody, html, metadata, customer, actorId }) {
@@ -257,6 +313,7 @@ async function sendRecordedWhatsApp({
 
 export async function sendTransactionalNotification({
   event,
+  eventKey = "",
   channels = ["email"],
   recipient = {},
   subject = "",
@@ -274,15 +331,39 @@ export async function sendTransactionalNotification({
     phone: text(recipient.phone),
   };
 
-  const customer = await findCustomer(customerId, safeRecipient);
   const eventName = text(event) || "transactional.notification";
   const commonMetadata = {
     ...metadata,
     notificationEvent: eventName,
+    notificationEventKey: text(eventKey) || undefined,
     transactional: true,
   };
 
+  const claim = await claimNotificationEvent({
+    eventKey,
+    event: eventName,
+    channels: selectedChannels,
+    metadata: commonMetadata,
+  });
+
+  if (claim.duplicate) {
+    return {
+      success: true,
+      duplicate: true,
+      skipped: true,
+      event: eventName,
+      eventKey: text(eventKey),
+      previousStatus: claim.record?.status || null,
+      requestedChannels: selectedChannels,
+      successful: claim.record?.successful || 0,
+      failed: claim.record?.failed || 0,
+      results: claim.record?.results || [],
+    };
+  }
+
+  const customer = await findCustomer(customerId, safeRecipient);
   const results = [];
+
   for (const channel of selectedChannels) {
     try {
       if (channel === "email") {
@@ -333,9 +414,11 @@ export async function sendTransactionalNotification({
   const skipped = results.filter((result) => result.skipped).length;
   const failed = results.length - successful - skipped;
 
-  return {
+  const summary = {
     success: failed === 0,
+    duplicate: false,
     event: eventName,
+    eventKey: text(eventKey) || null,
     requestedChannels: selectedChannels,
     successful,
     skipped,
@@ -343,6 +426,9 @@ export async function sendTransactionalNotification({
     results,
     sentAt: new Date().toISOString(),
   };
+
+  await completeNotificationEvent(claim.record, summary);
+  return summary;
 }
 
 export default {
