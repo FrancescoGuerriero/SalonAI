@@ -4,6 +4,10 @@ import Order from "./Order.js";
 import Payment from "./Payment.js";
 import { refundProviderPayment } from "../../providers/paymentProvider.js";
 import {
+  notifyOrderRefunded,
+  notifySafely,
+} from "./commerceNotificationService.js";
+import {
   assertFound,
   createServiceError,
 } from "../../shared/serviceError.js";
@@ -143,6 +147,22 @@ export async function refundOrder(orderId, payload = {}, actor = {}) {
   applyPaymentRefundState(payment);
   await payment.save();
   await applyOrderRefundState(order, payment);
+
+  if (refundStatus === "succeeded") {
+    await notifySafely(
+      () => notifyOrderRefunded(
+        order._id,
+        payment._id,
+        result.providerRefundId
+      ),
+      {
+        source: "refund_api",
+        orderId: String(order._id),
+        paymentId: String(payment._id),
+        providerRefundId: result.providerRefundId,
+      }
+    );
+  }
 
   return {
     order: order.toObject(),
