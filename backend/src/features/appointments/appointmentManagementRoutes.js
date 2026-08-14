@@ -13,6 +13,10 @@ import {
   status,
   summary,
 } from "./appointmentManagementController.js";
+import {
+  confirmDemoPayment,
+  createCheckout,
+} from "./appointmentPaymentController.js";
 
 const router = express.Router();
 
@@ -89,6 +93,16 @@ router.patch(
 router.post(
   "/:id/reminder",
   asyncHandler(reminder)
+);
+
+router.post(
+  "/:id/payments/checkout",
+  asyncHandler(createCheckout)
+);
+
+router.post(
+  "/:id/payments/:paymentId/confirm-demo",
+  asyncHandler(confirmDemoPayment)
 );
 
 export default router;
