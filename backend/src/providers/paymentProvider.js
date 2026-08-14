@@ -230,6 +230,75 @@ export async function createCheckoutPayment({
   };
 }
 
+export async function refundProviderPayment({
+  providerIntentId,
+  amount,
+  currency = "GBP",
+  reason = "requested_by_customer",
+  metadata = {},
+}) {
+  const refundableAmount = Number(amount);
+
+  if (
+    !Number.isFinite(refundableAmount) ||
+    refundableAmount <= 0
+  ) {
+    const error = new Error(
+      "Refund amount must be greater than zero."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!providerIntentId) {
+    const error = new Error(
+      "The provider PaymentIntent ID is required for a refund."
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  if (paymentProviderMode() === "console") {
+    return {
+      provider: "console",
+      providerRefundId:
+        `console_refund_${Date.now()}`,
+      amount: refundableAmount,
+      currency: String(currency).toUpperCase(),
+      status: "succeeded",
+      reason,
+      rawStatus: "demo_refunded",
+    };
+  }
+
+  const allowedReasons = new Set([
+    "duplicate",
+    "fraudulent",
+    "requested_by_customer",
+  ]);
+  const stripeReason = allowedReasons.has(reason)
+    ? reason
+    : "requested_by_customer";
+
+  const refund = await stripeClient().refunds.create({
+    payment_intent: providerIntentId,
+    amount: Math.round(refundableAmount * 100),
+    reason: stripeReason,
+    metadata: normaliseMetadata(metadata),
+  });
+
+  return {
+    provider: "stripe",
+    providerRefundId: refund.id,
+    amount: Number(refund.amount || 0) / 100,
+    currency: String(refund.currency || currency).toUpperCase(),
+    status: refund.status || "pending",
+    reason: refund.reason || stripeReason,
+    failureReason: refund.failure_reason || "",
+    rawStatus: refund.status || "pending",
+  };
+}
+
 export function constructStripeEvent(
   rawBody,
   signature
