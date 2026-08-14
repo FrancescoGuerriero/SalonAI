@@ -11,6 +11,7 @@ const {
 const USER_ROLES = [
   "customer",
   "stylist",
+  "receptionist",
   "manager",
   "admin",
 ];
@@ -112,7 +113,7 @@ const userSchema = new Schema(
       enum: {
         values: USER_ROLES,
         message:
-          "User role must be customer, stylist, manager or admin.",
+          "User role must be customer, stylist, receptionist, manager or admin.",
       },
       default: "customer",
       index: true,
@@ -242,6 +243,7 @@ userSchema
   .get(function getManagementStatus() {
     return [
       "stylist",
+      "receptionist",
       "manager",
       "admin",
     ].includes(this.role);
@@ -292,6 +294,7 @@ userSchema.methods.canManageSalon =
   function canManageSalon() {
     return [
       "stylist",
+      "receptionist",
       "manager",
       "admin",
     ].includes(this.role);
