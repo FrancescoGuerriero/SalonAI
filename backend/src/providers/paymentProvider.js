@@ -250,14 +250,6 @@ export async function refundProviderPayment({
     throw error;
   }
 
-  if (!providerIntentId) {
-    const error = new Error(
-      "The provider PaymentIntent ID is required for a refund."
-    );
-    error.statusCode = 409;
-    throw error;
-  }
-
   if (paymentProviderMode() === "console") {
     return {
       provider: "console",
@@ -269,6 +261,14 @@ export async function refundProviderPayment({
       reason,
       rawStatus: "demo_refunded",
     };
+  }
+
+  if (!providerIntentId) {
+    const error = new Error(
+      "The provider PaymentIntent ID is required for a Stripe refund."
+    );
+    error.statusCode = 409;
+    throw error;
   }
 
   const allowedReasons = new Set([
