@@ -1,5 +1,58 @@
 import mongoose from "mongoose";
 
+const refundSchema = new mongoose.Schema(
+  {
+    providerRefundId: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    currency: {
+      type: String,
+      default: "GBP",
+      uppercase: true,
+    },
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "succeeded",
+        "failed",
+        "cancelled",
+      ],
+      default: "pending",
+    },
+    reason: {
+      type: String,
+      trim: true,
+      default: "requested_by_customer",
+    },
+    failureReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    requestedAt: {
+      type: Date,
+      default: Date.now,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const paymentSchema = new mongoose.Schema(
   {
     user: {
@@ -56,6 +109,9 @@ const paymentSchema = new mongoose.Schema(
       index: true,
     },
     paidAt: { type: Date, default: null },
+    refundedAmount: { type: Number, min: 0, default: 0 },
+    refundedAt: { type: Date, default: null },
+    refunds: { type: [refundSchema], default: [] },
     failureReason: { type: String, default: "" },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
