@@ -1,12 +1,16 @@
 import {
+  BrainCircuit,
   CheckCircle2,
   Home,
   Mail,
   MapPin,
   Save,
+  Scissors,
   ShieldCheck,
+  Sparkles,
   UserRound,
 } from "lucide-react";
+
 import {
   useEffect,
   useState,
@@ -14,6 +18,12 @@ import {
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import useAuth from "../hooks/useAuth.js";
+
+import customerExperienceService from "../Services/customerExperienceService.js";
+
+import {
+  generateHaircareRecommendation,
+} from "../Services/haircareRecommendationService.js";
 
 const emptyAddress = {
   line1: "",
@@ -31,19 +41,45 @@ const emptyForm = {
   homeAddress: emptyAddress,
 };
 
+const emptyConsultation = {
+  hairType: "",
+  currentColour: "",
+  desiredOutcome: "",
+  sensitivities: "",
+  previousTreatments: "",
+  notes: "",
+  dataProcessingConsent: false,
+};
+
 function accountToForm(account = {}) {
   return {
-    name:
-      account?.name || "",
-    phone:
-      account?.phone || "",
+    name: account?.name || "",
+    phone: account?.phone || "",
     profilePhoto:
       account?.profilePhoto || "",
     homeAddress: {
       ...emptyAddress,
-      ...(account?.homeAddress ||
-        {}),
+      ...(account?.homeAddress || {}),
     },
+  };
+}
+
+function consultationToAdvicePayload(
+  consultation
+) {
+  return {
+    hairType:
+      consultation.hairType || "",
+    currentColour:
+      consultation.currentColour || "",
+    desiredOutcome:
+      consultation.desiredOutcome || "",
+    sensitivities:
+      consultation.sensitivities || "",
+    previousTreatments:
+      consultation.previousTreatments || "",
+    notes:
+      consultation.notes || "",
   };
 }
 
@@ -57,25 +93,50 @@ export default function ManageAccountPage() {
   const [
     form,
     setForm,
+  ] = useState(emptyForm);
+
+  const [
+    consultation,
+    setConsultation,
   ] = useState(
-    emptyForm
+    emptyConsultation
   );
+
+  const [
+    consultationHistory,
+    setConsultationHistory,
+  ] = useState([]);
+
+  const [
+    advice,
+    setAdvice,
+  ] = useState(null);
+
   const [
     loading,
     setLoading,
-  ] = useState(
-    true
-  );
+  ] = useState(true);
+
   const [
     saving,
     setSaving,
-  ] = useState(
-    false
-  );
+  ] = useState(false);
+
+  const [
+    savingConsultation,
+    setSavingConsultation,
+  ] = useState(false);
+
+  const [
+    requestingAdvice,
+    setRequestingAdvice,
+  ] = useState(false);
+
   const [
     message,
     setMessage,
   ] = useState("");
+
   const [
     error,
     setError,
@@ -84,21 +145,71 @@ export default function ManageAccountPage() {
   useEffect(() => {
     let active = true;
 
-    refreshAccount()
-      .then(
-        (account) => {
-          if (!active) {
-            return;
-          }
+    async function load() {
+      try {
+        const [
+          account,
+          experience,
+        ] = await Promise.all([
+          refreshAccount(),
+          customerExperienceService.getMine(),
+        ]);
 
-          setForm(
-            accountToForm(
-              account
-            )
-          );
+        if (!active) {
+          return;
         }
-      )
-      .catch(() => {
+
+        setForm(
+          accountToForm(
+            account
+          )
+        );
+
+        const consultations =
+          experience?.consultations ||
+          experience?.profile
+            ?.consultations ||
+          [];
+
+        setConsultationHistory(
+          Array.isArray(
+            consultations
+          )
+            ? consultations
+            : []
+        );
+
+        if (
+          Array.isArray(
+            consultations
+          ) &&
+          consultations.length
+        ) {
+          const latest =
+            consultations[0];
+
+          setConsultation({
+            hairType:
+              latest.hairType || "",
+            currentColour:
+              latest.currentColour ||
+              "",
+            desiredOutcome:
+              latest.desiredOutcome ||
+              "",
+            sensitivities:
+              latest.sensitivities ||
+              "",
+            previousTreatments:
+              latest.previousTreatments ||
+              "",
+            notes:
+              latest.notes || "",
+            dataProcessingConsent:
+              true,
+          });
+        }
+      } catch {
         if (!active) {
           return;
         }
@@ -108,23 +219,25 @@ export default function ManageAccountPage() {
             user
           )
         );
+
         setError(
-          "The latest account details could not be loaded. You can still review the saved details below."
+          "Some account details could not be loaded. You can still update the information shown below."
         );
-      })
-      .finally(() => {
+      } finally {
         if (active) {
-          setLoading(
-            false
-          );
+          setLoading(false);
         }
-      });
+      }
+    }
+
+    load();
 
     return () => {
       active = false;
     };
   }, [
     refreshAccount,
+    user,
   ]);
 
   function updateField(
@@ -137,8 +250,7 @@ export default function ManageAccountPage() {
     setForm(
       (current) => ({
         ...current,
-        [field]:
-          value,
+        [field]: value,
       })
     );
   }
@@ -155,9 +267,24 @@ export default function ManageAccountPage() {
         ...current,
         homeAddress: {
           ...current.homeAddress,
-          [field]:
-            value,
+          [field]: value,
         },
+      })
+    );
+  }
+
+  function updateConsultation(
+    field,
+    value
+  ) {
+    setMessage("");
+    setError("");
+    setAdvice(null);
+
+    setConsultation(
+      (current) => ({
+        ...current,
+        [field]: value,
       })
     );
   }
@@ -166,9 +293,8 @@ export default function ManageAccountPage() {
     event
   ) {
     event.preventDefault();
-    setSaving(
-      true
-    );
+
+    setSaving(true);
     setMessage("");
     setError("");
 
@@ -183,8 +309,9 @@ export default function ManageAccountPage() {
           response.user
         )
       );
+
       setMessage(
-        "Your account, profile photograph and home address have been saved."
+        "Your account details and profile photograph have been saved."
       );
     } catch (
       requestError
@@ -196,11 +323,131 @@ export default function ManageAccountPage() {
           "Your account details could not be saved."
       );
     } finally {
-      setSaving(
+      setSaving(false);
+    }
+  }
+
+  async function saveConsultation(
+    event
+  ) {
+    event.preventDefault();
+
+    setSavingConsultation(
+      true
+    );
+
+    setMessage("");
+    setError("");
+
+    try {
+      if (
+        !consultation
+          .desiredOutcome
+          .trim()
+      ) {
+        throw new Error(
+          "Tell us what result you would like from your hair consultation."
+        );
+      }
+
+      if (
+        consultation
+          .dataProcessingConsent !==
+        true
+      ) {
+        throw new Error(
+          "Please confirm consent before saving your consultation."
+        );
+      }
+
+      const response =
+        await customerExperienceService
+          .addConsultation(
+            consultation
+          );
+
+      const saved =
+        response?.consultation;
+
+      if (saved) {
+        setConsultationHistory(
+          (current) => [
+            saved,
+            ...current,
+          ]
+        );
+      }
+
+      setMessage(
+        "Your hair consultation has been saved."
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError.response
+          ?.data
+          ?.message ||
+          requestError.message ||
+          "Your consultation could not be saved."
+      );
+    } finally {
+      setSavingConsultation(
         false
       );
     }
   }
+
+  async function requestAdvice() {
+    setRequestingAdvice(
+      true
+    );
+
+    setMessage("");
+    setError("");
+    setAdvice(null);
+
+    try {
+      if (
+        !consultation
+          .desiredOutcome
+          .trim()
+      ) {
+        throw new Error(
+          "Complete your consultation before requesting hair advice."
+        );
+      }
+
+      const result =
+        await generateHaircareRecommendation(
+          consultationToAdvicePayload(
+            consultation
+          )
+        );
+
+      setAdvice(result);
+
+      setMessage(
+        "Your personalised hair advice is ready."
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError.message ||
+          "Hair advice could not be generated."
+      );
+    } finally {
+      setRequestingAdvice(
+        false
+      );
+    }
+  }
+
+  const isCustomer =
+    !user?.role ||
+    user.role ===
+      "customer";
 
   return (
     <main
@@ -217,15 +464,18 @@ export default function ManageAccountPage() {
 
         <div>
           <span>
-            Manage account
+            Account
           </span>
+
           <h1>
             Your profile and
             details
           </h1>
+
           <p>
-            Keep your profile photograph, contact and delivery details accurate
-            for bookings, receipts and haircare orders.
+            Manage your profile photograph,
+            contact information and account
+            preferences from one place.
           </p>
         </div>
 
@@ -233,10 +483,12 @@ export default function ManageAccountPage() {
           <Mail
             size={17}
           />
+
           <span>
             <small>
               Sign-in email
             </small>
+
             {user?.email ||
               "Not available"}
           </span>
@@ -260,15 +512,14 @@ export default function ManageAccountPage() {
           <CheckCircle2
             size={18}
           />
+
           {message}
         </div>
       ) : null}
 
       <form
         className="manage-account-form"
-        onSubmit={
-          submit
-        }
+        onSubmit={submit}
         aria-busy={
           loading ||
           saving
@@ -279,13 +530,15 @@ export default function ManageAccountPage() {
             <UserRound
               size={20}
             />
+
             <div>
               <h2>
-                Public-facing profile
+                Profile
               </h2>
+
               <p>
-                Add a photograph to personalise your SalonAI account. It is
-                visible only where your customer profile is shown.
+                Every registered SalonAI user can
+                add or change their profile picture.
               </p>
             </div>
           </header>
@@ -302,10 +555,8 @@ export default function ManageAccountPage() {
                 value
               )
             }
-            name={
-              form.name
-            }
-            label="Customer profile photograph"
+            name={form.name}
+            label="Profile photograph"
             disabled={
               loading ||
               saving
@@ -315,14 +566,11 @@ export default function ManageAccountPage() {
           <div className="manage-account-grid">
             <label className="manage-account-wide">
               Full name
+
               <input
                 required
-                disabled={
-                  loading
-                }
-                value={
-                  form.name
-                }
+                disabled={loading}
+                value={form.name}
                 onChange={(
                   event
                 ) =>
@@ -338,13 +586,10 @@ export default function ManageAccountPage() {
 
             <label>
               Phone number
+
               <input
-                disabled={
-                  loading
-                }
-                value={
-                  form.phone
-                }
+                disabled={loading}
+                value={form.phone}
                 onChange={(
                   event
                 ) =>
@@ -366,13 +611,16 @@ export default function ManageAccountPage() {
             <Home
               size={20}
             />
+
             <div>
               <h2>
                 Home address
               </h2>
+
               <p>
-                Saved securely to your account and available for delivery
-                checkout.
+                Saved securely to your
+                account and available for
+                delivery checkout.
               </p>
             </div>
           </header>
@@ -380,10 +628,9 @@ export default function ManageAccountPage() {
           <div className="manage-account-grid">
             <label className="manage-account-wide">
               Address line 1
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .line1
@@ -403,10 +650,9 @@ export default function ManageAccountPage() {
 
             <label className="manage-account-wide">
               Address line 2
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .line2
@@ -426,10 +672,9 @@ export default function ManageAccountPage() {
 
             <label>
               Town or city
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .city
@@ -449,10 +694,9 @@ export default function ManageAccountPage() {
 
             <label>
               County
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .county
@@ -472,10 +716,9 @@ export default function ManageAccountPage() {
 
             <label>
               Postcode
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .postcode
@@ -496,10 +739,9 @@ export default function ManageAccountPage() {
 
             <label>
               Country
+
               <input
-                disabled={
-                  loading
-                }
+                disabled={loading}
                 value={
                   form.homeAddress
                     .country
@@ -524,7 +766,9 @@ export default function ManageAccountPage() {
             <ShieldCheck
               size={17}
             />
-            Your home address is never displayed publicly.
+
+            Your address is never
+            displayed publicly.
           </p>
 
           <button
@@ -538,6 +782,7 @@ export default function ManageAccountPage() {
             <Save
               size={17}
             />
+
             {saving
               ? "Saving…"
               : "Save account details"}
@@ -545,17 +790,339 @@ export default function ManageAccountPage() {
         </footer>
       </form>
 
+      {isCustomer ? (
+        <form
+          className="manage-account-form"
+          onSubmit={
+            saveConsultation
+          }
+        >
+          <section>
+            <header>
+              <Scissors
+                size={20}
+              />
+
+              <div>
+                <h2>
+                  Hair consultation
+                </h2>
+
+                <p>
+                  Tell us about your hair and
+                  your goals. Save the
+                  consultation to your account,
+                  then request personalised
+                  advice.
+                </p>
+              </div>
+            </header>
+
+            <div className="manage-account-grid">
+              <label>
+                Hair type
+
+                <select
+                  value={
+                    consultation
+                      .hairType
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "hairType",
+                      event.target
+                        .value
+                    )
+                  }
+                >
+                  <option value="">
+                    Select hair type
+                  </option>
+
+                  <option value="straight">
+                    Straight
+                  </option>
+
+                  <option value="wavy">
+                    Wavy
+                  </option>
+
+                  <option value="curly">
+                    Curly
+                  </option>
+
+                  <option value="coily">
+                    Coily
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Current colour
+
+                <input
+                  value={
+                    consultation
+                      .currentColour
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "currentColour",
+                      event.target
+                        .value
+                    )
+                  }
+                  maxLength={100}
+                />
+              </label>
+
+              <label className="manage-account-wide">
+                Desired result
+
+                <textarea
+                  required
+                  value={
+                    consultation
+                      .desiredOutcome
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "desiredOutcome",
+                      event.target
+                        .value
+                    )
+                  }
+                  maxLength={750}
+                  rows={4}
+                  placeholder="Describe the result you would like to achieve."
+                />
+              </label>
+
+              <label className="manage-account-wide">
+                Sensitivities
+
+                <textarea
+                  value={
+                    consultation
+                      .sensitivities
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "sensitivities",
+                      event.target
+                        .value
+                    )
+                  }
+                  maxLength={750}
+                  rows={3}
+                  placeholder="Allergies, scalp sensitivity or other concerns."
+                />
+              </label>
+
+              <label className="manage-account-wide">
+                Previous treatments
+
+                <textarea
+                  value={
+                    consultation
+                      .previousTreatments
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "previousTreatments",
+                      event.target
+                        .value
+                    )
+                  }
+                  maxLength={1000}
+                  rows={3}
+                  placeholder="Colour, bleach, keratin, relaxer, perm or other treatments."
+                />
+              </label>
+
+              <label className="manage-account-wide">
+                Additional notes
+
+                <textarea
+                  value={
+                    consultation
+                      .notes
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateConsultation(
+                      "notes",
+                      event.target
+                        .value
+                    )
+                  }
+                  maxLength={1000}
+                  rows={3}
+                />
+              </label>
+            </div>
+
+            <label>
+              <input
+                type="checkbox"
+                checked={
+                  consultation
+                    .dataProcessingConsent
+                }
+                onChange={(
+                  event
+                ) =>
+                  updateConsultation(
+                    "dataProcessingConsent",
+                    event.target
+                      .checked
+                  )
+                }
+              />
+
+              I consent to SalonAI saving
+              these consultation details to
+              my account so they can be used
+              to provide haircare advice.
+            </label>
+          </section>
+
+          <footer>
+            <button
+              type="submit"
+              className="app-button app-button-secondary"
+              disabled={
+                savingConsultation
+              }
+            >
+              <Save
+                size={17}
+              />
+
+              {savingConsultation
+                ? "Saving consultation…"
+                : "Save consultation"}
+            </button>
+
+            <button
+              type="button"
+              className="app-button app-button-primary"
+              disabled={
+                requestingAdvice
+              }
+              onClick={
+                requestAdvice
+              }
+            >
+              <BrainCircuit
+                size={17}
+              />
+
+              {requestingAdvice
+                ? "Preparing advice…"
+                : "Request hair advice"}
+            </button>
+          </footer>
+        </form>
+      ) : null}
+
+      {isCustomer &&
+      advice ? (
+        <section className="manage-account-form">
+          <header>
+            <Sparkles
+              size={20}
+            />
+
+            <div>
+              <h2>
+                Your personalised
+                hair advice
+              </h2>
+
+              <p>
+                Generated from the
+                consultation details saved
+                to your account.
+              </p>
+            </div>
+          </header>
+
+          <pre
+            style={{
+              whiteSpace:
+                "pre-wrap",
+              fontFamily:
+                "inherit",
+            }}
+          >
+            {typeof advice ===
+            "string"
+              ? advice
+              : JSON.stringify(
+                  advice,
+                  null,
+                  2
+                )}
+          </pre>
+        </section>
+      ) : null}
+
+      {isCustomer &&
+      consultationHistory.length >
+        0 ? (
+        <aside className="manage-account-checkout-note">
+          <Scissors
+            size={19}
+          />
+
+          <div>
+            <strong>
+              Consultation history
+            </strong>
+
+            <p>
+              {
+                consultationHistory
+                  .length
+              }{" "}
+              saved consultation
+              {consultationHistory
+                .length === 1
+                ? ""
+                : "s"}{" "}
+              on your account.
+            </p>
+          </div>
+        </aside>
+      ) : null}
+
       <aside className="manage-account-checkout-note">
         <MapPin
           size={19}
         />
+
         <div>
           <strong>
             Faster haircare checkout
           </strong>
+
           <p>
-            Your saved home address will prefill the delivery form; you can
-            still change it for an individual order.
+            Your saved home address will
+            prefill the delivery form; you
+            can still change it for an
+            individual order.
           </p>
         </div>
       </aside>
