@@ -71,5 +71,11 @@ router.patch(
   managementOnly,
   asyncHandler(controller.updateOrderStatus)
 );
+router.post(
+  "/orders/:id/refunds",
+  protect,
+  managementOnly,
+  asyncHandler(controller.refundOrderPayment)
+);
 
 export default router;

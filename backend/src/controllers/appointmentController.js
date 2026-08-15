@@ -11,6 +11,10 @@ import {
 } from "../features/appointments/appointmentManagementService.js";
 
 import {
+  createAppointmentCheckout,
+} from "../features/appointments/appointmentPaymentService.js";
+
+import {
   assertAppointmentWithinStaffAvailability,
 } from "../features/staff/staffService.js";
 
@@ -842,7 +846,66 @@ export async function getAppointments(
   }
 }
 
+export async function createAppointmentPaymentCheckout(
+  request,
+  response,
+  next
+) {
+  try {
+    const appointmentId =
+      assertValidObjectId(
+        request.params?.id,
+        "appointmentId"
+      );
+
+    const customer =
+      await findCustomerProfile(
+        request.user
+      );
+
+    if (!customer) {
+      throw createHttpError(
+        "Customer profile not found.",
+        404
+      );
+    }
+
+    const ownedAppointment =
+      await Appointment.exists({
+        _id: appointmentId,
+        customer: customer._id,
+      });
+
+    if (!ownedAppointment) {
+      throw createHttpError(
+        "Appointment not found.",
+        404
+      );
+    }
+
+    const result =
+      await createAppointmentCheckout(
+        appointmentId,
+        request.body || {},
+        request.user
+      );
+
+    return response
+      .status(result.reused ? 200 : 201)
+      .json({
+        success: true,
+        message: result.reused
+          ? "Existing appointment payment checkout reused."
+          : "Appointment payment checkout created successfully.",
+        ...result,
+      });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export default {
   createAppointment,
+  createAppointmentPaymentCheckout,
   getAppointments,
 };

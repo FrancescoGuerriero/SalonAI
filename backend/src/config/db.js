@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+import {
+  startDatabaseJobs,
+} from "../jobs/jobLifecycle.js";
+
 const connectDB = async (
   uri =
     process.env.MONGODB_URI ||
@@ -22,6 +26,8 @@ const connectDB = async (
     console.log(
       `MongoDB Connected: ${connection.connection.host}`
     );
+
+    await startDatabaseJobs();
 
     return connection;
   } catch (error) {
