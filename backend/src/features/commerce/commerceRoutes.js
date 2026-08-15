@@ -2,6 +2,7 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  adminOnly,
   managementOnly,
   protect,
 } from "../../middleware/authMiddleware.js";
@@ -22,7 +23,7 @@ router.get("/products/:identifier", asyncHandler(controller.getProduct));
 router.post(
   "/products",
   protect,
-  managementOnly,
+  adminOnly,
   asyncHandler(controller.createProduct)
 );
 router.patch(
