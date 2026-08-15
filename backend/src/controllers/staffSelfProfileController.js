@@ -62,6 +62,10 @@ function normalisedEmail(user) {
     .toLowerCase();
 }
 
+function sameIdentifier(left, right) {
+  return String(left || "") === String(right || "");
+}
+
 function assertManagementUser(user) {
   if (!user || !MANAGEMENT_ROLES.has(user.role)) {
     throw createHttpError(
@@ -81,9 +85,24 @@ async function findOrCreateOwnedProfile(user) {
   });
 
   if (!stylist && email) {
-    stylist = await Stylist.findOne({
+    const emailMatch = await Stylist.findOne({
       email,
     });
+
+    if (
+      emailMatch?.userAccount &&
+      !sameIdentifier(
+        emailMatch.userAccount,
+        user._id
+      )
+    ) {
+      throw createHttpError(
+        "A different account is already linked to the staff profile using this email address.",
+        409
+      );
+    }
+
+    stylist = emailMatch;
   }
 
   if (stylist) {
@@ -184,7 +203,9 @@ export async function updateMyStaffProfile(
     ) {
       request.user.profilePhoto =
         update.profileImage;
-      await request.user.save();
+      await request.user.save({
+        validateModifiedOnly: true,
+      });
     }
 
     return response.json({
