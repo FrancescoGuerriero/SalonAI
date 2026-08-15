@@ -10,15 +10,24 @@ function source(relativePath) {
   );
 }
 
-describe("Phase 8.9 account and admin stabilization", () => {
-  it("keeps profile photos and hair consultation inside account management", () => {
+describe("Phase 8.9 and 8.10 account/admin stabilization", () => {
+  it("keeps persistent profile photos and a full hair consultation in account management", () => {
     const account = source("src/pages/ManageAccountPage.jsx");
+    const consultation = source("src/pages/HairConsultationPage.jsx");
 
     expect(account).toContain("ProfilePhotoUploader");
-    expect(account).toContain("Every registered SalonAI user");
-    expect(account).toContain("Hair consultation");
-    expect(account).toContain("request personalised");
-    expect(account).toContain("generateHaircareRecommendation");
+    expect(account).toContain("refreshAccount");
+    expect(account).toContain("updateAccount");
+    expect(account).toContain("saved and confirmed by the server");
+    expect(account).toContain("HairConsultationPage");
+
+    expect(consultation).toContain("Professional hair consultation");
+    expect(consultation).toContain("colourHistory");
+    expect(consultation).toContain("bleachHistory");
+    expect(consultation).toContain("homeCareRoutine");
+    expect(consultation).toContain("maintenancePreference");
+    expect(consultation).toContain("dataProcessingConsent");
+    expect(consultation).toContain("addConsultation");
   });
 
   it("supports ten thousand row customer and product CSV uploads", () => {
