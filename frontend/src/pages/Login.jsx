@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Eye,
   EyeOff,
   KeyRound,
   LockKeyhole,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import {
   Link,
@@ -97,6 +98,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const verificationAttempted = useRef(false);
 
   const {
     login,
@@ -105,8 +107,10 @@ export default function Login() {
   } = useAuth();
 
   const resetToken = searchParams.get("resetToken") || "";
+  const verificationToken = searchParams.get("verify") || "";
   const forgotMode = searchParams.get("forgot") === "1" && !resetToken;
   const resetMode = Boolean(resetToken);
+  const verificationMode = Boolean(verificationToken);
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [forgotEmail, setForgotEmail] = useState("");
@@ -117,6 +121,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [developmentResetUrl, setDevelopmentResetUrl] = useState("");
@@ -127,12 +133,57 @@ export default function Login() {
     "/dashboard";
 
   const registrationComplete = Boolean(location.state?.registrationComplete);
+  const registrationVerificationRequired = Boolean(
+    location.state?.verificationRequired
+  );
+  const registrationMessage = location.state?.registrationMessage || "";
+  const verificationEmail = location.state?.verificationEmail || "";
   const passwordResetComplete = Boolean(location.state?.passwordResetComplete);
+
+  useEffect(() => {
+    if (verificationEmail && !form.email) {
+      setForm((current) => ({
+        ...current,
+        email: verificationEmail,
+      }));
+    }
+  }, [verificationEmail, form.email]);
+
+  useEffect(() => {
+    if (!verificationMode || verificationAttempted.current) return;
+
+    verificationAttempted.current = true;
+    setVerifying(true);
+    setError("");
+    setNotice("");
+
+    authService
+      .verifyEmail(verificationToken)
+      .then((result) => {
+        setNotice(
+          result?.message ||
+            "Your email has been verified. You can now sign in."
+        );
+        setVerificationRequired(false);
+      })
+      .catch((requestError) => {
+        setError(
+          requestMessage(
+            requestError,
+            "The verification link is invalid or has expired."
+          )
+        );
+      })
+      .finally(() => {
+        setVerifying(false);
+      });
+  }, [verificationMode, verificationToken]);
 
   useEffect(() => {
     if (
       !forgotMode &&
       !resetMode &&
+      !verificationMode &&
       !authLoading &&
       isAuthenticated
     ) {
@@ -145,12 +196,14 @@ export default function Login() {
     navigate,
     redirectPath,
     resetMode,
+    verificationMode,
   ]);
 
   async function handleLogin(event) {
     event.preventDefault();
     setError("");
     setNotice("");
+    setVerificationRequired(false);
 
     try {
       setSubmitting(true);
@@ -163,10 +216,42 @@ export default function Login() {
       navigate(redirectPath, { replace: true });
     } catch (requestError) {
       console.error("Login failed:", requestError);
+      const code = requestError?.response?.data?.code;
+      setVerificationRequired(code === "EMAIL_VERIFICATION_REQUIRED");
       setError(
         requestMessage(
           requestError,
           "Login failed. Check your email and password."
+        )
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    const email = form.email.trim().toLowerCase();
+
+    if (!email) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const result = await authService.resendVerification(email);
+      setNotice(
+        result?.message ||
+          "If your account still needs verification, a new email has been sent."
+      );
+    } catch (requestError) {
+      setError(
+        requestMessage(
+          requestError,
+          "We could not resend the verification email."
         )
       );
     } finally {
@@ -240,17 +325,21 @@ export default function Login() {
     }
   }
 
-  const title = resetMode
-    ? "Choose a new password"
-    : forgotMode
-      ? "Reset your password"
-      : "Welcome back";
+  const title = verificationMode
+    ? "Verify your email"
+    : resetMode
+      ? "Choose a new password"
+      : forgotMode
+        ? "Reset your password"
+        : "Welcome back";
 
-  const description = resetMode
-    ? "Enter a new password for your SalonAI account."
-    : forgotMode
-      ? "Enter your email address and we will prepare a secure reset link."
-      : "Sign in to continue to your SalonAI account.";
+  const description = verificationMode
+    ? "We are activating your SalonAI account."
+    : resetMode
+      ? "Enter a new password for your SalonAI account."
+      : forgotMode
+        ? "Enter your email address and we will prepare a secure reset link."
+        : "Sign in to continue to your SalonAI account.";
 
   return (
     <AuthShell
@@ -258,9 +347,9 @@ export default function Login() {
       title={title}
       description={description}
       footer={
-        forgotMode || resetMode ? (
+        forgotMode || resetMode || verificationMode ? (
           <p>
-            Remembered it? <Link to="/login">Back to sign in</Link>
+            <Link to="/login">Back to sign in</Link>
           </p>
         ) : (
           <p>
@@ -271,7 +360,10 @@ export default function Login() {
     >
       {registrationComplete ? (
         <div className="auth-feedback auth-feedback-success" role="status">
-          Your account was created successfully. You can now sign in.
+          {registrationMessage ||
+            (registrationVerificationRequired
+              ? "Your account was created. Check your email and verify your address before signing in."
+              : "Your account was created. You can sign in now.")}
         </div>
       ) : null}
 
@@ -298,7 +390,27 @@ export default function Login() {
         </div>
       ) : null}
 
-      {forgotMode ? (
+      {verificationRequired && !verificationMode ? (
+        <button
+          className="auth-submit"
+          type="button"
+          disabled={submitting}
+          onClick={handleResendVerification}
+        >
+          <RefreshCw size={17} aria-hidden="true" />
+          {submitting ? "Sending…" : "Resend verification email"}
+        </button>
+      ) : null}
+
+      {verificationMode ? (
+        <div className="auth-loading" role="status">
+          {verifying
+            ? "Verifying your email address…"
+            : notice
+              ? "Verification complete."
+              : "Verification could not be completed."}
+        </div>
+      ) : forgotMode ? (
         <form className="auth-form" onSubmit={handleForgotPassword}>
           <label htmlFor="forgotEmail">Email address</label>
           <div className="auth-input">

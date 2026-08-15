@@ -1,7 +1,6 @@
 import express from "express";
 
 import {
-  registerUser,
   loginUser,
   logoutUser,
   refreshSession,
@@ -9,6 +8,13 @@ import {
   getCurrentAccount,
   updateCurrentAccount,
 } from "../controllers/authController.js";
+
+import {
+  registerVerifiedCustomer,
+  verifyEmail,
+  resendVerificationEmail,
+  requireVerifiedAccountForLogin,
+} from "../controllers/emailVerificationController.js";
 
 import {
   listAdminUsers,
@@ -36,12 +42,26 @@ const router =
 
 router.post(
   "/register",
-  registerUser
+  authRateLimiter,
+  registerVerifiedCustomer
+);
+
+router.post(
+  "/verify-email",
+  authRateLimiter,
+  verifyEmail
+);
+
+router.post(
+  "/resend-verification",
+  authRateLimiter,
+  resendVerificationEmail
 );
 
 router.post(
   "/login",
   authRateLimiter,
+  requireVerifiedAccountForLogin,
   loginUser
 );
 
@@ -78,10 +98,6 @@ router
     updateCurrentAccount
   );
 
-/*
- * Legacy/general admin user creation.
- * Retained for compatibility.
- */
 router.post(
   "/admin/users",
   protect,
@@ -89,9 +105,6 @@ router.post(
   createUserByAdmin
 );
 
-/*
- * Dedicated staff-account administration.
- */
 router
   .route("/admin/staff")
   .get(
