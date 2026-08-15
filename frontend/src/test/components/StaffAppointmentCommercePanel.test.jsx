@@ -1,13 +1,21 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getCommunicationHistory = vi.fn();
+const {
+  getCommunicationHistory,
+  sendReminderNow,
+  createPaymentCheckout,
+} = vi.hoisted(() => ({
+  getCommunicationHistory: vi.fn(),
+  sendReminderNow: vi.fn(),
+  createPaymentCheckout: vi.fn(),
+}));
 
 vi.mock("../../Services/appointmentManagementApi.js", () => ({
   default: {
     getCommunicationHistory,
-    sendReminderNow: vi.fn(),
-    createPaymentCheckout: vi.fn(),
+    sendReminderNow,
+    createPaymentCheckout,
   },
 }));
 
@@ -15,6 +23,10 @@ import StaffAppointmentCommercePanel from "../../components/appointments/StaffAp
 
 describe("StaffAppointmentCommercePanel", () => {
   beforeEach(() => {
+    getCommunicationHistory.mockReset();
+    sendReminderNow.mockReset();
+    createPaymentCheckout.mockReset();
+
     getCommunicationHistory.mockResolvedValue({
       items: [],
     });
