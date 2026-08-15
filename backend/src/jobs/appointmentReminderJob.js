@@ -1,66 +1,48 @@
 import {
-  queueUpcomingReminders,
-} from "../features/appointments/appointmentManagementService.js";
+  deliverDueAppointmentReminders,
+} from "../features/appointments/appointmentReminderDeliveryService.js";
 
 const DEFAULT_INTERVAL_MS =
   30 * 60 * 1000;
-
 const MINIMUM_INTERVAL_MS =
   60 * 1000;
-
 const MAXIMUM_INTERVAL_MS =
   24 * 60 * 60 * 1000;
-
 const DEFAULT_HOURS_BEFORE = 24;
 const DEFAULT_LOOK_AHEAD_HOURS = 48;
-const DEFAULT_CHANNEL = "sms";
 
 const jobState = {
   timer: null,
   currentCyclePromise: null,
-
   enabled: false,
   started: false,
   stopping: false,
-
-  intervalMs:
-    DEFAULT_INTERVAL_MS,
-
-  hoursBefore:
-    DEFAULT_HOURS_BEFORE,
-
+  intervalMs: DEFAULT_INTERVAL_MS,
+  hoursBefore: DEFAULT_HOURS_BEFORE,
   lookAheadHours:
     DEFAULT_LOOK_AHEAD_HOURS,
-
-  channel:
-    DEFAULT_CHANNEL,
-
   runImmediately: true,
-
   startedAt: null,
   stoppedAt: null,
-
   lastCycleStartedAt: null,
   lastCycleCompletedAt: null,
   lastSuccessfulCycleAt: null,
   lastFailedCycleAt: null,
-
   totalCycles: 0,
   successfulCycles: 0,
   failedCycles: 0,
   skippedCycles: 0,
-
-  totalQueued: 0,
+  totalChecked: 0,
+  totalDue: 0,
+  totalSent: 0,
+  totalSkipped: 0,
   totalFailed: 0,
-
   lastCycle: null,
   lastError: null,
 };
 
 function normaliseText(value) {
-  return String(
-    value ?? ""
-  ).trim();
+  return String(value ?? "").trim();
 }
 
 function normaliseBoolean(
@@ -75,15 +57,12 @@ function normaliseBoolean(
     return fallback;
   }
 
-  if (
-    typeof value === "boolean"
-  ) {
+  if (typeof value === "boolean") {
     return value;
   }
 
-  const normalisedValue =
-    normaliseText(value)
-      .toLowerCase();
+  const normalised =
+    normaliseText(value).toLowerCase();
 
   if (
     [
@@ -92,9 +71,7 @@ function normaliseBoolean(
       "yes",
       "on",
       "enabled",
-    ].includes(
-      normalisedValue
-    )
+    ].includes(normalised)
   ) {
     return true;
   }
@@ -106,9 +83,7 @@ function normaliseBoolean(
       "no",
       "off",
       "disabled",
-    ].includes(
-      normalisedValue
-    )
+    ].includes(normalised)
   ) {
     return false;
   }
@@ -122,21 +97,15 @@ function normaliseNumber(
   minimum,
   maximum
 ) {
-  const number =
-    Number(value);
+  const parsed = Number(value);
 
-  if (
-    !Number.isFinite(number)
-  ) {
+  if (!Number.isFinite(parsed)) {
     return fallback;
   }
 
   return Math.min(
     maximum,
-    Math.max(
-      minimum,
-      number
-    )
+    Math.max(minimum, parsed)
   );
 }
 
@@ -156,34 +125,6 @@ function normaliseInteger(
   );
 }
 
-function normaliseChannel(
-  value
-) {
-  const channel =
-    normaliseText(
-      value ||
-        DEFAULT_CHANNEL
-    ).toLowerCase();
-
-  if (
-    ![
-      "email",
-      "sms",
-    ].includes(channel)
-  ) {
-    throw createReminderJobError(
-      "Appointment reminder channel must be email or sms.",
-      {
-        statusCode: 400,
-        code:
-          "INVALID_APPOINTMENT_REMINDER_CHANNEL",
-      }
-    );
-  }
-
-  return channel;
-}
-
 function serialiseError(error) {
   if (!error) {
     return null;
@@ -193,17 +134,14 @@ function serialiseError(error) {
     message:
       error.message ||
       "Appointment reminder job error.",
-
     code:
       error.code ||
       "APPOINTMENT_REMINDER_JOB_ERROR",
-
     statusCode:
       Number(
         error.statusCode ||
           error.status
       ) || 500,
-
     stack:
       process.env.NODE_ENV ===
       "production"
@@ -222,19 +160,13 @@ function createReminderJobError(
     details = null,
   } = {}
 ) {
-  const error =
-    new Error(message);
-
-  error.statusCode =
-    statusCode;
-
+  const error = new Error(message);
+  error.statusCode = statusCode;
   error.code = code;
-  error.details =
-    details;
+  error.details = details;
 
   if (cause) {
-    error.cause =
-      cause;
+    error.cause = cause;
   }
 
   return error;
@@ -251,7 +183,6 @@ function getAppointmentReminderConfiguration(
           .APPOINTMENT_REMINDER_JOB_ENABLED,
         false
       ),
-
     intervalMs:
       normaliseInteger(
         overrides.intervalMs ??
@@ -261,7 +192,6 @@ function getAppointmentReminderConfiguration(
         MINIMUM_INTERVAL_MS,
         MAXIMUM_INTERVAL_MS
       ),
-
     hoursBefore:
       normaliseNumber(
         overrides.hoursBefore ??
@@ -271,7 +201,6 @@ function getAppointmentReminderConfiguration(
         0,
         8760
       ),
-
     lookAheadHours:
       normaliseNumber(
         overrides.lookAheadHours ??
@@ -281,15 +210,6 @@ function getAppointmentReminderConfiguration(
         1,
         8760
       ),
-
-    channel:
-      normaliseChannel(
-        overrides.channel ??
-          process.env
-            .APPOINTMENT_REMINDER_CHANNEL ??
-          DEFAULT_CHANNEL
-      ),
-
     runImmediately:
       overrides.runImmediately ??
       normaliseBoolean(
@@ -297,7 +217,6 @@ function getAppointmentReminderConfiguration(
           .APPOINTMENT_REMINDER_JOB_RUN_IMMEDIATELY,
         true
       ),
-
     unrefTimer:
       overrides.unrefTimer ??
       normaliseBoolean(
@@ -310,109 +229,75 @@ function getAppointmentReminderConfiguration(
 
 function getAppointmentReminderJobStatus() {
   return {
-    enabled:
-      jobState.enabled,
-
-    started:
-      jobState.started,
-
-    stopping:
-      jobState.stopping,
-
+    enabled: jobState.enabled,
+    started: jobState.started,
+    stopping: jobState.stopping,
     runningCycle:
       Boolean(
-        jobState
-          .currentCyclePromise
+        jobState.currentCyclePromise
       ),
-
     configuration: {
       intervalMs:
         jobState.intervalMs,
-
       hoursBefore:
         jobState.hoursBefore,
-
       lookAheadHours:
         jobState.lookAheadHours,
-
-      channel:
-        jobState.channel,
-
+      channel: "customer_preference",
       runImmediately:
         jobState.runImmediately,
     },
-
-    startedAt:
-      jobState.startedAt,
-
-    stoppedAt:
-      jobState.stoppedAt,
-
+    startedAt: jobState.startedAt,
+    stoppedAt: jobState.stoppedAt,
     lastCycleStartedAt:
-      jobState
-        .lastCycleStartedAt,
-
+      jobState.lastCycleStartedAt,
     lastCycleCompletedAt:
-      jobState
-        .lastCycleCompletedAt,
-
+      jobState.lastCycleCompletedAt,
     lastSuccessfulCycleAt:
-      jobState
-        .lastSuccessfulCycleAt,
-
+      jobState.lastSuccessfulCycleAt,
     lastFailedCycleAt:
-      jobState
-        .lastFailedCycleAt,
-
+      jobState.lastFailedCycleAt,
     counters: {
       totalCycles:
         jobState.totalCycles,
-
       successfulCycles:
-        jobState
-          .successfulCycles,
-
+        jobState.successfulCycles,
       failedCycles:
         jobState.failedCycles,
-
       skippedCycles:
-        jobState
-          .skippedCycles,
-
-      queued:
-        jobState.totalQueued,
-
+        jobState.skippedCycles,
+      checked:
+        jobState.totalChecked,
+      due:
+        jobState.totalDue,
+      sent:
+        jobState.totalSent,
+      skipped:
+        jobState.totalSkipped,
       failed:
         jobState.totalFailed,
     },
-
-    lastCycle:
-      jobState.lastCycle,
-
-    lastError:
-      jobState.lastError,
+    lastCycle: jobState.lastCycle,
+    lastError: jobState.lastError,
   };
 }
 
-function createSkippedResult(
-  reason
-) {
+function createSkippedResult(reason) {
   const timestamp =
-    new Date()
-      .toISOString();
+    new Date().toISOString();
 
-  jobState.skippedCycles +=
-    1;
+  jobState.skippedCycles += 1;
 
   return {
     success: true,
     skipped: true,
     reason,
-    startedAt:
-      timestamp,
-    completedAt:
-      timestamp,
-    queued: 0,
+    startedAt: timestamp,
+    completedAt: timestamp,
+    checked: 0,
+    due: 0,
+    sent: 0,
+    skippedDeliveries: 0,
     failed: 0,
     items: [],
   };
@@ -422,141 +307,93 @@ async function executeAppointmentReminderCycle(
   configuration,
   source
 ) {
-  const startedAt =
-    new Date();
+  const startedAt = new Date();
 
   jobState.lastCycleStartedAt =
     startedAt.toISOString();
-
-  jobState.totalCycles +=
-    1;
+  jobState.totalCycles += 1;
 
   try {
-    const items =
-      await queueUpcomingReminders({
+    const delivery =
+      await deliverDueAppointmentReminders({
+        now: startedAt,
         hoursBefore:
           configuration.hoursBefore,
-
-        channel:
-          configuration.channel,
-
         lookAheadHours:
-          configuration
-            .lookAheadHours,
+          configuration.lookAheadHours,
       });
 
-    const queued =
-      items.filter(
-        (item) =>
-          item?.success
-      ).length;
-
-    const failed =
-      items.filter(
-        (item) =>
-          !item?.success
-      ).length;
-
-    const completedAt =
-      new Date();
-
-    const success =
-      failed === 0;
-
+    const completedAt = new Date();
     const result = {
-      success,
+      success: delivery.success,
       skipped: false,
       source,
-
       startedAt:
         startedAt.toISOString(),
-
       completedAt:
         completedAt.toISOString(),
-
       durationMs:
         completedAt.getTime() -
         startedAt.getTime(),
-
       configuration: {
         hoursBefore:
           configuration.hoursBefore,
-
         lookAheadHours:
-          configuration
-            .lookAheadHours,
-
+          configuration.lookAheadHours,
         channel:
-          configuration.channel,
+          "customer_preference",
       },
-
-      checked:
-        items.length,
-
-      queued,
-      failed,
-      items,
+      ...delivery,
     };
 
     jobState.lastCycleCompletedAt =
       completedAt.toISOString();
-
-    jobState.lastCycle =
-      result;
-
-    jobState.totalQueued +=
-      queued;
-
+    jobState.lastCycle = result;
+    jobState.totalChecked +=
+      delivery.checked;
+    jobState.totalDue +=
+      delivery.due;
+    jobState.totalSent +=
+      delivery.sent;
+    jobState.totalSkipped +=
+      delivery.skipped;
     jobState.totalFailed +=
-      failed;
+      delivery.failed;
 
-    if (success) {
-      jobState.successfulCycles +=
-        1;
-
+    if (delivery.success) {
+      jobState.successfulCycles += 1;
       jobState.lastSuccessfulCycleAt =
         completedAt.toISOString();
-
-      jobState.lastError =
-        null;
+      jobState.lastError = null;
     } else {
-      jobState.failedCycles +=
-        1;
-
+      jobState.failedCycles += 1;
       jobState.lastFailedCycleAt =
         completedAt.toISOString();
-
       jobState.lastError = {
         message:
-          "One or more appointment reminders could not be queued.",
-
+          "One or more appointment reminders could not be delivered.",
         code:
           "APPOINTMENT_REMINDER_PARTIAL_FAILURE",
-
-        failed,
+        failed:
+          delivery.failed,
       };
     }
 
-    if (items.length > 0) {
+    if (delivery.due > 0) {
       console.log(
-        `SalonAI appointment reminder cycle checked ${items.length} appointment(s): ${queued} queued, ${failed} failed.`
+        `SalonAI appointment reminder cycle: ${delivery.sent} sent, ${delivery.skipped} skipped, ${delivery.failed} failed.`
       );
     }
 
     return result;
   } catch (error) {
-    const completedAt =
-      new Date();
+    const completedAt = new Date();
 
-    jobState.failedCycles +=
-      1;
-
+    jobState.failedCycles += 1;
     jobState.lastCycleCompletedAt =
       completedAt.toISOString();
-
     jobState.lastFailedCycleAt =
       completedAt.toISOString();
-
     jobState.lastError =
       serialiseError(error);
 
@@ -564,28 +401,24 @@ async function executeAppointmentReminderCycle(
       success: false,
       skipped: false,
       source,
-
       startedAt:
         startedAt.toISOString(),
-
       completedAt:
         completedAt.toISOString(),
-
       durationMs:
         completedAt.getTime() -
         startedAt.getTime(),
-
       checked: 0,
-      queued: 0,
+      due: 0,
+      sent: 0,
+      skippedDeliveries: 0,
       failed: 0,
       items: [],
-
       error:
         serialiseError(error),
     };
 
-    jobState.lastCycle =
-      result;
+    jobState.lastCycle = result;
 
     console.error(
       "Appointment reminder job failed:",
@@ -603,7 +436,6 @@ async function runAppointmentReminderCycle(
     getAppointmentReminderConfiguration(
       options
     );
-
   const force =
     normaliseBoolean(
       options.force,
@@ -619,27 +451,21 @@ async function runAppointmentReminderCycle(
     );
   }
 
-  if (
-    jobState
-      .currentCyclePromise
-  ) {
+  if (jobState.currentCyclePromise) {
     return createSkippedResult(
       "An appointment reminder cycle is already running."
     );
   }
 
-  if (
-    jobState.stopping
-  ) {
+  if (jobState.stopping) {
     return createSkippedResult(
       "The appointment reminder job is stopping."
     );
   }
 
   const source =
-    normaliseText(
-      options.source
-    ) || "manual";
+    normaliseText(options.source) ||
+    "manual";
 
   const cyclePromise =
     executeAppointmentReminderCycle(
@@ -653,16 +479,15 @@ async function runAppointmentReminderCycle(
   try {
     return await cyclePromise;
   } finally {
-    jobState.currentCyclePromise =
-      null;
+    jobState.currentCyclePromise = null;
   }
 }
 
 function scheduleAppointmentReminderCycles(
   configuration
 ) {
-  const timer =
-    setInterval(() => {
+  const timer = setInterval(
+    () => {
       void runAppointmentReminderCycle({
         ...configuration,
         enabled: true,
@@ -673,12 +498,13 @@ function scheduleAppointmentReminderCycles(
           error
         );
       });
-    }, configuration.intervalMs);
+    },
+    configuration.intervalMs
+  );
 
   if (
     configuration.unrefTimer &&
-    typeof timer.unref ===
-      "function"
+    typeof timer.unref === "function"
   ) {
     timer.unref();
   }
@@ -693,7 +519,6 @@ async function startAppointmentReminderJob(
     getAppointmentReminderConfiguration(
       options
     );
-
   const force =
     normaliseBoolean(
       options.force,
@@ -708,10 +533,8 @@ async function startAppointmentReminderJob(
       success: true,
       started: false,
       alreadyRunning: true,
-
       message:
         "The appointment reminder job is already running.",
-
       job:
         getAppointmentReminderJobStatus(),
     };
@@ -721,65 +544,41 @@ async function startAppointmentReminderJob(
     !configuration.enabled &&
     !force
   ) {
-    jobState.enabled =
-      false;
+    jobState.enabled = false;
 
     return {
       success: true,
       started: false,
       alreadyRunning: false,
-
       message:
         "The appointment reminder job is disabled.",
-
       job:
         getAppointmentReminderJobStatus(),
     };
   }
 
-  jobState.enabled =
-    true;
-
-  jobState.started =
-    true;
-
-  jobState.stopping =
-    false;
-
+  jobState.enabled = true;
+  jobState.started = true;
+  jobState.stopping = false;
   jobState.intervalMs =
     configuration.intervalMs;
-
   jobState.hoursBefore =
     configuration.hoursBefore;
-
   jobState.lookAheadHours =
-    configuration
-      .lookAheadHours;
-
-  jobState.channel =
-    configuration.channel;
-
+    configuration.lookAheadHours;
   jobState.runImmediately =
-    configuration
-      .runImmediately;
-
+    configuration.runImmediately;
   jobState.startedAt =
     new Date().toISOString();
-
-  jobState.stoppedAt =
-    null;
-
+  jobState.stoppedAt = null;
   jobState.timer =
     scheduleAppointmentReminderCycles(
       configuration
     );
 
-  let initialCycle =
-    null;
+  let initialCycle = null;
 
-  if (
-    configuration.runImmediately
-  ) {
+  if (configuration.runImmediately) {
     initialCycle =
       await runAppointmentReminderCycle({
         ...configuration,
@@ -792,12 +591,9 @@ async function startAppointmentReminderJob(
     success: true,
     started: true,
     alreadyRunning: false,
-
     message:
       "Appointment reminder job started successfully.",
-
     initialCycle,
-
     job:
       getAppointmentReminderJobStatus(),
   };
@@ -806,50 +602,35 @@ async function startAppointmentReminderJob(
 async function stopAppointmentReminderJob({
   waitForCycle = true,
 } = {}) {
-  jobState.stopping =
-    true;
+  jobState.stopping = true;
 
   if (jobState.timer) {
-    clearInterval(
-      jobState.timer
-    );
-
-    jobState.timer =
-      null;
+    clearInterval(jobState.timer);
+    jobState.timer = null;
   }
 
   if (
     waitForCycle &&
-    jobState
-      .currentCyclePromise
+    jobState.currentCyclePromise
   ) {
     try {
-      await jobState
-        .currentCyclePromise;
+      await jobState.currentCyclePromise;
     } catch (error) {
       jobState.lastError =
         serialiseError(error);
     }
   }
 
-  jobState.started =
-    false;
-
-  jobState.enabled =
-    false;
-
-  jobState.stopping =
-    false;
-
+  jobState.started = false;
+  jobState.enabled = false;
+  jobState.stopping = false;
   jobState.stoppedAt =
     new Date().toISOString();
 
   return {
     success: true,
-
     message:
       "Appointment reminder job stopped successfully.",
-
     job:
       getAppointmentReminderJobStatus(),
   };
