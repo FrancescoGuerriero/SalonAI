@@ -25,11 +25,41 @@ export const securityHeaders = helmet({
   },
 });
 
+function firstForwardedAddress(req) {
+  const header = req.headers?.["x-forwarded-for"];
+
+  if (Array.isArray(header)) {
+    return String(header[0] || "").split(",")[0].trim();
+  }
+
+  return String(header || "").split(",")[0].trim();
+}
+
+function rateLimitKey(req) {
+  /*
+   * SalonAI production is served through the trusted nginx edge container.
+   * Without using the original forwarded client address, every browser can
+   * collapse onto the reverse-proxy address and share one rate-limit bucket.
+   */
+  if (env.isProduction) {
+    const forwardedAddress = firstForwardedAddress(req);
+    if (forwardedAddress) return forwardedAddress;
+  }
+
+  return req.ip || req.socket?.remoteAddress || "unknown-client";
+}
+
+function skipNonActionRequest(req) {
+  return req.method === "OPTIONS" || req.method === "HEAD";
+}
+
 export const apiRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,
   max: env.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   message: {
     success: false,
     code: "RATE_LIMIT_EXCEEDED",
@@ -42,6 +72,8 @@ export const authRateLimiter = rateLimit({
   max: env.authRateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   skipSuccessfulRequests: true,
   message: {
     success: false,
@@ -55,6 +87,8 @@ export const passwordResetRateLimiter = rateLimit({
   max: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   message: {
     success: false,
     code: "PASSWORD_RESET_RATE_LIMIT_EXCEEDED",
