@@ -14,13 +14,15 @@ import {
 import useAuth from "../hooks/useAuth.js";
 import PreferenceToggle from "../components/settings/PreferenceToggle.jsx";
 import SettingsSection from "../components/settings/SettingsSection.jsx";
+import Alert from "../components/ui/Alert.jsx";
+import {
+  getCustomerCommunicationPreferences,
+  updateCustomerCommunicationPreferences,
+} from "../Services/customerCommunicationPreferencesService.js";
 
-const STORAGE_KEY = "salonai.customer.preferences";
+const STORAGE_KEY = "salonai.customer.display-preferences";
 
-const defaultPreferences = {
-  emailUpdates: true,
-  smsReminders: true,
-  whatsappUpdates: false,
+const defaultDisplayPreferences = {
   pushNotifications: true,
   reducedMotion: false,
   highContrast: false,
@@ -28,21 +30,43 @@ const defaultPreferences = {
   darkMode: false,
 };
 
-function loadPreferences() {
+const defaultCommunicationPreferences = {
+  preferredChannel: "email",
+  appointmentReminders: true,
+  promotionalMessages: true,
+  serviceUpdates: true,
+  birthdayMessages: true,
+  feedbackRequests: true,
+  emailUnsubscribed: false,
+  smsUnsubscribed: false,
+  unsubscribed: false,
+};
+
+function loadDisplayPreferences() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     return saved
-      ? { ...defaultPreferences, ...JSON.parse(saved) }
-      : defaultPreferences;
+      ? { ...defaultDisplayPreferences, ...JSON.parse(saved) }
+      : defaultDisplayPreferences;
   } catch {
-    return defaultPreferences;
+    return defaultDisplayPreferences;
   }
+}
+
+function payload(response) {
+  return response?.data ?? response ?? {};
 }
 
 export default function CustomerSettingsPage() {
   const { user } = useAuth();
-  const [preferences, setPreferences] = useState(loadPreferences);
+  const [displayPreferences, setDisplayPreferences] = useState(loadDisplayPreferences);
+  const [communicationPreferences, setCommunicationPreferences] = useState(
+    defaultCommunicationPreferences
+  );
+  const [loadingCommunications, setLoadingCommunications] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   const displayName =
     user?.name ||
@@ -62,38 +86,105 @@ export default function CustomerSettingsPage() {
 
   useEffect(() => {
     document.documentElement.dataset.salonaiTheme =
-      preferences.darkMode ? "dark" : "light";
+      displayPreferences.darkMode ? "dark" : "light";
 
     document.documentElement.dataset.salonaiContrast =
-      preferences.highContrast ? "high" : "standard";
+      displayPreferences.highContrast ? "high" : "standard";
 
     document.documentElement.dataset.salonaiDensity =
-      preferences.compactLayout ? "compact" : "comfortable";
+      displayPreferences.compactLayout ? "compact" : "comfortable";
 
     document.documentElement.dataset.salonaiMotion =
-      preferences.reducedMotion ? "reduced" : "standard";
-  }, [preferences]);
+      displayPreferences.reducedMotion ? "reduced" : "standard";
+  }, [displayPreferences]);
 
-  function updatePreference(name, value) {
+  useEffect(() => {
+    let active = true;
+
+    async function loadCommunicationPreferences() {
+      setLoadingCommunications(true);
+      setError("");
+
+      try {
+        const response = await getCustomerCommunicationPreferences();
+        if (!active) return;
+
+        setCommunicationPreferences({
+          ...defaultCommunicationPreferences,
+          ...(payload(response).communicationPreferences || {}),
+        });
+      } catch (loadError) {
+        if (!active) return;
+        setError(
+          loadError?.response?.data?.message ||
+            "We could not load your communication preferences."
+        );
+      } finally {
+        if (active) setLoadingCommunications(false);
+      }
+    }
+
+    loadCommunicationPreferences();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function updateDisplayPreference(name, value) {
     setSaved(false);
-    setPreferences((current) => ({
+    setDisplayPreferences((current) => ({
       ...current,
       [name]: value,
     }));
   }
 
-  function savePreferences() {
+  function updateCommunicationPreference(name, value) {
+    setSaved(false);
+    setCommunicationPreferences((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  async function savePreferences() {
+    setSaving(true);
+    setSaved(false);
+    setError("");
+
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(preferences)
+      JSON.stringify(displayPreferences)
     );
 
-    setSaved(true);
+    try {
+      const response = await updateCustomerCommunicationPreferences(
+        communicationPreferences
+      );
 
-    window.setTimeout(() => {
-      setSaved(false);
-    }, 3000);
+      setCommunicationPreferences({
+        ...defaultCommunicationPreferences,
+        ...(payload(response).communicationPreferences || {}),
+      });
+      setSaved(true);
+
+      window.setTimeout(() => {
+        setSaved(false);
+      }, 3000);
+    } catch (saveError) {
+      setError(
+        saveError?.response?.data?.message ||
+          saveError?.message ||
+          "We could not save your communication preferences."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
+
+  const emailEnabled = !communicationPreferences.emailUnsubscribed;
+  const smsEnabled = !communicationPreferences.smsUnsubscribed;
+  const whatsappEnabled = communicationPreferences.preferredChannel === "whatsapp";
 
   return (
     <main className="customer-settings-page">
@@ -115,11 +206,18 @@ export default function CustomerSettingsPage() {
           type="button"
           className="settings-save-button"
           onClick={savePreferences}
+          disabled={saving || loadingCommunications}
         >
           {saved ? <CheckCircle2 size={18} /> : <Save size={18} />}
-          {saved ? "Preferences saved" : "Save preferences"}
+          {saving
+            ? "Saving…"
+            : saved
+              ? "Preferences saved"
+              : "Save preferences"}
         </button>
       </section>
+
+      {error ? <Alert variant="error">{error}</Alert> : null}
 
       <div className="settings-layout">
         <SettingsSection
@@ -143,86 +241,134 @@ export default function CustomerSettingsPage() {
               <dd>{user?.role || "customer"}</dd>
             </div>
           </dl>
-
-          <p className="settings-information-note">
-            Account identity changes should be completed through the salon or
-            the authenticated profile API when that capability is enabled.
-          </p>
         </SettingsSection>
 
         <SettingsSection
           title="Communication preferences"
-          description="Choose which customer updates you would like to receive."
+          description="These settings are saved to your SalonAI customer profile and used for booking, payment and service messages."
           icon={BellRing}
         >
+          <label className="settings-field" htmlFor="preferredChannel">
+            <span>Preferred service channel</span>
+            <select
+              id="preferredChannel"
+              value={communicationPreferences.preferredChannel}
+              disabled={loadingCommunications}
+              onChange={(event) =>
+                updateCommunicationPreference("preferredChannel", event.target.value)
+              }
+            >
+              <option value="email">Email</option>
+              <option value="sms">SMS</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="none">Email only / no preferred mobile channel</option>
+            </select>
+          </label>
+
           <PreferenceToggle
             id="emailUpdates"
             label="Email updates"
-            description="Booking confirmations, receipts and account information."
-            checked={preferences.emailUpdates}
-            onChange={(value) => updatePreference("emailUpdates", value)}
+            description="Booking confirmations, payment receipts and service information."
+            checked={emailEnabled}
+            onChange={(value) =>
+              updateCommunicationPreference("emailUnsubscribed", !value)
+            }
           />
 
           <PreferenceToggle
-            id="smsReminders"
-            label="SMS reminders"
-            description="Appointment reminders sent to your registered mobile."
-            checked={preferences.smsReminders}
-            onChange={(value) => updatePreference("smsReminders", value)}
+            id="smsUpdates"
+            label="SMS updates"
+            description="Allow transactional text messages when SMS is your preferred channel."
+            checked={smsEnabled}
+            onChange={(value) =>
+              updateCommunicationPreference("smsUnsubscribed", !value)
+            }
           />
 
           <PreferenceToggle
-            id="whatsappUpdates"
-            label="WhatsApp updates"
-            description="Optional booking and service messages through WhatsApp."
-            checked={preferences.whatsappUpdates}
-            onChange={(value) => updatePreference("whatsappUpdates", value)}
+            id="appointmentReminders"
+            label="Appointment reminders"
+            description="Receive scheduled reminders before upcoming appointments."
+            checked={communicationPreferences.appointmentReminders}
+            onChange={(value) =>
+              updateCommunicationPreference("appointmentReminders", value)
+            }
           />
 
           <PreferenceToggle
-            id="pushNotifications"
-            label="Push notifications"
-            description="Browser or device notifications when supported."
-            checked={preferences.pushNotifications}
-            onChange={(value) => updatePreference("pushNotifications", value)}
+            id="serviceUpdates"
+            label="Service and booking updates"
+            description="Receive changes to bookings, payments and salon service information."
+            checked={communicationPreferences.serviceUpdates}
+            onChange={(value) =>
+              updateCommunicationPreference("serviceUpdates", value)
+            }
+          />
+
+          <PreferenceToggle
+            id="promotionalMessages"
+            label="Offers and promotional messages"
+            description="Receive optional marketing and promotional communications."
+            checked={communicationPreferences.promotionalMessages}
+            onChange={(value) =>
+              updateCommunicationPreference("promotionalMessages", value)
+            }
+          />
+
+          <PreferenceToggle
+            id="feedbackRequests"
+            label="Feedback and review requests"
+            description="Allow post-visit feedback and review invitations."
+            checked={communicationPreferences.feedbackRequests}
+            onChange={(value) =>
+              updateCommunicationPreference("feedbackRequests", value)
+            }
           />
         </SettingsSection>
 
         <SettingsSection
           title="Accessibility and display"
-          description="Adjust the interface on this device."
+          description="These preferences apply to this browser and device."
           icon={Accessibility}
         >
+          <PreferenceToggle
+            id="pushNotifications"
+            label="Push notifications"
+            description="Browser or device notifications when supported."
+            checked={displayPreferences.pushNotifications}
+            onChange={(value) => updateDisplayPreference("pushNotifications", value)}
+          />
+
           <PreferenceToggle
             id="reducedMotion"
             label="Reduce motion"
             description="Minimise non-essential animation and transitions."
-            checked={preferences.reducedMotion}
-            onChange={(value) => updatePreference("reducedMotion", value)}
+            checked={displayPreferences.reducedMotion}
+            onChange={(value) => updateDisplayPreference("reducedMotion", value)}
           />
 
           <PreferenceToggle
             id="highContrast"
             label="Increase contrast"
             description="Strengthen borders, focus indicators and text contrast."
-            checked={preferences.highContrast}
-            onChange={(value) => updatePreference("highContrast", value)}
+            checked={displayPreferences.highContrast}
+            onChange={(value) => updateDisplayPreference("highContrast", value)}
           />
 
           <PreferenceToggle
             id="compactLayout"
             label="Compact layout"
             description="Reduce spacing in supported customer interfaces."
-            checked={preferences.compactLayout}
-            onChange={(value) => updatePreference("compactLayout", value)}
+            checked={displayPreferences.compactLayout}
+            onChange={(value) => updateDisplayPreference("compactLayout", value)}
           />
 
           <PreferenceToggle
             id="darkMode"
             label="Dark appearance"
             description="Use the SalonAI dark interface on this device."
-            checked={preferences.darkMode}
-            onChange={(value) => updatePreference("darkMode", value)}
+            checked={displayPreferences.darkMode}
+            onChange={(value) => updateDisplayPreference("darkMode", value)}
           />
         </SettingsSection>
 
@@ -230,19 +376,19 @@ export default function CustomerSettingsPage() {
           <h2>Active channels</h2>
 
           <ul>
-            <li className={preferences.emailUpdates ? "is-enabled" : ""}>
+            <li className={emailEnabled ? "is-enabled" : ""}>
               <Mail size={18} />
               Email
             </li>
-            <li className={preferences.smsReminders ? "is-enabled" : ""}>
+            <li className={smsEnabled ? "is-enabled" : ""}>
               <Smartphone size={18} />
               SMS
             </li>
-            <li className={preferences.whatsappUpdates ? "is-enabled" : ""}>
+            <li className={whatsappEnabled ? "is-enabled" : ""}>
               <MessageCircle size={18} />
               WhatsApp
             </li>
-            <li className={preferences.pushNotifications ? "is-enabled" : ""}>
+            <li className={displayPreferences.pushNotifications ? "is-enabled" : ""}>
               <BellRing size={18} />
               Push
             </li>
@@ -251,7 +397,8 @@ export default function CustomerSettingsPage() {
           <div className="settings-local-note">
             <Moon size={18} />
             <span>
-              Display preferences are stored locally in this browser.
+              Communication choices are stored on your account. Display choices
+              remain local to this browser.
             </span>
           </div>
         </aside>

@@ -3,6 +3,21 @@ import {
   settlePaidOrder,
 } from "./commerceService.js";
 import {
+  reconcileStripeRefund,
+} from "./orderRefundService.js";
+import {
+  notifyOrderPaid,
+  notifyOrderRefunded,
+  notifySafely,
+} from "./commerceNotificationService.js";
+import {
+  failAppointmentPayment,
+  settleAppointmentPayment,
+} from "../appointments/appointmentPaymentService.js";
+import {
+  notifyAppointmentPaymentReceived,
+} from "../appointments/appointmentPaymentNotificationService.js";
+import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
 
@@ -17,12 +32,29 @@ const FAILURE_EVENT_TYPES =
     "checkout.session.async_payment_failed",
   ]);
 
+const REFUND_EVENT_TYPES =
+  new Set([
+    "refund.created",
+    "refund.updated",
+    "refund.failed",
+  ]);
+
 function sessionOrderId(
   session = {}
 ) {
   return String(
     session.metadata
       ?.orderId ||
+      ""
+  ).trim();
+}
+
+function sessionAppointmentId(
+  session = {}
+) {
+  return String(
+    session.metadata
+      ?.appointmentId ||
       ""
   ).trim();
 }
@@ -146,12 +178,55 @@ export async function handleStripeCheckoutWebhook(
       event.type || ""
     );
 
-  const session =
+  const object =
     event.data?.object ||
     {};
 
+  if (REFUND_EVENT_TYPES.has(type)) {
+    const reconciliation =
+      await reconcileStripeRefund(
+        object
+      );
+
+    if (
+      reconciliation.reconciled &&
+      reconciliation.status === "succeeded" &&
+      reconciliation.orderId
+    ) {
+      await notifySafely(
+        () => notifyOrderRefunded(
+          reconciliation.orderId,
+          reconciliation.paymentId,
+          reconciliation.providerRefundId
+        ),
+        {
+          eventType: type,
+          eventId: event.id || "",
+          orderId: reconciliation.orderId,
+          paymentId: reconciliation.paymentId,
+          providerRefundId:
+            reconciliation.providerRefundId,
+        }
+      );
+    }
+
+    return {
+      received: true,
+      handled: true,
+      eventId:
+        event.id || "",
+      eventType: type,
+      ...reconciliation,
+    };
+  }
+
+  const session = object;
   const orderId =
     sessionOrderId(
+      session
+    );
+  const appointmentId =
+    sessionAppointmentId(
       session
     );
 
@@ -166,6 +241,9 @@ export async function handleStripeCheckoutWebhook(
       completedSessionIsPaid(
         session
       );
+
+    let settled = false;
+    let paymentId = null;
 
     if (
       shouldSettle &&
@@ -187,6 +265,68 @@ export async function handleStripeCheckoutWebhook(
             "paid",
         }
       );
+
+      settled = true;
+
+      await notifySafely(
+        () => notifyOrderPaid(
+          orderId
+        ),
+        {
+          eventType: type,
+          eventId: event.id || "",
+          orderId,
+          providerPaymentId:
+            session.id || "",
+        }
+      );
+    }
+
+    if (
+      shouldSettle &&
+      appointmentId
+    ) {
+      const result =
+        await settleAppointmentPayment(
+          appointmentId,
+          {
+            providerPaymentId:
+              session.id,
+            providerIntentId:
+              sessionIntentId(
+                session
+              ),
+            rawStatus:
+              session
+                .payment_status ||
+              session.status ||
+              "paid",
+          }
+        );
+
+      paymentId =
+        result.payment?._id
+          ? String(result.payment._id)
+          : null;
+      settled = true;
+
+      if (paymentId) {
+        await notifySafely(
+          () =>
+            notifyAppointmentPaymentReceived(
+              appointmentId,
+              paymentId
+            ),
+          {
+            eventType: type,
+            eventId: event.id || "",
+            appointmentId,
+            paymentId,
+            providerPaymentId:
+              session.id || "",
+          }
+        );
+      }
     }
 
     return {
@@ -197,11 +337,10 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
-      settled:
-        Boolean(
-          shouldSettle &&
-          orderId
-        ),
+      appointmentId:
+        appointmentId || null,
+      paymentId,
+      settled,
       pending:
         !shouldSettle,
     };
@@ -212,9 +351,27 @@ export async function handleStripeCheckoutWebhook(
       type
     )
   ) {
-    await markFailed(
-      session
-    );
+    if (appointmentId) {
+      await failAppointmentPayment(
+        appointmentId,
+        {
+          providerPaymentId:
+            session.id,
+          rawStatus:
+            session
+              .payment_status ||
+            session.status ||
+            "failed",
+          eventKey:
+            event.id ||
+            session.id,
+        }
+      );
+    } else {
+      await markFailed(
+        session
+      );
+    }
 
     return {
       received: true,
@@ -224,6 +381,8 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
+      appointmentId:
+        appointmentId || null,
       settled: false,
       failed: true,
     };
@@ -245,6 +404,8 @@ export async function handleStripeCheckoutWebhook(
       eventType: type,
       orderId:
         orderId || null,
+      appointmentId:
+        appointmentId || null,
       settled: false,
       expired: true,
     };
@@ -258,6 +419,8 @@ export async function handleStripeCheckoutWebhook(
     eventType: type,
     orderId:
       orderId || null,
+    appointmentId:
+      appointmentId || null,
   };
 }
 
