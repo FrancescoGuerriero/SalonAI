@@ -1,0 +1,78 @@
+name: Production Provider Audit Once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/production-provider-audit-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    name: Audit provider readiness
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          ssh_directory="$RUNNER_TEMP/salonai-provider-audit"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          echo "SSH_PRIVATE_KEY_PATH=$private_key" >> "$GITHUB_ENV"
+          echo "SSH_KNOWN_HOSTS_PATH=$known_hosts" >> "$GITHUB_ENV"
+
+      - name: Inspect active provider modes without exposing secrets
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker exec salonai-backend node -e 'const e=process.env; console.log(JSON.stringify({emailProviderMode:e.EMAIL_PROVIDER_MODE||\"unset\",emailDeliveryEnabled:e.EMAIL_DELIVERY_ENABLED||\"unset\",smtp:{host:Boolean(e.SMTP_HOST),user:Boolean(e.SMTP_USER),password:Boolean(e.SMTP_PASSWORD),from:Boolean(e.EMAIL_FROM_ADDRESS||e.EMAIL_FROM)},paymentProviderMode:e.PAYMENT_PROVIDER_MODE||\"unset\",stripe:{secretKey:Boolean(e.STRIPE_SECRET_KEY),webhookSecret:Boolean(e.STRIPE_WEBHOOK_SECRET)},whatsappProviderMode:e.WHATSAPP_PROVIDER_MODE||\"unset\",smsProviderMode:e.SMS_PROVIDER_MODE||\"unset\",twilio:{accountSid:Boolean(e.TWILIO_ACCOUNT_SID),authToken:Boolean(e.TWILIO_AUTH_TOKEN),smsFrom:Boolean(e.TWILIO_SMS_FROM||e.TWILIO_FROM_NUMBER||e.TWILIO_MESSAGING_SERVICE_SID),whatsappFrom:Boolean(e.TWILIO_WHATSAPP_FROM)},messageDeliveryMode:e.MESSAGE_DELIVERY_MODE||\"unset\",messageScheduler:e.MESSAGE_DELIVERY_SCHEDULER_ENABLED||\"unset\",appointmentReminderJob:e.APPOINTMENT_REMINDER_JOB_ENABLED||\"unset\"},null,2))'"
+
+      - name: Remove one-time audit workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          workflow='.github/workflows/production-provider-audit-once.yml'
+          if [[ -f "$workflow" ]]; then
+            git rm "$workflow"
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'ops: remove completed provider audit workflow'
+            git push origin main
+          fi
