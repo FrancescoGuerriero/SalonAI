@@ -244,11 +244,12 @@ jobs:
         shell: bash
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.repository_owner }}
           PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
           PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_ACTOR" =~ ^[A-Za-z0-9-]+$ ]]
+          [[ "$GHCR_USERNAME" =~ ^[A-Za-z0-9-]+$ ]]
           ssh_options=(
             -i "$SSH_PRIVATE_KEY_PATH"
             -o BatchMode=yes
@@ -260,7 +261,7 @@ jobs:
 
           printf '%s' "$GHCR_TOKEN" |
             ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" \
-              "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+              "docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
 
       - name: Deploy and smoke test
         shell: bash
