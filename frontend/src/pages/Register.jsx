@@ -69,7 +69,9 @@ function Register() {
         replace: true,
         state: {
           registrationComplete: true,
+          verificationRequired: Boolean(result?.verificationRequired),
           verificationEmail: result?.user?.email || email,
+          registrationMessage: result?.message || "Account created.",
         },
       });
     } catch (requestError) {
@@ -82,7 +84,9 @@ function Register() {
           replace: true,
           state: {
             registrationComplete: true,
+            verificationRequired: true,
             verificationEmail: response?.user?.email || email,
+            registrationMessage: response?.message,
           },
         });
         return;
@@ -102,7 +106,7 @@ function Register() {
     <AuthShell
       eyebrow="Join SalonAI"
       title="Create your account"
-      description="Create your secure account, then verify your email address before signing in."
+      description="Create your secure customer account. When production email activation is enabled, SalonAI will require the verification link sent to your email before first sign-in."
       footer={
         <p>
           Already registered? <Link to="/login">Sign in</Link>
@@ -147,7 +151,9 @@ function Register() {
         </div>
 
         <p className="auth-terms">
-          We will send a verification link to this address. You must open that link before your first sign-in.
+          Use an email address you can access. It is used for account activation,
+          password recovery and important salon account messages when real email
+          delivery is enabled.
         </p>
 
         <label htmlFor="registerPassword">Password</label>
@@ -193,7 +199,7 @@ function Register() {
           type="submit"
           disabled={loading}
         >
-          {loading ? "Creating account…" : "Create account and send verification email"}
+          {loading ? "Creating account…" : "Create account"}
         </button>
 
         <p className="auth-terms">
