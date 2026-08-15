@@ -3,102 +3,194 @@ import {
   Bot,
   CalendarCheck,
   CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  Gift,
+  Heart,
   HeartHandshake,
+  MessageCircle,
+  Palette,
   Scissors,
+  Settings,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Star,
   UserRound,
   UsersRound,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { roadmapFeatures } from "../features/roadmap/roadmapFeatures.js";
 
 import "../styles/salonExperience.css";
 
-const experiences = [
+const VISIT_TOOLS = [
   {
-    icon: Scissors,
-    eyebrow: "Discover",
-    title: "Find your service",
+    icon: ClipboardList,
+    eyebrow: "Before your visit",
+    title: "Complete your hair consultation",
     description:
-      "Compare available treatments with clear prices and appointment durations.",
-    to: "/services",
-    action: "Browse services",
+      "Share hair history, colour history, routine, goals, sensitivities and maintenance preferences before the appointment.",
+    to: "/account/manage",
+    action: "Start consultation",
   },
   {
-    icon: UsersRound,
-    eyebrow: "Choose",
-    title: "Meet the salon team",
+    icon: Palette,
+    eyebrow: "Prepare",
+    title: "Save hairstyle inspiration",
     description:
-      "Explore active stylists, specialties, experience, and the services they offer.",
-    to: "/stylists",
-    action: "View stylists",
+      "Keep reference ideas and notes with your private SalonAI experience profile so the salon can understand the direction you like.",
+    to: "/experience/inspiration",
+    action: "Open inspiration board",
   },
   {
     icon: CalendarCheck,
     eyebrow: "Book",
-    title: "Pick a live appointment",
+    title: "Choose a live appointment",
     description:
-      "Choose a service, stylist, date, and currently available time in one guided journey.",
-    to: "/services",
-    action: "Start booking",
+      "Choose a service and stylist, then work from currently available appointment times rather than a static enquiry form.",
+    to: "/booking",
+    action: "Book online",
   },
   {
-    icon: ShoppingBag,
-    eyebrow: "Maintain",
-    title: "Shop haircare",
+    icon: MessageCircle,
+    eyebrow: "Alternative booking",
+    title: "Book through WhatsApp",
     description:
-      "Browse salon haircare products and keep your routine connected to your visits.",
-    to: "/shop",
-    action: "Open the shop",
+      "Start a conversation with the salon when you prefer human help. Staff check availability and confirm the final appointment in SalonAI.",
+    to: "/help",
+    action: "See how WhatsApp works",
   },
 ];
 
-const journey = [
-  "Browse the live salon catalogue",
-  "Choose a stylist who offers your service",
-  "Select a verified available time",
-  "Review appointments from your account",
+const ACCOUNT_TOOLS = [
+  {
+    icon: UserRound,
+    title: "My account",
+    description: "Appointments, payment balances, orders and customer shortcuts.",
+    to: "/account",
+  },
+  {
+    icon: Settings,
+    title: "Communication preferences",
+    description: "Choose email, SMS or WhatsApp preferences and control optional communications.",
+    to: "/settings",
+  },
+  {
+    icon: Heart,
+    title: "Favourites",
+    description: "Save preferred services, stylists and products for future visits.",
+    to: "/experience/favourites",
+  },
+  {
+    icon: Star,
+    title: "Visit reviews",
+    description: "Review completed appointments and keep feedback connected to a real visit.",
+    to: "/experience/reviews",
+  },
 ];
+
+const REWARD_TOOLS = [
+  {
+    icon: Gift,
+    title: "Loyalty and gift cards",
+    description: "Review loyalty activity and keep eligible salon gift cards available from your account.",
+    to: "/experience/loyalty",
+  },
+  {
+    icon: CreditCard,
+    title: "Payments",
+    description: "Understand appointment deposits, balances, secure Stripe Checkout and order payment status.",
+    to: "/help",
+  },
+  {
+    icon: ShoppingBag,
+    title: "Salon shop",
+    description: "Browse haircare products and keep purchases connected to your account history.",
+    to: "/shop",
+  },
+  {
+    icon: HeartHandshake,
+    title: "Offers and referrals",
+    description: "Save eligible offers and use referral tools from the connected customer experience.",
+    to: "/experience/offers",
+  },
+];
+
+const JOURNEY = [
+  "Create and verify your customer account",
+  "Save profile details and consultation information",
+  "Choose a service, stylist and available appointment",
+  "Pay any required deposit through secure checkout",
+  "Receive confirmation and reminders through your permitted channels",
+  "Return to your account for visits, purchases, rewards and feedback",
+];
+
+function ToolGrid({ items }) {
+  return (
+    <div className="salon-connected-grid">
+      {items.map(({ icon: Icon, title, description, to }) => (
+        <Link key={title} to={to}>
+          <span><Icon size={21} /></span>
+          <strong>{title}</strong>
+          <p>{description}</p>
+          <b>Open <ArrowRight size={14} /></b>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 export default function CustomerExperienceSuitePage() {
   return (
     <main className="salon-experience-page" id="main-content" tabIndex="-1">
       <section className="salon-experience-hero">
         <div>
-          <p className="customer-eyebrow"><Sparkles size={16} /> Your salon journey</p>
-          <h1>Everything you need for a confident salon visit.</h1>
+          <p className="customer-eyebrow"><Sparkles size={16} /> Your connected salon experience</p>
+          <h1>Plan, book and manage your hair journey in one place.</h1>
           <p>
-            Explore treatments, meet the team, book a live appointment, and get
-            guidance whenever you need it—all in one connected experience.
+            SalonAI connects your consultation, preferences, live booking,
+            payments, communication choices, visits and haircare purchases so
+            you do not need to repeat the same information every time.
           </p>
           <div className="salon-experience-actions">
-            <Link to="/services" className="customer-primary-link">Book an appointment <ArrowRight size={17} /></Link>
-            <Link to="/account" className="customer-secondary-link"><UserRound size={17} /> My account</Link>
+            <Link to="/account/manage" className="customer-primary-link">
+              Complete my consultation <ArrowRight size={17} />
+            </Link>
+            <Link to="/booking" className="customer-secondary-link">
+              <CalendarCheck size={17} /> Book an appointment
+            </Link>
           </div>
         </div>
 
         <aside className="salon-experience-assistant-card">
           <span><Bot size={25} /></span>
           <p className="customer-eyebrow">SalonAI assistant</p>
-          <h2>Not sure where to start?</h2>
+          <h2>Need help choosing?</h2>
           <p>
-            Open “Ask SalonAI” at the bottom of the page for services, prices,
-            booking steps, stylists, haircare guidance, and support.
+            Use Ask SalonAI for general service, product and booking guidance,
+            then use your consultation for the detailed information your stylist
+            needs before a service.
           </p>
-          <small><ShieldCheck size={15} /> General salon guidance without sharing passwords or payment details.</small>
+          <small>
+            <ShieldCheck size={15} /> Never share passwords, verification links
+            or full payment-card details in chat.
+          </small>
         </aside>
       </section>
 
       <section className="salon-experience-section">
         <header>
-          <p className="customer-eyebrow">Plan your visit</p>
-          <h2>A simple route from idea to appointment</h2>
+          <p className="customer-eyebrow">Before your appointment</p>
+          <h2>Arrive with the important details already prepared</h2>
+          <p>
+            A good salon experience begins before the chair: consultation,
+            inspiration, booking and communication should all lead into the same
+            appointment record.
+          </p>
         </header>
 
         <div className="salon-experience-grid">
-          {experiences.map(({ icon: Icon, eyebrow, title, description, to, action }) => (
+          {VISIT_TOOLS.map(({ icon: Icon, eyebrow, title, description, to, action }) => (
             <article key={title}>
               <span><Icon size={22} /></span>
               <small>{eyebrow}</small>
@@ -112,37 +204,84 @@ export default function CustomerExperienceSuitePage() {
 
       <section className="salon-experience-journey">
         <div>
-          <p className="customer-eyebrow">Designed around you</p>
-          <h2>Care before, during, and after your appointment</h2>
+          <p className="customer-eyebrow">One customer journey</p>
+          <h2>From registration to aftercare</h2>
           <p>
-            Your SalonAI account brings booking information and salon support
-            together, while the management team works with one accurate appointment record.
+            Each stage should update SalonAI rather than becoming a disconnected
+            message or form. Your account remains the place to verify the final
+            appointment, payment and order status.
           </p>
-          <Link to="/help"><HeartHandshake size={17} /> Visit the Help centre</Link>
+          <Link to="/help"><HeartHandshake size={17} /> Read customer help</Link>
         </div>
         <ol>
-          {journey.map((step, index) => (
-            <li key={step}><span>{index + 1}</span><p>{step}</p><CheckCircle2 size={18} /></li>
+          {JOURNEY.map((step, index) => (
+            <li key={step}>
+              <span>{index + 1}</span>
+              <p>{step}</p>
+              <CheckCircle2 size={18} />
+            </li>
           ))}
         </ol>
       </section>
 
       <section className="salon-connected-features">
         <header>
-          <p className="customer-eyebrow"><Sparkles size={16} /> Connected customer care</p>
-          <h2>More than a booking form</h2>
-          <p>Sign in to use persistent account tools for privacy, salon planning, rewards, communication and service feedback.</p>
+          <p className="customer-eyebrow"><UserRound size={16} /> Your visits and preferences</p>
+          <h2>Keep your salon relationship organised</h2>
+          <p>
+            Update the information the salon actually needs and keep communication
+            choices under your control.
+          </p>
         </header>
-        <div className="salon-connected-grid">
-          {roadmapFeatures.map((feature) => (
-            <Link key={feature.id} to={`/experience/${feature.id}`}>
-              <span>{feature.sprint}</span>
-              <small>{feature.group}</small>
-              <strong>{feature.title}</strong>
-              <p>{feature.summary}</p>
-              <b>Open feature <ArrowRight size={14} /></b>
-            </Link>
-          ))}
+        <ToolGrid items={ACCOUNT_TOOLS} />
+      </section>
+
+      <section className="salon-connected-features">
+        <header>
+          <p className="customer-eyebrow"><Scissors size={16} /> Services, rewards and aftercare</p>
+          <h2>Continue the experience after the appointment</h2>
+          <p>
+            Payments, product purchases, loyalty, offers and reviews are linked
+            to the same customer account rather than treated as isolated tools.
+          </p>
+        </header>
+        <ToolGrid items={REWARD_TOOLS} />
+      </section>
+
+      <section className="salon-experience-section">
+        <header>
+          <p className="customer-eyebrow">Explore the salon</p>
+          <h2>Still deciding what you need?</h2>
+        </header>
+        <div className="salon-experience-grid">
+          <article>
+            <span><Scissors size={22} /></span>
+            <small>Services</small>
+            <h3>Compare treatments</h3>
+            <p>Review live services, prices and durations before booking.</p>
+            <Link to="/services">Browse services <ArrowRight size={15} /></Link>
+          </article>
+          <article>
+            <span><UsersRound size={22} /></span>
+            <small>Team</small>
+            <h3>Meet your stylists</h3>
+            <p>Explore active stylists, specialties and the services they perform.</p>
+            <Link to="/stylists">Meet the team <ArrowRight size={15} /></Link>
+          </article>
+          <article>
+            <span><ShoppingBag size={22} /></span>
+            <small>Haircare</small>
+            <h3>Shop products</h3>
+            <p>Browse salon haircare and connect purchases to your account.</p>
+            <Link to="/shop">Open shop <ArrowRight size={15} /></Link>
+          </article>
+          <article>
+            <span><ShieldCheck size={22} /></span>
+            <small>Privacy</small>
+            <h3>Control your data choices</h3>
+            <p>Review optional analytics, personalisation and marketing consent.</p>
+            <Link to="/experience/privacy">Privacy choices <ArrowRight size={15} /></Link>
+          </article>
         </div>
       </section>
     </main>
