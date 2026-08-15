@@ -21,6 +21,15 @@ function routePaths(router) {
     .filter(Boolean);
 }
 
+function restoreEnvironment(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}
+
 test("auth router exposes registration verification lifecycle", () => {
   const paths = routePaths(authRoutes);
 
@@ -99,8 +108,8 @@ test("email provider is fail-closed for production-like disabled delivery", asyn
       /disabled in production/i
     );
   } finally {
-    process.env.NODE_ENV = originalNodeEnv;
-    process.env.EMAIL_DELIVERY_ENABLED = originalEnabled;
-    process.env.EMAIL_PROVIDER_MODE = originalMode;
+    restoreEnvironment("NODE_ENV", originalNodeEnv);
+    restoreEnvironment("EMAIL_DELIVERY_ENABLED", originalEnabled);
+    restoreEnvironment("EMAIL_PROVIDER_MODE", originalMode);
   }
 });
