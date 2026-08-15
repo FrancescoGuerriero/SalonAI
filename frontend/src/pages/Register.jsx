@@ -54,12 +54,14 @@ function Register() {
       return;
     }
 
+    const email = form.email.trim().toLowerCase();
+
     try {
       setLoading(true);
 
-      await register({
+      const result = await register({
         name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
+        email,
         password: form.password,
       });
 
@@ -67,13 +69,27 @@ function Register() {
         replace: true,
         state: {
           registrationComplete: true,
+          verificationEmail: result?.user?.email || email,
         },
       });
     } catch (requestError) {
       console.error("Registration failed:", requestError);
 
+      const response = requestError.response?.data;
+
+      if (response?.code === "VERIFICATION_EMAIL_UNAVAILABLE") {
+        navigate("/login", {
+          replace: true,
+          state: {
+            registrationComplete: true,
+            verificationEmail: response?.user?.email || email,
+          },
+        });
+        return;
+      }
+
       setError(
-        requestError.response?.data?.message ||
+        response?.message ||
           requestError.message ||
           "Registration failed."
       );
@@ -86,7 +102,7 @@ function Register() {
     <AuthShell
       eyebrow="Join SalonAI"
       title="Create your account"
-      description="Save bookings, purchases and customer preferences securely."
+      description="Create your secure account, then verify your email address before signing in."
       footer={
         <p>
           Already registered? <Link to="/login">Sign in</Link>
@@ -129,6 +145,10 @@ function Register() {
             required
           />
         </div>
+
+        <p className="auth-terms">
+          We will send a verification link to this address. You must open that link before your first sign-in.
+        </p>
 
         <label htmlFor="registerPassword">Password</label>
         <div className="auth-input">
@@ -173,7 +193,7 @@ function Register() {
           type="submit"
           disabled={loading}
         >
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? "Creating account…" : "Create account and send verification email"}
         </button>
 
         <p className="auth-terms">
