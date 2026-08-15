@@ -15,3 +15,17 @@ export function getAppointments(params = {}) {
 export function createAppointment(data) {
   return API.post(ENDPOINT, data);
 }
+
+/**
+ * Create or reuse a secure Stripe Checkout session for an appointment.
+ * Purpose may be "deposit" or "balance".
+ */
+export function createAppointmentPaymentCheckout(
+  appointmentId,
+  data = {}
+) {
+  return API.post(
+    `${ENDPOINT}/${appointmentId}/payments/checkout`,
+    data
+  );
+}
