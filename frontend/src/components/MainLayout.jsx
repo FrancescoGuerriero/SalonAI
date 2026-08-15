@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -135,7 +136,13 @@ export default function MainLayout() {
   return (
     <div className="app-shell">
       <Seo />
-      <Navbar />
+
+      {/*
+       * Public/customer screens use the main Navbar burger on mobile.
+       * Management screens use the management sidebar/burger instead.
+       * Rendering both was the source of the duplicate mobile menus.
+       */}
+      {!management ? <Navbar /> : null}
 
       {!management ? (
         <>
@@ -158,13 +165,15 @@ export default function MainLayout() {
               {!collapsed ? (
                 <div>
                   <span className="app-eyebrow">
-                    Workspace
+                    SalonAI
                   </span>
                   <strong>
                     Management
                   </strong>
                 </div>
-              ) : null}
+              ) : (
+                <Sparkles size={20} aria-label="SalonAI" />
+              )}
 
               <button
                 type="button"
@@ -229,15 +238,17 @@ export default function MainLayout() {
                     true
                   )
                 }
+                aria-expanded={mobileOpen}
+                aria-controls="salonai-management-mobile-navigation"
               >
                 <Menu
                   size={18}
                 />
-                Management menu
+                Menu
               </button>
 
               <span>
-                SalonAI workspace
+                <Sparkles size={16} /> SalonAI management
               </span>
             </div>
 
@@ -264,11 +275,14 @@ export default function MainLayout() {
                 aria-label="Close management navigation"
               />
 
-              <aside className="management-mobile-panel">
+              <aside
+                className="management-mobile-panel"
+                id="salonai-management-mobile-navigation"
+              >
                 <div className="app-mobile-panel-head">
                   <div>
                     <span className="app-eyebrow">
-                      Workspace
+                      SalonAI
                     </span>
 
                     <strong>
@@ -307,7 +321,7 @@ export default function MainLayout() {
         </div>
       )}
 
-      <Footer />
+      {!management ? <Footer /> : null}
     </div>
   );
 }
