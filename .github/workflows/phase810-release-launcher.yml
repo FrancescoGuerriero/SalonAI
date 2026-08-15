@@ -1,0 +1,308 @@
+name: Phase 8.10 Release Launcher
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/phase810-release-launcher.yml
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  launch:
+    name: Release and deploy v8.10.0
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      RELEASE_TAG: v8.10.0
+      RELEASE_COMMIT: 93613da52ce008c4bd61c04d9a5c302a6e257fe7
+      PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+      PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+      PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+      PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout trusted controls
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify immutable release commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$RELEASE_COMMIT^{commit}"
+          merge_subject="$(git show -s --format=%s "$RELEASE_COMMIT")"
+          echo "release_commit=$RELEASE_COMMIT"
+          echo "release_subject=$merge_subject"
+
+      - name: Create annotated v8.10.0 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'SalonAI Release Automation'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            existing_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
+            [[ "$existing_commit" == "$RELEASE_COMMIT" ]]
+            echo "$RELEASE_TAG already points to the expected commit."
+          else
+            git tag -a "$RELEASE_TAG" "$RELEASE_COMMIT" -m "SalonAI $RELEASE_TAG - live stabilization and customer journey"
+            git push origin "$RELEASE_TAG"
+          fi
+
+      - name: Configure production email identity safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          ssh_directory="$RUNNER_TEMP/salonai-phase810-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh_options=(
+            -i "$private_key"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$known_hosts"
+          )
+
+          password_present=false
+          remote_password_file="/tmp/salonai-smtp-password-${GITHUB_RUN_ID}"
+
+          if [[ -n "${SMTP_PASSWORD:-}" ]]; then
+            password_present=true
+            local_password_file="$RUNNER_TEMP/smtp-password"
+            umask 077
+            printf '%s' "$SMTP_PASSWORD" > "$local_password_file"
+            scp "${ssh_options[@]}" "$local_password_file" "$PRODUCTION_USER@$PRODUCTION_HOST:$remote_password_file"
+            rm -f "$local_password_file"
+          fi
+
+          echo "smtp_password_production_secret_present=$password_present"
+
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" "bash -s -- '$remote_password_file' '$password_present'" <<'REMOTE'
+          set -euo pipefail
+          password_file="$1"
+          password_present="$2"
+          env_file=/opt/salonai/.env.production
+
+          python3 - "$env_file" "$password_file" "$password_present" <<'PY'
+          from pathlib import Path
+          import os
+          import sys
+
+          env_path = Path(sys.argv[1])
+          password_path = Path(sys.argv[2])
+          password_present = sys.argv[3] == "true"
+
+          if not env_path.exists():
+              raise SystemExit("Production environment file is missing")
+
+          updates = {
+              "SALON_EMAIL": "info@francescopicardi.co.uk",
+              "SMTP_HOST": "smtp.ionos.co.uk",
+              "SMTP_PORT": "465",
+              "SMTP_SECURE": "true",
+              "SMTP_REQUIRE_TLS": "true",
+              "SMTP_REJECT_UNAUTHORIZED": "true",
+              "SMTP_USER": "info@francescopicardi.co.uk",
+              "EMAIL_FROM_NAME": "SalonAI",
+              "EMAIL_FROM_ADDRESS": "info@francescopicardi.co.uk",
+              "EMAIL_FROM": "info@francescopicardi.co.uk",
+              "EMAIL_REPLY_TO": "info@francescopicardi.co.uk",
+              "EMAIL_VERIFICATION_REQUIRED": "false",
+          }
+
+          if password_present:
+              updates["SMTP_PASSWORD"] = password_path.read_text()
+              updates["EMAIL_DELIVERY_ENABLED"] = "true"
+              updates["EMAIL_PROVIDER_MODE"] = "smtp"
+          else:
+              updates["EMAIL_DELIVERY_ENABLED"] = "false"
+              updates["EMAIL_PROVIDER_MODE"] = "mock"
+
+          lines = env_path.read_text().splitlines()
+          seen = set()
+          result = []
+
+          for line in lines:
+              if "=" in line and not line.lstrip().startswith("#"):
+                  key = line.split("=", 1)[0].strip()
+                  if key in updates:
+                      result.append(f"{key}={updates[key]}")
+                      seen.add(key)
+                      continue
+              result.append(line)
+
+          for key, value in updates.items():
+              if key not in seen:
+                  result.append(f"{key}={value}")
+
+          env_path.write_text("\n".join(result) + "\n")
+          os.chmod(env_path, 0o600)
+          PY
+
+          rm -f "$password_file" 2>/dev/null || true
+          echo "production_email_identity_configured=true"
+          echo "email_delivery_enabled=$password_present"
+          echo "email_verification_required=false"
+          REMOTE
+
+      - name: Dispatch standard SalonAI release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" -f release_tag="$RELEASE_TAG"
+          sleep 5
+          release_run="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+          [[ -n "$release_run" ]]
+          echo "run_id=$release_run" >> "$GITHUB_OUTPUT"
+          echo "release_run_id=$release_run"
+
+      - name: Wait for release evidence and images
+        shell: bash
+        env:
+          RELEASE_RUN_ID: ${{ steps.release.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$RELEASE_RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          for asset in release-manifest.json rollback-metadata.json SHA256SUMS.txt; do
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx "$asset" >/dev/null
+          done
+
+      - name: Dispatch protected production deployment
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-production.yml --repo "$GITHUB_REPOSITORY" -f release_tag="$RELEASE_TAG" -f confirm_production=DEPLOY
+          sleep 5
+          deploy_run="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy-production.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+          [[ -n "$deploy_run" ]]
+          echo "run_id=$deploy_run" >> "$GITHUB_OUTPUT"
+          echo "deployment_run_id=$deploy_run"
+
+      - name: Wait for production deployment
+        shell: bash
+        env:
+          DEPLOY_RUN_ID: ${{ steps.deploy.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          gh run watch "$DEPLOY_RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+
+      - name: Verify public production service
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://salonai.francescopicardi.co.uk/api/health | tee /tmp/health.json
+          grep -Eq '"ready"[[:space:]]*:[[:space:]]*true' /tmp/health.json
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' https://salonai.francescopicardi.co.uk/)"
+          [[ "$status" == "200" ]]
+          echo "homepage_http_status=$status"
+
+      - name: Test real SMTP and activate verification when secret exists
+        if: env.SMTP_PASSWORD != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_directory="$RUNNER_TEMP/salonai-phase810-ssh"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          ssh_options=(
+            -i "$private_key"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$known_hosts"
+          )
+
+          ssh "${ssh_options[@]}" "$PRODUCTION_USER@$PRODUCTION_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd /opt/salonai
+
+          docker exec salonai-backend node --input-type=module -e '
+            import { sendEmail } from "./src/providers/emailProvider.js";
+            await sendEmail({
+              to: "info@francescopicardi.co.uk",
+              subject: "SalonAI v8.10.0 email activation test",
+              message: "SalonAI production SMTP delivery is active. This automated test was sent during the v8.10.0 deployment."
+            });
+            console.log("smtp_test_email_sent=true");
+          '
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/opt/salonai/.env.production')
+          lines = p.read_text().splitlines()
+          found = False
+          out = []
+          for line in lines:
+              if line.startswith('EMAIL_VERIFICATION_REQUIRED='):
+                  out.append('EMAIL_VERIFICATION_REQUIRED=true')
+                  found = True
+              else:
+                  out.append(line)
+          if not found:
+              out.append('EMAIL_VERIFICATION_REQUIRED=true')
+          p.write_text('\n'.join(out) + '\n')
+          p.chmod(0o600)
+          PY
+
+          docker compose --env-file ./.env.production -f ./docker-compose.production.yml up -d --no-deps --force-recreate backend
+
+          for attempt in $(seq 1 30); do
+            if docker inspect --format='{{.State.Health.Status}}' salonai-backend 2>/dev/null | grep -Fx healthy >/dev/null; then
+              echo "email_verification_required=true"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Backend did not become healthy after enabling email verification" >&2
+          exit 1
+          REMOTE
+
+      - name: Report provider state when SMTP secret is absent
+        if: env.SMTP_PASSWORD == ''
+        run: |
+          echo "smtp_live=false"
+          echo "email_verification_required=false"
+          echo "reason=SMTP_PASSWORD production secret is not configured"
+
+      - name: Remove one-use release launcher
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          workflow='.github/workflows/phase810-release-launcher.yml'
+          if [[ -f "$workflow" ]]; then
+            git rm "$workflow"
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'ops: remove completed Phase 8.10 release launcher'
+            git push origin main
+          fi
