@@ -1,11 +1,10 @@
 import {
   Apple,
   CalendarCheck,
+  Camera,
   Compass,
-  Facebook,
   HelpCircle,
   Info,
-  Instagram,
   MessageCircle,
   Music2,
   Play,
@@ -16,7 +15,6 @@ import {
   Sparkles,
   UserRound,
   UsersRound,
-  Youtube,
 } from "lucide-react";
 
 import {
@@ -91,10 +89,10 @@ const accountLinks = [
 ];
 
 const SOCIAL_ICONS = {
-  Instagram,
-  Facebook,
+  Instagram: Camera,
+  Facebook: UsersRound,
   TikTok: Music2,
-  YouTube: Youtube,
+  YouTube: Play,
 };
 
 const STORE_ICONS = {
