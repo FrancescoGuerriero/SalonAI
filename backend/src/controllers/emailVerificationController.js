@@ -13,6 +13,15 @@ function normaliseEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function hashToken(token) {
   return crypto
     .createHash("sha256")
@@ -49,6 +58,8 @@ async function issueVerification(user) {
   await user.save();
 
   const url = verificationUrl(token);
+  const safeName = escapeHtml(user.name);
+  const safeUrl = escapeHtml(url);
 
   await sendEmail({
     to: user.email,
@@ -59,9 +70,9 @@ async function issueVerification(user) {
       `${url}\n\n` +
       "This link expires in 24 hours. If you did not create this account, you can ignore this email.",
     html:
-      `<p>Hello ${user.name},</p>` +
+      `<p>Hello ${safeName},</p>` +
       "<p>Please verify your email address before signing in to SalonAI.</p>" +
-      `<p><a href="${url}">Verify my SalonAI account</a></p>` +
+      `<p><a href="${safeUrl}">Verify my SalonAI account</a></p>` +
       "<p>This link expires in 24 hours. If you did not create this account, you can ignore this email.</p>",
   });
 }
