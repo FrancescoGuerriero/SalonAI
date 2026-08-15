@@ -17,6 +17,8 @@ import {
 import HelpTopicCard from "../components/help/HelpTopicCard.jsx";
 import FaqAccordion from "../components/help/FaqAccordion.jsx";
 
+const SUPPORT_EMAIL = "info@francescopicardi.co.uk";
+
 const topics = [
   { id: "booking", title: "Bookings and appointments", description: "Booking, rescheduling, cancellations and appointment status.", icon: CalendarClock },
   { id: "account", title: "Account access", description: "Registration, email verification, login and profile assistance.", icon: UserRound },
@@ -42,7 +44,7 @@ const faqs = [
     id: "login-problem",
     topic: "account",
     question: "What should I do if I cannot sign in?",
-    answer: "Check the email address and password carefully. New customer accounts must verify their email address before their first sign-in. If your account is waiting for verification, use Resend verification email on the sign-in page.",
+    answer: "Check the email address and password carefully. When production email verification is enabled, new customer accounts must verify their email address before their first sign-in. If your account is waiting for verification, use Resend verification email on the sign-in page.",
   },
   {
     id: "account-details",
@@ -72,7 +74,7 @@ const faqs = [
     id: "email-purpose",
     topic: "communications",
     question: "What emails will SalonAI send?",
-    answer: "Transactional email is used for account verification, password resets, booking confirmations, receipts and important service updates. Promotional email is a separate preference. SalonAI should never ask you to send a password or full payment-card details by email.",
+    answer: "Transactional email is intended for account verification, password resets, booking confirmations, receipts and important service updates. Promotional email is a separate preference. Official SalonAI email uses info@francescopicardi.co.uk. SalonAI should never ask you to send a password or full payment-card details by email.",
   },
   {
     id: "order-status",
@@ -186,7 +188,8 @@ export default function HelpCentrePage() {
           <span className="help-support-icon"><MessageCircle size={24} /></span>
           <h2>Still need help?</h2>
           <p>Include the relevant booking date, order number or account email so the salon can investigate efficiently.</p>
-          <Link className="help-contact-button" to="/account"><UserRound size={18} />Review my account</Link>
+          <a className="help-contact-button" href={`mailto:${SUPPORT_EMAIL}`}><Mail size={18} />Email {SUPPORT_EMAIL}</a>
+          <Link className="help-secondary-link" to="/account"><UserRound size={18} />Review my account</Link>
           <Link className="help-secondary-link" to="/settings"><Mail size={18} />Communication settings</Link>
           <div className="help-security-note">
             <ShieldCheck size={19} />
