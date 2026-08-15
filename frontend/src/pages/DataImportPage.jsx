@@ -23,8 +23,9 @@ import dataImportService from "../Services/dataImportService.js";
 import { downloadCsv, parseCsv } from "../utils/csv.js";
 import "../styles/dataImport.css";
 
-const MAXIMUM_ROWS = 500;
-const MAXIMUM_FILE_BYTES = 1_000_000;
+const MAXIMUM_ROWS = 10_000;
+const MAXIMUM_FILE_BYTES = 15_000_000;
+const API_BATCH_ROWS = 500;
 
 const CONFIG = {
   customers: {
@@ -73,6 +74,69 @@ function titleCase(value) {
   return String(value || "")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function splitIntoBatches(items, size = API_BATCH_ROWS) {
+  const batches = [];
+  for (let index = 0; index < items.length; index += size) {
+    batches.push(items.slice(index, index + size));
+  }
+  return batches;
+}
+
+function aggregatePreview(previews = [], entityType, duplicatePolicy) {
+  const results = previews.flatMap((item) => item?.results || []);
+  const summary = previews.reduce(
+    (totals, item) => {
+      totals.total += Number(item?.summary?.total || 0);
+      totals.creates += Number(item?.summary?.creates || 0);
+      totals.updates += Number(item?.summary?.updates || 0);
+      totals.skipped += Number(item?.summary?.skipped || 0);
+      totals.errors += Number(item?.summary?.errors || 0);
+      return totals;
+    },
+    { total: 0, creates: 0, updates: 0, skipped: 0, errors: 0 }
+  );
+
+  return {
+    entityType,
+    duplicatePolicy,
+    summary,
+    results,
+    canCommit:
+      summary.errors === 0 &&
+      summary.creates + summary.updates > 0,
+  };
+}
+
+function aggregateImports(imports = [], entityType, duplicatePolicy, fileName) {
+  const results = imports.flatMap((item) => item?.results || []);
+  const summary = imports.reduce(
+    (totals, item) => {
+      totals.total += Number(item?.summary?.total || 0);
+      totals.created += Number(item?.summary?.created || 0);
+      totals.updated += Number(item?.summary?.updated || 0);
+      totals.skipped += Number(item?.summary?.skipped || 0);
+      totals.failed += Number(item?.summary?.failed || 0);
+      return totals;
+    },
+    { total: 0, created: 0, updated: 0, skipped: 0, failed: 0 }
+  );
+
+  return {
+    entityType,
+    duplicatePolicy,
+    fileName,
+    status:
+      summary.failed === 0
+        ? "completed"
+        : summary.created + summary.updated > 0
+          ? "partial"
+          : "failed",
+    summary,
+    results,
+    batchCount: imports.length,
+  };
 }
 
 function SummaryCard({ label, value, tone = "default" }) {
@@ -157,11 +221,11 @@ export default function DataImportPage() {
         throw new Error("Choose a CSV file ending in .csv.");
       }
       if (file.size > MAXIMUM_FILE_BYTES) {
-        throw new Error("The CSV file is too large. The maximum file size is 1 MB.");
+        throw new Error("The CSV file is too large. The maximum file size is 15 MB.");
       }
       const parsed = parseCsv(await file.text());
       if (parsed.rows.length > MAXIMUM_ROWS) {
-        throw new Error(`A single import can contain at most ${MAXIMUM_ROWS} rows.`);
+        throw new Error(`A single upload can contain at most ${MAXIMUM_ROWS.toLocaleString("en-GB")} rows.`);
       }
       setFileName(file.name);
       setHeaders(parsed.headers);
@@ -176,8 +240,17 @@ export default function DataImportPage() {
     downloadCsv(config.templateFile, [], config.columns);
   }
 
-  function requestPayload() {
-    return { entityType, duplicatePolicy, fileName, rows };
+  function batchPayload(batchRows, batchIndex) {
+    const suffix = rows.length > API_BATCH_ROWS
+      ? `-batch-${batchIndex + 1}`
+      : "";
+
+    return {
+      entityType,
+      duplicatePolicy,
+      fileName: `${fileName}${suffix}`,
+      rows: batchRows,
+    };
   }
 
   async function validateImport() {
@@ -195,8 +268,24 @@ export default function DataImportPage() {
       setError("");
       setReviewed(false);
       setCommitResult(null);
-      const response = await dataImportService.preview(requestPayload());
-      setPreview(response.preview);
+
+      const batches = splitIntoBatches(rows);
+      const previews = [];
+
+      for (let index = 0; index < batches.length; index += 1) {
+        const response = await dataImportService.preview(
+          batchPayload(batches[index], index)
+        );
+        previews.push(response.preview);
+      }
+
+      setPreview(
+        aggregatePreview(
+          previews,
+          entityType,
+          duplicatePolicy
+        )
+      );
     } catch (requestError) {
       setError(errorMessage(requestError, "The import could not be validated."));
     } finally {
@@ -209,8 +298,25 @@ export default function DataImportPage() {
     try {
       setBusy("commit");
       setError("");
-      const response = await dataImportService.commit(requestPayload());
-      setCommitResult(response.import);
+
+      const batches = splitIntoBatches(rows);
+      const imports = [];
+
+      for (let index = 0; index < batches.length; index += 1) {
+        const response = await dataImportService.commit(
+          batchPayload(batches[index], index)
+        );
+        imports.push(response.import);
+      }
+
+      setCommitResult(
+        aggregateImports(
+          imports,
+          entityType,
+          duplicatePolicy,
+          fileName
+        )
+      );
       setPreview(null);
       setReviewed(false);
       await loadHistory();
@@ -317,7 +423,10 @@ export default function DataImportPage() {
             <div className="data-import-step">2</div>
             <div>
               <h2>Upload and choose duplicate handling</h2>
-              <p>CSV only, up to {MAXIMUM_ROWS} data rows and 1 MB.</p>
+              <p>
+                CSV only, up to {MAXIMUM_ROWS.toLocaleString("en-GB")} data rows and 15 MB.
+                Large uploads are validated and imported in secure {API_BATCH_ROWS}-row batches.
+              </p>
             </div>
           </div>
 
@@ -329,7 +438,7 @@ export default function DataImportPage() {
 
           {rows.length > 0 && (
             <p className="data-import-file-meta">
-              <strong>{fileName}</strong> · {rows.length} row{rows.length === 1 ? "" : "s"} · {headers.length} columns
+              <strong>{fileName}</strong> · {rows.length.toLocaleString("en-GB")} row{rows.length === 1 ? "" : "s"} · {headers.length} columns
             </p>
           )}
 
