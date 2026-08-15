@@ -64,7 +64,11 @@ jobs:
             grep -Eq "^${key}=.+" "$env_file"
           }
 
-          host=false; user=false; password=false; from=false
+          host=false
+          user=false
+          password=false
+          from=false
+
           has_value SMTP_HOST && host=true
           has_value SMTP_USER && user=true
           has_value SMTP_PASSWORD && password=true
@@ -79,7 +83,7 @@ jobs:
           if [[ "$host" != true || "$user" != true || "$password" != true || "$from" != true ]]; then
             exit 2
           fi
-REMOTE
+          REMOTE
 
       - name: Remove one-time audit workflow
         if: always()
