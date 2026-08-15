@@ -5,13 +5,15 @@ import {
   getPublicStylists,
   getStylist,
   getStylistAvailability,
-  getMyStylistProfile,
-  updateMyStylistProfile,
   createStylist,
   updateStylist,
   deleteStylist,
   toggleStylistStatus,
 } from "../controllers/stylistController.js";
+import {
+  getMyStaffProfile,
+  updateMyStaffProfile,
+} from "../controllers/staffSelfProfileController.js";
 
 import {
   protect,
@@ -47,14 +49,14 @@ router.get(
   "/me/profile",
   protect,
   managementOnly,
-  getMyStylistProfile
+  getMyStaffProfile
 );
 
 router.patch(
   "/me/profile",
   protect,
   managementOnly,
-  updateMyStylistProfile
+  updateMyStaffProfile
 );
 
 /*

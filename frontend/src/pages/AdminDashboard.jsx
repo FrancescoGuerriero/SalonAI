@@ -1,7 +1,10 @@
 import {
   CalendarDays,
+  PackagePlus,
   Scissors,
+  Upload,
   UserCog,
+  UserPlus,
   UsersRound,
   Wrench,
 } from "lucide-react";
@@ -21,13 +24,13 @@ const cards = [
       Wrench,
   },
   {
-    title: "Stylists",
+    title: "Add or manage staff",
     description:
-      "Manage stylist profiles, photos and professional details.",
+      "Create staff profiles, add professional photographs and manage public stylist details.",
     link:
       "/admin/stylists",
     icon:
-      Scissors,
+      UserPlus,
   },
   {
     title: "Staff accounts",
@@ -37,6 +40,24 @@ const cards = [
       "/admin/staff-accounts",
     icon:
       UserCog,
+  },
+  {
+    title: "Products & inventory",
+    description:
+      "Add new retail products and manage catalogue, prices, stock and reorder levels.",
+    link:
+      "/manage/inventory",
+    icon:
+      PackagePlus,
+  },
+  {
+    title: "Bulk data import",
+    description:
+      "Upload customer or product CSV files with validation, duplicate handling and an audit trail.",
+    link:
+      "/data-imports",
+    icon:
+      Upload,
   },
   {
     title: "Appointments",
@@ -55,6 +76,15 @@ const cards = [
       "/admin/customers",
     icon:
       UsersRound,
+  },
+  {
+    title: "Staff profiles",
+    description:
+      "Review how staff profiles, photos and public professional details appear across SalonAI.",
+    link:
+      "/admin/stylists",
+    icon:
+      Scissors,
   },
 ];
 
@@ -75,8 +105,8 @@ export default function AdminDashboard() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
-          Manage salon services, staff identities, stylist profiles,
-          appointments and customer records.
+          Manage salon services, staff identities, staff photographs, products,
+          appointments, bulk imports and customer records.
         </p>
       </header>
 

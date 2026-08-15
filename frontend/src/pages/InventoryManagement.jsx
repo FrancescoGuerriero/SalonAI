@@ -2,6 +2,7 @@ import { AlertTriangle, Boxes, PackagePlus, PoundSterling } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import commerceService from "../Services/commerceService.js";
+import useAuth from "../hooks/useAuth.js";
 import { formatCurrency } from "../utils/currency.js";
 
 const emptyProduct = {
@@ -21,6 +22,9 @@ const emptyProduct = {
 };
 
 export default function InventoryManagement() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
   const [form, setForm] = useState(emptyProduct);
@@ -83,6 +87,12 @@ export default function InventoryManagement() {
 
   async function saveProduct(event) {
     event.preventDefault();
+
+    if (!editingId && !isAdmin) {
+      setError("Only administrators can add new products.");
+      return;
+    }
+
     try {
       setSaving(true);
       setError("");
@@ -123,7 +133,10 @@ export default function InventoryManagement() {
       setError("Enter a positive whole number.");
       return;
     }
-    const reason = window.prompt("Reason for this stock adjustment:", direction > 0 ? "Stock delivery" : "Damaged or corrected stock");
+    const reason = window.prompt(
+      "Reason for this stock adjustment:",
+      direction > 0 ? "Stock delivery" : "Damaged or corrected stock"
+    );
     if (!reason) return;
 
     try {
@@ -161,28 +174,40 @@ export default function InventoryManagement() {
       {error && <div className="error-message">{error}</div>}
       {message && <div className="success-message">{message}</div>}
 
-      <form className="commerce-admin-form" onSubmit={saveProduct}>
-        <div className="commerce-form-title">
-          <h2>{editingId ? "Edit product" : "Add product"}</h2>
-          {editingId && <button type="button" className="secondary-button" onClick={resetForm}>Cancel edit</button>}
-        </div>
-        <div className="commerce-admin-grid">
-          <label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-          <label>SKU<input required value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /></label>
-          <label>Brand<input value={form.brand} onChange={(event) => setForm({ ...form, brand: event.target.value })} /></label>
-          <label>Category<input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
-          <label>Size<input value={form.size} onChange={(event) => setForm({ ...form, size: event.target.value })} /></label>
-          <label>Retail price (£)<input required type="number" min="0" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
-          <label>Cost price (£)<input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} /></label>
-          <label>{editingId ? "Current stock (use adjustments below)" : "Opening stock"}<input disabled={Boolean(editingId)} type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: event.target.value })} /></label>
-          <label>Reorder level<input type="number" min="0" step="1" value={form.reorderLevel} onChange={(event) => setForm({ ...form, reorderLevel: event.target.value })} /></label>
-          <label className="commerce-span-two">Image URL<input value={form.image} onChange={(event) => setForm({ ...form, image: event.target.value })} /></label>
-          <label className="commerce-span-two">Description<textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
-          <label className="commerce-checkbox"><input type="checkbox" checked={form.featured} onChange={(event) => setForm({ ...form, featured: event.target.checked })} /> Featured product</label>
-          <label className="commerce-checkbox"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> Active</label>
-        </div>
-        <button type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save changes" : "Create product"}</button>
-      </form>
+      {!isAdmin && !editingId ? (
+        <section className="commerce-admin-form">
+          <div className="commerce-form-title">
+            <h2>Product catalogue</h2>
+          </div>
+          <p>
+            Only administrators can add new products. Management staff can edit
+            existing catalogue details and maintain stock using the controls below.
+          </p>
+        </section>
+      ) : (
+        <form className="commerce-admin-form" onSubmit={saveProduct}>
+          <div className="commerce-form-title">
+            <h2>{editingId ? "Edit product" : "Add product"}</h2>
+            {editingId && <button type="button" className="secondary-button" onClick={resetForm}>Cancel edit</button>}
+          </div>
+          <div className="commerce-admin-grid">
+            <label>Name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+            <label>SKU<input required value={form.sku} onChange={(event) => setForm({ ...form, sku: event.target.value })} /></label>
+            <label>Brand<input value={form.brand} onChange={(event) => setForm({ ...form, brand: event.target.value })} /></label>
+            <label>Category<input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
+            <label>Size<input value={form.size} onChange={(event) => setForm({ ...form, size: event.target.value })} /></label>
+            <label>Retail price (£)<input required type="number" min="0" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
+            <label>Cost price (£)<input type="number" min="0" step="0.01" value={form.costPrice} onChange={(event) => setForm({ ...form, costPrice: event.target.value })} /></label>
+            <label>{editingId ? "Current stock (use adjustments below)" : "Opening stock"}<input disabled={Boolean(editingId)} type="number" min="0" step="1" value={form.stockQuantity} onChange={(event) => setForm({ ...form, stockQuantity: event.target.value })} /></label>
+            <label>Reorder level<input type="number" min="0" step="1" value={form.reorderLevel} onChange={(event) => setForm({ ...form, reorderLevel: event.target.value })} /></label>
+            <label className="commerce-span-two">Image URL<input value={form.image} onChange={(event) => setForm({ ...form, image: event.target.value })} /></label>
+            <label className="commerce-span-two">Description<textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
+            <label className="commerce-checkbox"><input type="checkbox" checked={form.featured} onChange={(event) => setForm({ ...form, featured: event.target.checked })} /> Featured product</label>
+            <label className="commerce-checkbox"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> Active</label>
+          </div>
+          <button type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? "Save changes" : "Create product"}</button>
+        </form>
+      )}
 
       <section className="commerce-admin-table-wrap">
         <table className="commerce-admin-table">

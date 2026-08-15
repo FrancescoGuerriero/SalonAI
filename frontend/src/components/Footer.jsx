@@ -1,10 +1,13 @@
 import {
+  Apple,
   CalendarCheck,
+  Camera,
   Compass,
   HelpCircle,
   Info,
   MessageCircle,
   Music2,
+  Play,
   Scissors,
   Settings,
   ShieldCheck,
@@ -19,6 +22,7 @@ import {
 } from "react-router-dom";
 
 import {
+  appDownloadLinks,
   getWhatsAppBookingUrl,
   socialLinks,
 } from "../config/publicLinks.js";
@@ -85,10 +89,15 @@ const accountLinks = [
 ];
 
 const SOCIAL_ICONS = {
-  Instagram: Sparkles,
+  Instagram: Camera,
   Facebook: UsersRound,
   TikTok: Music2,
-  YouTube: MessageCircle,
+  YouTube: Play,
+};
+
+const STORE_ICONS = {
+  apple: Apple,
+  android: Play,
 };
 
 export default function Footer() {
@@ -199,6 +208,41 @@ export default function Footer() {
             </nav>
           ) : null}
 
+          {appDownloadLinks.length > 0 ? (
+            <nav aria-label="Download the SalonAI app">
+              <strong>
+                Get the app
+              </strong>
+
+              {appDownloadLinks.map(
+                ({
+                  label,
+                  platform,
+                  url,
+                }) => {
+                  const Icon =
+                    STORE_ICONS[platform] ||
+                    Play;
+
+                  return (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={label}
+                    >
+                      <Icon
+                        size={17}
+                      />
+                      {label}
+                    </a>
+                  );
+                }
+              )}
+            </nav>
+          ) : null}
+
           {socialLinks.length >
             0 ||
           whatsappUrl ? (
@@ -216,7 +260,7 @@ export default function Footer() {
                   rel="noreferrer"
                 >
                   <MessageCircle
-                    size={15}
+                    size={17}
                   />
                   WhatsApp booking
                 </a>
@@ -243,9 +287,10 @@ export default function Footer() {
                       }
                       target="_blank"
                       rel="noreferrer"
+                      aria-label={`Visit SalonAI on ${label}`}
                     >
                       <Icon
-                        size={15}
+                        size={17}
                       />
                       {label}
                     </a>

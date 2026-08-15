@@ -1,6 +1,6 @@
 import {
+  Camera,
   Star,
-  UserRound,
 } from "lucide-react";
 
 function stylistName(stylist = {}) {
@@ -89,8 +89,8 @@ export default function StylistCard({
               width: "100%",
             }}
           >
-            <UserRound
-              size={72}
+            <Camera
+              size={68}
               strokeWidth={1.4}
             />
 
