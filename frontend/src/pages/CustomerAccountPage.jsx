@@ -4,7 +4,9 @@ import {
   CalendarDays,
   ChevronRight,
   Clock3,
+  CreditCard,
   Gift,
+  LoaderCircle,
   PackageCheck,
   Scissors,
   Sparkles,
@@ -14,7 +16,10 @@ import {
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
-import { getAppointments } from "../Services/appointmentApi.js";
+import {
+  createAppointmentPaymentCheckout,
+  getAppointments,
+} from "../Services/appointmentApi.js";
 import commerceService from "../Services/commerceService.js";
 import AccountSection from "../components/account/AccountSection.jsx";
 import AccountSummaryCard from "../components/account/AccountSummaryCard.jsx";
@@ -33,8 +38,12 @@ function unwrapList(response, keys = []) {
   return Array.isArray(payload) ? payload : [];
 }
 
+function responsePayload(response) {
+  return response?.data ?? response ?? {};
+}
+
 function appointmentDate(item) {
-  return item?.appointmentDate ?? item?.date ?? item?.startAt ?? null;
+  return item?.startsAt ?? item?.appointmentDate ?? item?.date ?? item?.startAt ?? null;
 }
 
 function formatDate(value) {
@@ -56,12 +65,60 @@ function formatMoney(value) {
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
+function appointmentAmountPaid(appointment) {
+  const value = Number(appointment?.amountPaid ?? 0);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function appointmentTotal(appointment) {
+  const value = Number(
+    appointment?.finalPrice ??
+      appointment?.totalPrice ??
+      appointment?.service?.price ??
+      0
+  );
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function appointmentBalance(appointment) {
+  const explicit = Number(appointment?.balanceDue);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+  return Math.max(
+    0,
+    appointmentTotal(appointment) - appointmentAmountPaid(appointment)
+  );
+}
+
+function paymentPurpose(appointment) {
+  return appointmentAmountPaid(appointment) > 0 ? "balance" : "deposit";
+}
+
+function paymentButtonLabel(appointment) {
+  return paymentPurpose(appointment) === "balance"
+    ? `Pay balance ${formatMoney(appointmentBalance(appointment))}`
+    : "Pay deposit";
+}
+
+function canPayAppointment(appointment) {
+  const status = String(appointment?.status || "").toLowerCase();
+  const paymentStatus = String(appointment?.paymentStatus || "").toLowerCase();
+
+  return (
+    appointmentBalance(appointment) > 0 &&
+    !["completed", "cancelled", "no_show"].includes(status) &&
+    !["paid", "refunded", "cancelled"].includes(paymentStatus)
+  );
+}
+
 export default function CustomerAccountPage() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [payingAppointmentId, setPayingAppointmentId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -108,6 +165,50 @@ export default function CustomerAccountPage() {
       active = false;
     };
   }, []);
+
+  async function startAppointmentPayment(appointment) {
+    const appointmentId = appointment?._id ?? appointment?.id;
+    if (!appointmentId) return;
+
+    setPaymentError("");
+    setPayingAppointmentId(String(appointmentId));
+
+    try {
+      const response = await createAppointmentPaymentCheckout(
+        appointmentId,
+        {
+          purpose: paymentPurpose(appointment),
+        }
+      );
+
+      const payload = responsePayload(response);
+      const checkoutUrl = payload?.payment?.checkoutUrl || "";
+
+      if (checkoutUrl) {
+        window.location.assign(checkoutUrl);
+        return;
+      }
+
+      if (payload?.requiresDemoConfirmation) {
+        setPaymentError(
+          "The payment was created in local demo mode, so no external Stripe Checkout page is available."
+        );
+        return;
+      }
+
+      setPaymentError(
+        "The secure payment link could not be opened. Please try again or contact the salon."
+      );
+    } catch (paymentRequestError) {
+      setPaymentError(
+        paymentRequestError?.response?.data?.message ||
+          paymentRequestError?.message ||
+          "We could not start the appointment payment. Please try again."
+      );
+    } finally {
+      setPayingAppointmentId("");
+    }
+  }
 
   const now = Date.now();
 
@@ -170,8 +271,8 @@ export default function CustomerAccountPage() {
             </span>
             <h1>Welcome back, {firstName}</h1>
             <p>
-              Manage appointments, purchases and your SalonAI customer journey
-              from one place.
+              Manage appointments, secure payments, purchases and your SalonAI
+              customer journey from one place.
             </p>
           </div>
         </div>
@@ -187,6 +288,7 @@ export default function CustomerAccountPage() {
       </section>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
+      {paymentError ? <Alert variant="error">{paymentError}</Alert> : null}
 
       <section className="account-summary-grid" aria-label="Account summary">
         <AccountSummaryCard
@@ -218,7 +320,7 @@ export default function CustomerAccountPage() {
       <div className="account-content-grid">
         <AccountSection
           title="Upcoming appointments"
-          description="Your next confirmed or pending salon visits."
+          description="Your next confirmed or pending salon visits and payment status."
           action={
             <Link to="/booking" className="account-text-link">
               New booking <ChevronRight size={16} />
@@ -232,30 +334,59 @@ export default function CustomerAccountPage() {
             </div>
           ) : upcomingAppointments.length ? (
             <div className="account-list">
-              {upcomingAppointments.slice(0, 4).map((appointment, index) => (
-                <article
-                  className="account-list-item"
-                  key={appointment?._id ?? appointment?.id ?? index}
-                >
-                  <span className="account-list-icon">
-                    <CalendarDays size={19} />
-                  </span>
-                  <div className="account-list-copy">
-                    <strong>
-                      {appointment?.service?.name ??
-                        appointment?.serviceName ??
-                        "Salon appointment"}
-                    </strong>
-                    <span>
-                      {formatDate(appointmentDate(appointment))}
-                      {appointment?.time ? ` at ${appointment.time}` : ""}
+              {upcomingAppointments.slice(0, 4).map((appointment, index) => {
+                const appointmentId = appointment?._id ?? appointment?.id ?? index;
+                const paying = String(appointmentId) === payingAppointmentId;
+
+                return (
+                  <article
+                    className="account-list-item"
+                    key={appointmentId}
+                  >
+                    <span className="account-list-icon">
+                      <CalendarDays size={19} />
                     </span>
-                  </div>
-                  <span className="account-status">
-                    {appointment?.status ?? "pending"}
-                  </span>
-                </article>
-              ))}
+                    <div className="account-list-copy">
+                      <strong>
+                        {appointment?.service?.name ??
+                          appointment?.serviceName ??
+                          "Salon appointment"}
+                      </strong>
+                      <span>
+                        {formatDate(appointmentDate(appointment))}
+                        {appointment?.appointmentTime
+                          ? ` at ${appointment.appointmentTime}`
+                          : appointment?.time
+                            ? ` at ${appointment.time}`
+                            : ""}
+                      </span>
+                      <small>
+                        {appointmentBalance(appointment) > 0
+                          ? `${formatMoney(appointmentBalance(appointment))} outstanding`
+                          : "Payment complete"}
+                      </small>
+                    </div>
+                    <span className="account-status">
+                      {appointment?.status ?? "pending"}
+                    </span>
+                    {canPayAppointment(appointment) ? (
+                      <button
+                        type="button"
+                        className="app-button app-button-primary"
+                        disabled={paying}
+                        onClick={() => startAppointmentPayment(appointment)}
+                      >
+                        {paying ? (
+                          <LoaderCircle size={17} aria-hidden="true" />
+                        ) : (
+                          <CreditCard size={17} aria-hidden="true" />
+                        )}
+                        {paying ? "Opening Stripe…" : paymentButtonLabel(appointment)}
+                      </button>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <EmptyState
@@ -280,6 +411,14 @@ export default function CustomerAccountPage() {
               <span>
                 <strong>Manage account</strong>
                 <small>Contact details and home address</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+            <Link to="/settings">
+              <CreditCard size={20} />
+              <span>
+                <strong>Communication settings</strong>
+                <small>Email, SMS and WhatsApp preferences</small>
               </span>
               <ChevronRight size={18} />
             </Link>
@@ -377,7 +516,8 @@ export default function CustomerAccountPage() {
       <footer className="account-note">
         <Clock3 size={18} />
         Appointment and order information is loaded from your authenticated
-        SalonAI account.
+        SalonAI account. Appointment payments open the secure Stripe Checkout
+        URL returned by the backend.
       </footer>
     </main>
   );
