@@ -81,6 +81,45 @@ export function queueAppointmentReminder(
   ).then(responseData);
 }
 
+export function sendAppointmentReminderNow(
+  appointmentId,
+  payload = {}
+) {
+  return API.post(
+    `${BASE_URL}/${appointmentId}/communications/reminder`,
+    payload
+  ).then(responseData);
+}
+
+export function getAppointmentCommunicationHistory(
+  appointmentId,
+  params = {}
+) {
+  return API.get(
+    `${BASE_URL}/${appointmentId}/communications`,
+    { params }
+  ).then(responseData);
+}
+
+export function createAppointmentPaymentCheckout(
+  appointmentId,
+  payload = {}
+) {
+  return API.post(
+    `${BASE_URL}/${appointmentId}/payments/checkout`,
+    payload
+  ).then(responseData);
+}
+
+export function confirmDemoAppointmentPayment(
+  appointmentId,
+  paymentId
+) {
+  return API.post(
+    `${BASE_URL}/${appointmentId}/payments/${paymentId}/confirm-demo`
+  ).then(responseData);
+}
+
 export function queueUpcomingAppointmentReminders(
   payload = {}
 ) {
@@ -114,6 +153,18 @@ const appointmentManagementApi = {
 
   queueReminder:
     queueAppointmentReminder,
+
+  sendReminderNow:
+    sendAppointmentReminderNow,
+
+  getCommunicationHistory:
+    getAppointmentCommunicationHistory,
+
+  createPaymentCheckout:
+    createAppointmentPaymentCheckout,
+
+  confirmDemoPayment:
+    confirmDemoAppointmentPayment,
 
   queueUpcomingReminders:
     queueUpcomingAppointmentReminders,
