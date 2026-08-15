@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import {
+  ipKeyGenerator,
+  rateLimit,
+} from "express-rate-limit";
 
 import { env } from "../config/env.js";
 
@@ -35,18 +38,26 @@ function firstForwardedAddress(req) {
   return String(header || "").split(",")[0].trim();
 }
 
-function rateLimitKey(req) {
+function normalizedIpKey(value) {
+  const ip = String(value || "").trim();
+  return ip ? ipKeyGenerator(ip, 56) : "unknown-client";
+}
+
+export function rateLimitKey(req) {
   /*
    * SalonAI production is served through the trusted nginx edge container.
-   * Without using the original forwarded client address, every browser can
-   * collapse onto the reverse-proxy address and share one rate-limit bucket.
+   * nginx supplies the original remote address in X-Forwarded-For. Using that
+   * address avoids placing every browser into the edge-container rate bucket.
+   * ipKeyGenerator also preserves express-rate-limit's IPv6 subnet handling.
    */
   if (env.isProduction) {
     const forwardedAddress = firstForwardedAddress(req);
-    if (forwardedAddress) return forwardedAddress;
+    if (forwardedAddress) return normalizedIpKey(forwardedAddress);
   }
 
-  return req.ip || req.socket?.remoteAddress || "unknown-client";
+  return normalizedIpKey(
+    req.ip || req.socket?.remoteAddress
+  );
 }
 
 function skipNonActionRequest(req) {
