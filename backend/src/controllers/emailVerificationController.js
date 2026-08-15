@@ -3,7 +3,10 @@ import bcrypt from "bcrypt";
 
 import { env } from "../config/env.js";
 import User from "../models/user.js";
-import { sendEmail } from "../providers/emailProvider.js";
+import {
+  emailDeliveryStatus,
+  sendEmail,
+} from "../providers/emailProvider.js";
 
 const VERIFICATION_TOKEN_BYTES = 32;
 const VERIFICATION_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -20,6 +23,24 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function boolean(value, fallback = false) {
+  if (value === undefined) return fallback;
+  return String(value).trim().toLowerCase() === "true";
+}
+
+export function customerEmailVerificationEnabled() {
+  return boolean(
+    process.env.EMAIL_VERIFICATION_REQUIRED,
+    false
+  );
+}
+
+function verificationProviderReady() {
+  const status = emailDeliveryStatus();
+
+  return status.live;
 }
 
 function hashToken(token) {
@@ -46,6 +67,12 @@ function verificationUrl(token) {
 }
 
 async function issueVerification(user) {
+  if (!verificationProviderReady()) {
+    throw new Error(
+      "Customer email verification is enabled but the live email provider is not ready."
+    );
+  }
+
   const token = crypto.randomBytes(VERIFICATION_TOKEN_BYTES).toString("hex");
 
   user.emailVerificationRequired = true;
@@ -106,14 +133,35 @@ export async function registerVerifiedCustomer(req, res, next) {
       });
     }
 
+    const verificationRequired = customerEmailVerificationEnabled();
+
+    if (verificationRequired && !verificationProviderReady()) {
+      return res.status(503).json({
+        success: false,
+        code: "VERIFICATION_PROVIDER_NOT_READY",
+        message:
+          "Customer registration is temporarily unavailable while email verification is being configured.",
+      });
+    }
+
     const user = await User.create({
       name,
       email,
       password: await bcrypt.hash(password, 10),
       role: "customer",
       emailVerified: false,
-      emailVerificationRequired: true,
+      emailVerificationRequired: verificationRequired,
     });
+
+    if (!verificationRequired) {
+      return res.status(201).json({
+        success: true,
+        verificationRequired: false,
+        message:
+          "Account created. You can sign in now. Email activation will become mandatory when the production mail provider is enabled.",
+        user: publicUser(user),
+      });
+    }
 
     try {
       await issueVerification(user);
@@ -185,6 +233,24 @@ export async function verifyEmail(req, res, next) {
 
 export async function resendVerificationEmail(req, res, next) {
   try {
+    if (!customerEmailVerificationEnabled()) {
+      return res.status(409).json({
+        success: false,
+        code: "EMAIL_VERIFICATION_DISABLED",
+        message:
+          "Email verification is not active on this environment yet.",
+      });
+    }
+
+    if (!verificationProviderReady()) {
+      return res.status(503).json({
+        success: false,
+        code: "VERIFICATION_PROVIDER_NOT_READY",
+        message:
+          "Verification email delivery is temporarily unavailable.",
+      });
+    }
+
     const email = normaliseEmail(req.body?.email);
 
     if (!email) {
