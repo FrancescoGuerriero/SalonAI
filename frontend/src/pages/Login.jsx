@@ -133,6 +133,10 @@ export default function Login() {
     "/dashboard";
 
   const registrationComplete = Boolean(location.state?.registrationComplete);
+  const registrationVerificationRequired = Boolean(
+    location.state?.verificationRequired
+  );
+  const registrationMessage = location.state?.registrationMessage || "";
   const verificationEmail = location.state?.verificationEmail || "";
   const passwordResetComplete = Boolean(location.state?.passwordResetComplete);
 
@@ -356,7 +360,10 @@ export default function Login() {
     >
       {registrationComplete ? (
         <div className="auth-feedback auth-feedback-success" role="status">
-          Your account was created. Check your email and verify your address before signing in.
+          {registrationMessage ||
+            (registrationVerificationRequired
+              ? "Your account was created. Check your email and verify your address before signing in."
+              : "Your account was created. You can sign in now.")}
         </div>
       ) : null}
 
