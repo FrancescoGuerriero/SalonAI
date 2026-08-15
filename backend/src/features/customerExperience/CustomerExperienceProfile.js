@@ -73,12 +73,46 @@ const appointmentRequestSchema = new Schema(
 const consultationSchema = new Schema(
   {
     appointment: { type: Schema.Types.ObjectId, ref: "Appointment", default: null },
+
+    /* Hair profile */
     hairType: { type: String, trim: true, maxlength: 80, default: "" },
+    texturePattern: { type: String, trim: true, maxlength: 80, default: "" },
+    density: { type: String, trim: true, maxlength: 60, default: "" },
+    strandThickness: { type: String, trim: true, maxlength: 60, default: "" },
+    length: { type: String, trim: true, maxlength: 80, default: "" },
+    porosity: { type: String, trim: true, maxlength: 60, default: "" },
+    scalpCondition: { type: String, trim: true, maxlength: 250, default: "" },
+    hairCondition: { type: String, trim: true, maxlength: 500, default: "" },
+
+    /* Colour and chemical history */
+    naturalColour: { type: String, trim: true, maxlength: 100, default: "" },
     currentColour: { type: String, trim: true, maxlength: 100, default: "" },
-    desiredOutcome: { type: String, trim: true, maxlength: 750, required: true },
-    sensitivities: { type: String, trim: true, maxlength: 750, default: "" },
-    previousTreatments: { type: String, trim: true, maxlength: 1000, default: "" },
-    notes: { type: String, trim: true, maxlength: 1000, default: "" },
+    greyPercentage: { type: String, trim: true, maxlength: 50, default: "" },
+    colourHistory: { type: String, trim: true, maxlength: 1500, default: "" },
+    bleachHistory: { type: String, trim: true, maxlength: 1000, default: "" },
+    previousTreatments: { type: String, trim: true, maxlength: 1500, default: "" },
+
+    /* Routine and concerns */
+    washFrequency: { type: String, trim: true, maxlength: 100, default: "" },
+    heatStylingFrequency: { type: String, trim: true, maxlength: 100, default: "" },
+    homeCareRoutine: { type: String, trim: true, maxlength: 1500, default: "" },
+    currentProducts: { type: String, trim: true, maxlength: 1500, default: "" },
+    lifestyleExposure: { type: String, trim: true, maxlength: 750, default: "" },
+    concerns: { type: [String], default: [] },
+
+    /* Goals and practical constraints */
+    desiredOutcome: { type: String, trim: true, maxlength: 1500, required: true },
+    maintenancePreference: { type: String, trim: true, maxlength: 250, default: "" },
+    budgetRange: { type: String, trim: true, maxlength: 100, default: "" },
+    upcomingEvent: { type: String, trim: true, maxlength: 500, default: "" },
+    inspirationNotes: { type: String, trim: true, maxlength: 1000, default: "" },
+
+    /* Salon safety */
+    sensitivities: { type: String, trim: true, maxlength: 1000, default: "" },
+    patchTestRequired: { type: Boolean, default: false },
+    safetyNotes: { type: String, trim: true, maxlength: 1000, default: "" },
+
+    notes: { type: String, trim: true, maxlength: 1500, default: "" },
     dataProcessingConsent: { type: Boolean, required: true },
     status: {
       type: String,

@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import {
+  ipKeyGenerator,
+  rateLimit,
+} from "express-rate-limit";
 
 import { env } from "../config/env.js";
 
@@ -25,11 +28,49 @@ export const securityHeaders = helmet({
   },
 });
 
+function firstForwardedAddress(req) {
+  const header = req.headers?.["x-forwarded-for"];
+
+  if (Array.isArray(header)) {
+    return String(header[0] || "").split(",")[0].trim();
+  }
+
+  return String(header || "").split(",")[0].trim();
+}
+
+function normalizedIpKey(value) {
+  const ip = String(value || "").trim();
+  return ip ? ipKeyGenerator(ip, 56) : "unknown-client";
+}
+
+export function rateLimitKey(req) {
+  /*
+   * SalonAI production is served through the trusted nginx edge container.
+   * nginx supplies the original remote address in X-Forwarded-For. Using that
+   * address avoids placing every browser into the edge-container rate bucket.
+   * ipKeyGenerator also preserves express-rate-limit's IPv6 subnet handling.
+   */
+  if (env.isProduction) {
+    const forwardedAddress = firstForwardedAddress(req);
+    if (forwardedAddress) return normalizedIpKey(forwardedAddress);
+  }
+
+  return normalizedIpKey(
+    req.ip || req.socket?.remoteAddress
+  );
+}
+
+function skipNonActionRequest(req) {
+  return req.method === "OPTIONS" || req.method === "HEAD";
+}
+
 export const apiRateLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,
   max: env.rateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   message: {
     success: false,
     code: "RATE_LIMIT_EXCEEDED",
@@ -42,6 +83,8 @@ export const authRateLimiter = rateLimit({
   max: env.authRateLimitMax,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   skipSuccessfulRequests: true,
   message: {
     success: false,
@@ -55,6 +98,8 @@ export const passwordResetRateLimiter = rateLimit({
   max: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  skip: skipNonActionRequest,
   message: {
     success: false,
     code: "PASSWORD_RESET_RATE_LIMIT_EXCEEDED",

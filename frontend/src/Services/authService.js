@@ -24,6 +24,34 @@ class AuthService {
     return response.data;
   }
 
+  async verifyEmail(token) {
+    const response =
+      await API.post(
+        "/auth/verify-email",
+        { token },
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    return response.data;
+  }
+
+  async resendVerification(email) {
+    const response =
+      await API.post(
+        "/auth/resend-verification",
+        { email },
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    return response.data;
+  }
+
   async login(
     credentials
   ) {

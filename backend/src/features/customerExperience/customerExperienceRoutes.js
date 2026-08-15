@@ -7,6 +7,9 @@ import {
   getCommunicationPreferences,
   updateCommunicationPreferences,
 } from "./customerCommunicationPreferencesController.js";
+import {
+  addExpandedConsultation,
+} from "./customerConsultationController.js";
 
 const router = express.Router();
 
@@ -35,7 +38,7 @@ router.post("/me/wallet", asyncHandler(controller.addWalletCard));
 router.delete("/me/wallet/:entryId", asyncHandler(controller.removeWalletCard));
 router.post("/me/appointment-requests", asyncHandler(controller.createAppointmentRequest));
 router.patch("/me/discovery", asyncHandler(controller.updateDiscovery));
-router.post("/me/consultations", asyncHandler(controller.addConsultation));
+router.post("/me/consultations", asyncHandler(addExpandedConsultation));
 router.post("/me/inspiration", asyncHandler(controller.addInspiration));
 router.delete("/me/inspiration/:entryId", asyncHandler(controller.removeInspiration));
 router.post("/me/feedback", asyncHandler(controller.addFeedback));

@@ -150,15 +150,6 @@ const userSchema = new Schema(
       default: () => ({}),
     },
 
-    /*
-     * Links a login account to its separate
-     * salon CRM customer record.
-     *
-     * The field is intentionally optional
-     * because stylists, managers and
-     * administrators do not require a
-     * Customer document.
-     */
     customerProfile: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
@@ -175,6 +166,35 @@ const userSchema = new Schema(
     emailVerified: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+
+    emailVerificationRequired: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    emailVerificationTokenHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
+
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastVerificationEmailSentAt: {
+      type: Date,
+      default: null,
     },
 
     lastLoginAt: {
@@ -210,6 +230,8 @@ const userSchema = new Schema(
         returnedObject
       ) {
         delete returnedObject.password;
+        delete returnedObject.emailVerificationTokenHash;
+        delete returnedObject.emailVerificationExpiresAt;
         delete returnedObject.__v;
 
         return returnedObject;
@@ -224,6 +246,8 @@ const userSchema = new Schema(
         returnedObject
       ) {
         delete returnedObject.password;
+        delete returnedObject.emailVerificationTokenHash;
+        delete returnedObject.emailVerificationExpiresAt;
         delete returnedObject.__v;
 
         return returnedObject;
@@ -231,12 +255,6 @@ const userSchema = new Schema(
     },
   }
 );
-
-/*
-|--------------------------------------------------------------------------
-| Virtual properties
-|--------------------------------------------------------------------------
-*/
 
 userSchema
   .virtual("isManagementUser")
@@ -256,12 +274,6 @@ userSchema
       this.customerProfile
     );
   });
-
-/*
-|--------------------------------------------------------------------------
-| Validation and normalisation
-|--------------------------------------------------------------------------
-*/
 
 userSchema.pre(
   "validate",
@@ -283,12 +295,6 @@ userSchema.pre(
     }
   }
 );
-
-/*
-|--------------------------------------------------------------------------
-| User methods
-|--------------------------------------------------------------------------
-*/
 
 userSchema.methods.canManageSalon =
   function canManageSalon() {
@@ -312,12 +318,6 @@ userSchema.methods.recordLogin =
 
     return this;
   };
-
-/*
-|--------------------------------------------------------------------------
-| Indexes
-|--------------------------------------------------------------------------
-*/
 
 userSchema.index({
   role: 1,

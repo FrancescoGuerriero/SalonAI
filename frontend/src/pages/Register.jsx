@@ -54,12 +54,14 @@ function Register() {
       return;
     }
 
+    const email = form.email.trim().toLowerCase();
+
     try {
       setLoading(true);
 
-      await register({
+      const result = await register({
         name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
+        email,
         password: form.password,
       });
 
@@ -67,13 +69,31 @@ function Register() {
         replace: true,
         state: {
           registrationComplete: true,
+          verificationRequired: Boolean(result?.verificationRequired),
+          verificationEmail: result?.user?.email || email,
+          registrationMessage: result?.message || "Account created.",
         },
       });
     } catch (requestError) {
       console.error("Registration failed:", requestError);
 
+      const response = requestError.response?.data;
+
+      if (response?.code === "VERIFICATION_EMAIL_UNAVAILABLE") {
+        navigate("/login", {
+          replace: true,
+          state: {
+            registrationComplete: true,
+            verificationRequired: true,
+            verificationEmail: response?.user?.email || email,
+            registrationMessage: response?.message,
+          },
+        });
+        return;
+      }
+
       setError(
-        requestError.response?.data?.message ||
+        response?.message ||
           requestError.message ||
           "Registration failed."
       );
@@ -86,7 +106,7 @@ function Register() {
     <AuthShell
       eyebrow="Join SalonAI"
       title="Create your account"
-      description="Save bookings, purchases and customer preferences securely."
+      description="Create your secure customer account. When production email activation is enabled, SalonAI will require the verification link sent to your email before first sign-in."
       footer={
         <p>
           Already registered? <Link to="/login">Sign in</Link>
@@ -129,6 +149,12 @@ function Register() {
             required
           />
         </div>
+
+        <p className="auth-terms">
+          Use an email address you can access. It is used for account activation,
+          password recovery and important salon account messages when real email
+          delivery is enabled.
+        </p>
 
         <label htmlFor="registerPassword">Password</label>
         <div className="auth-input">
