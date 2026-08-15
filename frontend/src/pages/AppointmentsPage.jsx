@@ -25,6 +25,7 @@ import { Link } from "react-router-dom";
 import appointmentManagementApi from "../Services/appointmentManagementApi.js";
 import serviceService from "../Services/serviceService.js";
 import stylistService from "../Services/stylistService.js";
+import StaffAppointmentCommercePanel from "../components/appointments/StaffAppointmentCommercePanel.jsx";
 
 const STATUS_OPTIONS = [
   "pending",
@@ -341,6 +342,10 @@ function AppointmentModal({
               <BellRing size={16} /> Queue reminder
             </button>
           </section>
+
+          <div className="lg:col-span-2">
+            <StaffAppointmentCommercePanel appointment={appointment} />
+          </div>
 
           <section className="rounded-xl border border-slate-200 p-4 lg:col-span-2">
             <h3 className="font-bold text-slate-900">Reschedule booking</h3>
