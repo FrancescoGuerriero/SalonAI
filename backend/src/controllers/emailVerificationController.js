@@ -33,7 +33,7 @@ function publicUser(user) {
 
 function verificationUrl(token) {
   const origin = String(env.frontendUrl || "").replace(/\/$/, "");
-  return `${origin}/verify-email?token=${encodeURIComponent(token)}`;
+  return `${origin}/login?verify=${encodeURIComponent(token)}`;
 }
 
 async function issueVerification(user) {
@@ -187,7 +187,6 @@ export async function resendVerificationEmail(req, res, next) {
       "+emailVerificationTokenHash +emailVerificationExpiresAt"
     );
 
-    /* Keep account-discovery behaviour neutral. */
     if (!user || !user.emailVerificationRequired || user.emailVerified) {
       return res.status(200).json({
         success: true,
