@@ -3,26 +3,32 @@ import express from "express";
 import {
   createAppointment,
   createAppointmentPaymentCheckout,
-  getAppointments
+  getAppointments,
 } from "../controllers/appointmentController.js";
 
 import {
-  protect
+  protect,
 } from "../middleware/authMiddleware.js";
+
 import {
-  notifyAfterResponse,
+  appointmentLifecycleNotification,
 } from "../features/appointments/appointmentLifecycleNotificationMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-router.get("/", getAppointments);
+router.get(
+  "/",
+  getAppointments
+);
+
 router.post(
   "/",
-  notifyAfterResponse("created"),
+  appointmentLifecycleNotification("created"),
   createAppointment
 );
+
 router.post(
   "/:id/payments/checkout",
   createAppointmentPaymentCheckout
