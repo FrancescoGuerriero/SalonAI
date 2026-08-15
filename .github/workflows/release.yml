@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       release_tag: ${{ steps.release.outputs.release_tag }}
+      release_commit: ${{ steps.release.outputs.release_commit }}
       registry_namespace: ${{ steps.release.outputs.registry_namespace }}
     steps:
       - name: Checkout release source
@@ -47,9 +48,10 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/ci/validate-release-tag.mjs "$REQUESTED_TAG"
-          git rev-parse --verify "$REQUESTED_TAG^{commit}" >/dev/null
+          release_commit="$(git rev-parse --verify "$REQUESTED_TAG^{commit}")"
           owner_lower="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           echo "release_tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "registry_namespace=$REGISTRY/$owner_lower" >> "$GITHUB_OUTPUT"
 
   release-quality:
@@ -161,10 +163,10 @@ jobs:
           sbom: false
           tags: |
             ${{ steps.image.outputs.name }}:${{ needs.prepare.outputs.release_tag }}
-            ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+            ${{ steps.image.outputs.name }}:sha-${{ needs.prepare.outputs.release_commit }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.release_commit }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.release_tag }}
           cache-from: type=gha,scope=salonai-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=salonai-${{ matrix.service }}
@@ -203,7 +205,7 @@ jobs:
             --image "${{ steps.image.outputs.name }}" \
             --tag "${{ needs.prepare.outputs.release_tag }}" \
             --digest "${{ steps.build.outputs.digest }}" \
-            --commit "${{ github.sha }}" \
+            --commit "${{ needs.prepare.outputs.release_commit }}" \
             --run-id "${{ github.run_id }}" \
             --output "release-evidence/${{ matrix.service }}.image.json"
 
