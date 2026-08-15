@@ -3,6 +3,10 @@ import express from "express";
 import asyncHandler from "../../middleware/asyncHandler.js";
 import { managementOnly, protect } from "../../middleware/authMiddleware.js";
 import * as controller from "./customerExperienceController.js";
+import {
+  getCommunicationPreferences,
+  updateCommunicationPreferences,
+} from "./customerCommunicationPreferencesController.js";
 
 const router = express.Router();
 
@@ -20,6 +24,8 @@ router.patch("/management/feedback/:feedbackId", managementOnly, asyncHandler(co
 router.patch("/management/consultations/:consultationId", managementOnly, asyncHandler(controller.updateConsultationStatus));
 
 router.get("/me", asyncHandler(controller.getCustomerExperience));
+router.get("/me/communications", asyncHandler(getCommunicationPreferences));
+router.patch("/me/communications", asyncHandler(updateCommunicationPreferences));
 router.patch("/me/consents", asyncHandler(controller.updateConsents));
 router.post("/me/reviews", asyncHandler(controller.addReview));
 router.post("/me/favourites", asyncHandler(controller.addFavourite));
