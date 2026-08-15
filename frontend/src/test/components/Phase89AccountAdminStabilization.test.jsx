@@ -37,7 +37,7 @@ describe("Phase 8.9 account and admin stabilization", () => {
     expect(footer).toContain("Get the app");
     expect(footer).toContain("Instagram");
     expect(footer).toContain("Facebook");
-    expect(footer).toContain("Youtube");
+    expect(footer).toContain("YouTube");
     expect(links).toContain("VITE_APP_STORE_URL");
     expect(links).toContain("VITE_GOOGLE_PLAY_URL");
   });
