@@ -17,6 +17,9 @@ import {
   confirmDemoPayment,
   createCheckout,
 } from "./appointmentPaymentController.js";
+import {
+  appointmentLifecycleNotification,
+} from "./appointmentLifecycleNotificationMiddleware.js";
 
 const router = express.Router();
 
@@ -82,11 +85,13 @@ router.get(
 
 router.patch(
   "/:id/reschedule",
+  appointmentLifecycleNotification("rescheduled"),
   asyncHandler(reschedule)
 );
 
 router.patch(
   "/:id/status",
+  appointmentLifecycleNotification("status"),
   asyncHandler(status)
 );
 
