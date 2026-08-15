@@ -18,6 +18,10 @@ import {
   createCheckout,
 } from "./appointmentPaymentController.js";
 import {
+  communicationHistory,
+  sendReminderNow,
+} from "./appointmentStaffCommunicationController.js";
+import {
   appointmentLifecycleNotification,
 } from "./appointmentLifecycleNotificationMiddleware.js";
 
@@ -98,6 +102,16 @@ router.patch(
 router.post(
   "/:id/reminder",
   asyncHandler(reminder)
+);
+
+router.post(
+  "/:id/communications/reminder",
+  asyncHandler(sendReminderNow)
+);
+
+router.get(
+  "/:id/communications",
+  asyncHandler(communicationHistory)
 );
 
 router.post(
