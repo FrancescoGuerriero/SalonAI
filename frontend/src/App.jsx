@@ -31,6 +31,9 @@ const RetentionAutomationPage = lazy(() => import("./pages/RetentionAutomationPa
 const PremiumAnalyticsPage = lazy(() => import("./pages/PremiumAnalyticsPage.jsx"));
 const HelpCentrePage = lazy(() => import("./pages/HelpCentrePage.jsx"));
 const AboutPage = lazy(() => import("./pages/AboutPage.jsx"));
+const SearchLandingPage = lazy(
+  () => import("./pages/SearchLandingPage.jsx")
+);
 const StaffProfileEditorPage = lazy(() => import("./pages/StaffProfileEditorPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
@@ -571,6 +574,31 @@ function AppRoutes() {
         <Route
           path="stylists"
           element={<Stylists />}
+        />
+
+        <Route
+          path="hair-services"
+          element={<SearchLandingPage />}
+        />
+
+        <Route
+          path="hair-colour"
+          element={<SearchLandingPage />}
+        />
+
+        <Route
+          path="haircuts-styling"
+          element={<SearchLandingPage />}
+        />
+
+        <Route
+          path="professional-haircare"
+          element={<SearchLandingPage />}
+        />
+
+        <Route
+          path="book-hair-appointment"
+          element={<SearchLandingPage />}
         />
 
         <Route
