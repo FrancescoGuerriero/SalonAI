@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 
 const SITE_ORIGIN = "https://salonai.francescopicardi.co.uk";
 const SITE_NAME = "SalonAI";
@@ -9,6 +9,11 @@ const PUBLIC_ROUTES = {
   "/": "Home",
   "/services": "Services",
   "/stylists": "Stylists",
+  "/hair-services": "Hair Services",
+  "/hair-colour": "Hair Colour",
+  "/haircuts-styling": "Haircuts & Styling",
+  "/professional-haircare": "Professional Haircare",
+  "/book-hair-appointment": "Book a Hair Appointment",
   "/about": "About",
   "/shop": "Shop",
   "/experience": "Experience",
