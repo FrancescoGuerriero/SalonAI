@@ -1,17 +1,22 @@
 ﻿import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
+import StructuredData from "./StructuredData.jsx";
+
 const SITE_ORIGIN = "https://salonai.francescopicardi.co.uk";
 const SITE_NAME = "SalonAI";
 
-const DEFAULT_TITLE = "SalonAI | Premium Hair Salon Booking & Haircare";
+const DEFAULT_TITLE =
+  "SalonAI | Premium Hair Salon Booking & Haircare";
+
 const DEFAULT_DESCRIPTION =
   "Discover salon services, professional stylists, online booking and salon-quality haircare with SalonAI.";
 
 const INDEX_ROBOTS =
   "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1";
 
-const NOINDEX_ROBOTS = "noindex,nofollow,noarchive";
+const NOINDEX_ROBOTS =
+  "noindex,nofollow,noarchive";
 
 const PUBLIC_METADATA = {
   "/": {
@@ -32,19 +37,22 @@ const PUBLIC_METADATA = {
   },
 
   "/about": {
-    title: "About SalonAI | Hair Professionals & Connected Salon Care",
+    title:
+      "About SalonAI | Hair Professionals & Connected Salon Care",
     description:
       "Learn about SalonAI, meet published salon professionals and discover connected booking, profiles and professional haircare.",
   },
 
   "/shop": {
-    title: "Professional Haircare Shop | SalonAI",
+    title:
+      "Professional Haircare Shop | SalonAI",
     description:
       "Shop professional haircare products selected to support healthy, manageable hair between salon visits.",
   },
 
   "/experience": {
-    title: "Your Connected Salon Experience | SalonAI",
+    title:
+      "Your Connected Salon Experience | SalonAI",
     description:
       "Plan your salon visit with services, stylists, appointment booking, haircare and customer support.",
   },
@@ -91,30 +99,52 @@ function normalisePathname(pathname) {
 }
 
 function toCanonicalUrl(pathname) {
-  const normalisedPath = normalisePathname(pathname);
-  return `${SITE_ORIGIN}${normalisedPath === "/" ? "/" : normalisedPath}`;
+  const normalisedPath =
+    normalisePathname(pathname);
+
+  return `${SITE_ORIGIN}${
+    normalisedPath === "/"
+      ? "/"
+      : normalisedPath
+  }`;
 }
 
 function upsertNamedMeta(name, content) {
-  let element = document.head.querySelector(`meta[name="${name}"]`);
+  let element =
+    document.head.querySelector(
+      `meta[name="${name}"]`
+    );
 
   if (!element) {
-    element = document.createElement("meta");
+    element =
+      document.createElement("meta");
+
     element.setAttribute("name", name);
+
     document.head.appendChild(element);
   }
 
   element.setAttribute("content", content);
 }
 
-function upsertPropertyMeta(property, content) {
-  let element = document.head.querySelector(
-    `meta[property="${property}"]`
-  );
+function upsertPropertyMeta(
+  property,
+  content
+) {
+  let element =
+    document.head.querySelector(
+      `meta[property="${property}"]`
+    );
 
   if (!element) {
-    element = document.createElement("meta");
-    element.setAttribute("property", property);
+    element =
+      document.createElement("meta");
+
+    element.setAttribute(
+      "property",
+      property
+    );
+
     document.head.appendChild(element);
   }
 
@@ -122,11 +152,20 @@ function upsertPropertyMeta(property, content) {
 }
 
 function upsertCanonical(href) {
-  let element = document.head.querySelector('link[rel="canonical"]');
+  let element =
+    document.head.querySelector(
+      'link[rel="canonical"]'
+    );
 
   if (!element) {
-    element = document.createElement("link");
-    element.setAttribute("rel", "canonical");
+    element =
+      document.createElement("link");
+
+    element.setAttribute(
+      "rel",
+      "canonical"
+    );
+
     document.head.appendChild(element);
   }
 
@@ -134,9 +173,11 @@ function upsertCanonical(href) {
 }
 
 function resolveSeo(pathname) {
-  const path = normalisePathname(pathname);
+  const path =
+    normalisePathname(pathname);
 
-  const publicMetadata = PUBLIC_METADATA[path];
+  const publicMetadata =
+    PUBLIC_METADATA[path];
 
   if (publicMetadata) {
     return {
@@ -146,7 +187,8 @@ function resolveSeo(pathname) {
     };
   }
 
-  const publicNoindexMetadata = PUBLIC_NOINDEX_METADATA[path];
+  const publicNoindexMetadata =
+    PUBLIC_NOINDEX_METADATA[path];
 
   if (publicNoindexMetadata) {
     return {
@@ -157,13 +199,14 @@ function resolveSeo(pathname) {
   }
 
   /*
-   * Product-detail SEO requires product data such as name, description,
-   * slug and image. Phase 9.1 deliberately leaves these routes noindex
-   * until dynamic metadata is implemented in the next SEO stage.
+   * Product detail pages remain noindex until
+   * product-specific metadata and Product JSON-LD
+   * can be generated from verified product data.
    */
   if (path.startsWith("/shop/")) {
     return {
-      title: "Haircare Product | SalonAI",
+      title:
+        "Haircare Product | SalonAI",
       description:
         "View professional haircare product information from SalonAI.",
       indexable: false,
@@ -182,31 +225,82 @@ export default function Seo() {
   const location = useLocation();
 
   useEffect(() => {
-    const seo = resolveSeo(location.pathname);
-    const canonicalUrl = toCanonicalUrl(seo.canonicalPath);
+    const seo =
+      resolveSeo(location.pathname);
 
-    const robots = seo.indexable
-      ? INDEX_ROBOTS
-      : NOINDEX_ROBOTS;
+    const canonicalUrl =
+      toCanonicalUrl(
+        seo.canonicalPath
+      );
+
+    const robots =
+      seo.indexable
+        ? INDEX_ROBOTS
+        : NOINDEX_ROBOTS;
 
     document.title = seo.title;
 
-    upsertNamedMeta("description", seo.description);
-    upsertNamedMeta("robots", robots);
-    upsertNamedMeta("googlebot", robots);
+    upsertNamedMeta(
+      "description",
+      seo.description
+    );
+
+    upsertNamedMeta(
+      "robots",
+      robots
+    );
+
+    upsertNamedMeta(
+      "googlebot",
+      robots
+    );
 
     upsertCanonical(canonicalUrl);
 
-    upsertPropertyMeta("og:site_name", SITE_NAME);
-    upsertPropertyMeta("og:type", "website");
-    upsertPropertyMeta("og:title", seo.title);
-    upsertPropertyMeta("og:description", seo.description);
-    upsertPropertyMeta("og:url", canonicalUrl);
+    upsertPropertyMeta(
+      "og:site_name",
+      SITE_NAME
+    );
 
-    upsertNamedMeta("twitter:card", "summary");
-    upsertNamedMeta("twitter:title", seo.title);
-    upsertNamedMeta("twitter:description", seo.description);
+    upsertPropertyMeta(
+      "og:type",
+      "website"
+    );
+
+    upsertPropertyMeta(
+      "og:title",
+      seo.title
+    );
+
+    upsertPropertyMeta(
+      "og:description",
+      seo.description
+    );
+
+    upsertPropertyMeta(
+      "og:url",
+      canonicalUrl
+    );
+
+    upsertNamedMeta(
+      "twitter:card",
+      "summary"
+    );
+
+    upsertNamedMeta(
+      "twitter:title",
+      seo.title
+    );
+
+    upsertNamedMeta(
+      "twitter:description",
+      seo.description
+    );
   }, [location.pathname]);
 
-  return null;
+  return (
+    <StructuredData
+      pathname={location.pathname}
+    />
+  );
 }
