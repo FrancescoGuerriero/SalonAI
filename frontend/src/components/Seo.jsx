@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import StructuredData from "./StructuredData.jsx";
@@ -34,6 +34,36 @@ const PUBLIC_METADATA = {
     title: "Meet the Salon Team | SalonAI",
     description:
       "Meet SalonAI stylists, explore their specialties and choose the right professional for your appointment.",
+  },
+
+  "/hair-services": {
+    title: "Professional Hair Services | SalonAI",
+    description:
+      "Explore professional hair services, salon treatments, stylists and online appointment options with SalonAI.",
+  },
+
+  "/hair-colour": {
+    title: "Hair Colour, Highlights & Balayage | SalonAI",
+    description:
+      "Explore professional hair colour, highlights and balayage services and find a SalonAI stylist for your appointment.",
+  },
+
+  "/haircuts-styling": {
+    title: "Haircuts, Blow-Dries & Styling | SalonAI",
+    description:
+      "Discover professional haircuts, blow-dries and styling services and choose the right SalonAI stylist.",
+  },
+
+  "/professional-haircare": {
+    title: "Professional Haircare Products | SalonAI",
+    description:
+      "Discover professional haircare products and connect salon-quality home care with SalonAI services and stylists.",
+  },
+
+  "/book-hair-appointment": {
+    title: "Book a Hair Appointment Online | SalonAI",
+    description:
+      "Plan your SalonAI hair appointment by choosing a professional salon service and stylist before booking online.",
   },
 
   "/about": {
