@@ -244,9 +244,11 @@ export async function createAppointmentCheckoutPayment({
   successUrl,
   cancelUrl,
   metadata = {},
+  idempotencyKey = "",
 }) {
   const paymentAmount = assertPositiveAmount(amount);
   const appointmentId = String(appointment?._id || "").trim();
+  const requestIdempotencyKey = String(idempotencyKey || "").trim();
 
   if (!appointmentId) {
     const error = new Error(
@@ -294,7 +296,9 @@ export async function createAppointmentCheckoutPayment({
     ...metadata,
   });
 
-  const session = await stripeClient().checkout.sessions.create({
+  const stripe = stripeClient();
+
+  const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: customerEmail || undefined,
     line_items: [
@@ -319,7 +323,9 @@ export async function createAppointmentCheckoutPayment({
     payment_intent_data: {
       metadata: paymentMetadata,
     },
-  });
+  }, requestIdempotencyKey
+    ? { idempotencyKey: requestIdempotencyKey }
+    : undefined);
 
   return {
     provider: "stripe",
