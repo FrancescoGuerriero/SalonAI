@@ -42,9 +42,9 @@ function checkoutUrls(appointment) {
 
   return {
     successUrl:
-      `${frontendUrl}/appointments/${appointment._id}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      `${frontendUrl}/account?payment=success&appointment=${appointment._id}&session_id={CHECKOUT_SESSION_ID}`,
     cancelUrl:
-      `${frontendUrl}/appointments/${appointment._id}?payment=cancelled`,
+      `${frontendUrl}/account?payment=cancelled&appointment=${appointment._id}`,
   };
 }
 

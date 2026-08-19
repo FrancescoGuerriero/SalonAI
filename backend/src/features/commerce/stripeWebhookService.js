@@ -141,6 +141,14 @@ async function markExpired(
     session.status ||
     "expired";
 
+  /*
+   * Expired Checkout Sessions must release
+   * their reservation so the customer can
+   * start a fresh payment attempt.
+   */
+  payment.checkoutReservationKey =
+    undefined;
+
   await payment.save();
 
   return payment;
