@@ -105,6 +105,10 @@ const orderSchema = new mongoose.Schema(
     items: {
       type: [orderItemSchema],
       default: [],
+      validate: {
+        validator: (items) => Array.isArray(items) && items.length > 0,
+        message: "An order must contain at least one item.",
+      },
     },
     subtotal: { type: Number, min: 0, default: 0 },
     appointmentSubtotal: { type: Number, min: 0, default: 0 },
@@ -150,13 +154,6 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-orderSchema.pre("validate", function requireCheckoutItems(next) {
-  if (!Array.isArray(this.items) || this.items.length === 0) {
-    this.invalidate("items", "An order must contain at least one item.");
-  }
-  next();
-});
 
 orderSchema.pre("save", function assignOrderNumber(next) {
   if (!this.orderNumber) {
