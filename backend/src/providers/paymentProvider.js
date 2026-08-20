@@ -40,6 +40,38 @@ function normaliseMetadata(metadata = {}) {
   );
 }
 
+function absolutePublicUrl(value) {
+  const image = String(value || "").trim();
+  if (!image) return "";
+
+  try {
+    const parsed = new URL(image);
+    if (["http:", "https:"].includes(parsed.protocol)) {
+      return parsed.toString();
+    }
+    return "";
+  } catch {
+    const base = String(
+      process.env.PUBLIC_BASE_URL ||
+        process.env.FRONTEND_URL ||
+        ""
+    ).trim();
+
+    if (!base || !image.startsWith("/")) {
+      return "";
+    }
+
+    try {
+      const parsed = new URL(image, `${base.replace(/\/$/, "")}/`);
+      return ["http:", "https:"].includes(parsed.protocol)
+        ? parsed.toString()
+        : "";
+    } catch {
+      return "";
+    }
+  }
+}
+
 function assertPositiveAmount(amount) {
   const paymentAmount = Number(amount);
 
@@ -131,6 +163,7 @@ export async function createCheckoutPayment({
   customerEmail,
   successUrl,
   cancelUrl,
+  idempotencyKey = "",
 }) {
   if (
     paymentProviderMode() === "console"
@@ -148,6 +181,28 @@ export async function createCheckoutPayment({
   }
 
   const stripe = stripeClient();
+  const requestIdempotencyKey = String(idempotencyKey || "").trim();
+
+  const lineItems = items.map((item) => {
+    const image = absolutePublicUrl(item.image);
+
+    return {
+      quantity: item.quantity,
+      price_data: {
+        currency: String(
+          order.currency || "GBP"
+        ).toLowerCase(),
+        unit_amount: Math.round(
+          assertPositiveAmount(item.unitPrice) * 100
+        ),
+        product_data: {
+          name: item.name,
+          description: item.sku,
+          images: image ? [image] : undefined,
+        },
+      },
+    };
+  });
 
   const session =
     await stripe.checkout.sessions.create({
@@ -156,34 +211,7 @@ export async function createCheckoutPayment({
       customer_email:
         customerEmail || undefined,
 
-      line_items: items.map(
-        (item) => ({
-          quantity:
-            item.quantity,
-
-          price_data: {
-            currency: String(
-              order.currency || "GBP"
-            ).toLowerCase(),
-
-            unit_amount: Math.round(
-              Number(item.unitPrice) *
-                100
-            ),
-
-            product_data: {
-              name: item.name,
-
-              description:
-                item.sku,
-
-              images: item.image
-                ? [item.image]
-                : undefined,
-            },
-          },
-        })
-      ),
+      line_items: lineItems,
 
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -208,7 +236,9 @@ export async function createCheckoutPayment({
             order.orderNumber,
         },
       },
-    });
+    }, requestIdempotencyKey
+      ? { idempotencyKey: requestIdempotencyKey }
+      : undefined);
 
   return {
     provider: "stripe",

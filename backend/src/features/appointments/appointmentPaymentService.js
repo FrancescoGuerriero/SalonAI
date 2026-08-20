@@ -12,6 +12,7 @@ import {
 } from "../../shared/serviceError.js";
 import {
   notifyAppointmentPaymentFailed,
+  notifyAppointmentPaymentReceived,
   notifyAppointmentPaymentRequest,
   notifySafely,
 } from "./appointmentNotificationService.js";
@@ -279,7 +280,7 @@ async function reserveAppointmentPayment({
   }
 }
 
-export async function createAppointmentCheckout(
+export async function prepareAppointmentPaymentReservation(
   appointmentId,
   payload = {},
   actor = null
@@ -327,8 +328,57 @@ export async function createAppointmentCheckout(
       }
     );
 
+  return {
+    appointment,
+    payment: reservation.payment,
+    reused: reservation.reused,
+    purpose,
+    amount,
+    balance,
+  };
+}
+
+export async function releaseAppointmentPaymentReservation(
+  paymentId,
+  {
+    status = "cancelled",
+    rawStatus = "checkout_cancelled",
+    failureReason = "",
+  } = {}
+) {
+  if (!mongoose.isValidObjectId(paymentId)) {
+    return null;
+  }
+
+  const payment = await Payment.findById(paymentId);
+  if (!payment || payment.status === "paid") {
+    return payment;
+  }
+
+  payment.status = status;
+  payment.rawStatus = rawStatus;
+  payment.failureReason = text(failureReason);
+  payment.checkoutReservationKey = undefined;
+  await payment.save();
+  return payment;
+}
+
+export async function createAppointmentCheckout(
+  appointmentId,
+  payload = {},
+  actor = null
+) {
+  const prepared =
+    await prepareAppointmentPaymentReservation(
+      appointmentId,
+      payload,
+      actor
+    );
+
+  const appointment =
+    prepared.appointment;
   const payment =
-    reservation.payment;
+    prepared.payment;
 
   /*
    * A completed provider checkout
@@ -462,7 +512,7 @@ export async function createAppointmentCheckout(
       ...settled,
 
       reused:
-        reservation.reused,
+        prepared.reused,
 
       requiresDemoConfirmation:
         false,
@@ -518,13 +568,14 @@ export async function createAppointmentCheckout(
       payment.toObject(),
 
     reused:
-      reservation.reused,
+      prepared.reused,
 
     requiresDemoConfirmation:
       payment.provider ===
       "console",
   };
 }
+
 export async function settleAppointmentPayment(
   appointmentId,
   providerData = {}
@@ -587,6 +638,18 @@ export async function settleAppointmentPayment(
   payment.checkoutReservationKey = undefined;
 
   await Promise.all([appointment.save(), payment.save()]);
+
+  await notifySafely(
+    () => notifyAppointmentPaymentReceived(appointment._id, {
+      amount: paidAmount,
+      remainingBalance: nextBalance,
+      eventKeySuffix: String(payment._id),
+    }),
+    {
+      appointmentId: String(appointment._id),
+      paymentId: String(payment._id),
+    }
+  );
 
   return {
     appointment: appointment.toObject(),
@@ -675,5 +738,7 @@ export default {
   confirmDemoAppointmentPayment,
   createAppointmentCheckout,
   failAppointmentPayment,
+  prepareAppointmentPaymentReservation,
+  releaseAppointmentPaymentReservation,
   settleAppointmentPayment,
 };
