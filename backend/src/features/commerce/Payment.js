@@ -81,6 +81,7 @@ const paymentSchema = new mongoose.Schema(
         "appointment_deposit",
         "appointment_balance",
         "product_order",
+        "mixed_order",
         "membership",
         "other",
       ],
