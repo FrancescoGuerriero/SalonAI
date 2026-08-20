@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
+import Payment from "../features/commerce/Payment.js";
 import { commerceConfig } from "../features/commerce/commerceService.js";
 import {
   createCheckoutPayment,
@@ -39,6 +40,52 @@ test("Order validation requires contact details and at least one item", () => {
   assert.ok(error.errors["contact.name"]);
   assert.ok(error.errors["contact.email"]);
   assert.ok(error.errors.items);
+});
+
+test("Order validation accepts an appointment payment without a product", () => {
+  const appointmentId = new mongoose.Types.ObjectId();
+  const appointmentPaymentId = new mongoose.Types.ObjectId();
+  const order = new Order({
+    user: new mongoose.Types.ObjectId(),
+    contact: {
+      name: "Cart Customer",
+      email: "cart@example.com",
+    },
+    items: [
+      {
+        itemType: "appointment",
+        appointment: appointmentId,
+        appointmentPayment: appointmentPaymentId,
+        paymentPurpose: "appointment_balance",
+        sku: "APPOINTMENT-TEST",
+        name: "Beard Trim balance",
+        quantity: 1,
+        unitPrice: 15,
+        lineTotal: 15,
+      },
+    ],
+    appointmentSubtotal: 15,
+    total: 15,
+  });
+
+  assert.equal(order.validateSync(), undefined);
+  assert.equal(order.items[0].itemType, "appointment");
+  assert.equal(String(order.items[0].appointment), String(appointmentId));
+  assert.equal(order.items[0].product, undefined);
+});
+
+test("Payment validation accepts a mixed commerce order", () => {
+  const payment = new Payment({
+    user: new mongoose.Types.ObjectId(),
+    order: new mongoose.Types.ObjectId(),
+    purpose: "mixed_order",
+    amount: 44.25,
+    currency: "GBP",
+    provider: "stripe",
+    status: "pending",
+  });
+
+  assert.equal(payment.validateSync(), undefined);
 });
 
 test("Commerce config exposes GBP settings without payment credentials", () => {
