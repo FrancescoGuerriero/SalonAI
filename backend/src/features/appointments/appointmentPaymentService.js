@@ -42,9 +42,9 @@ function checkoutUrls(appointment) {
 
   return {
     successUrl:
-      `${frontendUrl}/appointments/${appointment._id}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      `${frontendUrl}/account?payment=success&appointment=${appointment._id}&session_id={CHECKOUT_SESSION_ID}`,
     cancelUrl:
-      `${frontendUrl}/appointments/${appointment._id}?payment=cancelled`,
+      `${frontendUrl}/account?payment=cancelled&appointment=${appointment._id}`,
   };
 }
 
@@ -121,15 +121,162 @@ async function loadAppointment(appointmentId) {
   );
 }
 
-async function recentPendingPayment(appointmentId, purpose) {
-  const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+function checkoutReservationKey(
+  appointmentId,
+  purpose
+) {
+  return `appointment_checkout:${appointmentId}:${purpose}`;
+}
 
-  return Payment.findOne({
-    appointment: appointmentId,
+function providerIdempotencyKey(paymentId) {
+  return `salonai:appointment-payment:${paymentId}`;
+}
+
+async function reserveAppointmentPayment({
+  appointment,
+  purpose,
+  amount,
+  balance,
+  actor,
+  forceNew = false,
+}) {
+  const reservationKey =
+    checkoutReservationKey(
+      appointment._id,
+      purpose
+    );
+
+  const cutoff =
+    new Date(
+      Date.now() -
+        30 * 60 * 1000
+    );
+
+  let existing =
+    await Payment.findOne({
+      checkoutReservationKey:
+        reservationKey,
+    });
+
+  if (existing) {
+    const expired =
+      existing.createdAt &&
+      existing.createdAt < cutoff;
+
+    if (
+      forceNew !== true &&
+      !expired
+    ) {
+      return {
+        payment: existing,
+        reused: true,
+      };
+    }
+
+    const released =
+      await Payment.updateOne(
+        {
+          _id: existing._id,
+          checkoutReservationKey:
+            reservationKey,
+          status: "pending",
+        },
+        {
+          $set: {
+            status: "cancelled",
+            rawStatus:
+              "checkout_superseded",
+            failureReason:
+              "Superseded by a newer checkout request.",
+          },
+          $unset: {
+            checkoutReservationKey: 1,
+          },
+        }
+      );
+
+    if (
+      released.modifiedCount === 0
+    ) {
+      existing =
+        await Payment.findOne({
+          checkoutReservationKey:
+            reservationKey,
+        });
+
+      if (existing) {
+        return {
+          payment: existing,
+          reused: true,
+        };
+      }
+    }
+  }
+
+  const paymentData = {
+    customer:
+      appointment.customer?._id ||
+      undefined,
+
+    appointment:
+      appointment._id,
+
     purpose,
+
+    checkoutReservationKey:
+      reservationKey,
+
+    amount,
+
+    currency: "GBP",
+
+    provider:
+      paymentProviderMode(),
+
     status: "pending",
-    createdAt: { $gte: cutoff },
-  }).sort({ createdAt: -1 });
+
+    metadata: {
+      appointmentId:
+        String(appointment._id),
+
+      requestedBalance:
+        balance,
+
+      requestedBy:
+        actorId(actor) || null,
+    },
+  };
+
+  try {
+    const payment =
+      await Payment.create(
+        paymentData
+      );
+
+    return {
+      payment,
+      reused: false,
+    };
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    const winner =
+      await Payment.findOne({
+        checkoutReservationKey:
+          reservationKey,
+      });
+
+    if (!winner) {
+      throw error;
+    }
+
+    return {
+      payment: winner,
+      reused: true,
+    };
+  }
 }
 
 export async function createAppointmentCheckout(
@@ -137,101 +284,247 @@ export async function createAppointmentCheckout(
   payload = {},
   actor = null
 ) {
-  const appointment = await loadAppointment(appointmentId);
+  const appointment =
+    await loadAppointment(
+      appointmentId
+    );
 
-  if (["completed", "cancelled", "no_show"].includes(appointment.status)) {
+  if (
+    [
+      "completed",
+      "cancelled",
+      "no_show",
+    ].includes(
+      appointment.status
+    )
+  ) {
     throw createServiceError(
       `A ${appointment.status} appointment cannot accept a new online payment.`,
       409
     );
   }
 
-  const { purpose, amount, balance } = calculateRequestedAmount(
-    appointment,
-    payload
-  );
+  const {
+    purpose,
+    amount,
+    balance,
+  } =
+    calculateRequestedAmount(
+      appointment,
+      payload
+    );
 
-  if (payload.forceNew !== true) {
-    const existing = await recentPendingPayment(appointment._id, purpose);
-    if (existing) {
-      return {
-        appointment: appointment.toObject(),
-        payment: existing.toObject(),
-        reused: true,
-        requiresDemoConfirmation: existing.provider === "console",
-      };
-    }
+  const reservation =
+    await reserveAppointmentPayment(
+      {
+        appointment,
+        purpose,
+        amount,
+        balance,
+        actor,
+        forceNew:
+          payload.forceNew === true,
+      }
+    );
+
+  const payment =
+    reservation.payment;
+
+  /*
+   * A completed provider checkout
+   * already exists for this active
+   * reservation. Reuse it instead of
+   * creating another Stripe session.
+   */
+  if (
+    payment.providerPaymentId ||
+    payment.checkoutUrl
+  ) {
+    return {
+      appointment:
+        appointment.toObject(),
+
+      payment:
+        payment.toObject(),
+
+      reused: true,
+
+      requiresDemoConfirmation:
+        payment.provider ===
+        "console",
+    };
   }
 
-  const urls = checkoutUrls(appointment);
-  const customerEmail = text(appointment.customer?.email);
+  /*
+   * Use values persisted on the
+   * reservation record. Concurrent
+   * callers therefore submit identical
+   * parameters to Stripe even when their
+   * incoming payloads differ.
+   */
+  const reservedAmount =
+    money(payment.amount);
 
-  const providerResult = await createAppointmentCheckoutPayment({
-    appointment,
-    amount,
-    purpose,
-    customerEmail,
-    ...urls,
-    metadata: {
-      customerId: appointment.customer?._id || "",
-      requestedBy: actorId(actor) || "",
-    },
-  });
+  const reservedPurpose =
+    payment.purpose;
 
-  const payment = await Payment.create({
-    customer: appointment.customer?._id || undefined,
-    appointment: appointment._id,
-    purpose,
-    amount,
-    currency: "GBP",
-    provider: providerResult.provider,
-    providerPaymentId: providerResult.providerPaymentId,
-    providerIntentId: providerResult.providerIntentId || "",
-    checkoutUrl: providerResult.checkoutUrl || "",
-    status: providerResult.status || "pending",
-    rawStatus: providerResult.rawStatus || "",
-    metadata: {
-      appointmentId: String(appointment._id),
-      requestedBalance: balance,
-      requestedBy: actorId(actor) || null,
-    },
-  });
+  const urls =
+    checkoutUrls(
+      appointment
+    );
 
-  if (providerResult.status === "paid") {
-    await settleAppointmentPayment(appointment._id, {
-      paymentId: payment._id,
-      providerPaymentId: providerResult.providerPaymentId,
-      providerIntentId: providerResult.providerIntentId,
-      rawStatus: providerResult.rawStatus,
-    });
-  } else if (providerResult.checkoutUrl) {
+  const customerEmail =
+    text(
+      appointment.customer?.email
+    );
+
+  const providerResult =
+    await createAppointmentCheckoutPayment(
+      {
+        appointment,
+
+        amount:
+          reservedAmount,
+
+        purpose:
+          reservedPurpose,
+
+        customerEmail,
+
+        ...urls,
+
+        idempotencyKey:
+          providerIdempotencyKey(
+            payment._id
+          ),
+
+        metadata: {
+          customerId:
+            appointment.customer?._id ||
+            "",
+
+          paymentId:
+            String(payment._id),
+
+          requestedBy:
+            actorId(actor) || "",
+        },
+      }
+    );
+
+  payment.provider =
+    providerResult.provider;
+
+  payment.providerPaymentId =
+    providerResult.providerPaymentId;
+
+  payment.providerIntentId =
+    providerResult.providerIntentId ||
+    "";
+
+  payment.checkoutUrl =
+    providerResult.checkoutUrl ||
+    "";
+
+  payment.status =
+    providerResult.status ||
+    "pending";
+
+  payment.rawStatus =
+    providerResult.rawStatus ||
+    "";
+
+  await payment.save();
+
+  if (
+    providerResult.status ===
+    "paid"
+  ) {
+    const settled =
+      await settleAppointmentPayment(
+        appointment._id,
+        {
+          paymentId:
+            payment._id,
+
+          providerPaymentId:
+            providerResult.providerPaymentId,
+
+          providerIntentId:
+            providerResult.providerIntentId,
+
+          rawStatus:
+            providerResult.rawStatus,
+        }
+      );
+
+    return {
+      ...settled,
+
+      reused:
+        reservation.reused,
+
+      requiresDemoConfirmation:
+        false,
+    };
+  }
+
+  if (
+    providerResult.checkoutUrl
+  ) {
     await notifySafely(
       () =>
-        notifyAppointmentPaymentRequest(appointment._id, {
-          checkoutUrl: providerResult.checkoutUrl,
-          amount,
-          purpose:
-            purpose === "appointment_deposit"
-              ? "deposit"
-              : "balance",
-          eventKeySuffix: String(payment._id),
-          actorId: actorId(actor),
-        }),
+        notifyAppointmentPaymentRequest(
+          appointment._id,
+          {
+            checkoutUrl:
+              providerResult.checkoutUrl,
+
+            amount:
+              reservedAmount,
+
+            purpose:
+              reservedPurpose ===
+              "appointment_deposit"
+                ? "deposit"
+                : "balance",
+
+            eventKeySuffix:
+              String(payment._id),
+
+            actorId:
+              actorId(actor),
+          }
+        ),
       {
-        appointmentId: String(appointment._id),
-        paymentId: String(payment._id),
+        appointmentId:
+          String(
+            appointment._id
+          ),
+
+        paymentId:
+          String(
+            payment._id
+          ),
       }
     );
   }
 
   return {
-    appointment: appointment.toObject(),
-    payment: payment.toObject(),
-    reused: false,
-    requiresDemoConfirmation: payment.provider === "console",
+    appointment:
+      appointment.toObject(),
+
+    payment:
+      payment.toObject(),
+
+    reused:
+      reservation.reused,
+
+    requiresDemoConfirmation:
+      payment.provider ===
+      "console",
   };
 }
-
 export async function settleAppointmentPayment(
   appointmentId,
   providerData = {}
@@ -291,6 +584,7 @@ export async function settleAppointmentPayment(
     providerData.providerIntentId || payment.providerIntentId || "";
   payment.rawStatus = providerData.rawStatus || "paid";
   payment.failureReason = "";
+  payment.checkoutReservationKey = undefined;
 
   await Promise.all([appointment.save(), payment.save()]);
 
@@ -322,6 +616,7 @@ export async function failAppointmentPayment(
   payment.failureReason =
     text(providerData.failureReason) ||
     "Stripe reported that the appointment payment failed.";
+  payment.checkoutReservationKey = undefined;
   await payment.save();
 
   await notifySafely(
