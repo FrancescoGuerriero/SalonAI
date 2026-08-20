@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   ChevronRight,
   Clock3,
   CreditCard,
   Gift,
-  LoaderCircle,
   PackageCheck,
   Scissors,
+  ShoppingCart,
   Sparkles,
   Star,
   UserRound,
@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
+import useCart from "../hooks/useCart.js";
 import {
-  createAppointmentPaymentCheckout,
   getAppointments,
 } from "../Services/appointmentApi.js";
 import commerceService from "../Services/commerceService.js";
@@ -36,10 +36,6 @@ function unwrapList(response, keys = []) {
     if (Array.isArray(payload?.[key])) return payload[key];
   }
   return Array.isArray(payload) ? payload : [];
-}
-
-function responsePayload(response) {
-  return response?.data ?? response ?? {};
 }
 
 function appointmentDate(item) {
@@ -96,8 +92,8 @@ function paymentPurpose(appointment) {
 
 function paymentButtonLabel(appointment) {
   return paymentPurpose(appointment) === "balance"
-    ? `Pay balance ${formatMoney(appointmentBalance(appointment))}`
-    : "Pay deposit";
+    ? `Add balance ${formatMoney(appointmentBalance(appointment))} to cart`
+    : "Add deposit to cart";
 }
 
 function canPayAppointment(appointment) {
@@ -112,13 +108,13 @@ function canPayAppointment(appointment) {
 }
 
 export default function CustomerAccountPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { addAppointment } = useCart();
   const [appointments, setAppointments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [paymentError, setPaymentError] = useState("");
-  const [payingAppointmentId, setPayingAppointmentId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -166,48 +162,12 @@ export default function CustomerAccountPage() {
     };
   }, []);
 
-  async function startAppointmentPayment(appointment) {
+  function addAppointmentPaymentToCart(appointment) {
     const appointmentId = appointment?._id ?? appointment?.id;
     if (!appointmentId) return;
 
-    setPaymentError("");
-    setPayingAppointmentId(String(appointmentId));
-
-    try {
-      const response = await createAppointmentPaymentCheckout(
-        appointmentId,
-        {
-          purpose: paymentPurpose(appointment),
-        }
-      );
-
-      const payload = responsePayload(response);
-      const checkoutUrl = payload?.payment?.checkoutUrl || "";
-
-      if (checkoutUrl) {
-        window.location.assign(checkoutUrl);
-        return;
-      }
-
-      if (payload?.requiresDemoConfirmation) {
-        setPaymentError(
-          "The payment was created in local demo mode, so no external Stripe Checkout page is available."
-        );
-        return;
-      }
-
-      setPaymentError(
-        "The secure payment link could not be opened. Please try again or contact the salon."
-      );
-    } catch (paymentRequestError) {
-      setPaymentError(
-        paymentRequestError?.response?.data?.message ||
-          paymentRequestError?.message ||
-          "We could not start the appointment payment. Please try again."
-      );
-    } finally {
-      setPayingAppointmentId("");
-    }
+    addAppointment(appointment, paymentPurpose(appointment));
+    navigate("/cart");
   }
 
   const now = Date.now();
@@ -288,7 +248,6 @@ export default function CustomerAccountPage() {
       </section>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {paymentError ? <Alert variant="error">{paymentError}</Alert> : null}
 
       <section className="account-summary-grid" aria-label="Account summary">
         <AccountSummaryCard
@@ -336,7 +295,6 @@ export default function CustomerAccountPage() {
             <div className="account-list">
               {upcomingAppointments.slice(0, 4).map((appointment, index) => {
                 const appointmentId = appointment?._id ?? appointment?.id ?? index;
-                const paying = String(appointmentId) === payingAppointmentId;
 
                 return (
                   <article
@@ -373,15 +331,10 @@ export default function CustomerAccountPage() {
                       <button
                         type="button"
                         className="app-button app-button-primary"
-                        disabled={paying}
-                        onClick={() => startAppointmentPayment(appointment)}
+                        onClick={() => addAppointmentPaymentToCart(appointment)}
                       >
-                        {paying ? (
-                          <LoaderCircle size={17} aria-hidden="true" />
-                        ) : (
-                          <CreditCard size={17} aria-hidden="true" />
-                        )}
-                        {paying ? "Opening Stripe…" : paymentButtonLabel(appointment)}
+                        <ShoppingCart size={17} aria-hidden="true" />
+                        {paymentButtonLabel(appointment)}
                       </button>
                     ) : null}
                   </article>
@@ -503,7 +456,7 @@ export default function CustomerAccountPage() {
         ) : (
           <EmptyState
             title="No orders yet"
-            description="Your product purchases will appear here."
+            description="Your product and appointment-payment purchases will appear here."
             action={
               <Link to="/shop" className="app-button app-button-secondary">
                 Visit the shop
@@ -516,8 +469,8 @@ export default function CustomerAccountPage() {
       <footer className="account-note">
         <Clock3 size={18} />
         Appointment and order information is loaded from your authenticated
-        SalonAI account. Appointment payments open the secure Stripe Checkout
-        URL returned by the backend.
+        SalonAI account. Appointment payments are added to your cart so you can
+        combine them with retail products before one secure Stripe Checkout.
       </footer>
     </main>
   );
