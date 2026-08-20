@@ -1,5 +1,6 @@
 import Payment from "./Payment.js";
 import {
+  cancelPendingOrderCheckout,
   settlePaidOrder,
 } from "./commerceService.js";
 import {
@@ -113,6 +114,8 @@ async function markFailed(
     "failed";
   payment.failureReason =
     "Stripe reported that the asynchronous Checkout payment failed.";
+  payment.checkoutReservationKey =
+    undefined;
 
   await payment.save();
 
@@ -359,7 +362,17 @@ export async function handleStripeCheckoutWebhook(
       type
     )
   ) {
-    if (appointmentId) {
+    if (orderId) {
+      await cancelPendingOrderCheckout(orderId, {
+        paymentStatus: "failed",
+        rawStatus:
+          session.payment_status ||
+          session.status ||
+          "failed",
+        failureReason:
+          "Stripe reported that the asynchronous Checkout payment failed.",
+      });
+    } else if (appointmentId) {
       await failAppointmentPayment(
         appointmentId,
         {
@@ -400,9 +413,20 @@ export async function handleStripeCheckoutWebhook(
     type ===
     "checkout.session.expired"
   ) {
-    await markExpired(
-      session
-    );
+    if (orderId) {
+      await cancelPendingOrderCheckout(orderId, {
+        paymentStatus: "cancelled",
+        rawStatus:
+          session.status ||
+          "expired",
+        failureReason:
+          "Stripe Checkout session expired before payment completed.",
+      });
+    } else {
+      await markExpired(
+        session
+      );
+    }
 
     return {
       received: true,

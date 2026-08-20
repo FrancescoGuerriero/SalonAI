@@ -2,10 +2,40 @@ import mongoose from "mongoose";
 
 const orderItemSchema = new mongoose.Schema(
   {
+    itemType: {
+      type: String,
+      enum: ["product", "appointment"],
+      default: "product",
+      required: true,
+    },
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
-      required: true,
+      default: undefined,
+      required() {
+        return this.itemType === "product";
+      },
+    },
+    appointment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Appointment",
+      default: undefined,
+      required() {
+        return this.itemType === "appointment";
+      },
+    },
+    appointmentPayment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: undefined,
+    },
+    paymentPurpose: {
+      type: String,
+      enum: ["appointment_deposit", "appointment_balance"],
+      default: undefined,
+      required() {
+        return this.itemType === "appointment";
+      },
     },
     sku: {
       type: String,
@@ -74,12 +104,14 @@ const orderSchema = new mongoose.Schema(
     },
     items: {
       type: [orderItemSchema],
+      default: [],
       validate: {
         validator: (items) => Array.isArray(items) && items.length > 0,
         message: "An order must contain at least one item.",
       },
     },
     subtotal: { type: Number, min: 0, default: 0 },
+    appointmentSubtotal: { type: Number, min: 0, default: 0 },
     deliveryFee: { type: Number, min: 0, default: 0 },
     discountTotal: { type: Number, min: 0, default: 0 },
     offer: { type: mongoose.Schema.Types.ObjectId, ref: "SalonOffer", default: null },

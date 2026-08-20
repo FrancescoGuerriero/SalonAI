@@ -16,6 +16,12 @@ function money(value) {
   return Number(Number(value || 0).toFixed(2));
 }
 
+function hasAppointmentAllocations(order) {
+  return Array.isArray(order?.items) && order.items.some(
+    (item) => String(item?.itemType || "product") === "appointment"
+  );
+}
+
 function normaliseRefundStatus(value) {
   const status = String(value || "pending").toLowerCase();
 
@@ -69,6 +75,13 @@ export async function refundOrder(orderId, payload = {}, actor = {}) {
     await Order.findById(orderId).populate("payment"),
     "Order not found."
   );
+
+  if (hasAppointmentAllocations(order)) {
+    throw createServiceError(
+      "Orders containing appointment payments require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order.",
+      409
+    );
+  }
 
   if (!order.payment) {
     throw createServiceError("This order has no payment record.", 409);
@@ -225,10 +238,28 @@ export async function reconcileStripeRefund(refund = {}) {
   applyPaymentRefundState(payment);
   await payment.save();
 
+  let manualReconciliationRequired = false;
   if (payment.order) {
     const order = await Order.findById(payment.order);
     if (order) {
-      await applyOrderRefundState(order, payment);
+      if (hasAppointmentAllocations(order)) {
+        manualReconciliationRequired = true;
+        payment.metadata = {
+          ...(payment.metadata || {}),
+          refundReconciliationRequired: true,
+          refundReconciliationReason: "appointment_allocation_present",
+          latestProviderRefundId: providerRefundId,
+        };
+        await payment.save();
+        console.error("[SalonAI mixed refund] Manual reconciliation required", {
+          orderId: String(order._id),
+          paymentId: String(payment._id),
+          providerRefundId,
+          status,
+        });
+      } else {
+        await applyOrderRefundState(order, payment);
+      }
     }
   }
 
@@ -238,6 +269,7 @@ export async function reconcileStripeRefund(refund = {}) {
     orderId: payment.order ? String(payment.order) : null,
     providerRefundId,
     status,
+    manualReconciliationRequired,
   };
 }
 

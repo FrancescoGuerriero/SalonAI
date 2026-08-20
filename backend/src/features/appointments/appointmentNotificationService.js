@@ -404,6 +404,57 @@ export async function notifyAppointmentPaymentRequest(
   });
 }
 
+export async function notifyAppointmentPaymentReceived(
+  appointmentId,
+  {
+    amount = null,
+    remainingBalance = null,
+    eventKeySuffix = "",
+    actorId = null,
+  } = {}
+) {
+  const appointment = await loadAppointment(appointmentId);
+  if (!appointment) return { success: false, skipped: true, reason: "appointment_not_found" };
+
+  const details = appointmentDetails(appointment);
+  const receivedAmount = money(amount ?? 0);
+  const balance = money(remainingBalance ?? appointment.balanceDue ?? 0);
+  const amountLabel = "£" + receivedAmount.toFixed(2);
+  const balanceLabel = "£" + balance.toFixed(2);
+  const balanceSentence = balance <= 0
+    ? "Your appointment balance is now paid in full."
+    : "Your remaining appointment balance is " + balanceLabel + ".";
+  const body =
+    "Hi " + details.name + " we received " + amountLabel +
+    " for your " + details.service + " appointment on " + details.date +
+    " at " + details.time + ". " + balanceSentence;
+
+  return sendAppointmentEvent({
+    appointment,
+    event: "appointment.payment_received",
+    eventKey:
+      "appointment.payment_received:" + appointment._id + ":" +
+      (eventKeySuffix || appointment.updatedAt),
+    subject: "Appointment payment received - " + amountLabel,
+    body,
+    html:
+      "<p>Hi " + details.name + "</p><p>We received <strong>" + amountLabel +
+      "</strong> for your <strong>" + details.service +
+      "</strong> appointment on <strong>" + details.date + " at " + details.time +
+      "</strong>.</p><p>" + balanceSentence + "</p>",
+    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_PAYMENT_RECEIVED_CONTENT_SID,
+    templateVariables: {
+      1: details.name,
+      2: amountLabel,
+      3: details.service,
+      4: details.date,
+      5: details.time,
+      6: balanceLabel,
+    },
+    metadata: { receivedAmount, remainingBalance: balance },
+    actorId,
+  });
+}
 export async function notifyAppointmentPaymentFailed(
   appointmentId,
   {
@@ -465,6 +516,7 @@ export default {
   notifyAppointmentCancelled,
   notifyAppointmentConfirmed,
   notifyAppointmentPaymentFailed,
+  notifyAppointmentPaymentReceived,
   notifyAppointmentPaymentRequest,
   notifyAppointmentReminder,
   notifyAppointmentRescheduled,
