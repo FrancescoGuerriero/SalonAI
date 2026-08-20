@@ -52,7 +52,7 @@ check(/attestations:\s*write/.test(release), 'Release workflow can store attesta
 check(/packages:\s*write/.test(release), 'Release workflow can publish GHCR images');
 check(/actions\/attest@v4/.test(release), 'Release workflow creates GitHub attestations');
 check(/sbom-path:/.test(release), 'Release workflow creates SBOM attestations');
-check(/docker\/build-push-action@v7\.2\.0/.test(release), 'Release workflow uses the approved Docker build action');
+check(/docker\/build-push-action@v7\.3\.0/.test(release), 'Release workflow uses the approved Docker build action');
 check(/aquasecurity\/trivy-action@v0\.36\.0/.test(release), 'Release workflow uses the approved Trivy action');
 check(/gh release (create|upload)/.test(release), 'Release workflow publishes GitHub release evidence');
 
@@ -60,7 +60,7 @@ const ci = fs.readFileSync(path.join(workflowDirectory, 'ci.yml'), 'utf8');
 check(/npm --prefix backend run validate|npm run validate/.test(ci), 'CI validates the backend');
 check(/npm run build/.test(ci), 'CI builds the frontend');
 check(/python -m pytest/.test(ci), 'CI runs AI-service tests when present');
-check(/dependency-review-action@v4\.8\.3/.test(ci), 'CI runs dependency review');
+check(/dependency-review-action@v5\.0\.0/.test(ci), 'CI runs dependency review');
 check(/config\/security\/trivyignore\.yaml/.test(ci), 'CI uses the controlled Phase 7.12 Trivy exceptions');
 check(/test-deployment-evidence\.mjs/.test(ci), 'CI tests deployment evidence validation');
 check(/Validate PowerShell syntax/.test(ci), 'CI validates deployment PowerShell syntax');
