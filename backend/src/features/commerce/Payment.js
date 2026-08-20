@@ -86,6 +86,17 @@ const paymentSchema = new mongoose.Schema(
       ],
       required: true,
     },
+    checkoutReservationKey: {
+      type: String,
+      default: undefined,
+      unique: true,
+      sparse: true,
+      trim: true,
+      set(value) {
+        const normalised = String(value ?? "").trim();
+        return normalised || undefined;
+      },
+    },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, default: "GBP", uppercase: true },
     provider: { type: String, default: "console" },

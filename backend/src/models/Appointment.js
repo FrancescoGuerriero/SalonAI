@@ -347,10 +347,15 @@ const appointmentSchema =
 
       invoiceNumber: {
         type: String,
-        default: null,
+        default: undefined,
         unique: true,
         sparse: true,
-        trim: true,
+        set(value) {
+          const normalised =
+            String(value ?? "").trim();
+
+          return normalised || undefined;
+        },
       },
 
       status: {
