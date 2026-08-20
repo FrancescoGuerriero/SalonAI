@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CalendarDays, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
@@ -5,12 +6,29 @@ import CheckoutProgress from "../components/commerce/CheckoutProgress.jsx";
 import CommerceTrustBar from "../components/commerce/CommerceTrustBar.jsx";
 import useAuth from "../hooks/useAuth.js";
 import useCart from "../hooks/useCart.js";
+import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
+
+const PENDING_ORDER_KEY = "salonai_pending_checkout_order";
 
 export default function Cart() {
   const { isAuthenticated } = useAuth();
   const { items, subtotal, updateQuantity, removeItem } = useCart();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!isAuthenticated || searchParams.get("checkout") !== "cancelled") return;
+
+    const pendingOrderId = sessionStorage.getItem(PENDING_ORDER_KEY);
+    if (!pendingOrderId) return;
+
+    commerceService
+      .cancelOrder(pendingOrderId)
+      .catch(() => {})
+      .finally(() => {
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
+      });
+  }, [isAuthenticated, searchParams]);
 
   if (items.length === 0) {
     return (
