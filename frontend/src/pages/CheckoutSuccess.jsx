@@ -2,12 +2,15 @@ import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
 export default function CheckoutSuccess() {
   const [params] = useSearchParams();
   const orderId = params.get("order");
+  const sessionId = params.get("session_id");
+  const { clearCart } = useCart();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,6 +37,12 @@ export default function CheckoutSuccess() {
     loadOrder();
   }, [loadOrder]);
 
+  useEffect(() => {
+    if (sessionId) {
+      clearCart();
+    }
+  }, [sessionId, clearCart]);
+
   return (
     <main className="page narrow-page">
       <section className="commerce-success-card">
@@ -52,6 +61,12 @@ export default function CheckoutSuccess() {
               <span>Total</span>
               <strong>{formatCurrency(order.total, order.currency)}</strong>
             </div>
+            {Number(order.appointmentSubtotal || 0) > 0 ? (
+              <div className="commerce-success-summary">
+                <span>Appointment payments</span>
+                <strong>{formatCurrency(order.appointmentSubtotal, order.currency)}</strong>
+              </div>
+            ) : null}
             {order.status === "pending_payment" && (
               <p>
                 Stripe confirmation can take a few seconds. Refresh the status after
@@ -65,6 +80,7 @@ export default function CheckoutSuccess() {
             <RefreshCw size={16} /> Refresh status
           </button>
           <Link className="commerce-link-button" to="/orders">View order history</Link>
+          <Link className="commerce-text-link" to="/account">Back to account</Link>
         </div>
       </section>
     </main>
