@@ -35,7 +35,7 @@ jobs:
           [[ "$CONFIRMATION" == "DEPLOY" ]]
 
       - name: Checkout release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -73,7 +73,7 @@ jobs:
       RELEASE_EVIDENCE_DIR: release-evidence
     steps:
       - name: Checkout immutable release source
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           path: ${{ env.RELEASE_SOURCE_DIR }}
@@ -81,7 +81,7 @@ jobs:
           ref: ${{ inputs.release_tag }}
 
       - name: Checkout trusted deployment controls
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 1
           path: ${{ env.CONTROL_SOURCE_DIR }}
