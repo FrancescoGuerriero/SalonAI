@@ -9,6 +9,8 @@ import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
+const PENDING_ORDER_KEY = "salonai_pending_checkout_order";
+
 const emptyAddress = {
   line1: "",
   line2: "",
@@ -94,6 +96,7 @@ export default function Checkout() {
       });
 
       if (result.payment?.checkoutUrl) {
+        sessionStorage.setItem(PENDING_ORDER_KEY, String(result.order._id));
         window.location.assign(result.payment.checkoutUrl);
         return;
       }
@@ -101,6 +104,7 @@ export default function Checkout() {
       if (result.requiresDemoConfirmation) {
         setDemoCheckout(result);
       } else {
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
         clearCart();
         navigate(`/checkout/success?order=${result.order._id}`);
       }
@@ -116,6 +120,7 @@ export default function Checkout() {
       setSubmitting(true);
       setError("");
       await commerceService.confirmDemoCheckout(demoCheckout.order._id);
+      sessionStorage.removeItem(PENDING_ORDER_KEY);
       clearCart();
       navigate(`/checkout/success?order=${demoCheckout.order._id}`);
     } catch (requestError) {
