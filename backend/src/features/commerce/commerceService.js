@@ -317,9 +317,17 @@ export async function listStockAdjustments(productId, query = {}) {
 }
 
 export function commerceConfig() {
+  const configuredDepositPercentage = Number(
+    process.env.APPOINTMENT_DEPOSIT_PERCENTAGE || 25
+  );
+  const appointmentDepositPercentage = Number.isFinite(configuredDepositPercentage)
+    ? Math.min(100, Math.max(1, configuredDepositPercentage))
+    : 25;
+
   return {
     currency: "GBP",
     deliveryFee: money(Number(process.env.DELIVERY_FEE_GBP || 4.95)),
+    appointmentDepositPercentage,
     paymentMode: paymentProviderMode(),
   };
 }
@@ -796,16 +804,20 @@ async function commitInventory(order) {
 
       committed.push(item);
     }
+
+    // Persist the inventory checkpoint before appointment allocation settlement.
+    // A later webhook retry can then resume without decrementing stock twice.
+    order.inventoryCommittedAt = new Date();
+    await order.save();
   } catch (error) {
-    for (const item of committed) {
+    for (const item of [...committed].reverse()) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stockQuantity: item.quantity },
       });
     }
+    order.inventoryCommittedAt = null;
     throw error;
   }
-
-  order.inventoryCommittedAt = new Date();
 }
 
 async function settleAppointmentAllocations(order, providerData = {}) {
@@ -831,13 +843,14 @@ export async function settlePaidOrder(orderId, providerData = {}) {
     "Order not found."
   );
 
-  await settleAppointmentAllocations(order, providerData);
-
   if (["paid", "processing", "ready", "completed"].includes(order.status)) {
     return order;
   }
 
+  // Commit and checkpoint product stock before mutating appointment balances.
+  // If appointment settlement fails, the next webhook retry resumes safely.
   await commitInventory(order);
+  await settleAppointmentAllocations(order, providerData);
   const paidAt = new Date();
   order.status = "paid";
   order.paidAt = paidAt;
