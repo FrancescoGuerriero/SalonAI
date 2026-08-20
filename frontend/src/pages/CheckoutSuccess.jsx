@@ -6,6 +6,8 @@ import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
 import { formatCurrency } from "../utils/currency.js";
 
+const PENDING_ORDER_KEY = "salonai_pending_checkout_order";
+
 export default function CheckoutSuccess() {
   const [params] = useSearchParams();
   const orderId = params.get("order");
@@ -39,6 +41,7 @@ export default function CheckoutSuccess() {
 
   useEffect(() => {
     if (sessionId) {
+      sessionStorage.removeItem(PENDING_ORDER_KEY);
       clearCart();
     }
   }, [sessionId, clearCart]);
