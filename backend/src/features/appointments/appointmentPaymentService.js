@@ -12,6 +12,7 @@ import {
 } from "../../shared/serviceError.js";
 import {
   notifyAppointmentPaymentFailed,
+  notifyAppointmentPaymentReceived,
   notifyAppointmentPaymentRequest,
   notifySafely,
 } from "./appointmentNotificationService.js";
@@ -637,6 +638,18 @@ export async function settleAppointmentPayment(
   payment.checkoutReservationKey = undefined;
 
   await Promise.all([appointment.save(), payment.save()]);
+
+  await notifySafely(
+    () => notifyAppointmentPaymentReceived(appointment._id, {
+      amount: paidAmount,
+      remainingBalance: nextBalance,
+      eventKeySuffix: String(payment._id),
+    }),
+    {
+      appointmentId: String(appointment._id),
+      paymentId: String(payment._id),
+    }
+  );
 
   return {
     appointment: appointment.toObject(),

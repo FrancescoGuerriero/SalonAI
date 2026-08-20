@@ -99,6 +99,7 @@ test("Commerce config exposes GBP settings without payment credentials", () => {
   assert.deepEqual(config, {
     currency: "GBP",
     deliveryFee: 4.95,
+    appointmentDepositPercentage: 25,
     paymentMode: "console",
   });
   assert.equal("secretKey" in config, false);

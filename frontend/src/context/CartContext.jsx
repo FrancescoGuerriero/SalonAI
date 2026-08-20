@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import commerceService from "../Services/commerceService.js";
+
 const STORAGE_KEY = "salonai_cart_v1";
 
 export const CartContext = createContext(null);
@@ -31,9 +33,16 @@ function appointmentBalance(appointment) {
   return Math.max(0, appointmentTotal(appointment) - appointmentAmountPaid(appointment));
 }
 
-function appointmentDeposit(appointment) {
+function appointmentDeposit(appointment, percentage = 25) {
   const balance = appointmentBalance(appointment);
-  return Math.min(balance, Math.max(0.01, balance * 0.25));
+  const configured = Number(percentage);
+  const safePercentage = Number.isFinite(configured)
+    ? Math.min(100, Math.max(1, configured))
+    : 25;
+  return Math.min(
+    balance,
+    Math.max(0.01, balance * (safePercentage / 100))
+  );
 }
 
 function normaliseStoredItem(item) {
@@ -77,6 +86,24 @@ function readCart() {
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState(readCart);
+  const [appointmentDepositPercentage, setAppointmentDepositPercentage] = useState(25);
+
+  useEffect(() => {
+    let active = true;
+    commerceService
+      .getConfig()
+      .then((config) => {
+        const configured = Number(config?.appointmentDepositPercentage);
+        if (active && Number.isFinite(configured)) {
+          setAppointmentDepositPercentage(Math.min(100, Math.max(1, configured)));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -124,7 +151,7 @@ export function CartProvider({ children }) {
       const paymentPurpose = purpose === "deposit" ? "deposit" : "balance";
       const balance = appointmentBalance(appointment);
       const price = paymentPurpose === "deposit"
-        ? appointmentDeposit(appointment)
+        ? appointmentDeposit(appointment, appointmentDepositPercentage)
         : balance;
 
       if (!(price > 0)) return current;
@@ -154,7 +181,7 @@ export function CartProvider({ children }) {
         },
       ];
     });
-  }, []);
+  }, [appointmentDepositPercentage]);
 
   const updateQuantity = useCallback((identifier, quantity) => {
     setItems((current) =>
