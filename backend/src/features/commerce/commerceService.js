@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import Appointment from "../../models/Appointment.js";
 import Product from "./Product.js";
 import Order from "./Order.js";
 import Payment from "./Payment.js";
@@ -20,6 +21,11 @@ import {
 import { escapedRegex } from "../../shared/modelHelpers.js";
 import CustomerExperienceProfile from "../customerExperience/CustomerExperienceProfile.js";
 import SalonOffer from "../customerExperience/SalonOffer.js";
+import {
+  prepareAppointmentPaymentReservation,
+  releaseAppointmentPaymentReservation,
+  settleAppointmentPayment,
+} from "../appointments/appointmentPaymentService.js";
 
 const MANAGEMENT_ROLES = new Set(["admin", "manager", "stylist"]);
 
@@ -362,20 +368,25 @@ export async function inventorySummary() {
   };
 }
 
-async function buildOrderItems(items = []) {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw createServiceError("At least one order item is required.", 400);
-  }
+function cartItemType(item = {}) {
+  return String(item.type || item.itemType || (item.appointment || item.appointmentId ? "appointment" : "product"))
+    .trim()
+    .toLowerCase();
+}
 
+async function buildProductOrderItems(items = []) {
   const requested = new Map();
+
   for (const item of items) {
     const productId = String(item.product || item.productId || "");
     if (!mongoose.isValidObjectId(productId)) {
-      throw createServiceError("Every cart item must contain a valid product ID.", 400);
+      throw createServiceError("Every product cart item must contain a valid product ID.", 400);
     }
     const quantity = Math.max(1, Math.min(99, Number.parseInt(item.quantity, 10) || 1));
     requested.set(productId, (requested.get(productId) || 0) + quantity);
   }
+
+  if (requested.size === 0) return [];
 
   const products = await Product.find({
     _id: { $in: [...requested.keys()] },
@@ -395,6 +406,7 @@ async function buildOrderItems(items = []) {
     }
 
     return {
+      itemType: "product",
       product: product._id,
       sku: product.sku,
       name: product.name,
@@ -406,6 +418,93 @@ async function buildOrderItems(items = []) {
   });
 }
 
+async function assertAppointmentCheckoutAccess(appointmentId, user) {
+  if (!mongoose.isValidObjectId(appointmentId)) {
+    throw createServiceError("Every appointment cart item must contain a valid appointment ID.", 400);
+  }
+
+  const appointment = assertFound(
+    await Appointment.findById(appointmentId).select("customer status"),
+    "Appointment not found."
+  );
+
+  if (!isManagementUser(user)) {
+    const customerId = String(user?.customerProfile?._id || user?.customerProfile || "");
+    if (!customerId || String(appointment.customer) !== customerId) {
+      throw createServiceError("You cannot pay for an appointment that is not linked to your account.", 403);
+    }
+  }
+
+  return appointment;
+}
+
+async function buildAppointmentOrderItems(items = [], user) {
+  const orderItems = [];
+  const reservations = [];
+  const seenAppointments = new Set();
+
+  for (const item of items) {
+    const appointmentId = String(item.appointment || item.appointmentId || "");
+    await assertAppointmentCheckoutAccess(appointmentId, user);
+
+    if (seenAppointments.has(appointmentId)) {
+      throw createServiceError("An appointment can appear only once in a checkout.", 409);
+    }
+    seenAppointments.add(appointmentId);
+
+    const purpose = String(item.purpose || item.paymentPurpose || "balance").toLowerCase() === "deposit"
+      ? "deposit"
+      : "balance";
+
+    const prepared = await prepareAppointmentPaymentReservation(
+      appointmentId,
+      { purpose },
+      user
+    );
+
+    if (prepared.reused) {
+      throw createServiceError(
+        "A secure checkout is already active for this appointment. Complete or cancel that checkout before starting another.",
+        409
+      );
+    }
+
+    const serviceName = String(
+      prepared.appointment.service?.name ||
+        prepared.appointment.serviceName ||
+        "Salon appointment"
+    ).trim();
+
+    const payment = prepared.payment;
+    reservations.push(payment);
+
+    orderItems.push({
+      itemType: "appointment",
+      appointment: prepared.appointment._id,
+      appointmentPayment: payment._id,
+      paymentPurpose: prepared.purpose,
+      sku: `APPOINTMENT-${String(prepared.appointment._id).slice(-8).toUpperCase()}`,
+      name: prepared.purpose === "appointment_deposit"
+        ? `${serviceName} deposit`
+        : `${serviceName} balance`,
+      image: "",
+      quantity: 1,
+      unitPrice: money(payment.amount),
+      lineTotal: money(payment.amount),
+    });
+  }
+
+  return { orderItems, reservations };
+}
+
+async function releaseReservations(reservations = [], options = {}) {
+  await Promise.all(
+    reservations.map((payment) =>
+      releaseAppointmentPaymentReservation(payment?._id || payment, options)
+    )
+  );
+}
+
 function checkoutUrls(order) {
   const frontendUrl = String(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
   return {
@@ -414,128 +513,258 @@ function checkoutUrls(order) {
   };
 }
 
-export async function createCheckout(payload, user) {
-  const items = await buildOrderItems(payload.items);
-  const subtotal = money(items.reduce((sum, item) => sum + item.lineTotal, 0));
-  const offer = await claimedOfferForCheckout(payload.offerCode, user, subtotal);
-  const discountTotal = calculateOfferDiscount(offer, subtotal);
-  const fulfilmentType = payload.fulfilmentType === "delivery" ? "delivery" : "collection";
-  const deliveryFee = fulfilmentType === "delivery"
-    ? money(Number(process.env.DELIVERY_FEE_GBP || 4.95))
-    : 0;
-  const total = money(subtotal - discountTotal + deliveryFee);
+function providerCheckoutItems({
+  productItems,
+  appointmentItems,
+  productSubtotal,
+  discountTotal,
+  deliveryFee,
+  order,
+  offer,
+}) {
+  const providerItems = [];
+  const discountedProductTotal = money(Math.max(0, productSubtotal - discountTotal));
 
-  if (offer && total <= 0) {
-    throw createServiceError(
-      "This offer would reduce the order below the payment minimum. Add another item or choose delivery.",
-      409
+  if (discountTotal > 0) {
+    if (discountedProductTotal > 0) {
+      providerItems.push({
+        name: `SalonAI products ${order.orderNumber}`,
+        sku: offer?.code ? `Offer ${offer.code}` : "SalonAI products",
+        quantity: 1,
+        unitPrice: discountedProductTotal,
+        image: "",
+      });
+    }
+  } else {
+    providerItems.push(
+      ...productItems
+        .filter((item) => Number(item.unitPrice) > 0)
+        .map((item) => ({
+          name: item.name,
+          sku: item.sku,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          image: item.image,
+        }))
     );
   }
 
-  const contact = {
-    name: String(payload.contact?.name || user.name || "").trim(),
-    email: String(payload.contact?.email || user.email || "").trim().toLowerCase(),
-    phone: String(payload.contact?.phone || "").trim(),
-  };
+  providerItems.push(
+    ...appointmentItems.map((item) => ({
+      name: item.name,
+      sku: item.sku,
+      quantity: 1,
+      unitPrice: item.unitPrice,
+      image: "",
+    }))
+  );
 
-  if (!contact.name || !contact.email) {
-    throw createServiceError("Checkout name and email are required.", 400);
+  if (deliveryFee > 0) {
+    providerItems.push({
+      name: "UK delivery",
+      sku: "DELIVERY",
+      quantity: 1,
+      unitPrice: deliveryFee,
+      image: "",
+    });
   }
 
-  if (fulfilmentType === "delivery") {
-    const address = payload.deliveryAddress || {};
-    if (!address.line1 || !address.city || !address.postcode) {
-      throw createServiceError("Address line, city and postcode are required for delivery.", 400);
-    }
+  return providerItems;
+}
+
+export async function createCheckout(payload, user) {
+  const rawItems = Array.isArray(payload.items) ? payload.items : [];
+  if (rawItems.length === 0) {
+    throw createServiceError("At least one cart item is required.", 400);
   }
 
-  const order = await Order.create({
-    user: user._id,
-    customer: user.customerProfile || undefined,
-    contact,
-    items,
-    subtotal,
-    deliveryFee,
-    discountTotal,
-    offer: offer?._id || null,
-    offerCode: offer?.code || "",
-    discountDescription: offer?.title || "",
-    total,
-    currency: "GBP",
-    status: "pending_payment",
-    fulfilmentType,
-    deliveryAddress: fulfilmentType === "delivery" ? payload.deliveryAddress : undefined,
-    notes: String(payload.notes || "").trim(),
-  });
+  const productRequests = rawItems.filter((item) => cartItemType(item) === "product");
+  const appointmentRequests = rawItems.filter((item) => cartItemType(item) === "appointment");
+
+  if (productRequests.length + appointmentRequests.length !== rawItems.length) {
+    throw createServiceError("Cart items must be products or appointment payments.", 400);
+  }
+
+  const productItems = await buildProductOrderItems(productRequests);
+  let appointmentItems = [];
+  let reservations = [];
+  let order = null;
+  let parentPayment = null;
 
   try {
-    const urls = checkoutUrls(order);
-    const providerResult = await createCheckoutPayment({
-      order,
-      items: discountTotal > 0
-        ? [{
-            name: `SalonAI order ${order.orderNumber}`,
-            sku: offer?.code ? `Offer ${offer.code}` : "SalonAI order",
-            quantity: 1,
-            unitPrice: total,
-            image: "",
-          }]
-        : deliveryFee
-        ? [
-            ...items,
-            {
-              name: "UK delivery",
-              sku: "DELIVERY",
-              quantity: 1,
-              unitPrice: deliveryFee,
-              image: "",
-            },
-          ]
-        : items,
-      customerEmail: contact.email,
-      ...urls,
+    const appointmentBuild = await buildAppointmentOrderItems(appointmentRequests, user);
+    appointmentItems = appointmentBuild.orderItems;
+    reservations = appointmentBuild.reservations;
+
+    const items = [...appointmentItems, ...productItems];
+    if (items.length === 0) {
+      throw createServiceError("At least one valid checkout item is required.", 400);
+    }
+
+    const productSubtotal = money(productItems.reduce((sum, item) => sum + item.lineTotal, 0));
+    const appointmentSubtotal = money(appointmentItems.reduce((sum, item) => sum + item.lineTotal, 0));
+
+    if (payload.offerCode && productItems.length === 0) {
+      throw createServiceError("Saved offers apply to retail products, not appointment payments.", 409);
+    }
+
+    const offer = await claimedOfferForCheckout(payload.offerCode, user, productSubtotal);
+    const discountTotal = calculateOfferDiscount(offer, productSubtotal);
+    const hasProducts = productItems.length > 0;
+    const fulfilmentType = hasProducts && payload.fulfilmentType === "delivery"
+      ? "delivery"
+      : "collection";
+    const deliveryFee = fulfilmentType === "delivery"
+      ? money(Number(process.env.DELIVERY_FEE_GBP || 4.95))
+      : 0;
+    const total = money(productSubtotal - discountTotal + appointmentSubtotal + deliveryFee);
+
+    if (total <= 0) {
+      throw createServiceError("Checkout total must be greater than zero.", 409);
+    }
+
+    const contact = {
+      name: String(payload.contact?.name || user.name || "").trim(),
+      email: String(payload.contact?.email || user.email || "").trim().toLowerCase(),
+      phone: String(payload.contact?.phone || "").trim(),
+    };
+
+    if (!contact.name || !contact.email) {
+      throw createServiceError("Checkout name and email are required.", 400);
+    }
+
+    if (fulfilmentType === "delivery") {
+      const address = payload.deliveryAddress || {};
+      if (!address.line1 || !address.city || !address.postcode) {
+        throw createServiceError("Address line, city and postcode are required for delivery.", 400);
+      }
+    }
+
+    order = await Order.create({
+      user: user._id,
+      customer: user.customerProfile || undefined,
+      contact,
+      items,
+      subtotal: productSubtotal,
+      appointmentSubtotal,
+      deliveryFee,
+      discountTotal,
+      offer: offer?._id || null,
+      offerCode: offer?.code || "",
+      discountDescription: offer?.title || "",
+      total,
+      currency: "GBP",
+      status: "pending_payment",
+      fulfilmentType,
+      deliveryAddress: fulfilmentType === "delivery" ? payload.deliveryAddress : undefined,
+      notes: String(payload.notes || "").trim(),
     });
 
-    const payment = await Payment.create({
+    for (const payment of reservations) {
+      payment.user = user._id;
+      payment.order = order._id;
+      payment.metadata = {
+        ...(payment.metadata || {}),
+        orderId: String(order._id),
+        orderNumber: order.orderNumber,
+        mixedCheckout: true,
+      };
+      await payment.save();
+    }
+
+    parentPayment = await Payment.create({
       user: user._id,
       customer: user.customerProfile || undefined,
       order: order._id,
-      purpose: "product_order",
+      purpose: appointmentItems.length > 0 ? "mixed_order" : "product_order",
       amount: total,
       currency: "GBP",
-      provider: providerResult.provider,
-      providerPaymentId: providerResult.providerPaymentId,
-      providerIntentId: providerResult.providerIntentId || "",
-      checkoutUrl: providerResult.checkoutUrl || "",
-      status: providerResult.status || "pending",
-      rawStatus: providerResult.rawStatus || "",
-      metadata: { orderNumber: order.orderNumber },
+      provider: paymentProviderMode(),
+      status: "pending",
+      metadata: {
+        orderNumber: order.orderNumber,
+        productItemCount: productItems.length,
+        appointmentItemCount: appointmentItems.length,
+      },
     });
 
-    order.payment = payment._id;
+    order.payment = parentPayment._id;
     await order.save();
+
+    const urls = checkoutUrls(order);
+    const providerResult = await createCheckoutPayment({
+      order,
+      items: providerCheckoutItems({
+        productItems,
+        appointmentItems,
+        productSubtotal,
+        discountTotal,
+        deliveryFee,
+        order,
+        offer,
+      }),
+      customerEmail: contact.email,
+      ...urls,
+      idempotencyKey: `salonai:order-checkout:${order._id}`,
+    });
+
+    parentPayment.provider = providerResult.provider;
+    parentPayment.providerPaymentId = providerResult.providerPaymentId;
+    parentPayment.providerIntentId = providerResult.providerIntentId || "";
+    parentPayment.checkoutUrl = providerResult.checkoutUrl || "";
+    parentPayment.status = providerResult.status || "pending";
+    parentPayment.rawStatus = providerResult.rawStatus || "";
+    await parentPayment.save();
+
+    for (const payment of reservations) {
+      payment.provider = providerResult.provider;
+      payment.checkoutUrl = providerResult.checkoutUrl || "";
+      payment.rawStatus = providerResult.rawStatus || "";
+      payment.metadata = {
+        ...(payment.metadata || {}),
+        parentPaymentId: String(parentPayment._id),
+      };
+      await payment.save();
+    }
 
     if (providerResult.status === "paid") {
       await settlePaidOrder(order._id, {
         providerPaymentId: providerResult.providerPaymentId,
         providerIntentId: providerResult.providerIntentId,
+        rawStatus: providerResult.rawStatus,
       });
     }
 
     return {
       order: order.toObject(),
       payment: {
-        id: payment._id,
-        provider: payment.provider,
-        status: payment.status,
-        checkoutUrl: payment.checkoutUrl,
+        id: parentPayment._id,
+        provider: parentPayment.provider,
+        status: parentPayment.status,
+        checkoutUrl: parentPayment.checkoutUrl,
       },
-      requiresDemoConfirmation: payment.provider === "console",
+      requiresDemoConfirmation: parentPayment.provider === "console",
     };
   } catch (error) {
-    order.status = "cancelled";
-    order.cancelledAt = new Date();
-    await order.save();
+    if (parentPayment && parentPayment.status !== "paid") {
+      parentPayment.status = "failed";
+      parentPayment.rawStatus = "checkout_creation_failed";
+      parentPayment.failureReason = String(error?.message || "Checkout creation failed.");
+      await parentPayment.save().catch(() => {});
+    }
+
+    if (order && !["paid", "processing", "ready", "completed"].includes(order.status)) {
+      order.status = "cancelled";
+      order.cancelledAt = new Date();
+      await order.save().catch(() => {});
+    }
+
+    await releaseReservations(reservations, {
+      status: "cancelled",
+      rawStatus: "checkout_creation_failed",
+      failureReason: String(error?.message || "Checkout creation failed."),
+    }).catch(() => {});
+
     throw error;
   }
 }
@@ -546,9 +775,12 @@ async function commitInventory(order) {
   }
 
   const committed = [];
+  const productItems = order.items.filter(
+    (item) => String(item.itemType || "product") === "product"
+  );
 
   try {
-    for (const item of order.items) {
+    for (const item of productItems) {
       const result = await Product.findOneAndUpdate(
         {
           _id: item.product,
@@ -576,13 +808,32 @@ async function commitInventory(order) {
   order.inventoryCommittedAt = new Date();
 }
 
+async function settleAppointmentAllocations(order, providerData = {}) {
+  const appointmentItems = order.items.filter(
+    (item) => String(item.itemType || "") === "appointment"
+  );
+
+  for (const item of appointmentItems) {
+    if (!item.appointment || !item.appointmentPayment) continue;
+
+    await settleAppointmentPayment(item.appointment, {
+      paymentId: item.appointmentPayment,
+      providerPaymentId: providerData.providerPaymentId,
+      providerIntentId: providerData.providerIntentId,
+      rawStatus: providerData.rawStatus || "paid",
+    });
+  }
+}
+
 export async function settlePaidOrder(orderId, providerData = {}) {
   const order = assertFound(
     await Order.findById(orderId).populate("payment"),
     "Order not found."
   );
 
-  if (order.status === "paid" || order.status === "processing" || order.status === "ready" || order.status === "completed") {
+  await settleAppointmentAllocations(order, providerData);
+
+  if (["paid", "processing", "ready", "completed"].includes(order.status)) {
     return order;
   }
 
@@ -605,6 +856,45 @@ export async function settlePaidOrder(orderId, providerData = {}) {
       },
     });
   }
+
+  return order;
+}
+
+export async function cancelPendingOrderCheckout(
+  orderId,
+  {
+    paymentStatus = "cancelled",
+    rawStatus = "cancelled",
+    failureReason = "",
+  } = {}
+) {
+  if (!mongoose.isValidObjectId(orderId)) return null;
+
+  const order = await Order.findById(orderId).populate("payment");
+  if (!order || ["paid", "processing", "ready", "completed", "refunded"].includes(order.status)) {
+    return order;
+  }
+
+  order.status = "cancelled";
+  order.cancelledAt = new Date();
+  await order.save();
+
+  if (order.payment && !["paid", "refunded", "partially_refunded"].includes(order.payment.status)) {
+    order.payment.status = paymentStatus;
+    order.payment.rawStatus = rawStatus;
+    order.payment.failureReason = String(failureReason || "");
+    await order.payment.save();
+  }
+
+  const appointmentPaymentIds = order.items
+    .filter((item) => String(item.itemType || "") === "appointment" && item.appointmentPayment)
+    .map((item) => item.appointmentPayment);
+
+  await releaseReservations(appointmentPaymentIds, {
+    status: paymentStatus,
+    rawStatus,
+    failureReason,
+  });
 
   return order;
 }
@@ -677,11 +967,14 @@ export async function cancelOrder(id, user) {
   if (order.status === "paid") {
     throw createServiceError("Paid orders require a manager-issued refund.", 409);
   }
-  order.status = "cancelled";
-  order.cancelledAt = new Date();
-  await order.save();
-  await Payment.findByIdAndUpdate(order.payment, { $set: { status: "cancelled" } });
-  return order.toObject();
+
+  await cancelPendingOrderCheckout(order._id, {
+    paymentStatus: "cancelled",
+    rawStatus: "customer_cancelled",
+    failureReason: "Customer cancelled the checkout.",
+  });
+
+  return (await Order.findById(order._id)).toObject();
 }
 
 export async function updateOrderStatus(id, status) {
@@ -724,13 +1017,12 @@ export async function handleStripeWebhook(rawBody, signature) {
 
   if (event.type === "checkout.session.expired") {
     const session = event.data.object;
-    const payment = await Payment.findOne({ providerPaymentId: session.id });
-    if (payment && payment.status === "pending") {
-      payment.status = "cancelled";
-      payment.rawStatus = session.status || "expired";
-      await payment.save();
-      await Order.findByIdAndUpdate(payment.order, {
-        $set: { status: "cancelled", cancelledAt: new Date() },
+    const orderId = session.metadata?.orderId;
+    if (orderId) {
+      await cancelPendingOrderCheckout(orderId, {
+        paymentStatus: "cancelled",
+        rawStatus: session.status || "expired",
+        failureReason: "Stripe Checkout session expired before payment completed.",
       });
     }
   }
