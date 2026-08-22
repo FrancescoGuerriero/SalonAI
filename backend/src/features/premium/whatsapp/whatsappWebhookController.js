@@ -124,12 +124,49 @@ export async function verifyWebhookSubscription(
     );
   }
 
-  return response
-    .status(200)
-    .type("text/plain")
-    .send(
-      verification.challenge
+  /*
+   * Meta documents hub.challenge as a numeric
+   * verification challenge. Convert it to a number
+   * before reflecting it so arbitrary request text
+   * can never reach the HTTP response body.
+   */
+  const challengeText =
+    String(
+      verification.challenge || ""
+    ).trim();
+
+  if (
+    !/^\d+$/.test(challengeText)
+  ) {
+    throw createHttpError(
+      "The WhatsApp webhook challenge is invalid.",
+      400
     );
+  }
+
+  const challenge =
+    Number(challengeText);
+
+  if (
+    !Number.isSafeInteger(challenge) ||
+    challenge < 0
+  ) {
+    throw createHttpError(
+      "The WhatsApp webhook challenge is invalid.",
+      400
+    );
+  }
+
+  response.status(200);
+
+  response.set(
+    "Content-Type",
+    "text/plain; charset=utf-8"
+  );
+
+  return response.end(
+    String(challenge)
+  );
 }
 
 export async function receiveWebhook(
