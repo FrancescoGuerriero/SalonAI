@@ -122,6 +122,23 @@ app.use(
 app.use(
   express.json({
     limit: "2mb",
+
+    verify: (
+      request,
+      response,
+      buffer
+    ) => {
+      if (
+        String(
+          request.originalUrl || ""
+        ).startsWith(
+          "/api/whatsapp/webhook"
+        )
+      ) {
+        request.rawBody =
+          Buffer.from(buffer);
+      }
+    },
   })
 );
 
