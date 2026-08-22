@@ -1,6 +1,7 @@
 import Order from "./Order.js";
 import Payment from "./Payment.js";
 import { sendTransactionalNotification } from "../../services/transactionalNotificationService.js";
+import { resolveWhatsAppEventTemplate } from "../../providers/whatsapp/whatsappTemplateResolver.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -60,7 +61,7 @@ export async function notifyOrderPaid(orderId) {
   const name = customerName(order.customer, order.contact?.name);
   const amount = money(order.total).toFixed(2);
   const fulfilment = order.fulfilmentType === "delivery" ? "delivery" : "collection";
-  const body = `Hi ${name}, payment of £${amount} for SalonAI order ${order.orderNumber} has been received. Your order is now being prepared for ${fulfilment}.`;
+  const body = `Hi ${name}, payment of Â£${amount} for SalonAI order ${order.orderNumber} has been received. Your order is now being prepared for ${fulfilment}.`;
 
   return sendTransactionalNotification({
     event: "commerce.order_paid",
@@ -73,14 +74,14 @@ export async function notifyOrderPaid(orderId) {
     },
     subject: `Payment received - ${order.orderNumber}`,
     text: body,
-    html: `<p>Hi ${name},</p><p>Payment of <strong>£${amount}</strong> for order <strong>${order.orderNumber}</strong> has been received.</p><p>Your order is now being prepared for ${fulfilment}.</p>`,
+    html: `<p>Hi ${name},</p><p>Payment of <strong>Â£${amount}</strong> for order <strong>${order.orderNumber}</strong> has been received.</p><p>Your order is now being prepared for ${fulfilment}.</p>`,
     whatsapp: {
       body,
-      contentSid: process.env.TWILIO_WHATSAPP_ORDER_PAID_CONTENT_SID || "",
+      template: resolveWhatsAppEventTemplate("order_paid"),
       contentVariables: {
         1: name,
         2: order.orderNumber,
-        3: `£${amount}`,
+        3: `Â£${amount}`,
         4: fulfilment,
       },
     },
@@ -117,7 +118,7 @@ export async function notifyOrderRefunded(
   const refundedAmount = money(payment?.refundedAmount || order.total).toFixed(2);
   const fullRefund = payment?.status === "refunded";
   const refundLabel = fullRefund ? "refund" : "partial refund";
-  const body = `Hi ${name}, a ${refundLabel} of £${refundedAmount} has been recorded for SalonAI order ${order.orderNumber}. Your bank or card provider may take additional time to display the funds.`;
+  const body = `Hi ${name}, a ${refundLabel} of Â£${refundedAmount} has been recorded for SalonAI order ${order.orderNumber}. Your bank or card provider may take additional time to display the funds.`;
   const safeRefundKey = text(refundKey) || `${payment?._id || order._id}:${refundedAmount}:${fullRefund}`;
 
   return sendTransactionalNotification({
@@ -131,14 +132,14 @@ export async function notifyOrderRefunded(
     },
     subject: `${fullRefund ? "Refund" : "Partial refund"} - ${order.orderNumber}`,
     text: body,
-    html: `<p>Hi ${name},</p><p>A ${refundLabel} of <strong>£${refundedAmount}</strong> has been recorded for order <strong>${order.orderNumber}</strong>.</p><p>Your bank or card provider may take additional time to display the funds.</p>`,
+    html: `<p>Hi ${name},</p><p>A ${refundLabel} of <strong>Â£${refundedAmount}</strong> has been recorded for order <strong>${order.orderNumber}</strong>.</p><p>Your bank or card provider may take additional time to display the funds.</p>`,
     whatsapp: {
       body,
-      contentSid: process.env.TWILIO_WHATSAPP_REFUND_CONTENT_SID || "",
+      template: resolveWhatsAppEventTemplate("refund"),
       contentVariables: {
         1: name,
         2: order.orderNumber,
-        3: `£${refundedAmount}`,
+        3: `Â£${refundedAmount}`,
         4: refundLabel,
       },
     },

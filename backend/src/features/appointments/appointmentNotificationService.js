@@ -1,5 +1,6 @@
 import Appointment from "../../models/Appointment.js";
 import { sendTransactionalNotification } from "../../services/transactionalNotificationService.js";
+import { resolveWhatsAppEventTemplate } from "../../providers/whatsapp/whatsappTemplateResolver.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -184,7 +185,7 @@ async function sendAppointmentEvent({
   subject,
   body,
   html,
-  templateSid,
+  templateKey,
   templateVariables,
   reminder = false,
   metadata = {},
@@ -202,6 +203,11 @@ async function sendAppointmentEvent({
     };
   }
 
+  const whatsappTemplate =
+    resolveWhatsAppEventTemplate(
+      templateKey
+    );
+
   return sendTransactionalNotification({
     event,
     eventKey,
@@ -212,7 +218,7 @@ async function sendAppointmentEvent({
     html,
     whatsapp: {
       body,
-      contentSid: templateSid || "",
+      template: whatsappTemplate,
       contentVariables: templateVariables,
     },
     customerId: appointment.customer?._id || null,
@@ -241,7 +247,7 @@ export async function notifyAppointmentConfirmed(
     subject: `Appointment confirmed - ${details.date} ${details.time}`,
     body,
     html: `<p>Hi ${details.name},</p><p>Your <strong>${details.service}</strong> appointment with <strong>${details.stylist}</strong> is confirmed for <strong>${details.date} at ${details.time}</strong>.</p>`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_CONFIRMED_CONTENT_SID,
+    templateKey: "appointment_confirmed",
     templateVariables: {
       1: details.name,
       2: details.service,
@@ -274,7 +280,7 @@ export async function notifyAppointmentRescheduled(
     subject: `Appointment rescheduled - ${details.date} ${details.time}`,
     body,
     html: `<p>Hi ${details.name},</p><p>Your <strong>${details.service}</strong> appointment has been rescheduled to <strong>${details.date} at ${details.time}</strong> with <strong>${details.stylist}</strong>.</p>`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_RESCHEDULED_CONTENT_SID,
+    templateKey: "appointment_rescheduled",
     templateVariables: {
       1: details.name,
       2: details.service,
@@ -303,7 +309,7 @@ export async function notifyAppointmentCancelled(
     subject: "Appointment cancelled",
     body,
     html: `<p>Hi ${details.name},</p><p>Your <strong>${details.service}</strong> appointment scheduled for <strong>${details.date} at ${details.time}</strong> has been cancelled.</p>`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_CANCELLED_CONTENT_SID,
+    templateKey: "appointment_cancelled",
     templateVariables: {
       1: details.name,
       2: details.service,
@@ -335,7 +341,7 @@ export async function notifyAppointmentReminder(
     subject: `Appointment reminder - ${details.date} ${details.time}`,
     body,
     html: `<p>Hi ${details.name},</p><p>This is a reminder that your <strong>${details.service}</strong> appointment with <strong>${details.stylist}</strong> is on <strong>${details.date} at ${details.time}</strong>.</p>`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_REMINDER_CONTENT_SID,
+    templateKey: "appointment_reminder",
     templateVariables: {
       1: details.name,
       2: details.service,
@@ -374,7 +380,7 @@ export async function notifyAppointmentPaymentRequest(
   const requestedAmount = money(
     amount ?? appointment.balanceDue ?? appointment.finalPrice ?? appointment.totalPrice
   );
-  const amountLabel = `£${requestedAmount.toFixed(2)}`;
+  const amountLabel = `Â£${requestedAmount.toFixed(2)}`;
   const purposeLabel = text(purpose).toLowerCase() === "deposit" ? "deposit" : "payment";
   const body = `Hi ${details.name}, a ${purposeLabel} of ${amountLabel} is requested for your ${details.service} appointment on ${details.date} at ${details.time}. Pay securely here: ${paymentUrl}`;
 
@@ -385,7 +391,7 @@ export async function notifyAppointmentPaymentRequest(
     subject: `Appointment ${purposeLabel} request - ${amountLabel}`,
     body,
     html: `<p>Hi ${details.name},</p><p>A <strong>${purposeLabel} of ${amountLabel}</strong> is requested for your <strong>${details.service}</strong> appointment on <strong>${details.date} at ${details.time}</strong>.</p><p><a href="${paymentUrl}">Pay securely</a></p>`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_PAYMENT_REQUEST_CONTENT_SID,
+    templateKey: "appointment_payment_request",
     templateVariables: {
       1: details.name,
       2: purposeLabel,
@@ -419,8 +425,8 @@ export async function notifyAppointmentPaymentReceived(
   const details = appointmentDetails(appointment);
   const receivedAmount = money(amount ?? 0);
   const balance = money(remainingBalance ?? appointment.balanceDue ?? 0);
-  const amountLabel = "£" + receivedAmount.toFixed(2);
-  const balanceLabel = "£" + balance.toFixed(2);
+  const amountLabel = "Â£" + receivedAmount.toFixed(2);
+  const balanceLabel = "Â£" + balance.toFixed(2);
   const balanceSentence = balance <= 0
     ? "Your appointment balance is now paid in full."
     : "Your remaining appointment balance is " + balanceLabel + ".";
@@ -442,7 +448,7 @@ export async function notifyAppointmentPaymentReceived(
       "</strong> for your <strong>" + details.service +
       "</strong> appointment on <strong>" + details.date + " at " + details.time +
       "</strong>.</p><p>" + balanceSentence + "</p>",
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_PAYMENT_RECEIVED_CONTENT_SID,
+    templateKey: "appointment_payment_received",
     templateVariables: {
       1: details.name,
       2: amountLabel,
@@ -478,7 +484,7 @@ export async function notifyAppointmentPaymentFailed(
     subject: "Appointment payment unsuccessful",
     body,
     html: `<p>Hi ${details.name},</p><p>We could not complete the payment for your <strong>${details.service}</strong> appointment on <strong>${details.date} at ${details.time}</strong>.</p>${safeRetryUrl ? `<p><a href="${safeRetryUrl}">Retry payment securely</a></p>` : "<p>Please contact the salon if you need help completing payment.</p>"}`,
-    templateSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_PAYMENT_FAILED_CONTENT_SID,
+    templateKey: "appointment_payment_failed",
     templateVariables: {
       1: details.name,
       2: details.service,

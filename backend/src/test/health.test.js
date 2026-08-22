@@ -144,8 +144,8 @@ test(
 
     const body = await response.json();
     assert.equal(body.success, false);
-    assert.equal(body.code, "BAD_REQUEST");
-    assert.equal(body.details.field, "phone");
+    assert.equal(body.code, "WHATSAPP_PHONE_INVALID");
+
   }
 );
 

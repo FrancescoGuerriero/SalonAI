@@ -73,35 +73,148 @@ function validateStripeConfiguration(isProduction) {
   }
 }
 
-function validateWhatsAppConfiguration(isProduction) {
-  const mode = readMode(process.env.WHATSAPP_PROVIDER_MODE, "mock");
-
-  if (!["mock", "console", "sandbox", "twilio", "live"].includes(mode)) {
-    throw new Error(
-      "WHATSAPP_PROVIDER_MODE must be mock, console, sandbox, twilio or live."
-    );
-  }
-
-  if (!["twilio", "live"].includes(mode)) {
-    return;
-  }
-
-  assertRequired(
-    ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_FROM"],
-    "Twilio WhatsApp"
+function resolveWhatsAppProvider() {
+  const configuredProvider = readMode(
+    process.env.WHATSAPP_PROVIDER,
+    ""
   );
 
-  if (!String(process.env.TWILIO_ACCOUNT_SID).startsWith("AC")) {
-    throw new Error("TWILIO_ACCOUNT_SID must begin with AC.");
+  if (configuredProvider) {
+    return configuredProvider;
+  }
+
+  // Backwards compatibility with pre-Phase 8.11A deployments.
+  const legacyMode = readMode(
+    process.env.WHATSAPP_PROVIDER_MODE,
+    "mock"
+  );
+
+  if (
+    ["mock", "console", "sandbox"].includes(
+      legacyMode
+    )
+  ) {
+    return "console";
   }
 
   if (
-    isProduction &&
-    !process.env.WHATSAPP_WEBHOOK_URL &&
-    !process.env.TWILIO_WEBHOOK_BASE_URL
+    ["twilio", "live"].includes(
+      legacyMode
+    )
+  ) {
+    return "twilio";
+  }
+
+  return legacyMode;
+}
+
+function resolveWhatsAppDeliveryEnabled() {
+  if (
+    process.env.WHATSAPP_DELIVERY_ENABLED !==
+    undefined
+  ) {
+    return readBoolean(
+      process.env.WHATSAPP_DELIVERY_ENABLED,
+      false
+    );
+  }
+
+  /*
+   * Preserve the behaviour of existing deployments
+   * until WHATSAPP_PROVIDER is explicitly adopted.
+   */
+  return !String(
+    process.env.WHATSAPP_PROVIDER || ""
+  ).trim();
+}
+
+function validateWhatsAppConfiguration(
+  isProduction
+) {
+  const provider =
+    resolveWhatsAppProvider();
+
+  if (
+    !["console", "meta", "twilio"].includes(
+      provider
+    )
   ) {
     throw new Error(
-      "Production WhatsApp delivery requires WHATSAPP_WEBHOOK_URL or TWILIO_WEBHOOK_BASE_URL for deterministic webhook signature validation."
+      "WHATSAPP_PROVIDER must be console, meta or twilio."
+    );
+  }
+
+  const enabled =
+    resolveWhatsAppDeliveryEnabled();
+
+  /*
+   * Console is always safe for development and
+   * requires no external provider credentials.
+   */
+  if (
+    provider === "console" ||
+    !enabled
+  ) {
+    return;
+  }
+
+  if (provider === "twilio") {
+    assertRequired(
+      [
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_WHATSAPP_FROM",
+      ],
+      "Twilio WhatsApp"
+    );
+
+    if (
+      !String(
+        process.env.TWILIO_ACCOUNT_SID
+      ).startsWith("AC")
+    ) {
+      throw new Error(
+        "TWILIO_ACCOUNT_SID must begin with AC."
+      );
+    }
+
+    if (
+      isProduction &&
+      !process.env.WHATSAPP_WEBHOOK_URL &&
+      !process.env.TWILIO_WEBHOOK_BASE_URL
+    ) {
+      throw new Error(
+        "Production Twilio WhatsApp delivery requires WHATSAPP_WEBHOOK_URL or TWILIO_WEBHOOK_BASE_URL."
+      );
+    }
+
+    return;
+  }
+
+  /*
+   * Meta WhatsApp Cloud API.
+   *
+   * APP_SECRET and VERIFY_TOKEN are included because
+   * SalonAI supports inbound WhatsApp conversations
+   * as well as outbound transactional messages.
+   */
+  assertRequired(
+    [
+      "META_WHATSAPP_ACCESS_TOKEN",
+      "META_WHATSAPP_PHONE_NUMBER_ID",
+      "META_WHATSAPP_APP_SECRET",
+      "META_WHATSAPP_VERIFY_TOKEN",
+      "META_WHATSAPP_GRAPH_VERSION",
+    ],
+    "Meta WhatsApp"
+  );
+
+  if (
+    isProduction &&
+    !process.env.WHATSAPP_WEBHOOK_URL
+  ) {
+    throw new Error(
+      "Production Meta WhatsApp delivery requires WHATSAPP_WEBHOOK_URL."
     );
   }
 }
@@ -232,6 +345,13 @@ export const env = Object.freeze({
   ),
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+  whatsappProvider:
+    resolveWhatsAppProvider(),
+
+  whatsappDeliveryEnabled:
+    resolveWhatsAppDeliveryEnabled(),
+
+  // Retained temporarily for backwards compatibility.
   whatsappProviderMode: readMode(
     process.env.WHATSAPP_PROVIDER_MODE,
     "mock"

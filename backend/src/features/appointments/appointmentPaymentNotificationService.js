@@ -1,6 +1,7 @@
 import Appointment from "../../models/Appointment.js";
 import Payment from "../commerce/Payment.js";
 import { sendTransactionalNotification } from "../../services/transactionalNotificationService.js";
+import { resolveWhatsAppEventTemplate } from "../../providers/whatsapp/whatsappTemplateResolver.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -82,8 +83,8 @@ export async function notifyAppointmentPaymentReceived(
 
   const name = customerName(appointment.customer);
   const service = text(appointment.service?.name) || "your salon appointment";
-  const amount = `£${money(payment.amount).toFixed(2)}`;
-  const remaining = `£${money(appointment.balanceDue).toFixed(2)}`;
+  const amount = `Â£${money(payment.amount).toFixed(2)}`;
+  const remaining = `Â£${money(appointment.balanceDue).toFixed(2)}`;
   const purpose =
     payment.purpose === "appointment_deposit"
       ? "deposit"
@@ -114,7 +115,7 @@ export async function notifyAppointmentPaymentReceived(
       : `<p>Hi ${name},</p><p>We received your <strong>${purpose} of ${amount}</strong> for <strong>${service}</strong>.</p><p>Your appointment balance is now fully paid.</p>`,
     whatsapp: {
       body,
-      contentSid: process.env.TWILIO_WHATSAPP_APPOINTMENT_PAYMENT_RECEIVED_CONTENT_SID || "",
+      template: resolveWhatsAppEventTemplate("appointment_payment_received"),
       contentVariables: {
         1: name,
         2: purpose,
