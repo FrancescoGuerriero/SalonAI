@@ -130,6 +130,99 @@ test(
 );
 
 test(
+  "GET /api/whatsapp/webhook safely verifies Meta subscription challenges",
+  async () => {
+    const originalProvider =
+      process.env.WHATSAPP_PROVIDER;
+
+    const originalVerifyToken =
+      process.env.META_WHATSAPP_VERIFY_TOKEN;
+
+    try {
+      const verifyToken =
+        "phase-8.11A-route-test-token";
+
+      process.env.WHATSAPP_PROVIDER =
+        "meta";
+
+      process.env.META_WHATSAPP_VERIFY_TOKEN =
+        verifyToken;
+
+      const validQuery =
+        new URLSearchParams({
+          "hub.mode": "subscribe",
+          "hub.verify_token":
+            verifyToken,
+          "hub.challenge":
+            "123456",
+        });
+
+      const validResponse =
+        await fetch(
+          `${baseUrl}/api/whatsapp/webhook?${validQuery}`
+        );
+
+      assert.equal(
+        validResponse.status,
+        200
+      );
+
+      assert.match(
+        validResponse.headers.get(
+          "content-type"
+        ) || "",
+        /^text\/plain\b/i
+      );
+
+      assert.equal(
+        await validResponse.text(),
+        "123456"
+      );
+
+      const maliciousQuery =
+        new URLSearchParams({
+          "hub.mode": "subscribe",
+          "hub.verify_token":
+            verifyToken,
+          "hub.challenge":
+            "<script>alert(1)</script>",
+        });
+
+      const maliciousResponse =
+        await fetch(
+          `${baseUrl}/api/whatsapp/webhook?${maliciousQuery}`
+        );
+
+      assert.equal(
+        maliciousResponse.status,
+        400
+      );
+
+      const maliciousBody =
+        await maliciousResponse.json();
+
+      assert.equal(
+        maliciousBody.success,
+        false
+      );
+    } finally {
+      if (originalProvider === undefined) {
+        delete process.env.WHATSAPP_PROVIDER;
+      } else {
+        process.env.WHATSAPP_PROVIDER =
+          originalProvider;
+      }
+
+      if (originalVerifyToken === undefined) {
+        delete process.env.META_WHATSAPP_VERIFY_TOKEN;
+      } else {
+        process.env.META_WHATSAPP_VERIFY_TOKEN =
+          originalVerifyToken;
+      }
+    }
+  }
+);
+test(
   "POST /api/whatsapp/webhook rejects malformed public webhook payloads",
   async () => {
     const response = await fetch(`${baseUrl}/api/whatsapp/webhook`, {
