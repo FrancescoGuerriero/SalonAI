@@ -406,3 +406,45 @@ test(
     }
   }
 );
+test(
+  "console webhook verification fails closed in production",
+  () => {
+    const originalProvider =
+      process.env.WHATSAPP_PROVIDER;
+
+    const originalNodeEnvironment =
+      process.env.NODE_ENV;
+
+    try {
+      process.env.WHATSAPP_PROVIDER =
+        "console";
+
+      process.env.NODE_ENV =
+        "production";
+
+      const verified =
+        verifyWhatsAppWebhookRequest({
+          headers: {},
+          body: {
+            phone: "+447700900123",
+            body: "Book",
+          },
+        });
+
+      assert.equal(
+        verified,
+        false
+      );
+    } finally {
+      restoreEnvironment(
+        "WHATSAPP_PROVIDER",
+        originalProvider
+      );
+
+      restoreEnvironment(
+        "NODE_ENV",
+        originalNodeEnvironment
+      );
+    }
+  }
+);
