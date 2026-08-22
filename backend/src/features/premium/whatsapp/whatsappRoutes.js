@@ -7,6 +7,7 @@ import {
 import {
   managementOnly,
 } from "../../../middleware/roleMiddleware.js";
+
 import {
   confirmBooking,
   getConversation,
@@ -14,22 +15,46 @@ import {
   markConversationRead,
   updateBookingSession,
   updateConversationStatus,
-  webhook,
 } from "./whatsappController.js";
+
+import {
+  receiveWebhook,
+  verifyWebhookSubscription,
+} from "./whatsappWebhookController.js";
+
 import {
   createOutboundWhatsAppMessage,
   getWhatsAppOutboundPolicy,
   sendConversationMessageWithPolicy,
 } from "./whatsappOutboundController.js";
 
-const router =
-  express.Router();
+const router = express.Router();
+
+/*
+ * Public WhatsApp provider webhook.
+ *
+ * GET  -> Meta Cloud API subscription verification.
+ * POST -> inbound Meta or Twilio webhook events,
+ *         selected through WHATSAPP_PROVIDER.
+ */
+router.get(
+  "/webhook",
+  asyncHandler(
+    verifyWebhookSubscription
+  )
+);
 
 router.post(
   "/webhook",
-  asyncHandler(webhook)
+  asyncHandler(
+    receiveWebhook
+  )
 );
 
+/*
+ * Everything below this point requires an
+ * authenticated management account.
+ */
 router.use(protect);
 router.use(managementOnly);
 

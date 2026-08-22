@@ -1,8 +1,17 @@
+import {
+  normaliseWhatsAppTemplate,
+  TWILIO_CONTENT_SID_PATTERN,
+} from "../../../providers/whatsapp/whatsappTemplateResolver.js";
+
 const CUSTOMER_SERVICE_WINDOW_MS =
   24 * 60 * 60 * 1000;
 
+/*
+ * Backwards-compatible export for existing
+ * Twilio-facing callers and tests.
+ */
 const CONTENT_SID_PATTERN =
-  /^HX[A-Za-z0-9]{32}$/;
+  TWILIO_CONTENT_SID_PATTERN;
 
 function createPolicyError(
   message,
@@ -17,10 +26,15 @@ function createPolicyError(
 
   error.statusCode =
     statusCode;
+
   error.status =
     statusCode;
-  error.code = code;
-  error.details = details;
+
+  error.code =
+    code;
+
+  error.details =
+    details;
 
   return error;
 }
@@ -61,6 +75,12 @@ export function isCustomerServiceWindowOpen(
   );
 }
 
+/*
+ * Retained for backwards compatibility.
+ *
+ * New provider-neutral code should prefer
+ * normaliseWhatsAppTemplate().
+ */
 export function normaliseContentSid(
   value
 ) {
@@ -82,8 +102,10 @@ export function normaliseContentSid(
       {
         code:
           "WHATSAPP_CONTENT_SID_INVALID",
+
         details: {
-          field: "contentSid",
+          field:
+            "contentSid",
         },
       }
     );
@@ -117,6 +139,7 @@ export function normaliseTemplateVariables(
         {
           code:
             "WHATSAPP_TEMPLATE_VARIABLES_INVALID",
+
           details: {
             field:
               "contentVariables",
@@ -137,6 +160,7 @@ export function normaliseTemplateVariables(
       {
         code:
           "WHATSAPP_TEMPLATE_VARIABLES_INVALID",
+
         details: {
           field:
             "contentVariables",
@@ -157,12 +181,71 @@ export function normaliseTemplateVariables(
 
 export function evaluateWhatsAppOutboundPolicy({
   lastInboundAt = null,
+
+  /*
+   * Legacy Twilio template identifier.
+   */
   contentSid = "",
+
+  /*
+   * Meta Cloud API template identifier.
+   */
+  templateName = "",
+
+  templateLanguage = "",
+
+  /*
+   * Preferred provider-neutral descriptor.
+   */
+  template = null,
+
   now = new Date(),
 } = {}) {
-  const templateSid =
-    normaliseContentSid(
-      contentSid
+  const templateInput =
+    template &&
+    typeof template === "object" &&
+    !Array.isArray(template)
+      ? {
+          ...template,
+        }
+      : {
+          contentSid,
+          templateName,
+          templateLanguage,
+        };
+
+  /*
+   * Preserve legacy top-level values when a
+   * partially populated template object is
+   * supplied.
+   */
+  if (
+    !templateInput.contentSid &&
+    contentSid
+  ) {
+    templateInput.contentSid =
+      contentSid;
+  }
+
+  if (
+    !templateInput.templateName &&
+    templateName
+  ) {
+    templateInput.templateName =
+      templateName;
+  }
+
+  if (
+    !templateInput.templateLanguage &&
+    templateLanguage
+  ) {
+    templateInput.templateLanguage =
+      templateLanguage;
+  }
+
+  const resolvedTemplate =
+    normaliseWhatsAppTemplate(
+      templateInput
     );
 
   const serviceWindowOpen =
@@ -171,17 +254,44 @@ export function evaluateWhatsAppOutboundPolicy({
       now
     );
 
+  const templateSupplied =
+    Boolean(
+      resolvedTemplate.supplied
+    );
+
   return {
     serviceWindowOpen,
+
     templateRequired:
       !serviceWindowOpen,
-    templateSupplied:
-      Boolean(templateSid),
+
+    templateSupplied,
+
+    provider:
+      resolvedTemplate.provider,
+
+    template:
+      resolvedTemplate,
+
+    /*
+     * Flattened fields remain available so
+     * existing Twilio code does not break.
+     */
     contentSid:
-      templateSid,
+      resolvedTemplate.contentSid ||
+      "",
+
+    templateName:
+      resolvedTemplate.templateName ||
+      "",
+
+    templateLanguage:
+      resolvedTemplate.templateLanguage ||
+      "",
+
     allowed:
       serviceWindowOpen ||
-      Boolean(templateSid),
+      templateSupplied,
   };
 }
 
@@ -194,17 +304,30 @@ export function assertWhatsAppOutboundAllowed(
     );
 
   if (!policy.allowed) {
+    const field =
+      policy.provider === "meta"
+        ? "templateName"
+        : policy.provider ===
+            "twilio"
+          ? "contentSid"
+          : "template";
+
     throw createPolicyError(
       "A pre-approved WhatsApp template is required because the customer service window is not open.",
       {
         statusCode: 409,
+
         code:
           "WHATSAPP_TEMPLATE_REQUIRED",
+
         details: {
           serviceWindowOpen:
             false,
-          field:
-            "contentSid",
+
+          provider:
+            policy.provider,
+
+          field,
         },
       }
     );
