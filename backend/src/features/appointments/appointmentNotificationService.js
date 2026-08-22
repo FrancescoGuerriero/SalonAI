@@ -380,7 +380,7 @@ export async function notifyAppointmentPaymentRequest(
   const requestedAmount = money(
     amount ?? appointment.balanceDue ?? appointment.finalPrice ?? appointment.totalPrice
   );
-  const amountLabel = `Ã‚£${requestedAmount.toFixed(2)}`;
+  const amountLabel = `\u00A3${requestedAmount.toFixed(2)}`;
   const purposeLabel = text(purpose).toLowerCase() === "deposit" ? "deposit" : "payment";
   const body = `Hi ${details.name}, a ${purposeLabel} of ${amountLabel} is requested for your ${details.service} appointment on ${details.date} at ${details.time}. Pay securely here: ${paymentUrl}`;
 
@@ -425,8 +425,8 @@ export async function notifyAppointmentPaymentReceived(
   const details = appointmentDetails(appointment);
   const receivedAmount = money(amount ?? 0);
   const balance = money(remainingBalance ?? appointment.balanceDue ?? 0);
-  const amountLabel = "Ã‚£" + receivedAmount.toFixed(2);
-  const balanceLabel = "Ã‚£" + balance.toFixed(2);
+  const amountLabel = "\u00A3" + receivedAmount.toFixed(2);
+  const balanceLabel = "\u00A3" + balance.toFixed(2);
   const balanceSentence = balance <= 0
     ? "Your appointment balance is now paid in full."
     : "Your remaining appointment balance is " + balanceLabel + ".";
