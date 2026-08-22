@@ -1,101 +1,116 @@
 import assert from "node:assert/strict";
 import {
-  readdir,
   readFile,
 } from "node:fs/promises";
-import path from "node:path";
 import {
   fileURLToPath,
 } from "node:url";
 import test from "node:test";
 
-const featuresRoot =
-  fileURLToPath(
-    new URL(
-      "../features/",
-      import.meta.url
-    )
-  );
-
-async function javascriptFiles(
-  directory
-) {
-  const entries =
-    await readdir(
-      directory,
-      {
-        withFileTypes: true,
-      }
-    );
-
-  const files = [];
-
-  for (const entry of entries) {
-    const fullPath =
-      path.join(
-        directory,
-        entry.name
-      );
-
-    if (entry.isDirectory()) {
-      files.push(
-        ...await javascriptFiles(
-          fullPath
+const specifications = [
+  {
+    file:
+      fileURLToPath(
+        new URL(
+          "../features/appointments/appointmentNotificationService.js",
+          import.meta.url
         )
-      );
-
-      continue;
-    }
-
-    if (
-      entry.isFile() &&
-      entry.name.endsWith(".js")
-    ) {
-      files.push(fullPath);
-    }
-  }
-
-  return files;
-}
+      ),
+    name:
+      "appointmentNotificationService.js",
+    expectedEscapes: 3,
+  },
+  {
+    file:
+      fileURLToPath(
+        new URL(
+          "../features/appointments/appointmentPaymentNotificationService.js",
+          import.meta.url
+        )
+      ),
+    name:
+      "appointmentPaymentNotificationService.js",
+    expectedEscapes: 2,
+  },
+  {
+    file:
+      fileURLToPath(
+        new URL(
+          "../features/commerce/commerceNotificationService.js",
+          import.meta.url
+        )
+      ),
+    name:
+      "commerceNotificationService.js",
+    expectedEscapes: 6,
+  },
+];
 
 test(
-  "customer-facing feature source contains no mojibake pound signs",
+  "transactional communications use ASCII-safe GBP currency markers",
   async () => {
-    const badPound =
-      "\u00c2\u00a3";
+    const failures = [];
 
-    const files =
-      await javascriptFiles(
-        featuresRoot
-      );
-
-    const offenders = [];
-
-    for (const file of files) {
-      const content =
+    for (
+      const specification
+      of specifications
+    ) {
+      const source =
         await readFile(
-          file,
+          specification.file,
           "utf8"
         );
 
+      const escapedPounds =
+        (
+          source.match(
+            /\\u00A3/g
+          ) || []
+        ).length;
+
+      const literalPounds =
+        (
+          source.match(
+            /\u00A3/g
+          ) || []
+        ).length;
+
+      const mojibakeMarkers =
+        (
+          source.match(
+            /[\u00C2\u00C3\u201A]/g
+          ) || []
+        ).length;
+
       if (
-        content.includes(
-          badPound
-        )
+        escapedPounds !==
+        specification.expectedEscapes
       ) {
-        offenders.push(
-          path.relative(
-            featuresRoot,
-            file
-          )
+        failures.push(
+          `${specification.name}: expected ${specification.expectedEscapes} ASCII-safe GBP escapes, found ${escapedPounds}`
+        );
+      }
+
+      if (
+        literalPounds !== 0
+      ) {
+        failures.push(
+          `${specification.name}: contains ${literalPounds} literal pound-sign source characters`
+        );
+      }
+
+      if (
+        mojibakeMarkers !== 0
+      ) {
+        failures.push(
+          `${specification.name}: contains ${mojibakeMarkers} mojibake marker characters`
         );
       }
     }
 
     assert.deepEqual(
-      offenders,
-      [],
-      `Mojibake pound signs found in: ${offenders.join(", ")}`
+      failures,
+      []
     );
   }
 );

@@ -83,8 +83,8 @@ export async function notifyAppointmentPaymentReceived(
 
   const name = customerName(appointment.customer);
   const service = text(appointment.service?.name) || "your salon appointment";
-  const amount = `Ã‚£${money(payment.amount).toFixed(2)}`;
-  const remaining = `Ã‚£${money(appointment.balanceDue).toFixed(2)}`;
+  const amount = `\u00A3${money(payment.amount).toFixed(2)}`;
+  const remaining = `\u00A3${money(appointment.balanceDue).toFixed(2)}`;
   const purpose =
     payment.purpose === "appointment_deposit"
       ? "deposit"
