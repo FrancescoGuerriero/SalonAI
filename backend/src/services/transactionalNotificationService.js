@@ -52,10 +52,25 @@ function customerAllowsTransactionalMessage(customer, channel) {
   return true;
 }
 
-function auditWhatsAppBody({ body, contentSid }) {
-  return body || `WhatsApp template ${contentSid}`;
-}
+function auditWhatsAppBody({
+  body,
+  template,
+}) {
+  if (body) {
+    return body;
+  }
 
+  const identifier =
+    text(
+      template?.templateName
+    ) ||
+    text(
+      template?.contentSid
+    ) ||
+    "configured";
+
+  return `WhatsApp template ${identifier}`;
+}
 function providerStatus(value) {
   const allowed = new Set([
     "received",
@@ -227,90 +242,238 @@ async function sendRecordedSms({ recipient, textBody, metadata, customer, actorI
 async function sendRecordedWhatsApp({
   recipient,
   textBody,
-  contentSid,
+
+  /*
+   * Legacy Twilio template input.
+   */
+  contentSid = "",
+
+  /*
+   * Provider-neutral template inputs.
+   */
+  templateName = "",
+  templateLanguage = "",
+  templateComponents = null,
+  template = null,
+
   contentVariables,
   metadata,
   customer,
   actorId,
 }) {
   if (!recipient.phone) {
-    return { channel: "whatsapp", success: false, skipped: true, reason: "recipient_missing" };
+    return {
+      channel: "whatsapp",
+      success: false,
+      skipped: true,
+      reason: "recipient_missing",
+    };
   }
 
-  if (!customerAllowsTransactionalMessage(customer, "whatsapp")) {
-    return { channel: "whatsapp", success: false, skipped: true, reason: "customer_opted_out" };
+  if (
+    !customerAllowsTransactionalMessage(
+      customer,
+      "whatsapp"
+    )
+  ) {
+    return {
+      channel: "whatsapp",
+      success: false,
+      skipped: true,
+      reason: "customer_opted_out",
+    };
   }
 
-  const phone = normaliseWhatsAppPhone(recipient.phone);
-  const conversation = await WhatsAppConversation.findOne({ phone });
-  const policy = assertWhatsAppOutboundAllowed({
-    lastInboundAt: conversation?.lastInboundAt || null,
-    contentSid: text(contentSid),
-  });
+  const phone =
+    normaliseWhatsAppPhone(
+      recipient.phone
+    );
 
-  const body = text(textBody).replace(/\s+/g, " ");
-  if (!policy.templateSupplied && !body) {
-    const error = new Error("A WhatsApp message body is required during an open customer service window.");
+  const conversation =
+    await WhatsAppConversation.findOne({
+      phone,
+    });
+
+  const policy =
+    assertWhatsAppOutboundAllowed({
+      lastInboundAt:
+        conversation?.lastInboundAt ||
+        null,
+
+      contentSid:
+        text(contentSid),
+
+      templateName:
+        text(templateName),
+
+      templateLanguage:
+        text(templateLanguage),
+
+      template,
+    });
+
+  const body =
+    text(textBody).replace(
+      /\s+/g,
+      " "
+    );
+
+  if (
+    !policy.templateSupplied &&
+    !body
+  ) {
+    const error = new Error(
+      "A WhatsApp message body is required during an open customer service window."
+    );
+
     error.statusCode = 400;
-    error.code = "WHATSAPP_MESSAGE_BODY_REQUIRED";
+    error.code =
+      "WHATSAPP_MESSAGE_BODY_REQUIRED";
+
     throw error;
   }
 
-  const variables = normaliseTemplateVariables(contentVariables);
-  const delivery = await sendWhatsApp({
-    to: phone,
-    message: body,
-    contentSid: policy.contentSid,
-    contentVariables: variables,
-    statusCallbackUrl: process.env.TWILIO_WHATSAPP_STATUS_CALLBACK_URL || "",
-  });
+  const variables =
+    normaliseTemplateVariables(
+      contentVariables
+    );
 
-  const now = new Date();
-  const auditBody = auditWhatsAppBody({ body, contentSid: policy.contentSid });
+  /*
+   * Provider-specific translation happens in the
+   * selected WhatsApp provider.
+   */
+  const delivery =
+    await sendWhatsApp({
+      to: phone,
+      message: body,
+
+      contentSid:
+        policy.contentSid,
+
+      templateName:
+        policy.templateName,
+
+      templateLanguage:
+        policy.templateLanguage,
+
+      templateComponents,
+
+      contentVariables:
+        variables,
+    });
+
+  const now =
+    new Date();
+
+  const auditBody =
+    auditWhatsAppBody({
+      body,
+      template:
+        policy.template,
+    });
+
   const update = {
     $set: {
       lastMessageAt: now,
       lastOutboundAt: now,
-      lastMessagePreview: auditBody.slice(0, 240),
-      ...(recipient.name ? { displayName: recipient.name.slice(0, 120) } : {}),
-      ...(customer ? { customer: customer._id } : {}),
-      ...(actorId ? { assignedTo: actorId } : {}),
-      ...(conversation?.status === "closed" ? { status: "open", closedAt: null } : {}),
+
+      lastMessagePreview:
+        auditBody.slice(
+          0,
+          240
+        ),
+
+      ...(recipient.name
+        ? {
+            displayName:
+              recipient.name.slice(
+                0,
+                120
+              ),
+          }
+        : {}),
+
+      ...(customer
+        ? {
+            customer:
+              customer._id,
+          }
+        : {}),
+
+      ...(actorId
+        ? {
+            assignedTo:
+              actorId,
+          }
+        : {}),
+
+      ...(conversation?.status ===
+      "closed"
+        ? {
+            status: "open",
+            closedAt: null,
+          }
+        : {}),
     },
+
     $setOnInsert: {
       phone,
       status: "open",
       unreadCount: 0,
     },
+
     $push: {
       messages: {
-        direction: "outbound",
-        body: auditBody,
-        providerMessageId: delivery?.messageId || "",
-        providerStatus: providerStatus(delivery?.status),
+        direction:
+          "outbound",
+
+        body:
+          auditBody,
+
+        providerMessageId:
+          delivery?.messageId ||
+          "",
+
+        providerStatus:
+          providerStatus(
+            delivery?.status
+          ),
+
         sentAt: now,
       },
     },
   };
 
-  const saved = await WhatsAppConversation.findOneAndUpdate(
-    { phone },
-    update,
-    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-  );
+  const saved =
+    await WhatsAppConversation.findOneAndUpdate(
+      {
+        phone,
+      },
+      update,
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert:
+          true,
+      }
+    );
 
   return {
     channel: "whatsapp",
     success: true,
+
     result: {
       delivery,
       policy,
-      conversationId: saved._id,
+
+      conversationId:
+        saved._id,
+
       metadata,
     },
   };
 }
-
 export async function sendTransactionalNotification({
   event,
   eventKey = "",
@@ -387,10 +550,33 @@ export async function sendTransactionalNotification({
       } else {
         results.push(await sendRecordedWhatsApp({
           recipient: safeRecipient,
-          textBody: text(whatsapp.body || textBody),
-          contentSid: whatsapp.contentSid,
-          contentVariables: whatsapp.contentVariables,
-          metadata: commonMetadata,
+
+          textBody: text(
+            whatsapp.body ||
+              textBody
+          ),
+
+          contentSid:
+            whatsapp.contentSid,
+
+          templateName:
+            whatsapp.templateName,
+
+          templateLanguage:
+            whatsapp.templateLanguage,
+
+          templateComponents:
+            whatsapp.templateComponents,
+
+          template:
+            whatsapp.template,
+
+          contentVariables:
+            whatsapp.contentVariables,
+
+          metadata:
+            commonMetadata,
+
           customer,
           actorId,
         }));

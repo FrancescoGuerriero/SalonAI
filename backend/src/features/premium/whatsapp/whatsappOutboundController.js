@@ -85,15 +85,21 @@ function normaliseProviderStatus(
 
 function auditBody({
   body,
-  contentSid,
+  template,
 }) {
   if (body) {
     return body;
   }
 
-  return `WhatsApp template ${contentSid}`;
-}
+  const identifier =
+    String(
+      template?.templateName ||
+        template?.contentSid ||
+        "configured"
+    ).trim();
 
+  return `WhatsApp template ${identifier}`;
+}
 function customerAllowsMessage(
   customer,
   {
@@ -179,6 +185,10 @@ function outboundPayload(
       requestBody?.body
     );
 
+  /*
+   * contentSid remains supported for Twilio
+   * backwards compatibility.
+   */
   const contentSid =
     String(
       requestBody
@@ -186,13 +196,94 @@ function outboundPayload(
         ""
     ).trim();
 
+  const templateName =
+    String(
+      requestBody
+        ?.templateName ||
+        ""
+    ).trim();
+
+  const templateLanguage =
+    String(
+      requestBody
+        ?.templateLanguage ||
+        ""
+    ).trim();
+
+  const rawTemplate =
+    requestBody?.template;
+
+  if (
+    rawTemplate !== undefined &&
+    rawTemplate !== null &&
+    (
+      typeof rawTemplate !==
+        "object" ||
+      Array.isArray(
+        rawTemplate
+      )
+    )
+  ) {
+    throw createHttpError(
+      "The WhatsApp template descriptor must be an object.",
+      400,
+      "WHATSAPP_TEMPLATE_INVALID",
+      {
+        field: "template",
+      }
+    );
+  }
+
+  const template =
+    rawTemplate &&
+    typeof rawTemplate ===
+      "object" &&
+    !Array.isArray(rawTemplate)
+      ? rawTemplate
+      : null;
+
+  const rawTemplateComponents =
+    requestBody
+      ?.templateComponents;
+
+  if (
+    rawTemplateComponents !==
+      undefined &&
+    rawTemplateComponents !==
+      null &&
+    !Array.isArray(
+      rawTemplateComponents
+    )
+  ) {
+    throw createHttpError(
+      "Meta WhatsApp template components must be an array.",
+      400,
+      "WHATSAPP_TEMPLATE_COMPONENTS_INVALID",
+      {
+        field:
+          "templateComponents",
+      }
+    );
+  }
+
+  const templateComponents =
+    Array.isArray(
+      rawTemplateComponents
+    )
+      ? rawTemplateComponents
+      : null;
+
   const policy =
     assertWhatsAppOutboundAllowed({
       lastInboundAt:
         conversation
           ?.lastInboundAt ||
         null,
+
       contentSid,
+      templateName,
+      templateLanguage,
+      template,
     });
 
   const contentVariables =
@@ -218,13 +309,31 @@ function outboundPayload(
 
   return {
     body,
+
+    /*
+     * Provider-specific fields are flattened
+     * from the neutral policy for the provider
+     * adapter.
+     */
     contentSid:
       policy.contentSid,
+
+    templateName:
+      policy.templateName,
+
+    templateLanguage:
+      policy.templateLanguage,
+
+    templateComponents,
+
+    template:
+      policy.template,
+
     contentVariables,
+
     policy,
   };
 }
-
 async function deliverAndRecord({
   conversation,
   phone,
@@ -242,13 +351,24 @@ async function deliverAndRecord({
   const delivery =
     await sendWhatsApp({
       to: phone,
+
       message:
         payload.body,
+
       contentSid:
         payload.contentSid,
+
+      templateName:
+        payload.templateName,
+
+      templateLanguage:
+        payload.templateLanguage,
+
+      templateComponents:
+        payload.templateComponents,
+
       contentVariables:
-        payload
-          .contentVariables,
+        payload.contentVariables,
     });
 
   const now =
@@ -256,9 +376,11 @@ async function deliverAndRecord({
 
   const messageBody =
     auditBody({
-      body: payload.body,
-      contentSid:
-        payload.contentSid,
+      body:
+        payload.body,
+
+      template:
+        payload.template,
     });
 
   const update = {

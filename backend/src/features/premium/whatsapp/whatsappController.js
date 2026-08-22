@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import twilio from "twilio";
 
 import Appointment from "../../../models/Appointment.js";
 import Customer from "../../../models/customer.js";
@@ -19,7 +18,6 @@ import { sendWhatsApp } from "../../../providers/whatsappProvider.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
 import {
   buildBookingConfirmationMessage,
-  normaliseIncomingWhatsApp,
   splitCustomerName,
   validateBookingSessionInput,
 } from "./whatsappService.js";
@@ -57,48 +55,6 @@ function assertConversationId(value) {
 
 function escapeRegularExpression(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function providerMode() {
-  return String(process.env.WHATSAPP_PROVIDER_MODE || "console").toLowerCase();
-}
-
-function publicWebhookUrl(request) {
-  if (process.env.WHATSAPP_WEBHOOK_URL) {
-    return process.env.WHATSAPP_WEBHOOK_URL;
-  }
-
-  if (process.env.TWILIO_WEBHOOK_BASE_URL) {
-    return `${String(process.env.TWILIO_WEBHOOK_BASE_URL).replace(/\/+$/, "")}${
-      request.originalUrl.startsWith("/") ? "" : "/"
-    }${request.originalUrl}`;
-  }
-
-  const forwardedProtocol = String(
-    request.headers["x-forwarded-proto"] || request.protocol || "https"
-  ).split(",")[0].trim();
-
-  return `${forwardedProtocol}://${request.get("host")}${request.originalUrl}`;
-}
-
-function verifyWebhookRequest(request) {
-  if (!["twilio", "live"].includes(providerMode())) {
-    return true;
-  }
-
-  const signature = String(request.headers["x-twilio-signature"] || "");
-  const authToken = String(process.env.TWILIO_AUTH_TOKEN || "");
-
-  if (!signature || !authToken) {
-    return false;
-  }
-
-  return twilio.validateRequest(
-    authToken,
-    signature,
-    publicWebhookUrl(request),
-    request.body || {}
-  );
 }
 
 function combineBookingDateAndTime(dateValue, timeValue) {
@@ -309,64 +265,6 @@ export async function getConversation(request, response) {
   return response.json({
     success: true,
     conversation,
-  });
-}
-
-export async function webhook(request, response) {
-  if (!verifyWebhookRequest(request)) {
-    throw createHttpError("The WhatsApp webhook signature is invalid.", 403);
-  }
-
-  const incoming = normaliseIncomingWhatsApp(request.body);
-
-  if (incoming.providerMessageId) {
-    const duplicate = await WhatsAppConversation.findOne({
-      "messages.providerMessageId": incoming.providerMessageId,
-    }).select("_id");
-
-    if (duplicate) {
-      return response.json({
-        success: true,
-        duplicate: true,
-        conversationId: duplicate._id,
-      });
-    }
-  }
-
-  const now = new Date();
-  const conversation = await WhatsAppConversation.findOneAndUpdate(
-    { phone: incoming.phone },
-    {
-      $set: {
-        ...(incoming.displayName ? { displayName: incoming.displayName } : {}),
-        lastMessageAt: now,
-        lastInboundAt: now,
-        lastMessagePreview: incoming.message.slice(0, 240),
-        status: "open",
-      },
-      $inc: { unreadCount: 1 },
-      $push: {
-        messages: {
-          direction: "inbound",
-          body: incoming.message,
-          providerMessageId: incoming.providerMessageId,
-          providerStatus: "received",
-          sentAt: now,
-        },
-      },
-    },
-    {
-      new: true,
-      upsert: true,
-      runValidators: true,
-      setDefaultsOnInsert: true,
-    }
-  );
-
-  return response.json({
-    success: true,
-    duplicate: false,
-    conversationId: conversation._id,
   });
 }
 
@@ -686,5 +584,5 @@ export default {
   sendConversationMessage,
   updateBookingSession,
   updateConversationStatus,
-  webhook,
+
 };
