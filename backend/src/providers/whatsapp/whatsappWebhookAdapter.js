@@ -175,7 +175,19 @@ export function verifyWhatsAppWebhookRequest(
     getWhatsAppProviderName();
 
   if (provider === "console") {
-    return true;
+    /*
+     * The console provider may accept unsigned
+     * webhook payloads during local development,
+     * but never expose that behaviour in production.
+     */
+    return (
+      String(
+        process.env.NODE_ENV || ""
+      )
+        .trim()
+        .toLowerCase() !==
+      "production"
+    );
   }
 
   if (provider === "twilio") {
