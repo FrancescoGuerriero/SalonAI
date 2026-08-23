@@ -1,12 +1,17 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/library/python@sha256:4fad23465a06cc5149a541fbec6f87e234a64dc0550f6bfdd2d290d8f03240df AS dependencies
+
+FROM docker.io/library/python:3.13-slim-trixie@sha256:ffb752e139c0a19692a43af8d8523b274222dd68eebad5d583b45c2201c6e30a AS dependencies
 
 WORKDIR /build
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN python -m venv /opt/venv
+# Distroless Python is located at /usr/bin/python.
+# Build the virtual environment against that interpreter path so
+# the copied virtual environment remains valid in the runtime stage.
+RUN ln -sf /usr/local/bin/python /usr/bin/python \
+    && /usr/bin/python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -14,6 +19,7 @@ COPY requirements.runtime.txt ./
 
 RUN python -m pip install --upgrade pip setuptools==83.0.0 wheel \
     && python -m pip install --no-cache-dir -r requirements.runtime.txt
+
 
 FROM dependencies AS test
 
@@ -26,13 +32,19 @@ COPY tests ./tests
 RUN python -m pip install --no-cache-dir -r requirements.txt \
     && python -m pytest
 
+
 FROM dependencies AS runtime-dependencies
 
 RUN python -m pip uninstall -y pip setuptools wheel \
     && find /opt/venv -type d -name '__pycache__' -prune -exec rm -rf '{}' + \
-    && find /opt/venv -type f -name '*.pyc' -delete
+    && find /opt/venv -type f -name '*.pyc' -delete \
+    && mkdir -p /runtime/model-cache \
+    && printf 'SalonAI model-cache volume initialization\n' \
+       > /runtime/model-cache/.salonai-volume-seed \
+    && chown -R 10002:10002 /runtime/model-cache
 
-FROM docker.io/library/python@sha256:4fad23465a06cc5149a541fbec6f87e234a64dc0550f6bfdd2d290d8f03240df AS runtime
+
+FROM gcr.io/distroless/python3-debian13:nonroot@sha256:6bfc400d0a6d89f50f5bbc0a4b4ff57214ae5c01647c3a74c2a0c8d830b4cc00 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -41,21 +53,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --gid 10002 salonai \
-    && useradd \
-        --uid 10002 \
-        --gid 10002 \
-        --no-create-home \
-        --home-dir /nonexistent \
-        --shell /usr/sbin/nologin \
-        salonai \
-    && rm -rf /usr/local/lib/python*/site-packages/pip* /usr/local/bin/pip*
-
 COPY --from=runtime-dependencies --chown=10002:10002 /opt/venv /opt/venv
+
+# Seed the production model-cache mount point with the same numeric
+# ownership as the non-root runtime user. Docker copies this content
+# into a newly created empty named volume on first mount.
+COPY --from=runtime-dependencies --chown=10002:10002 /runtime/model-cache /app/model-cache
+
 COPY --chown=10002:10002 app ./app
 COPY --chown=10002:10002 requirements.runtime.txt pyproject.toml ./
 
-USER 10002
+USER 10002:10002
 
 EXPOSE 8000
 
@@ -63,4 +71,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["/opt/venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
 
 ENTRYPOINT ["/opt/venv/bin/python"]
+
 CMD ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers"]

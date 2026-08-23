@@ -175,7 +175,7 @@ jobs:
         shell: bash
         run: mkdir -p release-evidence
 
-      - name: Scan published image
+      - name: Record complete published image vulnerability report
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
@@ -183,7 +183,27 @@ jobs:
           severity: CRITICAL,HIGH
           format: json
           output: release-evidence/${{ matrix.service }}.trivy.json
+          exit-code: '0'
+          trivyignores: config/security/trivyignore.yaml
+          hide-progress: true
+
+      - name: Upload pre-gate vulnerability evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-vulnerability-${{ matrix.service }}
+          path: release-evidence/${{ matrix.service }}.trivy.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce fixable published image security gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          format: table
           exit-code: '1'
+          ignore-unfixed: true
           trivyignores: config/security/trivyignore.yaml
           hide-progress: true
 
