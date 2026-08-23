@@ -34,7 +34,6 @@ RUN python -m pip uninstall -y pip setuptools wheel \
 
 FROM docker.io/library/python@sha256:4fad23465a06cc5149a541fbec6f87e234a64dc0550f6bfdd2d290d8f03240df AS runtime
 
-# SALONAI_PHASE_7_17_AI_IMAGE_REMEDIATION_ALPINE=1
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app" \
@@ -42,8 +41,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup -S -g 10002 salonai \
-    && adduser -S -D -H -u 10002 -G salonai salonai \
+RUN groupadd --gid 10002 salonai \
+    && useradd \
+        --uid 10002 \
+        --gid 10002 \
+        --no-create-home \
+        --home-dir /nonexistent \
+        --shell /usr/sbin/nologin \
+        salonai \
     && rm -rf /usr/local/lib/python*/site-packages/pip* /usr/local/bin/pip*
 
 COPY --from=runtime-dependencies --chown=10002:10002 /opt/venv /opt/venv
