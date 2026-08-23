@@ -11,7 +11,7 @@ ENV VITE_AI_API_URL=${VITE_AI_API_URL}
 COPY . .
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.31.3-alpine3.24 AS runtime
+FROM nginxinc/nginx-unprivileged:1.31.4-alpine3.24 AS runtime
 # SALONAI_PHASE_7_11_FRONTEND_RUNTIME_HARDENING=3
 USER 0
 RUN apk upgrade --no-cache
