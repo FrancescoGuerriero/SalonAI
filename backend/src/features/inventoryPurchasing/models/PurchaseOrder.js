@@ -260,7 +260,7 @@ const purchaseOrderSchema = new mongoose.Schema(
 
 purchaseOrderSchema.pre(
   "validate",
-  function calculateTotals(next) {
+  function calculateTotals() {
     let subtotal = 0;
     let vatTotal = 0;
 
@@ -285,7 +285,7 @@ purchaseOrderSchema.pre(
     this.vatTotal = vatTotal;
     this.total = subtotal + vatTotal;
 
-    next();
+
   }
 );
 

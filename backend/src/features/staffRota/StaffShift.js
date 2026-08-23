@@ -91,7 +91,7 @@ staffShiftSchema.index({
   status: 1,
 });
 
-staffShiftSchema.pre("validate", function validateShift(next) {
+staffShiftSchema.pre("validate", function validateShift() {
   const startsAt = new Date(this.startsAt);
   const endsAt = new Date(this.endsAt);
 
@@ -99,7 +99,7 @@ staffShiftSchema.pre("validate", function validateShift(next) {
     Number.isNaN(startsAt.getTime()) ||
     Number.isNaN(endsAt.getTime())
   ) {
-    return next();
+    return;
   }
 
   if (endsAt <= startsAt) {
@@ -108,7 +108,7 @@ staffShiftSchema.pre("validate", function validateShift(next) {
       "Shift end time must be after its start time."
     );
 
-    return next();
+    return;
   }
 
   const durationMinutes =
@@ -128,7 +128,7 @@ staffShiftSchema.pre("validate", function validateShift(next) {
     );
   }
 
-  return next();
+  return;
 });
 
 const StaffShift =
