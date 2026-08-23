@@ -5,32 +5,65 @@ import {
   getWhatsAppProviderName,
 } from "./whatsappProviderFactory.js";
 
-const PHONE_PATTERN = /^\+[1-9]\d{7,14}$/;
+const PHONE_PATTERN =
+  /^\+[1-9]\d{7,14}$/;
+
+const TWILIO_DELIVERY_STATUSES =
+  new Set([
+    "accepted",
+    "queued",
+    "sending",
+    "sent",
+    "delivered",
+    "read",
+    "undelivered",
+    "failed",
+  ]);
 
 function text(value) {
-  return String(value ?? "").trim();
+  return String(
+    value ?? ""
+  ).trim();
 }
 
 function normalisePhone(value) {
   let phone = text(value)
-    .replace(/^whatsapp:/i, "")
-    .replace(/[\s()-]/g, "");
+    .replace(
+      /^whatsapp:/i,
+      ""
+    )
+    .replace(
+      /[\s()-]/g,
+      ""
+    );
 
-  if (phone.startsWith("00")) {
-    phone = `+${phone.slice(2)}`;
+  if (
+    phone.startsWith("00")
+  ) {
+    phone =
+      `+${phone.slice(2)}`;
   }
 
-  if (phone && !phone.startsWith("+")) {
+  if (
+    phone &&
+    !phone.startsWith("+")
+  ) {
     phone = `+${phone}`;
   }
 
-  if (!PHONE_PATTERN.test(phone)) {
+  if (
+    !PHONE_PATTERN.test(
+      phone
+    )
+  ) {
     const error = new Error(
       "A valid WhatsApp phone number in international format is required."
     );
 
     error.statusCode = 400;
-    error.code = "WHATSAPP_PHONE_INVALID";
+    error.code =
+      "WHATSAPP_PHONE_INVALID";
+
     throw error;
   }
 
@@ -38,53 +71,82 @@ function normalisePhone(value) {
 }
 
 function webhookUrl(request) {
-  if (process.env.WHATSAPP_WEBHOOK_URL) {
+  if (
+    process.env
+      .WHATSAPP_WEBHOOK_URL
+  ) {
     return String(
-      process.env.WHATSAPP_WEBHOOK_URL
+      process.env
+        .WHATSAPP_WEBHOOK_URL
     ).trim();
   }
 
-  if (process.env.TWILIO_WEBHOOK_BASE_URL) {
+  if (
+    process.env
+      .TWILIO_WEBHOOK_BASE_URL
+  ) {
     const base = String(
-      process.env.TWILIO_WEBHOOK_BASE_URL
-    ).replace(/\/+$/, "");
-
-    const originalUrl = String(
-      request.originalUrl || ""
+      process.env
+        .TWILIO_WEBHOOK_BASE_URL
+    ).replace(
+      /\/+$/,
+      ""
     );
 
-    const path = originalUrl.startsWith("/")
-      ? originalUrl
-      : `/${originalUrl}`;
+    const originalUrl =
+      String(
+        request.originalUrl ||
+          ""
+      );
+
+    const path =
+      originalUrl.startsWith(
+        "/"
+      )
+        ? originalUrl
+        : `/${originalUrl}`;
 
     return `${base}${path}`;
   }
 
-  const protocol = String(
-    request.headers?.["x-forwarded-proto"] ||
-      request.protocol ||
-      "https"
-  )
-    .split(",")[0]
-    .trim();
+  const protocol =
+    String(
+      request.headers?.[
+        "x-forwarded-proto"
+      ] ||
+        request.protocol ||
+        "https"
+    )
+      .split(",")[0]
+      .trim();
 
   return `${protocol}://${request.get(
     "host"
   )}${request.originalUrl}`;
 }
 
-function safeCompare(supplied, expected) {
+function safeCompare(
+  supplied,
+  expected
+) {
   const left = Buffer.from(
-    String(supplied || ""),
+    String(
+      supplied || ""
+    ),
     "utf8"
   );
 
   const right = Buffer.from(
-    String(expected || ""),
+    String(
+      expected || ""
+    ),
     "utf8"
   );
 
-  if (left.length !== right.length) {
+  if (
+    left.length !==
+    right.length
+  ) {
     return false;
   }
 
@@ -96,14 +158,20 @@ function safeCompare(supplied, expected) {
 
 function verifyTwilio(request) {
   const signature = text(
-    request.headers?.["x-twilio-signature"]
+    request.headers?.[
+      "x-twilio-signature"
+    ]
   );
 
   const authToken = text(
-    process.env.TWILIO_AUTH_TOKEN
+    process.env
+      .TWILIO_AUTH_TOKEN
   );
 
-  if (!signature || !authToken) {
+  if (
+    !signature ||
+    !authToken
+  ) {
     return false;
   }
 
@@ -115,13 +183,20 @@ function verifyTwilio(request) {
   );
 }
 
-function rawRequestBody(request) {
-  if (Buffer.isBuffer(request.rawBody)) {
+function rawRequestBody(
+  request
+) {
+  if (
+    Buffer.isBuffer(
+      request.rawBody
+    )
+  ) {
     return request.rawBody;
   }
 
   if (
-    typeof request.rawBody === "string"
+    typeof request.rawBody ===
+    "string"
   ) {
     return Buffer.from(
       request.rawBody,
@@ -134,16 +209,20 @@ function rawRequestBody(request) {
 
 function verifyMeta(request) {
   const signature = text(
-    request.headers?.["x-hub-signature-256"]
+    request.headers?.[
+      "x-hub-signature-256"
+    ]
   );
 
   const appSecret = text(
-    process.env.META_WHATSAPP_APP_SECRET
+    process.env
+      .META_WHATSAPP_APP_SECRET
   );
 
-  const rawBody = rawRequestBody(
-    request
-  );
+  const rawBody =
+    rawRequestBody(
+      request
+    );
 
   if (
     !signature ||
@@ -174,7 +253,9 @@ export function verifyWhatsAppWebhookRequest(
   const provider =
     getWhatsAppProviderName();
 
-  if (provider === "console") {
+  if (
+    provider === "console"
+  ) {
     /*
      * The console provider may accept unsigned
      * webhook payloads during local development,
@@ -182,7 +263,8 @@ export function verifyWhatsAppWebhookRequest(
      */
     return (
       String(
-        process.env.NODE_ENV || ""
+        process.env.NODE_ENV ||
+          ""
       )
         .trim()
         .toLowerCase() !==
@@ -190,12 +272,20 @@ export function verifyWhatsAppWebhookRequest(
     );
   }
 
-  if (provider === "twilio") {
-    return verifyTwilio(request);
+  if (
+    provider === "twilio"
+  ) {
+    return verifyTwilio(
+      request
+    );
   }
 
-  if (provider === "meta") {
-    return verifyMeta(request);
+  if (
+    provider === "meta"
+  ) {
+    return verifyMeta(
+      request
+    );
   }
 
   return false;
@@ -218,17 +308,22 @@ export function verifyMetaWebhookSubscription(
     query["hub.mode"]
   );
 
-  const suppliedToken = text(
-    query["hub.verify_token"]
-  );
+  const suppliedToken =
+    text(
+      query[
+        "hub.verify_token"
+      ]
+    );
 
   const challenge = text(
     query["hub.challenge"]
   );
 
-  const expectedToken = text(
-    process.env.META_WHATSAPP_VERIFY_TOKEN
-  );
+  const expectedToken =
+    text(
+      process.env
+        .META_WHATSAPP_VERIFY_TOKEN
+    );
 
   const verified =
     mode === "subscribe" &&
@@ -241,7 +336,9 @@ export function verifyMetaWebhookSubscription(
   return {
     verified,
     challenge:
-      verified ? challenge : "",
+      verified
+        ? challenge
+        : "",
   };
 }
 
@@ -249,8 +346,12 @@ function normaliseTwilioMessages(
   body = {}
 ) {
   const message = text(
-    body.Body ?? body.body
-  ).replace(/\s+/g, " ");
+    body.Body ??
+      body.body
+  ).replace(
+    /\s+/g,
+    " "
+  );
 
   if (!message) {
     return [];
@@ -258,38 +359,176 @@ function normaliseTwilioMessages(
 
   return [
     {
-      phone: normalisePhone(
-        body.From ?? body.phone
-      ),
+      phone:
+        normalisePhone(
+          body.From ??
+            body.phone
+        ),
 
       message,
 
-      providerMessageId: text(
-        body.MessageSid ??
-          body.SmsMessageSid ??
-          body.providerMessageId
-      ),
+      providerMessageId:
+        text(
+          body.MessageSid ??
+            body.SmsMessageSid ??
+            body.providerMessageId
+        ),
 
-      displayName: text(
-        body.ProfileName ??
-          body.displayName
-      )
-        .replace(/\s+/g, " ")
-        .slice(0, 120),
+      displayName:
+        text(
+          body.ProfileName ??
+            body.displayName
+        )
+          .replace(
+            /\s+/g,
+            " "
+          )
+          .slice(
+            0,
+            120
+          ),
     },
   ];
 }
 
-function metaContactNames(value) {
-  const names = new Map();
+function normaliseTwilioError(
+  body = {}
+) {
+  const errorCode = text(
+    body.ErrorCode ??
+      body.errorCode
+  );
 
-  const contacts = Array.isArray(
-    value?.contacts
-  )
-    ? value.contacts
-    : [];
+  const channelMessage =
+    text(
+      body.ChannelStatusMessage ??
+        body.ErrorMessage ??
+        body.errorMessage
+    )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .slice(
+        0,
+        900
+      );
 
-  for (const contact of contacts) {
+  const parts = [];
+
+  if (
+    errorCode &&
+    errorCode !== "0"
+  ) {
+    parts.push(
+      `Twilio error ${errorCode}`
+    );
+  }
+
+  if (channelMessage) {
+    parts.push(
+      channelMessage
+    );
+  }
+
+  return parts
+    .join(": ")
+    .slice(
+      0,
+      1000
+    );
+}
+
+export function normaliseWhatsAppWebhookDeliveryStatus(
+  request
+) {
+  if (
+    getWhatsAppProviderName() !==
+    "twilio"
+  ) {
+    return null;
+  }
+
+  const body =
+    request.body || {};
+
+  /*
+   * An inbound WhatsApp message may also contain
+   * MessageSid/SmsStatus fields. Body distinguishes
+   * that request from an outbound delivery callback.
+   */
+  const inboundBody = text(
+    body.Body ??
+      body.body
+  );
+
+  if (inboundBody) {
+    return null;
+  }
+
+  const providerMessageId =
+    text(
+      body.MessageSid ??
+        body.SmsMessageSid ??
+        body.SmsSid ??
+        body.providerMessageId
+    ).slice(
+      0,
+      160
+    );
+
+  const eventType = text(
+    body.EventType ??
+      body.eventType
+  ).toUpperCase();
+
+  const providerStatus =
+    (
+      eventType === "READ"
+        ? "read"
+        : text(
+            body.MessageStatus ??
+              body.SmsStatus ??
+              body.providerStatus
+          ).toLowerCase()
+    );
+
+  if (
+    !providerMessageId ||
+    !TWILIO_DELIVERY_STATUSES.has(
+      providerStatus
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    providerMessageId,
+    providerStatus,
+    error:
+      normaliseTwilioError(
+        body
+      ),
+  };
+}
+
+function metaContactNames(
+  value
+) {
+  const names =
+    new Map();
+
+  const contacts =
+    Array.isArray(
+      value?.contacts
+    )
+      ? value.contacts
+      : [];
+
+  for (
+    const contact of
+    contacts
+  ) {
     const id = text(
       contact?.wa_id
     );
@@ -303,8 +542,14 @@ function metaContactNames(value) {
       text(
         contact?.profile?.name
       )
-        .replace(/\s+/g, " ")
-        .slice(0, 120)
+        .replace(
+          /\s+/g,
+          " "
+        )
+        .slice(
+          0,
+          120
+        )
     );
   }
 
@@ -316,40 +561,60 @@ function normaliseMetaMessages(
 ) {
   const output = [];
 
-  const entries = Array.isArray(
-    payload.entry
-  )
-    ? payload.entry
-    : [];
-
-  for (const entry of entries) {
-    const changes = Array.isArray(
-      entry?.changes
+  const entries =
+    Array.isArray(
+      payload.entry
     )
-      ? entry.changes
+      ? payload.entry
       : [];
 
-    for (const change of changes) {
+  for (
+    const entry of
+    entries
+  ) {
+    const changes =
+      Array.isArray(
+        entry?.changes
+      )
+        ? entry.changes
+        : [];
+
+    for (
+      const change of
+      changes
+    ) {
       const value =
         change?.value || {};
 
       const contactNames =
-        metaContactNames(value);
+        metaContactNames(
+          value
+        );
 
-      const messages = Array.isArray(
-        value.messages
-      )
-        ? value.messages
-        : [];
+      const messages =
+        Array.isArray(
+          value.messages
+        )
+          ? value.messages
+          : [];
 
-      for (const message of messages) {
-        if (message?.type !== "text") {
+      for (
+        const message of
+        messages
+      ) {
+        if (
+          message?.type !==
+          "text"
+        ) {
           continue;
         }
 
         const body = text(
           message?.text?.body
-        ).replace(/\s+/g, " ");
+        ).replace(
+          /\s+/g,
+          " "
+        );
 
         if (!body) {
           continue;
@@ -361,16 +626,21 @@ function normaliseMetaMessages(
 
         output.push({
           phone:
-            normalisePhone(from),
+            normalisePhone(
+              from
+            ),
 
           message: body,
 
           providerMessageId:
-            text(message?.id),
+            text(
+              message?.id
+            ),
 
           displayName:
-            contactNames.get(from) ||
-            "",
+            contactNames.get(
+              from
+            ) || "",
         });
       }
     }
@@ -385,7 +655,9 @@ export function normaliseWhatsAppWebhookMessages(
   const provider =
     getWhatsAppProviderName();
 
-  if (provider === "meta") {
+  if (
+    provider === "meta"
+  ) {
     return normaliseMetaMessages(
       request.body || {}
     );
@@ -397,6 +669,7 @@ export function normaliseWhatsAppWebhookMessages(
 }
 
 export default {
+  normaliseWhatsAppWebhookDeliveryStatus,
   normaliseWhatsAppWebhookMessages,
   verifyMetaWebhookSubscription,
   verifyWhatsAppWebhookRequest,
