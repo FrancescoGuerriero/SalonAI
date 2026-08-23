@@ -56,7 +56,7 @@ const staffAttendanceSchema = new mongoose.Schema(
 
 staffAttendanceSchema.pre(
   "validate",
-  function validateAttendance(next) {
+  function validateAttendance() {
     if (this.clockInAt && this.clockOutAt) {
       const clockInAt = new Date(this.clockInAt);
       const clockOutAt = new Date(this.clockOutAt);
@@ -69,7 +69,7 @@ staffAttendanceSchema.pre(
       }
     }
 
-    return next();
+    return;
   }
 );
 
