@@ -663,9 +663,7 @@ messageDeliverySchema.virtual(
 
 messageDeliverySchema.pre(
   "validate",
-  function validateRecipient(
-    next
-  ) {
+  function validateRecipient() {
     if (
       this.channel === "email" &&
       !normaliseText(
@@ -690,17 +688,15 @@ messageDeliverySchema.pre(
       );
     }
 
-    next();
+
   }
 );
 
 messageDeliverySchema.pre(
   "save",
-  function applyStatusTimestamps(
-    next
-  ) {
+  function applyStatusTimestamps() {
     if (!this.isModified("status")) {
-      next();
+
       return;
     }
 
@@ -771,7 +767,7 @@ messageDeliverySchema.pre(
         break;
     }
 
-    next();
+
   }
 );
 

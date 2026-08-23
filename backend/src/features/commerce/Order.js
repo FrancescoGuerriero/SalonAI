@@ -155,13 +155,13 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-orderSchema.pre("save", function assignOrderNumber(next) {
+orderSchema.pre("save", function assignOrderNumber() {
   if (!this.orderNumber) {
     const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
     const suffix = String(this._id).slice(-6).toUpperCase();
     this.orderNumber = `SA-${date}-${suffix}`;
   }
-  next();
+
 });
 
 const Order =

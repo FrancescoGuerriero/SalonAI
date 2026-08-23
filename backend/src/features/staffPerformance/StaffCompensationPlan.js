@@ -137,7 +137,7 @@ const staffCompensationPlanSchema = new mongoose.Schema(
   }
 );
 
-staffCompensationPlanSchema.pre("validate", function normaliseTiers(next) {
+staffCompensationPlanSchema.pre("validate", function normaliseTiers() {
   for (const ruleName of ["serviceCommission", "retailCommission"]) {
     const rule = this[ruleName];
 
@@ -153,7 +153,7 @@ staffCompensationPlanSchema.pre("validate", function normaliseTiers(next) {
       .sort((first, second) => first.threshold - second.threshold);
   }
 
-  return next();
+  return;
 });
 
 const StaffCompensationPlan =
