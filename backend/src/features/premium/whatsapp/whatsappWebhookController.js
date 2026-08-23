@@ -1,19 +1,27 @@
 import WhatsAppConversation from "./WhatsAppConversation.js";
 
 import {
+  normaliseWhatsAppWebhookDeliveryStatus,
   normaliseWhatsAppWebhookMessages,
   verifyMetaWebhookSubscription,
   verifyWhatsAppWebhookRequest,
 } from "../../../providers/whatsapp/whatsappWebhookAdapter.js";
 
+import {
+  persistWhatsAppDeliveryStatus,
+} from "./whatsappDeliveryStatusService.js";
+
 function createHttpError(
   message,
   statusCode = 500
 ) {
-  const error = new Error(message);
+  const error =
+    new Error(message);
 
-  error.statusCode = statusCode;
-  error.status = statusCode;
+  error.statusCode =
+    statusCode;
+  error.status =
+    statusCode;
 
   return error;
 }
@@ -47,12 +55,14 @@ async function saveIncomingMessage(
     };
   }
 
-  const now = new Date();
+  const now =
+    new Date();
 
   const conversation =
     await WhatsAppConversation.findOneAndUpdate(
       {
-        phone: incoming.phone,
+        phone:
+          incoming.phone,
       },
       {
         $set: {
@@ -79,7 +89,9 @@ async function saveIncomingMessage(
 
         $push: {
           messages: {
-            direction: "inbound",
+            direction:
+              "inbound",
+
             body:
               incoming.message,
 
@@ -97,7 +109,8 @@ async function saveIncomingMessage(
         new: true,
         upsert: true,
         runValidators: true,
-        setDefaultsOnInsert: true,
+        setDefaultsOnInsert:
+          true,
       }
     );
 
@@ -117,7 +130,9 @@ export async function verifyWebhookSubscription(
       request.query || {}
     );
 
-  if (!verification.verified) {
+  if (
+    !verification.verified
+  ) {
     throw createHttpError(
       "The WhatsApp webhook verification request is invalid.",
       403
@@ -132,11 +147,14 @@ export async function verifyWebhookSubscription(
    */
   const challengeText =
     String(
-      verification.challenge || ""
+      verification.challenge ||
+        ""
     ).trim();
 
   if (
-    !/^\d+$/.test(challengeText)
+    !/^\d+$/.test(
+      challengeText
+    )
   ) {
     throw createHttpError(
       "The WhatsApp webhook challenge is invalid.",
@@ -145,10 +163,14 @@ export async function verifyWebhookSubscription(
   }
 
   const challenge =
-    Number(challengeText);
+    Number(
+      challengeText
+    );
 
   if (
-    !Number.isSafeInteger(challenge) ||
+    !Number.isSafeInteger(
+      challenge
+    ) ||
     challenge < 0
   ) {
     throw createHttpError(
@@ -184,6 +206,51 @@ export async function receiveWebhook(
     );
   }
 
+  /*
+   * Twilio sends outbound message status callbacks
+   * to the same public webhook endpoint used for
+   * inbound WhatsApp messages.
+   */
+  const deliveryStatus =
+    normaliseWhatsAppWebhookDeliveryStatus(
+      request
+    );
+
+  if (deliveryStatus) {
+    const result =
+      await persistWhatsAppDeliveryStatus(
+        deliveryStatus
+      );
+
+    return response.json({
+      success: true,
+      statusCallback: true,
+
+      processed:
+        result.updated
+          ? 1
+          : 0,
+
+      ignored:
+        result.ignored,
+
+      duplicate:
+        result.duplicate,
+
+      reason:
+        result.reason,
+
+      providerMessageId:
+        result.providerMessageId,
+
+      providerStatus:
+        result.providerStatus,
+
+      conversationId:
+        result.conversationId,
+    });
+  }
+
   const messages =
     normaliseWhatsAppWebhookMessages(
       request
@@ -191,10 +258,16 @@ export async function receiveWebhook(
 
   /*
    * Meta also sends delivery/read/status callbacks
-   * to the same webhook. These are valid events,
+   * to the same webhook. These remain valid events
    * even when they contain no inbound text message.
+   *
+   * Unsupported Twilio callback types are also
+   * acknowledged safely so Twilio does not retry
+   * them unnecessarily.
    */
-  if (messages.length === 0) {
+  if (
+    messages.length === 0
+  ) {
     return response.json({
       success: true,
       ignored: true,
@@ -205,9 +278,13 @@ export async function receiveWebhook(
 
   let processed = 0;
   let duplicates = 0;
-  let conversationId = null;
+  let conversationId =
+    null;
 
-  for (const incoming of messages) {
+  for (
+    const incoming of
+    messages
+  ) {
     const result =
       await saveIncomingMessage(
         incoming
@@ -216,7 +293,9 @@ export async function receiveWebhook(
     conversationId =
       result.conversationId;
 
-    if (result.duplicate) {
+    if (
+      result.duplicate
+    ) {
       duplicates += 1;
     } else {
       processed += 1;
