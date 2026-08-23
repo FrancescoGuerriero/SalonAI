@@ -289,7 +289,7 @@ const dailyCloseSchema = new Schema(
 
 dailyCloseSchema.pre(
   "validate",
-  function calculateCashVariance(next) {
+  function calculateCashVariance() {
     const expected = Number(
       this.expectedCash || 0
     );
@@ -302,7 +302,7 @@ dailyCloseSchema.pre(
       (counted - expected).toFixed(2)
     );
 
-    next();
+
   }
 );
 
