@@ -11,6 +11,13 @@ const SMS_PROVIDERS = Object.freeze({
   TWILIO: "twilio",
 });
 
+const SANDBOX_ALIASES = new Set([
+  "mock",
+  "console",
+  "demo",
+  "sandbox",
+]);
+
 function normaliseText(value) {
   return String(value ?? "").trim();
 }
@@ -61,6 +68,48 @@ function normalisePhoneCountryCode(value) {
   return countryCode.startsWith("+") ? countryCode : `+${countryCode}`;
 }
 
+function normaliseDeliveryMode(value) {
+  const mode = normaliseLowercase(value);
+
+  if (!mode || SANDBOX_ALIASES.has(mode)) {
+    return DELIVERY_MODES.SANDBOX;
+  }
+
+  return mode;
+}
+
+function resolveEmailProvider() {
+  const provider = normaliseLowercase(process.env.EMAIL_PROVIDER);
+
+  if (provider) {
+    return provider;
+  }
+
+  const legacyMode = normaliseLowercase(process.env.EMAIL_PROVIDER_MODE);
+
+  if (!legacyMode || SANDBOX_ALIASES.has(legacyMode) || legacyMode === "live") {
+    return EMAIL_PROVIDERS.SMTP;
+  }
+
+  return legacyMode;
+}
+
+function resolveSmsProvider() {
+  const provider = normaliseLowercase(process.env.SMS_PROVIDER);
+
+  if (provider) {
+    return provider;
+  }
+
+  const legacyMode = normaliseLowercase(process.env.SMS_PROVIDER_MODE);
+
+  if (!legacyMode || SANDBOX_ALIASES.has(legacyMode) || legacyMode === "live") {
+    return SMS_PROVIDERS.TWILIO;
+  }
+
+  return legacyMode;
+}
+
 function isValidEmailAddress(value) {
   const email = normaliseLowercase(value);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -97,9 +146,7 @@ function createConfigurationError(
 }
 
 function getMessageDeliveryConfig() {
-  const mode =
-    normaliseLowercase(process.env.MESSAGE_DELIVERY_MODE) ||
-    DELIVERY_MODES.SANDBOX;
+  const mode = normaliseDeliveryMode(process.env.MESSAGE_DELIVERY_MODE);
 
   const smtpUser = normaliseText(process.env.SMTP_USER);
   const smtpPassword = normaliseText(process.env.SMTP_PASSWORD);
@@ -110,7 +157,30 @@ function getMessageDeliveryConfig() {
     "SalonAI";
 
   const emailFromAddress = normaliseLowercase(
-    process.env.EMAIL_FROM_ADDRESS
+    process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_FROM || smtpUser
+  );
+
+  const emailReplyTo = normaliseLowercase(process.env.EMAIL_REPLY_TO);
+
+  const connectionTimeoutMs = normaliseInteger(
+    process.env.SMTP_CONNECTION_TIMEOUT_MS,
+    15000,
+    1000,
+    120000
+  );
+
+  const greetingTimeoutMs = normaliseInteger(
+    process.env.SMTP_GREETING_TIMEOUT_MS,
+    15000,
+    1000,
+    120000
+  );
+
+  const socketTimeoutMs = normaliseInteger(
+    process.env.SMTP_SOCKET_TIMEOUT_MS,
+    30000,
+    1000,
+    300000
   );
 
   return {
@@ -130,10 +200,7 @@ function getMessageDeliveryConfig() {
     },
 
     consent: {
-      required: normaliseBoolean(
-        process.env.MESSAGE_CONSENT_REQUIRED,
-        true
-      ),
+      required: normaliseBoolean(process.env.MESSAGE_CONSENT_REQUIRED, true),
       excludeUnsubscribed: normaliseBoolean(
         process.env.MESSAGE_EXCLUDE_UNSUBSCRIBED,
         true
@@ -156,13 +223,8 @@ function getMessageDeliveryConfig() {
     },
 
     email: {
-      enabled: normaliseBoolean(
-        process.env.EMAIL_DELIVERY_ENABLED,
-        false
-      ),
-      provider:
-        normaliseLowercase(process.env.EMAIL_PROVIDER) ||
-        EMAIL_PROVIDERS.SMTP,
+      enabled: normaliseBoolean(process.env.EMAIL_DELIVERY_ENABLED, false),
+      provider: resolveEmailProvider(),
       batchSize: normaliseInteger(
         process.env.EMAIL_DELIVERY_BATCH_SIZE,
         100,
@@ -173,9 +235,17 @@ function getMessageDeliveryConfig() {
         name: emailFromName,
         address: emailFromAddress,
       },
+      sender: {
+        name: emailFromName,
+        address: emailFromAddress,
+        replyTo: emailReplyTo,
+      },
       fromName: emailFromName,
       fromAddress: emailFromAddress,
-      replyTo: normaliseLowercase(process.env.EMAIL_REPLY_TO),
+      replyTo: emailReplyTo,
+      connectionTimeoutMs,
+      greetingTimeoutMs,
+      socketTimeoutMs,
       smtp: {
         host: normaliseText(process.env.SMTP_HOST),
         port: normaliseInteger(process.env.SMTP_PORT, 587, 1, 65535),
@@ -186,6 +256,7 @@ function getMessageDeliveryConfig() {
           true
         ),
         user: smtpUser,
+        username: smtpUser,
         password: smtpPassword,
         auth:
           smtpUser || smtpPassword
@@ -194,35 +265,15 @@ function getMessageDeliveryConfig() {
                 pass: smtpPassword,
               }
             : undefined,
-        connectionTimeoutMs: normaliseInteger(
-          process.env.SMTP_CONNECTION_TIMEOUT_MS,
-          15000,
-          1000,
-          120000
-        ),
-        greetingTimeoutMs: normaliseInteger(
-          process.env.SMTP_GREETING_TIMEOUT_MS,
-          15000,
-          1000,
-          120000
-        ),
-        socketTimeoutMs: normaliseInteger(
-          process.env.SMTP_SOCKET_TIMEOUT_MS,
-          30000,
-          1000,
-          300000
-        ),
+        connectionTimeoutMs,
+        greetingTimeoutMs,
+        socketTimeoutMs,
       },
     },
 
     sms: {
-      enabled: normaliseBoolean(
-        process.env.SMS_DELIVERY_ENABLED,
-        false
-      ),
-      provider:
-        normaliseLowercase(process.env.SMS_PROVIDER) ||
-        SMS_PROVIDERS.TWILIO,
+      enabled: normaliseBoolean(process.env.SMS_DELIVERY_ENABLED, false),
+      provider: resolveSmsProvider(),
       batchSize: normaliseInteger(
         process.env.SMS_DELIVERY_BATCH_SIZE,
         100,
@@ -235,22 +286,17 @@ function getMessageDeliveryConfig() {
       twilio: {
         accountSid: normaliseText(process.env.TWILIO_ACCOUNT_SID),
         authToken: normaliseText(process.env.TWILIO_AUTH_TOKEN),
-        fromNumber: normaliseText(process.env.TWILIO_FROM_NUMBER),
+        fromNumber: normaliseText(
+          process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_SMS_FROM
+        ),
         messagingServiceSid: normaliseText(
           process.env.TWILIO_MESSAGING_SERVICE_SID
         ),
-        statusCallbackUrl: normaliseText(
-          process.env.TWILIO_STATUS_CALLBACK_URL
-        ),
-        webhookBaseUrl: normaliseText(
-          process.env.TWILIO_WEBHOOK_BASE_URL
-        ),
+        statusCallbackUrl: normaliseText(process.env.TWILIO_STATUS_CALLBACK_URL),
+        webhookBaseUrl: normaliseText(process.env.TWILIO_WEBHOOK_BASE_URL),
         webhookValidationEnabled:
           mode === DELIVERY_MODES.LIVE ||
-          normaliseBoolean(
-            process.env.TWILIO_WEBHOOK_VALIDATION_ENABLED,
-            false
-          ),
+          normaliseBoolean(process.env.TWILIO_WEBHOOK_VALIDATION_ENABLED, false),
       },
     },
   };
@@ -289,40 +335,41 @@ function validateEmailConfiguration(config, errors, warnings) {
     });
   }
 
+  if (!emailConfig.smtp.user) {
+    errors.push({
+      channel: "email",
+      code: "SMTP_USER_REQUIRED",
+      message: "SMTP_USER is required for live email delivery.",
+    });
+  }
+
+  if (!emailConfig.smtp.password) {
+    errors.push({
+      channel: "email",
+      code: "SMTP_PASSWORD_REQUIRED",
+      message: "SMTP_PASSWORD is required for live email delivery.",
+    });
+  }
+
   if (!emailConfig.from.address) {
     errors.push({
       channel: "email",
       code: "EMAIL_FROM_ADDRESS_REQUIRED",
-      message: "EMAIL_FROM_ADDRESS is required for live email delivery.",
+      message: "EMAIL_FROM_ADDRESS, EMAIL_FROM or SMTP_USER is required for live email delivery.",
     });
   } else if (!isValidEmailAddress(emailConfig.from.address)) {
     errors.push({
       channel: "email",
       code: "INVALID_EMAIL_FROM_ADDRESS",
-      message: "EMAIL_FROM_ADDRESS must be a valid email address.",
+      message: "The configured email sender address must be a valid email address.",
     });
   }
 
-  if (
-    emailConfig.replyTo &&
-    !isValidEmailAddress(emailConfig.replyTo)
-  ) {
+  if (emailConfig.replyTo && !isValidEmailAddress(emailConfig.replyTo)) {
     errors.push({
       channel: "email",
       code: "INVALID_EMAIL_REPLY_TO",
       message: "EMAIL_REPLY_TO must be a valid email address.",
-    });
-  }
-
-  const hasSmtpUser = Boolean(emailConfig.smtp.user);
-  const hasSmtpPassword = Boolean(emailConfig.smtp.password);
-
-  if (hasSmtpUser !== hasSmtpPassword) {
-    errors.push({
-      channel: "email",
-      code: "INCOMPLETE_SMTP_AUTHENTICATION",
-      message:
-        "SMTP_USER and SMTP_PASSWORD must either both be supplied or both be empty.",
     });
   }
 }
@@ -375,20 +422,33 @@ function validateSmsConfiguration(config, errors, warnings) {
       channel: "sms",
       code: "TWILIO_SENDER_REQUIRED",
       message:
-        "TWILIO_FROM_NUMBER or TWILIO_MESSAGING_SERVICE_SID is required for live SMS delivery.",
+        "TWILIO_FROM_NUMBER, TWILIO_SMS_FROM or TWILIO_MESSAGING_SERVICE_SID is required for live SMS delivery.",
     });
   }
 
-  if (
-    twilioConfig.fromNumber &&
-    !isValidE164Number(twilioConfig.fromNumber)
-  ) {
+  if (twilioConfig.fromNumber && !isValidE164Number(twilioConfig.fromNumber)) {
     errors.push({
       channel: "sms",
       code: "INVALID_TWILIO_FROM_NUMBER",
-      message: "TWILIO_FROM_NUMBER must use E.164 format.",
+      message: "TWILIO_FROM_NUMBER/TWILIO_SMS_FROM must use E.164 format.",
     });
   }
+}
+
+function buildChannelValidation(channel, errors, warnings) {
+  const channelErrors = errors
+    .filter((entry) => !entry.channel || entry.channel === channel)
+    .map((entry) => entry.message);
+
+  const channelWarnings = warnings
+    .filter((entry) => !entry.channel || entry.channel === channel)
+    .map((entry) => entry.message);
+
+  return {
+    valid: channelErrors.length === 0,
+    errors: channelErrors,
+    warnings: channelWarnings,
+  };
 }
 
 function validateMessageDeliveryConfig(
@@ -423,6 +483,10 @@ function validateMessageDeliveryConfig(
     mode: config.mode,
     errors,
     warnings,
+    channels: {
+      email: buildChannelValidation("email", errors, warnings),
+      sms: buildChannelValidation("sms", errors, warnings),
+    },
   };
 
   if (throwOnError && errors.length > 0) {
@@ -444,9 +508,7 @@ function normaliseChannel(channel) {
 
   if (!["email", "sms"].includes(normalisedChannel)) {
     throw createConfigurationError(
-      `Unsupported message-delivery channel: ${
-        normalisedChannel || "unknown"
-      }.`,
+      `Unsupported message-delivery channel: ${normalisedChannel || "unknown"}.`,
       {
         statusCode: 400,
         code: "UNSUPPORTED_DELIVERY_CHANNEL",
@@ -483,8 +545,7 @@ function assertDeliveryChannelConfigured(
   });
 
   const channelErrors = validation.errors.filter(
-    (error) =>
-      !error.channel || error.channel === normalisedChannel
+    (error) => !error.channel || error.channel === normalisedChannel
   );
 
   if (channelErrors.length > 0) {
@@ -538,7 +599,11 @@ function getSafeMessageDeliveryConfig() {
       provider: config.email.provider,
       batchSize: config.email.batchSize,
       from: { ...config.email.from },
+      sender: { ...config.email.sender },
       replyTo: config.email.replyTo,
+      connectionTimeoutMs: config.email.connectionTimeoutMs,
+      greetingTimeoutMs: config.email.greetingTimeoutMs,
+      socketTimeoutMs: config.email.socketTimeoutMs,
       smtp: {
         host: config.email.smtp.host,
         port: config.email.smtp.port,
@@ -546,6 +611,7 @@ function getSafeMessageDeliveryConfig() {
         requireTls: config.email.smtp.requireTls,
         rejectUnauthorized: config.email.smtp.rejectUnauthorized,
         user: redactSecret(config.email.smtp.user),
+        username: redactSecret(config.email.smtp.username),
         password: config.email.smtp.password ? "********" : "",
         connectionTimeoutMs: config.email.smtp.connectionTimeoutMs,
         greetingTimeoutMs: config.email.smtp.greetingTimeoutMs,
@@ -562,13 +628,10 @@ function getSafeMessageDeliveryConfig() {
         accountSid: redactSecret(config.sms.twilio.accountSid),
         authToken: config.sms.twilio.authToken ? "********" : "",
         fromNumber: config.sms.twilio.fromNumber,
-        messagingServiceSid: redactSecret(
-          config.sms.twilio.messagingServiceSid
-        ),
+        messagingServiceSid: redactSecret(config.sms.twilio.messagingServiceSid),
         statusCallbackUrl: config.sms.twilio.statusCallbackUrl,
         webhookBaseUrl: config.sms.twilio.webhookBaseUrl,
-        webhookValidationEnabled:
-          config.sms.twilio.webhookValidationEnabled,
+        webhookValidationEnabled: config.sms.twilio.webhookValidationEnabled,
       },
     },
 
