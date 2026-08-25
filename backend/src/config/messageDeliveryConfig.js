@@ -65,7 +65,24 @@ function normalisePhoneCountryCode(value) {
     return "+44";
   }
 
-  return countryCode.startsWith("+") ? countryCode : `+${countryCode}`;
+  const countryAlias =
+    countryCode.toUpperCase();
+
+  if (
+    countryAlias === "GB" ||
+    countryAlias === "UK"
+  ) {
+    return "+44";
+  }
+
+  const digits =
+    countryCode.replace(/\D/g, "");
+
+  if (!digits) {
+    return countryCode;
+  }
+
+  return `+${digits}`;
 }
 
 function normaliseDeliveryMode(value) {
