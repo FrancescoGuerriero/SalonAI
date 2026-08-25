@@ -44,8 +44,17 @@ function normaliseText(value) {
 }
 
 function normaliseCountryCode(value) {
-  const countryCode =
+  const suppliedCountryCode =
     normaliseText(value) || "+44";
+
+  const countryAlias =
+    suppliedCountryCode.toUpperCase();
+
+  const countryCode =
+    countryAlias === "GB" ||
+    countryAlias === "UK"
+      ? "+44"
+      : suppliedCountryCode;
 
   const digits =
     countryCode.replace(/\D/g, "");
