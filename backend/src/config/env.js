@@ -1,3 +1,9 @@
+import {
+  DELIVERY_MODES,
+  getMessageDeliveryConfig,
+  validateMessageDeliveryConfig,
+} from "./messageDeliveryConfig.js";
+
 const REQUIRED_PRODUCTION_VARIABLES = [
   "MONGODB_URI",
   "JWT_SECRET",
@@ -7,7 +13,7 @@ const REQUIRED_PRODUCTION_VARIABLES = [
 
 function readBoolean(value, fallback = false) {
   if (value === undefined) return fallback;
-  return String(value).toLowerCase() === "true";
+  return String(value).trim().toLowerCase() === "true";
 }
 
 function readNumber(value, fallback) {
@@ -54,7 +60,9 @@ function validateStripeConfiguration(isProduction) {
   );
 
   if (!String(process.env.STRIPE_SECRET_KEY).startsWith("sk_")) {
-    throw new Error("STRIPE_SECRET_KEY must be a Stripe secret key beginning with sk_.");
+    throw new Error(
+      "STRIPE_SECRET_KEY must be a Stripe secret key beginning with sk_."
+    );
   }
 
   if (!String(process.env.STRIPE_WEBHOOK_SECRET).startsWith("whsec_")) {
@@ -74,34 +82,19 @@ function validateStripeConfiguration(isProduction) {
 }
 
 function resolveWhatsAppProvider() {
-  const configuredProvider = readMode(
-    process.env.WHATSAPP_PROVIDER,
-    ""
-  );
+  const configuredProvider = readMode(process.env.WHATSAPP_PROVIDER, "");
 
   if (configuredProvider) {
     return configuredProvider;
   }
 
-  // Backwards compatibility with pre-Phase 8.11A deployments.
-  const legacyMode = readMode(
-    process.env.WHATSAPP_PROVIDER_MODE,
-    "mock"
-  );
+  const legacyMode = readMode(process.env.WHATSAPP_PROVIDER_MODE, "mock");
 
-  if (
-    ["mock", "console", "sandbox"].includes(
-      legacyMode
-    )
-  ) {
+  if (["mock", "console", "sandbox"].includes(legacyMode)) {
     return "console";
   }
 
-  if (
-    ["twilio", "live"].includes(
-      legacyMode
-    )
-  ) {
+  if (["twilio", "live"].includes(legacyMode)) {
     return "twilio";
   }
 
@@ -109,52 +102,40 @@ function resolveWhatsAppProvider() {
 }
 
 function resolveWhatsAppDeliveryEnabled() {
-  if (
-    process.env.WHATSAPP_DELIVERY_ENABLED !==
-    undefined
-  ) {
-    return readBoolean(
-      process.env.WHATSAPP_DELIVERY_ENABLED,
-      false
-    );
+  if (process.env.WHATSAPP_DELIVERY_ENABLED !== undefined) {
+    return readBoolean(process.env.WHATSAPP_DELIVERY_ENABLED, false);
   }
 
-  /*
-   * Preserve the behaviour of existing deployments
-   * until WHATSAPP_PROVIDER is explicitly adopted.
-   */
-  return !String(
-    process.env.WHATSAPP_PROVIDER || ""
-  ).trim();
+  if (String(process.env.WHATSAPP_PROVIDER || "").trim()) {
+    return false;
+  }
+
+  const legacyMode = readMode(process.env.WHATSAPP_PROVIDER_MODE, "mock");
+  return ["twilio", "live"].includes(legacyMode);
 }
 
-function validateWhatsAppConfiguration(
-  isProduction
-) {
-  const provider =
-    resolveWhatsAppProvider();
+function validateWhatsAppConfiguration(isProduction) {
+  const provider = resolveWhatsAppProvider();
 
-  if (
-    !["console", "meta", "twilio"].includes(
-      provider
-    )
-  ) {
+  if (!["console", "meta", "twilio"].includes(provider)) {
     throw new Error(
       "WHATSAPP_PROVIDER must be console, meta or twilio."
     );
   }
 
-  const enabled =
-    resolveWhatsAppDeliveryEnabled();
+  const enabled = resolveWhatsAppDeliveryEnabled();
 
-  /*
-   * Console is always safe for development and
-   * requires no external provider credentials.
-   */
-  if (
-    provider === "console" ||
-    !enabled
-  ) {
+  if (provider === "console") {
+    if (isProduction && enabled) {
+      throw new Error(
+        "Production WhatsApp delivery cannot use the console provider. Disable WHATSAPP_DELIVERY_ENABLED or configure meta/twilio."
+      );
+    }
+
+    return;
+  }
+
+  if (!enabled) {
     return;
   }
 
@@ -168,11 +149,7 @@ function validateWhatsAppConfiguration(
       "Twilio WhatsApp"
     );
 
-    if (
-      !String(
-        process.env.TWILIO_ACCOUNT_SID
-      ).startsWith("AC")
-    ) {
+    if (!String(process.env.TWILIO_ACCOUNT_SID).startsWith("AC")) {
       throw new Error(
         "TWILIO_ACCOUNT_SID must begin with AC."
       );
@@ -191,13 +168,6 @@ function validateWhatsAppConfiguration(
     return;
   }
 
-  /*
-   * Meta WhatsApp Cloud API.
-   *
-   * APP_SECRET and VERIFY_TOKEN are included because
-   * SalonAI supports inbound WhatsApp conversations
-   * as well as outbound transactional messages.
-   */
   assertRequired(
     [
       "META_WHATSAPP_ACCESS_TOKEN",
@@ -209,12 +179,81 @@ function validateWhatsAppConfiguration(
     "Meta WhatsApp"
   );
 
-  if (
-    isProduction &&
-    !process.env.WHATSAPP_WEBHOOK_URL
-  ) {
+  if (isProduction && !process.env.WHATSAPP_WEBHOOK_URL) {
     throw new Error(
       "Production Meta WhatsApp delivery requires WHATSAPP_WEBHOOK_URL."
+    );
+  }
+}
+
+function validateLegacyDeliveryModes(isProduction, config) {
+  if (!isProduction) {
+    return;
+  }
+
+  const legacyEmailMode = readMode(process.env.EMAIL_PROVIDER_MODE, "");
+  const legacySmsMode = readMode(process.env.SMS_PROVIDER_MODE, "");
+
+  if (
+    config.email.enabled &&
+    !String(process.env.EMAIL_PROVIDER || "").trim() &&
+    ["mock", "console", "demo", "sandbox"].includes(legacyEmailMode)
+  ) {
+    throw new Error(
+      "Production email delivery cannot use legacy mock/console/sandbox provider mode. Set EMAIL_PROVIDER=smtp and MESSAGE_DELIVERY_MODE=live."
+    );
+  }
+
+  if (
+    config.sms.enabled &&
+    !String(process.env.SMS_PROVIDER || "").trim() &&
+    ["mock", "console", "demo", "sandbox"].includes(legacySmsMode)
+  ) {
+    throw new Error(
+      "Production SMS delivery cannot use legacy mock/console/sandbox provider mode. Set SMS_PROVIDER=twilio and MESSAGE_DELIVERY_MODE=live."
+    );
+  }
+}
+
+function validateMessageDeliveryConfiguration(isProduction) {
+  const config = getMessageDeliveryConfig();
+  const anyExternalChannelEnabled = config.email.enabled || config.sms.enabled;
+
+  if (
+    isProduction &&
+    anyExternalChannelEnabled &&
+    config.mode !== DELIVERY_MODES.LIVE
+  ) {
+    throw new Error(
+      "Production email or SMS delivery requires MESSAGE_DELIVERY_MODE=live. Sandbox delivery cannot be enabled as an external production channel."
+    );
+  }
+
+  validateLegacyDeliveryModes(isProduction, config);
+
+  const validation = validateMessageDeliveryConfig(config, {
+    throwOnError: false,
+  });
+
+  if (isProduction && !validation.valid) {
+    throw new Error(
+      `Invalid production message-delivery configuration: ${validation.errors
+        .map((entry) => entry.message)
+        .join(" ")}`
+    );
+  }
+
+  if (
+    isProduction &&
+    readBoolean(process.env.EMAIL_VERIFICATION_REQUIRED, false) &&
+    (
+      !config.email.enabled ||
+      config.mode !== DELIVERY_MODES.LIVE ||
+      config.email.provider !== "smtp"
+    )
+  ) {
+    throw new Error(
+      "EMAIL_VERIFICATION_REQUIRED=true requires live SMTP email delivery: EMAIL_DELIVERY_ENABLED=true, EMAIL_PROVIDER=smtp and MESSAGE_DELIVERY_MODE=live."
     );
   }
 }
@@ -284,6 +323,7 @@ export function validateEnvironment() {
   }
 
   validateStripeConfiguration(isProduction);
+  validateMessageDeliveryConfiguration(isProduction);
   validateWhatsAppConfiguration(isProduction);
 }
 
@@ -299,16 +339,9 @@ export const env = Object.freeze({
   frontendUrl:
     process.env.FRONTEND_URL ||
     "http://localhost:5173",
-  trustProxy: readBoolean(
-    process.env.TRUST_PROXY,
-    false
-  ),
-  logLevel:
-    process.env.LOG_LEVEL ||
-    "info",
-  requestBodyLimit:
-    process.env.REQUEST_BODY_LIMIT ||
-    "1mb",
+  trustProxy: readBoolean(process.env.TRUST_PROXY, false),
+  logLevel: process.env.LOG_LEVEL || "info",
+  requestBodyLimit: process.env.REQUEST_BODY_LIMIT || "1mb",
   jwtSecret:
     process.env.JWT_SECRET ||
     "development-only-secret",
@@ -345,11 +378,8 @@ export const env = Object.freeze({
   ),
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
-  whatsappProvider:
-    resolveWhatsAppProvider(),
-
-  whatsappDeliveryEnabled:
-    resolveWhatsAppDeliveryEnabled(),
+  whatsappProvider: resolveWhatsAppProvider(),
+  whatsappDeliveryEnabled: resolveWhatsAppDeliveryEnabled(),
 
   // Retained temporarily for backwards compatibility.
   whatsappProviderMode: readMode(
