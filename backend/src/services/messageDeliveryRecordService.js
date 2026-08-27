@@ -1334,6 +1334,7 @@ async function updateDeliveryFromProviderEvent({
   price = null,
   priceUnit = "",
   segments = null,
+  expectedVersion = null,
 } = {}) {
   const messageId =
     normaliseText(
@@ -1383,6 +1384,43 @@ async function updateDeliveryFromProviderEvent({
     );
   }
 
+  const hasExpectedVersion =
+    expectedVersion !== null &&
+    expectedVersion !== undefined &&
+    expectedVersion !== "";
+
+  const requestedVersion =
+    hasExpectedVersion
+      ? Number(expectedVersion)
+      : null;
+
+  if (
+    hasExpectedVersion &&
+    (
+      !Number.isInteger(
+        requestedVersion
+      ) ||
+      Number(record.__v) !==
+        requestedVersion
+    )
+  ) {
+    const conflict =
+      createRecordServiceError(
+        "The message-delivery record changed while processing a provider callback.",
+        {
+          statusCode: 409,
+          code:
+            "DELIVERY_STATUS_CONFLICT",
+          delivery: record,
+          retryable: true,
+        }
+      );
+
+    conflict.name =
+      "DeliveryStatusConflictError";
+
+    throw conflict;
+  }
   record.providerStatus =
     normaliseLowercase(
       status

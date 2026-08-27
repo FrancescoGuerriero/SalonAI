@@ -1,4 +1,4 @@
-﻿import twilio from "twilio";
+import twilio from "twilio";
 
 import MessageDelivery
   from "../../../models/MessageDelivery.js";
@@ -524,6 +524,8 @@ export async function processSmsStatusEvent(
 
     updateDelivery =
       updateDeliveryFromProviderEvent,
+
+    maxAttempts = 3,
   } = {}
 ) {
   if (
@@ -553,170 +555,227 @@ export async function processSmsStatusEvent(
     };
   }
 
-  const record =
-    await DeliveryModel
-      .findByProviderMessageId(
-        event
-          .providerMessageId
-      );
-
-  if (!record) {
-    return {
-      matched: false,
-      updated: false,
-      ignored: true,
-      duplicate: false,
-
-      reason:
-        "unknown_provider_message",
-
-      providerMessageId:
-        event
-          .providerMessageId,
-
-      providerStatus:
-        event
-          .providerStatus,
-
-      deliveryId: null,
-    };
-  }
-
-  if (
-    lower(
-      record.channel
-    ) !== "sms"
-  ) {
-    return {
-      matched: true,
-      updated: false,
-      ignored: true,
-      duplicate: false,
-
-      reason:
-        "channel_mismatch",
-
-      providerMessageId:
-        event
-          .providerMessageId,
-
-      providerStatus:
-        event
-          .providerStatus,
-
-      deliveryId:
-        text(
-          record.deliveryId ||
-          record._id
-        ) || null,
-    };
-  }
-
-  const currentStatus =
-    record.providerStatus ||
-    record.status ||
-    "";
-
-  const decision =
-    decideSmsDeliveryStatusUpdate(
-      currentStatus,
-      event.providerStatus
+  const safeMaxAttempts =
+    Math.min(
+      10,
+      Math.max(
+        1,
+        Number(maxAttempts) ||
+          3
+      )
     );
 
-  if (
-    decision.action !==
-    "update"
+  let lastError = null;
+
+  for (
+    let attempt = 0;
+    attempt <
+      safeMaxAttempts;
+    attempt += 1
   ) {
-    return {
-      matched: true,
-      updated: false,
-      ignored: true,
+    const record =
+      await DeliveryModel
+        .findByProviderMessageId(
+          event
+            .providerMessageId
+        );
 
-      duplicate:
-        decision.reason ===
-        "duplicate",
+    if (!record) {
+      return {
+        matched: false,
+        updated: false,
+        ignored: true,
+        duplicate: false,
 
-      reason:
-        decision.reason,
+        reason:
+          "unknown_provider_message",
 
-      providerMessageId:
-        event
-          .providerMessageId,
+        providerMessageId:
+          event
+            .providerMessageId,
 
-      providerStatus:
-        event
-          .providerStatus,
+        providerStatus:
+          event
+            .providerStatus,
 
-      deliveryId:
-        text(
-          record.deliveryId ||
-          record._id
-        ) || null,
-    };
+        deliveryId: null,
+      };
+    }
+
+    if (
+      lower(
+        record.channel
+      ) !== "sms"
+    ) {
+      return {
+        matched: true,
+        updated: false,
+        ignored: true,
+        duplicate: false,
+
+        reason:
+          "channel_mismatch",
+
+        providerMessageId:
+          event
+            .providerMessageId,
+
+        providerStatus:
+          event
+            .providerStatus,
+
+        deliveryId:
+          text(
+            record.deliveryId ||
+            record._id
+          ) || null,
+      };
+    }
+
+    const currentStatus =
+      record.providerStatus ||
+      record.status ||
+      "";
+
+    const decision =
+      decideSmsDeliveryStatusUpdate(
+        currentStatus,
+        event.providerStatus
+      );
+
+    if (
+      decision.action !==
+      "update"
+    ) {
+      return {
+        matched: true,
+        updated: false,
+        ignored: true,
+
+        duplicate:
+          decision.reason ===
+          "duplicate",
+
+        reason:
+          decision.reason,
+
+        providerMessageId:
+          event
+            .providerMessageId,
+
+        providerStatus:
+          event
+            .providerStatus,
+
+        deliveryId:
+          text(
+            record.deliveryId ||
+            record._id
+          ) || null,
+      };
+    }
+
+    try {
+      const updatedRecord =
+        await updateDelivery({
+          providerMessageId:
+            event
+              .providerMessageId,
+
+          status:
+            event
+              .providerStatus,
+
+          providerResponse:
+            event
+              .providerResponse,
+
+          errorCode:
+            event
+              .errorCode,
+
+          errorMessage:
+            event
+              .errorMessage,
+
+          price:
+            event
+              .price,
+
+          priceUnit:
+            event
+              .priceUnit,
+
+          segments:
+            event
+              .segments,
+
+          expectedVersion:
+            record.__v ??
+            null,
+        });
+
+      return {
+        matched: true,
+        updated: true,
+        ignored: false,
+        duplicate: false,
+
+        reason:
+          decision.reason,
+
+        providerMessageId:
+          event
+            .providerMessageId,
+
+        providerStatus:
+          event
+            .providerStatus,
+
+        deliveryId:
+          text(
+            updatedRecord
+              ?.deliveryId ||
+            updatedRecord
+              ?._id
+          ) || null,
+      };
+    } catch (error) {
+      lastError =
+        error;
+
+      const concurrencyConflict =
+        error?.name ===
+          "VersionError" ||
+        error?.name ===
+          "DeliveryStatusConflictError" ||
+        error?.code ===
+          "DELIVERY_STATUS_CONFLICT";
+
+      if (
+        concurrencyConflict &&
+        attempt <
+          safeMaxAttempts - 1
+      ) {
+        /*
+         * Another callback updated the same delivery.
+         * Reload the record and re-evaluate the latest
+         * stored provider status before trying again.
+         */
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  const updatedRecord =
-    await updateDelivery({
-      providerMessageId:
-        event
-          .providerMessageId,
-
-      status:
-        event
-          .providerStatus,
-
-      providerResponse:
-        event
-          .providerResponse,
-
-      errorCode:
-        event
-          .errorCode,
-
-      errorMessage:
-        event
-          .errorMessage,
-
-      price:
-        event
-          .price,
-
-      priceUnit:
-        event
-          .priceUnit,
-
-      segments:
-        event
-          .segments,
-    });
-
-  return {
-    matched: true,
-    updated: true,
-    ignored: false,
-    duplicate: false,
-
-    reason:
-      decision.reason,
-
-    providerMessageId:
-      event
-        .providerMessageId,
-
-    providerStatus:
-      event
-        .providerStatus,
-
-    deliveryId:
-      text(
-        updatedRecord
-          ?.deliveryId ||
-        updatedRecord
-          ?._id
-      ) || null,
-  };
+  throw (
+    lastError ||
+    new Error(
+      "Unable to persist SMS delivery status."
+    )
+  );
 }
-
 function createHttpError(
   message,
   statusCode,

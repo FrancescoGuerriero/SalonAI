@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 import twilio from "twilio";
@@ -500,6 +500,139 @@ test(
   }
 );
 
+test(
+  "re-evaluates the latest SMS status after a concurrency conflict",
+  async () => {
+    const event = {
+      valid: true,
+
+      providerMessageId:
+        "SMrace123",
+
+      providerStatus:
+        "undelivered",
+
+      errorCode:
+        "30003",
+
+      errorMessage:
+        "Unreachable handset",
+
+      price: null,
+      priceUnit: "",
+      segments: 1,
+      providerResponse: {},
+    };
+
+    let reads = 0;
+    let updates = 0;
+
+    const DeliveryModel = {
+      async findByProviderMessageId() {
+        reads += 1;
+
+        if (
+          reads === 1
+        ) {
+          return {
+            _id:
+              "race-record",
+
+            deliveryId:
+              "salonai-race-delivery",
+
+            channel:
+              "sms",
+
+            status:
+              "sent",
+
+            providerStatus:
+              "sent",
+
+            __v: 4,
+          };
+        }
+
+        return {
+          _id:
+            "race-record",
+
+          deliveryId:
+            "salonai-race-delivery",
+
+          channel:
+            "sms",
+
+          status:
+            "delivered",
+
+          providerStatus:
+            "delivered",
+
+          __v: 5,
+        };
+      },
+    };
+
+    const result =
+      await processSmsStatusEvent(
+        event,
+        {
+          DeliveryModel,
+
+          maxAttempts: 3,
+
+          async updateDelivery(
+            providerEvent
+          ) {
+            updates += 1;
+
+            assert.equal(
+              providerEvent
+                .expectedVersion,
+              4
+            );
+
+            const error =
+              new Error(
+                "Concurrent update"
+              );
+
+            error.code =
+              "DELIVERY_STATUS_CONFLICT";
+
+            throw error;
+          },
+        }
+      );
+
+    assert.equal(
+      reads,
+      2
+    );
+
+    assert.equal(
+      updates,
+      1
+    );
+
+    assert.equal(
+      result.updated,
+      false
+    );
+
+    assert.equal(
+      result.ignored,
+      true
+    );
+
+    assert.equal(
+      result.reason,
+      "terminal_status"
+    );
+  }
+);
 test(
   "validates real Twilio request signatures",
   () => {
