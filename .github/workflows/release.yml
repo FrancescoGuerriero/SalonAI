@@ -168,6 +168,8 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ needs.prepare.outputs.release_commit }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.release_tag }}
+          pull: true
+          no-cache-filters: runtime
           cache-from: type=gha,scope=salonai-${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=salonai-${{ matrix.service }}
 
