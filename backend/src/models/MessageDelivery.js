@@ -545,6 +545,7 @@ const messageDeliverySchema =
     },
     {
       timestamps: true,
+      optimisticConcurrency: true,
 
       toJSON: {
         virtuals: true,
