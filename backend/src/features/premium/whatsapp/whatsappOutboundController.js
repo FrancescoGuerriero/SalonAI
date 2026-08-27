@@ -445,7 +445,7 @@ async function deliverAndRecord({
           conversation._id,
           update,
           {
-            new: true,
+            returnDocument: "after",
             runValidators:
               true,
           }
@@ -465,7 +465,7 @@ async function deliverAndRecord({
             },
           },
           {
-            new: true,
+            returnDocument: "after",
             upsert: true,
             runValidators:
               true,

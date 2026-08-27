@@ -296,7 +296,7 @@ export async function updateBookingSession(request, response) {
         "bookingSession.expiresAt": new Date(Date.now() + 30 * 60_000),
       },
     },
-    { new: true, runValidators: true }
+    { returnDocument: "after", runValidators: true }
   );
 
   if (!conversation) {
@@ -365,7 +365,7 @@ export async function confirmBooking(request, response) {
         "bookingSession.confirmationState": "processing",
       },
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!locked) {
@@ -535,7 +535,7 @@ export async function markConversationRead(request, response) {
         assignedTo: request.user._id,
       },
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!conversation) {
@@ -563,7 +563,7 @@ export async function updateConversationStatus(request, response) {
         closedAt: status === "closed" ? new Date() : null,
       },
     },
-    { new: true, runValidators: true }
+    { returnDocument: "after", runValidators: true }
   );
 
   if (!conversation) {

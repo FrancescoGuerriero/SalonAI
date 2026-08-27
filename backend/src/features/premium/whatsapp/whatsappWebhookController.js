@@ -106,7 +106,7 @@ async function saveIncomingMessage(
         },
       },
       {
-        new: true,
+        returnDocument: "after",
         upsert: true,
         runValidators: true,
         setDefaultsOnInsert:
