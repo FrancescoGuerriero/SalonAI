@@ -99,7 +99,6 @@ export async function sendTwilioWhatsApp({
     statusCallbackUrl ||
       process.env
         .TWILIO_WHATSAPP_STATUS_CALLBACK_URL ||
-      process.env.TWILIO_STATUS_CALLBACK_URL ||
       ""
   ).trim();
 

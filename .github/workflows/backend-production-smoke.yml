@@ -59,9 +59,10 @@ jobs:
             --env FRONTEND_URL=http://localhost:5173 \
             --env MESSAGE_DELIVERY_SCHEDULER_ENABLED=true \
             --env MESSAGE_DELIVERY_SCHEDULER_RUN_IMMEDIATELY=true \
-            --env EMAIL_PROVIDER_MODE=console \
-            --env SMS_PROVIDER_MODE=console \
-            --env WHATSAPP_PROVIDER_MODE=console \
+            --env MESSAGE_DELIVERY_MODE=sandbox \
+            --env EMAIL_PROVIDER=smtp \
+            --env SMS_PROVIDER=twilio \
+            --env WHATSAPP_PROVIDER=console \
             salonai-backend:production-smoke
           status=$?
           set -e

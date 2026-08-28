@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import "../../../models/user.js";
+
 const { Schema } = mongoose;
 
 const messageSchema = new Schema(
