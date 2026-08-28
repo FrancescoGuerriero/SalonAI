@@ -445,6 +445,20 @@ export default function Navbar() {
                     </NavLink>
 
 
+                    <NavLink
+                      to="/account/manage"
+                      role="menuitem"
+                      className={
+                        accountLinkClass
+                      }
+                    >
+                      <Settings
+                        size={17}
+                      />
+                      Manage account
+                    </NavLink>
+
+
                   </div>
 
                   <div className="border-t border-slate-100 p-2">
@@ -614,6 +628,24 @@ export default function Navbar() {
                         size={17}
                       />
                       My account
+                    </NavLink>
+
+
+                    <NavLink
+                      to="/account/manage"
+                      className={
+                        accountLinkClass
+                      }
+                      onClick={() =>
+                        setMobileOpen(
+                          false
+                        )
+                      }
+                    >
+                      <Settings
+                        size={17}
+                      />
+                      Manage account
                     </NavLink>
 
 
