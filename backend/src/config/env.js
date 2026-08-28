@@ -390,7 +390,6 @@ export const env = Object.freeze({
   twilioWebhookBaseUrl: process.env.TWILIO_WEBHOOK_BASE_URL || "",
   twilioWhatsappStatusCallbackUrl:
     process.env.TWILIO_WHATSAPP_STATUS_CALLBACK_URL ||
-    process.env.TWILIO_STATUS_CALLBACK_URL ||
     "",
   version:
     process.env.APP_VERSION ||
