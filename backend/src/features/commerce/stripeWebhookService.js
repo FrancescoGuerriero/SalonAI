@@ -21,6 +21,11 @@ import {
 import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
+import {
+  claimStripeWebhookEvent,
+  markStripeWebhookEventFailed,
+  markStripeWebhookEventProcessed,
+} from "./stripeWebhookEventService.js";
 
 const SUCCESS_EVENT_TYPES =
   new Set([
@@ -174,16 +179,9 @@ function completedSessionIsPaid(
   );
 }
 
-export async function handleStripeCheckoutWebhook(
-  rawBody,
-  signature
+async function processStripeCheckoutEvent(
+  event
 ) {
-  const event =
-    constructStripeEvent(
-      rawBody,
-      signature
-    );
-
   const type =
     String(
       event.type || ""
@@ -454,6 +452,77 @@ export async function handleStripeCheckoutWebhook(
     appointmentId:
       appointmentId || null,
   };
+}
+
+export async function handleStripeCheckoutWebhook(
+  rawBody,
+  signature
+) {
+  /*
+   * Verify the Stripe signature before accepting
+   * anything into the persistent event ledger.
+   */
+  const event =
+    constructStripeEvent(
+      rawBody,
+      signature
+    );
+
+  const claim =
+    await claimStripeWebhookEvent(
+      event
+    );
+
+  /*
+   * A previously completed Stripe event is
+   * acknowledged without repeating settlement,
+   * inventory or notification side effects.
+   */
+  if (!claim.claimed) {
+    return {
+      received: true,
+      handled: true,
+      duplicate: true,
+      eventId:
+        event.id || "",
+      eventType:
+        String(
+          event.type || ""
+        ),
+    };
+  }
+
+  try {
+    const result =
+      await processStripeCheckoutEvent(
+        event
+      );
+
+    await markStripeWebhookEventProcessed(
+      event.id,
+      claim.claimId
+    );
+
+    return {
+      ...result,
+      duplicate: false,
+    };
+  } catch (error) {
+    try {
+      await markStripeWebhookEventFailed(
+        event.id,
+        claim.claimId,
+        error
+      );
+    } catch (ledgerError) {
+      console.error(
+        "Failed to persist Stripe webhook failure state.",
+        ledgerError
+      );
+    }
+
+    throw error;
+  }
 }
 
 export default {
