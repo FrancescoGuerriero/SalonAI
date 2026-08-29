@@ -424,6 +424,240 @@ test(
 
 
 test(
+  "date stage accepts standalone named date without AI",
+  async () => {
+    let analyseCalled = false;
+
+    const conversation =
+      conversationFixture({
+        bookingSession: {
+          stage: "date",
+          serviceId: "service-1",
+          stylistId: null,
+          appointmentDate: null,
+          appointmentTime: "",
+          duration: null,
+          price: null,
+          availableSlots: [],
+          appointmentId: null,
+          confirmed: false,
+          confirmationState: "pending",
+          expiresAt: null,
+        },
+        automation: {
+          mode: "bot",
+          handoffRequested: false,
+          handoffReason: "",
+          anyStylist: true,
+          clarificationCount: 0,
+          lastProcessedMessageId: "",
+        },
+      });
+
+    const result =
+      await runWhatsAppBotTurn(
+        {
+          conversation,
+          incoming: {
+            message: "1 September",
+            providerMessageId:
+              "SM-DATE-STAGE-1",
+          },
+          services: [
+            estimatedService,
+          ],
+          stylists: [
+            stylist,
+          ],
+        },
+        {
+          environment:
+            botEnvironment(),
+          now:
+            new Date(
+              "2026-08-29T09:00:00.000Z"
+            ),
+          analyse:
+            async () => {
+              analyseCalled = true;
+              throw new Error(
+                "AI must not run for a deterministic date continuation."
+              );
+            },
+          persist:
+            async () => {},
+        }
+      );
+
+    assert.equal(
+      analyseCalled,
+      false
+    );
+
+    assert.equal(
+      result.handoff,
+      false
+    );
+
+    assert.equal(
+      conversation
+        .bookingSession
+        .stage,
+      "time"
+    );
+
+    assert.equal(
+      conversation
+        .bookingSession
+        .appointmentDate
+        .toISOString()
+        .slice(0, 10),
+      "2026-09-01"
+    );
+
+    assert.equal(
+      conversation
+        .automation
+        .lastIntent,
+      "booking"
+    );
+
+    assert.equal(
+      conversation
+        .automation
+        .lastAction,
+      "collect_time"
+    );
+
+    assert.equal(
+      conversation
+        .automation
+        .providerMode,
+      "deterministic"
+    );
+  }
+);
+
+
+test(
+  "time stage accepts standalone time without AI",
+  async () => {
+    let analyseCalled = false;
+
+    const conversation =
+      conversationFixture({
+        bookingSession: {
+          stage: "time",
+          serviceId: "service-1",
+          stylistId: null,
+          appointmentDate:
+            new Date(
+              "2026-09-01T12:00:00.000Z"
+            ),
+          appointmentTime: "",
+          duration: null,
+          price: null,
+          availableSlots: [],
+          appointmentId: null,
+          confirmed: false,
+          confirmationState: "pending",
+          expiresAt: null,
+        },
+        automation: {
+          mode: "bot",
+          handoffRequested: false,
+          handoffReason: "",
+          anyStylist: true,
+          clarificationCount: 0,
+          lastProcessedMessageId: "",
+        },
+      });
+
+    const result =
+      await runWhatsAppBotTurn(
+        {
+          conversation,
+          incoming: {
+            message: "3pm",
+            providerMessageId:
+              "SM-TIME-STAGE-1",
+          },
+          services: [
+            estimatedService,
+          ],
+          stylists: [
+            stylist,
+          ],
+        },
+        {
+          environment:
+            botEnvironment(),
+          now:
+            new Date(
+              "2026-08-29T09:00:00.000Z"
+            ),
+          analyse:
+            async () => {
+              analyseCalled = true;
+              throw new Error(
+                "AI must not run for a deterministic time continuation."
+              );
+            },
+          getAvailableSlots:
+            async () => [
+              "14:30",
+              "15:00",
+              "15:30",
+            ],
+          persist:
+            async () => {},
+        }
+      );
+
+    assert.equal(
+      analyseCalled,
+      false
+    );
+
+    assert.equal(
+      result.bookingReady,
+      true
+    );
+
+    assert.equal(
+      conversation
+        .bookingSession
+        .stage,
+      "review"
+    );
+
+    assert.equal(
+      conversation
+        .bookingSession
+        .appointmentTime,
+      "15:00"
+   );
+
+    assert.equal(
+      String(
+        conversation
+          .bookingSession
+          .stylistId
+      ),
+      "stylist-1"
+    );
+
+    assert.equal(
+      conversation
+        .automation
+        .lastAction,
+      "await_customer_confirmation"
+    );
+  }
+);
+
+
+test(
   "price-on-consultation service is handed to staff",
   async () => {
     const conversation =
