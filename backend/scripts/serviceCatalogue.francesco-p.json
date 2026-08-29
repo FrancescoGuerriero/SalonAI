@@ -7,7 +7,7 @@
     {
       "name": "Short Cuts (above earlobe)",
       "category": "Cutting & Styling",
-      "description": "Short haircut for hair above the earlobe.",
+      "description": "Precision short haircut for hair above the earlobe, shaped to suit your face, hair texture and personal style. A professional short hair cutting and styling service with a polished salon finish.",
       "price": 85,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -20,7 +20,7 @@
     {
       "name": "Child Cuts",
       "category": "Cutting & Styling",
-      "description": "Child haircut for under 3s; suitability depends on hair length and thickness.",
+      "description": "Gentle children's haircut for under 3s, adapted to hair length, thickness and comfort. A professional children's hair cutting service designed for a neat, manageable finish.",
       "price": 50,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -33,7 +33,7 @@
     {
       "name": "Blow-dry",
       "category": "Cutting & Styling",
-      "description": "Professional blow-dry and finish.",
+      "description": "Professional salon blow-dry with smooth, polished styling tailored to your hair type. Ideal for everyday styling, events or a fresh post-treatment finish.",
       "price": 68,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -46,7 +46,7 @@
     {
       "name": "Natural Curly Cuts & Diffuse",
       "category": "Natural Curls",
-      "description": "Natural curly haircut with diffused finish. Blowout is an additional service.",
+      "description": "Specialist haircut for naturally curly and textured hair, finished with diffusing to enhance curl shape, definition and movement. Blowout styling is booked separately.",
       "price": 100,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -59,7 +59,7 @@
     {
       "name": "Natural Curly Wash & Diffused",
       "category": "Natural Curls",
-      "description": "Wash and diffused finish for naturally curly hair.",
+      "description": "Curly hair wash and diffuse service designed to refresh natural curls, support definition and create a soft, controlled finish without unnecessary heat styling.",
       "price": 50,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -72,7 +72,7 @@
     {
       "name": "Flat Iron Tong",
       "category": "Cutting & Styling",
-      "description": "Flat iron or tong styling service.",
+      "description": "Flat iron or tong styling for sleek straight hair, soft waves or defined curls. A professional heat-styling service for a polished salon finish.",
       "price": 25,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -85,7 +85,7 @@
     {
       "name": "Hair up",
       "category": "Cutting & Styling",
-      "description": "Hair-up styling priced after consultation.",
+      "description": "Professional hair-up and occasion styling for events, parties, weddings and special occasions. Final style and price are confirmed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -98,7 +98,7 @@
     {
       "name": "Curly Perm",
       "category": "Texture Services",
-      "description": "Curly perm priced after consultation.",
+      "description": "Professional curly perm service for clients seeking longer-lasting curl, wave and texture. Hair condition, desired result and price are assessed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -111,7 +111,7 @@
     {
       "name": "Full Head Weave",
       "category": "Weaves & Protective Styling",
-      "description": "Full-head weave priced after consultation.",
+      "description": "Full-head weave installation for added length, volume and styling versatility. Hair type, method, desired finish and price are confirmed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -124,7 +124,7 @@
     {
       "name": "Weave Tracks",
       "category": "Weaves & Protective Styling",
-      "description": "Weave installation priced per track.",
+      "description": "Weave track installation for targeted length, volume or styling support, priced per track. Consultation confirms placement, quantity and suitability for your hair.",
       "price": 30,
       "priceLabel": "£30 per track",
       "priceOnConsultation": true,
@@ -137,7 +137,7 @@
     {
       "name": "Twist/Cornrows",
       "category": "Weaves & Protective Styling",
-      "description": "Twists or cornrows priced after consultation.",
+      "description": "Protective twist and cornrow styling tailored to your hair type, pattern and desired look. Style complexity, preparation requirements and price are confirmed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -150,7 +150,7 @@
     {
       "name": "Stocking Caps",
       "category": "Weaves & Protective Styling",
-      "description": "Stocking-cap service priced after consultation.",
+      "description": "Stocking-cap weave preparation and styling service for a secure foundation and customised finish. Suitability, hair requirements and price are confirmed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -163,7 +163,7 @@
     {
       "name": "T-Section",
       "category": "Colour",
-      "description": "T-section colour service. Finish is booked separately.",
+      "description": "T-section highlights and colour placement to brighten the hairline, parting and visible top sections with targeted dimension. Hair finish is booked separately.",
       "price": 140,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -176,7 +176,7 @@
     {
       "name": "Half Head",
       "category": "Colour",
-      "description": "Half-head colour service. Finish is booked separately.",
+      "description": "Half-head highlights or colour placement to add brightness, contrast and dimension through selected sections of the hair. Hair finish is booked separately.",
       "price": 180,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -189,7 +189,7 @@
     {
       "name": "Full Head High-lights",
       "category": "Colour",
-      "description": "Full-head highlights. Finish is booked separately.",
+      "description": "Full-head highlights for multi-dimensional colour, brightness and an even highlighted finish throughout the hair. Hair finish is booked separately.",
       "price": 200,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -202,7 +202,7 @@
     {
       "name": "Root Colour",
       "category": "Colour",
-      "description": "Root colour application. Finish is booked separately.",
+      "description": "Professional root colour application to refresh regrowth, maintain colour continuity and blend new growth with existing hair colour. Hair finish is booked separately.",
       "price": 130,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -215,7 +215,7 @@
     {
       "name": "Virgin App Colour",
       "category": "Colour",
-      "description": "Virgin colour application. Finish is booked separately.",
+      "description": "Full virgin hair colour application for hair that has not previously been coloured, creating an even all-over colour result. Hair finish is booked separately.",
       "price": 170,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -228,7 +228,7 @@
     {
       "name": "Creative Colour/Balayage",
       "category": "Colour",
-      "description": "Creative colour or balayage. Additional toner may be required.",
+      "description": "Creative hair colour and balayage service for customised, dimensional colour, soft blends and personalised placement. Additional toner may be required depending on the target result.",
       "price": 200,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -241,7 +241,7 @@
     {
       "name": "Semi-Permanent/Gloss",
       "category": "Colour",
-      "description": "Semi-permanent colour or gloss with variable pricing.",
+      "description": "Semi-permanent hair colour or gloss service to refresh tone, enhance shine and add temporary colour with lower commitment. Pricing starts from the listed amount and varies by hair needs.",
       "price": 50,
       "priceLabel": "From £50",
       "priceOnConsultation": true,
@@ -254,7 +254,7 @@
     {
       "name": "Toner",
       "category": "Colour",
-      "description": "Toner service with variable pricing.",
+      "description": "Professional hair toner service to refine unwanted tones, refresh colour and customise the final shade after lightening or colouring. Pricing varies according to hair length and colour requirements.",
       "price": 30,
       "priceLabel": "From £30",
       "priceOnConsultation": true,
@@ -267,7 +267,7 @@
     {
       "name": "Colour Correction",
       "category": "Colour",
-      "description": "Corrective colour service priced after consultation.",
+      "description": "Specialist hair colour correction for uneven, unwanted or complex previous colour results. A consultation is required to assess hair history, condition, realistic outcomes and pricing.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -280,7 +280,7 @@
     {
       "name": "Virgin Relaxer",
       "category": "Relaxers & Straightening",
-      "description": "Virgin relaxer service.",
+      "description": "Virgin hair relaxer service for previously unrelaxed hair, designed to reduce curl and create a straighter, more manageable finish. Suitability depends on hair condition and history.",
       "price": 120,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -293,7 +293,7 @@
     {
       "name": "Root Relax",
       "category": "Relaxers & Straightening",
-      "description": "Root relaxer service.",
+      "description": "Root relaxer retouch for new growth, helping maintain a straighter finish while avoiding unnecessary overlap on previously relaxed lengths.",
       "price": 115,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -306,7 +306,7 @@
     {
       "name": "Hair Line",
       "category": "Relaxers & Straightening",
-      "description": "Hair-line relaxer service.",
+      "description": "Targeted hairline relaxer service for smoothing and managing regrowth around the perimeter and visible hairline while limiting treatment to the required area.",
       "price": 85,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -319,7 +319,7 @@
     {
       "name": "Virgin App X-Tenso Cold",
       "category": "Relaxers & Straightening",
-      "description": "X-Tenso cold straightening system for virgin application.",
+      "description": "L'Oréal X-Tenso cold straightening service for a virgin application, designed to reduce curl and create a smoother, straighter finish. Suitability depends on hair condition and history.",
       "price": 135,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -332,7 +332,7 @@
     {
       "name": "Virgin App X-Tenso Hot",
       "category": "Relaxers & Straightening",
-      "description": "X-Tenso super-straightening system priced after consultation.",
+      "description": "L'Oréal X-Tenso hot or super-straightening service for a virgin application. Hair condition, previous chemical services, desired result and price are assessed during consultation.",
       "price": 0,
       "priceLabel": "Price on consultation",
       "priceOnConsultation": true,
@@ -345,7 +345,7 @@
     {
       "name": "Roots X-Tenso",
       "category": "Relaxers & Straightening",
-      "description": "X-Tenso root straightening service.",
+      "description": "X-Tenso root straightening retouch for new growth, helping maintain a smoother, straighter finish while focusing treatment on the regrowth area.",
       "price": 100,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -358,7 +358,7 @@
     {
       "name": "Olaplex",
       "category": "Conditioning Treatments",
-      "description": "Strength and integrity rebuilding treatment.",
+      "description": "Olaplex bond-building hair treatment designed to support hair strength and integrity, especially for coloured, lightened, chemically treated or stressed hair.",
       "price": 45,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -371,7 +371,7 @@
     {
       "name": "Scalp Care",
       "category": "Conditioning Treatments",
-      "description": "Scalp-care treatment.",
+      "description": "Professional scalp care treatment designed to cleanse, refresh and condition the scalp while supporting a healthier-feeling environment for hair and scalp.",
       "price": 40,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -384,7 +384,7 @@
     {
       "name": "Custom Blend",
       "category": "Conditioning Treatments",
-      "description": "Custom-blended treatment selected for individual hair requirements.",
+      "description": "Custom-blended hair treatment selected around your hair's condition, texture and moisture needs for a personalised salon conditioning service.",
       "price": 33,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -397,7 +397,7 @@
     {
       "name": "Intense Moisture",
       "category": "Conditioning Treatments",
-      "description": "Intensive hydrating and repairing treatment.",
+      "description": "Intensive moisture hair treatment for dry, dehydrated or stressed hair, designed to improve softness, manageability and hydration.",
       "price": 28,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -410,7 +410,7 @@
     {
       "name": "Moroccan Oil",
       "category": "Conditioning Treatments",
-      "description": "Light hydration and repairing treatment.",
+      "description": "Moroccan oil conditioning treatment for lightweight hydration, softness and improved manageability, suitable for hair needing moisture without a heavy finish.",
       "price": 23,
       "priceLabel": "",
       "priceOnConsultation": false,
@@ -423,7 +423,7 @@
     {
       "name": "Power Dose",
       "category": "Conditioning Treatments",
-      "description": "Express hydration treatment.",
+      "description": "Express professional hair conditioning treatment for a quick boost of hydration and manageability when you want targeted care with minimal appointment time.",
       "price": 15,
       "priceLabel": "",
       "priceOnConsultation": false,
