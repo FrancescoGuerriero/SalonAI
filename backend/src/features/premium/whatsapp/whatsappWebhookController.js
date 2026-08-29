@@ -11,6 +11,10 @@ import {
   persistWhatsAppDeliveryStatus,
 } from "./whatsappDeliveryStatusService.js";
 
+import {
+  queueWhatsAppBotMessage,
+} from "./whatsappBotRuntime.js";
+
 function createHttpError(
   message,
   statusCode = 500
@@ -299,6 +303,19 @@ export async function receiveWebhook(
       duplicates += 1;
     } else {
       processed += 1;
+
+      /*
+       * Automation is scheduled only after the
+       * signed inbound message has been safely
+       * persisted and deduplicated. The queue is
+       * deliberately not awaited so provider
+       * webhook acknowledgement remains prompt.
+       */
+      void queueWhatsAppBotMessage({
+        conversationId:
+          result.conversationId,
+        incoming,
+      });
     }
   }
 
