@@ -76,6 +76,14 @@ def _extract_date_text(
     absolute_patterns = (
         r"\b\d{4}-\d{2}-\d{2}\b",
         r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+        (
+            r"\b\d{1,2}\s+"
+            r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|"
+            r"apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+            r"aug(?:ust)?|sep(?:t(?:ember)?|tember)?|"
+            r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+            r"(?:\s+\d{4})?\b"
+        ),
     )
 
     for pattern in absolute_patterns:
@@ -315,7 +323,59 @@ def _classify_intent(
 
 def _booking_next_action(
     entities: WhatsAppBotEntities,
+    current_stage: str = "idle",
 ) -> tuple[str, str]:
+    if (
+        current_stage == "service"
+        and entities.service_name
+    ):
+        return (
+            "collect_stylist",
+            (
+                "Which stylist would you prefer? "
+                "You can also say any available stylist."
+            ),
+        )
+
+    if (
+        current_stage == "stylist"
+        and entities.stylist_name
+    ):
+        return (
+            "collect_date",
+            (
+                "What date would you prefer "
+                "for your appointment?"
+            ),
+        )
+
+    if (
+        current_stage == "date"
+        and entities.date_text
+    ):
+        return (
+            "collect_time",
+            (
+                "What time would you prefer? "
+                "You can also say morning, "
+                "afternoon or evening."
+            ),
+        )
+
+    if (
+        current_stage == "time"
+        and entities.time_text
+    ):
+        return (
+            "check_availability",
+            (
+                "Thanks. I have enough information "
+                "to check live availability. "
+                "I will verify the slot before "
+                "anything is booked."
+            ),
+        )
+
     if not entities.service_name:
         return (
             "collect_service",
@@ -442,6 +502,50 @@ def analyse_whatsapp_message(
             "time-extracted"
         )
 
+    stage_booking_signal = (
+        (
+            payload.current_stage
+            == "service"
+            and bool(
+                entities.service_name
+            )
+        )
+        or (
+            payload.current_stage
+            == "stylist"
+            and bool(
+                entities.stylist_name
+            )
+        )
+        or (
+            payload.current_stage
+            == "date"
+            and bool(
+                entities.date_text
+            )
+        )
+        or (
+            payload.current_stage
+            == "time"
+            and bool(
+                entities.time_text
+            )
+        )
+    )
+
+    if (
+        intent
+        == WhatsAppBotIntent.UNKNOWN
+        and stage_booking_signal
+    ):
+        intent = (
+            WhatsAppBotIntent.BOOKING
+        )
+        confidence = 0.99
+        rules.append(
+            "booking-stage-context"
+        )
+
     if (
         intent
         == WhatsAppBotIntent.BOOKING
@@ -450,7 +554,8 @@ def analyse_whatsapp_message(
             next_action,
             reply,
         ) = _booking_next_action(
-            entities
+            entities,
+            payload.current_stage,
         )
 
         requires_human = False

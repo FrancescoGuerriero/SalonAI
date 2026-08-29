@@ -110,6 +110,131 @@ def test_whatsapp_bot_supports_any_stylist(
     )
 
 
+def test_whatsapp_bot_extracts_named_date(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/api/v1/whatsapp-bot/analyse",
+        headers=auth_headers,
+        json={
+            "message": (
+                "I'd like the Blow-dry "
+                "on 1 September"
+            ),
+            "current_stage": "date",
+            "services": [
+                "Blow-dry",
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["intent"] == "booking"
+    assert payload["confidence"] >= 0.9
+
+    assert (
+        payload["entities"]["service_name"]
+        == "Blow-dry"
+    )
+
+    assert (
+        payload["entities"]["date_text"]
+        == "1 September"
+    )
+
+    assert (
+        payload["next_action"]
+        == "collect_time"
+    )
+
+    assert (
+        "booking-stage-context"
+        in payload["rules_applied"]
+    )
+
+
+def test_whatsapp_bot_uses_date_stage_context(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/api/v1/whatsapp-bot/analyse",
+        headers=auth_headers,
+        json={
+            "message": "1 September",
+            "current_stage": "date",
+            "services": [
+                "Blow-dry",
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["intent"] == "booking"
+    assert payload["confidence"] >= 0.9
+
+    assert (
+        payload["entities"]["date_text"]
+        == "1 September"
+    )
+
+    assert (
+        payload["next_action"]
+        == "collect_time"
+    )
+
+    assert (
+        "booking-stage-context"
+        in payload["rules_applied"]
+    )
+
+
+def test_whatsapp_bot_uses_time_stage_context(
+    client,
+    auth_headers,
+):
+    response = client.post(
+        "/api/v1/whatsapp-bot/analyse",
+        headers=auth_headers,
+        json={
+            "message": "3pm",
+            "current_stage": "time",
+            "services": [
+                "Blow-dry",
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["intent"] == "booking"
+    assert payload["confidence"] >= 0.9
+
+    assert (
+        payload["entities"]["time_text"]
+        == "3pm"
+    )
+
+    assert (
+        payload["next_action"]
+        == "check_availability"
+    )
+
+    assert (
+        "booking-stage-context"
+        in payload["rules_applied"]
+    )
+
+
 def test_cancellation_requires_human_handoff(
     client,
     auth_headers,
