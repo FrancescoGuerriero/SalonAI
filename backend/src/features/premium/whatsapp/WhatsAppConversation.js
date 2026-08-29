@@ -48,6 +48,11 @@ const messageSchema = new Schema(
       maxlength: 1000,
     },
 
+    automationGenerated: {
+      type: Boolean,
+      default: false,
+    },
+
     sentAt: {
       type: Date,
       default: Date.now,
@@ -157,6 +162,101 @@ const bookingSessionSchema = new Schema(
   }
 );
 
+const automationSchema = new Schema(
+  {
+    mode: {
+      type: String,
+      enum: ["bot", "human"],
+      default: "bot",
+    },
+
+    handoffRequested: {
+      type: Boolean,
+      default: false,
+    },
+
+    handoffReason: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 200,
+    },
+
+    anyStylist: {
+      type: Boolean,
+      default: false,
+    },
+
+    clarificationCount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    lastIntent: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 80,
+    },
+
+    lastConfidence: {
+      type: Number,
+      min: 0,
+      max: 1,
+      default: null,
+    },
+
+    lastAction: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 100,
+    },
+
+    modelName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 200,
+    },
+
+    providerMode: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 80,
+    },
+
+    lastProcessedMessageId: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 300,
+    },
+
+    lastProcessedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastReplyAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastError: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 1000,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const whatsappConversationSchema = new Schema(
   {
     customer: {
@@ -199,6 +299,11 @@ const whatsappConversationSchema = new Schema(
 
     bookingSession: {
       type: bookingSessionSchema,
+      default: () => ({}),
+    },
+
+    automation: {
+      type: automationSchema,
       default: () => ({}),
     },
 
@@ -275,6 +380,7 @@ const WhatsAppConversation =
   );
 
 export {
+  automationSchema,
   bookingSessionSchema,
   messageSchema,
 };
