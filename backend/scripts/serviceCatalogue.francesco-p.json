@@ -2,7 +2,7 @@
   "productionReady": false,
   "pricingLevel": "Francesco P",
   "pricingPolicy": "Highest published fixed price used where staff-level prices exist.",
-  "durationPolicy": "Source catalogue does not publish durations. Durations remain estimated and online booking remains disabled until verified.",
+  "durationPolicy": "Temporary booking policy: all services use a 60-minute estimated duration and online booking is enabled until verified service-specific durations are available.",
   "services": [
     {
       "name": "Short Cuts (above earlobe)",
@@ -13,7 +13,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -26,7 +26,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -39,7 +39,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -52,7 +52,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -65,7 +65,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -78,7 +78,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -91,7 +91,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -104,7 +104,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -117,7 +117,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -130,7 +130,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -143,7 +143,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -156,7 +156,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -169,7 +169,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -182,7 +182,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -195,7 +195,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -208,7 +208,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -221,7 +221,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -234,7 +234,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -247,7 +247,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -260,7 +260,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -273,7 +273,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -286,7 +286,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -299,7 +299,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -312,7 +312,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -325,7 +325,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -338,7 +338,7 @@
       "priceOnConsultation": true,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -351,7 +351,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -364,7 +364,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -377,7 +377,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -390,7 +390,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -403,7 +403,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -416,7 +416,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     },
@@ -429,7 +429,7 @@
       "priceOnConsultation": false,
       "duration": 60,
       "durationEstimated": true,
-      "onlineBookable": false,
+      "onlineBookable": true,
       "image": "",
       "active": true
     }
