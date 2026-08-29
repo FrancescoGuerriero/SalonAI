@@ -1473,7 +1473,92 @@ export async function runWhatsAppBotTurn(
     });
   }
 
+  /*
+   * When the booking state machine is explicitly waiting for a
+   * date or time, accept a safely parseable standalone value
+   * deterministically before consulting AI. This prevents a
+   * low-confidence generic intent classification from blocking
+   * an otherwise unambiguous booking continuation.
+   */
+  let stageAnalysis = null;
+
+  if (
+    session.stage === "date"
+  ) {
+    const stageDate =
+      normaliseBotDate(
+        customerText,
+        {
+          now,
+          timeZone:
+            config.timeZone,
+        }
+      );
+
+    if (stageDate) {
+      stageAnalysis = {
+        intent: "booking",
+        confidence: 1,
+        entities: {
+          service_name: "",
+          stylist_name: "",
+          date_text:
+            stageDate,
+          time_text: "",
+          customer_name: "",
+        },
+        next_action:
+          "collect_time",
+        requires_human: false,
+        reply_suggestion:
+          "What time would you prefer?",
+        provider_mode:
+          "deterministic",
+        model_name:
+          "salonai-booking-state-machine-v1",
+        rules_applied: [
+          "booking-stage-date-value",
+        ],
+      };
+    }
+  } else if (
+    session.stage === "time"
+  ) {
+    const stageTime =
+      normaliseBotTime(
+        customerText
+      );
+
+    if (stageTime) {
+      stageAnalysis = {
+        intent: "booking",
+        confidence: 1,
+        entities: {
+          service_name: "",
+          stylist_name: "",
+          date_text: "",
+          time_text:
+            stageTime,
+          customer_name: "",
+        },
+        next_action:
+          "check_availability",
+        requires_human: false,
+        reply_suggestion:
+          "I will check live availability.",
+        provider_mode:
+          "deterministic",
+        model_name:
+          "salonai-booking-state-machine-v1",
+        rules_applied: [
+          "booking-stage-time-value",
+        ],
+      };
+    }
+  }
+
   const analysis =
+    stageAnalysis ||
     await analyse({
       message: customerText,
       current_stage:
