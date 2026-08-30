@@ -18,6 +18,10 @@ import {
 } from "./whatsappController.js";
 
 import {
+  resumeWhatsAppBot,
+} from "./whatsappHandoffController.js";
+
+import {
   receiveWebhook,
   verifyWebhookSubscription,
 } from "./whatsappWebhookController.js";
@@ -97,6 +101,13 @@ router.patch(
   "/conversations/:conversationId/status",
   asyncHandler(
     updateConversationStatus
+  )
+);
+
+router.post(
+  "/conversations/:conversationId/resume-bot",
+  asyncHandler(
+    resumeWhatsAppBot
   )
 );
 
