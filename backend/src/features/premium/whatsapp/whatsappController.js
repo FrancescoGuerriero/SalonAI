@@ -11,9 +11,13 @@ import {
   assertAppointmentWithinStaffAvailability,
 } from "../../staff/staffService.js";
 import {
-  parseBookingDate,
   stylistOffersService,
 } from "../../../services/bookingAvailabilityService.js";
+import {
+  combineSalonDateAndTime,
+  salonDateAnchor,
+  toSalonDateKey,
+} from "../../../shared/salonTime.js";
 import { sendWhatsApp } from "../../../providers/whatsappProvider.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
 import {
@@ -57,11 +61,20 @@ function escapeRegularExpression(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function combineBookingDateAndTime(dateValue, timeValue) {
-  const date = parseBookingDate(dateValue);
-  const [hours, minutes] = String(timeValue).split(":").map(Number);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+function combineBookingDateAndTime(
+  dateValue,
+  timeValue
+) {
+  return combineSalonDateAndTime(
+    dateValue,
+    timeValue,
+    {
+      dateField:
+        "appointmentDate",
+      timeField:
+        "appointmentTime",
+    }
+  );
 }
 
 function stylistName(stylist = {}) {
@@ -286,7 +299,10 @@ export async function updateBookingSession(request, response) {
         "bookingSession.stage": "review",
         "bookingSession.serviceId": resources.service._id,
         "bookingSession.stylistId": resources.stylist._id,
-        "bookingSession.appointmentDate": resources.startsAt,
+        "bookingSession.appointmentDate":
+          salonDateAnchor(
+            resources.startsAt
+          ),
         "bookingSession.appointmentTime": resources.appointmentTime,
         "bookingSession.duration": resources.duration,
         "bookingSession.price": Math.max(0, Number(resources.service.price) || 0),
@@ -381,11 +397,16 @@ export async function confirmBooking(request, response) {
     const resources = await bookingResources({
       serviceId: conversation.bookingSession.serviceId,
       stylistId: conversation.bookingSession.stylistId,
-      appointmentDate: conversation.bookingSession.appointmentDate
-        ? new Date(conversation.bookingSession.appointmentDate)
-            .toISOString()
-            .slice(0, 10)
-        : "",
+      appointmentDate:
+        conversation.bookingSession.appointmentDate
+          ? toSalonDateKey(
+              conversation.bookingSession.appointmentDate,
+              {
+                field:
+                  "appointmentDate",
+              }
+            )
+          : "",
       appointmentTime: conversation.bookingSession.appointmentTime,
     });
     const customer = await resolveWhatsAppCustomer(conversation, request.user._id);
@@ -394,9 +415,14 @@ export async function confirmBooking(request, response) {
       customer: customer._id,
       service: resources.service._id,
       stylist: resources.stylist._id,
-      appointmentDate: resources.startsAt,
-      appointmentTime: resources.appointmentTime,
-      startsAt: resources.startsAt,
+      appointmentDate:
+        salonDateAnchor(
+          resources.startsAt
+        ),
+      appointmentTime:
+        resources.appointmentTime,
+      startsAt:
+        resources.startsAt,
       endsAt: resources.endsAt,
       duration: resources.duration,
       totalPrice,

@@ -23,10 +23,12 @@ import {
   createServiceError,
 } from "../../shared/serviceError.js";
 import {
-  addDays,
-  endOfDay,
-  startOfDay,
-} from "../../shared/dateUtils.js";
+  addSalonDays,
+  combineSalonDateAndTime,
+  formatSalonTime,
+  salonDateAnchor,
+  salonDayBounds,
+} from "../../shared/salonTime.js";
 import {
   buildCustomerContext,
   renderTemplate,
@@ -266,14 +268,10 @@ function combineDateAndTime(
   dateValue,
   timeValue
 ) {
-  const date = parseDate(
-    dateValue,
-    "appointmentDate"
-  );
-
-  const time = normaliseText(
-    timeValue || "00:00"
-  );
+  const time =
+    normaliseText(
+      timeValue || "00:00"
+    );
 
   if (
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(
@@ -284,42 +282,30 @@ function combineDateAndTime(
       "Appointment time must use HH:mm format.",
       400,
       {
-        field: "appointmentTime",
+        field:
+          "appointmentTime",
       }
     );
   }
 
-  const [hours, minutes] = time
-    .split(":")
-    .map(Number);
-
-  date.setHours(
-    hours,
-    minutes,
-    0,
-    0
+  return combineSalonDateAndTime(
+    dateValue,
+    time,
+    {
+      dateField:
+        "appointmentDate",
+      timeField:
+        "appointmentTime",
+    }
   );
-
-  return date;
 }
 
-function formatTime(value) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return [
-    String(date.getHours()).padStart(
-      2,
-      "0"
-    ),
-    String(date.getMinutes()).padStart(
-      2,
-      "0"
-    ),
-  ].join(":");
+function formatTime(
+  value
+) {
+  return formatSalonTime(
+    value
+  );
 }
 
 function getAppointmentStart(
@@ -582,6 +568,14 @@ async function findConflict({
     );
   }
 
+  const {
+    start: conflictDayStart,
+    end: conflictDayEnd,
+  } =
+    salonDayBounds(
+      startDate
+    );
+
   const match = {
     stylist,
 
@@ -606,10 +600,10 @@ async function findConflict({
       {
         appointmentDate: {
           $gte:
-            startOfDay(startDate),
+            conflictDayStart,
 
           $lte:
-            endOfDay(startDate),
+            conflictDayEnd,
         },
       },
     ],
@@ -726,14 +720,27 @@ async function checkAppointmentConflict(
 function buildCalendarMatch(
   query = {}
 ) {
-  const start = startOfDay(
-    query.startDate || new Date()
-  );
+  const {
+    start,
+  } =
+    salonDayBounds(
+      query.startDate ||
+        new Date()
+    );
 
-  const end = endOfDay(
+  const endSource =
     query.endDate ||
-      addDays(start, 30)
-  );
+    addSalonDays(
+      start,
+      30
+    );
+
+  const {
+    end,
+  } =
+    salonDayBounds(
+      endSource
+    );
 
   if (end < start) {
     throw createServiceError(
@@ -1148,9 +1155,14 @@ async function rescheduleAppointment(
     appointment.endsAt =
       window.end;
     appointment.appointmentDate =
-      window.start;
+      salonDateAnchor(
+        window.start
+      );
+
     appointment.appointmentTime =
-      formatTime(window.start);
+      formatTime(
+        window.start
+      );
     appointment.duration =
       window.duration;
     appointment.rescheduledAt =
@@ -1664,6 +1676,25 @@ async function queueUpcomingReminders({
         1000
   );
 
+  /*
+   * startsAt is an absolute instant,
+   * but appointmentDate is a legacy
+   * salon-calendar-day field.
+   */
+  const {
+    start: reminderDayStart,
+  } =
+    salonDayBounds(
+      now
+    );
+
+  const {
+    end: reminderDayEnd,
+  } =
+    salonDayBounds(
+      upper
+    );
+
   const appointments =
     await Appointment.find({
       status: {
@@ -1683,8 +1714,10 @@ async function queueUpcomingReminders({
 
         {
           appointmentDate: {
-            $gte: startOfDay(now),
-            $lte: endOfDay(upper),
+            $gte:
+              reminderDayStart,
+            $lte:
+              reminderDayEnd,
           },
         },
       ],

@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+import {
+  combineSalonDateAndTime,
+  formatSalonTime,
+  salonDateAnchor,
+} from "../shared/salonTime.js";
+
 const {
   Schema,
 } = mongoose;
@@ -39,59 +45,26 @@ function combineDateAndTime(
     return null;
   }
 
-  const date =
-    new Date(dateValue);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return null;
-  }
-
-  const [
-    hours = "0",
-    minutes = "0",
-  ] = String(
-    timeValue || "00:00"
-  ).split(":");
-
-  date.setHours(
-    Number(hours) || 0,
-    Number(minutes) || 0,
-    0,
-    0
+  return combineSalonDateAndTime(
+    dateValue,
+    String(
+      timeValue || "00:00"
+    ),
+    {
+      dateField:
+        "appointmentDate",
+      timeField:
+        "appointmentTime",
+    }
   );
-
-  return date;
 }
 
-function formatTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  return [
-    String(
-      date.getHours()
-    ).padStart(2, "0"),
-
-    String(
-      date.getMinutes()
-    ).padStart(2, "0"),
-  ].join(":");
+function formatTime(
+  value
+) {
+  return formatSalonTime(
+    value
+  );
 }
 
 const rescheduleHistorySchema =
@@ -567,12 +540,10 @@ appointmentSchema.pre(
     if (start) {
       this.startsAt = start;
 
-      if (
-        !this.appointmentDate
-      ) {
-        this.appointmentDate =
-          start;
-      }
+      this.appointmentDate =
+        salonDateAnchor(
+          start
+        );
 
       if (
         !this.appointmentTime
@@ -842,7 +813,9 @@ appointmentSchema.methods.recordReschedule =
       endsAt;
 
     this.appointmentDate =
-      startsAt;
+      salonDateAnchor(
+        startsAt
+      );
 
     this.appointmentTime =
       formatTime(
