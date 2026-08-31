@@ -9,9 +9,12 @@ import {
   createServiceError,
 } from "../../shared/serviceError.js";
 import {
-  startOfDay,
-  endOfDay,
-} from "../../shared/dateUtils.js";
+  salonDateAnchor,
+  salonDayBounds,
+  salonDayOfWeek,
+  salonMinutesSinceMidnight,
+  sameSalonDay,
+} from "../../shared/salonTime.js";
 import { userId } from "../../shared/modelHelpers.js";
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -113,7 +116,10 @@ async function requireStylist(staffId) {
 function effectiveAvailabilityMatch(staffId, target) {
   return {
     staff: staffId,
-    dayOfWeek: target.getDay(),
+    dayOfWeek:
+      salonDayOfWeek(
+        target
+      ),
     active: true,
     $and: [
       {
@@ -133,7 +139,12 @@ function effectiveAvailabilityMatch(staffId, target) {
 }
 
 function fallbackRanges(stylist, target) {
-  const dayName = DAY_NAMES[target.getDay()];
+  const dayName =
+    DAY_NAMES[
+      salonDayOfWeek(
+        target
+      )
+    ];
   const workingDay = stylist.workingHours?.find(
     (entry) => entry.day === dayName
   );
@@ -150,8 +161,12 @@ function fallbackRanges(stylist, target) {
   ]);
 }
 
-function appointmentMinutes(date) {
-  return date.getHours() * 60 + date.getMinutes();
+function appointmentMinutes(
+  date
+) {
+  return salonMinutesSinceMidnight(
+    date
+  );
 }
 
 export async function setWeeklyAvailability(staffId, payload = {}) {
@@ -201,8 +216,23 @@ export async function weeklyAvailability(staffId) {
 }
 
 export async function dayAvailability(staffId, date) {
-  const target = parseDate(date, "date");
-  const stylist = await requireStylist(staffId);
+  const target =
+    salonDateAnchor(
+      date
+    );
+
+  const {
+    start: dayStart,
+    end: dayEnd,
+  } =
+    salonDayBounds(
+      target
+    );
+
+  const stylist =
+    await requireStylist(
+      staffId
+    );
 
   const [configuredAvailability, appointments, timeOff] = await Promise.all([
     StaffAvailability.findOne(
@@ -211,8 +241,8 @@ export async function dayAvailability(staffId, date) {
     Appointment.find({
       stylist: staffId,
       appointmentDate: {
-        $gte: startOfDay(target),
-        $lte: endOfDay(target),
+        $gte: dayStart,
+        $lte: dayEnd,
       },
       status: { $nin: ["cancelled", "no_show"] },
     })
@@ -223,8 +253,12 @@ export async function dayAvailability(staffId, date) {
     StaffTimeOff.find({
       staff: staffId,
       status: "approved",
-      startsAt: { $lte: endOfDay(target) },
-      endsAt: { $gte: startOfDay(target) },
+      startsAt: {
+        $lte: dayEnd,
+      },
+      endsAt: {
+        $gte: dayStart,
+      },
     }).lean(),
   ]);
 
@@ -236,7 +270,10 @@ export async function dayAvailability(staffId, date) {
     date: target,
     availability: configuredAvailability || {
       staff: stylist._id,
-      dayOfWeek: target.getDay(),
+      dayOfWeek:
+      salonDayOfWeek(
+        target
+      ),
       ranges,
       active: ranges.length > 0,
       source: "stylist_working_hours",
@@ -262,7 +299,12 @@ export async function assertAppointmentWithinStaffAvailability(
     );
   }
 
-  if (start.toDateString() !== end.toDateString()) {
+  if (
+    !sameSalonDay(
+      start,
+      end
+    )
+  ) {
     throw createServiceError(
       "Appointments must start and finish on the same day.",
       409
