@@ -1,3 +1,7 @@
+import {
+  getSalonTimeZone,
+} from "../../../shared/salonTime.js";
+
 const PHONE_PATTERN = /^\+[1-9]\d{7,14}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -146,6 +150,8 @@ export function buildBookingConfirmationMessage({
         day: "numeric",
         month: "short",
         year: "numeric",
+        timeZone:
+          getSalonTimeZone(),
       }).format(date);
 
   return [
