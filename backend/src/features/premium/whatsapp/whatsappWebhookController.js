@@ -43,6 +43,30 @@ async function existingMessage(
   }).select("_id");
 }
 
+export function buildReusableWhatsAppConversationFilter(
+  phone
+) {
+  return {
+    phone,
+
+    "bookingSession.appointmentId":
+      null,
+
+    "bookingSession.confirmed": {
+      $ne: true,
+    },
+
+    "bookingSession.confirmationState": {
+      $ne: "completed",
+    },
+
+    "bookingSession.stage": {
+      $ne: "confirmed",
+    },
+  };
+}
+
+
 async function saveIncomingMessage(
   incoming
 ) {
@@ -62,12 +86,45 @@ async function saveIncomingMessage(
   const now =
     new Date();
 
-  const conversation =
-    await WhatsAppConversation.findOneAndUpdate(
-      {
+  const latestConversation =
+    await WhatsAppConversation
+      .findOne({
         phone:
           incoming.phone,
-      },
+      })
+      .sort({
+        lastMessageAt: -1,
+        createdAt: -1,
+      })
+      .select(
+        "_id customer displayName " +
+        "bookingSession.appointmentId " +
+        "bookingSession.confirmed " +
+        "bookingSession.confirmationState " +
+        "bookingSession.stage"
+      )
+      .lean();
+
+  let conversation = null;
+
+  /*
+   * Only the latest conversation may be reused.
+   *
+   * An older unfinished conversation must never
+   * be revived after a newer booking has already
+   * completed.
+   */
+  if (latestConversation) {
+    conversation =
+      await WhatsAppConversation.findOneAndUpdate(
+        {
+          ...buildReusableWhatsAppConversationFilter(
+            incoming.phone
+          ),
+
+          _id:
+            latestConversation._id,
+        },
       {
         $set: {
           ...(incoming.displayName
@@ -111,12 +168,77 @@ async function saveIncomingMessage(
       },
       {
         returnDocument: "after",
-        upsert: true,
         runValidators: true,
-        setDefaultsOnInsert:
-          true,
       }
     );
+  }
+
+  /*
+   * A completed booking belongs to its historical
+   * WhatsApp conversation.
+   *
+   * The next inbound customer message starts a new
+   * conversation so:
+   *
+   * - bot ownership starts cleanly;
+   * - the previous appointment remains linked to
+   *   its original conversation;
+   * - the new booking receives a new conversation
+   *   id and therefore a new idempotency key.
+   */
+  if (!conversation) {
+    conversation =
+      await WhatsAppConversation.create({
+        customer:
+          latestConversation?.customer ||
+          null,
+
+        phone:
+          incoming.phone,
+
+        displayName:
+          incoming.displayName ||
+          latestConversation?.displayName ||
+          "",
+
+        status:
+          "open",
+
+        lastMessageAt:
+          now,
+
+        lastInboundAt:
+          now,
+
+        lastMessagePreview:
+          incoming.message.slice(
+            0,
+            240
+          ),
+
+        unreadCount:
+          1,
+
+        messages: [
+          {
+            direction:
+              "inbound",
+
+            body:
+              incoming.message,
+
+            providerMessageId:
+              incoming.providerMessageId,
+
+            providerStatus:
+              "received",
+
+            sentAt:
+              now,
+          },
+        ],
+      });
+  }
 
   return {
     duplicate: false,
