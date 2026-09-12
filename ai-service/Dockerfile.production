@@ -1,17 +1,26 @@
 # syntax=docker/dockerfile:1
 
-FROM docker.io/library/python:3.13-slim-trixie@sha256:ffb752e139c0a19692a43af8d8523b274222dd68eebad5d583b45c2201c6e30a AS dependencies
+ARG PYTHON_IMAGE=docker.io/library/python:3.13-slim-trixie@sha256:9d2e5553305c7c7b0097999bb17187c69b921ccd6bc9d40e4bb5ebe652c00285
+
+
+# Keep both build and runtime stages on the same patched Python 3.13
+# base so the virtual environment uses the same interpreter contract.
+FROM ${PYTHON_IMAGE} AS patched-python
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+FROM patched-python AS dependencies
 
 WORKDIR /build
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-# Distroless Python is located at /usr/bin/python.
-# Build the virtual environment against that interpreter path so
-# the copied virtual environment remains valid in the runtime stage.
-RUN ln -sf /usr/local/bin/python /usr/bin/python \
-    && /usr/bin/python -m venv /opt/venv
+RUN python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -44,7 +53,13 @@ RUN python -m pip uninstall -y pip setuptools wheel \
     && chown -R 10002:10002 /runtime/model-cache
 
 
-FROM gcr.io/distroless/python3-debian13:nonroot@sha256:f3d5ddc6c64a019fe520e7f005f2880be21e6afc461b10a3c15ef2e4edc71e33 AS runtime
+FROM patched-python AS runtime
+
+# pip is useful while constructing the image but is unnecessary in the
+# production runtime. Removing it also removes pip's vendored packages
+# from the production attack surface.
+RUN /usr/local/bin/python -m pip uninstall -y pip \
+    && rm -rf /root/.cache
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
