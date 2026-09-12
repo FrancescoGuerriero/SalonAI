@@ -742,15 +742,30 @@ function formatDateLabel(
 function stylistName(
   stylist
 ) {
-  return compactText(
+  const candidates = [
+    stylist?.name,
+    stylist?.fullName,
     [
       stylist?.firstName,
       stylist?.lastName,
     ]
       .filter(Boolean)
       .join(" "),
-    120
-  );
+  ];
+
+  for (const candidate of candidates) {
+    const label =
+      compactText(
+        candidate,
+        120
+      );
+
+    if (label) {
+      return label;
+    }
+  }
+
+  return "Salon professional";
 }
 
 
