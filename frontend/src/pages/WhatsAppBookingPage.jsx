@@ -68,7 +68,7 @@ const STATUS_LABELS = {
   collecting_details:
     "Collecting details",
   awaiting_confirmation:
-    "Ready to confirm",
+    "Staff confirmation required",
   confirming: "Confirming",
   booked: "Booked",
   completed: "Completed",
@@ -1665,7 +1665,9 @@ export default function WhatsAppBookingPage() {
                           Booking details
                         </h3>
                         <p>
-                          Only confirmed live slots can be saved.
+                          {readyToConfirm
+                            ? "Customer confirmed this slot. Review the details, then create the appointment and send the final confirmation."
+                            : "Only confirmed live slots can be saved."}
                         </p>
                       </div>
                     </header>
