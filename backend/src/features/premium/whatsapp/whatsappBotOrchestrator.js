@@ -12,6 +12,9 @@ import WhatsAppConversation from "./WhatsAppConversation.js";
 import {
   analyseWhatsAppBotMessage,
 } from "./whatsappBotAiClient.js";
+import {
+  resolveStylistName,
+} from "./stylistName.js";
 
 
 const CONFIRMATION_WORDS = new Set([
@@ -739,36 +742,6 @@ function formatDateLabel(
 }
 
 
-function stylistName(
-  stylist
-) {
-  const candidates = [
-    stylist?.name,
-    stylist?.fullName,
-    [
-      stylist?.firstName,
-      stylist?.lastName,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  ];
-
-  for (const candidate of candidates) {
-    const label =
-      compactText(
-        candidate,
-        120
-      );
-
-    if (label) {
-      return label;
-    }
-  }
-
-  return "Salon professional";
-}
-
-
 function objectIdText(
   value
 ) {
@@ -1116,7 +1089,7 @@ function stylistOptionsReply(
       stylists,
       service
     )
-      .map(stylistName)
+      .map(resolveStylistName)
       .filter(Boolean)
       .slice(0, 5);
 
@@ -1588,7 +1561,7 @@ export async function runWhatsAppBotTurn(
           .slice(0, 200),
       stylists:
         stylists
-          .map(stylistName)
+          .map(resolveStylistName)
           .filter(Boolean)
           .slice(0, 100),
       locale: "en-GB",
@@ -1724,7 +1697,7 @@ export async function runWhatsAppBotTurn(
       findByName(
         stylists,
         entities.stylist_name,
-        stylistName
+        resolveStylistName
       );
 
     if (
@@ -2349,7 +2322,7 @@ export async function runWhatsAppBotTurn(
       now,
       persist,
       reply:
-        `I found ${service.name} with ${stylistName(stylist)} on ` +
+        `I found ${service.name} with ${resolveStylistName(stylist)} on ` +
         `${formatDateLabel(appointmentDate)} at ${selectedTime}. ` +
         `${priceLabel(service)}. ` +
         "Reply CONFIRM to send this slot request to the salon team for final confirmation.",
@@ -2416,7 +2389,7 @@ export async function runWhatsAppBotTurn(
           ? "That exact time is not available. "
           : ""
       ) +
-      `Available times with ${stylistName(stylist)} on ${formatDateLabel(appointmentDate)} include ` +
+      `Available times with ${resolveStylistName(stylist)} on ${formatDateLabel(appointmentDate)} include ` +
       `${offeredSlots.join(", ")}. Reply with the time you prefer.`,
     result: {
       handoff: false,
