@@ -228,6 +228,78 @@ test("busy named stylist offers nearby times and another stylist at the requeste
   );
 });
 
+test("named stylist with no availability offers nearby slots with another qualified stylist", async () => {
+  const state = conversation();
+
+  const result = await runWhatsAppBotTurn(
+    {
+      conversation: state,
+      incoming: {
+        message:
+          "Book Blow-dry with Maya Thompson tomorrow at 3pm",
+        providerMessageId:
+          "SM-NO-DAY-AVAILABILITY",
+      },
+      services: [service],
+      stylists: [maya, luca],
+    },
+    {
+      environment,
+      now: new Date(
+        "2026-09-15T10:00:00.000Z"
+      ),
+      analyse: async () =>
+        analysis("Maya Thompson"),
+      getAvailableSlots:
+        async ({ stylist }) => {
+          if (stylist._id === "maya") {
+            return [];
+          }
+
+          if (stylist._id === "luca") {
+            return [
+              "14:30",
+              "15:30",
+            ];
+          }
+
+          return [];
+        },
+      persist: async () => {},
+    }
+  );
+
+  assert.equal(
+    result.handoff,
+    false
+  );
+
+  assert.match(
+    result.reply,
+    /Maya Thompson has no availability at 15:00/i
+  );
+
+  assert.match(
+    result.reply,
+    /Luca Romano: 14:30, 15:30/i
+  );
+
+  assert.deepEqual(
+    result.alternativeStylists,
+    ["Luca Romano"]
+  );
+
+  assert.equal(
+    state.bookingSession.stylistId,
+    "maya"
+  );
+
+  assert.equal(
+    state.bookingSession.appointmentId,
+    null
+  );
+});
+
 test("strict shared eligibility is wired through production booking surfaces", () => {
   const orchestrator = fs.readFileSync(
     new URL(

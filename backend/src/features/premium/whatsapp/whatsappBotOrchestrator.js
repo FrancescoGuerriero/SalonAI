@@ -1221,7 +1221,7 @@ async function findAvailability({
 }
 
 
-async function findAlternativeStylistsAtExactTime({
+async function findAlternativeStylistOptions({
   service,
   selectedStylist,
   stylists,
@@ -1237,10 +1237,15 @@ async function findAlternativeStylistsAtExactTime({
       String(time || "")
     )
   ) {
-    return [];
+    return {
+      exact: [],
+      nearby: [],
+    };
   }
 
-  const alternatives = [];
+  const exact = [];
+  const nearby = [];
+
   const candidates =
     eligibleStylists(
       stylists,
@@ -1265,23 +1270,29 @@ async function findAlternativeStylistsAtExactTime({
       });
 
     if (
-      Array.isArray(slots) &&
-      slots.includes(time)
+      !Array.isArray(slots) ||
+      slots.length === 0
     ) {
-      alternatives.push(
-        candidate
-      );
+      continue;
     }
 
-    if (
-      alternatives.length >=
-      limit
-    ) {
-      break;
+    if (slots.includes(time)) {
+      exact.push(candidate);
+    } else {
+      nearby.push({
+        stylist: candidate,
+        slots:
+          slots.slice(0, 3),
+      });
     }
   }
 
-  return alternatives;
+  return {
+    exact:
+      exact.slice(0, limit),
+    nearby:
+      nearby.slice(0, limit),
+  };
 }
 
 
@@ -2345,6 +2356,8 @@ export async function runWhatsAppBotTurn(
   let availability;
   let alternativeStylistsAtRequestedTime =
     [];
+  let alternativeStylistsWithNearbySlots =
+    [];
 
   try {
     availability =
@@ -2370,8 +2383,8 @@ export async function runWhatsAppBotTurn(
       ) &&
       !availability?.exact
     ) {
-      alternativeStylistsAtRequestedTime =
-        await findAlternativeStylistsAtExactTime({
+      const alternativeOptions =
+        await findAlternativeStylistOptions({
           service,
           selectedStylist:
             stylist,
@@ -2383,6 +2396,12 @@ export async function runWhatsAppBotTurn(
           now,
           getAvailableSlots,
         });
+
+      alternativeStylistsAtRequestedTime =
+        alternativeOptions.exact;
+
+      alternativeStylistsWithNearbySlots =
+        alternativeOptions.nearby;
     }
   } catch (error) {
     handoff(
@@ -2446,6 +2465,54 @@ export async function runWhatsAppBotTurn(
           intent: "booking",
           alternativeStylists:
             alternativeNames,
+        },
+      });
+    }
+
+    if (
+      stylist &&
+      alternativeStylistsWithNearbySlots.length > 0
+    ) {
+      const firstAlternative =
+        alternativeStylistsWithNearbySlots[0];
+
+      const alternativesLabel =
+        alternativeStylistsWithNearbySlots
+          .map(
+            (option) =>
+              `${resolveStylistName(option.stylist)}: ${option.slots.join(", ")}`
+          )
+          .join("; ");
+
+      session.stage = "time";
+      session.appointmentTime = "";
+      session.availableSlots = [];
+      conversation.status =
+        "collecting_details";
+      automation.lastAction =
+        "collect_time";
+
+      return finishTurn({
+        conversation,
+        incoming,
+        now,
+        persist,
+        reply:
+          `${resolveStylistName(stylist)} has no availability at ${timePreference} on ${formatDateLabel(appointmentDate)}. ` +
+          `Other qualified stylists have availability: ${alternativesLabel}. ` +
+          `Reply "${resolveStylistName(firstAlternative.stylist)} at ${firstAlternative.slots[0]}", ` +
+          `or send another preferred date for ${resolveStylistName(stylist)}.`,
+        result: {
+          handoff: false,
+          intent: "booking",
+          alternativeStylists:
+            alternativeStylistsWithNearbySlots
+              .map(
+                (option) =>
+                  resolveStylistName(
+                    option.stylist
+                  )
+              ),
         },
       });
     }
@@ -2593,6 +2660,14 @@ export async function runWhatsAppBotTurn(
       .map(resolveStylistName)
       .filter(Boolean);
 
+  const nearbyAlternativeLabel =
+    alternativeStylistsWithNearbySlots
+      .map(
+        (option) =>
+          `${resolveStylistName(option.stylist)}: ${option.slots.join(", ")}`
+      )
+      .join("; ");
+
   const alternativeReply =
     preferenceWasExact &&
     alternativeNames.length > 0
@@ -2601,7 +2676,14 @@ export async function runWhatsAppBotTurn(
           `${alternativeNames.length === 1 ? "is" : "are"} available at ${timePreference}. ` +
           `To choose one, reply "${alternativeNames[0]} at ${timePreference}".`
         )
-      : "";
+      : (
+          preferenceWasExact &&
+          nearbyAlternativeLabel
+            ? (
+                ` Other qualified stylists have nearby availability: ${nearbyAlternativeLabel}.`
+              )
+            : ""
+        );
 
   return finishTurn({
     conversation,
