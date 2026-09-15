@@ -5,7 +5,6 @@ import {
   runWhatsAppBotTurn,
 } from "../features/premium/whatsapp/whatsappBotOrchestrator.js";
 
-
 function botEnvironment() {
   return {
     WHATSAPP_BOT_ENABLED: "true",
@@ -18,21 +17,12 @@ function botEnvironment() {
   };
 }
 
-
 function conversationFixture() {
   return {
-    _id:
-      "conversation-legacy-stylist",
-
-    phone:
-      "+447000000001",
-
-    assignedTo:
-      null,
-
-    status:
-      "open",
-
+    _id: "conversation-legacy-stylist",
+    phone: "+447000000001",
+    assignedTo: null,
+    status: "open",
     bookingSession: {
       stage: "idle",
       serviceId: null,
@@ -44,11 +34,9 @@ function conversationFixture() {
       availableSlots: [],
       appointmentId: null,
       confirmed: false,
-      confirmationState:
-        "pending",
+      confirmationState: "pending",
       expiresAt: null,
     },
-
     automation: {
       mode: "bot",
       handoffRequested: false,
@@ -57,215 +45,113 @@ function conversationFixture() {
       clarificationCount: 0,
       lastProcessedMessageId: "",
     },
-
     messages: [],
-
     async save() {
       return this;
     },
   };
 }
 
-
 const service = {
-  _id:
-    "service-legacy-test",
-
-  name:
-    "Blow-dry",
-
-  category:
-    "Cutting & Styling",
-
-  price:
-    68,
-
-  priceLabel:
-    "",
-
-  priceOnConsultation:
-    false,
-
-  duration:
-    60,
-
-  onlineBookable:
-    true,
-
-  active:
-    true,
+  _id: "service-legacy-test",
+  name: "Blow-dry",
+  category: "Cutting & Styling",
+  price: 68,
+  priceLabel: "",
+  priceOnConsultation: false,
+  duration: 60,
+  onlineBookable: true,
+  active: true,
 };
 
-
-/*
- * Mirrors the legacy production data shape
- * observed for Emma Johnson.
- *
- * Deliberately no:
- *   firstName
- *   lastName
- *   fullName
- *   services
- */
 const legacyStylist = {
-  _id:
-    "stylist-legacy-emma",
-
-  name:
-    "Emma Johnson",
-
-  email:
-    "emma@salonai.com",
-
-  phone:
-    "",
-
-  speciality:
-    "Stylist",
-
-  experience:
-    5,
+  _id: "stylist-legacy-emma",
+  name: "Emma Johnson",
+  email: "emma@salonai.com",
+  speciality: "Stylist",
+  experience: 5,
 };
 
+const activeStylist = {
+  _id: "stylist-maya",
+  firstName: "Maya",
+  lastName: "Thompson",
+  services: ["service-legacy-test"],
+  isActive: true,
+  profilePublished: true,
+};
 
 test(
-  "WhatsApp booking supports legacy stylist name field",
+  "legacy stylist without explicit active status is not bookable",
   async () => {
-    const conversation =
-      conversationFixture();
+    const conversation = conversationFixture();
 
-    const result =
-      await runWhatsAppBotTurn(
-        {
-          conversation,
-
-          incoming: {
-            message:
-              "Book Blow-dry with Emma Johnson on 2 September 2026 at 12:30",
-
-            providerMessageId:
-              "SM-LEGACY-STYLIST-1",
-          },
-
-          services: [
-            service,
-          ],
-
-          stylists: [
-            legacyStylist,
-          ],
+    const result = await runWhatsAppBotTurn(
+      {
+        conversation,
+        incoming: {
+          message:
+            "Book Blow-dry with Emma Johnson on 2 September 2026 at 12:30",
+          providerMessageId:
+            "SM-LEGACY-STYLIST-1",
         },
-        {
-          environment:
-            botEnvironment(),
-
-          now:
-            new Date(
-              "2026-09-01T09:00:00.000Z"
-            ),
-
-          analyse:
-            async () => ({
-              intent:
-                "booking",
-
-              confidence:
-                1,
-
-              entities: {
-                service_name:
-                  "Blow-dry",
-
-                stylist_name:
-                  "Emma Johnson",
-
-                date_text:
-                  "2 September 2026",
-
-                time_text:
-                  "12:30",
-
-                customer_name:
-                  "",
-              },
-
-              next_action:
-                "check_availability",
-
-              requires_human:
-                false,
-
-              reply_suggestion:
-                "",
-
-              provider_mode:
-                "test",
-
-              model_name:
-                "test-model",
-
-              rules_applied:
-                [],
-            }),
-
-          getAvailableSlots:
-            async ({
-              stylist,
-            }) => {
-              assert.equal(
-                stylist.name,
-                "Emma Johnson"
-              );
-
-              return [
-                "12:30",
-              ];
-            },
-
-          persist:
-            async () => {},
-        }
-      );
+        services: [service],
+        stylists: [
+          legacyStylist,
+          activeStylist,
+        ],
+      },
+      {
+        environment: botEnvironment(),
+        now: new Date(
+          "2026-09-01T09:00:00.000Z"
+        ),
+        analyse: async () => ({
+          intent: "booking",
+          confidence: 1,
+          entities: {
+            service_name: "Blow-dry",
+            stylist_name: "",
+            date_text: "2 September 2026",
+            time_text: "12:30",
+            customer_name: "",
+          },
+          next_action: "check_availability",
+          requires_human: false,
+          reply_suggestion: "",
+          provider_mode: "test",
+          model_name: "test-model",
+          rules_applied: [],
+        }),
+        getAvailableSlots: async () => {
+          throw new Error(
+            "Availability must not be checked for an unknown legacy stylist."
+          );
+        },
+        persist: async () => {},
+      }
+    );
 
     assert.equal(
-      result.bookingReady,
+      result.requestedStylistUnavailable,
       true
     );
-
-    assert.equal(
-      result.handoff,
-      false
-    );
-
-    assert.equal(
-      String(
-        conversation
-          .bookingSession
-          .stylistId
-      ),
-      "stylist-legacy-emma"
-    );
-
+    assert.equal(result.handoff, false);
     assert.match(
       result.reply,
-      /Blow-dry with Emma Johnson on/
+      /Emma Johnson is not currently available for booking/i
     );
-
-    assert.doesNotMatch(
+    assert.match(
       result.reply,
-      /with\s+on/
+      /Maya Thompson/
     );
-
     assert.equal(
-      conversation
-        .bookingSession
-        .appointmentTime,
-      "12:30"
+      conversation.bookingSession.stylistId,
+      null
     );
-
     assert.equal(
-      conversation.status,
-      "awaiting_confirmation"
+      conversation.bookingSession.appointmentId,
+      null
     );
   }
 );
