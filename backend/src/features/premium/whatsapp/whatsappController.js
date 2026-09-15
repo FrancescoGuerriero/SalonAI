@@ -25,6 +25,9 @@ import {
   splitCustomerName,
   validateBookingSessionInput,
 } from "./whatsappService.js";
+import {
+  resolveStylistName,
+} from "./stylistName.js";
 
 const CONVERSATION_STATUSES = new Set([
   "open",
@@ -77,13 +80,6 @@ function combineBookingDateAndTime(
   );
 }
 
-function stylistName(stylist = {}) {
-  return [stylist.firstName, stylist.lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-}
-
 async function populateConversation(conversationId) {
   return WhatsAppConversation.findById(conversationId)
     .populate("customer", "firstName lastName preferredName phone email")
@@ -91,7 +87,7 @@ async function populateConversation(conversationId) {
     .populate("bookingSession.serviceId", "name category price duration")
     .populate(
       "bookingSession.stylistId",
-      "firstName lastName profileImage specialties rating"
+      "name firstName lastName profileImage specialties rating"
     )
     .populate(
       "bookingSession.appointmentId",
@@ -234,7 +230,7 @@ export async function listConversations(request, response) {
         .select("-messages")
         .populate("customer", "firstName lastName preferredName phone")
         .populate("bookingSession.serviceId", "name price duration")
-        .populate("bookingSession.stylistId", "firstName lastName")
+        .populate("bookingSession.stylistId", "name firstName lastName")
         .sort({ lastMessageAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -445,7 +441,7 @@ export async function confirmBooking(request, response) {
 
     const confirmationText = buildBookingConfirmationMessage({
       serviceName: resources.service.name,
-      stylistName: stylistName(resources.stylist),
+      stylistName: resolveStylistName(resources.stylist),
       appointmentDate: resources.startsAt,
       appointmentTime: resources.appointmentTime,
     });
