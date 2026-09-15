@@ -15,6 +15,11 @@ import {
 import {
   resolveStylistName,
 } from "./stylistName.js";
+import {
+  customerVisibleStylistFilter,
+  extractRequestedStylistName,
+  filterCustomerVisibleStylists,
+} from "../../../services/stylistBookingEligibilityService.js";
 
 
 const CONFIRMATION_WORDS = new Set([
@@ -1216,6 +1221,70 @@ async function findAvailability({
 }
 
 
+async function findAlternativeStylistsAtExactTime({
+  service,
+  selectedStylist,
+  stylists,
+  date,
+  time,
+  now,
+  getAvailableSlots,
+  limit = 3,
+}) {
+  if (
+    !selectedStylist ||
+    !/^\d{2}:\d{2}$/.test(
+      String(time || "")
+    )
+  ) {
+    return [];
+  }
+
+  const alternatives = [];
+  const candidates =
+    eligibleStylists(
+      stylists,
+      service
+    ).filter(
+      (candidate) =>
+        objectIdText(
+          candidate?._id
+        ) !==
+        objectIdText(
+          selectedStylist?._id
+        )
+    );
+
+  for (const candidate of candidates) {
+    const slots =
+      await getAvailableSlots({
+        stylist: candidate,
+        service,
+        date,
+        now,
+      });
+
+    if (
+      Array.isArray(slots) &&
+      slots.includes(time)
+    ) {
+      alternatives.push(
+        candidate
+      );
+    }
+
+    if (
+      alternatives.length >=
+      limit
+    ) {
+      break;
+    }
+  }
+
+  return alternatives;
+}
+
+
 async function finishTurn({
   conversation,
   incoming,
@@ -1288,6 +1357,11 @@ export async function runWhatsAppBotTurn(
   const config =
     getWhatsAppBotConfig(
       environment
+    );
+
+  stylists =
+    filterCustomerVisibleStylists(
+      stylists
     );
 
   if (!config.enabled) {
@@ -1575,6 +1649,28 @@ export async function runWhatsAppBotTurn(
   const entities =
     analysis?.entities || {};
 
+  const requestedStylistName =
+    compactText(
+      entities.stylist_name ||
+        extractRequestedStylistName(
+          customerText,
+          {
+            allowBareName:
+              session.stage ===
+              "stylist",
+          }
+        ),
+      120
+    );
+
+  if (
+    requestedStylistName &&
+    !entities.stylist_name
+  ) {
+    entities.stylist_name =
+      requestedStylistName;
+  }
+
   if (
     analysis?.requires_human ||
     [
@@ -1683,9 +1779,12 @@ export async function runWhatsAppBotTurn(
       session.stylistId
     );
 
+  let unavailableRequestedStylistName =
+    "";
+
   if (
     anyStylistRequested(
-      entities.stylist_name,
+      requestedStylistName,
       customerText
     )
   ) {
@@ -1696,9 +1795,20 @@ export async function runWhatsAppBotTurn(
     const identifiedStylist =
       findByName(
         stylists,
-        entities.stylist_name,
+        requestedStylistName,
         resolveStylistName
       );
+
+    if (
+      requestedStylistName &&
+      !identifiedStylist
+    ) {
+      unavailableRequestedStylistName =
+        requestedStylistName;
+      stylist = null;
+      session.stylistId = null;
+      automation.anyStylist = false;
+    }
 
     if (
       identifiedStylist &&
@@ -2070,12 +2180,49 @@ export async function runWhatsAppBotTurn(
   }
 
   if (
+    unavailableRequestedStylistName
+  ) {
+    session.stage = "stylist";
+    session.stylistId = null;
+    session.appointmentTime = "";
+    session.availableSlots = [];
+    conversation.status =
+      "collecting_details";
+    automation.lastAction =
+      "collect_stylist";
+
+    return finishTurn({
+      conversation,
+      incoming,
+      now,
+      persist,
+      reply:
+        `${unavailableRequestedStylistName} is not currently available for booking. ` +
+        stylistOptionsReply(
+          stylists,
+          service
+        ),
+      result: {
+        handoff: false,
+        intent: "booking",
+        requestedStylistUnavailable:
+          true,
+      },
+    });
+  }
+
+  if (
     stylist &&
     !stylistOffersService(
       stylist,
       service._id
     )
   ) {
+    const unavailableStylistName =
+      resolveStylistName(
+        stylist
+      );
+
     stylist = null;
     session.stylistId = null;
     session.stage = "stylist";
@@ -2088,7 +2235,11 @@ export async function runWhatsAppBotTurn(
       now,
       persist,
       reply:
-        "That stylist is not currently linked to this service. Please choose another stylist or say 'any available stylist'.",
+        `${unavailableStylistName} is not currently available for ${service.name}. ` +
+        stylistOptionsReply(
+          stylists,
+          service
+        ),
       result: {
         handoff: false,
         intent: "booking",
@@ -2192,6 +2343,8 @@ export async function runWhatsAppBotTurn(
   }
 
   let availability;
+  let alternativeStylistsAtRequestedTime =
+    [];
 
   try {
     availability =
@@ -2209,6 +2362,28 @@ export async function runWhatsAppBotTurn(
         now,
         getAvailableSlots,
       });
+
+    if (
+      stylist &&
+      /^\d{2}:\d{2}$/.test(
+        timePreference
+      ) &&
+      !availability?.exact
+    ) {
+      alternativeStylistsAtRequestedTime =
+        await findAlternativeStylistsAtExactTime({
+          service,
+          selectedStylist:
+            stylist,
+          stylists,
+          date:
+            appointmentDate,
+          time:
+            timePreference,
+          now,
+          getAvailableSlots,
+        });
+    }
   } catch (error) {
     handoff(
       automation,
@@ -2240,6 +2415,41 @@ export async function runWhatsAppBotTurn(
     !availability ||
     !availability.stylist
   ) {
+    if (
+      stylist &&
+      alternativeStylistsAtRequestedTime.length > 0
+    ) {
+      const alternativeNames =
+        alternativeStylistsAtRequestedTime
+          .map(resolveStylistName)
+          .filter(Boolean);
+
+      session.stage = "time";
+      session.appointmentTime = "";
+      session.availableSlots = [];
+      conversation.status =
+        "collecting_details";
+      automation.lastAction =
+        "collect_time";
+
+      return finishTurn({
+        conversation,
+        incoming,
+        now,
+        persist,
+        reply:
+          `${resolveStylistName(stylist)} is not available at ${timePreference} on ${formatDateLabel(appointmentDate)}. ` +
+          `${alternativeNames.join(", ")} ${alternativeNames.length === 1 ? "is" : "are"} available at ${timePreference}. ` +
+          `Reply with "${alternativeNames[0]} at ${timePreference}", or send another preferred time or date for ${resolveStylistName(stylist)}.`,
+        result: {
+          handoff: false,
+          intent: "booking",
+          alternativeStylists:
+            alternativeNames,
+        },
+      });
+    }
+
     session.stage = "date";
     session.appointmentTime = "";
     session.availableSlots = [];
@@ -2378,6 +2588,21 @@ export async function runWhatsAppBotTurn(
         timePreference
       );
 
+  const alternativeNames =
+    alternativeStylistsAtRequestedTime
+      .map(resolveStylistName)
+      .filter(Boolean);
+
+  const alternativeReply =
+    preferenceWasExact &&
+    alternativeNames.length > 0
+      ? (
+          ` ${alternativeNames.join(", ")} ` +
+          `${alternativeNames.length === 1 ? "is" : "are"} available at ${timePreference}. ` +
+          `To choose one, reply "${alternativeNames[0]} at ${timePreference}".`
+        )
+      : "";
+
   return finishTurn({
     conversation,
     incoming,
@@ -2390,7 +2615,8 @@ export async function runWhatsAppBotTurn(
           : ""
       ) +
       `Available times with ${resolveStylistName(stylist)} on ${formatDateLabel(appointmentDate)} include ` +
-      `${offeredSlots.join(", ")}. Reply with the time you prefer.`,
+      `${offeredSlots.join(", ")}. Reply with the time you prefer.` +
+      alternativeReply,
     result: {
       handoff: false,
       intent: "booking",
@@ -2454,14 +2680,9 @@ export async function processWhatsAppBotMessage(
         })
         .lean(),
 
-      Stylist.find({
-        isActive: {
-          $ne: false,
-        },
-        profilePublished: {
-          $ne: false,
-        },
-      })
+      Stylist.find(
+        customerVisibleStylistFilter()
+      )
         .sort({
           displayOrder: 1,
           firstName: 1,

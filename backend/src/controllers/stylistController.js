@@ -14,6 +14,10 @@ import {
   normaliseProfileImage,
   normalisePublicProfileUrl,
 } from "../utils/profileMedia.js";
+import {
+  customerVisibleStylistFilter,
+  isCustomerVisibleStylist,
+} from "../services/stylistBookingEligibilityService.js";
 
 const PUBLIC_STYLIST_FIELDS = [
   "firstName",
@@ -355,14 +359,9 @@ export async function getPublicStylists(
 ) {
   try {
     const stylists =
-      await Stylist.find({
-        isActive: {
-          $ne: false,
-        },
-        profilePublished: {
-          $ne: false,
-        },
-      })
+      await Stylist.find(
+        customerVisibleStylistFilter()
+      )
         .select(
           PUBLIC_STYLIST_FIELDS
         )
@@ -550,7 +549,9 @@ export async function getStylistAvailability(req, res, next) {
         active: { $ne: false },
       }).lean(),
       Stylist.findById(stylistObjectId)
-        .select("services isActive")
+        .select(
+          "services isActive profilePublished"
+        )
         .lean(),
     ]);
 
@@ -561,9 +562,13 @@ export async function getStylistAvailability(req, res, next) {
       );
     }
 
-    if (!stylist || stylist.isActive === false) {
+    if (
+      !isCustomerVisibleStylist(
+        stylist
+      )
+    ) {
       throw createHttpError(
-        "The selected stylist was not found or is inactive.",
+        "The selected stylist is not currently available for booking.",
         404
       );
     }
