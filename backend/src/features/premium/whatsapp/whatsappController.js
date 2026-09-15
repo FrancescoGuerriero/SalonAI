@@ -28,6 +28,9 @@ import {
 import {
   resolveStylistName,
 } from "./stylistName.js";
+import {
+  appointmentEligibleStylistFilter,
+} from "../../../services/stylistBookingEligibilityService.js";
 
 const CONVERSATION_STATUSES = new Set([
   "open",
@@ -114,7 +117,10 @@ async function bookingResources(input) {
 
   const [service, stylist] = await Promise.all([
     Service.findOne({ _id: serviceId, active: { $ne: false } }),
-    Stylist.findOne({ _id: stylistId, isActive: { $ne: false } }),
+    Stylist.findOne({
+      _id: stylistId,
+      ...appointmentEligibleStylistFilter(),
+    }),
   ]);
 
   if (!service) {
@@ -122,7 +128,10 @@ async function bookingResources(input) {
   }
 
   if (!stylist) {
-    throw createHttpError("The selected stylist was not found or is inactive.", 404);
+    throw createHttpError(
+      "The selected stylist is not currently available for booking.",
+      404
+    );
   }
 
   if (!stylistOffersService(stylist, service._id)) {
