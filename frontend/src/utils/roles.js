@@ -1,6 +1,7 @@
 export const MANAGEMENT_ROLES = new Set([
   "admin",
   "manager",
+  "receptionist",
   "stylist",
 ]);
 

@@ -14,6 +14,7 @@ import PageLoader from "./components/ui/PageLoader.jsx";
 
 import AdminRoute from "./Routes/AdminRoute.jsx";
 import ManagementRoute from "./Routes/ManagementRoute.jsx";
+import PermissionRoute from "./Routes/PermissionRoute.jsx";
 import ProtectedRoute from "./Routes/ProtectedRoute.jsx";
 import SkipLink from "./components/accessibility/SkipLink.jsx";
 import RouteAnnouncer from "./components/accessibility/RouteAnnouncer.jsx";
@@ -452,6 +453,13 @@ const AdminStaffAccountsPage = lazy(
     )
 );
 
+const AdminEmployeeDetailPage = lazy(
+  () =>
+    import(
+      "./pages/AdminEmployeeDetailPage.jsx"
+    )
+);
+
 const AdminAppointments = lazy(
   () =>
     import(
@@ -537,6 +545,19 @@ function adminPage(
     <AdminRoute>
       <PageComponent />
     </AdminRoute>
+  );
+}
+
+function permissionPage(
+  PageComponent,
+  permission
+) {
+  return (
+    <PermissionRoute
+      permission={permission}
+    >
+      <PageComponent />
+    </PermissionRoute>
   );
 }
 
@@ -1159,15 +1180,25 @@ function AppRoutes() {
 
         <Route
           path="admin/employees"
-          element={adminPage(
-            AdminStaffAccountsPage
+          element={permissionPage(
+            AdminStaffAccountsPage,
+            "employee:read"
+          )}
+        />
+
+        <Route
+          path="admin/employees/:id"
+          element={permissionPage(
+            AdminEmployeeDetailPage,
+            "employee:read"
           )}
         />
 
         <Route
           path="admin/staff-accounts"
-          element={adminPage(
-            AdminStaffAccountsPage
+          element={permissionPage(
+            AdminStaffAccountsPage,
+            "employee:read"
           )}
         />
 

@@ -56,6 +56,8 @@ function publicUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    permissions:
+      user.permissions || [],
     emailVerified: Boolean(user.emailVerified),
     emailVerificationRequired: Boolean(user.emailVerificationRequired),
   };
