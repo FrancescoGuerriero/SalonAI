@@ -532,6 +532,7 @@ export default function WhatsAppBookingPage() {
       stylistService
         .getStylists({
           active: true,
+          bookable: true,
           limit: 100,
         }),
     ])

@@ -116,12 +116,20 @@ function analysis(stylistName = "") {
 test("appointment and customer-visible eligibility fail closed", () => {
   assert.deepEqual(
     appointmentEligibleStylistFilter(),
-    { isActive: true }
+    {
+      isActive: true,
+      isBookable: {
+        $ne: false,
+      },
+    }
   );
   assert.deepEqual(
     customerVisibleStylistFilter(),
     {
       isActive: true,
+      isBookable: {
+        $ne: false,
+      },
       profilePublished: true,
     }
   );
@@ -137,6 +145,13 @@ test("appointment and customer-visible eligibility fail closed", () => {
     isCustomerVisibleStylist({
       ...maya,
       profilePublished: false,
+    }),
+    false
+  );
+  assert.equal(
+    isAppointmentEligibleStylist({
+      ...maya,
+      isBookable: false,
     }),
     false
   );

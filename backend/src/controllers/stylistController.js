@@ -37,6 +37,7 @@ const PUBLIC_STYLIST_FIELDS = [
   "displayOrder",
   "profilePublished",
   "isActive",
+  "isBookable",
 ].join(" ");
 
 function createHttpError(message, statusCode, details = null) {
@@ -252,6 +253,8 @@ export async function getStylists(req, res) {
       limit = 10,
       search = "",
       active,
+      bookable,
+      published,
       sort = "firstName",
     } = req.query;
 
@@ -300,6 +303,26 @@ export async function getStylists(req, res) {
     ) {
       filter.isActive =
         active === "true";
+    }
+
+    if (
+      bookable !==
+      undefined
+    ) {
+      filter.isBookable =
+        bookable === "true"
+          ? {
+              $ne: false,
+            }
+          : false;
+    }
+
+    if (
+      published !==
+      undefined
+    ) {
+      filter.profilePublished =
+        published === "true";
     }
 
     const total =
@@ -550,7 +573,7 @@ export async function getStylistAvailability(req, res, next) {
       }).lean(),
       Stylist.findById(stylistObjectId)
         .select(
-          "services isActive profilePublished"
+          "services isActive isBookable profilePublished"
         )
         .lean(),
     ]);

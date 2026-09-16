@@ -169,6 +169,18 @@ export default function StylistCard({
               Inactive
             </span>
           )}
+
+          <span className="badge bg-light text-dark border ms-2">
+            {stylist.profilePublished === false
+              ? "Unpublished"
+              : "Published"}
+          </span>
+
+          <span className="badge bg-light text-dark border ms-2">
+            {stylist.isBookable === false
+              ? "Not bookable"
+              : "Bookable"}
+          </span>
         </div>
       </div>
 

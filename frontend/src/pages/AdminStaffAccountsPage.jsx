@@ -1,10 +1,13 @@
 import {
+  CalendarClock,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Plus,
   RefreshCw,
+  Scissors,
   ShieldCheck,
-  UserRound,
   UsersRound,
   X,
 } from "lucide-react";
@@ -15,9 +18,16 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  Link,
+} from "react-router-dom";
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
+import {
+  employeeScheduleForDate,
+  employeeServiceNames,
+} from "../utils/employees.js";
 
 const STAFF_ROLES = [
   {
@@ -45,6 +55,8 @@ const emptyForm = {
   role: "stylist",
   password: "",
   profilePhoto: "",
+  profilePublished: false,
+  isBookable: true,
 };
 
 function errorMessage(error) {
@@ -52,17 +64,6 @@ function errorMessage(error) {
     error?.response?.data?.message ||
     error?.message ||
     "The staff-account operation failed."
-  );
-}
-
-function roleLabel(role) {
-  return (
-    STAFF_ROLES.find(
-      (item) =>
-        item.value === role
-    )?.label ||
-    role ||
-    "Unknown"
   );
 }
 
@@ -79,6 +80,46 @@ function avatarInitials(name) {
       item[0]?.toUpperCase()
     )
     .join("") || "SA";
+}
+
+function SettingSwitch({
+  checked,
+  disabled,
+  label,
+  onChange,
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() =>
+        onChange(!checked)
+      }
+      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-amber-500 disabled:cursor-wait disabled:opacity-50"
+    >
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-5 w-9 rounded-full transition ${
+          checked
+            ? "bg-amber-400"
+            : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
+            checked
+              ? "left-[18px]"
+              : "left-0.5"
+          }`}
+        />
+      </span>
+
+      {label}
+    </button>
+  );
 }
 
 export default function AdminStaffAccountsPage() {
@@ -296,6 +337,10 @@ export default function AdminStaffAccountsPage() {
             form.password,
           profilePhoto:
             form.profilePhoto,
+          profilePublished:
+            form.profilePublished,
+          isBookable:
+            form.isBookable,
         });
 
       setSuccess(
@@ -322,30 +367,27 @@ export default function AdminStaffAccountsPage() {
     }
   }
 
-  async function toggleStatus(
-    user
+  async function updateEmployeeSetting(
+    user,
+    field,
+    value
   ) {
-    const nextStatus =
-      user.isActive === false;
-
-    const action =
-      nextStatus
-        ? "activate"
-        : "deactivate";
-
-    const confirmed =
-      window.confirm(
-        `${action[0].toUpperCase()}${action.slice(
-          1
-        )} ${user.name}?`
-      );
-
-    if (!confirmed) {
+    if (
+      field ===
+        "isActive" &&
+      value === false &&
+      !window.confirm(
+        `Deactivate ${user.name}? They will no longer be able to sign in or receive bookings.`
+      )
+    ) {
       return;
     }
 
+    const operationId =
+      `${user.id}:${field}`;
+
     setUpdatingId(
-      user.id
+      operationId
     );
 
     setError("");
@@ -353,19 +395,28 @@ export default function AdminStaffAccountsPage() {
 
     try {
       const response =
-        await adminStaffService.setStatus(
+        await adminStaffService.updateSettings(
           user.id,
-          nextStatus
+          {
+            [field]: value,
+          }
         );
 
       setSuccess(
         response?.message ||
-          `Staff account ${action}d.`
+          "Employee settings updated."
       );
 
-      await loadUsers({
-        quiet: true,
-      });
+      setUsers(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              user.id
+                ? response.user
+                : item
+          )
+      );
     } catch (
       requestError
     ) {
@@ -387,7 +438,7 @@ export default function AdminStaffAccountsPage() {
     >
       <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-indigo-600">
+          <div className="flex items-center gap-2 text-amber-700">
             <UsersRound
               size={20}
             />
@@ -398,13 +449,13 @@ export default function AdminStaffAccountsPage() {
           </div>
 
           <h1 className="mt-2 text-2xl font-bold text-slate-900">
-            Staff accounts
+            Employees
           </h1>
 
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Create and control salon login accounts.
-            Stylist accounts are automatically linked
-            to their professional stylist profile.
+            Manage employee roles, login access,
+            public visibility, online booking and
+            today&apos;s schedule from one page.
           </p>
         </div>
 
@@ -433,13 +484,13 @@ export default function AdminStaffAccountsPage() {
 
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
             onClick={
               openCreateForm
             }
           >
             <Plus size={17} />
-            Add staff
+            Add employee
           </button>
         </div>
       </header>
@@ -520,12 +571,12 @@ export default function AdminStaffAccountsPage() {
 
       {loading ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">
-          Loading staff accounts...
+          Loading employees...
         </div>
       ) : filteredUsers.length ===
         0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-          No staff accounts match the current filters.
+          No employees match the current filters.
         </div>
       ) : (
         <section className="grid gap-4 xl:grid-cols-2">
@@ -558,12 +609,6 @@ export default function AdminStaffAccountsPage() {
                         {user.name}
                       </h2>
 
-                      <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                        {roleLabel(
-                          user.role
-                        )}
-                      </span>
-
                       <span
                         className={
                           user.isActive !==
@@ -588,68 +633,137 @@ export default function AdminStaffAccountsPage() {
                         {user.phone}
                       </p>
                     ) : null}
+
+                    <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
+                      Access role
+
+                      <select
+                        value={user.role}
+                        disabled={Boolean(updatingId)}
+                        onChange={(event) =>
+                          updateEmployeeSetting(
+                            user,
+                            "role",
+                            event.target.value
+                          )
+                        }
+                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
+                        aria-label={`Role for ${user.name}`}
+                      >
+                        {STAFF_ROLES.map(
+                          (role) => (
+                            <option
+                              key={role.value}
+                              value={role.value}
+                            >
+                              {role.label}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </label>
                   </div>
                 </div>
 
-                {user.role ===
-                "stylist" ? (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                      <UserRound
-                        size={16}
-                      />
-
-                      Stylist profile
+                <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-black">
+                      <CalendarClock size={16} />
+                      Today&apos;s schedule
                     </div>
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      {user.stylistProfile
-                        ? `Linked — ${
-                            user
-                              .stylistProfile
-                              .jobTitle ||
-                            "Hair professional"
-                          }`
-                        : "No linked stylist profile found."}
+                    <p className="mt-1 text-sm text-slate-700">
+                      {employeeScheduleForDate(user)}
                     </p>
                   </div>
-                ) : null}
 
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <ShieldCheck
-                      size={15}
-                    />
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-bold text-black">
+                      <Scissors size={16} />
+                      Services
+                    </div>
 
-                    Login account
+                    <p className="mt-1 text-sm text-slate-700">
+                      {employeeServiceNames(user).length
+                        ? employeeServiceNames(user).join(", ")
+                        : "No services assigned"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                    <ShieldCheck size={15} />
+                    Employee controls
                   </div>
 
-                  <button
-                    type="button"
-                    className={
-                      user.isActive !==
-                      false
-                        ? "rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        : "rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                    }
-                    disabled={
-                      updatingId ===
-                      user.id
-                    }
-                    onClick={() =>
-                      toggleStatus(
-                        user
-                      )
-                    }
-                  >
-                    {updatingId ===
-                    user.id
-                      ? "Updating..."
-                      : user.isActive !==
-                          false
-                        ? "Deactivate"
-                        : "Activate"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <SettingSwitch
+                      checked={user.isActive !== false}
+                      disabled={Boolean(updatingId)}
+                      label="Active"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "isActive",
+                          value
+                        )
+                      }
+                    />
+
+                    <SettingSwitch
+                      checked={user.stylistProfile?.profilePublished === true}
+                      disabled={Boolean(updatingId)}
+                      label="Published"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "profilePublished",
+                          value
+                        )
+                      }
+                    />
+
+                    <SettingSwitch
+                      checked={user.stylistProfile?.isBookable !== false}
+                      disabled={Boolean(updatingId)}
+                      label="Bookable"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "isBookable",
+                          value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      to="/staff-management"
+                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                    >
+                      Manage schedule
+                    </Link>
+
+                    <Link
+                      to="/admin/stylists"
+                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                    >
+                      Edit profile &amp; services
+                    </Link>
+
+                    <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                      {user.stylistProfile?.profilePublished ? (
+                        <Eye size={14} />
+                      ) : (
+                        <EyeOff size={14} />
+                      )}
+                      {user.stylistProfile?.profilePublished
+                        ? "Public profile visible"
+                        : "Public profile hidden"}
+                    </span>
+                  </div>
                 </div>
               </article>
             )
@@ -686,11 +800,11 @@ export default function AdminStaffAccountsPage() {
                     id="add-staff-title"
                     className="text-xl font-bold text-slate-900"
                   >
-                    Add staff account
+                    Add employee
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    Create a secure SalonAI sign-in account.
+                    Create a SalonAI account and employee profile.
                   </p>
                 </div>
 
@@ -874,10 +988,50 @@ export default function AdminStaffAccountsPage() {
                   </span>
                 </label>
 
+                <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                  <label className="flex items-start gap-3 text-sm text-black">
+                    <input
+                      type="checkbox"
+                      checked={form.profilePublished}
+                      onChange={(event) =>
+                        updateForm(
+                          "profilePublished",
+                          event.target.checked
+                        )
+                      }
+                      className="mt-1 h-4 w-4 accent-amber-400"
+                    />
+
+                    <span>
+                      <strong className="block">Publish profile</strong>
+                      Show this employee on public team pages.
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3 text-sm text-black">
+                    <input
+                      type="checkbox"
+                      checked={form.isBookable}
+                      onChange={(event) =>
+                        updateForm(
+                          "isBookable",
+                          event.target.checked
+                        )
+                      }
+                      className="mt-1 h-4 w-4 accent-amber-400"
+                    />
+
+                    <span>
+                      <strong className="block">Bookable online</strong>
+                      Allow customers to select this employee for bookings.
+                    </span>
+                  </label>
+                </div>
+
                 {form.role ===
                 "stylist" ? (
                   <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800">
-                    A stylist profile will automatically be created or linked using this email address.
+                    A professional employee profile will automatically be created or linked using this email address.
                   </div>
                 ) : null}
 
@@ -905,7 +1059,7 @@ export default function AdminStaffAccountsPage() {
 
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
                   disabled={
                     submitting
                   }
@@ -914,7 +1068,7 @@ export default function AdminStaffAccountsPage() {
 
                   {submitting
                     ? "Creating..."
-                    : "Create staff account"}
+                    : "Create employee"}
                 </button>
               </footer>
             </form>

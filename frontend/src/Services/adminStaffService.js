@@ -40,6 +40,19 @@ const adminStaffService = {
 
     return data;
   },
+
+  async updateSettings(
+    id,
+    settings
+  ) {
+    const { data } =
+      await API.patch(
+        `${ENDPOINT}/${id}`,
+        settings
+      );
+
+    return data;
+  },
 };
 
 export default adminStaffService;

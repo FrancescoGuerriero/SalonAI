@@ -18,6 +18,7 @@ const emptyStylist = {
   profileImage: "",
   profilePublished: true,
   isActive: true,
+  isBookable: true,
 };
 
 function normaliseList(value) {
@@ -70,6 +71,10 @@ export default function StylistForm({
         isActive:
           typeof stylist.isActive === "boolean"
             ? stylist.isActive
+            : true,
+        isBookable:
+          typeof stylist.isBookable === "boolean"
+            ? stylist.isBookable
             : true,
       });
     } else {
@@ -126,6 +131,7 @@ export default function StylistForm({
       profileImage: form.profileImage.trim(),
       profilePublished: form.profilePublished,
       isActive: form.isActive,
+      isBookable: form.isBookable,
     };
   }
 
@@ -335,6 +341,26 @@ export default function StylistForm({
                   </div>
                 </div>
 
+                <div className="col-12">
+                  <div className="form-check form-switch">
+                    <input
+                      id="isBookable"
+                      name="isBookable"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={form.isBookable}
+                      onChange={handleChange}
+                    />
+
+                    <label
+                      htmlFor="isBookable"
+                      className="form-check-label"
+                    >
+                      Employee can be selected for online bookings
+                    </label>
+                  </div>
+                </div>
+
                 <div className="col-md-6">
                   <label
                     htmlFor="yearsExperience"
@@ -516,8 +542,7 @@ export default function StylistForm({
                       htmlFor="isActive"
                       className="form-check-label"
                     >
-                      Stylist is active and available for
-                      bookings
+                      Employee is active in the salon system
                     </label>
                   </div>
                 </div>

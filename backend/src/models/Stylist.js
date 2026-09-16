@@ -208,6 +208,12 @@ const stylistSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+
+    isBookable: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -242,6 +248,7 @@ stylistSchema.index(
 
 stylistSchema.index({
   isActive: 1,
+  isBookable: 1,
   profilePublished: 1,
   displayOrder: 1,
   firstName: 1,

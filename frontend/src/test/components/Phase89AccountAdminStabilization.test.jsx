@@ -54,7 +54,8 @@ describe("Phase 8.9 and 8.10 account/admin stabilization", () => {
   it("surfaces staff, product and import actions on the admin dashboard", () => {
     const dashboard = source("src/pages/AdminDashboard.jsx");
 
-    expect(dashboard).toContain("Add or manage staff");
+    expect(dashboard).toContain('title: "Employees"');
+    expect(dashboard).toContain('"/admin/employees"');
     expect(dashboard).toContain("Products & inventory");
     expect(dashboard).toContain("Bulk data import");
   });

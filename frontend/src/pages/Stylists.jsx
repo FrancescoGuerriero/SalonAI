@@ -91,6 +91,8 @@ export default function Stylists() {
         await stylistService.getStylists(
           {
             active: true,
+            bookable: true,
+            published: true,
             limit: 100,
           }
         );
