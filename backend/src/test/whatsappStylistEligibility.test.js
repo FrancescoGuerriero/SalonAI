@@ -41,6 +41,7 @@ const maya = {
   lastName: "Thompson",
   services: ["service-1"],
   isActive: true,
+  acceptsAppointments: true,
   profilePublished: true,
 };
 
@@ -50,6 +51,7 @@ const luca = {
   lastName: "Romano",
   services: ["service-1"],
   isActive: true,
+  acceptsAppointments: true,
   profilePublished: true,
 };
 
@@ -116,12 +118,16 @@ function analysis(stylistName = "") {
 test("appointment and customer-visible eligibility fail closed", () => {
   assert.deepEqual(
     appointmentEligibleStylistFilter(),
-    { isActive: true }
+    {
+      isActive: true,
+      acceptsAppointments: true,
+    }
   );
   assert.deepEqual(
     customerVisibleStylistFilter(),
     {
       isActive: true,
+      acceptsAppointments: true,
       profilePublished: true,
     }
   );
@@ -131,6 +137,22 @@ test("appointment and customer-visible eligibility fail closed", () => {
   );
   assert.equal(
     isAppointmentEligibleStylist(legacyEmma),
+    false
+  );
+
+  assert.equal(
+    isAppointmentEligibleStylist({
+      ...maya,
+      acceptsAppointments: false,
+    }),
+    false
+  );
+
+  assert.equal(
+    isAppointmentEligibleStylist({
+      ...maya,
+      acceptsAppointments: undefined,
+    }),
     false
   );
   assert.equal(
