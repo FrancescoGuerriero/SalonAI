@@ -1,0 +1,486 @@
+name: SalonAI Production Stylist Roster Classification
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable SalonAI release tag
+        required: true
+        type: string
+      operation:
+        description: PREPARE before deployment or FINALIZE after deployment
+        required: true
+        type: choice
+        options:
+          - PREPARE
+          - FINALIZE
+      confirm_production:
+        description: Type CLASSIFY-V8.14.10
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  classify-production-roster:
+    name: Production stylist roster
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: production
+
+    steps:
+      - name: Validate request
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          OPERATION: ${{ inputs.operation }}
+          CONFIRMATION: ${{ inputs.confirm_production }}
+        run: |
+          set -euo pipefail
+
+          [[ "$CONFIRMATION" == "CLASSIFY-V8.14.10" ]]
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+          case "$OPERATION" in
+            PREPARE)
+              echo "ROSTER_PHASE_FLAG=--prepare" >> "$GITHUB_ENV"
+              ;;
+            FINALIZE)
+              echo "ROSTER_PHASE_FLAG=--finalize" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported roster operation." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout immutable release
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.release_tag }}
+          path: release-source
+
+      - name: Checkout trusted deployment controls
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
+          path: deployment-control
+
+      - name: Download and verify release evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 release-evidence
+
+          gh release download \
+            "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir release-evidence
+
+          (
+            cd release-evidence
+            sha256sum --check SHA256SUMS.txt
+          )
+
+          source_commit="$(
+            git -C release-source rev-parse HEAD
+          )"
+
+          node \
+            deployment-control/scripts/ci/validate-deployment-evidence.mjs \
+            release-evidence \
+            "$RELEASE_TAG" \
+            "$source_commit"
+
+          backend_image="$(
+            jq -er '
+              .images[]
+              | select(.service == "backend")
+              | .immutableReference
+            ' release-evidence/release-manifest.json
+          )"
+
+          [[ "$backend_image" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]]
+
+          echo "BACKEND_MIGRATION_IMAGE=$backend_image" >> "$GITHUB_ENV"
+
+      - name: Configure strict SSH
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in \
+            PRODUCTION_HOST \
+            PRODUCTION_USER \
+            PRODUCTION_SSH_KEY \
+            PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing production secret: $name" >&2
+              exit 1
+            fi
+          done
+
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+
+          ssh_dir="$RUNNER_TEMP/salonai-roster-ssh"
+          install -d -m 0700 "$ssh_dir"
+
+          private_key="$ssh_dir/production-key"
+          known_hosts="$ssh_dir/known_hosts"
+
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Validate production state
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            bash -s -- "$RELEASE_TAG" "$OPERATION" <<'REMOTE'
+          set -euo pipefail
+
+          release_tag="$1"
+          operation="$2"
+
+          test "$(id -un)" = "salonai-deploy"
+          test -f /opt/salonai/.env.production
+
+          docker version >/dev/null
+          docker network inspect salonai-private >/dev/null
+          docker inspect salonai-backend >/dev/null
+
+          if [[ "$operation" == "FINALIZE" ]]; then
+            deployed_release="$(
+              grep -E '^APP_VERSION=' \
+                /opt/salonai/.env.production |
+              tail -n 1 |
+              cut -d= -f2- |
+              tr -d '\r'
+            )"
+
+            if [[ "$deployed_release" != "$release_tag" ]]; then
+              echo "FINALIZE requires the requested release to be deployed." >&2
+              exit 1
+            fi
+
+            backend_state="$(
+              docker inspect \
+                --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+                salonai-backend
+            )"
+
+            if [[ "$backend_state" != "running|healthy" ]]; then
+              echo "FINALIZE requires a healthy production backend." >&2
+              exit 1
+            fi
+          fi
+
+          echo "[PASS] Production state is valid for $operation."
+          REMOTE
+
+      - name: Log in to GHCR
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.repository_owner }}
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          [[ "$GHCR_USERNAME" =~ ^[A-Za-z0-9-]+$ ]]
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          printf '%s' "$GHCR_TOKEN" |
+            ssh \
+              "${ssh_options[@]}" \
+              "$PRODUCTION_USER@$PRODUCTION_HOST" \
+              "docker login ghcr.io --username '$GHCR_USERNAME' --password-stdin"
+
+      - name: Pull immutable backend image
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker pull '$BACKEND_MIGRATION_IMAGE'"
+
+      - name: Prepare evidence directory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 roster-evidence
+
+          cp \
+            release-evidence/release-manifest.json \
+            roster-evidence/release-manifest.json
+
+      - name: Verify PREPARE before FINALIZE
+        if: ${{ inputs.operation == 'FINALIZE' }}
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker run --rm \
+              --network salonai-private \
+              --env-file /opt/salonai/.env.production \
+              --security-opt no-new-privileges:true \
+              --cap-drop ALL \
+              '$BACKEND_MIGRATION_IMAGE' \
+              node scripts/classifyProductionStylistRoster.js \
+              --prepare \
+              --verify" \
+            | tee roster-evidence/prepare-verification.txt
+
+      - name: Dry-run selected phase
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker run --rm \
+              --network salonai-private \
+              --env-file /opt/salonai/.env.production \
+              --security-opt no-new-privileges:true \
+              --cap-drop ALL \
+              '$BACKEND_MIGRATION_IMAGE' \
+              node scripts/classifyProductionStylistRoster.js \
+              '$ROSTER_PHASE_FLAG'" \
+            | tee roster-evidence/preflight.txt
+
+      - name: Apply selected phase
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker run --rm \
+              --network salonai-private \
+              --env-file /opt/salonai/.env.production \
+              --security-opt no-new-privileges:true \
+              --cap-drop ALL \
+              '$BACKEND_MIGRATION_IMAGE' \
+              node scripts/classifyProductionStylistRoster.js \
+              '$ROSTER_PHASE_FLAG' \
+              --apply \
+              --confirm=v8.14.10-production-stylist-roster" \
+            | tee roster-evidence/apply.txt
+
+      - name: Verify selected phase
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          ssh \
+            "${ssh_options[@]}" \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "docker run --rm \
+              --network salonai-private \
+              --env-file /opt/salonai/.env.production \
+              --security-opt no-new-privileges:true \
+              --cap-drop ALL \
+              '$BACKEND_MIGRATION_IMAGE' \
+              node scripts/classifyProductionStylistRoster.js \
+              '$ROSTER_PHASE_FLAG' \
+              --verify" \
+            | tee roster-evidence/postflight.txt
+
+      - name: Record workflow evidence
+        if: always()
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 roster-evidence
+
+          jq -n \
+            --arg releaseTag "$RELEASE_TAG" \
+            --arg operation "$OPERATION" \
+            --arg backendImage "${BACKEND_MIGRATION_IMAGE:-}" \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg runAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg completedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              schemaVersion: 2,
+              operation: $operation,
+              releaseTag: $releaseTag,
+              backendImage: $backendImage,
+              repository: $repository,
+              runId: $runId,
+              runAttempt: $runAttempt,
+              completedAtUtc: $completedAtUtc
+            }' \
+            > roster-evidence/workflow.json
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-stylist-roster-${{ inputs.operation }}-${{ inputs.release_tag }}-${{ github.run_id }}
+          path: roster-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient credentials
+        if: always()
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -u
+
+          if [[ -n "${SSH_PRIVATE_KEY_PATH:-}" ]] &&
+             [[ -n "${SSH_KNOWN_HOSTS_PATH:-}" ]] &&
+             [[ -n "${PRODUCTION_HOST:-}" ]] &&
+             [[ -n "${PRODUCTION_USER:-}" ]]; then
+
+            ssh_options=(
+              -i "$SSH_PRIVATE_KEY_PATH"
+              -o BatchMode=yes
+              -o ConnectTimeout=15
+              -o IdentitiesOnly=yes
+              -o StrictHostKeyChecking=yes
+              -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+            )
+
+            ssh \
+              "${ssh_options[@]}" \
+              "$PRODUCTION_USER@$PRODUCTION_HOST" \
+              "docker logout ghcr.io >/dev/null 2>&1 || true" \
+              || true
+          fi
+
+          rm -f -- \
+            "${SSH_PRIVATE_KEY_PATH:-}" \
+            "${SSH_KNOWN_HOSTS_PATH:-}"

@@ -312,3 +312,37 @@ export function assertRosterInspection(
     `Production stylist roster preflight failed: ${problems.join("; ")}`
   );
 }
+
+export function selectRosterPhaseChanges(
+  changes,
+  phase
+) {
+  if (
+    phase !== "prepare" &&
+    phase !== "finalize"
+  ) {
+    throw new Error(
+      `Unsupported production stylist roster phase: ${phase}`
+    );
+  }
+
+  if (phase === "finalize") {
+    return {
+      ...changes,
+    };
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      changes,
+      "acceptsAppointments"
+    )
+  ) {
+    return {
+      acceptsAppointments:
+        changes.acceptsAppointments,
+    };
+  }
+
+  return {};
+}

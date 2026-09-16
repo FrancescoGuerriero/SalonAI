@@ -8,9 +8,13 @@ import {
   assertRosterDefinition,
   inspectRosterRecords,
   assertRosterInspection,
+  selectRosterPhaseChanges,
 } from "../src/services/productionStylistRosterService.js";
 
 const APPLY_ARGUMENT = "--apply";
+const VERIFY_ARGUMENT = "--verify";
+const PREPARE_ARGUMENT = "--prepare";
+const FINALIZE_ARGUMENT = "--finalize";
 
 const CONFIRM_ARGUMENT =
   "--confirm=v8.14.10-production-stylist-roster";
@@ -36,10 +40,37 @@ function parseMode(argv) {
       APPLY_ARGUMENT
     );
 
+  const verify =
+    argv.includes(
+      VERIFY_ARGUMENT
+    );
+
+  const prepare =
+    argv.includes(
+      PREPARE_ARGUMENT
+    );
+
+  const finalize =
+    argv.includes(
+      FINALIZE_ARGUMENT
+    );
+
   const confirmed =
     argv.includes(
       CONFIRM_ARGUMENT
     );
+
+  if (prepare === finalize) {
+    throw new Error(
+      "Exactly one roster phase is required: --prepare or --finalize."
+    );
+  }
+
+  if (apply && verify) {
+    throw new Error(
+      "--apply and --verify cannot be used together."
+    );
+  }
 
   if (apply && !confirmed) {
     throw new Error(
@@ -49,6 +80,38 @@ function parseMode(argv) {
 
   return {
     apply,
+    verify,
+    phase:
+      prepare
+        ? "prepare"
+        : "finalize",
+  };
+}
+
+function selectPhaseInspection(
+  inspection,
+  phase
+) {
+  return {
+    ...inspection,
+    plan:
+      inspection.plan.map(
+        (item) => {
+          const changes =
+            selectRosterPhaseChanges(
+              item.changes,
+              phase
+            );
+
+          return {
+            ...item,
+            changes,
+            alreadyCorrect:
+              Object.keys(changes)
+                .length === 0,
+          };
+        }
+      ),
   };
 }
 
@@ -105,23 +168,27 @@ async function readRoster(
 }
 
 async function verifyState(
-  collection
+  collection,
+  phase
 ) {
   const records =
     await readRoster(
       collection
     );
 
-  const inspection =
+  const completeInspection =
     inspectRosterRecords(
       records
     );
 
   assertRosterInspection(
-    inspection
+    completeInspection
   );
 
-  return inspection;
+  return selectPhaseInspection(
+    completeInspection,
+    phase
+  );
 }
 
 async function applyPlan(
@@ -144,7 +211,8 @@ async function applyPlan(
             ),
         },
         {
-          $set: item.changes,
+          $set:
+            item.changes,
         }
       );
 
@@ -161,14 +229,26 @@ async function applyPlan(
   return modifiedCount;
 }
 
+function findIncomplete(
+  inspection
+) {
+  return inspection.plan.filter(
+    (item) =>
+      !item.alreadyCorrect
+  );
+}
+
 async function main() {
   assertRosterDefinition();
 
   const {
     apply,
-  } = parseMode(
-    process.argv.slice(2)
-  );
+    verify,
+    phase,
+  } =
+    parseMode(
+      process.argv.slice(2)
+    );
 
   await mongoose.connect(
     requireMongoUri()
@@ -181,30 +261,56 @@ async function main() {
 
   const before =
     await verifyState(
-      collection
+      collection,
+      phase
     );
 
   console.log(
     JSON.stringify(
       {
+        phase,
         mode:
           apply
             ? "apply"
-            : "dry-run",
-        safe: before.safe,
+            : verify
+              ? "verify"
+              : "dry-run",
+        safe:
+          before.safe,
         rosterCount:
           before.plan.length,
         plan:
-          serialisePlan(before),
+          serialisePlan(
+            before
+          ),
       },
       null,
       2
     )
   );
 
+  if (verify) {
+    const incomplete =
+      findIncomplete(
+        before
+      );
+
+    if (incomplete.length > 0) {
+      throw new Error(
+        `Production stylist roster ${phase} verification found ${incomplete.length} record(s) requiring changes.`
+      );
+    }
+
+    console.log(
+      `[PASS] Production stylist roster ${phase} verification completed. No changes are required.`
+    );
+
+    return;
+  }
+
   if (!apply) {
     console.log(
-      "[PASS] Production stylist roster dry-run completed. No database changes were made."
+      `[PASS] Production stylist roster ${phase} dry-run completed. No database changes were made.`
     );
 
     return;
@@ -218,23 +324,23 @@ async function main() {
 
   const after =
     await verifyState(
-      collection
+      collection,
+      phase
     );
 
   const incomplete =
-    after.plan.filter(
-      (item) =>
-        !item.alreadyCorrect
+    findIncomplete(
+      after
     );
 
   if (incomplete.length > 0) {
     throw new Error(
-      "Production stylist roster verification failed after apply."
+      `Production stylist roster ${phase} verification failed after apply.`
     );
   }
 
   console.log(
-    `[PASS] Production stylist roster classification complete. Modified ${modifiedCount} record(s).`
+    `[PASS] Production stylist roster ${phase} classification complete. Modified ${modifiedCount} record(s).`
   );
 }
 
