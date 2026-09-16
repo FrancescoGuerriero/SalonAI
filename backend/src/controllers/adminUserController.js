@@ -6,12 +6,22 @@ import Stylist from "../models/Stylist.js";
 import {
   normaliseProfileImage,
 } from "../utils/profileMedia.js";
+import {
+  recordAuditEvent,
+} from "../services/auditService.js";
 
 export const STAFF_ROLES = Object.freeze([
   "stylist",
   "receptionist",
   "manager",
   "admin",
+]);
+
+const EMPLOYEE_SETTING_FIELDS = Object.freeze([
+  "role",
+  "isActive",
+  "profilePublished",
+  "isBookable",
 ]);
 
 function httpError(
@@ -135,9 +145,16 @@ function serialiseAdminUser(
             profilePublished:
               stylist.profilePublished !==
               false,
+            isBookable:
+              stylist.isBookable !==
+              false,
             isActive:
               stylist.isActive !==
               false,
+            workingHours:
+              stylist.workingHours || [],
+            services:
+              stylist.services || [],
           }
         : null,
   };
@@ -146,13 +163,6 @@ function serialiseAdminUser(
 async function stylistForUser(
   user
 ) {
-  if (
-    user.role !==
-    "stylist"
-  ) {
-    return null;
-  }
-
   return Stylist.findOne({
     $or: [
       {
@@ -168,7 +178,13 @@ async function stylistForUser(
 }
 
 async function createOrLinkStylist(
-  user
+  user,
+  {
+    profilePublished = false,
+    isBookable =
+      user.role ===
+      "stylist",
+  } = {}
 ) {
   let stylist =
     await Stylist.findOne({
@@ -213,6 +229,16 @@ async function createOrLinkStylist(
       user.isActive !==
       false;
 
+    stylist.profilePublished =
+      Boolean(
+        profilePublished
+      );
+
+    stylist.isBookable =
+      Boolean(
+        isBookable
+      );
+
     await stylist.save();
 
     return stylist;
@@ -240,7 +266,13 @@ async function createOrLinkStylist(
       jobTitle:
         "Hair professional",
       profilePublished:
-        false,
+        Boolean(
+          profilePublished
+        ),
+      isBookable:
+        Boolean(
+          isBookable
+        ),
       isActive:
         user.isActive !==
         false,
@@ -356,30 +388,57 @@ export async function listAdminUsers(
 
     const stylistLinks =
       await Stylist.find({
-        userAccount: {
-          $in:
-            users.map(
-              (user) =>
-                user._id
-            ),
-        },
+        $or: [
+          {
+            userAccount: {
+              $in:
+                users.map(
+                  (user) =>
+                    user._id
+                ),
+            },
+          },
+          {
+            email: {
+              $in:
+                users.map(
+                  (user) =>
+                    user.email
+                ),
+            },
+          },
+        ],
       })
         .select(
-          "userAccount firstName lastName jobTitle profileImage profilePublished isActive"
+          "userAccount email firstName lastName jobTitle profileImage profilePublished isBookable isActive workingHours services"
+        )
+        .populate(
+          "services",
+          "name category active onlineBookable"
         )
         .lean();
 
     const stylistMap =
-      new Map(
-        stylistLinks.map(
-          (stylist) => [
-            String(
-              stylist.userAccount
-            ),
-            stylist,
-          ]
-        )
+      new Map();
+
+    for (const stylist of stylistLinks) {
+      if (stylist.userAccount) {
+        stylistMap.set(
+          String(
+            stylist.userAccount
+          ),
+          stylist
+        );
+      }
+
+      stylistMap.set(
+        String(
+          stylist.email ||
+            ""
+        ).toLowerCase(),
+        stylist
       );
+    }
 
     return res.json({
       success: true,
@@ -399,6 +458,12 @@ export async function listAdminUsers(
                 String(
                   user._id
                 )
+              ) ||
+              stylistMap.get(
+                String(
+                  user.email ||
+                    ""
+                ).toLowerCase()
               ) || null
             )
         ),
@@ -450,6 +515,18 @@ export async function createStaffUserByAdmin(
       normaliseProfileImage(
         req.body.profilePhoto
       );
+
+    const profilePublished =
+      req.body.profilePublished ===
+      true;
+
+    const isBookable =
+      req.body.isBookable ===
+      undefined
+        ? role ===
+          "stylist"
+        : req.body.isBookable ===
+          true;
 
     if (
       !name ||
@@ -513,28 +590,36 @@ export async function createStaffUserByAdmin(
           req.user._id,
       });
 
-    let stylist =
-      null;
+    const stylist =
+      await createOrLinkStylist(
+        createdUser,
+        {
+          profilePublished,
+          isBookable,
+        }
+      );
 
-    if (
-      role ===
-      "stylist"
-    ) {
-      stylist =
-        await createOrLinkStylist(
-          createdUser
-        );
-    }
+    await recordAuditEvent({
+      req,
+      action:
+        "employee.created",
+      resourceType:
+        "employee",
+      resourceId:
+        createdUser._id,
+      after:
+        serialiseAdminUser(
+          createdUser,
+          stylist
+        ),
+    });
 
     return res
       .status(201)
       .json({
         success: true,
         message:
-          role ===
-          "stylist"
-            ? "Staff account created and linked to a stylist profile."
-            : "Staff account created successfully.",
+          "Employee account and profile created successfully.",
         user:
           serialiseAdminUser(
             createdUser,
@@ -573,6 +658,277 @@ export async function createStaffUserByAdmin(
       }
     }
 
+    return next(error);
+  }
+}
+
+export function normaliseEmployeeManagementUpdate(
+  body = {}
+) {
+  const update = {};
+
+  for (const field of EMPLOYEE_SETTING_FIELDS) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        field
+      )
+    ) {
+      update[field] =
+        body[field];
+    }
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      update,
+      "role"
+    )
+  ) {
+    update.role =
+      cleanText(
+        update.role,
+        30
+      );
+
+    if (
+      !STAFF_ROLES.includes(
+        update.role
+      )
+    ) {
+      throw httpError(
+        "Staff role must be stylist, receptionist, manager or admin.",
+        400
+      );
+    }
+  }
+
+  for (const field of [
+    "isActive",
+    "profilePublished",
+    "isBookable",
+  ]) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        update,
+        field
+      ) &&
+      typeof update[field] !==
+        "boolean"
+    ) {
+      throw httpError(
+        `${field} must be true or false.`,
+        400
+      );
+    }
+  }
+
+  if (
+    Object.keys(update).length ===
+    0
+  ) {
+    throw httpError(
+      "Provide at least one employee setting to update.",
+      400
+    );
+  }
+
+  return update;
+}
+
+async function protectFinalAdministrator(
+  user,
+  update,
+  actor
+) {
+  const removesOwnAdminAccess =
+    String(user._id) ===
+      String(actor._id) &&
+    ((update.role &&
+      update.role !==
+        "admin") ||
+      update.isActive ===
+        false);
+
+  if (removesOwnAdminAccess) {
+    throw httpError(
+      "You cannot remove your own administrator access.",
+      409
+    );
+  }
+
+  const removesActiveAdmin =
+    user.role ===
+      "admin" &&
+    user.isActive !==
+      false &&
+    ((update.role &&
+      update.role !==
+        "admin") ||
+      update.isActive ===
+        false);
+
+  if (!removesActiveAdmin) {
+    return;
+  }
+
+  const activeAdmins =
+    await User.countDocuments({
+      role:
+        "admin",
+      isActive: {
+        $ne:
+          false,
+      },
+    });
+
+  if (activeAdmins <= 1) {
+    throw httpError(
+      "The final active administrator cannot be demoted or deactivated.",
+      409
+    );
+  }
+}
+
+export async function updateEmployeeManagementSettings(
+  req,
+  res,
+  next
+) {
+  try {
+    const update =
+      normaliseEmployeeManagementUpdate(
+        req.body
+      );
+
+    const user =
+      await User.findById(
+        req.params.id
+      );
+
+    if (!user) {
+      throw httpError(
+        "Employee account not found.",
+        404
+      );
+    }
+
+    await protectFinalAdministrator(
+      user,
+      update,
+      req.user
+    );
+
+    let stylist =
+      await stylistForUser(
+        user
+      );
+
+    if (!stylist) {
+      stylist =
+        await createOrLinkStylist(
+          user,
+          {
+            profilePublished:
+              update.profilePublished ===
+              true,
+            isBookable:
+              update.isBookable ===
+              undefined
+                ? user.role ===
+                  "stylist"
+                : update.isBookable,
+          }
+        );
+    }
+
+    if (
+      !stylist.userAccount
+    ) {
+      stylist.userAccount =
+        user._id;
+    }
+
+    const before =
+      serialiseAdminUser(
+        user,
+        stylist
+      );
+
+    if (update.role) {
+      user.role =
+        update.role;
+    }
+
+    if (
+      typeof update.isActive ===
+      "boolean"
+    ) {
+      user.isActive =
+        update.isActive;
+      stylist.isActive =
+        update.isActive;
+    }
+
+    if (
+      typeof update.profilePublished ===
+      "boolean"
+    ) {
+      stylist.profilePublished =
+        update.profilePublished;
+    }
+
+    if (
+      typeof update.isBookable ===
+      "boolean"
+    ) {
+      stylist.isBookable =
+        update.isBookable;
+    }
+
+    user.updatedBy =
+      req.user._id;
+
+    await user.save();
+    await stylist.save();
+
+    await stylist.populate(
+      "services",
+      "name category active onlineBookable"
+    );
+
+    const after =
+      serialiseAdminUser(
+        user,
+        stylist
+      );
+
+    await recordAuditEvent({
+      req,
+      action:
+        "employee.settings_updated",
+      resourceType:
+        "employee",
+      resourceId:
+        user._id,
+      before,
+      after,
+      metadata: {
+        changedFields:
+          Object.keys(
+            update
+          ),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message:
+        "Employee settings updated.",
+      user:
+        after,
+    });
+  } catch (error) {
     return next(error);
   }
 }

@@ -19,6 +19,7 @@ import {
 import {
   listAdminUsers,
   createStaffUserByAdmin,
+  updateEmployeeManagementSettings,
   updateAdminUserStatus,
 } from "../controllers/adminUserController.js";
 
@@ -117,6 +118,13 @@ router
     adminOnly,
     createStaffUserByAdmin
   );
+
+router.patch(
+  "/admin/staff/:id",
+  protect,
+  adminOnly,
+  updateEmployeeManagementSettings
+);
 
 router.patch(
   "/admin/staff/:id/status",

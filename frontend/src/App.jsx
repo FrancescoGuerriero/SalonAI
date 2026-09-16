@@ -1158,6 +1158,13 @@ function AppRoutes() {
         />
 
         <Route
+          path="admin/employees"
+          element={adminPage(
+            AdminStaffAccountsPage
+          )}
+        />
+
+        <Route
           path="admin/staff-accounts"
           element={adminPage(
             AdminStaffAccountsPage
