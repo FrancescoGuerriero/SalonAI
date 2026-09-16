@@ -105,6 +105,7 @@ const stylist = {
     "service-2",
   ],
   isActive: true,
+  acceptsAppointments: true,
   profilePublished: true,
 };
 

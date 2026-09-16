@@ -550,7 +550,7 @@ export async function getStylistAvailability(req, res, next) {
       }).lean(),
       Stylist.findById(stylistObjectId)
         .select(
-          "services isActive profilePublished"
+          "services isActive acceptsAppointments profilePublished"
         )
         .lean(),
     ]);
