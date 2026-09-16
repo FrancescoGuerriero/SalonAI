@@ -19,6 +19,7 @@
   --color-surface: var(--palette-white);
   --shadow-small: 0 3px 10px rgba(70, 70, 70, 0.12);
   --shadow-medium: 0 10px 28px rgba(70, 70, 70, 0.18);
+  color-scheme: light;
 }
 
 /* Primary gold actions use the foreground with the strongest contrast. */
@@ -66,4 +67,35 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline-color: var(--palette-black);
+}
+
+/* Touch devices get reliable targets without enlarging the desktop interface. */
+@media (pointer: coarse) {
+  button,
+  .app-button,
+  .app-icon-button,
+  .app-nav-link,
+  .navbar-link {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .app-icon-button {
+    min-width: 44px;
+  }
+}
+
+/* Mobile form controls avoid browser zoom and costly translucent header effects. */
+@media (max-width: 760px) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+
+  .app-topbar,
+  .navbar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
