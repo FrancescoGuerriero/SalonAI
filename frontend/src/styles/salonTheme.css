@@ -26,7 +26,7 @@
   color-scheme: light;
 }
 
-/* Primary gold actions use the foreground with the strongest contrast. */
+/* Gold actions use black because it provides the strongest contrast. */
 button,
 .app-button-primary,
 .navbar-register-link {
@@ -42,7 +42,7 @@ button:hover:not(:disabled),
   color: var(--palette-black);
 }
 
-/* Dark actions use cream text; white remains reserved for raised content surfaces. */
+/* Dark actions use cream; light actions use black. */
 .danger-button,
 .app-button-danger,
 .navbar-logout-button:hover:not(:disabled) {
@@ -55,13 +55,6 @@ button:hover:not(:disabled),
 .app-icon-button {
   background: var(--palette-white);
   color: var(--palette-black);
-}
-
-/* Keep quiet page areas warm while preserving white cards and forms for separation. */
-.not-found-page {
-  background:
-    radial-gradient(circle at 50% 10%, rgba(216, 184, 74, 0.18), transparent 32%),
-    var(--palette-cream);
 }
 
 [aria-selected="true"],
@@ -80,7 +73,6 @@ textarea:focus-visible {
   outline-color: var(--palette-black);
 }
 
-/* Touch devices get reliable targets without enlarging the desktop interface. */
 @media (pointer: coarse) {
   button,
   .app-button,
@@ -96,7 +88,6 @@ textarea:focus-visible {
   }
 }
 
-/* Mobile form controls avoid browser zoom and costly translucent header effects. */
 @media (max-width: 760px) {
   input,
   select,
