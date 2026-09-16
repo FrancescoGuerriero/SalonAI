@@ -10,12 +10,12 @@
   justify-content: space-between;
   gap: 28px;
   padding: 34px;
-  border: 1px solid var(--app-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 28px;
   background:
-    radial-gradient(circle at top right, rgba(178,138,32, 0.14), transparent 38%),
-    var(--app-surface, #fff);
-  box-shadow: 0 22px 60px rgba(17,17,16, 0.08);
+    radial-gradient(circle at top right, rgba(216, 184, 74, 0.14), transparent 38%),
+    var(--color-surface);
+  box-shadow: var(--shadow-medium);
 }
 
 .account-hero h1 {
@@ -27,7 +27,7 @@
 .account-hero p {
   max-width: 680px;
   margin: 0;
-  color: var(--app-muted, #73736f);
+  color: var(--color-text-muted);
   line-height: 1.7;
 }
 
@@ -35,7 +35,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #8a6b16;
+  color: var(--palette-gold-dark);
   font-weight: 800;
   font-size: 0.78rem;
   letter-spacing: 0.08em;
@@ -54,9 +54,9 @@
   gap: 14px;
   min-height: 126px;
   padding: 22px;
-  border: 1px solid var(--app-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
-  background: var(--app-surface, #fff);
+  background: var(--color-surface);
 }
 
 .account-summary-icon,
@@ -67,15 +67,15 @@
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: rgba(178,138,32, 0.1);
-  color: #8a6b16;
+  background: var(--palette-cream-deep);
+  color: var(--palette-gold-dark);
 }
 
 .account-summary-card p,
 .account-summary-card small {
   display: block;
   margin: 0;
-  color: var(--app-muted, #73736f);
+  color: var(--color-text-muted);
 }
 
 .account-summary-card strong {
@@ -93,9 +93,9 @@
 
 .account-section {
   padding: 26px;
-  border: 1px solid var(--app-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 24px;
-  background: var(--app-surface, #fff);
+  background: var(--color-surface);
 }
 
 .account-section-header {
@@ -113,7 +113,7 @@
 
 .account-section-header p {
   margin: 0;
-  color: var(--app-muted, #73736f);
+  color: var(--color-text-muted);
 }
 
 .account-text-link {
@@ -121,7 +121,7 @@
   align-items: center;
   gap: 4px;
   white-space: nowrap;
-  color: #8a6b16;
+  color: var(--palette-gold-dark);
   font-weight: 750;
   text-decoration: none;
 }
@@ -136,7 +136,7 @@
   align-items: center;
   gap: 14px;
   padding: 15px;
-  border: 1px solid var(--app-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
 }
 
@@ -148,7 +148,7 @@
 }
 
 .account-list-copy span {
-  color: var(--app-muted, #73736f);
+  color: var(--color-text-muted);
   font-size: 0.91rem;
 }
 
@@ -156,8 +156,8 @@
   display: inline-flex;
   padding: 6px 10px;
   border-radius: 999px;
-  background: #f5f5f3;
-  color: #555552;
+  background: var(--palette-grey-200);
+  color: var(--palette-grey-800);
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: capitalize;
@@ -181,7 +181,7 @@
 }
 
 .account-shortcuts > a:hover {
-  background: #f8fafc;
+  background: var(--palette-cream);
   transform: translateX(2px);
 }
 
@@ -190,8 +190,10 @@
   gap: 3px;
 }
 
-.account-shortcuts small {
-  color: var(--app-muted, #73736f);
+.account-shortcuts small,
+.account-order-card p,
+.account-note {
+  color: var(--color-text-muted);
 }
 
 .account-order-grid {
@@ -204,7 +206,7 @@
   display: grid;
   gap: 9px;
   padding: 19px;
-  border: 1px solid var(--app-border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 18px;
 }
 
@@ -216,7 +218,6 @@
 
 .account-order-card p {
   margin: 0;
-  color: var(--app-muted, #73736f);
 }
 
 .account-order-card b {
@@ -228,7 +229,6 @@
   align-items: center;
   gap: 9px;
   margin-top: 18px;
-  color: var(--app-muted, #73736f);
   font-size: 0.9rem;
 }
 
@@ -237,10 +237,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .account-content-grid {
-    grid-template-columns: 1fr;
-  }
-
+  .account-content-grid,
   .account-order-grid {
     grid-template-columns: 1fr;
   }
