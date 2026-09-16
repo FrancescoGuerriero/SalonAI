@@ -300,3 +300,81 @@ test(
     );
   }
 );
+
+test(
+  "prepare phase changes only appointment capability",
+  async () => {
+    const {
+      selectRosterPhaseChanges,
+    } =
+      await import(
+        "../services/productionStylistRosterService.js"
+      );
+
+    assert.deepEqual(
+      selectRosterPhaseChanges(
+        {
+          isActive: true,
+          acceptsAppointments: false,
+          profilePublished: false,
+          jobTitle: "Reception",
+        },
+        "prepare"
+      ),
+      {
+        acceptsAppointments: false,
+      }
+    );
+  }
+);
+
+test(
+  "finalize phase retains the complete required change set",
+  async () => {
+    const {
+      selectRosterPhaseChanges,
+    } =
+      await import(
+        "../services/productionStylistRosterService.js"
+      );
+
+    const changes = {
+      isActive: true,
+      acceptsAppointments: false,
+      profilePublished: false,
+      jobTitle: "Reception",
+    };
+
+    assert.deepEqual(
+      selectRosterPhaseChanges(
+        changes,
+        "finalize"
+      ),
+      changes
+    );
+  }
+);
+
+test(
+  "unknown roster phases fail closed",
+  async () => {
+    const {
+      selectRosterPhaseChanges,
+    } =
+      await import(
+        "../services/productionStylistRosterService.js"
+      );
+
+    assert.throws(
+      () =>
+        selectRosterPhaseChanges(
+          {
+            acceptsAppointments:
+              true,
+          },
+          "unknown"
+        ),
+      /unsupported production stylist roster phase/i
+    );
+  }
+);
