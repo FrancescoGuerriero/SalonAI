@@ -9,6 +9,7 @@ import { BookingProvider } from "./context/BookingContext.jsx";
 import { CartProvider } from "./context/CartContext.jsx";
 
 import "./index.css";
+import "./styles/salonTheme.css";
 import "./commerce.css";
 import "./styles/managementExperience.css";
 import "./styles/commerceExperience.css";
@@ -24,7 +25,6 @@ import "./styles/manageAccount.css";
 import "./styles/profileMedia.css";
 import "./styles/about.css";
 import "./styles/staffProfile.css";
-import "./styles/salonTheme.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
