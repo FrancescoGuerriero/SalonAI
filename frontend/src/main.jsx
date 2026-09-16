@@ -24,6 +24,7 @@ import "./styles/manageAccount.css";
 import "./styles/profileMedia.css";
 import "./styles/about.css";
 import "./styles/staffProfile.css";
+import "./styles/salonTheme.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
