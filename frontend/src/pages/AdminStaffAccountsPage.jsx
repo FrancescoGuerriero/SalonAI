@@ -24,10 +24,17 @@ import {
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
+import useAuth from "../hooks/useAuth.js";
 import {
   employeeScheduleForDate,
   employeeServiceNames,
 } from "../utils/employees.js";
+import {
+  hasPermission,
+} from "../utils/permissions.js";
+import {
+  isAdminRole,
+} from "../utils/roles.js";
 
 const STAFF_ROLES = [
   {
@@ -123,6 +130,33 @@ function SettingSwitch({
 }
 
 export default function AdminStaffAccountsPage() {
+  const {
+    user: currentUser,
+  } = useAuth();
+
+  const canCreate =
+    hasPermission(
+      currentUser,
+      "employee:create"
+    );
+
+  const canUpdate =
+    hasPermission(
+      currentUser,
+      "employee:update"
+    );
+
+  const canDeactivate =
+    hasPermission(
+      currentUser,
+      "employee:deactivate"
+    );
+
+  const canManageRoles =
+    isAdminRole(
+      currentUser?.role
+    );
+
   const [
     users,
     setUsers,
@@ -395,12 +429,17 @@ export default function AdminStaffAccountsPage() {
 
     try {
       const response =
-        await adminStaffService.updateSettings(
-          user.id,
-          {
-            [field]: value,
-          }
-        );
+        field === "isActive"
+          ? await adminStaffService.setStatus(
+              user.id,
+              value
+            )
+          : await adminStaffService.updateSettings(
+              user.id,
+              {
+                [field]: value,
+              }
+            );
 
       setSuccess(
         response?.message ||
@@ -482,16 +521,18 @@ export default function AdminStaffAccountsPage() {
             Refresh
           </button>
 
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
-            onClick={
-              openCreateForm
-            }
-          >
-            <Plus size={17} />
-            Add employee
-          </button>
+          {canCreate ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
+              onClick={
+                openCreateForm
+              }
+            >
+              <Plus size={17} />
+              Add employee
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -637,30 +678,40 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      <select
-                        value={user.role}
-                        disabled={Boolean(updatingId)}
-                        onChange={(event) =>
-                          updateEmployeeSetting(
-                            user,
-                            "role",
-                            event.target.value
-                          )
-                        }
-                        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
-                        aria-label={`Role for ${user.name}`}
-                      >
-                        {STAFF_ROLES.map(
-                          (role) => (
-                            <option
-                              key={role.value}
-                              value={role.value}
-                            >
-                              {role.label}
-                            </option>
-                          )
-                        )}
-                      </select>
+                      {canManageRoles ? (
+                        <select
+                          value={user.role}
+                          disabled={Boolean(updatingId)}
+                          onChange={(event) =>
+                            updateEmployeeSetting(
+                              user,
+                              "role",
+                              event.target.value
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
+                          aria-label={`Role for ${user.name}`}
+                        >
+                          {STAFF_ROLES.map(
+                            (role) => (
+                              <option
+                                key={role.value}
+                                value={role.value}
+                              >
+                                {role.label}
+                              </option>
+                            )
+                          )}
+                        </select>
+                      ) : (
+                        <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-black">
+                          {STAFF_ROLES.find(
+                            (role) =>
+                              role.value ===
+                              user.role
+                          )?.label || user.role}
+                        </span>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -700,7 +751,7 @@ export default function AdminStaffAccountsPage() {
                   <div className="flex flex-wrap gap-2">
                     <SettingSwitch
                       checked={user.isActive !== false}
-                      disabled={Boolean(updatingId)}
+                      disabled={Boolean(updatingId) || !canDeactivate}
                       label="Active"
                       onChange={(value) =>
                         updateEmployeeSetting(
@@ -713,7 +764,7 @@ export default function AdminStaffAccountsPage() {
 
                     <SettingSwitch
                       checked={user.stylistProfile?.profilePublished === true}
-                      disabled={Boolean(updatingId)}
+                      disabled={Boolean(updatingId) || !canUpdate}
                       label="Published"
                       onChange={(value) =>
                         updateEmployeeSetting(
@@ -726,7 +777,7 @@ export default function AdminStaffAccountsPage() {
 
                     <SettingSwitch
                       checked={user.stylistProfile?.isBookable !== false}
-                      disabled={Boolean(updatingId)}
+                      disabled={Boolean(updatingId) || !canUpdate}
                       label="Bookable"
                       onChange={(value) =>
                         updateEmployeeSetting(
@@ -740,17 +791,10 @@ export default function AdminStaffAccountsPage() {
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link
-                      to="/staff-management"
+                      to={`/admin/employees/${user.id}`}
                       className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
                     >
-                      Manage schedule
-                    </Link>
-
-                    <Link
-                      to="/admin/stylists"
-                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                    >
-                      Edit profile &amp; services
+                      Manage employee
                     </Link>
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -888,7 +932,16 @@ export default function AdminStaffAccountsPage() {
                       }
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
                     >
-                      {STAFF_ROLES.map(
+                      {STAFF_ROLES.filter(
+                        (role) =>
+                          canManageRoles ||
+                          [
+                            "stylist",
+                            "receptionist",
+                          ].includes(
+                            role.value
+                          )
+                      ).map(
                         (role) => (
                           <option
                             key={

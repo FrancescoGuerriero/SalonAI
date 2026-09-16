@@ -4,6 +4,20 @@ import {
   isSupportedProfileImage,
 } from "../utils/profileMedia.js";
 
+const breakSchema = new mongoose.Schema(
+  {
+    start: {
+      type: String,
+      required: true,
+    },
+    end: {
+      type: String,
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
 const workingHoursSchema = new mongoose.Schema(
   {
     day: {
@@ -33,6 +47,11 @@ const workingHoursSchema = new mongoose.Schema(
     available: {
       type: Boolean,
       default: true,
+    },
+
+    breaks: {
+      type: [breakSchema],
+      default: [],
     },
   },
   { _id: false }

@@ -4,10 +4,11 @@ import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarCloc
 
 import useAuth from "../../hooks/useAuth.js";
 import { isAdminRole } from "../../utils/roles.js";
+import { hasPermission } from "../../utils/permissions.js";
 
 export const MANAGEMENT_SECTIONS = [
   { id: "operations", label: "Salon operations", links: [
-    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/admin/employees", "Employees", "Roles, booking and visibility", UsersRound, true], ["/staff/profile", "My public profile", "Photo, bio and specialties", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors], ["/data-imports", "Data imports", "Customers and products", Upload, true],
+    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/admin/employees", "Employees", "Roles, booking and visibility", UsersRound, false, "employee:read"], ["/staff/profile", "My public profile", "Photo, bio and specialties", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors], ["/data-imports", "Data imports", "Customers and products", Upload, true],
   ]},
   { id: "communications", label: "Communications", links: [
     ["/communications", "Communications", "Contact history", Mail], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock], ["/message-delivery", "Message delivery", "Monitor and retry", Send],
@@ -22,7 +23,7 @@ export const MANAGEMENT_SECTIONS = [
     ["/customer-experience-management", "Experience desk", "Reviews and requests", ClipboardList],
     ["/loyalty", "Loyalty programme", "Points and tiers", Award], ["/gift-cards", "Gift cards", "Issue and redeem", Gift], ["/referrals", "Referral system", "Rewards and tracking", Share2], ["/notification-centre", "Notification centre", "Delivery status", BellRing], ["/push-notifications", "Push notifications", "Browser delivery", BellRing], ["/email-campaigns", "Email campaigns", "Targeted emails", Mail], ["/sms-reminders", "SMS reminders", "Reminder rules", MessageSquareText], ["/whatsapp-booking", "WhatsApp booking", "Conversations", MessageCircle], ["/retention-automation", "Retention automation", "Customer journeys", Workflow], ["/premium-analytics", "Premium analytics", "Feature performance", BarChart3],
   ]},
-].map((section) => ({ ...section, links: section.links.map(([to, label, description, icon, adminOnly]) => ({ to, label, description, icon, adminOnly: Boolean(adminOnly) })) }));
+].map((section) => ({ ...section, links: section.links.map(([to, label, description, icon, adminOnly, permission]) => ({ to, label, description, icon, adminOnly: Boolean(adminOnly), permission: permission || "" })) }));
 
 export const MANAGEMENT_LINKS = MANAGEMENT_SECTIONS.flatMap((section) => section.links);
 
@@ -36,10 +37,11 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
       ...section,
       links: section.links.filter((link) =>
         (!link.adminOnly || isAdminRole(user?.role)) &&
+        (!link.permission || hasPermission(user, link.permission)) &&
         (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
       ),
     })).filter((section) => section.links.length);
-  }, [query, user?.role]);
+  }, [query, user?.permissions, user?.role]);
 
   function toggle(id) {
     setClosed((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
