@@ -11,19 +11,19 @@
   border-radius: 14px;
   font-size: 0.88rem;
   font-weight: 750;
-  box-shadow: 0 18px 45px rgba(17,17,16, 0.2);
+  box-shadow: var(--shadow-medium);
 }
 
 .network-status-offline {
-  border: 1px solid #fdba74;
-  background: #fff7ed;
-  color: #62501d;
+  border: 1px solid var(--palette-grey-300);
+  background: var(--palette-cream-deep);
+  color: var(--palette-grey-800);
 }
 
 .network-status-online {
-  border: 1px solid #dfc77e;
-  background: #f7f0df;
-  color: #62501d;
+  border: 1px solid var(--palette-gold-light);
+  background: var(--palette-gold-soft);
+  color: var(--palette-grey-800);
 }
 
 .page-loader {
@@ -33,7 +33,7 @@
   gap: 14px;
   min-height: 280px;
   padding: 36px;
-  color: #73736f;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -45,8 +45,8 @@
 .page-loader-spinner {
   width: 38px;
   height: 38px;
-  border: 4px solid #e6e6e2;
-  border-top-color: #b28a20;
+  border: 4px solid var(--palette-grey-200);
+  border-top-color: var(--palette-gold-dark);
   border-radius: 50%;
   animation: salonai-spin 0.8s linear infinite;
 }
@@ -57,10 +57,10 @@
   gap: 10px;
   min-height: 260px;
   padding: 36px;
-  border: 1px solid #e6e6e2;
+  border: 1px solid var(--color-border);
   border-radius: 20px;
-  background: #fff;
-  color: #73736f;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -75,9 +75,9 @@
 }
 
 .async-state-error {
-  border-color: #eadbbd;
-  background: #fffafa;
-  color: #292927;
+  border-color: var(--palette-grey-300);
+  background: var(--palette-cream);
+  color: var(--palette-grey-800);
 }
 
 .async-state button {
@@ -85,36 +85,42 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 42px;
+  min-height: 44px;
   margin-top: 8px;
   padding: 0 15px;
-  border: 0;
+  border: 1px solid var(--palette-gold);
   border-radius: 12px;
-  background: #8a6b16;
-  color: #fff;
+  background: var(--palette-gold);
+  color: var(--palette-black);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
+}
+
+.async-state button:hover:not(:disabled) {
+  border-color: var(--color-primary-dark);
+  background: var(--color-primary-dark);
 }
 
 .app-error-page {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 32px 16px;
   background:
-    radial-gradient(circle at top, rgba(223,199,126, 0.24), transparent 34%),
-    #f8fafc;
+    radial-gradient(circle at top, rgba(216, 184, 74, 0.18), transparent 34%),
+    var(--color-background);
 }
 
 .app-error-card {
   width: min(100%, 650px);
   padding: clamp(30px, 6vw, 58px);
-  border: 1px solid #eadbbd;
+  border: 1px solid var(--color-border);
   border-radius: 28px;
-  background: #fff;
+  background: var(--color-surface);
   text-align: center;
-  box-shadow: 0 24px 70px rgba(17,17,16, 0.1);
+  box-shadow: var(--shadow-medium);
 }
 
 .app-error-icon {
@@ -123,13 +129,13 @@
   width: 72px;
   height: 72px;
   border-radius: 22px;
-  background: #eadbbd;
-  color: #454542;
+  background: var(--palette-cream-deep);
+  color: var(--palette-grey-800);
 }
 
 .app-error-eyebrow {
   margin: 19px 0 6px;
-  color: #454542;
+  color: var(--palette-gold-dark);
   font-size: 0.76rem;
   font-weight: 850;
   letter-spacing: 0.09em;
@@ -145,7 +151,7 @@
 .app-error-card > p:not(.app-error-eyebrow) {
   max-width: 520px;
   margin: 14px auto 0;
-  color: #73736f;
+  color: var(--color-text-muted);
   line-height: 1.7;
 }
 
@@ -155,8 +161,8 @@
   margin: 20px 0 0;
   padding: 14px;
   border-radius: 12px;
-  background: #111110;
-  color: #e6e6e2;
+  background: var(--palette-black);
+  color: var(--color-text-on-dark);
   font-size: 0.78rem;
   text-align: left;
   white-space: pre-wrap;
@@ -186,15 +192,26 @@
 }
 
 .app-error-primary {
-  border: 1px solid #8a6b16;
-  background: #8a6b16;
-  color: #fff;
+  border: 1px solid var(--palette-gold);
+  background: var(--palette-gold);
+  color: var(--palette-black);
+}
+
+.app-error-primary:hover {
+  border-color: var(--color-primary-dark);
+  background: var(--color-primary-dark);
+  color: var(--palette-black);
 }
 
 .app-error-secondary {
-  border: 1px solid #d1d1cc;
-  background: #fff;
-  color: #292927;
+  border: 1px solid var(--palette-grey-300);
+  background: var(--palette-white);
+  color: var(--palette-grey-800);
+}
+
+.app-error-secondary:hover {
+  border-color: var(--palette-black);
+  color: var(--palette-black);
 }
 
 @keyframes salonai-spin {
@@ -212,7 +229,7 @@
 @media (max-width: 520px) {
   .network-status {
     right: 10px;
-    bottom: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
     width: calc(100% - 20px);
   }
 
@@ -224,5 +241,6 @@
   .app-error-primary,
   .app-error-secondary {
     width: 100%;
+    min-height: 48px;
   }
 }
