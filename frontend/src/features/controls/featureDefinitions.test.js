@@ -65,3 +65,18 @@ test("public navigation consistently hides administrator-disabled actions", asyn
     "Footer WhatsApp visibility must honour the feature control."
   );
 });
+
+test("customer experience dashboard applies independent feature selections", async () => {
+  const suite = await readFile(
+    new URL("../../pages/CustomerExperienceSuitePage.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(suite, /consultationEnabled\s*=\s*isFeatureEnabled\("consultation"\)/);
+  assert.match(suite, /onlineBookingEnabled\s*=\s*isFeatureEnabled\("online-booking"\)/);
+  assert.match(suite, /salonChatbotEnabled\s*=\s*isFeatureEnabled\("salon-chatbot"\)/);
+  assert.match(suite, /featureId:\s*"wallet"/);
+  assert.match(suite, /featureId:\s*"loyalty"/);
+  assert.match(suite, /featureId:\s*"offers"/);
+  assert.match(suite, /featureId:\s*"referrals"/);
+});
