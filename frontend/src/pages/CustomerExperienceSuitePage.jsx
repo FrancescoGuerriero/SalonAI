@@ -99,17 +99,16 @@ const ACCOUNT_TOOLS = [
 const REWARD_TOOLS = [
   {
     icon: Gift,
-    title: "Loyalty programme",
-    description: "Review points, tier progress and eligible loyalty rewards from your account.",
+    title: "Loyalty and gift cards",
+    description: "Review loyalty activity and keep eligible salon gift cards available from your account.",
     to: "/experience/loyalty",
     featureId: "loyalty",
   },
   {
     icon: CreditCard,
-    title: "Gift cards and wallet",
-    description: "Keep eligible salon gift cards and wallet balances connected to your customer account.",
-    to: "/experience/wallet",
-    featureId: "wallet",
+    title: "Payments",
+    description: "Understand appointment deposits, balances, secure Stripe Checkout and order payment status.",
+    to: "/help",
   },
   {
     icon: ShoppingBag,
@@ -120,17 +119,10 @@ const REWARD_TOOLS = [
   },
   {
     icon: HeartHandshake,
-    title: "Offers",
-    description: "Discover and save eligible salon offers from the connected customer experience.",
+    title: "Offers and referrals",
+    description: "Save eligible offers and use referral tools from the connected customer experience.",
     to: "/experience/offers",
     featureId: "offers",
-  },
-  {
-    icon: UsersRound,
-    title: "Referrals",
-    description: "Share eligible referral codes and track qualification and rewards.",
-    to: "/experience/referrals",
-    featureId: "referrals",
   },
 ];
 
@@ -160,10 +152,6 @@ function ToolGrid({ items, isFeatureEnabled }) {
 
 export default function CustomerExperienceSuitePage() {
   const { isFeatureEnabled } = useFeatureControls();
-  const consultationEnabled = isFeatureEnabled("consultation");
-  const onlineBookingEnabled = isFeatureEnabled("online-booking");
-  const salonChatbotEnabled = isFeatureEnabled("salon-chatbot");
-
   return (
     <main className="salon-experience-page" id="main-content" tabIndex="-1">
       <section className="salon-experience-hero">
@@ -176,35 +164,29 @@ export default function CustomerExperienceSuitePage() {
             you do not need to repeat the same information every time.
           </p>
           <div className="salon-experience-actions">
-            {consultationEnabled ? (
-              <Link to="/account/manage" className="customer-primary-link">
-                Complete my consultation <ArrowRight size={17} />
-              </Link>
-            ) : null}
-            {onlineBookingEnabled ? (
-              <Link to="/booking" className="customer-secondary-link">
-                <CalendarCheck size={17} /> Book an appointment
-              </Link>
-            ) : null}
+            <Link to="/account/manage" className="customer-primary-link">
+              Complete my consultation <ArrowRight size={17} />
+            </Link>
+            <Link to="/booking" className="customer-secondary-link">
+              <CalendarCheck size={17} /> Book an appointment
+            </Link>
           </div>
         </div>
 
-        {salonChatbotEnabled ? (
-          <aside className="salon-experience-assistant-card">
-            <span><Bot size={25} /></span>
-            <p className="customer-eyebrow">SalonAI assistant</p>
-            <h2>Need help choosing?</h2>
-            <p>
-              Use Ask SalonAI for general service, product and booking guidance,
-              then use your consultation for the detailed information your stylist
-              needs before a service.
-            </p>
-            <small>
-              <ShieldCheck size={15} /> Never share passwords, verification links
-              or full payment-card details in chat.
-            </small>
-          </aside>
-        ) : null}
+        <aside className="salon-experience-assistant-card">
+          <span><Bot size={25} /></span>
+          <p className="customer-eyebrow">SalonAI assistant</p>
+          <h2>Need help choosing?</h2>
+          <p>
+            Use Ask SalonAI for general service, product and booking guidance,
+            then use your consultation for the detailed information your stylist
+            needs before a service.
+          </p>
+          <small>
+            <ShieldCheck size={15} /> Never share passwords, verification links
+            or full payment-card details in chat.
+          </small>
+        </aside>
       </section>
 
       <section className="salon-experience-section">
@@ -290,7 +272,7 @@ export default function CustomerExperienceSuitePage() {
             <p>Review live services, prices and durations before booking.</p>
             <Link to="/services">Browse services <ArrowRight size={15} /></Link>
           </article>
-          {onlineBookingEnabled ? <article>
+          {isFeatureEnabled("online-booking") ? <article>
             <span><UsersRound size={22} /></span>
             <small>Team</small>
             <h3>Meet your stylists</h3>
