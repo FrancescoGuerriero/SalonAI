@@ -21,6 +21,7 @@ test("feature controls provide unique boolean code defaults", () => {
     assert.ok(definition.category);
   }
 });
+
 test("administrator overrides take precedence and missing values use code defaults", () => {
   const states = resolveFeatureControls([
     {
@@ -86,6 +87,21 @@ test("stylist API separates protected management data from public booking data",
   assert.doesNotMatch(PUBLIC_STYLIST_FIELDS, /acceptsAppointments/);
   assert.doesNotMatch(PUBLIC_STYLIST_FIELDS, /profilePublished/);
   assert.doesNotMatch(PUBLIC_STYLIST_FIELDS, /isActive/);
+});
+
+test("customer booking can be disabled without disabling staff appointment work", async () => {
+  const routes = await readFile(
+    new URL("../routes/appointmentRoutes.js", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(routes, /const managementRoles = new Set\(\[/);
+  assert.match(routes, /"admin"/);
+  assert.match(routes, /"manager"/);
+  assert.match(routes, /"receptionist"/);
+  assert.match(routes, /"stylist"/);
+  assert.match(routes, /managementRoles\.has\(request\.user\?\.role\)/);
+  assert.match(routes, /requireCustomerOnlineBooking\(request, response, next\)/);
 });
 
 test("system administration feature controls are mounted and admin-only", async () => {
