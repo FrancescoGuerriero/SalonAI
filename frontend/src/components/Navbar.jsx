@@ -661,7 +661,7 @@ export default function Navbar() {
                 </div>
               ) : null}
 
-              {whatsappUrl ? (
+              {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
                 <a
                   href={
                     whatsappUrl
