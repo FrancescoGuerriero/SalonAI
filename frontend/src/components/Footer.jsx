@@ -113,6 +113,9 @@ export default function Footer() {
   const whatsappUrl =
     getWhatsAppBookingUrl();
 
+  const whatsappBookingEnabled =
+    isFeatureEnabled("whatsapp-booking");
+
   return (
     <footer className="app-footer">
       <div className="app-footer-inner">
@@ -213,7 +216,7 @@ export default function Footer() {
             </nav>
           ) : null}
 
-          {appDownloadLinks.length > 0 ? (
+          {appDownloadLinks.length > 0 && isFeatureEnabled("pwa") ? (
             <nav aria-label="Download the SalonAI app">
               <strong>
                 Get the app
@@ -248,15 +251,14 @@ export default function Footer() {
             </nav>
           ) : null}
 
-          {socialLinks.length >
-            0 ||
-          whatsappUrl ? (
+          {socialLinks.length > 0 ||
+          (whatsappUrl && whatsappBookingEnabled) ? (
             <nav aria-label="Social media and messaging">
               <strong>
                 Connect
               </strong>
 
-              {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
+              {whatsappUrl && whatsappBookingEnabled ? (
                 <a
                   href={
                     whatsappUrl
