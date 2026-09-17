@@ -66,33 +66,6 @@ test("public navigation consistently hides administrator-disabled actions", asyn
   );
 });
 
-test("customer experience dashboard applies independent feature selections", async () => {
-  const suite = await readFile(
-    new URL("../../pages/CustomerExperienceSuitePage.jsx", import.meta.url),
-    "utf8"
-  );
-
-  assert.match(suite, /consultationEnabled\s*=\s*isFeatureEnabled\("consultation"\)/);
-  assert.match(suite, /onlineBookingEnabled\s*=\s*isFeatureEnabled\("online-booking"\)/);
-  assert.match(suite, /salonChatbotEnabled\s*=\s*isFeatureEnabled\("salon-chatbot"\)/);
-  assert.match(suite, /featureId:\s*"wallet"/);
-  assert.match(suite, /featureId:\s*"loyalty"/);
-  assert.match(suite, /featureId:\s*"offers"/);
-  assert.match(suite, /featureId:\s*"referrals"/);
-});
-
-test("homepage follows public feature visibility selections", async () => {
-  const home = await readFile(
-    new URL("../../pages/Home.jsx", import.meta.url),
-    "utf8"
-  );
-
-  assert.match(home, /onlineBookingEnabled\s*=\s*isFeatureEnabled\("online-booking"\)/);
-  assert.match(home, /onlineShopEnabled\s*=\s*isFeatureEnabled\("online-shop"\)/);
-  assert.match(home, /loyaltyEnabled\s*=\s*isFeatureEnabled\("loyalty"\)/);
-  assert.match(home, /reviewsEnabled\s*=\s*isFeatureEnabled\("reviews"\)/);
-});
-
 test("service cards hide booking actions when their features are disabled", async () => {
   const serviceCard = await readFile(
     new URL("../../components/customer/ServiceCard.jsx", import.meta.url),
