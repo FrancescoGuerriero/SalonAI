@@ -5,6 +5,7 @@ import Stylist from "../src/models/Stylist.js";
 
 import {
   PRODUCTION_STYLIST_ROSTER,
+  LEGACY_ROLLBACK_STYLIST_ROSTER,
   assertRosterDefinition,
   inspectRosterRecords,
   assertRosterInspection,
@@ -15,6 +16,8 @@ const APPLY_ARGUMENT = "--apply";
 const VERIFY_ARGUMENT = "--verify";
 const PREPARE_ARGUMENT = "--prepare";
 const FINALIZE_ARGUMENT = "--finalize";
+const LEGACY_ROLLBACK_ARGUMENT =
+  "--legacy-rollback";
 
 const CONFIRM_ARGUMENT =
   "--confirm=v8.14.10-production-stylist-roster";
@@ -55,14 +58,26 @@ function parseMode(argv) {
       FINALIZE_ARGUMENT
     );
 
+  const legacyRollback =
+    argv.includes(
+      LEGACY_ROLLBACK_ARGUMENT
+    );
+
   const confirmed =
     argv.includes(
       CONFIRM_ARGUMENT
     );
 
-  if (prepare === finalize) {
+  const selectedPhases =
+    [
+      prepare,
+      finalize,
+      legacyRollback,
+    ].filter(Boolean).length;
+
+  if (selectedPhases !== 1) {
     throw new Error(
-      "Exactly one roster phase is required: --prepare or --finalize."
+      "Exactly one roster phase is required: --prepare, --finalize, or --legacy-rollback."
     );
   }
 
@@ -84,8 +99,16 @@ function parseMode(argv) {
     phase:
       prepare
         ? "prepare"
-        : "finalize",
+        : finalize
+          ? "finalize"
+          : "legacy-rollback",
   };
+}
+
+function rosterForPhase(phase) {
+  return phase === "legacy-rollback"
+    ? LEGACY_ROLLBACK_STYLIST_ROSTER
+    : PRODUCTION_STYLIST_ROSTER;
 }
 
 function selectPhaseInspection(
@@ -133,10 +156,11 @@ function serialisePlan(
 }
 
 async function readRoster(
-  collection
+  collection,
+  roster
 ) {
   const ids =
-    PRODUCTION_STYLIST_ROSTER.map(
+    roster.map(
       (entry) =>
         new mongoose.Types.ObjectId(
           entry.id
@@ -171,14 +195,21 @@ async function verifyState(
   collection,
   phase
 ) {
+  const roster =
+    rosterForPhase(
+      phase
+    );
+
   const records =
     await readRoster(
-      collection
+      collection,
+      roster
     );
 
   const completeInspection =
     inspectRosterRecords(
-      records
+      records,
+      roster
     );
 
   assertRosterInspection(
@@ -239,7 +270,12 @@ function findIncomplete(
 }
 
 async function main() {
-  assertRosterDefinition();
+  assertRosterDefinition(
+    PRODUCTION_STYLIST_ROSTER
+  );
+  assertRosterDefinition(
+    LEGACY_ROLLBACK_STYLIST_ROSTER
+  );
 
   const {
     apply,

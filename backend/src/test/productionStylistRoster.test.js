@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 
 import {
   PRODUCTION_STYLIST_ROSTER,
+  LEGACY_ROLLBACK_STYLIST_ROSTER,
   assertRosterDefinition,
   inspectRosterRecords,
   assertRosterInspection,
   resolveRosterRecordName,
+  selectRosterPhaseChanges,
 } from "../services/productionStylistRosterService.js";
 
 function recordFor(
@@ -303,14 +305,7 @@ test(
 
 test(
   "prepare phase changes only appointment capability",
-  async () => {
-    const {
-      selectRosterPhaseChanges,
-    } =
-      await import(
-        "../services/productionStylistRosterService.js"
-      );
-
+  () => {
     assert.deepEqual(
       selectRosterPhaseChanges(
         {
@@ -330,14 +325,7 @@ test(
 
 test(
   "finalize phase retains the complete required change set",
-  async () => {
-    const {
-      selectRosterPhaseChanges,
-    } =
-      await import(
-        "../services/productionStylistRosterService.js"
-      );
-
+  () => {
     const changes = {
       isActive: true,
       acceptsAppointments: false,
@@ -356,15 +344,178 @@ test(
 );
 
 test(
-  "unknown roster phases fail closed",
-  async () => {
-    const {
-      selectRosterPhaseChanges,
-    } =
-      await import(
-        "../services/productionStylistRosterService.js"
+  "legacy rollback roster preserves the nine controlled identities",
+  () => {
+    assert.equal(
+      assertRosterDefinition(
+        LEGACY_ROLLBACK_STYLIST_ROSTER
+      ),
+      true
+    );
+
+    assert.deepEqual(
+      LEGACY_ROLLBACK_STYLIST_ROSTER.map(
+        (entry) => [
+          entry.id,
+          entry.expectedName,
+        ]
+      ),
+      PRODUCTION_STYLIST_ROSTER.map(
+        (entry) => [
+          entry.id,
+          entry.expectedName,
+        ]
+      )
+    );
+  }
+);
+
+test(
+  "legacy rollback keeps four providers active and makes all non-bookable records inactive",
+  () => {
+    const active =
+      LEGACY_ROLLBACK_STYLIST_ROSTER.filter(
+        (entry) => entry.set.isActive === true
       );
 
+    const inactive =
+      LEGACY_ROLLBACK_STYLIST_ROSTER.filter(
+        (entry) => entry.set.isActive === false
+      );
+
+    assert.equal(
+      active.length,
+      4
+    );
+    assert.equal(
+      inactive.length,
+      5
+    );
+
+    assert.equal(
+      active.every(
+        (entry) =>
+          entry.set.acceptsAppointments === true
+      ),
+      true
+    );
+
+    assert.equal(
+      inactive.every(
+        (entry) =>
+          entry.set.acceptsAppointments === false
+      ),
+      true
+    );
+  }
+);
+
+test(
+  "legacy rollback phase changes only legacy isActive compatibility state",
+  () => {
+    assert.deepEqual(
+      selectRosterPhaseChanges(
+        {
+          isActive: false,
+          acceptsAppointments: false,
+          profilePublished: false,
+          jobTitle: "Reception",
+        },
+        "legacy-rollback"
+      ),
+      {
+        isActive: false,
+      }
+    );
+  }
+);
+
+test(
+  "finalized roster produces exactly four legacy rollback safety changes",
+  () => {
+    const finalizedRecords =
+      PRODUCTION_STYLIST_ROSTER.map(
+        recordFor
+      );
+
+    const inspection =
+      inspectRosterRecords(
+        finalizedRecords,
+        LEGACY_ROLLBACK_STYLIST_ROSTER
+      );
+
+    assert.equal(
+      inspection.safe,
+      true
+    );
+
+    const rollbackChanges =
+      inspection.plan
+        .map(
+          (item) =>
+            selectRosterPhaseChanges(
+              item.changes,
+              "legacy-rollback"
+            )
+        )
+        .filter(
+          (changes) =>
+            Object.keys(changes).length > 0
+        );
+
+    assert.equal(
+      rollbackChanges.length,
+      4
+    );
+
+    assert.equal(
+      rollbackChanges.every(
+        (changes) =>
+          changes.isActive === false &&
+          Object.keys(changes).length === 1
+      ),
+      true
+    );
+  }
+);
+
+test(
+  "legacy rollback state is idempotent",
+  () => {
+    const records =
+      LEGACY_ROLLBACK_STYLIST_ROSTER.map(
+        recordFor
+      );
+
+    const inspection =
+      inspectRosterRecords(
+        records,
+        LEGACY_ROLLBACK_STYLIST_ROSTER
+      );
+
+    assert.equal(
+      inspection.safe,
+      true
+    );
+
+    assert.equal(
+      inspection.plan.every(
+        (item) =>
+          Object.keys(
+            selectRosterPhaseChanges(
+              item.changes,
+              "legacy-rollback"
+            )
+          ).length === 0
+      ),
+      true
+    );
+  }
+);
+
+test(
+  "unknown roster phases fail closed",
+  () => {
     assert.throws(
       () =>
         selectRosterPhaseChanges(

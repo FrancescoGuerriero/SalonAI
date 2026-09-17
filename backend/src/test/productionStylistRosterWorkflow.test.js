@@ -11,7 +11,7 @@ const workflowUrl =
   );
 
 test(
-  "production roster workflow governs prepare and finalize phases",
+  "production roster workflow governs prepare finalize and legacy rollback phases",
   async () => {
     const workflow =
       await readFile(
@@ -32,6 +32,11 @@ test(
     assert.match(
       workflow,
       /FINALIZE/
+    );
+
+    assert.match(
+      workflow,
+      /ROLLBACK_PREP/
     );
 
     assert.match(
@@ -76,6 +81,11 @@ test(
 
     assert.match(
       workflow,
+      /--legacy-rollback/
+    );
+
+    assert.match(
+      workflow,
       /--apply/
     );
 
@@ -91,7 +101,7 @@ test(
 
     assert.match(
       workflow,
-      /FINALIZE requires the requested release to be deployed/
+      /requires the requested release to be deployed/
     );
 
     assert.match(
@@ -122,6 +132,57 @@ test(
     assert.doesNotMatch(
       workflow,
       /MONGODB_URI:\s*\$\{\{\s*secrets\./
+    );
+  }
+);
+
+test(
+  "finalize and rollback preparation require the actual target backend image",
+  async () => {
+    const workflow =
+      await readFile(
+        workflowUrl,
+        "utf8"
+      );
+
+    assert.match(
+      workflow,
+      /FINALIZE.*ROLLBACK_PREP/
+    );
+
+    assert.match(
+      workflow,
+      /target_backend_image="\$3"/
+    );
+
+    assert.match(
+      workflow,
+      /\.Config\.Image/
+    );
+
+    assert.match(
+      workflow,
+      /running_config_image/
+    );
+
+    assert.match(
+      workflow,
+      /running_image_id/
+    );
+
+    assert.match(
+      workflow,
+      /docker image inspect/
+    );
+
+    assert.match(
+      workflow,
+      /target_image_id/
+    );
+
+    assert.match(
+      workflow,
+      /running backend image ID to match the target immutable release image/
     );
   }
 );
