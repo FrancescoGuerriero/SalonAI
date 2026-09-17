@@ -6,6 +6,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import useFeatureControls from "../../hooks/useFeatureControls.js";
+
 function formatPrice(value) {
   const amount = Number(value || 0);
 
@@ -34,9 +36,17 @@ export default function ServiceCard({
   onSelect,
   onConsult,
 }) {
+  const { isFeatureEnabled } = useFeatureControls();
+  const onlineBookingEnabled = isFeatureEnabled("online-booking");
+  const whatsappBookingEnabled = isFeatureEnabled("whatsapp-booking");
   const consultationOnly =
     service.onlineBookable === false ||
     service.priceOnConsultation === true;
+
+  const showWhatsAppAction =
+    consultationOnly && whatsappBookingEnabled;
+  const showOnlineBookingAction =
+    !consultationOnly && onlineBookingEnabled;
 
   return (
     <article className="customer-card service-card">
@@ -72,7 +82,7 @@ export default function ServiceCard({
           <strong>{servicePrice(service)}</strong>
         </div>
 
-        {consultationOnly ? (
+        {showWhatsAppAction ? (
           <button
             type="button"
             className="customer-card-action"
@@ -82,7 +92,9 @@ export default function ServiceCard({
             Book on WhatsApp
             <ArrowRight size={17} />
           </button>
-        ) : (
+        ) : null}
+
+        {showOnlineBookingAction ? (
           <button
             type="button"
             className="customer-card-action"
@@ -92,7 +104,7 @@ export default function ServiceCard({
             Choose service
             <ArrowRight size={17} />
           </button>
-        )}
+        ) : null}
       </div>
     </article>
   );
