@@ -19,6 +19,14 @@ const stylistService = {
     return data;
   },
 
+  async getBookingStylists() {
+    const { data } = await API.get(
+      `${ENDPOINT}/booking`
+    );
+
+    return data;
+  },
+
   async getStylist(id) {
     const { data } = await API.get(
       `${ENDPOINT}/${id}`

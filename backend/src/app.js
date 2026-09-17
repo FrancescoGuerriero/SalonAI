@@ -33,6 +33,10 @@ import messageDeliverySchedulerRoutes from "./routes/messageDeliverySchedulerRou
 import scheduledCommunicationRoutes from "./routes/scheduledCommunicationRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
 import stylistRoutes from "./routes/stylistRoutes.js";
+import appConfigurationRoutes from "./routes/appConfigurationRoutes.js";
+import systemAdministrationRoutes from "./routes/systemAdministrationRoutes.js";
+import healthRoutes from "./routes/healthRoutes.js";
+import { requireFeature } from "./services/featureControlService.js";
 
 import supplierRoutes from "./features/inventoryPurchasing/routes/supplierRoutes.js";
 import purchaseOrderRoutes from "./features/inventoryPurchasing/routes/purchaseOrderRoutes.js";
@@ -81,16 +85,19 @@ app.use(
 );
 app.use(
   "/api/suppliers",
+  requireFeature("inventory-purchasing"),
   supplierRoutes
 );
 
 app.use(
   "/api/purchase-orders",
+  requireFeature("inventory-purchasing"),
   purchaseOrderRoutes
 );
 
 app.use(
   "/api/inventory-purchasing",
+  requireFeature("inventory-purchasing"),
   inventoryPurchasingRoutes
 );
 
@@ -156,16 +163,16 @@ app.use(
 | Mounted after the API rate limiter and body-parsing middleware so authenticated
 | premium endpoints can safely read request bodies.
 */
-app.use("/api/loyalty", loyaltyRoutes);
-app.use("/api/gift-cards", giftCardRoutes);
-app.use("/api/referrals", referralRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/push", pushRoutes);
-app.use("/api/email-campaigns", emailCampaignRoutes);
-app.use("/api/sms", smsRoutes);
-app.use("/api/whatsapp", whatsappRoutes);
-app.use("/api/retention-automation", automationRoutes);
-app.use("/api/premium-analytics", premiumAnalyticsRoutes);
+app.use("/api/loyalty", requireFeature("loyalty"), loyaltyRoutes);
+app.use("/api/gift-cards", requireFeature("wallet"), giftCardRoutes);
+app.use("/api/referrals", requireFeature("referrals"), referralRoutes);
+app.use("/api/notifications", requireFeature("notifications"), notificationRoutes);
+app.use("/api/push", requireFeature("notifications"), pushRoutes);
+app.use("/api/email-campaigns", requireFeature("communications"), emailCampaignRoutes);
+app.use("/api/sms", requireFeature("communications"), smsRoutes);
+app.use("/api/whatsapp", requireFeature("whatsapp-booking"), whatsappRoutes);
+app.use("/api/retention-automation", requireFeature("retention-automation"), automationRoutes);
+app.use("/api/premium-analytics", requireFeature("premium-analytics"), premiumAnalyticsRoutes);
 app.use("/api/customer-experience", customerExperienceRoutes);
 app.use("/api/data-imports", dataImportRoutes);
 
@@ -201,6 +208,11 @@ app.get(
   }
 );
 
+app.use(
+  "/api/health",
+  healthRoutes
+);
+
 /*
 |--------------------------------------------------------------------------
 | Public and authentication routes
@@ -210,6 +222,11 @@ app.get(
 app.use(
   "/api/auth",
   authRoutes
+);
+
+app.use(
+  "/api/app-configuration",
+  appConfigurationRoutes
 );
 
 app.use(
@@ -229,6 +246,7 @@ app.use(
 
 app.use(
   "/api/chatbot",
+  requireFeature("salon-chatbot"),
   chatbotRoutes
 );
 
@@ -276,31 +294,37 @@ app.use(
 
 app.use(
   "/api/communication-templates",
+  requireFeature("communications"),
   communicationTemplateRoutes
 );
 
 app.use(
   "/api/communication-campaigns",
+  requireFeature("communications"),
   communicationCampaignRoutes
 );
 
 app.use(
   "/api/scheduled-communications",
+  requireFeature("communications"),
   scheduledCommunicationRoutes
 );
 
 app.use(
   "/api/message-delivery",
+  requireFeature("communications"),
   messageDeliveryRoutes
 );
 
 app.use(
   "/api/campaign-delivery",
+  requireFeature("communications"),
   campaignDeliveryRoutes
 );
 
 app.use(
   "/api/message-delivery-scheduler",
+  requireFeature("communications"),
   messageDeliverySchedulerRoutes
 );
 
@@ -338,6 +362,7 @@ app.use(
 
 app.use(
   "/api/ai",
+  requireFeature("ai-tools"),
   aiRecommendationRoutes
 );
 
@@ -371,6 +396,11 @@ app.use(
 app.use(
   "/api/admin",
   adminRoutes
+);
+
+app.use(
+  "/api/system-administration",
+  systemAdministrationRoutes
 );
 
 /*

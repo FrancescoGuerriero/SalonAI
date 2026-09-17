@@ -88,14 +88,7 @@ export default function Stylists() {
       setError("");
 
       const data =
-        await stylistService.getStylists(
-          {
-            active: true,
-            bookable: true,
-            published: true,
-            limit: 100,
-          }
-        );
+        await stylistService.getBookingStylists();
 
       setStylists(
         normaliseStylists(

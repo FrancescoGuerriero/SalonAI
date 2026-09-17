@@ -19,7 +19,7 @@ import {
   isCustomerVisibleStylist,
 } from "../services/stylistBookingEligibilityService.js";
 
-const PUBLIC_STYLIST_FIELDS = [
+export const PUBLIC_STYLIST_FIELDS = [
   "firstName",
   "lastName",
   "jobTitle",
@@ -35,9 +35,6 @@ const PUBLIC_STYLIST_FIELDS = [
   "rating",
   "reviews",
   "displayOrder",
-  "profilePublished",
-  "isActive",
-  "acceptsAppointments",
 ].join(" ");
 
 function createHttpError(message, statusCode, details = null) {
@@ -244,7 +241,7 @@ async function findOwnedStylist(
 
 /*
     GET /api/stylists
-    Public legacy catalogue route.
+    Authenticated management catalogue route.
 */
 export async function getStylists(req, res) {
   try {
@@ -408,6 +405,8 @@ export async function getPublicStylists(
     );
   }
 }
+
+export const getBookingStylists = getPublicStylists;
 
 /*
     GET /api/stylists/me/profile

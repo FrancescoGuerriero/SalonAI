@@ -28,6 +28,7 @@ import {
 } from "../config/publicLinks.js";
 
 import useAuth from "../hooks/useAuth.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const salonLinks = [
   {
@@ -39,6 +40,7 @@ const salonLinks = [
     to: "/stylists",
     label: "Stylists",
     icon: UsersRound,
+    featureId: "online-booking",
   },
   {
     to: "/about",
@@ -49,11 +51,13 @@ const salonLinks = [
     to: "/booking",
     label: "Book",
     icon: CalendarCheck,
+    featureId: "online-booking",
   },
   {
     to: "/shop",
     label: "Haircare shop",
     icon: ShoppingBag,
+    featureId: "online-shop",
   },
 ];
 
@@ -104,6 +108,7 @@ export default function Footer() {
   const {
     isAuthenticated,
   } = useAuth();
+  const { isFeatureEnabled } = useFeatureControls();
 
   const whatsappUrl =
     getWhatsAppBookingUrl();
@@ -139,7 +144,7 @@ export default function Footer() {
               Salon
             </strong>
 
-            {salonLinks.map(
+            {salonLinks.filter(({ featureId }) => !featureId || isFeatureEnabled(featureId)).map(
               ({
                 to,
                 label,
@@ -251,7 +256,7 @@ export default function Footer() {
                 Connect
               </strong>
 
-              {whatsappUrl ? (
+              {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
                 <a
                   href={
                     whatsappUrl

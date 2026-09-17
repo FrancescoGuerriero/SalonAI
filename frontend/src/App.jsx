@@ -16,6 +16,7 @@ import AdminRoute from "./Routes/AdminRoute.jsx";
 import ManagementRoute from "./Routes/ManagementRoute.jsx";
 import PermissionRoute from "./Routes/PermissionRoute.jsx";
 import ProtectedRoute from "./Routes/ProtectedRoute.jsx";
+import FeatureRoute from "./Routes/FeatureRoute.jsx";
 import SkipLink from "./components/accessibility/SkipLink.jsx";
 import RouteAnnouncer from "./components/accessibility/RouteAnnouncer.jsx";
 
@@ -42,6 +43,7 @@ const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienc
 const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperienceFeaturePage.jsx"));
 const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
 const CustomerExperienceManagementPage = lazy(() => import("./pages/CustomerExperienceManagementPage.jsx"));
+const SystemAdministrationPage = lazy(() => import("./pages/SystemAdministrationPage.jsx"));
 const Home = lazy(
   () => import("./pages/Home.jsx")
 );
@@ -561,6 +563,14 @@ function permissionPage(
   );
 }
 
+function featurePage(element, featureId) {
+  return (
+    <FeatureRoute featureId={featureId}>
+      {element}
+    </FeatureRoute>
+  );
+}
+
 
 function AppRoutes() {
   return (
@@ -571,16 +581,16 @@ function AppRoutes() {
         | Public routes
         |--------------------------------------------------------------------------
         */}
-<Route path="loyalty" element={managementPage(LoyaltyProgrammePage)} />
-<Route path="gift-cards" element={managementPage(GiftCardsPage)} />
-<Route path="referrals" element={managementPage(ReferralManagementPage)} />
-<Route path="notification-centre" element={managementPage(NotificationCentrePage)} />
-<Route path="push-notifications" element={managementPage(PushNotificationsPage)} />
-<Route path="email-campaigns" element={managementPage(EmailCampaignsPage)} />
-<Route path="sms-reminders" element={managementPage(SmsRemindersPage)} />
-<Route path="whatsapp-booking" element={managementPage(WhatsAppBookingPage)} />
-<Route path="retention-automation" element={managementPage(RetentionAutomationPage)} />
-<Route path="premium-analytics" element={managementPage(PremiumAnalyticsPage)} />
+<Route path="loyalty" element={featurePage(managementPage(LoyaltyProgrammePage), "loyalty")} />
+<Route path="gift-cards" element={featurePage(managementPage(GiftCardsPage), "wallet")} />
+<Route path="referrals" element={featurePage(managementPage(ReferralManagementPage), "referrals")} />
+<Route path="notification-centre" element={featurePage(managementPage(NotificationCentrePage), "notifications")} />
+<Route path="push-notifications" element={featurePage(managementPage(PushNotificationsPage), "notifications")} />
+<Route path="email-campaigns" element={featurePage(managementPage(EmailCampaignsPage), "communications")} />
+<Route path="sms-reminders" element={featurePage(managementPage(SmsRemindersPage), "communications")} />
+<Route path="whatsapp-booking" element={featurePage(managementPage(WhatsAppBookingPage), "whatsapp-booking")} />
+<Route path="retention-automation" element={featurePage(managementPage(RetentionAutomationPage), "retention-automation")} />
+<Route path="premium-analytics" element={featurePage(managementPage(PremiumAnalyticsPage), "premium-analytics")} />
 <Route path="customer-experience-management" element={managementPage(CustomerExperienceManagementPage)} />
         <Route
           index
@@ -594,7 +604,7 @@ function AppRoutes() {
 
         <Route
           path="stylists"
-          element={<Stylists />}
+          element={featurePage(<Stylists />, "online-booking")}
         />
 
         <Route
@@ -639,12 +649,12 @@ function AppRoutes() {
 
         <Route
           path="shop"
-          element={<Shop />}
+          element={featurePage(<Shop />, "online-shop")}
         />
 
         <Route
           path="shop/:identifier"
-          element={<ProductDetailsPage />}
+          element={featurePage(<ProductDetailsPage />, "online-shop")}
         />
 
         <Route
@@ -664,7 +674,7 @@ function AppRoutes() {
 
         <Route
           path="cart"
-          element={<Cart />}
+          element={featurePage(<Cart />, "online-shop")}
         />
 
 
@@ -676,23 +686,17 @@ function AppRoutes() {
 
         <Route
           path="checkout"
-          element={protectedPage(
-            Checkout
-          )}
+          element={featurePage(protectedPage(Checkout), "online-shop")}
         />
 
         <Route
           path="checkout/success"
-          element={protectedPage(
-            CheckoutSuccess
-          )}
+          element={featurePage(protectedPage(CheckoutSuccess), "online-shop")}
         />
 
         <Route
           path="orders"
-          element={protectedPage(
-            OrderHistory
-          )}
+          element={featurePage(protectedPage(OrderHistory), "online-shop")}
         />
 
         <Route
@@ -718,9 +722,7 @@ function AppRoutes() {
 
         <Route
           path="booking"
-          element={protectedPage(
-            Booking
-          )}
+          element={featurePage(protectedPage(Booking), "online-booking")}
         />
 
 
@@ -914,51 +916,37 @@ function AppRoutes() {
 
         <Route
           path="ai/haircare"
-          element={managementPage(
-            HaircareRecommendationsPage
-          )}
+          element={featurePage(managementPage(HaircareRecommendationsPage), "ai-tools")}
         />
 
         <Route
           path="ai/customer-segmentation"
-          element={managementPage(
-            AiCustomerSegmentationPage
-          )}
+          element={featurePage(managementPage(AiCustomerSegmentationPage), "ai-tools")}
         />
 
         <Route
           path="ai/customer-summaries"
-          element={managementPage(
-            CustomerAiSummariesPage
-          )}
+          element={featurePage(managementPage(CustomerAiSummariesPage), "ai-tools")}
         />
 
         <Route
           path="ai/demand-forecasting"
-          element={managementPage(
-            AiDemandForecastingPage
-          )}
+          element={featurePage(managementPage(AiDemandForecastingPage), "ai-tools")}
         />
 
         <Route
           path="ai/marketing-insights"
-          element={managementPage(
-            AiMarketingInsightsPage
-          )}
+          element={featurePage(managementPage(AiMarketingInsightsPage), "ai-tools")}
         />
 
         <Route
           path="ai/no-show-predictions"
-          element={managementPage(
-            AiNoShowPredictionPage
-          )}
+          element={featurePage(managementPage(AiNoShowPredictionPage), "ai-tools")}
         />
 
         <Route
           path="ai/sales-forecasting"
-          element={managementPage(
-            AiSalesForecastingPage
-          )}
+          element={featurePage(managementPage(AiSalesForecastingPage), "ai-tools")}
         />
 
 
@@ -970,37 +958,27 @@ function AppRoutes() {
 
         <Route
           path="communications"
-          element={managementPage(
-            CommunicationsPage
-          )}
+          element={featurePage(managementPage(CommunicationsPage), "communications")}
         />
 
         <Route
           path="communication-templates"
-          element={managementPage(
-            CommunicationTemplatesPage
-          )}
+          element={featurePage(managementPage(CommunicationTemplatesPage), "communications")}
         />
 
         <Route
           path="communication-campaigns"
-          element={managementPage(
-            CommunicationCampaignsPage
-          )}
+          element={featurePage(managementPage(CommunicationCampaignsPage), "communications")}
         />
 
         <Route
           path="scheduled-communications"
-          element={managementPage(
-            ScheduledCommunicationsPage
-          )}
+          element={featurePage(managementPage(ScheduledCommunicationsPage), "communications")}
         />
 
         <Route
           path="message-delivery"
-          element={managementPage(
-            MessageDeliveryPage
-          )}
+          element={featurePage(managementPage(MessageDeliveryPage), "communications")}
         />
 
 
@@ -1040,37 +1018,27 @@ function AppRoutes() {
 
         <Route
           path="suppliers"
-          element={managementPage(
-            SupplierManagementPage
-          )}
+          element={featurePage(managementPage(SupplierManagementPage), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders"
-          element={managementPage(
-            PurchaseOrdersPage
-          )}
+          element={featurePage(managementPage(PurchaseOrdersPage), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders/new"
-          element={managementPage(
-            CreatePurchaseOrderPage
-          )}
+          element={featurePage(managementPage(CreatePurchaseOrderPage), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders/:purchaseOrderId"
-          element={managementPage(
-            PurchaseOrderDetailsPage
-          )}
+          element={featurePage(managementPage(PurchaseOrderDetailsPage), "inventory-purchasing")}
         />
 
         <Route
           path="reorder-recommendations"
-          element={managementPage(
-            ReorderRecommendationsPage
-          )}
+          element={featurePage(managementPage(ReorderRecommendationsPage), "inventory-purchasing")}
         />
 
 
@@ -1082,65 +1050,47 @@ function AppRoutes() {
 
         <Route
           path="rebooking-campaigns"
-          element={managementPage(
-            RebookingCampaignsPage
-          )}
+          element={featurePage(managementPage(RebookingCampaignsPage), "communications")}
         />
 
         <Route
           path="marketing-attribution"
-          element={managementPage(
-            MarketingAttributionPage
-          )}
+          element={featurePage(managementPage(MarketingAttributionPage), "ai-tools")}
         />
 
         <Route
           path="smart-appointments"
-          element={managementPage(
-            SmartAppointmentsPage
-          )}
+          element={featurePage(managementPage(SmartAppointmentsPage), "ai-tools")}
         />
 
         <Route
           path="capacity-planning"
-          element={managementPage(
-            CapacityPlanningPage
-          )}
+          element={featurePage(managementPage(CapacityPlanningPage), "ai-tools")}
         />
 
         <Route
           path="dynamic-pricing"
-          element={managementPage(
-            DynamicPricingPage
-          )}
+          element={featurePage(managementPage(DynamicPricingPage), "ai-tools")}
         />
 
         <Route
           path="inventory-forecasting"
-          element={managementPage(
-            InventoryForecastingPage
-          )}
+          element={featurePage(managementPage(InventoryForecastingPage), "inventory-purchasing")}
         />
 
         <Route
           path="feedback-analytics"
-          element={managementPage(
-            FeedbackAnalyticsPage
-          )}
+          element={featurePage(managementPage(FeedbackAnalyticsPage), "ai-tools")}
         />
 
         <Route
           path="management-copilot"
-          element={managementPage(
-            ManagementCopilotPage
-          )}
+          element={featurePage(managementPage(ManagementCopilotPage), "ai-tools")}
         />
 
         <Route
           path="executive-command-centre"
-          element={managementPage(
-            ExecutiveCommandCentrePage
-          )}
+          element={featurePage(managementPage(ExecutiveCommandCentrePage), "ai-tools")}
         />
 
         <Route
@@ -1213,6 +1163,13 @@ function AppRoutes() {
           path="admin/customers"
           element={adminPage(
             AdminCustomers
+          )}
+        />
+
+        <Route
+          path="admin/system"
+          element={adminPage(
+            SystemAdministrationPage
           )}
         />
 
