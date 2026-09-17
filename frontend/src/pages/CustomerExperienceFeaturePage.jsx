@@ -39,6 +39,8 @@ import customerExperienceService from "../Services/customerExperienceService.js"
 import serviceService from "../Services/serviceService.js";
 import stylistService from "../Services/stylistService.js";
 import { roadmapFeatureMap, roadmapFeatures } from "../features/roadmap/roadmapFeatures.js";
+import { ROADMAP_FEATURE_CONTROL } from "../features/controls/featureDefinitions.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const iconMap = {
   privacy: ShieldCheck,
@@ -386,6 +388,7 @@ function FeatureWorkspace({ feature, data, appointments, services, stylists, pro
 export default function CustomerExperienceFeaturePage() {
   const { featureId = "privacy" } = useParams();
   const feature = roadmapFeatureMap[featureId] || roadmapFeatures[0];
+  const { loading: controlsLoading, isFeatureEnabled } = useFeatureControls();
   const FeatureIcon = iconMap[feature.id] || Sparkles;
   const [data, setData] = useState({});
   const [appointments, setAppointments] = useState([]);
@@ -404,7 +407,7 @@ export default function CustomerExperienceFeaturePage() {
       customerExperienceService.getMine(),
       getAppointments(),
       serviceService.getServices(),
-      stylistService.getStylists(),
+      stylistService.getBookingStylists(),
       commerceService.listProducts({ limit: 100 }),
     ]);
     if (results[0].status === "rejected") {
@@ -441,6 +444,21 @@ export default function CustomerExperienceFeaturePage() {
 
   const groups = useMemo(() => [...new Set(roadmapFeatures.map((item) => item.group))], []);
 
+  if (
+    !controlsLoading &&
+    !isFeatureEnabled(ROADMAP_FEATURE_CONTROL[feature.id] || feature.id)
+  ) {
+    return (
+      <main className="experience-suite-page" id="main-content" tabIndex="-1">
+        <section className="experience-panel">
+          <h1>{feature.title} is currently off</h1>
+          <p>A SalonAI administrator has disabled this option. Existing records are retained and the option can be enabled again from the On/Off Ideas tab.</p>
+          <Link className="app-button app-button-secondary" to="/experience"><ArrowLeft size={17} />Back to customer experience</Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="experience-suite-page" id="main-content" tabIndex="-1" aria-busy={loading || busy}>
       <header className="experience-suite-hero">
@@ -454,7 +472,7 @@ export default function CustomerExperienceFeaturePage() {
 
       <div className="experience-suite-layout">
         <aside className="experience-suite-navigation">
-          {groups.map((group) => <section key={group}><h2>{group}</h2><nav aria-label={`${group} features`}>{roadmapFeatures.filter((item) => item.group === group).map((item) => { const Icon = iconMap[item.id] || Sparkles; return <Link key={item.id} to={`/experience/${item.id}`} className={item.id === feature.id ? "is-active" : ""}><span><Icon size={16} /></span><div><small>{item.sprint}</small><strong>{item.title}</strong></div></Link>; })}</nav></section>)}
+          {groups.map((group) => <section key={group}><h2>{group}</h2><nav aria-label={`${group} features`}>{roadmapFeatures.filter((item) => item.group === group && isFeatureEnabled(ROADMAP_FEATURE_CONTROL[item.id] || item.id)).map((item) => { const Icon = iconMap[item.id] || Sparkles; return <Link key={item.id} to={`/experience/${item.id}`} className={item.id === feature.id ? "is-active" : ""}><span><Icon size={16} /></span><div><small>{item.sprint}</small><strong>{item.title}</strong></div></Link>; })}</nav></section>)}
         </aside>
 
         <section className="experience-suite-workspace">

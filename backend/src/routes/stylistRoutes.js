@@ -3,6 +3,7 @@ import express from "express";
 import {
   getStylists,
   getPublicStylists,
+  getBookingStylists,
   getStylist,
   getStylistAvailability,
   createStylist,
@@ -20,6 +21,7 @@ import {
   adminOnly,
   managementOnly,
 } from "../middleware/authMiddleware.js";
+import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
 
@@ -31,11 +33,20 @@ const router = express.Router();
 
 router.get(
   "/public",
+  requireFeature("public-team"),
   getPublicStylists
 );
 
 router.get(
+  "/booking",
+  requireFeature("online-booking"),
+  getBookingStylists
+);
+
+router.get(
   "/",
+  protect,
+  managementOnly,
   getStylists
 );
 
@@ -67,11 +78,14 @@ router.patch(
 
 router.get(
   "/:id/availability",
+  requireFeature("online-booking"),
   getStylistAvailability
 );
 
 router.get(
   "/:id",
+  protect,
+  managementOnly,
   getStylist
 );
 

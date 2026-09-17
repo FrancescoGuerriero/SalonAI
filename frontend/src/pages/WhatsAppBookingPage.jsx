@@ -530,10 +530,7 @@ export default function WhatsAppBookingPage() {
       serviceService
         .getServices(),
       stylistService
-        .getStylists({
-          active: true,
-          limit: 100,
-        }),
+        .getBookingStylists(),
     ])
       .then(
         ([

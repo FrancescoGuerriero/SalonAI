@@ -153,12 +153,103 @@ function fallbackRanges(stylist, target) {
     return [];
   }
 
-  return validateRanges([
-    {
-      start: workingDay.start || "09:00",
-      end: workingDay.end || "17:00",
-    },
-  ]);
+  const start =
+    workingDay.start ||
+    "09:00";
+  const end =
+    workingDay.end ||
+    "17:00";
+  const dayStart =
+    timeToMinutes(
+      start,
+      "workingHours.start"
+    );
+  const dayEnd =
+    timeToMinutes(
+      end,
+      "workingHours.end"
+    );
+  const breaks =
+    (workingDay.breaks || [])
+      .map((entry, index) => ({
+        start:
+          String(
+            entry?.start ||
+              ""
+          ).trim(),
+        end:
+          String(
+            entry?.end ||
+              ""
+          ).trim(),
+        startMinutes:
+          timeToMinutes(
+            entry?.start,
+            `workingHours.breaks[${index}].start`
+          ),
+        endMinutes:
+          timeToMinutes(
+            entry?.end,
+            `workingHours.breaks[${index}].end`
+          ),
+      }))
+      .filter((entry) =>
+        entry.endMinutes >
+          entry.startMinutes &&
+        entry.startMinutes >=
+          dayStart &&
+        entry.endMinutes <=
+          dayEnd
+      )
+      .sort(
+        (left, right) =>
+          left.startMinutes -
+          right.startMinutes
+      );
+
+  const ranges = [];
+  let cursor =
+    dayStart;
+  let cursorLabel =
+    start;
+
+  for (const pause of breaks) {
+    if (
+      pause.startMinutes <
+      cursor
+    ) {
+      continue;
+    }
+
+    if (
+      pause.startMinutes >
+      cursor
+    ) {
+      ranges.push({
+        start:
+          cursorLabel,
+        end:
+          pause.start,
+      });
+    }
+
+    cursor =
+      pause.endMinutes;
+    cursorLabel =
+      pause.end;
+  }
+
+  if (cursor < dayEnd) {
+    ranges.push({
+      start:
+        cursorLabel,
+      end,
+    });
+  }
+
+  return validateRanges(
+    ranges
+  );
 }
 
 function appointmentMinutes(

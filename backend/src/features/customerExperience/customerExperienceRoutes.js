@@ -10,12 +10,13 @@ import {
 import {
   addExpandedConsultation,
 } from "./customerConsultationController.js";
+import { requireFeature } from "../../services/featureControlService.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-router.get("/offers", asyncHandler(controller.listOffers));
+router.get("/offers", requireFeature("offers"), asyncHandler(controller.listOffers));
 router.get("/management/offers", managementOnly, asyncHandler(controller.listAllOffers));
 router.post("/management/offers", managementOnly, asyncHandler(controller.createOffer));
 router.patch("/management/offers/:offerId", managementOnly, asyncHandler(controller.updateOffer));
@@ -30,18 +31,18 @@ router.get("/me", asyncHandler(controller.getCustomerExperience));
 router.get("/me/communications", asyncHandler(getCommunicationPreferences));
 router.patch("/me/communications", asyncHandler(updateCommunicationPreferences));
 router.patch("/me/consents", asyncHandler(controller.updateConsents));
-router.post("/me/reviews", asyncHandler(controller.addReview));
-router.post("/me/favourites", asyncHandler(controller.addFavourite));
-router.delete("/me/favourites/:entryId", asyncHandler(controller.removeFavourite));
-router.post("/me/offers/claim", asyncHandler(controller.claimOffer));
-router.post("/me/wallet", asyncHandler(controller.addWalletCard));
-router.delete("/me/wallet/:entryId", asyncHandler(controller.removeWalletCard));
-router.post("/me/appointment-requests", asyncHandler(controller.createAppointmentRequest));
-router.patch("/me/discovery", asyncHandler(controller.updateDiscovery));
-router.post("/me/consultations", asyncHandler(addExpandedConsultation));
-router.post("/me/inspiration", asyncHandler(controller.addInspiration));
-router.delete("/me/inspiration/:entryId", asyncHandler(controller.removeInspiration));
-router.post("/me/feedback", asyncHandler(controller.addFeedback));
-router.patch("/me/inbox/:notificationId/read", asyncHandler(controller.markInboxRead));
+router.post("/me/reviews", requireFeature("reviews"), asyncHandler(controller.addReview));
+router.post("/me/favourites", requireFeature("favourites"), asyncHandler(controller.addFavourite));
+router.delete("/me/favourites/:entryId", requireFeature("favourites"), asyncHandler(controller.removeFavourite));
+router.post("/me/offers/claim", requireFeature("offers"), asyncHandler(controller.claimOffer));
+router.post("/me/wallet", requireFeature("wallet"), asyncHandler(controller.addWalletCard));
+router.delete("/me/wallet/:entryId", requireFeature("wallet"), asyncHandler(controller.removeWalletCard));
+router.post("/me/appointment-requests", requireFeature("appointments"), asyncHandler(controller.createAppointmentRequest));
+router.patch("/me/discovery", requireFeature("salon-discovery"), asyncHandler(controller.updateDiscovery));
+router.post("/me/consultations", requireFeature("consultation"), asyncHandler(addExpandedConsultation));
+router.post("/me/inspiration", requireFeature("inspiration"), asyncHandler(controller.addInspiration));
+router.delete("/me/inspiration/:entryId", requireFeature("inspiration"), asyncHandler(controller.removeInspiration));
+router.post("/me/feedback", requireFeature("feedback"), asyncHandler(controller.addFeedback));
+router.patch("/me/inbox/:notificationId/read", requireFeature("inbox"), asyncHandler(controller.markInboxRead));
 
 export default router;

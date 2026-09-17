@@ -7,6 +7,7 @@ import NetworkStatus from "./components/system/NetworkStatus.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { BookingProvider } from "./context/BookingContext.jsx";
 import { CartProvider } from "./context/CartContext.jsx";
+import { FeatureControlProvider } from "./context/FeatureControlContext.jsx";
 
 import "./index.css";
 import "./commerce.css";
@@ -29,14 +30,16 @@ import "./styles/salonTheme.css";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
-      <CartProvider>
-        <BookingProvider>
-          <AppErrorBoundary>
-            <NetworkStatus />
-            <App />
-          </AppErrorBoundary>
-        </BookingProvider>
-      </CartProvider>
+      <FeatureControlProvider>
+        <CartProvider>
+          <BookingProvider>
+            <AppErrorBoundary>
+              <NetworkStatus />
+              <App />
+            </AppErrorBoundary>
+          </BookingProvider>
+        </CartProvider>
+      </FeatureControlProvider>
     </AuthProvider>
   </React.StrictMode>
 );

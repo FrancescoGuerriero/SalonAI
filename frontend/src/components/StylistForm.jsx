@@ -18,6 +18,7 @@ const emptyStylist = {
   profileImage: "",
   profilePublished: true,
   isActive: true,
+  acceptsAppointments: false,
 };
 
 function normaliseList(value) {
@@ -71,6 +72,10 @@ export default function StylistForm({
           typeof stylist.isActive === "boolean"
             ? stylist.isActive
             : true,
+        acceptsAppointments:
+          typeof stylist.acceptsAppointments === "boolean"
+            ? stylist.acceptsAppointments
+            : false,
       });
     } else {
       setForm(emptyStylist);
@@ -126,6 +131,7 @@ export default function StylistForm({
       profileImage: form.profileImage.trim(),
       profilePublished: form.profilePublished,
       isActive: form.isActive,
+      acceptsAppointments: form.acceptsAppointments,
     };
   }
 
@@ -335,6 +341,26 @@ export default function StylistForm({
                   </div>
                 </div>
 
+                <div className="col-12">
+                  <div className="form-check form-switch">
+                    <input
+                      id="acceptsAppointments"
+                      name="acceptsAppointments"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={form.acceptsAppointments}
+                      onChange={handleChange}
+                    />
+
+                    <label
+                      htmlFor="acceptsAppointments"
+                      className="form-check-label"
+                    >
+                      Employee can be selected for online bookings
+                    </label>
+                  </div>
+                </div>
+
                 <div className="col-md-6">
                   <label
                     htmlFor="yearsExperience"
@@ -516,8 +542,7 @@ export default function StylistForm({
                       htmlFor="isActive"
                       className="form-check-label"
                     >
-                      Stylist is active and available for
-                      bookings
+                      Employee is active in the salon system
                     </label>
                   </div>
                 </div>

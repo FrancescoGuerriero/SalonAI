@@ -3,10 +3,10 @@ import {
   PackagePlus,
   Scissors,
   Upload,
-  UserCog,
   UserPlus,
   UsersRound,
   Wrench,
+  ToggleLeft,
 } from "lucide-react";
 
 import {
@@ -14,6 +14,15 @@ import {
 } from "react-router-dom";
 
 const cards = [
+  {
+    title: "On/Off Ideas",
+    description:
+      "Enable or disable app options using administrator-owned backend controls.",
+    link:
+      "/admin/system",
+    icon:
+      ToggleLeft,
+  },
   {
     title: "Services",
     description:
@@ -24,22 +33,13 @@ const cards = [
       Wrench,
   },
   {
-    title: "Add or manage staff",
+    title: "Employees",
     description:
-      "Create staff profiles, add professional photographs and manage public stylist details.",
+      "Add employees and control roles, active, published and bookable settings.",
     link:
-      "/admin/stylists",
+      "/admin/employees",
     icon:
       UserPlus,
-  },
-  {
-    title: "Staff accounts",
-    description:
-      "Create and control stylist, receptionist, manager and administrator login accounts.",
-    link:
-      "/admin/staff-accounts",
-    icon:
-      UserCog,
   },
   {
     title: "Products & inventory",
@@ -96,7 +96,7 @@ export default function AdminDashboard() {
       tabIndex="-1"
     >
       <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <span className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+        <span className="text-xs font-bold uppercase tracking-wider text-amber-700">
           Administration
         </span>
 
@@ -124,9 +124,9 @@ export default function AdminDashboard() {
                 to={
                   card.link
                 }
-                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
+                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-black">
                   <Icon
                     size={21}
                   />
@@ -142,7 +142,7 @@ export default function AdminDashboard() {
                   }
                 </p>
 
-                <span className="mt-4 inline-flex text-sm font-semibold text-indigo-600">
+                <span className="mt-4 inline-flex text-sm font-bold text-black">
                   Manage
                 </span>
               </Link>
