@@ -19,7 +19,7 @@ import {
   isCustomerVisibleStylist,
 } from "../services/stylistBookingEligibilityService.js";
 
-const PUBLIC_STYLIST_FIELDS = [
+export const PUBLIC_STYLIST_FIELDS = [
   "firstName",
   "lastName",
   "jobTitle",
@@ -35,8 +35,6 @@ const PUBLIC_STYLIST_FIELDS = [
   "rating",
   "reviews",
   "displayOrder",
-  "profilePublished",
-  "isActive",
 ].join(" ");
 
 function createHttpError(message, statusCode, details = null) {
@@ -243,7 +241,7 @@ async function findOwnedStylist(
 
 /*
     GET /api/stylists
-    Public legacy catalogue route.
+    Authenticated management catalogue route.
 */
 export async function getStylists(req, res) {
   try {
@@ -252,6 +250,8 @@ export async function getStylists(req, res) {
       limit = 10,
       search = "",
       active,
+      bookable,
+      published,
       sort = "firstName",
     } = req.query;
 
@@ -300,6 +300,22 @@ export async function getStylists(req, res) {
     ) {
       filter.isActive =
         active === "true";
+    }
+
+    if (
+      bookable !==
+      undefined
+    ) {
+      filter.acceptsAppointments =
+        bookable === "true";
+    }
+
+    if (
+      published !==
+      undefined
+    ) {
+      filter.profilePublished =
+        published === "true";
     }
 
     const total =
@@ -389,6 +405,8 @@ export async function getPublicStylists(
     );
   }
 }
+
+export const getBookingStylists = getPublicStylists;
 
 /*
     GET /api/stylists/me/profile
@@ -550,7 +568,7 @@ export async function getStylistAvailability(req, res, next) {
       }).lean(),
       Stylist.findById(stylistObjectId)
         .select(
-          "services isActive profilePublished"
+          "services isActive acceptsAppointments profilePublished"
         )
         .lean(),
     ]);

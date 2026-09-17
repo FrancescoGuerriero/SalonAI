@@ -159,6 +159,8 @@ function serialiseUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    permissions:
+      user.permissions || [],
     phone: user.phone || "",
     profilePhoto:
       user.profilePhoto || "",

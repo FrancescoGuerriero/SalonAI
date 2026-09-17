@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import {
   isSupportedProfileImage,
 } from "../utils/profileMedia.js";
+import {
+  EMPLOYEE_PERMISSIONS,
+} from "../constants/permissions.js";
 
 const {
   Schema,
@@ -117,6 +120,16 @@ const userSchema = new Schema(
       },
       default: "customer",
       index: true,
+    },
+
+    permissions: {
+      type: [
+        {
+          type: String,
+          enum: EMPLOYEE_PERMISSIONS,
+        },
+      ],
+      default: [],
     },
 
     phone: {

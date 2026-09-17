@@ -511,11 +511,12 @@ async function getBookingResources(
 
   if (
     !stylist ||
-    stylist.isActive === false ||
+    stylist.isActive !== true ||
+    stylist.acceptsAppointments !== true ||
     stylist.active === false
   ) {
     throw createHttpError(
-      "The selected stylist was not found or is inactive.",
+      "The selected stylist was not found or is not currently bookable.",
       404
     );
   }
@@ -552,7 +553,7 @@ async function populateAppointment(
     )
     .populate(
       "stylist",
-      "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive active"
+      "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive acceptsAppointments active"
     );
 }
 

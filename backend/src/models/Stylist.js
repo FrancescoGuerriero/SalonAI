@@ -4,6 +4,20 @@ import {
   isSupportedProfileImage,
 } from "../utils/profileMedia.js";
 
+const breakSchema = new mongoose.Schema(
+  {
+    start: {
+      type: String,
+      required: true,
+    },
+    end: {
+      type: String,
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
 const workingHoursSchema = new mongoose.Schema(
   {
     day: {
@@ -33,6 +47,11 @@ const workingHoursSchema = new mongoose.Schema(
     available: {
       type: Boolean,
       default: true,
+    },
+
+    breaks: {
+      type: [breakSchema],
+      default: [],
     },
   },
   { _id: false }
@@ -203,6 +222,12 @@ const stylistSchema = new mongoose.Schema(
       max: 10000,
     },
 
+    acceptsAppointments: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -242,6 +267,7 @@ stylistSchema.index(
 
 stylistSchema.index({
   isActive: 1,
+  acceptsAppointments: 1,
   profilePublished: 1,
   displayOrder: 1,
   firstName: 1,

@@ -39,6 +39,7 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import { auditFutureWrites } from "./security/writeAudit.js";
+import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
 
@@ -46,18 +47,18 @@ router.use(protect);
 router.use(managementOnly);
 router.use(auditFutureWrites);
 
-router.use("/templates", templateRoutes);
+router.use("/templates", requireFeature("communications"), templateRoutes);
 router.use("/segments", segmentRoutes);
-router.use("/campaigns", campaignRoutes);
-router.use("/scheduler", schedulerRoutes);
+router.use("/campaigns", requireFeature("communications"), campaignRoutes);
+router.use("/scheduler", requireFeature("communications"), schedulerRoutes);
 router.use("/customer-profiles", customerProfileRoutes);
 router.use("/retention-actions", retentionActionRoutes);
 router.use("/appointment-management", appointmentManagementRoutes);
 router.use("/waitlist", waitlistRoutes);
-router.use("/ai", aiRoutes);
+router.use("/ai", requireFeature("ai-tools"), aiRoutes);
 router.use("/reports", reportRoutes);
 router.use("/revenue-forecast", revenueForecastRoutes);
-router.use("/loyalty", loyaltyRoutes);
+router.use("/loyalty", requireFeature("loyalty"), loyaltyRoutes);
 router.use("/staff", staffRoutes);
 router.use("/staff-rota", staffRotaRoutes);
 router.use("/security", securityRoutes);
@@ -69,15 +70,15 @@ router.use("/booking-demand", bookingDemandRoutes);
 router.use("/booking-loss", bookingLossRoutes);
 router.use("/rebooking-opportunities", rebookingOpportunityRoutes);
 
-router.use("/rebooking-campaigns", rebookingCampaignRoutes);
-router.use("/marketing-attribution", marketingAttributionRoutes);
-router.use("/smart-appointments", smartAppointmentRoutes);
-router.use("/capacity-planning", capacityPlanningRoutes);
-router.use("/dynamic-pricing", dynamicPricingRoutes);
-router.use("/inventory", inventoryRoutes);
-router.use("/feedback-analytics", feedbackAnalyticsRoutes);
-router.use("/management-copilot", managementCopilotRoutes);
-router.use("/executive-command-centre", executiveCommandRoutes);
+router.use("/rebooking-campaigns", requireFeature("communications"), rebookingCampaignRoutes);
+router.use("/marketing-attribution", requireFeature("ai-tools"), marketingAttributionRoutes);
+router.use("/smart-appointments", requireFeature("ai-tools"), smartAppointmentRoutes);
+router.use("/capacity-planning", requireFeature("ai-tools"), capacityPlanningRoutes);
+router.use("/dynamic-pricing", requireFeature("ai-tools"), dynamicPricingRoutes);
+router.use("/inventory", requireFeature("inventory-purchasing"), inventoryRoutes);
+router.use("/feedback-analytics", requireFeature("ai-tools"), feedbackAnalyticsRoutes);
+router.use("/management-copilot", requireFeature("ai-tools"), managementCopilotRoutes);
+router.use("/executive-command-centre", requireFeature("ai-tools"), executiveCommandRoutes);
 router.use("/data-export-audit", dataExportAuditRoutes);
 
 export default router;

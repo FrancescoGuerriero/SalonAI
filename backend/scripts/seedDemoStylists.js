@@ -14,6 +14,20 @@ const dataPath = path.resolve(
   "../data/demo-stylists.json"
 );
 
+function assertDemoSeedAllowed() {
+  if (
+    String(
+      process.env.NODE_ENV || ""
+    )
+      .trim()
+      .toLowerCase() === "production"
+  ) {
+    throw new Error(
+      "Demo stylist seeding is disabled in production."
+    );
+  }
+}
+
 function requireMongoUri() {
   const uri = String(
     process.env.MONGODB_URI || ""
@@ -50,6 +64,8 @@ async function readProfiles() {
 }
 
 async function main() {
+  assertDemoSeedAllowed();
+
   const profiles =
     await readProfiles();
 
