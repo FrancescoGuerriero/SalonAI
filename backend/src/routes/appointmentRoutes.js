@@ -17,6 +17,22 @@ import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
 
+const managementRoles = new Set([
+  "admin",
+  "manager",
+  "receptionist",
+  "stylist",
+]);
+const requireCustomerOnlineBooking = requireFeature("online-booking");
+
+function requireOnlineBookingForCustomer(request, response, next) {
+  if (managementRoles.has(request.user?.role)) {
+    return next();
+  }
+
+  return requireCustomerOnlineBooking(request, response, next);
+}
+
 router.use(protect);
 
 router.get(
@@ -26,7 +42,7 @@ router.get(
 
 router.post(
   "/",
-  requireFeature("online-booking"),
+  requireOnlineBookingForCustomer,
   appointmentLifecycleNotification("created"),
   createAppointment
 );
