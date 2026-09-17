@@ -92,3 +92,15 @@ test("homepage follows public feature visibility selections", async () => {
   assert.match(home, /loyaltyEnabled\s*=\s*isFeatureEnabled\("loyalty"\)/);
   assert.match(home, /reviewsEnabled\s*=\s*isFeatureEnabled\("reviews"\)/);
 });
+
+test("service cards hide booking actions when their features are disabled", async () => {
+  const serviceCard = await readFile(
+    new URL("../../components/customer/ServiceCard.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(serviceCard, /onlineBookingEnabled\s*=\s*isFeatureEnabled\("online-booking"\)/);
+  assert.match(serviceCard, /whatsappBookingEnabled\s*=\s*isFeatureEnabled\("whatsapp-booking"\)/);
+  assert.match(serviceCard, /consultationOnly\s*&&\s*whatsappBookingEnabled/);
+  assert.match(serviceCard, /!consultationOnly\s*&&\s*onlineBookingEnabled/);
+});
