@@ -6,6 +6,7 @@ import {
   UserPlus,
   UsersRound,
   Wrench,
+  ToggleLeft,
 } from "lucide-react";
 
 import {
@@ -13,6 +14,15 @@ import {
 } from "react-router-dom";
 
 const cards = [
+  {
+    title: "On/Off Ideas",
+    description:
+      "Enable or disable app options using administrator-owned backend controls.",
+    link:
+      "/admin/system",
+    icon:
+      ToggleLeft,
+  },
   {
     title: "Services",
     description:

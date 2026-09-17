@@ -23,6 +23,7 @@ import ManagementNavigation, {
   MANAGEMENT_LINKS,
 } from "./navigation/ManagementNavigation.jsx";
 import Seo from "./Seo.jsx";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const KEY =
   "salonai-management-sidebar-collapsed";
@@ -45,6 +46,7 @@ const isManagementRoute =
     );
 
 export default function MainLayout() {
+  const { isFeatureEnabled } = useFeatureControls();
   const location =
     useLocation();
 
@@ -150,7 +152,7 @@ export default function MainLayout() {
             <Outlet />
           </main>
 
-          <SalonChatbot />
+          {isFeatureEnabled("salon-chatbot") ? <SalonChatbot /> : null}
         </>
       ) : (
         <div className="management-shell">

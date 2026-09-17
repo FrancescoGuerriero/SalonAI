@@ -13,6 +13,7 @@ import {
 import {
   appointmentLifecycleNotification,
 } from "../features/appointments/appointmentLifecycleNotificationMiddleware.js";
+import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.get(
 
 router.post(
   "/",
+  requireFeature("online-booking"),
   appointmentLifecycleNotification("created"),
   createAppointment
 );

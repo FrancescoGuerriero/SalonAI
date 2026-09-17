@@ -31,6 +31,7 @@ import useCart from "../hooks/useCart.js";
 import {
   isManagementRole,
 } from "../utils/roles.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const PUBLIC_LINKS = [
   {
@@ -45,6 +46,7 @@ const PUBLIC_LINKS = [
   {
     to: "/stylists",
     label: "Stylists",
+    featureId: "online-booking",
   },
   {
     to: "/about",
@@ -53,6 +55,7 @@ const PUBLIC_LINKS = [
   {
     to: "/shop",
     label: "Shop",
+    featureId: "online-shop",
   },
 ];
 
@@ -93,6 +96,7 @@ export default function Navbar() {
   const {
     itemCount,
   } = useCart();
+  const { isFeatureEnabled } = useFeatureControls();
 
   const [
     mobileOpen,
@@ -216,7 +220,7 @@ export default function Navbar() {
   }
 
   const customerLinks =
-    isAuthenticated
+    isAuthenticated && isFeatureEnabled("online-booking")
       ? [
           {
             to: "/booking",
@@ -225,10 +229,14 @@ export default function Navbar() {
         ]
       : [];
 
+  const publicLinks = PUBLIC_LINKS.filter(
+    ({ featureId }) => !featureId || isFeatureEnabled(featureId)
+  );
+
   const mobileLinks = [
-    ...PUBLIC_LINKS,
+    ...publicLinks,
     ...customerLinks,
-    ...(isAuthenticated
+    ...(isAuthenticated && isFeatureEnabled("online-shop")
       ? [
           {
             to: "/orders",
@@ -286,8 +294,8 @@ export default function Navbar() {
           className="app-desktop-nav"
           aria-label="Main navigation"
         >
-          {PUBLIC_LINKS.map(
-            (link) => (
+          {publicLinks.map(
+            ({ featureId, ...link }) => (
               <NavLink
                 key={link.to}
                 {...link}
@@ -327,7 +335,7 @@ export default function Navbar() {
         </nav>
 
         <div className="app-topbar-actions">
-          {whatsappUrl ? (
+          {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
             <a
               href={
                 whatsappUrl
@@ -343,7 +351,7 @@ export default function Navbar() {
             </a>
           ) : null}
 
-          <NavLink
+          {isFeatureEnabled("online-shop") ? <NavLink
             to="/cart"
             className="app-icon-button"
             aria-label={`Cart with ${itemCount} items`}
@@ -359,7 +367,7 @@ export default function Navbar() {
                   : itemCount}
               </span>
             ) : null}
-          </NavLink>
+          </NavLink> : null}
 
           {isAuthenticated ? (
             <div
