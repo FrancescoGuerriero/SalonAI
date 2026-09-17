@@ -25,7 +25,7 @@ export const STAFF_ROLES = Object.freeze([
 const EMPLOYEE_SETTING_FIELDS = Object.freeze([
   "role",
   "profilePublished",
-  "isBookable",
+  "acceptsAppointments",
   "permissions",
 ]);
 
@@ -363,14 +363,14 @@ function serialiseAdminUser(
             profileImage:
               stylist.profileImage || "",
             profilePublished:
-              stylist.profilePublished !==
-              false,
-            isBookable:
-              stylist.isBookable !==
-              false,
+              stylist.profilePublished ===
+              true,
+            acceptsAppointments:
+              stylist.acceptsAppointments ===
+              true,
             isActive:
-              stylist.isActive !==
-              false,
+              stylist.isActive ===
+              true,
             workingHours:
               stylist.workingHours || [],
             services:
@@ -401,9 +401,7 @@ async function createOrLinkStylist(
   user,
   {
     profilePublished = false,
-    isBookable =
-      user.role ===
-      "stylist",
+    acceptsAppointments = false,
   } = {}
 ) {
   let stylist =
@@ -454,9 +452,9 @@ async function createOrLinkStylist(
         profilePublished
       );
 
-    stylist.isBookable =
+    stylist.acceptsAppointments =
       Boolean(
-        isBookable
+        acceptsAppointments
       );
 
     await stylist.save();
@@ -489,9 +487,9 @@ async function createOrLinkStylist(
         Boolean(
           profilePublished
         ),
-      isBookable:
+      acceptsAppointments:
         Boolean(
-          isBookable
+          acceptsAppointments
         ),
       isActive:
         user.isActive !==
@@ -634,7 +632,7 @@ export async function listAdminUsers(
         ],
       })
         .select(
-          "userAccount email firstName lastName jobTitle profileImage profilePublished isBookable isActive workingHours services"
+          "userAccount email firstName lastName jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services"
         )
         .populate(
           "services",
@@ -1020,12 +1018,11 @@ export async function createStaffUserByAdmin(
       req.body.profilePublished ===
       true;
 
-    const isBookable =
-      req.body.isBookable ===
+    const acceptsAppointments =
+      req.body.acceptsAppointments ===
       undefined
-        ? role ===
-          "stylist"
-        : req.body.isBookable ===
+        ? false
+        : req.body.acceptsAppointments ===
           true;
 
     const permissions =
@@ -1124,7 +1121,7 @@ export async function createStaffUserByAdmin(
         createdUser,
         {
           profilePublished,
-          isBookable,
+          acceptsAppointments,
         }
       );
 
@@ -1283,7 +1280,7 @@ export function normaliseEmployeeManagementUpdate(
 
   for (const field of [
     "profilePublished",
-    "isBookable",
+    "acceptsAppointments",
   ]) {
     if (
       Object.prototype.hasOwnProperty.call(
@@ -1431,12 +1428,11 @@ export async function updateEmployeeManagementSettings(
             profilePublished:
               update.profilePublished ===
               true,
-            isBookable:
-              update.isBookable ===
+            acceptsAppointments:
+              update.acceptsAppointments ===
               undefined
-                ? user.role ===
-                  "stylist"
-                : update.isBookable,
+                ? false
+                : update.acceptsAppointments,
           }
         );
     }
@@ -1487,11 +1483,11 @@ export async function updateEmployeeManagementSettings(
     }
 
     if (
-      typeof update.isBookable ===
+      typeof update.acceptsAppointments ===
       "boolean"
     ) {
-      stylist.isBookable =
-        update.isBookable;
+      stylist.acceptsAppointments =
+        update.acceptsAppointments;
     }
 
     user.updatedBy =

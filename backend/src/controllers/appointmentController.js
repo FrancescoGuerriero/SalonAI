@@ -511,8 +511,8 @@ async function getBookingResources(
 
   if (
     !stylist ||
-    stylist.isActive === false ||
-    stylist.isBookable === false ||
+    stylist.isActive !== true ||
+    stylist.acceptsAppointments !== true ||
     stylist.active === false
   ) {
     throw createHttpError(
@@ -553,7 +553,7 @@ async function populateAppointment(
     )
     .populate(
       "stylist",
-      "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive isBookable active"
+      "name firstName lastName email phone profileImage biography yearsExperience specialties rating isActive acceptsAppointments active"
     );
 }
 

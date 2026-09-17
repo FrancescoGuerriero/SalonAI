@@ -177,9 +177,9 @@ export default function StylistCard({
           </span>
 
           <span className="badge bg-light text-dark border ms-2">
-            {stylist.isBookable === false
-              ? "Not bookable"
-              : "Bookable"}
+            {stylist.acceptsAppointments === true
+              ? "Bookable"
+              : "Not bookable"}
           </span>
         </div>
       </div>

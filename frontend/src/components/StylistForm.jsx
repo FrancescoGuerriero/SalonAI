@@ -18,7 +18,7 @@ const emptyStylist = {
   profileImage: "",
   profilePublished: true,
   isActive: true,
-  isBookable: true,
+  acceptsAppointments: false,
 };
 
 function normaliseList(value) {
@@ -72,10 +72,10 @@ export default function StylistForm({
           typeof stylist.isActive === "boolean"
             ? stylist.isActive
             : true,
-        isBookable:
-          typeof stylist.isBookable === "boolean"
-            ? stylist.isBookable
-            : true,
+        acceptsAppointments:
+          typeof stylist.acceptsAppointments === "boolean"
+            ? stylist.acceptsAppointments
+            : false,
       });
     } else {
       setForm(emptyStylist);
@@ -131,7 +131,7 @@ export default function StylistForm({
       profileImage: form.profileImage.trim(),
       profilePublished: form.profilePublished,
       isActive: form.isActive,
-      isBookable: form.isBookable,
+      acceptsAppointments: form.acceptsAppointments,
     };
   }
 
@@ -344,16 +344,16 @@ export default function StylistForm({
                 <div className="col-12">
                   <div className="form-check form-switch">
                     <input
-                      id="isBookable"
-                      name="isBookable"
+                      id="acceptsAppointments"
+                      name="acceptsAppointments"
                       type="checkbox"
                       className="form-check-input"
-                      checked={form.isBookable}
+                      checked={form.acceptsAppointments}
                       onChange={handleChange}
                     />
 
                     <label
-                      htmlFor="isBookable"
+                      htmlFor="acceptsAppointments"
                       className="form-check-label"
                     >
                       Employee can be selected for online bookings
