@@ -80,3 +80,15 @@ test("customer experience dashboard applies independent feature selections", asy
   assert.match(suite, /featureId:\s*"offers"/);
   assert.match(suite, /featureId:\s*"referrals"/);
 });
+
+test("homepage follows public feature visibility selections", async () => {
+  const home = await readFile(
+    new URL("../../pages/Home.jsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(home, /onlineBookingEnabled\s*=\s*isFeatureEnabled\("online-booking"\)/);
+  assert.match(home, /onlineShopEnabled\s*=\s*isFeatureEnabled\("online-shop"\)/);
+  assert.match(home, /loyaltyEnabled\s*=\s*isFeatureEnabled\("loyalty"\)/);
+  assert.match(home, /reviewsEnabled\s*=\s*isFeatureEnabled\("reviews"\)/);
+});
