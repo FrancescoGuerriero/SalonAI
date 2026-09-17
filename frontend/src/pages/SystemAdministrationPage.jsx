@@ -27,9 +27,9 @@ function Toggle({ checked, disabled, label, onChange }) {
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-7 w-12 shrink-0 rounded-full transition ${
-        checked ? "bg-emerald-600" : "bg-slate-300"
-      } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+      className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border border-black/15 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+        checked ? "bg-amber-400" : "bg-stone-300"
+      } ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
     >
       <span
         className={`mt-1 h-5 w-5 rounded-full bg-white shadow transition ${
@@ -121,21 +121,25 @@ export default function SystemAdministrationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8" id="main-content" tabIndex="-1">
+    <main className="min-h-screen bg-stone-50 px-4 py-6 sm:px-6 lg:px-8" id="main-content" tabIndex="-1">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-indigo-700">
-                <ShieldCheck size={20} /> Administrator-owned backend selections
+              <div className="flex items-center gap-2 font-semibold text-black">
+                <ShieldCheck className="text-amber-600" size={20} /> Administrator-owned selections
               </div>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">System Administration</h1>
-              <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                Code defines safe defaults. The On/Off Ideas tab stores administrator overrides in MongoDB, applies backend enforcement and records every change in the audit history.
+              <h1 className="mt-2 text-3xl font-bold text-black">System Administration</h1>
+              <p className="mt-2 max-w-3xl text-sm text-stone-600">
+                Code defines safe defaults. The On/Off Ideas tab stores administrator overrides without deleting features, applies backend enforcement and records each change in the audit history.
               </p>
             </div>
 
-            <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 font-semibold">
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 font-semibold text-black shadow-sm transition hover:bg-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            >
               <RefreshCw size={18} /> Refresh
             </button>
           </div>
@@ -148,7 +152,11 @@ export default function SystemAdministrationPage() {
                 role="tab"
                 aria-selected={tab === id}
                 onClick={() => setTab(id)}
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${tab === id ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}`}
+                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+                  tab === id
+                    ? "border-black bg-amber-400 text-black shadow-sm"
+                    : "border-black/10 bg-stone-100 text-black hover:bg-amber-100"
+                }`}
               >
                 <Icon size={17} /> {label}
               </button>
@@ -156,34 +164,46 @@ export default function SystemAdministrationPage() {
           </div>
         </section>
 
-        {error ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800" role="alert">{error}</section> : null}
-        {notice ? <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800" role="status">{notice}</section> : null}
+        {error ? (
+          <section className="rounded-2xl border border-amber-500 bg-amber-50 p-4 text-black" role="alert">
+            {error}
+          </section>
+        ) : null}
+        {notice ? (
+          <section className="rounded-2xl border border-black/15 bg-white p-4 text-black shadow-sm" role="status">
+            {notice}
+          </section>
+        ) : null}
 
         {tab === "features" ? (
           <div className="space-y-6">
             {groups.map((group) => (
-              <section key={group} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <section key={group} className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Feature group</p>
-                    <h2 className="mt-1 text-xl font-bold text-slate-900">{group}</h2>
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Feature group</p>
+                    <h2 className="mt-1 text-xl font-bold text-black">{group}</h2>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <span className="rounded-full border border-black/10 bg-stone-100 px-3 py-1 text-xs font-semibold text-black">
                     {features.filter((item) => item.category === group && item.enabled).length} on
                   </span>
                 </div>
 
-                <div className="mt-4 divide-y divide-slate-100">
+                <div className="mt-4 divide-y divide-stone-200">
                   {features.filter((item) => item.category === group).map((feature) => (
                     <article key={feature.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold text-slate-900">{feature.label}</h3>
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${feature.source === "admin" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+                          <h3 className="font-semibold text-black">{feature.label}</h3>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                            feature.source === "admin"
+                              ? "border-amber-500 bg-amber-50 text-black"
+                              : "border-black/10 bg-stone-100 text-stone-700"
+                          }`}>
                             {feature.required ? "required" : feature.source === "admin" ? "admin override" : "code default"}
                           </span>
                         </div>
-                        <p className="mt-1 text-sm text-slate-600">{feature.description}</p>
+                        <p className="mt-1 text-sm text-stone-600">{feature.description}</p>
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -192,12 +212,12 @@ export default function SystemAdministrationPage() {
                             type="button"
                             onClick={() => resetFeature(feature)}
                             disabled={busyId === feature.id}
-                            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold text-black transition hover:bg-stone-100 disabled:opacity-50"
                           >
                             <RotateCcw size={14} /> Reset to code
                           </button>
                         ) : null}
-                        <span className="min-w-7 text-sm font-bold text-slate-700">{feature.enabled ? "On" : "Off"}</span>
+                        <span className="min-w-7 text-sm font-bold text-black">{feature.enabled ? "On" : "Off"}</span>
                         <Toggle
                           checked={feature.enabled}
                           disabled={feature.required || busyId === feature.id}
@@ -214,25 +234,30 @@ export default function SystemAdministrationPage() {
         ) : null}
 
         {tab === "settings" ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2"><History className="text-indigo-700" /><h2 className="font-semibold text-slate-900">Stored settings</h2></div>
-            <div className="mt-4 divide-y divide-slate-100">
+          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <History className="text-amber-600" />
+              <h2 className="font-semibold text-black">Stored settings</h2>
+            </div>
+            <div className="mt-4 divide-y divide-stone-200">
               {settings.map((setting) => (
                 <div key={setting._id} className="py-3">
-                  <p className="font-medium text-slate-900">{setting.key}</p>
-                  <p className="text-sm text-slate-500">{String(setting.value)} · {setting.category}</p>
+                  <p className="font-medium text-black">{setting.key}</p>
+                  <p className="text-sm text-stone-600">{String(setting.value)} · {setting.category}</p>
                 </div>
               ))}
-              {!settings.length ? <p className="py-6 text-sm text-slate-500">No stored overrides are present. Code defaults remain active.</p> : null}
+              {!settings.length ? (
+                <p className="py-6 text-sm text-stone-600">No stored overrides are present. Code defaults remain active.</p>
+              ) : null}
             </div>
           </section>
         ) : null}
 
         {tab === "health" ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <Activity className="text-indigo-700" />
-            <h2 className="mt-4 font-semibold text-slate-900">Dependency health</h2>
-            <pre className="mt-3 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(health, null, 2)}</pre>
+          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <Activity className="text-amber-600" />
+            <h2 className="mt-4 font-semibold text-black">Dependency health</h2>
+            <pre className="mt-3 overflow-auto rounded-xl bg-black p-4 text-xs text-white">{JSON.stringify(health, null, 2)}</pre>
           </section>
         ) : null}
       </div>
