@@ -95,9 +95,9 @@ const RAW_PRODUCTION_ROSTER = [
   },
 ];
 
-export const PRODUCTION_STYLIST_ROSTER =
-  Object.freeze(
-    RAW_PRODUCTION_ROSTER.map(
+function freezeRoster(roster) {
+  return Object.freeze(
+    roster.map(
       (entry) =>
         Object.freeze({
           ...entry,
@@ -105,6 +105,32 @@ export const PRODUCTION_STYLIST_ROSTER =
             ...entry.set,
           }),
         })
+    )
+  );
+}
+
+export const PRODUCTION_STYLIST_ROSTER =
+  freezeRoster(
+    RAW_PRODUCTION_ROSTER
+  );
+
+/*
+ * Legacy application versions infer appointment eligibility from isActive.
+ * Before rolling back to such a version, non-bookable staff must therefore be
+ * temporarily inactive. The rollback phase writes only isActive, preserving
+ * all v8.14.10 classification data for a later PREPARE/deploy/FINALIZE cycle.
+ */
+export const LEGACY_ROLLBACK_STYLIST_ROSTER =
+  freezeRoster(
+    RAW_PRODUCTION_ROSTER.map(
+      (entry) => ({
+        ...entry,
+        set: {
+          ...entry.set,
+          isActive:
+            entry.set.acceptsAppointments === true,
+        },
+      })
     )
   );
 
@@ -319,7 +345,8 @@ export function selectRosterPhaseChanges(
 ) {
   if (
     phase !== "prepare" &&
-    phase !== "finalize"
+    phase !== "finalize" &&
+    phase !== "legacy-rollback"
   ) {
     throw new Error(
       `Unsupported production stylist roster phase: ${phase}`
@@ -330,6 +357,22 @@ export function selectRosterPhaseChanges(
     return {
       ...changes,
     };
+  }
+
+  if (phase === "legacy-rollback") {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        changes,
+        "isActive"
+      )
+    ) {
+      return {
+        isActive:
+          changes.isActive,
+      };
+    }
+
+    return {};
   }
 
   if (

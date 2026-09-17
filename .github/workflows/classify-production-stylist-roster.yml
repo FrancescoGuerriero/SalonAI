@@ -8,12 +8,13 @@ on:
         required: true
         type: string
       operation:
-        description: PREPARE before deployment or FINALIZE after deployment
+        description: PREPARE before deployment, FINALIZE after deployment, or ROLLBACK_PREP before a legacy rollback
         required: true
         type: choice
         options:
           - PREPARE
           - FINALIZE
+          - ROLLBACK_PREP
       confirm_production:
         description: Type CLASSIFY-V8.14.10
         required: true
@@ -54,6 +55,9 @@ jobs:
               ;;
             FINALIZE)
               echo "ROSTER_PHASE_FLAG=--finalize" >> "$GITHUB_ENV"
+              ;;
+            ROLLBACK_PREP)
+              echo "ROSTER_PHASE_FLAG=--legacy-rollback" >> "$GITHUB_ENV"
               ;;
             *)
               echo "Unsupported roster operation." >&2
@@ -184,11 +188,15 @@ jobs:
           ssh \
             "${ssh_options[@]}" \
             "$PRODUCTION_USER@$PRODUCTION_HOST" \
-            bash -s -- "$RELEASE_TAG" "$OPERATION" <<'REMOTE'
+            bash -s -- \
+              "$RELEASE_TAG" \
+              "$OPERATION" \
+              "$BACKEND_MIGRATION_IMAGE" <<'REMOTE'
           set -euo pipefail
 
           release_tag="$1"
           operation="$2"
+          target_backend_image="$3"
 
           test "$(id -un)" = "salonai-deploy"
           test -f /opt/salonai/.env.production
@@ -197,7 +205,7 @@ jobs:
           docker network inspect salonai-private >/dev/null
           docker inspect salonai-backend >/dev/null
 
-          if [[ "$operation" == "FINALIZE" ]]; then
+          if [[ "$operation" == "FINALIZE" || "$operation" == "ROLLBACK_PREP" ]]; then
             deployed_release="$(
               grep -E '^APP_VERSION=' \
                 /opt/salonai/.env.production |
@@ -207,7 +215,7 @@ jobs:
             )"
 
             if [[ "$deployed_release" != "$release_tag" ]]; then
-              echo "FINALIZE requires the requested release to be deployed." >&2
+              echo "$operation requires the requested release to be deployed." >&2
               exit 1
             fi
 
@@ -218,7 +226,35 @@ jobs:
             )"
 
             if [[ "$backend_state" != "running|healthy" ]]; then
-              echo "FINALIZE requires a healthy production backend." >&2
+              echo "$operation requires a healthy production backend." >&2
+              exit 1
+            fi
+
+            running_config_image="$(
+              docker inspect \
+                --format '{{.Config.Image}}' \
+                salonai-backend
+            )"
+
+            if [[ "$running_config_image" != "$target_backend_image" ]]; then
+              echo "$operation requires the running backend to use the target immutable image reference." >&2
+              exit 1
+            fi
+
+            running_image_id="$(
+              docker inspect \
+                --format '{{.Image}}' \
+                salonai-backend
+            )"
+
+            target_image_id="$(
+              docker image inspect \
+                --format '{{.Id}}' \
+                "$target_backend_image"
+            )"
+
+            if [[ -z "$target_image_id" || "$running_image_id" != "$target_image_id" ]]; then
+              echo "$operation requires the running backend image ID to match the target immutable release image." >&2
               exit 1
             fi
           fi
