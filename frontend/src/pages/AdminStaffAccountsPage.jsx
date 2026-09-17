@@ -63,7 +63,7 @@ const emptyForm = {
   password: "",
   profilePhoto: "",
   profilePublished: false,
-  isBookable: true,
+  acceptsAppointments: false,
 };
 
 function errorMessage(error) {
@@ -373,8 +373,8 @@ export default function AdminStaffAccountsPage() {
             form.profilePhoto,
           profilePublished:
             form.profilePublished,
-          isBookable:
-            form.isBookable,
+          acceptsAppointments:
+            form.acceptsAppointments,
         });
 
       setSuccess(
@@ -776,13 +776,13 @@ export default function AdminStaffAccountsPage() {
                     />
 
                     <SettingSwitch
-                      checked={user.stylistProfile?.isBookable !== false}
+                      checked={user.stylistProfile?.acceptsAppointments === true}
                       disabled={Boolean(updatingId) || !canUpdate}
                       label="Bookable"
                       onChange={(value) =>
                         updateEmployeeSetting(
                           user,
-                          "isBookable",
+                          "acceptsAppointments",
                           value
                         )
                       }
@@ -1064,10 +1064,10 @@ export default function AdminStaffAccountsPage() {
                   <label className="flex items-start gap-3 text-sm text-black">
                     <input
                       type="checkbox"
-                      checked={form.isBookable}
+                      checked={form.acceptsAppointments}
                       onChange={(event) =>
                         updateForm(
-                          "isBookable",
+                          "acceptsAppointments",
                           event.target.checked
                         )
                       }

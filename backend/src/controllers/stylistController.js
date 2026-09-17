@@ -37,7 +37,7 @@ const PUBLIC_STYLIST_FIELDS = [
   "displayOrder",
   "profilePublished",
   "isActive",
-  "isBookable",
+  "acceptsAppointments",
 ].join(" ");
 
 function createHttpError(message, statusCode, details = null) {
@@ -309,12 +309,8 @@ export async function getStylists(req, res) {
       bookable !==
       undefined
     ) {
-      filter.isBookable =
-        bookable === "true"
-          ? {
-              $ne: false,
-            }
-          : false;
+      filter.acceptsAppointments =
+        bookable === "true";
     }
 
     if (
@@ -573,7 +569,7 @@ export async function getStylistAvailability(req, res, next) {
       }).lean(),
       Stylist.findById(stylistObjectId)
         .select(
-          "services isActive isBookable profilePublished"
+          "services isActive acceptsAppointments profilePublished"
         )
         .lean(),
     ]);

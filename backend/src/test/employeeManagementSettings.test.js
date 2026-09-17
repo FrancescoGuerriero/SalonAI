@@ -11,7 +11,7 @@ test("employee management accepts independent operational controls", () => {
     normaliseEmployeeManagementUpdate({
       role: "manager",
       profilePublished: false,
-      isBookable: true,
+      acceptsAppointments: true,
       permissions: [
         "employee:read",
         "employee:update",
@@ -22,7 +22,7 @@ test("employee management accepts independent operational controls", () => {
     {
       role: "manager",
       profilePublished: false,
-      isBookable: true,
+      acceptsAppointments: true,
       permissions: [
         "employee:read",
         "employee:update",
@@ -46,7 +46,7 @@ test("employee management rejects non-boolean switches", () => {
   assert.throws(
     () =>
       normaliseEmployeeManagementUpdate({
-        isBookable: "true",
+        acceptsAppointments: "true",
       }),
     (error) =>
       error.statusCode === 400
