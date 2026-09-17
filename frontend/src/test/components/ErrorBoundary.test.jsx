@@ -26,35 +26,56 @@ describe("ErrorBoundary", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders the recovery interface when a child throws", () => {
+  it("renders an accessible recovery interface when a child throws", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    render(
-      <ErrorBoundary>
-        <BrokenComponent />
-      </ErrorBoundary>
-    );
+    try {
+      render(
+        <ErrorBoundary>
+          <BrokenComponent />
+        </ErrorBoundary>
+      );
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Something went wrong",
-      })
-    ).toBeInTheDocument();
+      expect(
+        screen.getByRole("alert")
+      ).toBeInTheDocument();
 
-    expect(
-      screen.getByText(
-        "The page could not be displayed. Your data has not been intentionally changed."
-      )
-    ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: "Something went wrong",
+        })
+      ).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("button", {
-        name: "Reload application",
-      })
-    ).toBeEnabled();
+      expect(
+        screen.getByText(
+          /The page could not be displayed correctly/
+        )
+      ).toBeInTheDocument();
 
-    expect(consoleError).toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", {
+          name: "Try again",
+        })
+      ).toBeEnabled();
+
+      expect(
+        screen.getByRole("button", {
+          name: "Reload application",
+        })
+      ).toBeEnabled();
+
+      expect(
+        screen.getByRole("link", {
+          name: "Return home",
+        })
+      ).toHaveAttribute("href", "/");
+
+      expect(consoleError).toHaveBeenCalled();
+    }
+    finally {
+      consoleError.mockRestore();
+    }
   });
 });
