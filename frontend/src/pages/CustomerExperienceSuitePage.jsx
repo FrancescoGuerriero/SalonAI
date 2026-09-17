@@ -20,6 +20,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 import "../styles/salonExperience.css";
 
@@ -32,6 +33,7 @@ const VISIT_TOOLS = [
       "Share hair history, colour history, routine, goals, sensitivities and maintenance preferences before the appointment.",
     to: "/account/manage",
     action: "Start consultation",
+    featureId: "consultation",
   },
   {
     icon: Palette,
@@ -41,6 +43,7 @@ const VISIT_TOOLS = [
       "Keep reference ideas and notes with your private SalonAI experience profile so the salon can understand the direction you like.",
     to: "/experience/inspiration",
     action: "Open inspiration board",
+    featureId: "inspiration",
   },
   {
     icon: CalendarCheck,
@@ -50,6 +53,7 @@ const VISIT_TOOLS = [
       "Choose a service and stylist, then work from currently available appointment times rather than a static enquiry form.",
     to: "/booking",
     action: "Book online",
+    featureId: "online-booking",
   },
   {
     icon: MessageCircle,
@@ -59,6 +63,7 @@ const VISIT_TOOLS = [
       "Start a conversation with the salon when you prefer human help. Staff check availability and confirm the final appointment in SalonAI.",
     to: "/help",
     action: "See how WhatsApp works",
+    featureId: "whatsapp-booking",
   },
 ];
 
@@ -80,12 +85,14 @@ const ACCOUNT_TOOLS = [
     title: "Favourites",
     description: "Save preferred services, stylists and products for future visits.",
     to: "/experience/favourites",
+    featureId: "favourites",
   },
   {
     icon: Star,
     title: "Visit reviews",
     description: "Review completed appointments and keep feedback connected to a real visit.",
     to: "/experience/reviews",
+    featureId: "reviews",
   },
 ];
 
@@ -95,6 +102,7 @@ const REWARD_TOOLS = [
     title: "Loyalty and gift cards",
     description: "Review loyalty activity and keep eligible salon gift cards available from your account.",
     to: "/experience/loyalty",
+    featureId: "loyalty",
   },
   {
     icon: CreditCard,
@@ -107,12 +115,14 @@ const REWARD_TOOLS = [
     title: "Salon shop",
     description: "Browse haircare products and keep purchases connected to your account history.",
     to: "/shop",
+    featureId: "online-shop",
   },
   {
     icon: HeartHandshake,
     title: "Offers and referrals",
     description: "Save eligible offers and use referral tools from the connected customer experience.",
     to: "/experience/offers",
+    featureId: "offers",
   },
 ];
 
@@ -125,10 +135,10 @@ const JOURNEY = [
   "Return to your account for visits, purchases, rewards and feedback",
 ];
 
-function ToolGrid({ items }) {
+function ToolGrid({ items, isFeatureEnabled }) {
   return (
     <div className="salon-connected-grid">
-      {items.map(({ icon: Icon, title, description, to }) => (
+      {items.filter(({ featureId }) => !featureId || isFeatureEnabled(featureId)).map(({ icon: Icon, title, description, to }) => (
         <Link key={title} to={to}>
           <span><Icon size={21} /></span>
           <strong>{title}</strong>
@@ -141,6 +151,7 @@ function ToolGrid({ items }) {
 }
 
 export default function CustomerExperienceSuitePage() {
+  const { isFeatureEnabled } = useFeatureControls();
   return (
     <main className="salon-experience-page" id="main-content" tabIndex="-1">
       <section className="salon-experience-hero">
@@ -190,7 +201,7 @@ export default function CustomerExperienceSuitePage() {
         </header>
 
         <div className="salon-experience-grid">
-          {VISIT_TOOLS.map(({ icon: Icon, eyebrow, title, description, to, action }) => (
+          {VISIT_TOOLS.filter(({ featureId }) => !featureId || isFeatureEnabled(featureId)).map(({ icon: Icon, eyebrow, title, description, to, action }) => (
             <article key={title}>
               <span><Icon size={22} /></span>
               <small>{eyebrow}</small>
@@ -233,7 +244,7 @@ export default function CustomerExperienceSuitePage() {
             choices under your control.
           </p>
         </header>
-        <ToolGrid items={ACCOUNT_TOOLS} />
+        <ToolGrid items={ACCOUNT_TOOLS} isFeatureEnabled={isFeatureEnabled} />
       </section>
 
       <section className="salon-connected-features">
@@ -245,7 +256,7 @@ export default function CustomerExperienceSuitePage() {
             to the same customer account rather than treated as isolated tools.
           </p>
         </header>
-        <ToolGrid items={REWARD_TOOLS} />
+        <ToolGrid items={REWARD_TOOLS} isFeatureEnabled={isFeatureEnabled} />
       </section>
 
       <section className="salon-experience-section">
@@ -261,20 +272,20 @@ export default function CustomerExperienceSuitePage() {
             <p>Review live services, prices and durations before booking.</p>
             <Link to="/services">Browse services <ArrowRight size={15} /></Link>
           </article>
-          <article>
+          {isFeatureEnabled("online-booking") ? <article>
             <span><UsersRound size={22} /></span>
             <small>Team</small>
             <h3>Meet your stylists</h3>
             <p>Explore active stylists, specialties and the services they perform.</p>
             <Link to="/stylists">Meet the team <ArrowRight size={15} /></Link>
-          </article>
-          <article>
+          </article> : null}
+          {isFeatureEnabled("online-shop") ? <article>
             <span><ShoppingBag size={22} /></span>
             <small>Haircare</small>
             <h3>Shop products</h3>
             <p>Browse salon haircare and connect purchases to your account.</p>
             <Link to="/shop">Open shop <ArrowRight size={15} /></Link>
-          </article>
+          </article> : null}
           <article>
             <span><ShieldCheck size={22} /></span>
             <small>Privacy</small>

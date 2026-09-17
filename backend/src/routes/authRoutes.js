@@ -19,6 +19,10 @@ import {
 import {
   listAdminUsers,
   createStaffUserByAdmin,
+  getEmployeeManagementDetail,
+  updateEmployeeManagementSettings,
+  updateEmployeeSchedule,
+  updateEmployeeServices,
   updateAdminUserStatus,
 } from "../controllers/adminUserController.js";
 
@@ -26,6 +30,9 @@ import {
   protect,
   adminOnly,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 import {
   authRateLimiter,
@@ -109,19 +116,61 @@ router
   .route("/admin/staff")
   .get(
     protect,
-    adminOnly,
+    requirePermissions(
+      "employee:read"
+    ),
     listAdminUsers
   )
   .post(
     protect,
-    adminOnly,
+    requirePermissions(
+      "employee:create"
+    ),
     createStaffUserByAdmin
   );
 
 router.patch(
+  "/admin/staff/:id",
+  protect,
+  requirePermissions(
+    "employee:update"
+  ),
+  updateEmployeeManagementSettings
+);
+
+router.get(
+  "/admin/staff/:id",
+  protect,
+  requirePermissions(
+    "employee:read"
+  ),
+  getEmployeeManagementDetail
+);
+
+router.patch(
+  "/admin/staff/:id/services",
+  protect,
+  requirePermissions(
+    "employee:services:update"
+  ),
+  updateEmployeeServices
+);
+
+router.patch(
+  "/admin/staff/:id/schedule",
+  protect,
+  requirePermissions(
+    "employee:schedule:update"
+  ),
+  updateEmployeeSchedule
+);
+
+router.patch(
   "/admin/staff/:id/status",
   protect,
-  adminOnly,
+  requirePermissions(
+    "employee:deactivate"
+  ),
   updateAdminUserStatus
 );
 

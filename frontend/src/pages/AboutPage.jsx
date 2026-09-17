@@ -19,6 +19,7 @@ import {
 import Alert from "../components/ui/Alert.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
 import stylistService from "../Services/stylistService.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 import {
   getStylistName,
   getStylistSpecialtyLabel,
@@ -212,6 +213,8 @@ function TeamCard({
 }
 
 export default function AboutPage() {
+  const { isFeatureEnabled } = useFeatureControls();
+  const publicTeamEnabled = isFeatureEnabled("public-team");
   const [
     team,
     setTeam,
@@ -226,6 +229,13 @@ export default function AboutPage() {
   ] = useState("");
 
   useEffect(() => {
+    if (!publicTeamEnabled) {
+      setLoading(false);
+      setTeam([]);
+      setError("");
+      return undefined;
+    }
+
     let active =
       true;
 
@@ -270,7 +280,7 @@ export default function AboutPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [publicTeamEnabled]);
 
   return (
     <main className="about-page">
@@ -307,12 +317,12 @@ export default function AboutPage() {
               />
             </Link>
 
-            <Link
+            {isFeatureEnabled("online-booking") ? <Link
               to="/booking"
               className="app-button app-button-secondary"
             >
               Book an appointment
-            </Link>
+            </Link> : null}
           </div>
         </div>
 
@@ -378,7 +388,7 @@ export default function AboutPage() {
         </article>
       </section>
 
-      <section className="about-team-section">
+      {publicTeamEnabled ? <section className="about-team-section">
         <header>
           <p className="customer-eyebrow">
             <UsersRound
@@ -465,7 +475,7 @@ export default function AboutPage() {
             </p>
           </div>
         ) : null}
-      </section>
+      </section> : null}
 
       <section className="about-cta">
         <div>

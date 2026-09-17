@@ -28,6 +28,7 @@ import {
 } from "../config/publicLinks.js";
 
 import useAuth from "../hooks/useAuth.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const salonLinks = [
   {
@@ -39,6 +40,7 @@ const salonLinks = [
     to: "/stylists",
     label: "Stylists",
     icon: UsersRound,
+    featureId: "online-booking",
   },
   {
     to: "/about",
@@ -49,11 +51,13 @@ const salonLinks = [
     to: "/booking",
     label: "Book",
     icon: CalendarCheck,
+    featureId: "online-booking",
   },
   {
     to: "/shop",
     label: "Haircare shop",
     icon: ShoppingBag,
+    featureId: "online-shop",
   },
 ];
 
@@ -104,9 +108,13 @@ export default function Footer() {
   const {
     isAuthenticated,
   } = useAuth();
+  const { isFeatureEnabled } = useFeatureControls();
 
   const whatsappUrl =
     getWhatsAppBookingUrl();
+
+  const whatsappBookingEnabled =
+    isFeatureEnabled("whatsapp-booking");
 
   return (
     <footer className="app-footer">
@@ -139,7 +147,7 @@ export default function Footer() {
               Salon
             </strong>
 
-            {salonLinks.map(
+            {salonLinks.filter(({ featureId }) => !featureId || isFeatureEnabled(featureId)).map(
               ({
                 to,
                 label,
@@ -208,7 +216,7 @@ export default function Footer() {
             </nav>
           ) : null}
 
-          {appDownloadLinks.length > 0 ? (
+          {appDownloadLinks.length > 0 && isFeatureEnabled("pwa") ? (
             <nav aria-label="Download the SalonAI app">
               <strong>
                 Get the app
@@ -243,15 +251,14 @@ export default function Footer() {
             </nav>
           ) : null}
 
-          {socialLinks.length >
-            0 ||
-          whatsappUrl ? (
+          {socialLinks.length > 0 ||
+          (whatsappUrl && whatsappBookingEnabled) ? (
             <nav aria-label="Social media and messaging">
               <strong>
                 Connect
               </strong>
 
-              {whatsappUrl ? (
+              {whatsappUrl && whatsappBookingEnabled ? (
                 <a
                   href={
                     whatsappUrl
