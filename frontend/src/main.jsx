@@ -1,32 +1,58 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
-import './index.css';
-import './styles/salonTheme.css';
-import './styles/customerDashboard.css';
-import './styles/staffDashboard.css';
-import './styles/adminDashboard.css';
-import './styles/appointmentManagement.css';
-import './styles/assistantAvailability.css';
-import './styles/about.css';
-import './styles/customerBookings.css';
-import './styles/accessibilityExperience.css';
-import './styles/notificationExperience.css';
-import './styles/resilienceExperience.css';
-import './styles/helpCentre.css';
-import './styles/customerSettings.css';
-import './styles/shop.css';
-import AppErrorBoundary from './components/system/AppErrorBoundary.jsx';
-import NetworkStatus from './components/system/NetworkStatus.jsx';
-import { FeatureControlProvider } from './context/FeatureControlContext.jsx';
+import React from "react";
+import ReactDOM from "react-dom/client";
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+import App from "./App.jsx";
+import AppErrorBoundary from "./components/system/AppErrorBoundary.jsx";
+import NetworkStatus from "./components/system/NetworkStatus.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import { BookingProvider } from "./context/BookingContext.jsx";
+import { CartProvider } from "./context/CartContext.jsx";
+import { FeatureControlProvider } from "./context/FeatureControlContext.jsx";
+
+import "./index.css";
+import "./styles/salonTheme.css";
+import "./commerce.css";
+import "./styles/managementExperience.css";
+import "./styles/commerceExperience.css";
+import "./styles/customerAccount.css";
+import "./styles/authExperience.css";
+import "./styles/notificationExperience.css";
+import "./styles/helpCentre.css";
+import "./styles/accessibilityExperience.css";
+import "./styles/resilienceExperience.css";
+import "./styles/customerSettings.css";
+import "./styles/customerExperienceSuite.css";
+import "./styles/manageAccount.css";
+import "./styles/profileMedia.css";
+import "./styles/about.css";
+import "./styles/staffProfile.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <AppErrorBoundary>
+    <AuthProvider>
       <FeatureControlProvider>
-        <NetworkStatus />
-        <App />
+        <CartProvider>
+          <BookingProvider>
+            <AppErrorBoundary>
+              <NetworkStatus />
+              <App />
+            </AppErrorBoundary>
+          </BookingProvider>
+        </CartProvider>
       </FeatureControlProvider>
-    </AppErrorBoundary>
-  </React.StrictMode>,
+    </AuthProvider>
+  </React.StrictMode>
 );
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  window.__salonaiInstallPrompt = event;
+});
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // The application remains fully usable online if registration is blocked.
+    });
+  });
+}
