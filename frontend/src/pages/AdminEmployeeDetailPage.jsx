@@ -664,7 +664,10 @@ export default function AdminEmployeeDetailPage() {
             <div><dt className="text-xs font-bold uppercase text-slate-500">Services</dt><dd className="mt-1 text-sm text-black">{profile?.services?.length || 0} assigned</dd></div>
           </dl>
 
-          <Link to="/admin/stylists" className="mt-5 inline-flex rounded-xl border border-black px-4 py-2 text-sm font-bold text-black hover:bg-amber-50">
+          <Link
+            to={profile?.id ? `/staff/profile?edit=${profile.id}` : "/staff/profile"}
+            className="mt-5 inline-flex rounded-xl border border-black px-4 py-2 text-sm font-bold text-black hover:bg-amber-50"
+          >
             Edit profile details
           </Link>
         </article>
