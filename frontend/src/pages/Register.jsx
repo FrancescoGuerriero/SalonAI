@@ -12,6 +12,7 @@ import {
 } from "react-router-dom";
 
 import AuthShell from "../components/auth/AuthShell.jsx";
+import SocialSignInOptions from "../components/auth/SocialSignInOptions.jsx";
 import PasswordStrength, {
   isStrongPassword,
 } from "../components/auth/PasswordStrength.jsx";
@@ -106,7 +107,7 @@ function Register() {
     <AuthShell
       eyebrow="Join SalonAI"
       title="Create your account"
-      description="Create your secure customer account. When production email activation is enabled, SalonAI will require the verification link sent to your email before first sign-in."
+      description="Create your SalonAI customer account with Google, Facebook, Microsoft, Yahoo or email."
       footer={
         <p>
           Already registered? <Link to="/login">Sign in</Link>
@@ -118,6 +119,11 @@ function Register() {
           {error}
         </div>
       ) : null}
+
+      <SocialSignInOptions
+        returnTo="/account"
+        onError={setError}
+      />
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <label htmlFor="registerName">Full name</label>
