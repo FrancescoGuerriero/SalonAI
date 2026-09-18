@@ -2,9 +2,11 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  calendars,
   listConnections,
   removeConnection,
   startConnection,
+  updateCalendar,
   updateSync,
 } from "./calendarConnectionController.js";
 
@@ -18,6 +20,16 @@ router.get(
 router.post(
   "/:provider/connect",
   asyncHandler(startConnection)
+);
+
+router.get(
+  "/:provider/calendars",
+  asyncHandler(calendars)
+);
+
+router.patch(
+  "/:provider/calendar",
+  asyncHandler(updateCalendar)
 );
 
 router.patch(
