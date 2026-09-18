@@ -19,11 +19,16 @@ import {
 import Footer from "./Footer.jsx";
 import Navbar from "./Navbar.jsx";
 import SalonChatbot from "./chatbot/SalonChatbot.jsx";
+import SalonAiAdviser from "./ai/SalonAiAdviser.jsx";
 import ManagementNavigation, {
   MANAGEMENT_LINKS,
 } from "./navigation/ManagementNavigation.jsx";
 import Seo from "./Seo.jsx";
 import useFeatureControls from "../hooks/useFeatureControls.js";
+import useAuth from "../hooks/useAuth.js";
+import {
+  hasPermission,
+} from "../utils/permissions.js";
 
 const KEY =
   "salonai-management-sidebar-collapsed";
@@ -47,6 +52,9 @@ const isManagementRoute =
 
 export default function MainLayout() {
   const { isFeatureEnabled } = useFeatureControls();
+  const {
+    user,
+  } = useAuth();
   const location =
     useLocation();
 
@@ -258,6 +266,17 @@ export default function MainLayout() {
               <Outlet />
             </div>
           </section>
+
+          {hasPermission(
+            user,
+            "ai:use"
+          ) ? (
+            <SalonAiAdviser
+              contextPath={
+                location.pathname
+              }
+            />
+          ) : null}
 
           {mobileOpen ? (
             <div
