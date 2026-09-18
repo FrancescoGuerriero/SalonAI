@@ -35,6 +35,7 @@ import serviceRoutes from "./routes/serviceRoutes.js";
 import stylistRoutes from "./routes/stylistRoutes.js";
 import appConfigurationRoutes from "./routes/appConfigurationRoutes.js";
 import systemAdministrationRoutes from "./routes/systemAdministrationRoutes.js";
+import calendarOAuthCallbackRoutes from "./integrations/calendar/calendarOAuthCallbackRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import { requireFeature } from "./services/featureControlService.js";
 
@@ -381,6 +382,11 @@ app.use(
 | /api/future/retention-actions
 |
 */
+
+app.use(
+  "/api/calendar-oauth",
+  calendarOAuthCallbackRoutes
+);
 
 app.use(
   "/api/future",
