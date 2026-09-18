@@ -15,8 +15,9 @@ import {
   normalisePublicProfileUrl,
 } from "../utils/profileMedia.js";
 import {
+  appointmentEligibleStylistFilter,
   customerVisibleStylistFilter,
-  isCustomerVisibleStylist,
+  isAppointmentEligibleStylist,
 } from "../services/stylistBookingEligibilityService.js";
 
 export const PUBLIC_STYLIST_FIELDS = [
@@ -34,6 +35,18 @@ export const PUBLIC_STYLIST_FIELDS = [
   "website",
   "rating",
   "reviews",
+  "displayOrder",
+].join(" ");
+
+export const BOOKING_STYLIST_FIELDS = [
+  "firstName",
+  "lastName",
+  "jobTitle",
+  "profileImage",
+  "yearsExperience",
+  "specialties",
+  "services",
+  "rating",
   "displayOrder",
 ].join(" ");
 
@@ -406,7 +419,43 @@ export async function getPublicStylists(
   }
 }
 
-export const getBookingStylists = getPublicStylists;
+export async function getBookingStylists(
+  req,
+  res,
+  next
+) {
+  try {
+    const stylists =
+      await Stylist.find(
+        appointmentEligibleStylistFilter()
+      )
+        .select(
+          BOOKING_STYLIST_FIELDS
+        )
+        .populate(
+          "services",
+          "name category price duration active onlineBookable"
+        )
+        .sort({
+          displayOrder: 1,
+          firstName: 1,
+          lastName: 1,
+        })
+        .limit(50)
+        .lean();
+
+    return res.json({
+      success: true,
+      total:
+        stylists.length,
+      stylists,
+    });
+  } catch (error) {
+    return next(
+      error
+    );
+  }
+}
 
 /*
     GET /api/stylists/me/profile
@@ -581,7 +630,7 @@ export async function getStylistAvailability(req, res, next) {
     }
 
     if (
-      !isCustomerVisibleStylist(
+      !isAppointmentEligibleStylist(
         stylist
       )
     ) {
