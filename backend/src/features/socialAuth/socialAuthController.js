@@ -171,22 +171,26 @@ export async function callback(
       "";
 
     if (
-      error.statusCode &&
-      error.statusCode < 500
+      Number(
+        error.statusCode || 500
+      ) >= 500
     ) {
-      return response.redirect(
-        socialFrontendRedirect({
-          provider:
-            selectedProvider,
-          status: "error",
-          returnTo,
-          code:
-            error.code ||
-            "SOCIAL_SIGN_IN_FAILED",
-        })
+      console.error(
+        "Social sign-in callback failed:",
+        error
       );
     }
 
-    return next(error);
+    return response.redirect(
+      socialFrontendRedirect({
+        provider:
+          selectedProvider,
+        status: "error",
+        returnTo,
+        code:
+          error.code ||
+          "SOCIAL_SIGN_IN_FAILED",
+      })
+    );
   }
 }
