@@ -1,5 +1,10 @@
 import ExternalCalendarConnection from "../../models/ExternalCalendarConnection.js";
+import Appointment from "../../models/Appointment.js";
+import Stylist from "../../models/Stylist.js";
 import User from "../../models/user.js";
+import {
+  enqueueCalendarSyncTask,
+} from "./calendarSyncQueue.js";
 import {
   decryptCalendarSecret,
   encryptCalendarSecret,
@@ -448,6 +453,72 @@ export async function saveOAuthConnection({
   );
 }
 
+async function queueCurrentStaffAppointments(
+  userId
+) {
+  const stylist =
+    await Stylist.findOne({
+      userAccount: userId,
+      isActive: true,
+      acceptsAppointments:
+        true,
+    })
+      .select("_id")
+      .lean();
+
+  if (!stylist) {
+    return {
+      queued: 0,
+    };
+  }
+
+  const now =
+    new Date();
+
+  const appointments =
+    await Appointment.find({
+      stylist:
+        stylist._id,
+      status: {
+        $in: [
+          "pending",
+          "confirmed",
+          "checked_in",
+          "in_progress",
+        ],
+      },
+      $or: [
+        {
+          endsAt: {
+            $gte: now,
+          },
+        },
+        {
+          endsAt: null,
+          appointmentDate: {
+            $gte: now,
+          },
+        },
+      ],
+    })
+      .select("_id")
+      .lean();
+
+  for (
+    const appointment of
+    appointments
+  ) {
+    await enqueueCalendarSyncTask(
+      appointment._id
+    );
+  }
+
+  return {
+    queued:
+      appointments.length,
+  };
+}
+
 export async function setCalendarSyncEnabled({
   userId,
   provider,
@@ -477,6 +548,14 @@ export async function setCalendarSyncEnabled({
   }
 
   await connection.save();
+
+  if (
+    connection.syncEnabled
+  ) {
+    await queueCurrentStaffAppointments(
+      userId
+    );
+  }
 
   return connection;
 }
