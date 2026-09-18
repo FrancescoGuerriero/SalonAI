@@ -304,7 +304,7 @@ export default function StaffCalendarConnections() {
                           </dt>
                           <dd className="mt-1 text-black">
                             {connection.syncEnabled
-                              ? "On · two-way"
+                              ? "On · enabled"
                               : "Off · paused"}
                           </dd>
                         </div>
