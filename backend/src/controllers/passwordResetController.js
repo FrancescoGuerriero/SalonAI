@@ -164,6 +164,7 @@ export async function resetPassword(req, res) {
     }
 
     user.password = await bcrypt.hash(password, 10);
+    user.passwordAuthEnabled = true;
     user.passwordChangedAt = new Date();
     await user.save();
 
