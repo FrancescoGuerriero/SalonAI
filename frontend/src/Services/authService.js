@@ -42,6 +42,41 @@ class AuthService {
     return response.data;
   }
 
+  async getSocialLinks() {
+    const response =
+      await API.get(
+        "/auth/social/links"
+      );
+
+    return response.data;
+  }
+
+  async startSocialLink(
+    provider
+  ) {
+    const response =
+      await API.post(
+        `/auth/social/${provider}/link`,
+        {
+          returnTo:
+            "/account/manage",
+        }
+      );
+
+    return response.data;
+  }
+
+  async unlinkSocialProvider(
+    provider
+  ) {
+    const response =
+      await API.delete(
+        `/auth/social/${provider}/link`
+      );
+
+    return response.data;
+  }
+
   async completeSocialLogin() {
     const response =
       await API.post(
