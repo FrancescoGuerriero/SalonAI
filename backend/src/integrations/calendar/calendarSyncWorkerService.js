@@ -3,6 +3,7 @@ import {
 } from "./calendarSyncOutboxService.js";
 import {
   reconcileAllEnabledCalendars,
+  reconcileRequestedCalendars,
 } from "./calendarInboundReconciliationService.js";
 
 const DEFAULT_INTERVAL_MS =
@@ -24,6 +25,9 @@ let lastInboundCycleAt =
   null;
 let lastInboundResult =
   null;
+let lastWebhookWakeAt =
+  null;
+let wakePending = false;
 
 function enabled() {
   return [
@@ -121,6 +125,8 @@ async function cycle() {
 
         let inbound =
           null;
+        let inboundMode =
+          null;
 
         if (inboundDue()) {
           inbound =
@@ -128,15 +134,36 @@ async function cycle() {
               limit:
                 batchSize(),
             });
+          inboundMode =
+            "periodic";
           lastInboundCycleAt =
             new Date();
           lastInboundResult =
             inbound;
+        } else {
+          const requested =
+            await reconcileRequestedCalendars({
+              limit:
+                batchSize(),
+            });
+
+          if (
+            requested.checked >
+            0
+          ) {
+            inbound =
+              requested;
+            inboundMode =
+              "webhook";
+            lastInboundResult =
+              requested;
+          }
         }
 
         const result = {
           outbound,
           inbound,
+          inboundMode,
         };
 
         lastSuccessfulCycleAt =
@@ -155,10 +182,64 @@ async function cycle() {
       } finally {
         runningCycle =
           null;
+
+        if (wakePending) {
+          queueMicrotask(
+            runWakeCycle
+          );
+        }
       }
     })();
 
   return runningCycle;
+}
+
+async function runWakeCycle() {
+  if (
+    !wakePending ||
+    !enabled() ||
+    !timer
+  ) {
+    return;
+  }
+
+  if (runningCycle) {
+    return;
+  }
+
+  wakePending = false;
+
+  try {
+    await cycle();
+  } catch (error) {
+    console.error(
+      "Calendar sync webhook wake cycle failed:",
+      error
+    );
+  }
+}
+
+export function requestCalendarSyncWake() {
+  if (
+    !enabled() ||
+    !timer
+  ) {
+    return {
+      scheduled: false,
+    };
+  }
+
+  wakePending = true;
+  lastWebhookWakeAt =
+    new Date();
+
+  queueMicrotask(
+    runWakeCycle
+  );
+
+  return {
+    scheduled: true,
+  };
 }
 
 function schedule() {
@@ -283,6 +364,8 @@ export function getCalendarSyncWorkerStatus() {
       inboundIntervalMs(),
     lastInboundCycleAt,
     lastInboundResult,
+    lastWebhookWakeAt,
+    wakePending,
     startedAt,
     lastSuccessfulCycleAt,
     lastFailedCycleAt,
