@@ -23,6 +23,7 @@ import {
 import commerceService from "../Services/commerceService.js";
 import AccountSection from "../components/account/AccountSection.jsx";
 import AccountSummaryCard from "../components/account/AccountSummaryCard.jsx";
+import AddAppointmentToCalendar from "../components/account/AddAppointmentToCalendar.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
@@ -323,6 +324,9 @@ export default function CustomerAccountPage() {
                           ? `${formatMoney(appointmentBalance(appointment))} outstanding`
                           : "Payment complete"}
                       </small>
+                      <AddAppointmentToCalendar
+                        appointment={appointment}
+                      />
                     </div>
                     <span className="account-status">
                       {appointment?.status ?? "pending"}
