@@ -76,6 +76,144 @@ function normaliseEmail(
   ).toLowerCase();
 }
 
+
+function cleanList(
+  value,
+  maximumItems,
+  maximumLength
+) {
+  const input =
+    Array.isArray(value)
+      ? value
+      : String(
+          value ?? ""
+        ).split(",");
+
+  const unique =
+    new Set();
+
+  for (
+    const item of input
+  ) {
+    const cleaned =
+      cleanText(
+        item,
+        maximumLength
+      );
+
+    if (cleaned) {
+      unique.add(
+        cleaned
+      );
+    }
+
+    if (
+      unique.size >=
+      maximumItems
+    ) {
+      break;
+    }
+  }
+
+  return [
+    ...unique,
+  ];
+}
+
+function booleanField(
+  value,
+  field,
+  defaultValue
+) {
+  if (
+    value ===
+    undefined
+  ) {
+    return defaultValue;
+  }
+
+  if (
+    typeof value !==
+    "boolean"
+  ) {
+    throw httpError(
+      `${field} must be true or false.`,
+      400
+    );
+  }
+
+  return value;
+}
+
+async function normaliseServiceIds(
+  services
+) {
+  if (
+    services ===
+    undefined
+  ) {
+    return [];
+  }
+
+  if (
+    !Array.isArray(
+      services
+    )
+  ) {
+    throw httpError(
+      "services must be an array.",
+      400
+    );
+  }
+
+  const serviceIds =
+    [
+      ...new Set(
+        services.map(
+          (serviceId) =>
+            String(
+              serviceId ||
+                ""
+            ).trim()
+        )
+      ),
+    ].filter(Boolean);
+
+  if (
+    serviceIds.some(
+      (serviceId) =>
+        !mongoose.isValidObjectId(
+          serviceId
+        )
+    )
+  ) {
+    throw httpError(
+      "Every service must use a valid identifier.",
+      400
+    );
+  }
+
+  const serviceCount =
+    await Service.countDocuments({
+      _id: {
+        $in:
+          serviceIds,
+      },
+    });
+
+  if (
+    serviceCount !==
+    serviceIds.length
+  ) {
+    throw httpError(
+      "One or more selected services do not exist.",
+      400
+    );
+  }
+
+  return serviceIds;
+}
+
 function assertStaffAccount(
   user
 ) {
@@ -804,61 +942,10 @@ export async function updateEmployeeServices(
   next
 ) {
   try {
-    if (
-      !Array.isArray(
-        req.body.services
-      )
-    ) {
-      throw httpError(
-        "services must be an array.",
-        400
-      );
-    }
-
     const serviceIds =
-      [
-        ...new Set(
-          req.body.services.map(
-            (serviceId) =>
-              String(
-                serviceId ||
-                  ""
-              ).trim()
-          )
-        ),
-      ].filter(Boolean);
-
-    if (
-      serviceIds.some(
-        (serviceId) =>
-          !mongoose.isValidObjectId(
-            serviceId
-          )
-      )
-    ) {
-      throw httpError(
-        "Every service must use a valid identifier.",
-        400
+      await normaliseServiceIds(
+        req.body.services
       );
-    }
-
-    const serviceCount =
-      await Service.countDocuments({
-        _id: {
-          $in:
-            serviceIds,
-        },
-      });
-
-    if (
-      serviceCount !==
-      serviceIds.length
-    ) {
-      throw httpError(
-        "One or more selected services do not exist.",
-        400
-      );
-    }
 
     const {
       user,
