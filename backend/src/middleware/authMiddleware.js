@@ -142,10 +142,18 @@ export function authorize(...allowedRoles) {
   };
 }
 
-export const adminOnly = authorize("admin");
+export const adminOnly = authorize(
+  "admin",
+  "super_admin"
+);
+
+export const superAdminOnly = authorize(
+  "super_admin"
+);
 
 export const managementOnly = authorize(
   "admin",
+  "super_admin",
   "stylist",
   "receptionist",
   "manager"
@@ -155,5 +163,6 @@ export default {
   protect,
   authorize,
   adminOnly,
+  superAdminOnly,
   managementOnly,
 };
