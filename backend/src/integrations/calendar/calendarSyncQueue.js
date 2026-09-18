@@ -20,12 +20,12 @@ export async function enqueueCalendarSyncTask(
           null,
         completedAt: null,
         lastError: "",
+        attempts: 0,
       },
       $inc: {
         requestedRevision: 1,
       },
       $setOnInsert: {
-        attempts: 0,
         processedRevision: 0,
       },
     },
