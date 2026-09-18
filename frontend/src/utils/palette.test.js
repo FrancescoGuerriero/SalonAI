@@ -42,9 +42,14 @@ test("interface source contains only neutral, gold and sand colour values", () =
   assert.deepEqual(violations, []);
 });
 
-test("audited employee management UI does not use blue, indigo or navy utilities", () => {
+test("audited interactive UI does not use blue, indigo or navy utilities", () => {
   const auditedFiles = [
     path.join(root, "pages", "AdminStaffAccountsPage.jsx"),
+    path.join(root, "components", "communications", "CampaignComposerModal.jsx"),
+    path.join(root, "components", "communications", "CampaignPreviewModal.jsx"),
+    path.join(root, "components", "communications", "CommunicationTemplateModal.jsx"),
+    path.join(root, "components", "communications", "CommunicationTemplatePreviewModal.jsx"),
+    path.join(root, "components", "customers", "CustomerContactModal.jsx"),
   ];
   const violations = [];
 
