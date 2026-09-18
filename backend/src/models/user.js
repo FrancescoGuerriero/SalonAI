@@ -132,6 +132,18 @@ const userSchema = new Schema(
       default: [],
     },
 
+    /*
+     * Super Admin is an authority flag rather than a new role value.
+     * Keeping role="admin" preserves compatibility with the currently
+     * deployed application while a controlled migration marks the initial
+     * authority account by immutable User ID.
+     */
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     phone: {
       type: String,
       trim: true,
