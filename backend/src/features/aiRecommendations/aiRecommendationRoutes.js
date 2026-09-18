@@ -37,6 +37,9 @@ import {
 import {
   getAiManagementCopilot,
 } from "./aiManagementCopilotController.js";
+import {
+  askAdviser,
+} from "./aiAdviserController.js";
 
 const router = express.Router();
 
@@ -72,6 +75,16 @@ router.get(
 | SalonAI Adviser / management copilot
 |--------------------------------------------------------------------------
 */
+
+router.post(
+  "/adviser/query",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    askAdviser
+  )
+);
 
 router.get(
   "/management-copilot",
