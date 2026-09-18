@@ -12,6 +12,20 @@ export async function createProduct(req, res) {
   res.status(201).json(
     await service.createProduct({
       ...req.body,
+      stockQuantity:
+        hasUserPermission(
+          req.user,
+          "product:inventory:update"
+        )
+          ? req.body.stockQuantity
+          : 0,
+      reorderLevel:
+        hasUserPermission(
+          req.user,
+          "product:inventory:update"
+        )
+          ? req.body.reorderLevel
+          : 5,
       active: false,
     })
   );
@@ -46,8 +60,18 @@ export async function updateProduct(req, res) {
     ...req.body,
   };
 
-  // Publication is governed independently from catalogue editing.
+  // Publication and inventory are governed independently from catalogue editing.
   delete payload.active;
+  delete payload.stockQuantity;
+
+  if (
+    !hasUserPermission(
+      req.user,
+      "product:inventory:update"
+    )
+  ) {
+    delete payload.reorderLevel;
+  }
 
   res.json(
     await service.updateProduct(
