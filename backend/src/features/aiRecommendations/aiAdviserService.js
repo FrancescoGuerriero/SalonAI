@@ -9,6 +9,9 @@ import {
 import {
   buildManagementCopilotPayload,
 } from "./aiManagementCopilotService.js";
+import {
+  buildAdviserDomainContext,
+} from "./aiAdviserContextService.js";
 
 const MODEL_NAME =
   "salonai-adviser-grounded";
@@ -231,6 +234,7 @@ function fallbackAnswer({
   question,
   payload,
   knowledge,
+  domainContext,
 }) {
   const metrics =
     metricSummary(
@@ -339,6 +343,8 @@ function userPrompt({
       issues:
         payload.issues ||
         [],
+      contextualDomainEvidence:
+        domainContext,
       reviewedKnowledge:
         knowledge,
     },
@@ -398,6 +404,7 @@ export async function askSalonAiAdviser({
   const [
     payload,
     knowledge,
+    domainContext,
   ] = await Promise.all([
     buildManagementCopilotPayload({
       periodDays:
@@ -407,6 +414,10 @@ export async function askSalonAiAdviser({
       safeQuestion,
       user
     ),
+    buildAdviserDomainContext({
+      contextPath,
+      user,
+    }),
   ]);
 
   const fallback =
@@ -431,6 +442,7 @@ export async function askSalonAiAdviser({
             ),
           payload,
           knowledge,
+          domainContext,
         }),
       fallback,
     });
@@ -447,6 +459,7 @@ export async function askSalonAiAdviser({
     issues:
       payload.issues ||
       [],
+    domainContext,
     knowledge:
       knowledge.map(
         (item) => ({
