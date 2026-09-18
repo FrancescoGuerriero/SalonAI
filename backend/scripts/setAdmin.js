@@ -38,6 +38,12 @@ async function setAdmin() {
     );
   }
 
+  if (user.role === "super_admin") {
+    throw new Error(
+      "Refusing to demote a Super Admin through admin:set. Use the governed staff-management workflow instead."
+    );
+  }
+
   user.role = "admin";
   await user.save();
 
