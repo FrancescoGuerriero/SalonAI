@@ -1,5 +1,6 @@
 import ExternalCalendarConnection from "../../models/ExternalCalendarConnection.js";
 import {
+  calendarWebhooksEnabled,
   verifyCalendarWebhookToken,
 } from "./calendarWebhookProviderService.js";
 
@@ -44,6 +45,13 @@ async function requestReconciliation(connection, now = new Date()) {
 export async function handleGoogleCalendarWebhook({
   headers,
 }) {
+  if (!calendarWebhooksEnabled()) {
+    return {
+      accepted: false,
+      reason: "webhooks_disabled",
+    };
+  }
+
   const subscriptionId = header(headers, "x-goog-channel-id");
   const suppliedToken = header(headers, "x-goog-channel-token");
   const resourceId = header(headers, "x-goog-resource-id");
@@ -109,6 +117,16 @@ export async function handleGoogleCalendarWebhook({
 export async function handleOutlookCalendarWebhook({
   body,
 }) {
+  if (!calendarWebhooksEnabled()) {
+    return {
+      accepted: 0,
+      ignored: Array.isArray(body?.value)
+        ? body.value.length
+        : 0,
+      connectionIds: [],
+    };
+  }
+
   const notifications = Array.isArray(body?.value)
     ? body.value
     : [];
