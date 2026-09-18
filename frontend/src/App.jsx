@@ -105,6 +105,13 @@ const InventoryManagement = lazy(
     )
 );
 
+const ProductManagementPage = lazy(
+  () =>
+    import(
+      "./pages/ProductManagementPage.jsx"
+    )
+);
+
 const OrderManagement = lazy(
   () =>
     import(
@@ -990,15 +997,25 @@ function AppRoutes() {
 
         <Route
           path="manage/services"
-          element={managementPage(
-            ServicesPage
+          element={permissionPage(
+            ServicesPage,
+            "service:read"
+          )}
+        />
+
+        <Route
+          path="manage/products"
+          element={permissionPage(
+            ProductManagementPage,
+            "product:read"
           )}
         />
 
         <Route
           path="manage/inventory"
-          element={managementPage(
-            InventoryManagement
+          element={permissionPage(
+            InventoryManagement,
+            "inventory:read"
           )}
         />
 
