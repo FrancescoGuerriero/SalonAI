@@ -16,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -25,6 +26,7 @@ import {
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
 import useAuth from "../hooks/useAuth.js";
+import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import {
   employeeScheduleForDate,
   employeeServiceNames,
@@ -142,6 +144,11 @@ export default function AdminStaffAccountsPage() {
   const {
     user: currentUser,
   } = useAuth();
+
+  const createTriggerRef =
+    useRef(null);
+  const createPanelRef =
+    useRef(null);
 
   const canCreate =
     hasPermission(
@@ -323,14 +330,55 @@ export default function AdminStaffAccountsPage() {
     setShowForm(true);
   }
 
-  function closeCreateForm() {
-    if (submitting) {
-      return;
+  const closeCreateForm =
+    useCallback(() => {
+      if (submitting) {
+        return;
+      }
+
+      setShowForm(false);
+      setForm(emptyForm);
+    }, [submitting]);
+
+  const setCreateFormOpen =
+    useCallback(
+      (nextOpen) => {
+        if (nextOpen) {
+          setShowForm(true);
+          return;
+        }
+
+        closeCreateForm();
+      },
+      [closeCreateForm]
+    );
+
+  useModalFocusTrap({
+    open: showForm,
+    containerRef:
+      createPanelRef,
+    returnFocusRef:
+      createTriggerRef,
+    setOpen:
+      setCreateFormOpen,
+  });
+
+  useEffect(() => {
+    if (!showForm) {
+      return undefined;
     }
 
-    setShowForm(false);
-    setForm(emptyForm);
-  }
+    const prior =
+      document.body.style
+        .overflow;
+    document.body.style
+      .overflow = "hidden";
+
+    return () => {
+      document.body.style
+        .overflow = prior;
+    };
+  }, [showForm]);
 
   async function createStaff(
     event
@@ -532,6 +580,7 @@ export default function AdminStaffAccountsPage() {
 
           {canCreate ? (
             <button
+              ref={createTriggerRef}
               type="button"
               className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
               onClick={
@@ -830,7 +879,7 @@ export default function AdminStaffAccountsPage() {
 
       {showForm ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-2 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-staff-title"
@@ -845,13 +894,17 @@ export default function AdminStaffAccountsPage() {
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+          <div
+            ref={createPanelRef}
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+            tabIndex="-1"
+          >
             <form
               onSubmit={
                 createStaff
               }
             >
-              <header className="flex items-center justify-between border-b border-slate-200 p-5">
+              <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-4 sm:p-5">
                 <div>
                   <h2
                     id="add-staff-title"
@@ -867,7 +920,7 @@ export default function AdminStaffAccountsPage() {
 
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                  className="min-h-11 min-w-11 rounded-lg p-2 text-slate-700 hover:bg-slate-100"
                   disabled={
                     submitting
                   }
@@ -880,7 +933,7 @@ export default function AdminStaffAccountsPage() {
                 </button>
               </header>
 
-              <div className="space-y-5 p-5">
+              <div className="space-y-5 p-4 sm:p-5">
                 <ProfilePhotoUploader
                   value={
                     form.profilePhoto
@@ -1110,7 +1163,7 @@ export default function AdminStaffAccountsPage() {
                 ) : null}
               </div>
 
-              <footer className="flex justify-end gap-2 border-t border-slate-200 p-5">
+              <footer className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
                 <button
                   type="button"
                   className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700"
