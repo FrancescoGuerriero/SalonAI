@@ -43,6 +43,10 @@ test("calendar outbox retry delay grows exponentially and is capped", () => {
     backoffMs(
       MAX_ATTEMPTS
     ),
+    1_920_000
+  );
+  assert.equal(
+    backoffMs(20),
     60 * 60 * 1000
   );
 });
