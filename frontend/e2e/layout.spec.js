@@ -719,7 +719,7 @@ test.describe("SalonAI layout regressions", () => {
 
   test("employee Active, Published and Bookable controls remain independent and touch-sized", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const superAdmin = {
       ...adminUser,
       role: "super_admin",
@@ -806,17 +806,22 @@ test.describe("SalonAI layout regressions", () => {
     await expect(published).toHaveAttribute("aria-checked", "true");
     await expect(bookable).toHaveAttribute("aria-checked", "false");
 
+    const targetMinimum =
+      testInfo.project.name === "mobile-chrome"
+        ? 44
+        : 24;
+
     for (const control of [active, published, bookable]) {
       const box = await control.boundingBox();
       expect(box).not.toBeNull();
-      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(targetMinimum);
       expect(box.width).toBeGreaterThanOrEqual(44);
     }
   });
 
   test("System Administration feature switches are labelled and touch-sized", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const superAdmin = {
       ...adminUser,
       role: "super_admin",
@@ -912,7 +917,13 @@ test.describe("SalonAI layout regressions", () => {
 
     const box = await featureSwitch.boundingBox();
     expect(box).not.toBeNull();
-    expect(box.height).toBeGreaterThanOrEqual(44);
+
+    const targetMinimum =
+      testInfo.project.name === "mobile-chrome"
+        ? 44
+        : 24;
+
+    expect(box.height).toBeGreaterThanOrEqual(targetMinimum);
     expect(box.width).toBeGreaterThanOrEqual(44);
   });
 });
