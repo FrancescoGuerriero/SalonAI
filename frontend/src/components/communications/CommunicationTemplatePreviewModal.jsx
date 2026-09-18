@@ -30,9 +30,9 @@ const CHANNEL_CONFIG = {
     label: "Email",
     icon: Mail,
     badgeClass:
-      "border-blue-200 bg-blue-50 text-blue-700",
+      "border-amber-200 bg-amber-50 text-amber-700",
     iconClass:
-      "bg-blue-100 text-blue-700",
+      "bg-amber-100 text-amber-700",
   },
 
   sms: {
@@ -66,9 +66,9 @@ const CHANNEL_CONFIG = {
     label: "In App",
     icon: FileText,
     badgeClass:
-      "border-indigo-200 bg-indigo-50 text-indigo-700",
+      "border-amber-200 bg-amber-50 text-amber-700",
     iconClass:
-      "bg-indigo-100 text-indigo-700",
+      "bg-amber-100 text-amber-700",
   },
 };
 
@@ -252,7 +252,7 @@ function VariableInput({
         }
         disabled={disabled}
         placeholder={`Enter ${variableName}`}
-        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-gray-100"
+        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:bg-gray-100"
       />
     </div>
   );
@@ -624,7 +624,7 @@ export default function CommunicationTemplatePreviewModal({
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Braces
-                      className="text-indigo-600"
+                      className="text-amber-600"
                       size={18}
                     />
 
@@ -640,7 +640,7 @@ export default function CommunicationTemplatePreviewModal({
                       rendering ||
                       usingTemplate
                     }
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 transition hover:text-indigo-900 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 transition hover:text-amber-900 disabled:opacity-50"
                   >
                     <RefreshCcw size={13} />
                     Reset
@@ -780,20 +780,20 @@ export default function CommunicationTemplatePreviewModal({
             </aside>
 
             <section className="space-y-5">
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
                     <Eye
-                      className="text-indigo-700"
+                      className="text-amber-700"
                       size={19}
                     />
 
                     <div>
-                      <h3 className="font-semibold text-indigo-900">
+                      <h3 className="font-semibold text-amber-900">
                         Customer preview
                       </h3>
 
-                      <p className="mt-0.5 text-xs text-indigo-700">
+                      <p className="mt-0.5 text-xs text-amber-700">
                         This is how the personalised
                         message will appear.
                       </p>
@@ -810,7 +810,7 @@ export default function CommunicationTemplatePreviewModal({
                       usingTemplate ||
                       !templateId
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <RefreshCcw
                       size={14}
@@ -948,7 +948,7 @@ export default function CommunicationTemplatePreviewModal({
                   usingTemplate ||
                   template.active === false
                 }
-                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {usingTemplate ? (
                   <>

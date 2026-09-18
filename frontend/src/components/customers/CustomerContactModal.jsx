@@ -542,9 +542,9 @@ export default function CustomerContactModal({
         <header className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
                 <SelectedChannelIcon
-                  className="text-blue-700"
+                  className="text-amber-700"
                   size={22}
                 />
               </div>
@@ -642,7 +642,7 @@ export default function CustomerContactModal({
                   )
                 }
                 disabled={saving}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
               >
                 {CAMPAIGN_OPTIONS.map((option) => (
                   <option
@@ -672,7 +672,7 @@ export default function CustomerContactModal({
                 disabled={
                   saving || !hasContactDetails
                 }
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
               >
                 {availableChannels.map((option) => (
                   <option
@@ -713,7 +713,7 @@ export default function CustomerContactModal({
                   ? "customer@example.com"
                   : "Customer phone number"
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
             />
           </div>
 
@@ -735,7 +735,7 @@ export default function CustomerContactModal({
                 }
                 disabled={saving}
                 maxLength={200}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
               />
 
               <p className="mt-1 text-right text-xs text-gray-400">
@@ -768,7 +768,7 @@ export default function CustomerContactModal({
                   ? "Add notes for the planned call."
                   : "Enter the customer message."
               }
-              className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm leading-6 text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm leading-6 text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
             />
 
             <p className="mt-1 text-right text-xs text-gray-400">
@@ -776,7 +776,7 @@ export default function CustomerContactModal({
             </p>
           </div>
 
-          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
             The contact record will initially be saved as a
             draft. Opening an external email, SMS, WhatsApp,
             or telephone application does not confirm that the
@@ -804,7 +804,7 @@ export default function CustomerContactModal({
             disabled={
               saving || !hasContactDetails
             }
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save size={17} />
 
@@ -821,7 +821,7 @@ export default function CustomerContactModal({
             disabled={
               saving || !hasContactDetails
             }
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send size={17} />
 

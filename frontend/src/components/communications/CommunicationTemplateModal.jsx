@@ -511,7 +511,7 @@ export default function CommunicationTemplateModal({
       <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
               <FileText size={22} />
             </div>
 
@@ -598,7 +598,7 @@ export default function CommunicationTemplateModal({
                       className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:ring-2 disabled:bg-gray-100 ${
                         errors.name
                           ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                          : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                          : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
                       }`}
                     />
 
@@ -625,7 +625,7 @@ export default function CommunicationTemplateModal({
                         )
                       }
                       disabled={saving}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
                     >
                       {CAMPAIGN_OPTIONS.map(
                         (option) => (
@@ -662,7 +662,7 @@ export default function CommunicationTemplateModal({
                     maxLength={500}
                     placeholder="Explain when this template should be used."
                     disabled={saving}
-                    className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                    className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
                   />
 
                   <p className="mt-1 text-right text-xs text-gray-400">
@@ -695,7 +695,7 @@ export default function CommunicationTemplateModal({
                             disabled={saving}
                             className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                               selected
-                                ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100"
+                                ? "border-amber-500 bg-amber-50 text-amber-700 ring-2 ring-amber-100"
                                 : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                             }`}
                           >
@@ -732,8 +732,8 @@ export default function CommunicationTemplateModal({
                         className={`text-xs font-semibold ${
                           variableTarget ===
                           "subject"
-                            ? "text-indigo-700"
-                            : "text-gray-500 hover:text-indigo-700"
+                            ? "text-amber-700"
+                            : "text-gray-500 hover:text-amber-700"
                         }`}
                       >
                         Insert variables here
@@ -762,7 +762,7 @@ export default function CommunicationTemplateModal({
                       className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:ring-2 disabled:bg-gray-100 ${
                         errors.subject
                           ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                          : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                          : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
                       }`}
                     />
 
@@ -788,8 +788,8 @@ export default function CommunicationTemplateModal({
                       }
                       className={`text-xs font-semibold ${
                         variableTarget === "body"
-                          ? "text-indigo-700"
-                          : "text-gray-500 hover:text-indigo-700"
+                          ? "text-amber-700"
+                          : "text-gray-500 hover:text-amber-700"
                       }`}
                     >
                       Insert variables here
@@ -818,7 +818,7 @@ export default function CommunicationTemplateModal({
                     className={`w-full resize-y rounded-lg border px-3 py-3 text-sm leading-6 text-gray-900 outline-none transition focus:ring-2 disabled:bg-gray-100 ${
                       errors.body
                         ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                        : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                        : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
                     }`}
                   />
 
@@ -866,7 +866,7 @@ export default function CommunicationTemplateModal({
                     }
                     placeholder="reminder, appointment, customer-care"
                     disabled={saving}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
                   />
 
                   <p className="mt-1.5 text-xs text-gray-500">
@@ -885,7 +885,7 @@ export default function CommunicationTemplateModal({
                       )
                     }
                     disabled={saving}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
                   />
 
                   <span>
@@ -906,7 +906,7 @@ export default function CommunicationTemplateModal({
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div className="flex items-center gap-2">
                     <Braces
-                      className="text-indigo-600"
+                      className="text-amber-600"
                       size={18}
                     />
 
@@ -933,7 +933,7 @@ export default function CommunicationTemplateModal({
                         className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                           variableTarget ===
                           "subject"
-                            ? "bg-indigo-600 text-white"
+                            ? "bg-amber-600 text-white"
                             : "border border-gray-300 bg-white text-gray-600"
                         }`}
                       >
@@ -948,7 +948,7 @@ export default function CommunicationTemplateModal({
                       }
                       className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                         variableTarget === "body"
-                          ? "bg-indigo-600 text-white"
+                          ? "bg-amber-600 text-white"
                           : "border border-gray-300 bg-white text-gray-600"
                       }`}
                     >
@@ -968,7 +968,7 @@ export default function CommunicationTemplateModal({
                             )
                           }
                           disabled={saving}
-                          className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
                         >
                           <Plus size={12} />
                           {variableName}
@@ -991,7 +991,7 @@ export default function CommunicationTemplateModal({
                       </p>
                     </div>
 
-                    <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700">
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
                       {extractedVariables.length}
                     </span>
                   </div>
@@ -1016,14 +1016,14 @@ export default function CommunicationTemplateModal({
                   )}
                 </div>
 
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <div className="flex items-center gap-2">
                     <Eye
-                      className="text-indigo-700"
+                      className="text-amber-700"
                       size={18}
                     />
 
-                    <h3 className="font-semibold text-indigo-900">
+                    <h3 className="font-semibold text-amber-900">
                       Message preview
                     </h3>
                   </div>
@@ -1036,7 +1036,7 @@ export default function CommunicationTemplateModal({
                           !currentValue
                       )
                     }
-                    className="mt-4 w-full rounded-lg border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                    className="mt-4 w-full rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
                   >
                     {previewOpen
                       ? "Hide Preview"
@@ -1044,7 +1044,7 @@ export default function CommunicationTemplateModal({
                   </button>
 
                   {previewOpen ? (
-                    <div className="mt-4 rounded-lg border border-indigo-200 bg-white p-4">
+                    <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4">
                       {form.channel ===
                         "email" &&
                       previewSubject ? (
@@ -1101,7 +1101,7 @@ export default function CommunicationTemplateModal({
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? (
                   <>
