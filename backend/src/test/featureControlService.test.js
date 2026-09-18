@@ -259,3 +259,30 @@ test("customer aggregate hides disabled optional feature data while retaining re
     /featureAvailability\.wallet[\s\S]*result\.walletCards\.map/
   );
 });
+
+
+test("public team frontend route is independent from online booking", async () => {
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    app,
+    /path="stylists"[\s\S]*featurePage\(<Stylists \/>, "public-team"\)/
+  );
+
+  assert.doesNotMatch(
+    app,
+    /path="stylists"[\s\S]{0,160}featurePage\(<Stylists \/>, "online-booking"\)/
+  );
+
+  assert.match(
+    app,
+    /path="booking"[\s\S]*featurePage\(protectedPage\(Booking\), "online-booking"\)/
+  );
+});
