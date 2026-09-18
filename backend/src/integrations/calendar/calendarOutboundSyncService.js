@@ -225,6 +225,30 @@ async function syncConnection({
       link = null;
     }
 
+    const appointmentEnd =
+      dateOrNull(
+        appointment.endsAt
+      );
+
+    if (
+      !link &&
+      appointmentEnd &&
+      appointmentEnd <
+        new Date()
+    ) {
+      await markConnectionSuccess(
+        connection
+      );
+
+      return {
+        provider:
+          connection.provider,
+        action: "noop",
+        reason:
+          "historical_appointment_without_external_mapping",
+      };
+    }
+
     let providerResult;
     let action;
 
