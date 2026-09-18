@@ -337,6 +337,8 @@ function serialiseAdminUser(
       user.email,
     role:
       user.role,
+    isSuperAdmin:
+      user.isSuperAdmin === true,
     permissions:
       user.permissions || [],
     phone:
@@ -629,7 +631,7 @@ export async function listAdminUsers(
           },
         })
           .select(
-            "name email role permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
+            "name email role isSuperAdmin permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
           )
           .sort({
             name: 1,
@@ -848,7 +850,7 @@ async function employeeAndProfile(
     await User.findById(
       employeeId
     ).select(
-      "name email role permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
+      "name email role isSuperAdmin permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
     );
 
   if (!user) {
