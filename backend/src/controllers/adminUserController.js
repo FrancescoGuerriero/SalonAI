@@ -20,6 +20,14 @@ export const STAFF_ROLES = Object.freeze([
   "receptionist",
   "manager",
   "admin",
+  "super_admin",
+]);
+
+const ASSIGNABLE_STAFF_ROLES = Object.freeze([
+  "stylist",
+  "receptionist",
+  "manager",
+  "admin",
 ]);
 
 const EMPLOYEE_SETTING_FIELDS = Object.freeze([
@@ -1188,7 +1196,7 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      !STAFF_ROLES.includes(
+      !ASSIGNABLE_STAFF_ROLES.includes(
         role
       )
     ) {
@@ -1200,14 +1208,14 @@ export async function createStaffUserByAdmin(
 
     if (
       req.user.role !==
-        "admin" &&
+        "super_admin" &&
       [
         "admin",
         "manager",
       ].includes(role)
     ) {
       throw httpError(
-        "Only an administrator can create manager or administrator accounts.",
+        "Only the Super Admin can create manager or administrator accounts.",
         403
       );
     }
@@ -1239,7 +1247,7 @@ export async function createStaffUserByAdmin(
         role,
         permissions:
           req.user.role ===
-          "admin"
+          "super_admin"
             ? permissions
             : [],
         phone,
@@ -1350,7 +1358,7 @@ export function normaliseEmployeeManagementUpdate(
       );
 
     if (
-      !STAFF_ROLES.includes(
+      !ASSIGNABLE_STAFF_ROLES.includes(
         update.role
       )
     ) {
@@ -1442,55 +1450,42 @@ export function normaliseEmployeeManagementUpdate(
   return update;
 }
 
-async function protectFinalAdministrator(
+async function protectFinalSuperAdmin(
   user,
   update,
   actor
 ) {
-  const removesOwnAdminAccess =
-    String(user._id) ===
-      String(actor._id) &&
-    ((update.role &&
-      update.role !==
-        "admin") ||
-      update.isActive ===
-        false);
+  const removesOwnSuperAdminAccess =
+    String(user._id) === String(actor._id) &&
+    user.role === "super_admin" &&
+    ((update.role && update.role !== "super_admin") ||
+      update.isActive === false);
 
-  if (removesOwnAdminAccess) {
+  if (removesOwnSuperAdminAccess) {
     throw httpError(
-      "You cannot remove your own administrator access.",
+      "You cannot remove your own Super Admin access.",
       409
     );
   }
 
-  const removesActiveAdmin =
-    user.role ===
-      "admin" &&
-    user.isActive !==
-      false &&
-    ((update.role &&
-      update.role !==
-        "admin") ||
-      update.isActive ===
-        false);
+  const removesActiveSuperAdmin =
+    user.role === "super_admin" &&
+    user.isActive !== false &&
+    ((update.role && update.role !== "super_admin") ||
+      update.isActive === false);
 
-  if (!removesActiveAdmin) {
+  if (!removesActiveSuperAdmin) {
     return;
   }
 
-  const activeAdmins =
-    await User.countDocuments({
-      role:
-        "admin",
-      isActive: {
-        $ne:
-          false,
-      },
-    });
+  const activeSuperAdmins = await User.countDocuments({
+    role: "super_admin",
+    isActive: { $ne: false },
+  });
 
-  if (activeAdmins <= 1) {
+  if (activeSuperAdmins <= 1) {
     throw httpError(
-      "The final active administrator cannot be demoted or deactivated.",
+      "The final active Super Admin cannot be demoted or deactivated.",
       409
     );
   }
@@ -1523,7 +1518,7 @@ export async function updateEmployeeManagementSettings(
       user
     );
 
-    await protectFinalAdministrator(
+    await protectFinalSuperAdmin(
       user,
       update,
       req.user
@@ -1531,7 +1526,7 @@ export async function updateEmployeeManagementSettings(
 
     if (
       req.user.role !==
-        "admin" &&
+        "super_admin" &&
       (Object.prototype.hasOwnProperty.call(
         update,
         "role"
@@ -1542,7 +1537,7 @@ export async function updateEmployeeManagementSettings(
         ))
     ) {
       throw httpError(
-        "Only an administrator can change employee roles or permissions.",
+        "Only the Super Admin can change employee roles or permissions.",
         403
       );
     }
@@ -1705,6 +1700,16 @@ export async function updateAdminUserStatus(
     );
 
     if (
+      user.role === "super_admin" &&
+      req.user.role !== "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can change a Super Admin account.",
+        403
+      );
+    }
+
+    if (
       String(user._id) ===
         String(
           req.user._id
@@ -1719,14 +1724,14 @@ export async function updateAdminUserStatus(
 
     if (
       user.role ===
-        "admin" &&
+        "super_admin" &&
       requested ===
         false
     ) {
-      const activeAdmins =
+      const activeSuperAdmins =
         await User.countDocuments({
           role:
-            "admin",
+            "super_admin",
           isActive: {
             $ne:
               false,
@@ -1734,10 +1739,10 @@ export async function updateAdminUserStatus(
         });
 
       if (
-        activeAdmins <= 1
+        activeSuperAdmins <= 1
       ) {
         throw httpError(
-          "The final active administrator account cannot be deactivated.",
+          "The final active Super Admin account cannot be deactivated.",
           409
         );
       }

@@ -31,7 +31,7 @@ import {
   hasPermission,
 } from "../utils/permissions.js";
 import {
-  isAdminRole,
+  isSuperAdminRole,
 } from "../utils/roles.js";
 
 const DAYS = [
@@ -216,7 +216,7 @@ export default function AdminEmployeeDetailPage() {
       "appointment:read"
     );
   const canManagePermissions =
-    isAdminRole(
+    isSuperAdminRole(
       currentUser?.role
     );
 
@@ -744,7 +744,7 @@ export default function AdminEmployeeDetailPage() {
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {EMPLOYEE_PERMISSIONS.map((permission) => <label key={permission.value} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="h-4 w-4 accent-amber-400" checked={(employee.permissions || []).includes(permission.value)} disabled={!canManagePermissions || Boolean(saving)} onChange={(event) => { const current = employee.permissions || []; const permissions = event.target.checked ? [...current, permission.value] : current.filter((item) => item !== permission.value); void updateSettings({ permissions }, "permissions"); }} /><span>{permission.label}</span></label>)}
         </div>
-        {!canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only an administrator can change roles and permissions.</p> : null}
+        {!canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only the Super Admin can change roles and permissions.</p> : null}
       </section>
     </main>
   );

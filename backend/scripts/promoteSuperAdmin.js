@@ -5,14 +5,12 @@ import User from "../src/models/user.js";
 
 dotenv.config();
 
-async function setAdmin() {
-  const email = process.argv[2]
-    ?.trim()
-    .toLowerCase();
+async function promoteSuperAdmin() {
+  const email = process.argv[2]?.trim().toLowerCase();
 
   if (!email) {
     throw new Error(
-      "Provide the account email address. Example: node scripts/setAdmin.js owner@example.com"
+      "Provide the existing owner account email. Example: npm run superadmin:set -- owner@example.com"
     );
   }
 
@@ -22,15 +20,13 @@ async function setAdmin() {
 
   if (!mongoUri) {
     throw new Error(
-      "MONGODB_URI is missing from the backend .env file."
+      "MONGODB_URI is missing from the backend environment."
     );
   }
 
   await mongoose.connect(mongoUri);
 
-  const user = await User.findOne({
-    email,
-  });
+  const user = await User.findOne({ email });
 
   if (!user) {
     throw new Error(
@@ -38,30 +34,31 @@ async function setAdmin() {
     );
   }
 
-  if (user.role === "super_admin") {
+  if (user.isActive === false) {
     throw new Error(
-      "Refusing to demote a Super Admin through admin:set. Use the governed staff-management workflow instead."
+      "The selected Super Admin account must be active before promotion."
     );
   }
 
-  user.role = "admin";
+  const previousRole = user.role;
+  user.role = "super_admin";
   await user.save();
 
-  console.log("SalonAI administrator updated:");
+  console.log("SalonAI Super Admin promoted:");
   console.log({
     id: user._id.toString(),
     name: user.name,
     email: user.email,
+    previousRole,
     role: user.role,
   });
 }
 
-setAdmin()
+promoteSuperAdmin()
   .catch((error) => {
     console.error(
-      `Unable to update administrator: ${error.message}`
+      `Unable to promote Super Admin: ${error.message}`
     );
-
     process.exitCode = 1;
   })
   .finally(async () => {

@@ -17,6 +17,7 @@ const USER_ROLES = [
   "receptionist",
   "manager",
   "admin",
+  "super_admin",
 ];
 
 const addressSchema = new Schema(
@@ -116,7 +117,7 @@ const userSchema = new Schema(
       enum: {
         values: USER_ROLES,
         message:
-          "User role must be customer, stylist, receptionist, manager or admin.",
+          "User role must be customer, stylist, receptionist, manager, admin or super_admin.",
       },
       default: "customer",
       index: true,
@@ -277,6 +278,7 @@ userSchema
       "receptionist",
       "manager",
       "admin",
+      "super_admin",
     ].includes(this.role);
   });
 
@@ -316,12 +318,21 @@ userSchema.methods.canManageSalon =
       "receptionist",
       "manager",
       "admin",
+      "super_admin",
     ].includes(this.role);
   };
 
 userSchema.methods.isAdministrator =
   function isAdministrator() {
-    return this.role === "admin";
+    return [
+      "admin",
+      "super_admin",
+    ].includes(this.role);
+  };
+
+userSchema.methods.isSuperAdministrator =
+  function isSuperAdministrator() {
+    return this.role === "super_admin";
   };
 
 userSchema.methods.recordLogin =
