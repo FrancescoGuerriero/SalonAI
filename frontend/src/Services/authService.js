@@ -364,9 +364,11 @@ class AuthService {
     const user =
       this.getCurrentUser();
 
-    return (
-      user?.role ===
-      "admin"
+    return [
+      "admin",
+      "super_admin",
+    ].includes(
+      user?.role
     );
   }
 }
