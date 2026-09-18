@@ -6,6 +6,7 @@ import {
   createManagedAppointment,
   getAppointmentManagementSummary,
   getManagedAppointment,
+  listAppointmentStylists,
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
@@ -138,6 +139,24 @@ function serialiseDocument(
   }
 
   return value;
+}
+
+async function stylists(
+  request,
+  response
+) {
+  const items =
+    await listAppointmentStylists();
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      stylists:
+        serialiseDocument(
+          items
+        ),
+    });
 }
 
 async function customers(
@@ -663,6 +682,9 @@ export {
   status,
   status as changeStatus,
 
+  stylists,
+  stylists as appointmentStylists,
+
   summary,
   summary as getSummary,
 };
@@ -678,5 +700,6 @@ export default {
   reminder,
   reschedule,
   status,
+  stylists,
   summary,
 };
