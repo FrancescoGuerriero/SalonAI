@@ -77,9 +77,11 @@ export async function getServiceById(
       });
     }
 
-    const service = await Service.findById(
-      req.params.id
-    );
+    const service = await Service.findOne({
+      _id:
+        req.params.id,
+      active: true,
+    });
 
     if (!service) {
       return res.status(404).json({
