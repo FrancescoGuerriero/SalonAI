@@ -16,6 +16,14 @@ export const commerceService = {
     API.post("/commerce/products", payload).then(data),
   updateProduct: (id, payload) =>
     API.patch(`/commerce/products/${id}`, payload).then(data),
+  setProductPublication: (
+    id,
+    active
+  ) =>
+    API.patch(
+      `/commerce/products/${id}/publication`,
+      { active }
+    ).then(data),
   adjustStock: (id, payload) =>
     API.post(`/commerce/products/${id}/stock-adjustments`, payload).then(data),
   inventorySummary: () =>
