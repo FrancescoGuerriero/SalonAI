@@ -395,7 +395,11 @@ export default function ServicesPage() {
         );
       }
 
-      closeForm();
+      setShowForm(false);
+      setEditingId("");
+      setForm({
+        ...EMPTY_SERVICE,
+      });
       await load();
     } catch (
       requestError
