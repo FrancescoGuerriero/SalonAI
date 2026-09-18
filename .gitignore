@@ -66,3 +66,6 @@ deployment/tls/
 # Playwright generated output
 frontend/playwright-report/
 frontend/test-results/
+
+# Local AI training artifacts
+ai-service/artifacts/
