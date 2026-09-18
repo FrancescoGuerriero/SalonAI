@@ -180,6 +180,52 @@ async function validAccessToken(
   }
 }
 
+export async function getCalendarProviderContext({
+  connectionId,
+}) {
+  const connection =
+    await ExternalCalendarConnection.findById(
+      connectionId
+    ).select(
+      "+encryptedAccessToken +encryptedRefreshToken"
+    );
+
+  if (!connection) {
+    const error = new Error(
+      "Calendar connection was not found."
+    );
+    error.statusCode = 404;
+    error.code =
+      "CALENDAR_CONNECTION_NOT_FOUND";
+    throw error;
+  }
+
+  if (
+    connection.status !==
+      "connected" ||
+    connection.syncEnabled !==
+      true
+  ) {
+    const error = new Error(
+      "Calendar synchronization is not enabled for this connection."
+    );
+    error.statusCode = 409;
+    error.code =
+      "CALENDAR_SYNC_NOT_ENABLED";
+    throw error;
+  }
+
+  const accessToken =
+    await validAccessToken(
+      connection
+    );
+
+  return {
+    connection,
+    accessToken,
+  };
+}
+
 export async function listAvailableCalendars({
   userId,
   provider,
