@@ -687,7 +687,7 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      {canManageRoles && user.accountLinked !== false ? (
+                      {canManageRoles ? (
                         <select
                           value={user.role}
                           disabled={Boolean(updatingId)}
@@ -706,6 +706,10 @@ export default function AdminStaffAccountsPage() {
                               <option
                                 key={role.value}
                                 value={role.value}
+                                disabled={
+                                  role.assignable === false &&
+                                  user.role !== role.value
+                                }
                               >
                                 {role.label}
                               </option>
@@ -757,69 +761,54 @@ export default function AdminStaffAccountsPage() {
                     Employee controls
                   </div>
 
-                  {user.accountLinked !== false ? (
-                    <div className="flex flex-wrap gap-2">
-                      <SettingSwitch
-                        checked={user.isActive !== false}
-                        disabled={Boolean(updatingId) || !canDeactivate}
-                        label="Active"
-                        onChange={(value) =>
-                          updateEmployeeSetting(
-                            user,
-                            "isActive",
-                            value
-                          )
-                        }
-                      />
+                  <div className="flex flex-wrap gap-2">
+                    <SettingSwitch
+                      checked={user.isActive !== false}
+                      disabled={Boolean(updatingId) || !canDeactivate}
+                      label="Active"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "isActive",
+                          value
+                        )
+                      }
+                    />
 
-                      <SettingSwitch
-                        checked={user.stylistProfile?.profilePublished === true}
-                        disabled={Boolean(updatingId) || !canUpdate}
-                        label="Published"
-                        onChange={(value) =>
-                          updateEmployeeSetting(
-                            user,
-                            "profilePublished",
-                            value
-                          )
-                        }
-                      />
+                    <SettingSwitch
+                      checked={user.stylistProfile?.profilePublished === true}
+                      disabled={Boolean(updatingId) || !canUpdate}
+                      label="Published"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "profilePublished",
+                          value
+                        )
+                      }
+                    />
 
-                      <SettingSwitch
-                        checked={user.stylistProfile?.acceptsAppointments === true}
-                        disabled={Boolean(updatingId) || !canUpdate}
-                        label="Bookable"
-                        onChange={(value) =>
-                          updateEmployeeSetting(
-                            user,
-                            "acceptsAppointments",
-                            value
-                          )
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-black">
-                      Legacy employee profile: no SalonAI login account is linked yet. Profile details remain fully editable by an administrator.
-                    </p>
-                  )}
+                    <SettingSwitch
+                      checked={user.stylistProfile?.acceptsAppointments === true}
+                      disabled={Boolean(updatingId) || !canUpdate}
+                      label="Bookable"
+                      onChange={(value) =>
+                        updateEmployeeSetting(
+                          user,
+                          "acceptsAppointments",
+                          value
+                        )
+                      }
+                    />
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {user.accountLinked !== false ? (
-                      <Link
-                        to={`/admin/employees/${user.id}`}
-                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                      >
-                        Manage employee
-                      </Link>
-                    ) : (
-                      <Link
-                        to={`/admin/stylists?edit=${user.stylistProfile?.id}`}
-                        className="rounded-lg border border-black bg-amber-400 px-3 py-2 text-xs font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-                      >
-                        Edit employee profile
-                      </Link>
-                    )}
+                    <Link
+                      to={`/admin/employees/${user.id}`}
+                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                    >
+                      Manage employee
+                    </Link>
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (

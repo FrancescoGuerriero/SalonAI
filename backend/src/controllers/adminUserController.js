@@ -392,65 +392,6 @@ function serialiseAdminUser(
   };
 }
 
-function serialiseProfileOnlyEmployee(
-  stylist
-) {
-  return {
-    id:
-      `profile:${stylist._id}`,
-    accountLinked:
-      false,
-    employeeType:
-      "profile-only",
-    name:
-      [stylist.firstName, stylist.lastName]
-        .filter(Boolean)
-        .join(" ")
-        .trim() ||
-      stylist.email ||
-      "Salon employee",
-    email:
-      stylist.email || "",
-    role:
-      "stylist",
-    permissions: [],
-    phone:
-      stylist.phone || "",
-    profilePhoto:
-      stylist.profileImage || "",
-    isActive:
-      stylist.isActive === true,
-    emailVerified:
-      false,
-    createdAt:
-      stylist.createdAt,
-    updatedAt:
-      stylist.updatedAt,
-    stylistProfile: {
-      id:
-        stylist._id,
-      firstName:
-        stylist.firstName,
-      lastName:
-        stylist.lastName,
-      jobTitle:
-        stylist.jobTitle,
-      profileImage:
-        stylist.profileImage || "",
-      profilePublished:
-        stylist.profilePublished === true,
-      acceptsAppointments:
-        stylist.acceptsAppointments === true,
-      isActive:
-        stylist.isActive === true,
-      workingHours:
-        stylist.workingHours || [],
-      services:
-        stylist.services || [],
-    },
-  };
-}
-
 async function stylistForUser(
   user
 ) {
@@ -576,42 +517,32 @@ export async function listAdminUsers(
   next
 ) {
   try {
-    const page =
+    const page = Math.max(
+      1,
+      Number(req.query.page) || 1
+    );
+
+    const limit = Math.min(
+      500,
       Math.max(
         1,
-        Number(
-          req.query.page
-        ) || 1
-      );
+        Number(req.query.limit) || 100
+      )
+    );
 
-    const limit =
-      Math.min(
-        500,
-        Math.max(
-          1,
-          Number(
-            req.query.limit
-          ) || 100
-        )
-      );
+    const search = cleanText(
+      req.query.search,
+      120
+    );
 
-    const search =
-      cleanText(
-        req.query.search,
-        120
-      ).toLowerCase();
-
-    const role =
-      cleanText(
-        req.query.role,
-        30
-      );
+    const role = cleanText(
+      req.query.role,
+      30
+    );
 
     if (
       role &&
-      !STAFF_ROLES.includes(
-        role
-      )
+      !STAFF_ROLES.includes(role)
     ) {
       throw httpError(
         "Invalid role filter.",
@@ -620,22 +551,38 @@ export async function listAdminUsers(
     }
 
     /*
-     * Employee management is a union of staff login accounts and stylist
-     * profiles. Production contains legacy stylist profiles that pre-date the
-     * management User account model; starting the roster from User.find()
-     * silently hid those employees.
+     * Employee management is based on canonical staff User accounts.
+     * Stylist documents are attached public/booking profiles, not independent
+     * employee identities. Historical Stylist records must never inflate this
+     * roster or create anonymous fallback employees.
      */
-    const [
-      staffUsers,
-      stylistProfiles,
-    ] =
+    const query = {
+      role: role
+        ? role
+        : { $in: STAFF_ROLES },
+    };
+
+    if (search) {
+      const escaped = search.replace(
+        /[.*+?^\${}()|[\]\\]/g,
+        "\\$&"
+      );
+      const expression =
+        new RegExp(escaped, "i");
+
+      query.$or = [
+        { name: expression },
+        { email: expression },
+        { phone: expression },
+      ];
+    }
+
+    const offset =
+      (page - 1) * limit;
+
+    const [staffUsers, total] =
       await Promise.all([
-        User.find({
-          role: {
-            $in:
-              STAFF_ROLES,
-          },
-        })
+        User.find(query)
           .select(
             "name email role permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
           )
@@ -643,57 +590,66 @@ export async function listAdminUsers(
             name: 1,
             email: 1,
           })
-          .limit(500)
+          .skip(offset)
+          .limit(limit)
           .lean(),
-        Stylist.find()
-          .select(
-            "userAccount email firstName lastName jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services phone createdAt updatedAt"
-          )
-          .populate(
-            "services",
-            "name category active onlineBookable"
-          )
-          .sort({
-            displayOrder: 1,
-            firstName: 1,
-            lastName: 1,
-          })
-          .limit(500)
-          .lean(),
+        User.countDocuments(query),
       ]);
 
     const userIds =
-      new Set(
-        staffUsers.map(
-          (user) =>
-            String(
-              user._id
-            )
-        )
+      staffUsers.map(
+        (user) => user._id
       );
 
-    const userEmails =
-      new Set(
-        staffUsers.map(
-          (user) =>
-            String(
-              user.email || ""
-            ).toLowerCase()
+    const emails =
+      staffUsers
+        .map((user) =>
+          String(
+            user.email || ""
+          ).toLowerCase()
         )
-      );
+        .filter(Boolean);
+
+    const profileQuery = [];
+
+    if (userIds.length) {
+      profileQuery.push({
+        userAccount: {
+          $in: userIds,
+        },
+      });
+    }
+
+    if (emails.length) {
+      profileQuery.push({
+        email: {
+          $in: emails,
+        },
+      });
+    }
+
+    const stylistProfiles =
+      profileQuery.length
+        ? await Stylist.find({
+            $or: profileQuery,
+          })
+            .select(
+              "userAccount email firstName lastName jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services phone createdAt updatedAt"
+            )
+            .populate(
+              "services",
+              "name category active onlineBookable"
+            )
+            .lean()
+        : [];
 
     const stylistByUserId =
       new Map();
     const stylistByEmail =
       new Map();
 
-    for (
-      const stylist of
-      stylistProfiles
-    ) {
-      if (
-        stylist.userAccount
-      ) {
+    for (const stylist of stylistProfiles) {
+      if (stylist.userAccount) {
         stylistByUserId.set(
           String(
             stylist.userAccount
@@ -712,108 +668,20 @@ export async function listAdminUsers(
       }
     }
 
-    const accountEmployees =
-      staffUsers.map(
-        (user) =>
-          serialiseAdminUser(
-            user,
-            stylistByUserId.get(
-              String(
-                user._id
-              )
-            ) ||
-              stylistByEmail.get(
-                String(
-                  user.email || ""
-                ).toLowerCase()
-              ) ||
-              null
-          )
-      );
-
-    const profileOnlyEmployees =
-      stylistProfiles
-        .filter(
-          (stylist) =>
-            !(
-              stylist.userAccount &&
-              userIds.has(
-                String(
-                  stylist.userAccount
-                )
-              )
-            ) &&
-            !userEmails.has(
-              String(
-                stylist.email || ""
-              ).toLowerCase()
-            )
-        )
-        .map(
-          serialiseProfileOnlyEmployee
-        );
-
-    const allEmployees =
-      [
-        ...accountEmployees,
-        ...profileOnlyEmployees,
-      ]
-        .filter(
-          (employee) =>
-            !role ||
-            employee.role ===
-              role
-        )
-        .filter(
-          (employee) => {
-            if (!search) {
-              return true;
-            }
-
-            return [
-              employee.name,
-              employee.email,
-              employee.phone,
-              employee.role,
-              employee.stylistProfile
-                ?.jobTitle,
-            ].some(
-              (value) =>
-                String(
-                  value || ""
-                )
-                  .toLowerCase()
-                  .includes(
-                    search
-                  )
-            );
-          }
-        )
-        .sort(
-          (left, right) =>
-            String(
-              left.name || ""
-            ).localeCompare(
-              String(
-                right.name || ""
-              ),
-              "en",
-              {
-                sensitivity:
-                  "base",
-              }
-            )
-        );
-
-    const total =
-      allEmployees.length;
-    const offset =
-      (page - 1) *
-      limit;
     const users =
-      allEmployees.slice(
-        offset,
-        offset + limit
+      staffUsers.map((user) =>
+        serialiseAdminUser(
+          user,
+          stylistByUserId.get(
+            String(user._id)
+          ) ||
+            stylistByEmail.get(
+              String(
+                user.email || ""
+              ).toLowerCase()
+            ) ||
+            null
+        )
       );
 
     return res.json({
@@ -821,13 +689,10 @@ export async function listAdminUsers(
       page,
       limit,
       total,
-      pages:
-        Math.max(
-          1,
-          Math.ceil(
-            total / limit
-          )
-        ),
+      pages: Math.max(
+        1,
+        Math.ceil(total / limit)
+      ),
       users,
     });
   } catch (error) {
