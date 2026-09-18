@@ -654,16 +654,6 @@ async function closeHttpServer() {
 }
 
 async function closeScheduler() {
-  const status =
-    getMessageDeliverySchedulerStatus();
-
-  if (
-    !status.started &&
-    !status.runningCycle
-  ) {
-    return;
-  }
-
   await Promise.all([
     stopMessageDeliveryScheduler({
       waitForCycle: true,
