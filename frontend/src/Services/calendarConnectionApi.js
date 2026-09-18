@@ -21,6 +21,26 @@ export function startCalendarConnection(
   ).then(data);
 }
 
+export function listProviderCalendars(
+  provider
+) {
+  return API.get(
+    `${BASE_URL}/${provider}/calendars`
+  ).then(data);
+}
+
+export function selectProviderCalendar(
+  provider,
+  calendarId
+) {
+  return API.patch(
+    `${BASE_URL}/${provider}/calendar`,
+    {
+      calendarId,
+    }
+  ).then(data);
+}
+
 export function setCalendarSync(
   provider,
   enabled
@@ -46,6 +66,10 @@ export default {
   list: listCalendarConnections,
   connect:
     startCalendarConnection,
+  calendars:
+    listProviderCalendars,
+  selectCalendar:
+    selectProviderCalendar,
   setSync:
     setCalendarSync,
   disconnect:
