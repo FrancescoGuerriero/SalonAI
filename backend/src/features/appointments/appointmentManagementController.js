@@ -6,9 +6,11 @@ import {
   createManagedAppointment,
   getAppointmentManagementSummary,
   getManagedAppointment,
+  listAppointmentStylists,
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  searchAppointmentCustomers,
 } from "./appointmentManagementService.js";
 
 import {
@@ -137,6 +139,44 @@ function serialiseDocument(
   }
 
   return value;
+}
+
+async function stylists(
+  request,
+  response
+) {
+  const items =
+    await listAppointmentStylists();
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      stylists:
+        serialiseDocument(
+          items
+        ),
+    });
+}
+
+async function customers(
+  request,
+  response
+) {
+  const items =
+    await searchAppointmentCustomers(
+      request.query?.search
+    );
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      customers:
+        serialiseDocument(
+          items
+        ),
+    });
 }
 
 /*
@@ -624,6 +664,9 @@ export {
   create,
   create as createAppointment,
 
+  customers,
+  customers as searchCustomers,
+
   getAppointment,
   getAppointment as get,
 
@@ -639,6 +682,9 @@ export {
   status,
   status as changeStatus,
 
+  stylists,
+  stylists as appointmentStylists,
+
   summary,
   summary as getSummary,
 };
@@ -646,6 +692,7 @@ export {
 export default {
   bulkStatus,
   create,
+  customers,
   calendar,
   conflict,
   getAppointment,
@@ -653,5 +700,6 @@ export default {
   reminder,
   reschedule,
   status,
+  stylists,
   summary,
 };
