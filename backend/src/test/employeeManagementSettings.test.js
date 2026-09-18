@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -173,5 +174,34 @@ test("employee schedule rejects breaks outside working hours", () => {
       ]),
     (error) =>
       error.statusCode === 400
+  );
+});
+
+
+test("employee roster includes profile-only legacy stylists", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /serialiseProfileOnlyEmployee/
+  );
+  assert.match(
+    controller,
+    /employeeType:\s*"profile-only"/
+  );
+  assert.match(
+    controller,
+    /Stylist\.find\(\)/
+  );
+  assert.match(
+    controller,
+    /profileOnlyEmployees/
   );
 });
