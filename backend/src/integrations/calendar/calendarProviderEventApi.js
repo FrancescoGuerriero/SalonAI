@@ -273,34 +273,58 @@ export async function getProviderEvent({
   if (
     provider === "google"
   ) {
-    const payload =
-      await providerRequest({
-        provider,
-        accessToken,
-        url:
-          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
-      });
+    try {
+      const payload =
+        await providerRequest({
+          provider,
+          accessToken,
+          url:
+            `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
+        });
 
-    return {
-      providerEventId:
-        text(payload.id),
-      providerVersion:
-        text(payload.etag),
-      providerUpdatedAt:
-        payload.updated ||
-        null,
-      deleted:
-        payload.status ===
-        "cancelled",
-      start:
-        payload.start
-          ?.dateTime ||
-        null,
-      end:
-        payload.end
-          ?.dateTime ||
-        null,
-    };
+      return {
+        providerEventId:
+          text(payload.id),
+        providerVersion:
+          text(payload.etag),
+        providerUpdatedAt:
+          payload.updated ||
+          null,
+        deleted:
+          payload.status ===
+          "cancelled",
+        start:
+          payload.start
+            ?.dateTime ||
+          null,
+        end:
+          payload.end
+            ?.dateTime ||
+          null,
+      };
+    } catch (error) {
+      if (
+        [404, 410].includes(
+          error.providerStatus
+        )
+      ) {
+        return {
+          providerEventId:
+            text(
+              providerEventId
+            ),
+          providerVersion:
+            "",
+          providerUpdatedAt:
+            null,
+          deleted: true,
+          start: null,
+          end: null,
+        };
+      }
+
+      throw error;
+    }
   }
 
   if (
