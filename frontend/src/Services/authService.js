@@ -8,6 +8,77 @@ const LEGACY_TOKEN_KEY =
   "token";
 
 class AuthService {
+  async getSocialProviders() {
+    const response =
+      await API.get(
+        "/auth/social/providers",
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    return response.data;
+  }
+
+  async startSocialLogin(
+    provider,
+    {
+      returnTo = "",
+    } = {}
+  ) {
+    const response =
+      await API.post(
+        `/auth/social/${provider}/start`,
+        {
+          returnTo,
+        },
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    return response.data;
+  }
+
+  async completeSocialLogin() {
+    const response =
+      await API.post(
+        "/auth/refresh",
+        {},
+        {
+          _skipAuthRefresh:
+            true,
+        }
+      );
+
+    const data =
+      response.data;
+    const token =
+      data.token;
+    const user =
+      data.user;
+
+    if (!token || !user) {
+      throw new Error(
+        "SalonAI could not complete the connected-account sign-in."
+      );
+    }
+
+    this.storeAccessToken(
+      token
+    );
+    this.storeUser(
+      user
+    );
+
+    return {
+      token,
+      user,
+    };
+  }
+
   async register(
     userData
   ) {
