@@ -716,4 +716,203 @@ test.describe("SalonAI layout regressions", () => {
       "hidden"
     );
   });
+
+  test("employee Active, Published and Bookable controls remain independent and touch-sized", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/auth/admin/staff") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            users: [
+              {
+                id: "employee-anna",
+                _id: "employee-anna",
+                name: "Anna Smith",
+                email: "anna@example.test",
+                phone: "02000000001",
+                role: "stylist",
+                isActive: true,
+                stylistProfile: {
+                  profilePublished: true,
+                  acceptsAppointments: false,
+                  workingHours: [],
+                  services: [],
+                },
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/admin/employees");
+
+    const active = page.getByRole("switch", {
+      name: "Active",
+    });
+    const published = page.getByRole("switch", {
+      name: "Published",
+    });
+    const bookable = page.getByRole("switch", {
+      name: "Bookable",
+    });
+
+    await expect(active).toHaveAttribute("aria-checked", "true");
+    await expect(published).toHaveAttribute("aria-checked", "true");
+    await expect(bookable).toHaveAttribute("aria-checked", "false");
+
+    for (const control of [active, published, bookable]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("System Administration feature switches are labelled and touch-sized", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/health/dependencies") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ status: "ok" }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/system-administration/settings") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ settings: [] }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/system-administration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            features: [
+              {
+                id: "online-booking",
+                label: "Online booking",
+                description: "Allow customers to begin online booking.",
+                category: "Customer experience",
+                enabled: true,
+                source: "admin",
+                required: false,
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/admin/system");
+
+    const featureSwitch = page.getByRole("switch", {
+      name: "Disable Online booking",
+    });
+
+    await expect(featureSwitch).toHaveAttribute(
+      "aria-checked",
+      "true"
+    );
+
+    const box = await featureSwitch.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  });
 });
