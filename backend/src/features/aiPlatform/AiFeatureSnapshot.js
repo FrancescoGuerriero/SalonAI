@@ -34,6 +34,12 @@ const aiFeatureSnapshotSchema =
         trim: true,
         index: true,
       },
+      datasetVersion: {
+        type: String,
+        required: true,
+        trim: true,
+        index: true,
+      },
       features: {
         type: Schema.Types.Mixed,
         required: true,
@@ -109,6 +115,7 @@ aiFeatureSnapshotSchema.index(
     entityKey: 1,
     asOf: 1,
     featureVersion: 1,
+    datasetVersion: 1,
   },
   {
     unique: true,

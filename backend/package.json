@@ -15,7 +15,8 @@
     "seed:commerce": "node scripts/seedCommerce.js",
     "seed:booking": "node scripts/seedBookingCatalogue.js",
     "seed:davines-summer": "node scripts/seedDavinesSummerProducts.js",
-    "superadmin:set": "node scripts/promoteSuperAdmin.js"
+    "superadmin:set": "node scripts/promoteSuperAdmin.js",
+    "ai:dataset:no-show": "node scripts/buildNoShowTrainingDataset.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
