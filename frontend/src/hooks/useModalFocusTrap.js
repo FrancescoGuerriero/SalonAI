@@ -61,8 +61,13 @@ export default function useModalFocusTrap({
       if (
         event.key === "Escape"
       ) {
-        event.preventDefault();
-        setOpen(false);
+        if (
+          typeof setOpen ===
+          "function"
+        ) {
+          event.preventDefault();
+          setOpen(false);
+        }
         return;
       }
 

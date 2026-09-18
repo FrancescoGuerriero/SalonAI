@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -24,6 +25,7 @@ import {
   getCommunicationTemplateErrorMessage,
   renderCommunicationTemplate,
 } from "../../Services/communicationTemplateApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const CHANNEL_CONFIG = {
   email: {
@@ -264,6 +266,7 @@ export default function CommunicationTemplatePreviewModal({
   onClose,
   onUse,
 }) {
+  const modalPanelRef = useRef(null);
   const [variableValues, setVariableValues] =
     useState({});
 
@@ -383,6 +386,11 @@ export default function CommunicationTemplatePreviewModal({
     usingTemplate,
     onClose,
   ]);
+
+  useModalFocusTrap({
+    open: Boolean(open && template),
+    containerRef: modalPanelRef,
+  });
 
   if (!open || !template) {
     return null;
@@ -534,7 +542,10 @@ export default function CommunicationTemplatePreviewModal({
       aria-labelledby="template-preview-title"
       onMouseDown={handleBackdropClick}
     >
-      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div className="flex min-w-0 items-start gap-3">
             <div

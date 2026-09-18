@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -28,6 +29,7 @@ import {
   getCommunicationCampaignErrorMessage,
   previewExistingCampaignAudience,
 } from "../../Services/communicationCampaignApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const CHANNEL_CONFIG = {
   email: {
@@ -495,6 +497,7 @@ export default function CampaignPreviewModal({
   onEdit,
   onLaunch,
 }) {
+  const modalPanelRef = useRef(null);
   const [activeTab, setActiveTab] =
     useState("overview");
 
@@ -757,6 +760,11 @@ export default function CampaignPreviewModal({
     refreshingAudience,
     onClose,
   ]);
+
+  useModalFocusTrap({
+    open: Boolean(open && campaignData),
+    containerRef: modalPanelRef,
+  });
 
   if (!open || !campaignData) {
     return null;
@@ -1585,7 +1593,10 @@ export default function CampaignPreviewModal({
       aria-labelledby="campaign-preview-title"
       onMouseDown={handleBackdropClick}
     >
-      <div className="flex max-h-[96vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-5 sm:px-7">
           <div className="flex min-w-0 items-start gap-3">
             <div
