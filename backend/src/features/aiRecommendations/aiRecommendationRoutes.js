@@ -40,6 +40,11 @@ import {
 import {
   askAdviser,
 } from "./aiAdviserController.js";
+import {
+  createProposal,
+  listProposals,
+  reviewProposal,
+} from "./aiAdviserProposalController.js";
 
 const router = express.Router();
 
@@ -83,6 +88,36 @@ router.post(
   ),
   asyncHandler(
     askAdviser
+  )
+);
+
+router.get(
+  "/adviser/proposals",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    listProposals
+  )
+);
+
+router.post(
+  "/adviser/proposals",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    createProposal
+  )
+);
+
+router.patch(
+  "/adviser/proposals/:proposalId/review",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    reviewProposal
   )
 );
 
