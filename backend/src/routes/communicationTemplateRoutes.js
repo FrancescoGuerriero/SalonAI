@@ -37,14 +37,14 @@ router.use(managementOnly);
 router.post(
   "/",
   manageCommunications,
-  communicationTemplateController\.createCommunicationTemplate
+  communicationTemplateController.createCommunicationTemplate
 );
 
 // List, search, filter, sort and paginate templates.
 router.get(
   "/",
   readCommunications,
-  communicationTemplateController\.listCommunicationTemplates
+  communicationTemplateController.listCommunicationTemplates
 );
 
 /*
@@ -57,7 +57,7 @@ router.get(
 router.get(
   "/summary",
   readCommunications,
-  communicationTemplateController\.getCommunicationTemplateSummary
+  communicationTemplateController.getCommunicationTemplateSummary
 );
 
 /*
@@ -71,14 +71,14 @@ router.get(
 router.get(
   "/slug/:slug",
   readCommunications,
-  communicationTemplateController\.getCommunicationTemplateBySlug
+  communicationTemplateController.getCommunicationTemplateBySlug
 );
 
 // Retrieve one template using its MongoDB ID.
 router.get(
   "/:templateId",
   readCommunications,
-  communicationTemplateController\.getCommunicationTemplate
+  communicationTemplateController.getCommunicationTemplate
 );
 
 /*
@@ -91,35 +91,35 @@ router.get(
 router.patch(
   "/:templateId",
   manageCommunications,
-  communicationTemplateController\.updateCommunicationTemplate
+  communicationTemplateController.updateCommunicationTemplate
 );
 
 // Activate or deactivate a template.
 router.patch(
   "/:templateId/status",
   manageCommunications,
-  communicationTemplateController\.setCommunicationTemplateStatus
+  communicationTemplateController.setCommunicationTemplateStatus
 );
 
 // Render a template using supplied variables.
 router.post(
   "/:templateId/render",
   readCommunications,
-  communicationTemplateController\.renderCommunicationTemplate
+  communicationTemplateController.renderCommunicationTemplate
 );
 
 // Duplicate an existing template.
 router.post(
   "/:templateId/duplicate",
   manageCommunications,
-  communicationTemplateController\.duplicateCommunicationTemplate
+  communicationTemplateController.duplicateCommunicationTemplate
 );
 
 // Delete a non-system communication template.
 router.delete(
   "/:templateId",
   manageCommunications,
-  communicationTemplateController\.deleteCommunicationTemplate
+  communicationTemplateController.deleteCommunicationTemplate
 );
 
 export default router;
