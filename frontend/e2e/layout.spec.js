@@ -266,4 +266,116 @@ test.describe("SalonAI layout regressions", () => {
 
     expect(horizontalOverflow).toBe(false);
   });
+
+  test("public mobile navigation traps focus and restores it to the menu trigger", async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await mockFeatureControls(page);
+    await page.goto("/");
+
+    const trigger = page.getByRole("button", {
+      name: "Open navigation",
+    });
+
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", {
+      name: "Mobile navigation",
+    });
+    const close = dialog.getByRole("button", {
+      name: "Close navigation",
+    });
+
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Escape");
+
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
+  });
+
+  test("management mobile drawer traps focus and preserves touch-sized navigation", async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: 390,
+      height: 720,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, adminUser);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: adminUser }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/staff/profile");
+
+    const trigger = page.getByRole("button", {
+      name: "Menu",
+    });
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", {
+      name: "Management navigation",
+    });
+    const close = dialog.getByRole("button", {
+      name: "Close management navigation",
+    });
+
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+
+    const firstLink = dialog.locator(".management-link").first();
+    const linkBox = await firstLink.boundingBox();
+
+    expect(linkBox.height).toBeGreaterThanOrEqual(44);
+
+    await page.keyboard.press("Escape");
+
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
 });
