@@ -59,6 +59,10 @@ export default function StaffCalendarConnections() {
     useState("");
   const [error, setError] =
     useState("");
+  const [
+    providerCalendars,
+    setProviderCalendars,
+  ] = useState({});
 
   const load = useCallback(
     async () => {
@@ -116,6 +120,73 @@ export default function StaffCalendarConnections() {
           requestError
         )
       );
+      setWorking("");
+    }
+  }
+
+  async function loadCalendars(
+    provider
+  ) {
+    setWorking(
+      `calendars:${provider}`
+    );
+    setError("");
+
+    try {
+      const result =
+        await calendarConnectionApi.calendars(
+          provider
+        );
+
+      setProviderCalendars(
+        (current) => ({
+          ...current,
+          [provider]:
+            result.calendars ||
+            [],
+        })
+      );
+    } catch (requestError) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setWorking("");
+    }
+  }
+
+  async function changeCalendar(
+    connection,
+    calendarId
+  ) {
+    if (
+      !calendarId ||
+      calendarId ===
+        connection.calendarId
+    ) {
+      return;
+    }
+
+    setWorking(
+      `calendar:${connection.provider}`
+    );
+    setError("");
+
+    try {
+      await calendarConnectionApi.selectCalendar(
+        connection.provider,
+        calendarId
+      );
+      await load();
+    } catch (requestError) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
       setWorking("");
     }
   }
@@ -293,9 +364,69 @@ export default function StaffCalendarConnections() {
                           <dt className="font-bold text-slate-500">
                             Calendar
                           </dt>
-                          <dd className="mt-1 text-black">
-                            {connection.calendarName ||
-                              "Primary calendar"}
+                          <dd className="mt-1">
+                            <select
+                              aria-label={
+                                "Calendar for " +
+                                provider?.label
+                              }
+                              value={
+                                connection.calendarId ||
+                                ""
+                              }
+                              disabled={
+                                Boolean(working)
+                              }
+                              onFocus={() => {
+                                if (
+                                  !providerCalendars[
+                                    connection.provider
+                                  ]
+                                ) {
+                                  void loadCalendars(
+                                    connection.provider
+                                  );
+                                }
+                              }}
+                              onChange={(event) =>
+                                void changeCalendar(
+                                  connection,
+                                  event.target.value
+                                )
+                              }
+                              className="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm font-semibold text-black focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 disabled:bg-slate-100"
+                            >
+                              <option
+                                value={
+                                  connection.calendarId ||
+                                  ""
+                                }
+                              >
+                                {connection.calendarName ||
+                                  "Selected calendar"}
+                              </option>
+                              {(providerCalendars[
+                                connection.provider
+                              ] || [])
+                                .filter(
+                                  (calendar) =>
+                                    calendar.id !==
+                                    connection.calendarId
+                                )
+                                .map(
+                                  (calendar) => (
+                                    <option
+                                      key={calendar.id}
+                                      value={calendar.id}
+                                    >
+                                      {calendar.name}
+                                      {calendar.primary
+                                        ? " · default"
+                                        : ""}
+                                    </option>
+                                  )
+                                )}
+                            </select>
                           </dd>
                         </div>
                         <div>
