@@ -13,6 +13,7 @@ import Appointment, {
   PAYMENT_STATUSES,
 } from "../../models/Appointment.js";
 import Service from "../../models/service.js";
+import Customer from "../../models/customer.js";
 import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";
 import {
   assertAppointmentWithinStaffAvailability,
@@ -709,6 +710,174 @@ async function checkAppointmentConflict(
       duration: window.duration,
     },
   };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Staff-managed appointment creation
+|--------------------------------------------------------------------------
+*/
+
+async function createManagedAppointment(
+  payload = {},
+  {
+    actor = null,
+  } = {}
+) {
+  const customerId =
+    assertValidObjectId(
+      payload.customer,
+      "customer"
+    );
+  const stylistId =
+    assertValidObjectId(
+      payload.stylist,
+      "stylist"
+    );
+  const serviceId =
+    assertValidObjectId(
+      payload.service,
+      "service"
+    );
+
+  const [customer, service] =
+    await Promise.all([
+      Customer.findById(
+        customerId
+      ),
+      Service.findById(
+        serviceId
+      ).lean(),
+    ]);
+
+  assertFound(
+    customer,
+    "Customer not found."
+  );
+  assertFound(
+    service,
+    "Service not found."
+  );
+
+  if (service.active === false) {
+    throw createServiceError(
+      "The selected service is inactive.",
+      409,
+      {
+        field: "service",
+      }
+    );
+  }
+
+  const window =
+    appointmentWindow(
+      payload,
+      service
+    );
+
+  await assertAppointmentWithinStaffAvailability(
+    stylistId,
+    window.start,
+    window.end
+  );
+
+  const conflict =
+    await findConflict({
+      stylist: stylistId,
+      start: window.start,
+      end: window.end,
+    });
+
+  if (conflict) {
+    throw createServiceError(
+      "The stylist already has an overlapping appointment.",
+      409,
+      {
+        conflict,
+      }
+    );
+  }
+
+  const actorId =
+    getActorId(actor);
+  const status =
+    payload.status
+      ? assertSupportedStatus(
+          payload.status
+        )
+      : "pending";
+
+  const appointment =
+    await Appointment.create({
+      customer: customerId,
+      stylist: stylistId,
+      service: serviceId,
+      appointmentDate:
+        salonDateAnchor(
+          window.start
+        ),
+      appointmentTime:
+        formatTime(
+          window.start
+        ),
+      startsAt: window.start,
+      endsAt: window.end,
+      duration: window.duration,
+      totalPrice:
+        Math.max(
+          0,
+          Number(
+            payload.totalPrice ??
+              service.price ??
+              0
+          ) || 0
+        ),
+      discount:
+        Math.max(
+          0,
+          Number(
+            payload.discount
+          ) || 0
+        ),
+      tax:
+        Math.max(
+          0,
+          Number(
+            payload.tax
+          ) || 0
+        ),
+      status,
+      notes:
+        normaliseText(
+          payload.notes
+        ),
+      internalNotes:
+        normaliseText(
+          payload.internalNotes
+        ),
+      bookingSource:
+        "management",
+      createdBy: actorId,
+      updatedBy: actorId,
+    });
+
+  if (
+    !customer.nextAppointment ||
+    window.start <
+      new Date(
+        customer.nextAppointment
+      )
+  ) {
+    customer.nextAppointment =
+      window.start;
+    customer.updatedBy =
+      actorId;
+    await customer.save();
+  }
+
+  return getManagedAppointment(
+    appointment._id
+  );
 }
 
 /*
