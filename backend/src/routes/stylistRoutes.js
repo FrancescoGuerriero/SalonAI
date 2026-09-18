@@ -18,9 +18,11 @@ import {
 
 import {
   protect,
-  adminOnly,
-  managementOnly,
+  superAdminOnly,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
@@ -46,7 +48,9 @@ router.get(
 router.get(
   "/",
   protect,
-  managementOnly,
+  requirePermissions(
+    "profile:all:read"
+  ),
   getStylists
 );
 
@@ -59,14 +63,18 @@ router.get(
 router.get(
   "/me/profile",
   protect,
-  managementOnly,
+  requirePermissions(
+    "profile:own:read"
+  ),
   getMyStaffProfile
 );
 
 router.patch(
   "/me/profile",
   protect,
-  managementOnly,
+  requirePermissions(
+    "profile:own:update"
+  ),
   updateMyStaffProfile
 );
 
@@ -85,7 +93,9 @@ router.get(
 router.get(
   "/:id",
   protect,
-  managementOnly,
+  requirePermissions(
+    "profile:all:read"
+  ),
   getStylist
 );
 
@@ -98,28 +108,32 @@ router.get(
 router.post(
   "/",
   protect,
-  adminOnly,
+  superAdminOnly,
   createStylist
 );
 
 router.put(
   "/:id",
   protect,
-  adminOnly,
+  requirePermissions(
+    "profile:all:update"
+  ),
   updateStylist
 );
 
 router.delete(
   "/:id",
   protect,
-  adminOnly,
+  superAdminOnly,
   deleteStylist
 );
 
 router.patch(
   "/:id/status",
   protect,
-  adminOnly,
+  requirePermissions(
+    "profile:all:update"
+  ),
   toggleStylistStatus
 );
 
