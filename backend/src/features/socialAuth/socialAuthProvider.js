@@ -172,6 +172,8 @@ function safeReturnTo(value) {
 export function createSocialAuthorization({
   provider,
   returnTo = "",
+  mode = "login",
+  userId = "",
 }) {
   const settings =
     requireProvider(provider);
@@ -181,6 +183,14 @@ export function createSocialAuthorization({
       provider,
       returnTo:
         safeReturnTo(returnTo),
+      mode:
+        mode === "link"
+          ? "link"
+          : "login",
+      userId:
+        mode === "link"
+          ? text(userId)
+          : "",
       tokenType:
         "social_auth_state",
     },
@@ -266,6 +276,14 @@ export function readSocialState(
       returnTo:
         safeReturnTo(
           decoded.returnTo
+        ),
+      mode:
+        decoded.mode === "link"
+          ? "link"
+          : "login",
+      userId:
+        text(
+          decoded.userId
         ),
     };
   } catch {
@@ -461,6 +479,37 @@ export async function resolveSocialIdentity({
     pictureUrl:
       text(profile.picture),
   };
+}
+
+export function socialLinkFrontendRedirect({
+  provider,
+  status,
+  returnTo = "/account/manage",
+  code = "",
+}) {
+  const url = new URL(
+    safeReturnTo(returnTo) ||
+      "/account/manage",
+    env.frontendUrl
+  );
+
+  url.searchParams.set(
+    "socialLink",
+    status
+  );
+  url.searchParams.set(
+    "provider",
+    provider
+  );
+
+  if (code) {
+    url.searchParams.set(
+      "socialCode",
+      code
+    );
+  }
+
+  return url.toString();
 }
 
 export function socialFrontendRedirect({
