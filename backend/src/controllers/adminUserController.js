@@ -14,6 +14,9 @@ import {
 import {
   EMPLOYEE_PERMISSION_SET,
 } from "../constants/permissions.js";
+import {
+  hasUserPermission,
+} from "../middleware/permissionMiddleware.js";
 
 export const STAFF_ROLES = Object.freeze([
   "stylist",
@@ -1307,41 +1310,86 @@ export async function createStaffUserByAdmin(
       );
     }
 
-    const jobTitle =
-      cleanText(
-        req.body.jobTitle ||
-          DEFAULT_JOB_TITLES[
-            role
-          ] ||
-          "Salon professional",
-        120
+    const hasFirstName =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "firstName"
       );
+
+    const hasLastName =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "lastName"
+      );
+
+    const hasJobTitle =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "jobTitle"
+      );
+
+    const hasBiography =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "biography"
+      );
+
+    const hasSpecialties =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "specialties"
+      );
+
+    const hasServices =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "services"
+      );
+
+    const hasWorkingHours =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "workingHours"
+      );
+
+    const jobTitle =
+      hasJobTitle
+        ? cleanText(
+            req.body.jobTitle,
+            120
+          )
+        : undefined;
 
     const biography =
-      cleanText(
-        req.body.biography,
-        2000
-      );
+      hasBiography
+        ? cleanText(
+            req.body.biography,
+            2000
+          )
+        : undefined;
 
     const specialties =
-      cleanList(
-        req.body.specialties,
-        12,
-        120
-      );
+      hasSpecialties
+        ? cleanList(
+            req.body.specialties,
+            12,
+            120
+          )
+        : undefined;
 
     const serviceIds =
-      await normaliseServiceIds(
-        req.body.services
-      );
+      hasServices
+        ? await normaliseServiceIds(
+            req.body.services
+          )
+        : undefined;
 
     const workingHours =
-      req.body.workingHours ===
-      undefined
-        ? undefined
-        : normaliseEmployeeSchedule(
+      hasWorkingHours
+        ? normaliseEmployeeSchedule(
             req.body.workingHours
-          );
+          )
+        : undefined;
 
     const permissions =
       Array.isArray(
@@ -1409,6 +1457,47 @@ export async function createStaffUserByAdmin(
       );
     }
 
+
+    if (
+      hasServices &&
+      !hasUserPermission(
+        req.user,
+        "employee:services:update"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to assign employee services during account creation.",
+        403
+      );
+    }
+
+    if (
+      hasWorkingHours &&
+      !hasUserPermission(
+        req.user,
+        "employee:schedule:update"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to configure employee schedules during account creation.",
+        403
+      );
+    }
+
+    if (
+      isActive ===
+        false &&
+      !hasUserPermission(
+        req.user,
+        "employee:deactivate"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to create an inactive employee account.",
+        403
+      );
+    }
+
     const existingUser =
       await User.findOne({
         email,
@@ -1472,14 +1561,38 @@ export async function createStaffUserByAdmin(
       await createOrLinkStylist(
         createdUser,
         {
-          firstName,
-          lastName,
-          jobTitle,
-          biography,
-          specialties,
-          services:
-            serviceIds,
-          ...(workingHours
+          ...(hasFirstName
+            ? {
+                firstName,
+              }
+            : {}),
+          ...(hasLastName
+            ? {
+                lastName,
+              }
+            : {}),
+          ...(hasJobTitle
+            ? {
+                jobTitle,
+              }
+            : {}),
+          ...(hasBiography
+            ? {
+                biography,
+              }
+            : {}),
+          ...(hasSpecialties
+            ? {
+                specialties,
+              }
+            : {}),
+          ...(hasServices
+            ? {
+                services:
+                  serviceIds,
+              }
+            : {}),
+          ...(hasWorkingHours
             ? {
                 workingHours,
               }
@@ -1512,11 +1625,9 @@ export async function createStaffUserByAdmin(
         created,
       metadata: {
         initialServices:
-          serviceIds,
+          serviceIds || [],
         scheduleConfigured:
-          Boolean(
-            workingHours
-          ),
+          hasWorkingHours,
       },
     });
 
