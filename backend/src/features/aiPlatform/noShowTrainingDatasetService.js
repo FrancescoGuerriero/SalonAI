@@ -647,7 +647,10 @@ export async function materialiseNoShowTrainingDataset({
       ({
         _sortDate,
         ...row
-      }) => row
+      }) => ({
+        ...row,
+        datasetVersion,
+      })
     );
 
   const dates =
@@ -714,21 +717,12 @@ export async function materialiseNoShowTrainingDataset({
     task: TASK,
     featureVersion:
       FEATURE_VERSION,
-    "metadata.datasetVersion":
-      datasetVersion,
+    datasetVersion,
   });
 
   if (cleanRows.length) {
     await AiFeatureSnapshot.insertMany(
-      cleanRows.map(
-        (row) => ({
-          ...row,
-          metadata: {
-            ...row.metadata,
-            datasetVersion,
-          },
-        })
-      ),
+      cleanRows,
       {
         ordered: false,
       }
