@@ -6,6 +6,9 @@ import {
 } from "../../middleware/authMiddleware.js";
 
 import asyncHandler from "../../shared/asyncHandler.js";
+import {
+  requirePermissions,
+} from "../../middleware/permissionMiddleware.js";
 
 import {
   analyseCustomerSegmentation,
@@ -31,6 +34,9 @@ import {
 import {
   generateAiMarketingInsights,
 } from "./aiMarketingInsightsController.js";
+import {
+  getAiManagementCopilot,
+} from "./aiManagementCopilotController.js";
 
 const router = express.Router();
 
@@ -58,6 +64,23 @@ router.use(managementOnly);
 router.get(
   "/status",
   asyncHandler(status)
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| SalonAI Adviser / management copilot
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/management-copilot",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    getAiManagementCopilot
+  )
 );
 
 
