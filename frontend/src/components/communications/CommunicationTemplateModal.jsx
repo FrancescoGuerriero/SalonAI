@@ -25,6 +25,7 @@ import {
   getCommunicationTemplateErrorMessage,
   updateCommunicationTemplate,
 } from "../../Services/communicationTemplateApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const CAMPAIGN_OPTIONS = [
   {
@@ -245,6 +246,7 @@ export default function CommunicationTemplateModal({
   onClose,
   onSaved,
 }) {
+  const modalPanelRef = useRef(null);
   const bodyTextAreaRef = useRef(null);
   const subjectInputRef = useRef(null);
 
@@ -334,6 +336,11 @@ export default function CommunicationTemplateModal({
       document.body.style.overflow = "";
     };
   }, [open, saving, onClose]);
+
+  useModalFocusTrap({
+    open,
+    containerRef: modalPanelRef,
+  });
 
   if (!open) {
     return null;
@@ -508,7 +515,10 @@ export default function CommunicationTemplateModal({
       aria-labelledby="communication-template-modal-title"
       onMouseDown={handleBackdropClick}
     >
-      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">

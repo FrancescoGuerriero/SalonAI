@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
@@ -14,6 +14,7 @@ import {
 import {
   createCustomerContactLog,
 } from "../../Services/customerContactApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const CHANNEL_OPTIONS = [
   {
@@ -248,6 +249,7 @@ export default function CustomerContactModal({
   onClose,
   onSaved,
 }) {
+  const modalPanelRef = useRef(null);
   const customerId = getCustomerId(customer);
   const customerName = getCustomerName(customer);
 
@@ -404,6 +406,11 @@ export default function CustomerContactModal({
     };
   }, [open, saving, onClose]);
 
+  useModalFocusTrap({
+    open,
+    containerRef: modalPanelRef,
+  });
+
   if (!open) {
     return null;
   }
@@ -527,18 +534,20 @@ export default function CustomerContactModal({
       aria-modal="true"
       aria-labelledby="customer-contact-title"
     >
-      <button
-        type="button"
+      <div
         className="absolute inset-0 cursor-default"
         onClick={() => {
           if (!saving) {
             onClose?.();
           }
         }}
-        aria-label="Close contact modal"
+        aria-hidden="true"
       />
 
-      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+      >
         <header className="flex items-start justify-between border-b border-gray-200 px-6 py-5">
           <div>
             <div className="flex items-center gap-3">
@@ -576,7 +585,7 @@ export default function CustomerContactModal({
           </button>
         </header>
 
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6">
           {!hasContactDetails ? (
             <div className="flex items-start gap-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
               <AlertTriangle
