@@ -2,12 +2,11 @@ import {
   Eye,
   EyeOff,
   ImageOff,
+  Package,
   Pencil,
   Plus,
   RefreshCw,
   Search,
-  Scissors,
-  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -17,23 +16,29 @@ import {
   useState,
 } from "react";
 
-import serviceService from "../Services/serviceService.js";
+import commerceService from "../Services/commerceService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
   hasPermission,
 } from "../utils/permissions.js";
+import {
+  formatCurrency,
+} from "../utils/currency.js";
 
-const EMPTY_SERVICE = {
+const EMPTY_PRODUCT = {
   name: "",
-  category: "",
+  sku: "",
+  brand: "",
+  category: "Haircare",
+  collectionName: "",
+  badge: "",
+  size: "",
   description: "",
-  image: "",
+  officialDescription: "",
   price: "",
-  priceLabel: "",
-  priceOnConsultation: false,
-  duration: "60",
-  durationEstimated: false,
-  onlineBookable: true,
+  costPrice: "",
+  images: "",
+  featured: false,
 };
 
 function messageFrom(
@@ -48,102 +53,132 @@ function messageFrom(
   );
 }
 
-function toForm(service = {}) {
+function imageLines(value) {
+  return Array.isArray(value)
+    ? value.join("\n")
+    : "";
+}
+
+function imageArray(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((item) =>
+      item.trim()
+    )
+    .filter(Boolean);
+}
+
+function toForm(product = {}) {
   return {
-    name: service.name || "",
+    name: product.name || "",
+    sku: product.sku || "",
+    brand: product.brand || "",
     category:
-      service.category || "",
+      product.category ||
+      "Haircare",
+    collectionName:
+      product.collectionName ||
+      "",
+    badge: product.badge || "",
+    size: product.size || "",
     description:
-      service.description || "",
-    image:
-      service.image || "",
+      product.description || "",
+    officialDescription:
+      product.officialDescription ||
+      "",
     price:
       String(
-        service.price ?? ""
+        product.price ?? ""
       ),
-    priceLabel:
-      service.priceLabel || "",
-    priceOnConsultation:
-      service.priceOnConsultation ===
-      true,
-    duration:
-      String(
-        service.duration ?? 60
+    costPrice:
+      product.costPrice ===
+      undefined
+        ? ""
+        : String(
+            product.costPrice
+          ),
+    images:
+      imageLines(
+        product.images
       ),
-    durationEstimated:
-      service.durationEstimated ===
+    featured:
+      product.featured ===
       true,
-    onlineBookable:
-      service.onlineBookable !==
-      false,
   };
 }
 
-function servicePayload(form) {
-  return {
+function productPayload(
+  form,
+  canReadCost
+) {
+  const payload = {
     name:
       form.name.trim(),
+    sku:
+      form.sku.trim(),
+    brand:
+      form.brand.trim(),
     category:
       form.category.trim(),
+    collectionName:
+      form.collectionName.trim(),
+    badge:
+      form.badge.trim(),
+    size:
+      form.size.trim(),
     description:
       form.description.trim(),
-    image:
-      form.image.trim(),
+    officialDescription:
+      form.officialDescription.trim(),
     price:
       Number(form.price || 0),
-    priceLabel:
-      form.priceLabel.trim(),
-    priceOnConsultation:
-      form.priceOnConsultation,
-    duration:
-      Number(
-        form.duration || 0
+    images:
+      imageArray(
+        form.images
       ),
-    durationEstimated:
-      form.durationEstimated,
-    onlineBookable:
-      form.onlineBookable,
+    featured:
+      form.featured,
   };
+
+  if (
+    canReadCost &&
+    form.costPrice !== ""
+  ) {
+    payload.costPrice =
+      Number(
+        form.costPrice
+      );
+  }
+
+  return payload;
 }
 
-function money(value) {
-  return new Intl.NumberFormat(
-    "en-GB",
-    {
-      style: "currency",
-      currency: "GBP",
-    }
-  ).format(
-    Number(value || 0)
-  );
-}
-
-function PublicationBadge({
-  active,
+function StatusBadge({
+  published,
 }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${
-        active
+        published
           ? "border-amber-400 bg-amber-50 text-black"
           : "border-stone-300 bg-stone-100 text-stone-700"
       }`}
     >
-      {active ? (
+      {published ? (
         <Eye size={13} />
       ) : (
         <EyeOff
           size={13}
         />
       )}
-      {active
+      {published
         ? "Published"
         : "Unpublished"}
     </span>
   );
 }
 
-export default function ServicesPage() {
+export default function ProductManagementPage() {
   const {
     user,
   } = useAuth();
@@ -151,27 +186,27 @@ export default function ServicesPage() {
   const canCreate =
     hasPermission(
       user,
-      "service:create"
+      "product:create"
     );
   const canUpdate =
     hasPermission(
       user,
-      "service:update"
+      "product:update"
     );
   const canPublish =
     hasPermission(
       user,
-      "service:publish"
+      "product:publish"
     );
-  const canDelete =
+  const canReadCost =
     hasPermission(
       user,
-      "service:delete"
+      "product:cost:read"
     );
 
   const [
-    services,
-    setServices,
+    products,
+    setProducts,
   ] = useState([]);
   const [
     loading,
@@ -204,9 +239,9 @@ export default function ServicesPage() {
   const [
     form,
     setForm,
-  ] = useState(
-    EMPTY_SERVICE
-  );
+  ] = useState({
+    ...EMPTY_PRODUCT,
+  });
   const [
     error,
     setError,
@@ -223,8 +258,18 @@ export default function ServicesPage() {
         setError("");
 
         try {
-          setServices(
-            await serviceService.getManagementServices()
+          const result =
+            await commerceService.listInventoryProducts({
+              limit: 250,
+              sort: "name",
+            });
+
+          setProducts(
+            Array.isArray(
+              result?.items
+            )
+              ? result.items
+              : []
           );
         } catch (
           requestError
@@ -232,7 +277,7 @@ export default function ServicesPage() {
           setError(
             messageFrom(
               requestError,
-              "The service catalogue could not be loaded."
+              "The product catalogue could not be loaded."
             )
           );
         } finally {
@@ -255,15 +300,17 @@ export default function ServicesPage() {
           .trim()
           .toLowerCase();
 
-      return services.filter(
-        (service) => {
+      return products.filter(
+        (product) => {
           const matchesText =
             !term ||
             [
-              service.name,
-              service.category,
-              service.description,
-              service.priceLabel,
+              product.name,
+              product.sku,
+              product.brand,
+              product.category,
+              product.collectionName,
+              product.description,
             ].some(
               (value) =>
                 String(
@@ -280,11 +327,11 @@ export default function ServicesPage() {
               "all" ||
             (publication ===
               "published" &&
-              service.active ===
+              product.active ===
                 true) ||
             (publication ===
               "unpublished" &&
-              service.active !==
+              product.active !==
                 true);
 
           return (
@@ -294,44 +341,10 @@ export default function ServicesPage() {
         }
       );
     }, [
+      products,
       publication,
       search,
-      services,
     ]);
-
-  function openCreate() {
-    setEditingId("");
-    setForm({
-      ...EMPTY_SERVICE,
-    });
-    setError("");
-    setSuccess("");
-    setShowForm(true);
-  }
-
-  function openEdit(service) {
-    setEditingId(
-      String(service._id)
-    );
-    setForm(
-      toForm(service)
-    );
-    setError("");
-    setSuccess("");
-    setShowForm(true);
-  }
-
-  function closeForm() {
-    if (saving) {
-      return;
-    }
-
-    setShowForm(false);
-    setEditingId("");
-    setForm({
-      ...EMPTY_SERVICE,
-    });
-  }
 
   function update(
     field,
@@ -345,6 +358,35 @@ export default function ServicesPage() {
     );
   }
 
+  function openCreate() {
+    setEditingId("");
+    setForm({
+      ...EMPTY_PRODUCT,
+    });
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  }
+
+  function openEdit(product) {
+    setEditingId(
+      String(product._id)
+    );
+    setForm(
+      toForm(product)
+    );
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    if (!saving) {
+      setShowForm(false);
+      setEditingId("");
+    }
+  }
+
   async function save(
     event
   ) {
@@ -355,7 +397,7 @@ export default function ServicesPage() {
       !canUpdate
     ) {
       setError(
-        "You do not have permission to edit services."
+        "You do not have permission to edit products."
       );
       return;
     }
@@ -365,7 +407,7 @@ export default function ServicesPage() {
       !canCreate
     ) {
       setError(
-        "You do not have permission to create services."
+        "You do not have permission to create products."
       );
       return;
     }
@@ -376,30 +418,34 @@ export default function ServicesPage() {
       setSuccess("");
 
       const payload =
-        servicePayload(form);
+        productPayload(
+          form,
+          canReadCost
+        );
 
       if (editingId) {
-        await serviceService.updateService(
+        await commerceService.updateProduct(
           editingId,
           payload
         );
         setSuccess(
-          "Service details updated."
+          "Product details updated."
         );
       } else {
-        await serviceService.createService(
+        await commerceService.createProduct(
           payload
         );
         setSuccess(
-          "Service created as unpublished. Publish it when it is ready for customers."
+          "Product created as unpublished. Publish it when the catalogue information is ready."
         );
       }
 
       setShowForm(false);
       setEditingId("");
       setForm({
-        ...EMPTY_SERVICE,
+        ...EMPTY_PRODUCT,
       });
+
       await load();
     } catch (
       requestError
@@ -407,7 +453,7 @@ export default function ServicesPage() {
       setError(
         messageFrom(
           requestError,
-          "The service could not be saved."
+          "The product could not be saved."
         )
       );
     } finally {
@@ -416,7 +462,7 @@ export default function ServicesPage() {
   }
 
   async function togglePublication(
-    service
+    product
   ) {
     if (!canPublish) {
       return;
@@ -424,24 +470,24 @@ export default function ServicesPage() {
 
     try {
       setActionId(
-        String(service._id)
+        String(product._id)
       );
       setError("");
       setSuccess("");
 
       const next =
-        service.active !==
+        product.active !==
         true;
 
-      await serviceService.setPublication(
-        service._id,
+      await commerceService.setProductPublication(
+        product._id,
         next
       );
 
       setSuccess(
         next
-          ? `${service.name} is now published.`
-          : `${service.name} is now unpublished.`
+          ? `${product.name} is now published in the Shop.`
+          : `${product.name} is now unpublished from the Shop.`
       );
 
       await load();
@@ -451,45 +497,7 @@ export default function ServicesPage() {
       setError(
         messageFrom(
           requestError,
-          "Publication could not be changed."
-        )
-      );
-    } finally {
-      setActionId("");
-    }
-  }
-
-  async function remove(
-    service
-  ) {
-    if (
-      !canDelete ||
-      !window.confirm(
-        `Permanently delete ${service.name}? Use Unpublish instead when you only want to remove it from customer booking.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setActionId(
-        String(service._id)
-      );
-      setError("");
-      await serviceService.deleteService(
-        service._id
-      );
-      setSuccess(
-        `${service.name} was permanently deleted.`
-      );
-      await load();
-    } catch (
-      requestError
-    ) {
-      setError(
-        messageFrom(
-          requestError,
-          "The service could not be deleted."
+          "Product publication could not be changed."
         )
       );
     } finally {
@@ -510,10 +518,10 @@ export default function ServicesPage() {
               Catalogue management
             </p>
             <h1 className="mt-2 text-2xl font-bold text-black sm:text-3xl">
-              Salon services
+              Products
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
-              Maintain the customer-facing service catalogue. Editing service content and publishing it are separate permissions.
+              Manage retail product content and Shop publication. Inventory quantities and stock adjustments remain in the Inventory workspace.
             </p>
           </div>
 
@@ -550,7 +558,7 @@ export default function ServicesPage() {
                 <Plus
                   size={17}
                 />
-                Add service
+                Add product
               </button>
             ) : null}
           </div>
@@ -579,7 +587,7 @@ export default function ServicesPage() {
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
           <label className="relative block">
             <span className="sr-only">
-              Search services
+              Search products
             </span>
             <Search
               size={18}
@@ -598,7 +606,7 @@ export default function ServicesPage() {
                     .value
                 )
               }
-              placeholder="Search name, category or description..."
+              placeholder="Search product, SKU, brand or category..."
               className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
             />
           </label>
@@ -619,7 +627,7 @@ export default function ServicesPage() {
             aria-label="Publication filter"
           >
             <option value="all">
-              All services
+              All products
             </option>
             <option value="published">
               Published
@@ -634,43 +642,45 @@ export default function ServicesPage() {
       <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         <div className="border-b border-stone-200 px-5 py-4">
           <h2 className="font-bold text-black">
-            Service catalogue
+            Product catalogue
           </h2>
           <p className="mt-1 text-xs text-stone-500">
-            {filtered.length} of {services.length} services shown
+            {filtered.length} of {products.length} products shown
           </p>
         </div>
 
         {loading ? (
           <div className="p-10 text-center text-sm font-semibold text-stone-600">
-            Loading services…
+            Loading products…
           </div>
         ) : filtered.length ===
           0 ? (
           <div className="p-10 text-center">
-            <Scissors
+            <Package
               size={30}
               className="mx-auto text-stone-400"
             />
             <p className="mt-3 font-bold text-black">
-              No matching services
+              No matching products
             </p>
           </div>
         ) : (
           <div className="divide-y divide-stone-200">
             {filtered.map(
-              (service) => (
+              (product) => (
                 <article
                   key={
-                    service._id
+                    product._id
                   }
                   className="grid gap-4 p-5 lg:grid-cols-[5rem_minmax(0,1fr)_auto] lg:items-center"
                 >
                   <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-                    {service.image ? (
+                    {product
+                      .images?.[0] ? (
                       <img
                         src={
-                          service.image
+                          product
+                            .images[0]
                         }
                         alt=""
                         className="h-full w-full object-cover"
@@ -686,41 +696,57 @@ export default function ServicesPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-bold text-black">
-                        {service.name}
+                        {product.name}
                       </h3>
-                      <PublicationBadge
-                        active={
-                          service.active ===
+                      <StatusBadge
+                        published={
+                          product.active ===
                           true
                         }
                       />
-                      {service.onlineBookable ? (
-                        <span className="rounded-full border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-700">
-                          Online bookable
+                      {product.featured ? (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-black">
+                          Featured
                         </span>
                       ) : null}
                     </div>
 
                     <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
-                      {service.category}
-                    </p>
-                    <p className="mt-2 text-sm text-stone-600">
-                      {service.description ||
-                        "No description provided."}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-black">
-                      {service.priceOnConsultation
-                        ? service.priceLabel ||
-                          "Price on consultation"
-                        : money(
-                            service.price
-                          )}
-                      {" · "}
-                      {service.duration} min
-                      {service.durationEstimated
-                        ? " estimated"
+                      {product.brand ||
+                        "No brand"}{" "}
+                      ·{" "}
+                      {product.category}
+                      {product.size
+                        ? ` · ${product.size}`
                         : ""}
                     </p>
+
+                    <p className="mt-2 text-sm text-stone-600">
+                      {product.description ||
+                        "No description provided."}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold text-black">
+                      <span>
+                        {formatCurrency(
+                          product.price
+                        )}
+                      </span>
+                      <span>
+                        Stock:{" "}
+                        {product.stockQuantity}
+                      </span>
+                      {canReadCost &&
+                      product.costPrice !==
+                        undefined ? (
+                        <span>
+                          Cost:{" "}
+                          {formatCurrency(
+                            product.costPrice
+                          )}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -730,7 +756,7 @@ export default function ServicesPage() {
                         className="inline-flex items-center gap-1 rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
                         onClick={() =>
                           openEdit(
-                            service
+                            product
                           )
                         }
                       >
@@ -748,35 +774,18 @@ export default function ServicesPage() {
                         disabled={
                           actionId ===
                           String(
-                            service._id
+                            product._id
                           )
                         }
                         onClick={() =>
                           void togglePublication(
-                            service
+                            product
                           )
                         }
                       >
-                        {service.active
+                        {product.active
                           ? "Unpublish"
                           : "Publish"}
-                      </button>
-                    ) : null}
-
-                    {canDelete ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-50"
-                        onClick={() =>
-                          void remove(
-                            service
-                          )
-                        }
-                      >
-                        <Trash2
-                          size={14}
-                        />
-                        Delete
                       </button>
                     ) : null}
                   </div>
@@ -792,10 +801,10 @@ export default function ServicesPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="service-form-title"
+          aria-labelledby="product-form-title"
         >
           <form
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+            className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-xl"
             onSubmit={
               save
             }
@@ -803,125 +812,107 @@ export default function ServicesPage() {
             <header className="flex items-start justify-between border-b border-stone-200 p-5">
               <div>
                 <h2
-                  id="service-form-title"
+                  id="product-form-title"
                   className="text-xl font-bold text-black"
                 >
                   {editingId
-                    ? "Edit service"
-                    : "Add service"}
+                    ? "Edit product"
+                    : "Add product"}
                 </h2>
                 <p className="mt-1 text-sm text-stone-600">
-                  New services are created unpublished.
+                  Product content is separate from Shop publication and inventory movements.
                 </p>
               </div>
+
               <button
                 type="button"
                 className="rounded-lg p-2 text-black hover:bg-stone-100"
                 onClick={
                   closeForm
                 }
-                aria-label="Close service editor"
+                aria-label="Close product editor"
               >
                 <X size={20} />
               </button>
             </header>
 
             <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <label className="text-sm font-semibold text-black">
-                Service name
-                <input
-                  required
-                  value={
-                    form.name
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "name",
-                      event.target
-                        .value
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
-                />
-              </label>
-
-              <label className="text-sm font-semibold text-black">
-                Category
-                <input
-                  required
-                  value={
-                    form.category
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "category",
-                      event.target
-                        .value
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
-                />
-              </label>
-
-              <label className="sm:col-span-2 text-sm font-semibold text-black">
-                Description
-                <textarea
-                  rows="5"
-                  value={
-                    form.description
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "description",
-                      event.target
-                        .value
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
-                />
-              </label>
-
-              <label className="sm:col-span-2 text-sm font-semibold text-black">
-                Image URL
-                <input
-                  type="url"
-                  value={
-                    form.image
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "image",
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder="https://..."
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
-                />
-              </label>
-
-              {form.image ? (
-                <div className="sm:col-span-2">
-                  <img
-                    src={
-                      form.image
+              {[
+                [
+                  "name",
+                  "Product name",
+                  true,
+                ],
+                [
+                  "sku",
+                  "SKU",
+                  true,
+                ],
+                [
+                  "brand",
+                  "Brand",
+                  false,
+                ],
+                [
+                  "category",
+                  "Category",
+                  true,
+                ],
+                [
+                  "collectionName",
+                  "Collection",
+                  false,
+                ],
+                [
+                  "badge",
+                  "Badge",
+                  false,
+                ],
+                [
+                  "size",
+                  "Size",
+                  false,
+                ],
+              ].map(
+                ([
+                  field,
+                  label,
+                  required,
+                ]) => (
+                  <label
+                    key={
+                      field
                     }
-                    alt="Service preview"
-                    className="h-40 w-full rounded-xl border border-stone-200 object-cover"
-                  />
-                </div>
-              ) : null}
+                    className="text-sm font-semibold text-black"
+                  >
+                    {label}
+                    <input
+                      required={
+                        required
+                      }
+                      value={
+                        form[
+                          field
+                        ]
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        update(
+                          field,
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                    />
+                  </label>
+                )
+              )}
 
               <label className="text-sm font-semibold text-black">
-                Base price (£)
+                Retail price (£)
                 <input
                   required
                   type="number"
@@ -943,41 +934,62 @@ export default function ServicesPage() {
                 />
               </label>
 
-              <label className="text-sm font-semibold text-black">
-                Price label
-                <input
+              {canReadCost ? (
+                <label className="text-sm font-semibold text-black">
+                  Cost price (£)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      form.costPrice
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      update(
+                        "costPrice",
+                        event.target
+                          .value
+                      )
+                    }
+                    className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                  />
+                </label>
+              ) : null}
+
+              <label className="sm:col-span-2 text-sm font-semibold text-black">
+                Shop description
+                <textarea
+                  rows="4"
                   value={
-                    form.priceLabel
+                    form.description
                   }
                   onChange={(
                     event
                   ) =>
                     update(
-                      "priceLabel",
+                      "description",
                       event.target
                         .value
                     )
                   }
-                  placeholder="From £75"
                   className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
                 />
               </label>
 
-              <label className="text-sm font-semibold text-black">
-                Duration (minutes)
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  step="1"
+              <label className="sm:col-span-2 text-sm font-semibold text-black">
+                Full / official description
+                <textarea
+                  rows="6"
                   value={
-                    form.duration
+                    form.officialDescription
                   }
                   onChange={(
                     event
                   ) =>
                     update(
-                      "duration",
+                      "officialDescription",
                       event.target
                         .value
                     )
@@ -986,55 +998,77 @@ export default function ServicesPage() {
                 />
               </label>
 
-              <div className="space-y-3 rounded-xl border border-stone-200 p-4">
-                {[
-                  [
-                    "priceOnConsultation",
-                    "Price on consultation",
-                  ],
-                  [
-                    "durationEstimated",
-                    "Duration is estimated",
-                  ],
-                  [
-                    "onlineBookable",
-                    "Available for online booking",
-                  ],
-                ].map(
-                  ([
-                    field,
-                    label,
-                  ]) => (
-                    <label
-                      key={
-                        field
-                      }
-                      className="flex items-center gap-3 text-sm font-semibold text-black"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          form[
-                            field
-                          ]
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          update(
-                            field,
-                            event
-                              .target
-                              .checked
-                          )
-                        }
-                        className="h-4 w-4 accent-amber-500"
-                      />
-                      {label}
-                    </label>
+              <label className="sm:col-span-2 text-sm font-semibold text-black">
+                Product images
+                <textarea
+                  rows="4"
+                  value={
+                    form.images
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "images",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder={"https://.../front.jpg\nhttps://.../back.jpg"}
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-mono text-xs"
+                />
+                <small className="mt-1 block font-normal text-stone-600">
+                  Add one secure image URL per line. The first image is the primary Shop image.
+                </small>
+              </label>
+
+              {imageArray(
+                form.images
+              ).length ? (
+                <div className="sm:col-span-2 flex flex-wrap gap-3">
+                  {imageArray(
+                    form.images
                   )
-                )}
-              </div>
+                    .slice(0, 6)
+                    .map(
+                      (
+                        image,
+                        index
+                      ) => (
+                        <img
+                          key={
+                            image
+                          }
+                          src={
+                            image
+                          }
+                          alt={`Product preview ${index + 1}`}
+                          className="h-24 w-24 rounded-xl border border-stone-200 object-cover"
+                        />
+                      )
+                    )}
+                </div>
+              ) : null}
+
+              <label className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-stone-200 p-4 text-sm font-semibold text-black">
+                <input
+                  type="checkbox"
+                  checked={
+                    form.featured
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "featured",
+                      event.target
+                        .checked
+                    )
+                  }
+                  className="h-4 w-4 accent-amber-500"
+                />
+                Featured product
+              </label>
             </div>
 
             <footer className="flex justify-end gap-2 border-t border-stone-200 p-5">
@@ -1058,7 +1092,7 @@ export default function ServicesPage() {
                   ? "Saving…"
                   : editingId
                     ? "Save changes"
-                    : "Create service"}
+                    : "Create product"}
               </button>
             </footer>
           </form>

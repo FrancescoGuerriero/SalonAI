@@ -17,6 +17,19 @@ const serviceService = {
     return [];
   },
 
+  async getManagementServices() {
+    const { data } =
+      await API.get(
+        "/services/management"
+      );
+
+    return Array.isArray(
+      data?.services
+    )
+      ? data.services
+      : [];
+  },
+
   async getServiceById(serviceId) {
     if (!serviceId) {
       throw new Error(
@@ -54,6 +67,21 @@ const serviceService = {
       `/services/${serviceId}`,
       serviceData
     );
+
+    return data;
+  },
+
+  async setPublication(
+    serviceId,
+    active
+  ) {
+    const { data } =
+      await API.patch(
+        `/services/${serviceId}/publication`,
+        {
+          active,
+        }
+      );
 
     return data;
   },
