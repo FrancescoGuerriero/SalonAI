@@ -37,6 +37,18 @@ const EMPLOYEE_SETTING_FIELDS = Object.freeze([
   "permissions",
 ]);
 
+
+const DEFAULT_JOB_TITLES = Object.freeze({
+  stylist:
+    "Hair professional",
+  receptionist:
+    "Receptionist",
+  manager:
+    "Salon manager",
+  admin:
+    "Salon administrator",
+});
+
 function httpError(
   message,
   statusCode
@@ -549,10 +561,7 @@ async function stylistForUser(
 
 async function createOrLinkStylist(
   user,
-  {
-    profilePublished = false,
-    acceptsAppointments = false,
-  } = {}
+  options = {}
 ) {
   let stylist =
     await Stylist.findOne({
@@ -573,9 +582,55 @@ async function createOrLinkStylist(
     );
   }
 
+  const split =
+    splitName(
+      user.name
+    );
+
+  const firstName =
+    cleanText(
+      options.firstName ||
+        split.firstName,
+      60
+    );
+
+  const lastName =
+    cleanText(
+      options.lastName ||
+        split.lastName,
+      60
+    );
+
+  const has =
+    (field) =>
+      Object.prototype.hasOwnProperty.call(
+        options,
+        field
+      );
+
   if (stylist) {
     stylist.userAccount =
       user._id;
+
+    if (
+      has(
+        "firstName"
+      ) &&
+      firstName
+    ) {
+      stylist.firstName =
+        firstName;
+    }
+
+    if (
+      has(
+        "lastName"
+      ) &&
+      lastName
+    ) {
+      stylist.lastName =
+        lastName;
+    }
 
     if (
       !stylist.phone &&
@@ -593,31 +648,81 @@ async function createOrLinkStylist(
         user.profilePhoto;
     }
 
+    if (
+      has(
+        "jobTitle"
+      )
+    ) {
+      stylist.jobTitle =
+        options.jobTitle;
+    }
+
+    if (
+      has(
+        "biography"
+      )
+    ) {
+      stylist.biography =
+        options.biography;
+    }
+
+    if (
+      has(
+        "specialties"
+      )
+    ) {
+      stylist.specialties =
+        options.specialties;
+    }
+
+    if (
+      has(
+        "services"
+      )
+    ) {
+      stylist.services =
+        options.services;
+    }
+
+    if (
+      has(
+        "workingHours"
+      )
+    ) {
+      stylist.workingHours =
+        options.workingHours;
+    }
+
     stylist.isActive =
       user.isActive !==
       false;
 
-    stylist.profilePublished =
-      Boolean(
-        profilePublished
-      );
+    if (
+      has(
+        "profilePublished"
+      )
+    ) {
+      stylist.profilePublished =
+        Boolean(
+          options.profilePublished
+        );
+    }
 
-    stylist.acceptsAppointments =
-      Boolean(
-        acceptsAppointments
-      );
+    if (
+      has(
+        "acceptsAppointments"
+      )
+    ) {
+      stylist.acceptsAppointments =
+        Boolean(
+          options.acceptsAppointments
+        );
+    }
 
     await stylist.save();
 
     return stylist;
   }
-
-  const {
-    firstName,
-    lastName,
-  } = splitName(
-    user.name
-  );
 
   stylist =
     await Stylist.create({
@@ -632,14 +737,33 @@ async function createOrLinkStylist(
       profileImage:
         user.profilePhoto || "",
       jobTitle:
-        "Hair professional",
+        options.jobTitle ||
+        DEFAULT_JOB_TITLES[
+          user.role
+        ] ||
+        "Salon professional",
+      biography:
+        options.biography ||
+        "",
+      specialties:
+        options.specialties ||
+        [],
+      services:
+        options.services ||
+        [],
+      ...(options.workingHours
+        ? {
+            workingHours:
+              options.workingHours,
+          }
+        : {}),
       profilePublished:
         Boolean(
-          profilePublished
+          options.profilePublished
         ),
       acceptsAppointments:
         Boolean(
-          acceptsAppointments
+          options.acceptsAppointments
         ),
       isActive:
         user.isActive !==
