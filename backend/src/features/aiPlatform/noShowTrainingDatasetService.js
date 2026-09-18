@@ -290,6 +290,33 @@ function buildFeatureRow({
     return null;
   }
 
+  const hasPostPredictionReschedule =
+    (
+      Array.isArray(
+        appointment.rescheduleHistory
+      )
+        ? appointment.rescheduleHistory
+        : []
+    ).some(
+      (entry) => {
+        const changed =
+          asDate(
+            entry.changedAt
+          );
+
+        return (
+          changed &&
+          changed > asOf
+        );
+      }
+    );
+
+  if (
+    hasPostPredictionReschedule
+  ) {
+    return null;
+  }
+
   const history =
     historyBefore(
       appointments,
@@ -490,6 +517,7 @@ function buildFeatureRow({
         "payment_status_without_history",
         "amount_paid_without_history",
         "post_prediction_reschedules",
+        "post_prediction_service_or_stylist_changes_via_reschedule",
         "post_prediction_reminders",
       ],
     },
