@@ -45,11 +45,21 @@ The provider cannot choose the SalonAI role.
 
 A social sign-in must not silently claim an existing SalonAI account by matching only an email address.
 
-If the provider email already belongs to a customer account but no provider identity is linked, SalonAI returns an account-link-required response. The customer must sign in through an existing method and explicitly link the provider from account settings in a follow-up increment.
+If the provider email already belongs to a customer account but no provider identity is linked, SalonAI returns an account-link-required response. The customer signs in through an existing method and explicitly links the provider from Connected sign-in accounts under account settings.
 
 If the email belongs to a staff/management account, public customer social sign-in must not link it. Staff social identity linking requires an authenticated staff session.
 
 This policy prevents a customer OAuth callback from becoming a privilege-escalation path.
+
+## Explicit linking and unlinking
+
+Authenticated customer account settings list all four providers and the currently linked identities.
+
+Linking starts a fresh provider authorization flow bound to the already-authenticated SalonAI customer ID in signed state. It does not rely on email equality.
+
+A provider identity already owned by another SalonAI account cannot be linked.
+
+Unlinking is blocked when it would remove the customer's final usable sign-in method. A provider-only customer must add a SalonAI password or another provider before disconnecting their last identity.
 
 ## Provider configuration
 
