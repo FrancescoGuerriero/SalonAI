@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import AiFeatureSnapshot from "../features/aiPlatform/AiFeatureSnapshot.js";
 import AiInferenceLog from "../features/aiPlatform/AiInferenceLog.js";
@@ -142,5 +143,22 @@ test("AI knowledge documents carry audience and permission boundaries for Advise
     [
       "appointment:read",
     ]
+  );
+});
+
+
+test("canonical API router exposes the built-in Adviser through ai:use permission", async () => {
+  const routes =
+    await readFile(
+      new URL(
+        "../features/aiRecommendations/aiRecommendationRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    routes,
+    /"\/management-copilot"[\s\S]*?"ai:use"[\s\S]*?getAiManagementCopilot/
   );
 });
