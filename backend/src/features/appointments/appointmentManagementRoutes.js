@@ -13,6 +13,7 @@ import {
   reminder,
   reschedule,
   status,
+  stylists,
   summary,
 } from "./appointmentManagementController.js";
 import {
@@ -94,6 +95,15 @@ router.post(
 | Calendar and reporting
 |--------------------------------------------------------------------------
 */
+
+router.get(
+  "/stylists",
+  requireAnyPermission(
+    "appointment:create",
+    "appointment:update"
+  ),
+  asyncHandler(stylists)
+);
 
 router.get(
   "/customers",
