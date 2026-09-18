@@ -4,9 +4,7 @@ export function requirePermissions(...requiredPermissions) {
       req.user?.permissions || []
     );
 
-    const role = req.user?.role;
-
-    if (role === "admin" || role === "owner") {
+    if (req.user?.isSuperAdmin === true) {
       return next();
     }
 
