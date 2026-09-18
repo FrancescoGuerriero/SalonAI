@@ -18,6 +18,7 @@ import { requireFeature } from "../services/featureControlService.js";
 const router = express.Router();
 
 const managementRoles = new Set([
+  "super_admin",
   "admin",
   "manager",
   "receptionist",
