@@ -27,7 +27,7 @@ It must not request:
 - Yahoo Mail/contacts/calendar;
 - Facebook publishing/content permissions.
 
-Staff external-calendar synchronization is a separate authorization flow and separate data model.
+Staff external-calendar synchronization is a separate authorization flow and separate data model. Prefer separate OAuth client/app-registration credentials for customer sign-in and staff calendar synchronization so identity-only consent cannot accidentally expand into calendar access.
 
 ## Registration
 
