@@ -29,6 +29,12 @@ import {
   stopMessageDeliveryScheduler,
 } from "./src/services/messageDeliverySchedulerService.js";
 
+import {
+  getCalendarSyncWorkerStatus,
+  startCalendarSyncWorker,
+  stopCalendarSyncWorker,
+} from "./src/integrations/calendar/calendarSyncWorkerService.js";
+
 const DEFAULT_PORT = 5000;
 const DEFAULT_HOST =
   "0.0.0.0";
@@ -157,6 +163,13 @@ function getSchedulerStatus() {
   const status =
     getMessageDeliverySchedulerStatus();
 
+  const calendarSync =
+    getCalendarSyncWorkerStatus();
+
+  const calendarSyncRequired =
+    calendarSync.enabled ===
+    true;
+
   const schedulerRequired =
     getBooleanEnvironmentValue(
       "MESSAGE_DELIVERY_SCHEDULER_ENABLED",
@@ -169,6 +182,10 @@ function getSchedulerStatus() {
       (
         !schedulerRequired ||
         status.started
+      ) &&
+      (
+        !calendarSyncRequired ||
+        calendarSync.started
       ),
 
     required:
@@ -200,6 +217,15 @@ function getSchedulerStatus() {
 
     lastError:
       status.lastError,
+
+    calendarSync: {
+      ...calendarSync,
+      required:
+        calendarSyncRequired,
+      ready:
+        !calendarSyncRequired ||
+        calendarSync.started,
+    },
   };
 }
 
@@ -638,9 +664,14 @@ async function closeScheduler() {
     return;
   }
 
-  await stopMessageDeliveryScheduler({
-    waitForCycle: true,
-  });
+  await Promise.all([
+    stopMessageDeliveryScheduler({
+      waitForCycle: true,
+    }),
+    stopCalendarSyncWorker({
+      waitForCycle: true,
+    }),
+  ]);
 }
 
 async function closeDatabase() {
@@ -797,8 +828,45 @@ async function shutdown(
 }
 
 async function initialiseScheduler() {
-  const result =
-    await startMessageDeliveryScheduler();
+  const [
+    result,
+    calendarSync,
+  ] = await Promise.all([
+    startMessageDeliveryScheduler(),
+    startCalendarSyncWorker(),
+  ]);
+
+  if (
+    calendarSync.started
+  ) {
+    logger.info(
+      "calendar_sync.worker_started",
+      {
+        event:
+          "calendar_sync.worker_started",
+        intervalMs:
+          calendarSync.worker
+            ?.intervalMs,
+        batchSize:
+          calendarSync.worker
+            ?.batchSize,
+        initialCycle:
+          calendarSync.initialCycle ||
+          null,
+      }
+    );
+  } else {
+    logger.info(
+      "calendar_sync.worker_disabled",
+      {
+        event:
+          "calendar_sync.worker_disabled",
+        message:
+          calendarSync.message ||
+          "Calendar sync worker is disabled.",
+      }
+    );
+  }
 
   if (!result.started) {
     logger.info(
