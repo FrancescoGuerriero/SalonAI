@@ -99,10 +99,33 @@ async function providerRequest({
   return payload;
 }
 
-function googlePayload(
+function googleEventId(
   event
 ) {
+  return crypto
+    .createHash("sha256")
+    .update(
+      `salonai:${event.sourceType}:${event.sourceId}`
+    )
+    .digest("hex")
+    .slice(0, 40);
+}
+
+function googlePayload(
+  event,
+  {
+    includeId = false,
+  } = {}
+) {
   return {
+    ...(includeId
+      ? {
+          id:
+            googleEventId(
+              event
+            ),
+        }
+      : {}),
     summary:
       event.summary,
     description:
@@ -248,28 +271,55 @@ export async function createProviderEvent({
   if (
     provider === "google"
   ) {
-    const payload =
-      await providerRequest({
-        provider,
-        accessToken,
-        method: "POST",
-        url:
-          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events?sendUpdates=none`,
-        body:
-          googlePayload(
-            event
-          ),
-      });
+    const stableEventId =
+      googleEventId(
+        event
+      );
 
-    return {
-      providerEventId:
-        text(payload.id),
-      providerVersion:
-        text(payload.etag),
-      providerUpdatedAt:
-        payload.updated ||
-        null,
-    };
+    try {
+      const payload =
+        await providerRequest({
+          provider,
+          accessToken,
+          method: "POST",
+          url:
+            `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events`,
+          body:
+            googlePayload(
+              event,
+              {
+                includeId:
+                  true,
+              }
+            ),
+        });
+
+      return {
+        providerEventId:
+          text(payload.id),
+        providerVersion:
+          text(payload.etag),
+        providerUpdatedAt:
+          payload.updated ||
+          null,
+      };
+    } catch (error) {
+      if (
+        error.providerStatus !==
+        409
+      ) {
+        throw error;
+      }
+
+      return updateProviderEvent({
+        provider,
+        calendarId,
+        providerEventId:
+          stableEventId,
+        accessToken,
+        event,
+      });
+    }
   }
 
   if (
@@ -326,7 +376,7 @@ export async function updateProviderEvent({
         accessToken,
         method: "PATCH",
         url:
-          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}?sendUpdates=none`,
+          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
         body:
           googlePayload(
             event
@@ -392,7 +442,7 @@ export async function deleteProviderEvent({
       accessToken,
       method: "DELETE",
       url:
-        `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}?sendUpdates=none`,
+        `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
     });
 
     return {
