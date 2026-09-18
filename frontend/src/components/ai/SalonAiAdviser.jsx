@@ -5,12 +5,15 @@ import {
   X,
 } from "lucide-react";
 import {
+  useEffect,
+  useRef,
   useState,
 } from "react";
 
 import {
   askSalonAiAdviser,
 } from "../../Services/aiAdviserService.js";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 function errorMessage(
   error
@@ -30,6 +33,11 @@ export default function SalonAiAdviser({
     open,
     setOpen,
   ] = useState(false);
+
+  const triggerRef =
+    useRef(null);
+  const panelRef =
+    useRef(null);
   const [
     question,
     setQuestion,
@@ -46,6 +54,32 @@ export default function SalonAiAdviser({
     error,
     setError,
   ] = useState("");
+
+  useModalFocusTrap({
+    open,
+    containerRef:
+      panelRef,
+    returnFocusRef:
+      triggerRef,
+    setOpen,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const prior =
+      document.body.style
+        .overflow;
+    document.body.style
+      .overflow = "hidden";
+
+    return () => {
+      document.body.style
+        .overflow = prior;
+    };
+  }, [open]);
 
   async function ask(
     event
@@ -94,12 +128,15 @@ export default function SalonAiAdviser({
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        className="fixed bottom-5 right-5 z-[70] inline-flex items-center gap-2 rounded-full border border-black bg-amber-400 px-4 py-3 text-sm font-black text-black shadow-xl hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-[70] inline-flex min-h-11 items-center gap-2 rounded-full border border-black bg-amber-400 px-4 py-3 text-sm font-black text-black shadow-xl hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
         onClick={() =>
           setOpen(true)
         }
         aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls="salonai-adviser-dialog"
       >
         <Sparkles
           size={18}
@@ -124,12 +161,14 @@ export default function SalonAiAdviser({
           }}
         >
           <section
+            ref={panelRef}
+            id="salonai-adviser-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="salonai-adviser-title"
-            className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-stone-300 bg-white shadow-2xl"
+            className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-stone-300 bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
           >
-            <header className="flex items-start justify-between gap-4 border-b border-stone-200 p-5">
+            <header className="flex items-start justify-between gap-4 border-b border-stone-200 p-4 sm:p-5">
               <div className="flex gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-black">
                   <Bot
@@ -157,7 +196,7 @@ export default function SalonAiAdviser({
                 onClick={() =>
                   setOpen(false)
                 }
-                className="rounded-xl border border-stone-300 p-2 text-black hover:border-amber-400"
+                className="min-h-11 min-w-11 rounded-xl border border-stone-300 p-2 text-black hover:border-amber-400"
               >
                 <X
                   size={18}
@@ -165,7 +204,7 @@ export default function SalonAiAdviser({
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               {result?.answer ? (
                 <article className="rounded-2xl bg-stone-100 p-4">
                   <p className="whitespace-pre-wrap text-sm leading-6 text-black">
@@ -209,7 +248,7 @@ export default function SalonAiAdviser({
             </div>
 
             <form
-              className="border-t border-stone-200 p-4"
+              className="border-t border-stone-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
               onSubmit={ask}
             >
               <label
@@ -249,7 +288,7 @@ export default function SalonAiAdviser({
                   disabled={
                     loading
                   }
-                  className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-black text-white hover:bg-stone-800 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-black text-black hover:bg-amber-300 disabled:opacity-50"
                 >
                   <Send
                     size={15}
