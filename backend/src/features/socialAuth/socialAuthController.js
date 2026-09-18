@@ -1,3 +1,5 @@
+import User from "../../models/user.js";
+
 import {
   createRefreshToken,
   setNoStoreHeaders,
@@ -188,13 +190,9 @@ export async function callback(
       state.mode === "link"
         ? {
             user:
-              await import("../../models/user.js")
-                .then(
-                  ({ default: User }) =>
-                    User.findById(
-                      state.userId
-                    )
-                ),
+              await User.findById(
+                state.userId
+              ),
             created: false,
           }
         : await resolveSocialCustomer(
