@@ -165,6 +165,9 @@ router.patch(
 
 router.post(
   "/queue-reminders",
+  requirePermissions(
+    "communications:manage"
+  ),
   asyncHandler(queueReminders)
 );
 
@@ -200,26 +203,41 @@ router.patch(
 
 router.post(
   "/:id/reminder",
+  requirePermissions(
+    "communications:manage"
+  ),
   asyncHandler(reminder)
 );
 
 router.post(
   "/:id/communications/reminder",
+  requirePermissions(
+    "communications:manage"
+  ),
   asyncHandler(sendReminderNow)
 );
 
 router.get(
   "/:id/communications",
+  requirePermissions(
+    "communications:read"
+  ),
   asyncHandler(communicationHistory)
 );
 
 router.post(
   "/:id/payments/checkout",
+  requirePermissions(
+    "appointment:payment:manage"
+  ),
   asyncHandler(createCheckout)
 );
 
 router.post(
   "/:id/payments/:paymentId/confirm-demo",
+  requirePermissions(
+    "appointment:payment:manage"
+  ),
   asyncHandler(confirmDemoPayment)
 );
 
