@@ -1956,6 +1956,7 @@ export {
   TERMINAL_STATUSES,
   appointmentWindow,
   bulkChangeAppointmentStatus,
+  createManagedAppointment,
   calendarAppointments,
   changeAppointmentStatus,
   checkAppointmentConflict,
@@ -1970,6 +1971,7 @@ export {
 
 export default {
   bulkChangeAppointmentStatus,
+  createManagedAppointment,
   calendarAppointments,
   changeAppointmentStatus,
   checkAppointmentConflict,
