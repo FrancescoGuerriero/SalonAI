@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
+import SocialAccountLinks from "../components/auth/SocialAccountLinks.jsx";
 import useAuth from "../hooks/useAuth.js";
 import HairConsultationPage from "./HairConsultationPage.jsx";
 
@@ -205,6 +206,8 @@ export default function ManageAccountPage() {
             {message}
           </div>
         ) : null}
+
+        <SocialAccountLinks />
 
         <form
           className="manage-account-form"
