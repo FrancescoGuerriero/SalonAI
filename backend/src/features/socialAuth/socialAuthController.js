@@ -94,6 +94,17 @@ export function startLink(
   request,
   response
 ) {
+  if (
+    request.user?.role !==
+    "customer"
+  ) {
+    const error = new Error(
+      "Customer connected-account settings cannot modify a staff identity."
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
   const result =
     createSocialAuthorization({
       provider:
