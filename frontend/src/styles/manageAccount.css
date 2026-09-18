@@ -1,3 +1,99 @@
+
+.manage-account-social {
+  margin: 0 0 24px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-small);
+}
+
+.manage-account-social > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.manage-account-social h2 {
+  margin: 0;
+  color: var(--palette-black);
+}
+
+.manage-account-social header p,
+.manage-account-social-summary {
+  margin: 5px 0 0;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
+.manage-account-social-summary {
+  margin-top: 18px;
+  font-size: 0.84rem;
+}
+
+.manage-account-social-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.manage-account-social-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--palette-grey-200);
+  border-radius: 16px;
+  background: var(--palette-cream);
+}
+
+.manage-account-social-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.manage-account-social-card small {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-account-social-notice,
+.manage-account-social-error {
+  margin-top: 16px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.manage-account-social-notice {
+  border: 1px solid var(--palette-gold-light);
+  background: var(--palette-cream-deep);
+  color: var(--palette-black);
+}
+
+.manage-account-social-error {
+  border: 1px solid var(--palette-grey-400);
+  background: var(--palette-grey-100);
+  color: var(--palette-grey-800);
+}
+
+@media (max-width: 700px) {
+  .manage-account-social-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-account-social-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .manage-account-page{width:min(100% - 2rem,1060px);margin-inline:auto;padding:2rem 0 4rem;color:var(--app-ink)}
 .manage-account-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:1rem;padding:1.5rem;border:1px solid var(--app-line);border-radius:14px;background:linear-gradient(135deg,var(--palette-white),var(--palette-sand-100));box-shadow:var(--shadow-small)}
 .manage-account-hero-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:12px;color:var(--palette-black);background:var(--palette-gold)}
