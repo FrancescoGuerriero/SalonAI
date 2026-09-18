@@ -15,6 +15,7 @@ import {
 } from "react-router-dom";
 
 import AuthShell from "../components/auth/AuthShell.jsx";
+import SocialSignInOptions from "../components/auth/SocialSignInOptions.jsx";
 import authService from "../Services/authService.js";
 import useAuth from "../hooks/useAuth.js";
 
@@ -99,9 +100,11 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const verificationAttempted = useRef(false);
+  const socialAttempted = useRef(false);
 
   const {
     login,
+    completeSocialLogin,
     loading: authLoading,
     isAuthenticated,
   } = useAuth();
@@ -111,6 +114,10 @@ export default function Login() {
   const forgotMode = searchParams.get("forgot") === "1" && !resetToken;
   const resetMode = Boolean(resetToken);
   const verificationMode = Boolean(verificationToken);
+  const socialStatus = searchParams.get("social") || "";
+  const socialProvider = searchParams.get("provider") || "";
+  const socialCode = searchParams.get("socialCode") || "";
+  const socialReturnTo = searchParams.get("returnTo") || "";
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [forgotEmail, setForgotEmail] = useState("");
@@ -127,10 +134,21 @@ export default function Login() {
   const [notice, setNotice] = useState("");
   const [developmentResetUrl, setDevelopmentResetUrl] = useState("");
 
-  const redirectPath =
+  const requestedRedirect =
     location.state?.from?.pathname ||
     location.state?.redirectTo ||
-    "/dashboard";
+    socialReturnTo ||
+    "";
+
+  function destinationForUser(user) {
+    if (requestedRedirect) {
+      return requestedRedirect;
+    }
+
+    return user?.role === "customer"
+      ? "/account"
+      : "/dashboard";
+  }
 
   const registrationComplete = Boolean(location.state?.registrationComplete);
   const registrationVerificationRequired = Boolean(
@@ -139,6 +157,82 @@ export default function Login() {
   const registrationMessage = location.state?.registrationMessage || "";
   const verificationEmail = location.state?.verificationEmail || "";
   const passwordResetComplete = Boolean(location.state?.passwordResetComplete);
+
+  useEffect(() => {
+    if (
+      !["success", "registered"].includes(
+        socialStatus
+      ) ||
+      socialAttempted.current
+    ) {
+      return;
+    }
+
+    socialAttempted.current = true;
+    setSubmitting(true);
+    setError("");
+    setNotice("");
+
+    completeSocialLogin()
+      .then((result) => {
+        navigate(
+          destinationForUser(
+            result.user
+          ),
+          {
+            replace: true,
+          }
+        );
+      })
+      .catch((requestError) => {
+        setError(
+          requestMessage(
+            requestError,
+            "SalonAI could not complete the connected-account sign-in."
+          )
+        );
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
+  }, [
+    completeSocialLogin,
+    navigate,
+    socialStatus,
+  ]);
+
+  useEffect(() => {
+    if (
+      socialStatus !== "error"
+    ) {
+      return;
+    }
+
+    const providerName =
+      socialProvider
+        ? socialProvider[0].toUpperCase() +
+          socialProvider.slice(1)
+        : "Connected account";
+
+    const messages = {
+      SOCIAL_ACCOUNT_LINK_REQUIRED:
+        "A SalonAI account already exists for this email. Sign in with your existing method first; provider linking will be available from account settings.",
+      STAFF_SOCIAL_LINK_REQUIRES_SESSION:
+        "This identity matches a SalonAI staff account. Sign in to the staff account first before linking an external identity.",
+      SOCIAL_EMAIL_REQUIRED:
+        "SalonAI needs the provider to share an email address. Allow email access or use email registration.",
+    };
+
+    setError(
+      messages[socialCode] ||
+        providerName +
+          " sign-in could not be completed."
+    );
+  }, [
+    socialCode,
+    socialProvider,
+    socialStatus,
+  ]);
 
   useEffect(() => {
     if (verificationEmail && !form.email) {
@@ -187,7 +281,17 @@ export default function Login() {
       !authLoading &&
       isAuthenticated
     ) {
-      navigate(redirectPath, { replace: true });
+      const result = await login({
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
+
+      navigate(
+        destinationForUser(
+          result.user
+        ),
+        { replace: true }
+      );
     }
   }, [
     authLoading,
@@ -339,7 +443,7 @@ export default function Login() {
       ? "Enter a new password for your SalonAI account."
       : forgotMode
         ? "Enter your email address and we will prepare a secure reset link."
-        : "Sign in to continue to your SalonAI account.";
+        : "Sign in with Google, Facebook, Microsoft, Yahoo or your SalonAI email.";
 
   return (
     <AuthShell
@@ -487,14 +591,26 @@ export default function Login() {
           Checking your account…
         </div>
       ) : (
-        <LoginForm
-          form={form}
-          setForm={setForm}
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-          submitting={submitting}
-          onSubmit={handleLogin}
-        />
+        <>
+          <SocialSignInOptions
+            returnTo={
+              requestedRedirect
+            }
+            onError={setError}
+          />
+          <LoginForm
+            form={form}
+            setForm={setForm}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            submitting={
+              submitting
+            }
+            onSubmit={
+              handleLogin
+            }
+          />
+        </>
       )}
     </AuthShell>
   );
