@@ -127,9 +127,6 @@ export default function StaffCalendarConnections() {
   async function loadCalendars(
     provider
   ) {
-    setWorking(
-      `calendars:${provider}`
-    );
     setError("");
 
     try {
@@ -152,8 +149,6 @@ export default function StaffCalendarConnections() {
           requestError
         )
       );
-    } finally {
-      setWorking("");
     }
   }
 
