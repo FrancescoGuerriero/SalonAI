@@ -1,11 +1,16 @@
 import {
   processCalendarSyncBatch,
 } from "./calendarSyncOutboxService.js";
+import {
+  reconcileAllEnabledCalendars,
+} from "./calendarInboundReconciliationService.js";
 
 const DEFAULT_INTERVAL_MS =
   30_000;
 const DEFAULT_BATCH_SIZE =
   25;
+const DEFAULT_INBOUND_INTERVAL_MS =
+  120_000;
 
 let timer = null;
 let runningCycle = null;
@@ -15,6 +20,10 @@ let lastSuccessfulCycleAt =
 let lastFailedCycleAt =
   null;
 let lastError = "";
+let lastInboundCycleAt =
+  null;
+let lastInboundResult =
+  null;
 
 function enabled() {
   return [
@@ -67,6 +76,25 @@ function intervalMs() {
   );
 }
 
+function inboundIntervalMs() {
+  return integer(
+    process.env
+      .CALENDAR_SYNC_INBOUND_INTERVAL_MS,
+    DEFAULT_INBOUND_INTERVAL_MS,
+    30_000,
+    60 * 60 * 1000
+  );
+}
+
+function inboundDue() {
+  return (
+    !lastInboundCycleAt ||
+    Date.now() -
+        lastInboundCycleAt.getTime() >=
+      inboundIntervalMs()
+  );
+}
+
 function batchSize() {
   return integer(
     process.env
@@ -85,11 +113,31 @@ async function cycle() {
   runningCycle =
     (async () => {
       try {
-        const result =
+        const outbound =
           await processCalendarSyncBatch({
             limit:
               batchSize(),
           });
+
+        let inbound =
+          null;
+
+        if (inboundDue()) {
+          inbound =
+            await reconcileAllEnabledCalendars({
+              limit:
+                batchSize(),
+            });
+          lastInboundCycleAt =
+            new Date();
+          lastInboundResult =
+            inbound;
+        }
+
+        const result = {
+          outbound,
+          inbound,
+        };
 
         lastSuccessfulCycleAt =
           new Date();
@@ -231,6 +279,10 @@ export function getCalendarSyncWorkerStatus() {
       intervalMs(),
     batchSize:
       batchSize(),
+    inboundIntervalMs:
+      inboundIntervalMs(),
+    lastInboundCycleAt,
+    lastInboundResult,
     startedAt,
     lastSuccessfulCycleAt,
     lastFailedCycleAt,
