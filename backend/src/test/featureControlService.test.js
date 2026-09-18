@@ -106,7 +106,7 @@ test("customer booking can be disabled without disabling staff appointment work"
   assert.match(routes, /requireCustomerOnlineBooking\(request, response, next\)/);
 });
 
-test("system administration feature controls are mounted and admin-only", async () => {
+test("system administration feature controls are mounted and Super-Admin-only", async () => {
   const routes = await readFile(
     new URL("../routes/systemAdministrationRoutes.js", import.meta.url),
     "utf8"
@@ -114,7 +114,7 @@ test("system administration feature controls are mounted and admin-only", async 
   const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 
   assert.match(routes, /router\.use\(protect\)/);
-  assert.match(routes, /router\.use\(adminOnly\)/);
+  assert.match(routes, /router\.use\(superAdminOnly\)/);
   assert.match(routes, /router\.patch\("\/features\/:featureId"/);
   assert.match(app, /"\/api\/system-administration"/);
   assert.match(app, /"\/api\/app-configuration"/);
