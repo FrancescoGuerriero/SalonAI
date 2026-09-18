@@ -8,10 +8,14 @@ import {
   readSocialState,
   resolveSocialIdentity,
   socialFrontendRedirect,
+  socialLinkFrontendRedirect,
   socialProviderAvailability,
 } from "./socialAuthProvider.js";
 import {
+  linkSocialIdentity,
+  listLinkedSocialProviders,
   resolveSocialCustomer,
+  unlinkSocialIdentity,
 } from "./socialAuthService.js";
 
 function provider(value) {
@@ -69,6 +73,65 @@ export function start(
   });
 }
 
+export async function links(
+  request,
+  response
+) {
+  const result =
+    await listLinkedSocialProviders(
+      request.user._id
+    );
+
+  return response.json({
+    success: true,
+    ...result,
+  });
+}
+
+export function startLink(
+  request,
+  response
+) {
+  const result =
+    createSocialAuthorization({
+      provider:
+        provider(
+          request.params.provider
+        ),
+      returnTo:
+        request.body?.returnTo ||
+        "/account/manage",
+      mode: "link",
+      userId:
+        request.user._id,
+    });
+
+  return response.json({
+    success: true,
+    ...result,
+  });
+}
+
+export async function unlink(
+  request,
+  response
+) {
+  const result =
+    await unlinkSocialIdentity(
+      request.user._id,
+      provider(
+        request.params.provider
+      )
+    );
+
+  return response.json({
+    success: true,
+    message:
+      "Connected sign-in account removed.",
+    ...result,
+  });
+}
+
 export async function callback(
   request,
   response,
@@ -122,9 +185,51 @@ export async function callback(
       });
 
     const result =
-      await resolveSocialCustomer(
+      state.mode === "link"
+        ? {
+            user:
+              await import("../../models/user.js")
+                .then(
+                  ({ default: User }) =>
+                    User.findById(
+                      state.userId
+                    )
+                ),
+            created: false,
+          }
+        : await resolveSocialCustomer(
+            identity
+          );
+
+    if (
+      state.mode === "link"
+    ) {
+      if (!result.user) {
+        const missing =
+          new Error(
+            "The SalonAI account for this provider link no longer exists."
+          );
+        missing.statusCode = 404;
+        missing.code =
+          "SOCIAL_LINK_ACCOUNT_NOT_FOUND";
+        throw missing;
+      }
+
+      await linkSocialIdentity(
+        result.user._id,
         identity
       );
+
+      return response.redirect(
+        socialLinkFrontendRedirect({
+          provider:
+            selectedProvider,
+          status: "linked",
+          returnTo:
+            state.returnTo,
+        })
+      );
+    }
 
     if (
       result.user.isActive ===
@@ -182,15 +287,25 @@ export async function callback(
     }
 
     return response.redirect(
-      socialFrontendRedirect({
-        provider:
-          selectedProvider,
-        status: "error",
-        returnTo,
-        code:
-          error.code ||
-          "SOCIAL_SIGN_IN_FAILED",
-      })
+      state?.mode === "link"
+        ? socialLinkFrontendRedirect({
+            provider:
+              selectedProvider,
+            status: "error",
+            returnTo,
+            code:
+              error.code ||
+              "SOCIAL_LINK_FAILED",
+          })
+        : socialFrontendRedirect({
+            provider:
+              selectedProvider,
+            status: "error",
+            returnTo,
+            code:
+              error.code ||
+              "SOCIAL_SIGN_IN_FAILED",
+          })
     );
   }
 }
