@@ -196,11 +196,11 @@ export function calendarEventFromAppointment(
   {
     salonName =
       import.meta.env
-        .VITE_SALON_NAME ||
+        ?.VITE_SALON_NAME ||
       "SalonAI",
     salonAddress =
       import.meta.env
-        .VITE_SALON_ADDRESS ||
+        ?.VITE_SALON_ADDRESS ||
       "",
   } = {}
 ) {
