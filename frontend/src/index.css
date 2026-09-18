@@ -29,7 +29,7 @@
   --color-indigo-100: #fdf1d3;
   --color-indigo-200: #f8dda3;
   --color-indigo-300: #efc66d;
-  --color-indigo-400: #dca63d;
+  --color-indigo-400: #d8b84a;
   --color-indigo-500: #c48a1b;
   --color-indigo-600: #a96f12;
   --color-indigo-700: #85540f;
@@ -41,7 +41,7 @@
   --color-pink-100: #fdf1d3;
   --color-pink-200: #f8dda3;
   --color-pink-300: #efc66d;
-  --color-pink-400: #dca63d;
+  --color-pink-400: #d8b84a;
   --color-pink-500: #c48a1b;
   --color-pink-600: #a96f12;
   --color-pink-700: #85540f;
@@ -53,7 +53,7 @@
   --color-rose-100: #fdf1d3;
   --color-rose-200: #f8dda3;
   --color-rose-300: #efc66d;
-  --color-rose-400: #dca63d;
+  --color-rose-400: #d8b84a;
   --color-rose-500: #c48a1b;
   --color-rose-600: #a96f12;
   --color-rose-700: #85540f;
@@ -65,7 +65,7 @@
   --color-fuchsia-100: #fdf1d3;
   --color-fuchsia-200: #f8dda3;
   --color-fuchsia-300: #efc66d;
-  --color-fuchsia-400: #dca63d;
+  --color-fuchsia-400: #d8b84a;
   --color-fuchsia-500: #c48a1b;
   --color-fuchsia-600: #a96f12;
   --color-fuchsia-700: #85540f;
@@ -76,9 +76,9 @@
   /* Every remaining semantic Tailwind hue is intentionally remapped to
      the SalonAI gold, sand, black, white and grey system. */
   --color-red-50: #f7f0df; --color-red-100: #eadbbd; --color-red-200: #d8c395; --color-red-300: #c9a227; --color-red-400: #b28a20; --color-red-500: #8a6b16; --color-red-600: #5f5f5b; --color-red-700: #454542; --color-red-800: #292927; --color-red-900: #171716; --color-red-950: #0d0d0c;
-  --color-orange-50: #fbf7ed; --color-orange-100: #f7f0df; --color-orange-200: #eadbbd; --color-orange-300: #dfc77e; --color-orange-400: #c9a227; --color-orange-500: #b28a20; --color-orange-600: #8a6b16; --color-orange-700: #62501d; --color-orange-800: #3f3826; --color-orange-900: #242421; --color-orange-950: #111110;
-  --color-amber-50: #fbf7ed; --color-amber-100: #f7f0df; --color-amber-200: #eadbbd; --color-amber-300: #dfc77e; --color-amber-400: #c9a227; --color-amber-500: #b28a20; --color-amber-600: #8a6b16; --color-amber-700: #62501d; --color-amber-800: #3f3826; --color-amber-900: #242421; --color-amber-950: #111110;
-  --color-yellow-50: #fbf7ed; --color-yellow-100: #f7f0df; --color-yellow-200: #eadbbd; --color-yellow-300: #dfc77e; --color-yellow-400: #c9a227; --color-yellow-500: #b28a20; --color-yellow-600: #8a6b16; --color-yellow-700: #62501d; --color-yellow-800: #3f3826; --color-yellow-900: #242421; --color-yellow-950: #111110;
+  --color-orange-50: #fbf7ed; --color-orange-100: #f7f0df; --color-orange-200: #eadbbd; --color-orange-300: #e8d487; --color-orange-400: #d8b84a; --color-orange-500: #b28a20; --color-orange-600: #8a6b16; --color-orange-700: #62501d; --color-orange-800: #3f3826; --color-orange-900: #242421; --color-orange-950: #111110;
+  --color-amber-50: #fbf7ed; --color-amber-100: #f7f0df; --color-amber-200: #eadbbd; --color-amber-300: #e8d487; --color-amber-400: #d8b84a; --color-amber-500: #b28a20; --color-amber-600: #8a6b16; --color-amber-700: #62501d; --color-amber-800: #3f3826; --color-amber-900: #242421; --color-amber-950: #111110;
+  --color-yellow-50: #fbf7ed; --color-yellow-100: #f7f0df; --color-yellow-200: #eadbbd; --color-yellow-300: #e8d487; --color-yellow-400: #d8b84a; --color-yellow-500: #b28a20; --color-yellow-600: #8a6b16; --color-yellow-700: #62501d; --color-yellow-800: #3f3826; --color-yellow-900: #242421; --color-yellow-950: #111110;
   --color-lime-50: #f7f0df; --color-lime-100: #eadbbd; --color-lime-200: #d8c395; --color-lime-300: #c9a227; --color-lime-400: #b28a20; --color-lime-500: #8a6b16; --color-lime-600: #5f5f5b; --color-lime-700: #454542; --color-lime-800: #292927; --color-lime-900: #171716; --color-lime-950: #0d0d0c;
   --color-green-50: #f7f0df; --color-green-100: #eadbbd; --color-green-200: #d8c395; --color-green-300: #c9a227; --color-green-400: #b28a20; --color-green-500: #8a6b16; --color-green-600: #5f5f5b; --color-green-700: #454542; --color-green-800: #292927; --color-green-900: #171716; --color-green-950: #0d0d0c;
   --color-emerald-50: #f7f0df; --color-emerald-100: #eadbbd; --color-emerald-200: #d8c395; --color-emerald-300: #c9a227; --color-emerald-400: #b28a20; --color-emerald-500: #8a6b16; --color-emerald-600: #5f5f5b; --color-emerald-700: #454542; --color-emerald-800: #292927; --color-emerald-900: #171716; --color-emerald-950: #0d0d0c;
@@ -169,10 +169,10 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
-  --palette-gold: #c9a227;
-  --palette-gold-light: #dfc77e;
+  --palette-gold: #d8b84a;
+  --palette-gold-light: #e8d487;
   --palette-gold-dark: #8a6b16;
-  --palette-gold-soft: rgba(201,162,39,.16);
+  --palette-gold-soft: rgba(216,184,74,.18);
   --palette-gold-focus: rgba(138,107,22,.24);
   --palette-shadow-gold: rgba(138,107,22,.2);
   --palette-sand-100: #f7f0df;
@@ -309,8 +309,8 @@ button {
   border-radius: var(--radius-small);
   padding: 0.68rem 1rem;
 
-  color: white;
-  background: var(--color-primary);
+  color: var(--palette-black);
+  background: var(--palette-gold);
 
   cursor: pointer;
   font-size: inherit;
@@ -319,7 +319,7 @@ button {
 
 
 button:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+  background: #c9a227;
   transform: translateY(-1px);
 }
 
@@ -436,12 +436,13 @@ p {
 
 
 .secondary-button:hover:not(:disabled) {
-  color: white;
-  background: var(--color-primary);
+  color: var(--palette-black);
+  background: var(--palette-gold-light);
 }
 
 
 .danger-button {
+  color: var(--palette-white);
   background: var(--color-danger);
 }
 
@@ -767,14 +768,14 @@ p {
   padding: 0.62rem 0.9rem;
   border-radius: var(--radius-small);
 
-  color: white;
-  background: var(--color-primary);
+  color: var(--palette-black);
+  background: var(--palette-gold);
 }
 
 
 .navbar-register-link:hover {
-  color: white;
-  background: var(--color-primary-dark);
+  color: var(--palette-black);
+  background: #c9a227;
 }
 
 
@@ -1050,7 +1051,7 @@ textarea {
 .app-topbar-inner { width: min(100% - 2rem, 1500px); height: 100%; margin-inline: auto; display: flex; align-items: center; gap: 2rem; }
 .app-brand { display: inline-flex; align-items: center; gap: .7rem; color: var(--app-ink); text-decoration: none; min-width: max-content; }
 .app-brand:hover { color: var(--app-ink); }
-.app-brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: white; background: linear-gradient(145deg,#c89127,#7f500c); box-shadow: 0 8px 20px rgba(133,84,15,.22); }
+.app-brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--palette-black); background: linear-gradient(145deg,var(--palette-gold-light),var(--palette-gold)); box-shadow: 0 8px 20px rgba(138,107,22,.18); }
 .app-brand > span:last-child { display: grid; line-height: 1.1; }
 .app-brand strong { font-size: 1rem; letter-spacing: -.02em; }
 .app-brand small { margin-top: 3px; color: var(--app-muted); font-size: .64rem; }
@@ -1065,12 +1066,12 @@ textarea {
 .app-user-copy small { margin-top: 2px; color: var(--app-muted); font-size: .64rem; text-transform: capitalize; }
 .app-icon-button { position: relative; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--app-line); border-radius: 9px; background: white; color: #51493d; }
 .app-icon-button:hover { background: #f7f2e8; color: var(--app-gold-dark); }
-.app-cart-count { position: absolute; right: -5px; top: -5px; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border: 2px solid white; border-radius: 999px; background: #a96f12; color: white; font-size: .58rem; font-weight: 800; }
+.app-cart-count { position: absolute; right: -5px; top: -5px; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border: 2px solid white; border-radius: 999px; background: var(--palette-gold); color: var(--palette-black); font-size: .58rem; font-weight: 800; }
 .app-button { display: inline-flex; align-items: center; justify-content: center; gap: .48rem; min-height: 40px; padding: .65rem .95rem; border: 1px solid transparent; border-radius: 8px; font-weight: 750; line-height: 1; text-decoration: none; }
 .app-button-sm { min-height: 34px; padding: .48rem .7rem; font-size: .75rem; }
 .app-button-lg { min-height: 46px; padding: .8rem 1.15rem; }
-.app-button-primary { background: linear-gradient(145deg,#b77b16,#85540f); color: white; box-shadow: 0 7px 16px rgba(133,84,15,.18); }
-.app-button-primary:hover { color: white; transform: translateY(-1px); }
+.app-button-primary { background: linear-gradient(145deg,var(--palette-gold-light),var(--palette-gold)); color: var(--palette-black); box-shadow: 0 7px 16px rgba(138,107,22,.16); }
+.app-button-primary:hover { background: #c9a227; color: var(--palette-black); transform: translateY(-1px); }
 .app-button-secondary { border-color: var(--app-line); background: white; color: #423a30; }
 .app-button-secondary:hover,.app-button-ghost:hover { color: var(--app-gold-dark); background: #f6f0e5; }
 .app-button-ghost { background: transparent; color: #51493d; }
@@ -1178,4 +1179,21 @@ textarea {
   .app-footer-inner { width: min(100% - 1rem,1500px); grid-template-columns: 1fr; }
   .app-footer nav { justify-content: flex-start; }
   .app-footer-links { grid-template-columns: 1fr; }
+}
+
+
+/* Approved SalonAI light-gold controls use black text for WCAG contrast. */
+:is(
+  .bg-amber-300,
+  .bg-amber-400,
+  .bg-yellow-300,
+  .bg-yellow-400,
+  .bg-orange-300,
+  .bg-orange-400,
+  .bg-indigo-400,
+  .bg-pink-400,
+  .bg-rose-400,
+  .bg-fuchsia-400
+).text-white {
+  color: var(--palette-black) !important;
 }

@@ -67,3 +67,28 @@ test("audited interactive UI does not use blue, indigo or navy utilities", () =>
 
   assert.deepEqual(violations, []);
 });
+
+
+test("approved SalonAI controls use lighter gold with black text", () => {
+  const source = fs.readFileSync(
+    path.join(root, "index.css"),
+    "utf8"
+  );
+
+  assert.match(
+    source,
+    /--palette-gold:\s*#d8b84a;/i
+  );
+  assert.match(
+    source,
+    /\.app-button-primary\s*\{[^}]*color:\s*var\(--palette-black\)/s
+  );
+  assert.match(
+    source,
+    /\.navbar-register-link\s*\{[^}]*color:\s*var\(--palette-black\)/s
+  );
+  assert.match(
+    source,
+    /Approved SalonAI light-gold controls use black text for WCAG contrast/
+  );
+});
