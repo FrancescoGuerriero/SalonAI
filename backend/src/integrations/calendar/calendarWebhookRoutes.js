@@ -1,6 +1,5 @@
 import express from "express";
 
-import asyncHandler from "../../shared/asyncHandler.js";
 import {
   handleGoogleCalendarWebhook,
   handleOutlookCalendarWebhook,
@@ -17,47 +16,85 @@ router.use(
   })
 );
 
+function processAfterAcknowledgement(
+  operation,
+  accepted
+) {
+  void Promise.resolve()
+    .then(operation)
+    .then((result) => {
+      if (accepted(result)) {
+        requestCalendarSyncWake();
+      }
+    })
+    .catch((error) => {
+      console.error(
+        "Calendar webhook post-acknowledgement processing failed:",
+        error
+      );
+    });
+}
+
 router.post(
   "/google",
-  asyncHandler(async (request, response) => {
-    const result = await handleGoogleCalendarWebhook({
-      headers: request.headers,
-    });
+  (request, response) => {
+    const headers =
+      request.headers;
 
-    response.status(204).end();
+    response
+      .status(204)
+      .end();
 
-    if (result.accepted) {
-      requestCalendarSyncWake();
-    }
-  })
+    processAfterAcknowledgement(
+      () =>
+        handleGoogleCalendarWebhook({
+          headers,
+        }),
+      (result) =>
+        result.accepted ===
+        true
+    );
+  }
 );
 
 router.post(
   "/outlook",
-  asyncHandler(async (request, response) => {
-    const validationToken = String(
-      request.query?.validationToken || ""
-    );
+  (request, response) => {
+    const validationToken =
+      String(
+        request.query
+          ?.validationToken ||
+          ""
+      );
 
     if (validationToken) {
       return response
         .status(200)
         .type("text/plain")
-        .send(validationToken);
+        .send(
+          validationToken
+        );
     }
 
-    const result = await handleOutlookCalendarWebhook({
-      body: request.body,
-    });
+    const body =
+      request.body;
 
-    response.status(202).end();
+    response
+      .status(202)
+      .end();
 
-    if (result.accepted > 0) {
-      requestCalendarSyncWake();
-    }
+    processAfterAcknowledgement(
+      () =>
+        handleOutlookCalendarWebhook({
+          body,
+        }),
+      (result) =>
+        result.accepted >
+        0
+    );
 
     return undefined;
-  })
+  }
 );
 
 export default router;
