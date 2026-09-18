@@ -522,6 +522,10 @@ function serialiseAdminUser(
               stylist.lastName,
             jobTitle:
               stylist.jobTitle,
+            biography:
+              stylist.biography || "",
+            specialties:
+              stylist.specialties || [],
             profileImage:
               stylist.profileImage || "",
             profilePublished:
@@ -1194,13 +1198,54 @@ export async function createStaffUserByAdmin(
 ) {
   let createdUser =
     null;
+  let linkedStylist =
+    null;
+  let existingStylistBefore =
+    null;
 
   try {
-    const name =
+    const suppliedFirstName =
+      cleanText(
+        req.body.firstName,
+        60
+      );
+
+    const suppliedLastName =
+      cleanText(
+        req.body.lastName,
+        60
+      );
+
+    const requestedName =
       cleanText(
         req.body.name,
         120
       );
+
+    const name =
+      requestedName ||
+      cleanText(
+        [
+          suppliedFirstName,
+          suppliedLastName,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        120
+      );
+
+    const nameParts =
+      splitName(
+        name
+      );
+
+    const firstName =
+      suppliedFirstName ||
+      nameParts.firstName;
+
+    const lastName =
+      suppliedLastName ||
+      nameParts.lastName;
 
     const email =
       normaliseEmail(
@@ -1230,16 +1275,73 @@ export async function createStaffUserByAdmin(
         req.body.profilePhoto
       );
 
+    const isActive =
+      booleanField(
+        req.body.isActive,
+        "isActive",
+        true
+      );
+
     const profilePublished =
-      req.body.profilePublished ===
-      true;
+      booleanField(
+        req.body.profilePublished,
+        "profilePublished",
+        false
+      );
 
     const acceptsAppointments =
-      req.body.acceptsAppointments ===
+      booleanField(
+        req.body.acceptsAppointments,
+        "acceptsAppointments",
+        false
+      );
+
+    if (
+      !ASSIGNABLE_STAFF_ROLES.includes(
+        role
+      )
+    ) {
+      throw httpError(
+        "Staff role must be stylist, receptionist, manager or admin.",
+        400
+      );
+    }
+
+    const jobTitle =
+      cleanText(
+        req.body.jobTitle ||
+          DEFAULT_JOB_TITLES[
+            role
+          ] ||
+          "Salon professional",
+        120
+      );
+
+    const biography =
+      cleanText(
+        req.body.biography,
+        2000
+      );
+
+    const specialties =
+      cleanList(
+        req.body.specialties,
+        12,
+        120
+      );
+
+    const serviceIds =
+      await normaliseServiceIds(
+        req.body.services
+      );
+
+    const workingHours =
+      req.body.workingHours ===
       undefined
-        ? false
-        : req.body.acceptsAppointments ===
-          true;
+        ? undefined
+        : normaliseEmployeeSchedule(
+            req.body.workingHours
+          );
 
     const permissions =
       Array.isArray(
@@ -1263,21 +1365,20 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      password.length < 8
+      !firstName ||
+      !lastName
     ) {
       throw httpError(
-        "Password must contain at least 8 characters.",
+        "First name and last name are required.",
         400
       );
     }
 
     if (
-      !ASSIGNABLE_STAFF_ROLES.includes(
-        role
-      )
+      password.length < 8
     ) {
       throw httpError(
-        "Staff role must be stylist, receptionist, manager or admin.",
+        "Password must contain at least 8 characters.",
         400
       );
     }
@@ -1296,6 +1397,18 @@ export async function createStaffUserByAdmin(
       );
     }
 
+    if (
+      req.user.role !==
+        "super_admin" &&
+      permissions.length >
+        0
+    ) {
+      throw httpError(
+        "Only the Super Admin can assign employee permissions during account creation.",
+        403
+      );
+    }
+
     const existingUser =
       await User.findOne({
         email,
@@ -1307,6 +1420,28 @@ export async function createStaffUserByAdmin(
         409
       );
     }
+
+    const existingStylist =
+      await Stylist.findOne({
+        email,
+      });
+
+    if (
+      existingStylist?.userAccount
+    ) {
+      throw httpError(
+        "A staff profile with this email is already linked to another account.",
+        409
+      );
+    }
+
+    existingStylistBefore =
+      existingStylist
+        ? existingStylist.toObject({
+            depopulate:
+              true,
+          })
+        : null;
 
     const hashedPassword =
       await bcrypt.hash(
@@ -1328,17 +1463,41 @@ export async function createStaffUserByAdmin(
             : [],
         phone,
         profilePhoto,
+        isActive,
         createdBy:
           req.user._id,
       });
 
-    const stylist =
+    linkedStylist =
       await createOrLinkStylist(
         createdUser,
         {
+          firstName,
+          lastName,
+          jobTitle,
+          biography,
+          specialties,
+          services:
+            serviceIds,
+          ...(workingHours
+            ? {
+                workingHours,
+              }
+            : {}),
           profilePublished,
           acceptsAppointments,
         }
+      );
+
+    await linkedStylist.populate(
+      "services",
+      "name category price duration active onlineBookable"
+    );
+
+    const created =
+      serialiseAdminUser(
+        createdUser,
+        linkedStylist
       );
 
     await recordAuditEvent({
@@ -1350,10 +1509,15 @@ export async function createStaffUserByAdmin(
       resourceId:
         createdUser._id,
       after:
-        serialiseAdminUser(
-          createdUser,
-          stylist
-        ),
+        created,
+      metadata: {
+        initialServices:
+          serviceIds,
+        scheduleConfigured:
+          Boolean(
+            workingHours
+          ),
+      },
     });
 
     return res
@@ -1363,28 +1527,38 @@ export async function createStaffUserByAdmin(
         message:
           "Employee account and profile created successfully.",
         user:
-          serialiseAdminUser(
-            createdUser,
-            stylist
-          ),
+          created,
       });
   } catch (error) {
     if (
       createdUser?._id
     ) {
       try {
-        await Stylist.updateMany(
-          {
+        if (
+          existingStylistBefore?._id
+        ) {
+          await Stylist.replaceOne(
+            {
+              _id:
+                existingStylistBefore._id,
+            },
+            existingStylistBefore
+          );
+        } else if (
+          linkedStylist?._id
+        ) {
+          await Stylist.deleteOne({
+            _id:
+              linkedStylist._id,
             userAccount:
               createdUser._id,
-          },
-          {
-            $unset: {
-              userAccount:
-                1,
-            },
-          }
-        );
+          });
+        } else {
+          await Stylist.deleteMany({
+            userAccount:
+              createdUser._id,
+          });
+        }
 
         await User.deleteOne({
           _id:
