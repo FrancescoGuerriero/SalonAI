@@ -119,7 +119,7 @@ export function readCookie(
   return "";
 }
 
-function setNoStoreHeaders(response) {
+export function setNoStoreHeaders(response) {
   response.set(
     "Cache-Control",
     "no-store"
@@ -130,7 +130,7 @@ function setNoStoreHeaders(response) {
   );
 }
 
-function setRefreshCookie(
+export function setRefreshCookie(
   response,
   refreshToken
 ) {
@@ -153,7 +153,7 @@ function clearRefreshCookie(response) {
   );
 }
 
-function serialiseUser(user) {
+export function serialiseUser(user) {
   return {
     id: user._id,
     name: user.name,
@@ -587,6 +587,20 @@ export async function loginUser(
         .json({
           message:
             "Invalid email or password.",
+        });
+    }
+
+    if (
+      user.passwordAuthEnabled === false ||
+      !user.password
+    ) {
+      return res
+        .status(401)
+        .json({
+          message:
+            "This account uses a connected sign-in provider. Continue with Google, Facebook, Microsoft or Yahoo, or set a SalonAI password.",
+          code:
+            "PASSWORD_LOGIN_NOT_ENABLED",
         });
     }
 
