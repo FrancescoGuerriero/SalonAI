@@ -80,8 +80,13 @@ function isManagementUser(user) {
   return MANAGEMENT_ROLES.has(String(user?.role || "").toLowerCase());
 }
 
-function productFields(management) {
-  return management ? "+costPrice" : "-costPrice";
+function productFields(
+  management,
+  includeCost = false
+) {
+  return management && includeCost
+    ? "+costPrice"
+    : "-costPrice";
 }
 
 async function uniqueSlug(name, currentId = null) {
@@ -104,7 +109,17 @@ async function uniqueSlug(name, currentId = null) {
 
 function normaliseProductPayload(payload, { partial = false } = {}) {
   const output = {};
-  const stringFields = ["name", "sku", "brand", "description", "category", "collectionName", "badge", "size"];
+  const stringFields = [
+    "name",
+    "sku",
+    "brand",
+    "description",
+    "officialDescription",
+    "category",
+    "collectionName",
+    "badge",
+    "size",
+  ];
   const numberFields = ["price", "costPrice", "stockQuantity", "reorderLevel"];
   const booleanFields = ["featured", "active"];
 
@@ -156,7 +171,13 @@ export async function createProduct(payload) {
   return Product.create(data);
 }
 
-export async function listProducts(query = {}, { management = false } = {}) {
+export async function listProducts(
+  query = {},
+  {
+    management = false,
+    includeCost = false,
+  } = {}
+) {
   const { page, limit, skip } = paginationFromQuery(query);
   const match = {};
 
@@ -212,7 +233,12 @@ export async function listProducts(query = {}, { management = false } = {}) {
 
   const [items, total, categories, brands, collections] = await Promise.all([
     Product.find(match)
-      .select(productFields(management))
+      .select(
+        productFields(
+          management,
+          includeCost
+        )
+      )
       .sort(sortMap[query.sort] || { featured: -1, name: 1 })
       .skip(skip)
       .limit(limit)
@@ -332,7 +358,9 @@ export function commerceConfig() {
   };
 }
 
-export async function inventorySummary() {
+export async function inventorySummary({
+  includeCost = false,
+} = {}) {
   const [totals, lowStockProducts, lowStockCount] = await Promise.all([
     Product.aggregate([
       { $match: { active: true } },
@@ -368,9 +396,22 @@ export async function inventorySummary() {
   };
 
   return {
-    ...summary,
-    retailValue: money(summary.retailValue),
-    costValue: money(summary.costValue),
+    productCount:
+      summary.productCount,
+    unitsInStock:
+      summary.unitsInStock,
+    retailValue:
+      money(
+        summary.retailValue
+      ),
+    ...(includeCost
+      ? {
+          costValue:
+            money(
+              summary.costValue
+            ),
+        }
+      : {}),
     lowStockCount,
     lowStockProducts,
   };
