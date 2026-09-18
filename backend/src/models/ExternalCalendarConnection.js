@@ -84,8 +84,23 @@ const externalCalendarConnectionSchema =
         type: String,
         select: false,
         default: "",
+        index: true,
+      },
+      subscriptionResourceId: {
+        type: String,
+        select: false,
+        default: "",
       },
       subscriptionExpiresAt: {
+        type: Date,
+        default: null,
+      },
+      reconcileRequestedAt: {
+        type: Date,
+        default: null,
+        index: true,
+      },
+      lastWebhookAt: {
         type: Date,
         default: null,
       },
@@ -104,6 +119,13 @@ const externalCalendarConnectionSchema =
       timestamps: true,
     }
   );
+
+externalCalendarConnectionSchema.index(
+  {
+    syncEnabled: 1,
+    reconcileRequestedAt: 1,
+  }
+);
 
 externalCalendarConnectionSchema.index(
   {

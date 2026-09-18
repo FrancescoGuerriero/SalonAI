@@ -124,3 +124,80 @@ test("calendar OAuth callbacks are separated from authenticated management route
     /"\/calendar-connections"/
   );
 });
+
+
+test("connected staff can discover writable calendars and selection pauses sync safely", async () => {
+  const provider =
+    await readFile(
+      new URL(
+        "../integrations/calendar/calendarOAuthProvider.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const service =
+    await readFile(
+      new URL(
+        "../integrations/calendar/calendarConnectionService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const routes =
+    await readFile(
+      new URL(
+        "../integrations/calendar/calendarConnectionRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const ui =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/calendar/StaffCalendarConnections.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    provider,
+    /refreshCalendarAccessToken/
+  );
+  assert.match(
+    provider,
+    /calendarList\?minAccessRole=writer/
+  );
+  assert.match(
+    provider,
+    /graph\.microsoft\.com\/v1\.0\/me\/calendars/
+  );
+  assert.match(
+    service,
+    /decryptCalendarSecret/
+  );
+  assert.match(
+    service,
+    /connection\.syncEnabled =\s*false/
+  );
+  assert.match(
+    service,
+    /connection\.syncCursor = ""/
+  );
+  assert.match(
+    routes,
+    /"\/:provider\/calendars"/
+  );
+  assert.match(
+    routes,
+    /"\/:provider\/calendar"/
+  );
+  assert.match(
+    ui,
+    /selectCalendar/
+  );
+  assert.match(
+    ui,
+    /calendar\.primary/
+  );
+});

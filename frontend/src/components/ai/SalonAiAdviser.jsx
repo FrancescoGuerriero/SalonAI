@@ -1,0 +1,269 @@
+import {
+  Bot,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
+import {
+  useState,
+} from "react";
+
+import {
+  askSalonAiAdviser,
+} from "../../Services/aiAdviserService.js";
+
+function errorMessage(
+  error
+) {
+  return (
+    error?.response?.data
+      ?.message ||
+    error?.message ||
+    "SalonAI Adviser could not answer this question."
+  );
+}
+
+export default function SalonAiAdviser({
+  contextPath = "",
+}) {
+  const [
+    open,
+    setOpen,
+  ] = useState(false);
+  const [
+    question,
+    setQuestion,
+  ] = useState("");
+  const [
+    result,
+    setResult,
+  ] = useState(null);
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  async function ask(
+    event
+  ) {
+    event.preventDefault();
+
+    const value =
+      question.trim();
+
+    if (
+      value.length < 3
+    ) {
+      setError(
+        "Enter a question for SalonAI."
+      );
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response =
+        await askSalonAiAdviser({
+          question:
+            value,
+          contextPath,
+        });
+
+      setResult(
+        response
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed bottom-5 right-5 z-[70] inline-flex items-center gap-2 rounded-full border border-black bg-amber-400 px-4 py-3 text-sm font-black text-black shadow-xl hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        onClick={() =>
+          setOpen(true)
+        }
+        aria-haspopup="dialog"
+      >
+        <Sparkles
+          size={18}
+          aria-hidden="true"
+        />
+        Ask SalonAI
+      </button>
+
+      {open ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-end justify-end bg-black/35 p-3 sm:p-5"
+          role="presentation"
+          onMouseDown={(
+            event
+          ) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              setOpen(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="salonai-adviser-title"
+            className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-stone-300 bg-white shadow-2xl"
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-stone-200 p-5">
+              <div className="flex gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-black">
+                  <Bot
+                    size={20}
+                    aria-hidden="true"
+                  />
+                </span>
+
+                <div>
+                  <h2
+                    id="salonai-adviser-title"
+                    className="text-lg font-black text-black"
+                  >
+                    SalonAI Adviser
+                  </h2>
+                  <p className="mt-1 text-sm text-stone-600">
+                    Evidence-grounded, read-only management advice.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Close SalonAI Adviser"
+                onClick={() =>
+                  setOpen(false)
+                }
+                className="rounded-xl border border-stone-300 p-2 text-black hover:border-amber-400"
+              >
+                <X
+                  size={18}
+                />
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {result?.answer ? (
+                <article className="rounded-2xl bg-stone-100 p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-6 text-black">
+                    {result.answer}
+                  </p>
+
+                  <div className="mt-4 border-t border-stone-300 pt-3 text-xs text-stone-600">
+                    <strong className="text-black">
+                      Evidence:
+                    </strong>{" "}
+                    {result.evidence
+                      ?.periodLabel ||
+                      "Current SalonAI data"}
+                    {result.evidence
+                      ?.knowledge
+                      ?.length
+                      ? ` · ${result.evidence.knowledge.length} reviewed knowledge source(s)`
+                      : ""}
+                    {" · "}
+                    {result.adviser
+                      ?.provider ===
+                    "remote"
+                      ? "AI-generated"
+                      : "Local grounded response"}
+                  </div>
+                </article>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-stone-300 p-5 text-sm text-stone-600">
+                  Ask about bookings, revenue, no-shows, operational issues or reviewed salon knowledge. The Adviser only uses evidence your account is permitted to access.
+                </div>
+              )}
+
+              {error ? (
+                <div
+                  role="alert"
+                  className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800"
+                >
+                  {error}
+                </div>
+              ) : null}
+            </div>
+
+            <form
+              className="border-t border-stone-200 p-4"
+              onSubmit={ask}
+            >
+              <label
+                htmlFor="salonai-adviser-question"
+                className="sr-only"
+              >
+                Ask SalonAI
+              </label>
+              <textarea
+                id="salonai-adviser-question"
+                rows="3"
+                maxLength="1500"
+                value={
+                  question
+                }
+                onChange={(
+                  event
+                ) =>
+                  setQuestion(
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Why are no-shows increasing?"
+                className="w-full resize-none rounded-xl border border-stone-300 px-3 py-3 text-sm text-black outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              />
+
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="text-xs text-stone-500">
+                  Context:{" "}
+                  {contextPath ||
+                    "management"}
+                </span>
+
+                <button
+                  type="submit"
+                  disabled={
+                    loading
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-black text-white hover:bg-stone-800 disabled:opacity-50"
+                >
+                  <Send
+                    size={15}
+                    aria-hidden="true"
+                  />
+                  {loading
+                    ? "Thinking…"
+                    : "Ask"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </>
+  );
+}

@@ -94,3 +94,59 @@ Activation requires:
 5. observability and failure/retry policy;
 6. explicit production feature control;
 7. immutable release and governed deployment.
+
+
+## Outbound provider transport
+
+The outbound transport is implemented against the provider APIs, but remains inactive until the outbox/retry worker is integrated and production feature control is approved.
+
+### Event identity
+
+Every synchronized appointment is represented by an `ExternalCalendarEventLink`.
+
+The unique internal identity is:
+
+`calendar connection + SalonAI appointment`
+
+The link stores the provider calendar ID and exact provider event ID. Updates and deletes therefore never search external calendars by title, customer name, service or time.
+
+### Retry idempotency
+
+Google creation uses a deterministic, provider-valid event ID derived from the SalonAI appointment source identity. Google documents client-generated IDs as a way to keep local entities synchronized and prevent duplicate event creation after ambiguous failures.
+
+Microsoft creation uses a deterministic `transactionId`, supported by Graph for reducing duplicate create operations during retries.
+
+The local mapping and canonical payload hash additionally make already-synchronized unchanged appointments a no-op.
+
+### Privacy
+
+Outbound employee calendar events are private/busy mirrors. The transport payload does not include customer email, phone, notes, internal notes, payment information, consultation/health information or hair profile.
+
+Customer names remain excluded from the transport by default.
+
+### Failure boundary
+
+Provider failures must not roll back or invalidate a successful SalonAI appointment mutation.
+
+The next activation layer therefore uses a durable local outbox/retry worker:
+
+```text
+SalonAI appointment mutation
+        |
+        +--> commit canonical Appointment
+        |
+        +--> queue local calendar sync task
+                    |
+                    v
+               worker/retry
+                    |
+        +-----------+------------+
+        |                        |
+      Google                  Outlook
+        |                        |
+        +-----------+------------+
+                    |
+          ExternalCalendarEventLink
+```
+
+Only the worker talks to external provider event APIs during ordinary appointment lifecycle synchronization.

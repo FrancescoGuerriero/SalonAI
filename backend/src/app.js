@@ -36,6 +36,7 @@ import stylistRoutes from "./routes/stylistRoutes.js";
 import appConfigurationRoutes from "./routes/appConfigurationRoutes.js";
 import systemAdministrationRoutes from "./routes/systemAdministrationRoutes.js";
 import calendarOAuthCallbackRoutes from "./integrations/calendar/calendarOAuthCallbackRoutes.js";
+import calendarWebhookRoutes from "./integrations/calendar/calendarWebhookRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import { requireFeature } from "./services/featureControlService.js";
 
@@ -100,6 +101,19 @@ app.use(
   "/api/inventory-purchasing",
   requireFeature("inventory-purchasing"),
   inventoryPurchasingRoutes
+);
+
+/*
+|--------------------------------------------------------------------------
+| External provider webhooks
+|--------------------------------------------------------------------------
+| Calendar provider callbacks authenticate with provider-issued channel state.
+| They are mounted before the general API rate limiter so provider delivery
+| is not coupled to interactive API traffic.
+*/
+app.use(
+  "/api/calendar-webhooks",
+  calendarWebhookRoutes
 );
 
 app.use(
