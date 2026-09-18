@@ -7,6 +7,34 @@ function responseData(response) {
   return response.data;
 }
 
+export function createManagedAppointment(
+  payload
+) {
+  return API.post(
+    BASE_URL,
+    payload
+  ).then(responseData);
+}
+
+export function getAppointmentStylists() {
+  return API.get(
+    `${BASE_URL}/stylists`
+  ).then(responseData);
+}
+
+export function searchAppointmentCustomers(
+  search = ""
+) {
+  return API.get(
+    `${BASE_URL}/customers`,
+    {
+      params: {
+        search,
+      },
+    }
+  ).then(responseData);
+}
+
 export function getAppointmentCalendar(
   params = {}
 ) {
@@ -130,6 +158,15 @@ export function queueUpcomingAppointmentReminders(
 }
 
 const appointmentManagementApi = {
+  create:
+    createManagedAppointment,
+
+  stylists:
+    getAppointmentStylists,
+
+  searchCustomers:
+    searchAppointmentCustomers,
+
   getCalendar:
     getAppointmentCalendar,
 
