@@ -179,6 +179,10 @@ test("turning staff sync on queues existing active appointments", async () => {
   );
   assert.match(
     source,
-    /if \(\s*connection\.syncEnabled\s*\)/
+    /const shouldEnable\s*=\s*enabled === true/
+  );
+  assert.match(
+    source,
+    /if \(shouldEnable\)/
   );
 });
