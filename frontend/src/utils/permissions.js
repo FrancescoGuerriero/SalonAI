@@ -42,11 +42,7 @@ export function hasPermission(
   permission
 ) {
   if (
-    String(
-      user?.role ||
-        ""
-    ).toLowerCase() ===
-    "admin"
+    user?.isSuperAdmin === true
   ) {
     return true;
   }
