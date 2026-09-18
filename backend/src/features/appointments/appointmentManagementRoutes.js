@@ -7,6 +7,7 @@ import {
   calendar,
   conflict,
   create,
+  customers,
   getAppointment,
   queueReminders,
   reminder,
@@ -93,6 +94,15 @@ router.post(
 | Calendar and reporting
 |--------------------------------------------------------------------------
 */
+
+router.get(
+  "/customers",
+  requireAnyPermission(
+    "appointment:create",
+    "appointment:update"
+  ),
+  asyncHandler(customers)
+);
 
 router.get(
   "/calendar",
