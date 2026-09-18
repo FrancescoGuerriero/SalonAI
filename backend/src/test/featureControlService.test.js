@@ -105,6 +105,7 @@ test("customer booking can be disabled without disabling staff appointment work"
   );
 
   assert.match(routes, /const managementRoles = new Set\(\[/);
+  assert.match(routes, /"super_admin"/);
   assert.match(routes, /"admin"/);
   assert.match(routes, /"manager"/);
   assert.match(routes, /"receptionist"/);
