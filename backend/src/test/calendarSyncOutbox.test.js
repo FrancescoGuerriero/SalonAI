@@ -149,3 +149,32 @@ test("outbox retries partial provider failures rather than marking them complete
     /requestedRevision >\s*task\.requestedRevision/
   );
 });
+
+
+test("turning staff sync on queues existing active appointments", async () => {
+  const source =
+    await readFile(
+      new URL(
+        "../integrations/calendar/calendarConnectionService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    source,
+    /queueCurrentStaffAppointments/
+  );
+  assert.match(
+    source,
+    /"pending"[\s\S]*?"confirmed"[\s\S]*?"checked_in"[\s\S]*?"in_progress"/
+  );
+  assert.match(
+    source,
+    /enqueueCalendarSyncTask/
+  );
+  assert.match(
+    source,
+    /if \(\s*connection\.syncEnabled\s*\)/
+  );
+});
