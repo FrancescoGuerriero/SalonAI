@@ -1,0 +1,422 @@
+import crypto from "node:crypto";
+
+function text(value) {
+  return String(
+    value ?? ""
+  ).trim();
+}
+
+function requireValue(
+  value,
+  label
+) {
+  const result =
+    text(value);
+
+  if (!result) {
+    throw new Error(
+      `${label} is required.`
+    );
+  }
+
+  return result;
+}
+
+function providerError(
+  provider,
+  status,
+  body
+) {
+  const message =
+    body?.error
+      ?.message ||
+    body?.error_description ||
+    body?.message ||
+    `${provider} calendar request failed with HTTP ${status}.`;
+
+  const error =
+    new Error(message);
+
+  error.statusCode =
+    status === 401 ||
+    status === 403
+      ? 409
+      : 502;
+
+  error.code =
+    "CALENDAR_PROVIDER_EVENT_REQUEST_FAILED";
+  error.provider =
+    provider;
+  error.providerStatus =
+    status;
+
+  return error;
+}
+
+async function providerRequest({
+  provider,
+  url,
+  accessToken,
+  method = "GET",
+  body = null,
+}) {
+  const response =
+    await fetch(url, {
+      method,
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+        ...(body
+          ? {
+              "Content-Type":
+                "application/json",
+            }
+          : {}),
+      },
+      body:
+        body
+          ? JSON.stringify(
+              body
+            )
+          : undefined,
+    });
+
+  const payload =
+    response.status === 204
+      ? null
+      : await response
+          .json()
+          .catch(() => null);
+
+  if (!response.ok) {
+    throw providerError(
+      provider,
+      response.status,
+      payload
+    );
+  }
+
+  return payload;
+}
+
+function googlePayload(
+  event
+) {
+  return {
+    summary:
+      event.summary,
+    description:
+      "Managed by SalonAI. Change this appointment in SalonAI so availability and booking rules remain authoritative.",
+    start: {
+      dateTime:
+        event.start,
+      timeZone:
+        event.timeZone,
+    },
+    end: {
+      dateTime:
+        event.end,
+      timeZone:
+        event.timeZone,
+    },
+    visibility:
+      "private",
+    extendedProperties: {
+      private: {
+        salonAiSourceType:
+          event.sourceType,
+        salonAiSourceId:
+          event.sourceId,
+      },
+    },
+  };
+}
+
+function graphDateTime(
+  instant
+) {
+  return new Date(
+    instant
+  )
+    .toISOString()
+    .replace(
+      /Z$/,
+      ""
+    );
+}
+
+function transactionId(
+  event
+) {
+  const digest =
+    crypto
+      .createHash(
+        "sha256"
+      )
+      .update(
+        `salonai:${event.sourceType}:${event.sourceId}`
+      )
+      .digest("hex")
+      .slice(0, 32);
+
+  return [
+    digest.slice(0, 8),
+    digest.slice(8, 12),
+    digest.slice(
+      12,
+      16
+    ),
+    digest.slice(
+      16,
+      20
+    ),
+    digest.slice(
+      20,
+      32
+    ),
+  ].join("-");
+}
+
+function outlookPayload(
+  event,
+  {
+    includeTransactionId =
+      false,
+  } = {}
+) {
+  return {
+    subject:
+      event.summary,
+    body: {
+      contentType:
+        "text",
+      content:
+        "Managed by SalonAI. Change this appointment in SalonAI so availability and booking rules remain authoritative.",
+    },
+    start: {
+      dateTime:
+        graphDateTime(
+          event.start
+        ),
+      timeZone: "UTC",
+    },
+    end: {
+      dateTime:
+        graphDateTime(
+          event.end
+        ),
+      timeZone: "UTC",
+    },
+    sensitivity:
+      "private",
+    showAs: "busy",
+    ...(includeTransactionId
+      ? {
+          transactionId:
+            transactionId(
+              event
+            ),
+        }
+      : {}),
+  };
+}
+
+function encoded(value) {
+  return encodeURIComponent(
+    requireValue(
+      value,
+      "Calendar identifier"
+    )
+  );
+}
+
+function eventId(value) {
+  return encodeURIComponent(
+    requireValue(
+      value,
+      "Provider event identifier"
+    )
+  );
+}
+
+export async function createProviderEvent({
+  provider,
+  calendarId,
+  accessToken,
+  event,
+}) {
+  if (
+    provider === "google"
+  ) {
+    const payload =
+      await providerRequest({
+        provider,
+        accessToken,
+        method: "POST",
+        url:
+          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events?sendUpdates=none`,
+        body:
+          googlePayload(
+            event
+          ),
+      });
+
+    return {
+      providerEventId:
+        text(payload.id),
+      providerVersion:
+        text(payload.etag),
+      providerUpdatedAt:
+        payload.updated ||
+        null,
+    };
+  }
+
+  if (
+    provider === "outlook"
+  ) {
+    const payload =
+      await providerRequest({
+        provider,
+        accessToken,
+        method: "POST",
+        url:
+          `https://graph.microsoft.com/v1.0/me/calendars/${encoded(calendarId)}/events`,
+        body:
+          outlookPayload(
+            event,
+            {
+              includeTransactionId:
+                true,
+            }
+          ),
+      });
+
+    return {
+      providerEventId:
+        text(payload.id),
+      providerVersion:
+        text(
+          payload.changeKey
+        ),
+      providerUpdatedAt:
+        payload.lastModifiedDateTime ||
+        null,
+    };
+  }
+
+  throw new Error(
+    `Unsupported calendar provider: ${provider}`
+  );
+}
+
+export async function updateProviderEvent({
+  provider,
+  calendarId,
+  providerEventId,
+  accessToken,
+  event,
+}) {
+  if (
+    provider === "google"
+  ) {
+    const payload =
+      await providerRequest({
+        provider,
+        accessToken,
+        method: "PATCH",
+        url:
+          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}?sendUpdates=none`,
+        body:
+          googlePayload(
+            event
+          ),
+      });
+
+    return {
+      providerEventId:
+        text(payload.id),
+      providerVersion:
+        text(payload.etag),
+      providerUpdatedAt:
+        payload.updated ||
+        null,
+    };
+  }
+
+  if (
+    provider === "outlook"
+  ) {
+    const payload =
+      await providerRequest({
+        provider,
+        accessToken,
+        method: "PATCH",
+        url:
+          `https://graph.microsoft.com/v1.0/me/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
+        body:
+          outlookPayload(
+            event
+          ),
+      });
+
+    return {
+      providerEventId:
+        text(payload.id),
+      providerVersion:
+        text(
+          payload.changeKey
+        ),
+      providerUpdatedAt:
+        payload.lastModifiedDateTime ||
+        null,
+    };
+  }
+
+  throw new Error(
+    `Unsupported calendar provider: ${provider}`
+  );
+}
+
+export async function deleteProviderEvent({
+  provider,
+  calendarId,
+  providerEventId,
+  accessToken,
+}) {
+  if (
+    provider === "google"
+  ) {
+    await providerRequest({
+      provider,
+      accessToken,
+      method: "DELETE",
+      url:
+        `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}?sendUpdates=none`,
+    });
+
+    return {
+      deleted: true,
+    };
+  }
+
+  if (
+    provider === "outlook"
+  ) {
+    await providerRequest({
+      provider,
+      accessToken,
+      method: "DELETE",
+      url:
+        `https://graph.microsoft.com/v1.0/me/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
+    });
+
+    return {
+      deleted: true,
+    };
+  }
+
+  throw new Error(
+    `Unsupported calendar provider: ${provider}`
+  );
+}
