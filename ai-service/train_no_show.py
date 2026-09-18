@@ -763,7 +763,7 @@ def main() -> None:
                     "operational": threshold,
                 },
                 "limitations": [
-                    "Candidate model only; not approved for production inference.",
+                    "Experiment/candidate only; not approved for production inference.",
                     "Training data excludes appointments booked less than 48 hours before start.",
                     "Payment state is excluded until timestamped payment history is available.",
                     "Cancelled appointments are excluded from the binary training label.",
