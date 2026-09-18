@@ -25,6 +25,9 @@ from sklearn.metrics import (
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from app.schemas.no_show_prediction import NoShowPredictionRequest
+from app.services.no_show_predictor import predict_no_shows
+
 
 TASK = "no_show_prediction"
 FEATURE_VERSION = "no-show-v1"
@@ -372,6 +375,148 @@ def metrics(
     }
 
 
+def current_rules_probability(frame: pd.DataFrame):
+    appointments = []
+
+    for index, row in frame.reset_index(drop=True).iterrows():
+        as_of = pd.Timestamp(
+            row["as_of"]
+        )
+        appointment_date = (
+            as_of
+            + pd.Timedelta(
+                hours=48
+            )
+        )
+
+        appointments.append(
+            {
+                "appointment_key": f"evaluation-{index}",
+                "customer_key": f"evaluation-customer-{index}",
+                "appointment_date": appointment_date.to_pydatetime(),
+                "service_name": str(
+                    row.get(
+                        "service_key"
+                    )
+                    or ""
+                ),
+                "appointment_value": float(
+                    row.get(
+                        "appointment_value"
+                    )
+                    or 0
+                ),
+                "lead_time_days": float(
+                    row.get(
+                        "booking_lead_time_days"
+                    )
+                    or 0
+                ),
+                "previous_bookings": int(
+                    row.get(
+                        "previous_bookings"
+                    )
+                    or 0
+                ),
+                "previous_completed": int(
+                    row.get(
+                        "previous_completed"
+                    )
+                    or 0
+                ),
+                "previous_no_shows": int(
+                    row.get(
+                        "previous_no_shows"
+                    )
+                    or 0
+                ),
+                "previous_cancellations": int(
+                    row.get(
+                        "previous_cancellations"
+                    )
+                    or 0
+                ),
+                "days_since_last_visit": (
+                    None
+                    if pd.isna(
+                        row.get(
+                            "days_since_last_completed"
+                        )
+                    )
+                    else max(
+                        0,
+                        int(
+                            row.get(
+                                "days_since_last_completed"
+                            )
+                        ),
+                    )
+                ),
+                "reschedule_count": int(
+                    row.get(
+                        "reschedules_before_prediction"
+                    )
+                    or 0
+                ),
+                "reminder_status": (
+                    "sent"
+                    if bool(
+                        row.get(
+                            "reminder_sent_before_prediction"
+                        )
+                    )
+                    else "none"
+                ),
+                "deposit_status": "none",
+                "is_new_customer": bool(
+                    row.get(
+                        "is_new_customer"
+                    )
+                ),
+                "is_weekend": bool(
+                    row.get(
+                        "is_weekend"
+                    )
+                ),
+                "is_evening": bool(
+                    row.get(
+                        "is_evening"
+                    )
+                ),
+            }
+        )
+
+    payload = NoShowPredictionRequest(
+        as_of_date=pd.Timestamp(
+            frame["as_of"].max()
+        ).date(),
+        appointments=appointments,
+    )
+
+    result = predict_no_shows(
+        payload,
+        provider_mode="evaluation",
+    )
+
+    probabilities_by_key = {
+        prediction.appointment_key:
+            prediction.probability
+        for prediction in result.predictions
+    }
+
+    return pd.Series(
+        [
+            probabilities_by_key[
+                f"evaluation-{index}"
+            ]
+            for index in range(
+                len(frame)
+            )
+        ],
+        dtype=float,
+    ).to_numpy()
+
+
 def train_candidates(
     train_x,
     train_y,
@@ -436,6 +581,18 @@ def main() -> None:
             train["label"],
         )
 
+        rules_validation_probability = (
+            current_rules_probability(
+                validation
+            )
+        )
+        rules_threshold = 0.35
+        rules_validation_metrics = metrics(
+            validation["label"],
+            rules_validation_probability,
+            rules_threshold,
+        )
+
         validation_results = {}
 
         for name, model in models.items():
@@ -491,6 +648,17 @@ def main() -> None:
             0.5,
         )
 
+        rules_test_probability = (
+            current_rules_probability(
+                test
+            )
+        )
+        rules_test_metrics = metrics(
+            test["label"],
+            rules_test_probability,
+            rules_threshold,
+        )
+
         artifact_dir = (
             Path(args.artifact_dir)
             / args.dataset_version
@@ -517,6 +685,9 @@ def main() -> None:
             "validation": validation_results,
             "test": test_metrics,
             "dummy_test": dummy_test_metrics,
+            "rules_validation": rules_validation_metrics,
+            "rules_test": rules_test_metrics,
+            "rules_model": "salonai-no-show-risk-rules-v1",
             "feature_names": ALL_FEATURES,
             "trained_at": datetime.now(
                 timezone.utc
@@ -569,6 +740,9 @@ def main() -> None:
                     "test": test_metrics,
                     "baseline": {
                         "dummy_test": dummy_test_metrics,
+                        "rules_validation": rules_validation_metrics,
+                        "rules_test": rules_test_metrics,
+                        "rules_model": "salonai-no-show-risk-rules-v1",
                     },
                 },
                 "thresholds": {
@@ -606,6 +780,9 @@ def main() -> None:
                     ],
                     "test": test_metrics,
                     "dummyTest": dummy_test_metrics,
+                    "rulesValidation": rules_validation_metrics,
+                    "rulesTest": rules_test_metrics,
+                    "rulesModel": "salonai-no-show-risk-rules-v1",
                 },
                 indent=2,
                 sort_keys=True,
