@@ -247,3 +247,41 @@ test("training script benchmarks learned candidates against SalonAI rules", asyn
     /brier_score_loss/
   );
 });
+
+
+test("post-prediction reschedules are excluded because final service/stylist/time would leak future state", () => {
+  const rows =
+    buildNoShowTrainingRows(
+      [
+        appointment({
+          id:
+            "rescheduled-after-snapshot",
+          status:
+            "completed",
+          start:
+            "2026-06-10T12:00:00Z",
+          created:
+            "2026-06-01T12:00:00Z",
+          observed:
+            "2026-06-10T13:00:00Z",
+          rescheduleHistory: [
+            {
+              changedAt:
+                new Date(
+                  "2026-06-09T12:00:00Z"
+                ),
+            },
+          ],
+        }),
+      ],
+      {
+        pseudonymKey:
+          "12345678901234567890123456789012",
+      }
+    );
+
+  assert.equal(
+    rows.length,
+    0
+  );
+});
