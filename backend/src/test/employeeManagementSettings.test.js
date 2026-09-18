@@ -178,7 +178,7 @@ test("employee schedule rejects breaks outside working hours", () => {
 });
 
 
-test("employee roster includes profile-only legacy stylists", async () => {
+test("employee roster uses canonical staff accounts and only attaches matching profiles", async () => {
   const controller =
     await readFile(
       new URL(
@@ -190,18 +190,26 @@ test("employee roster includes profile-only legacy stylists", async () => {
 
   assert.match(
     controller,
-    /serialiseProfileOnlyEmployee/
+    /User\.find\(query\)/
   );
   assert.match(
+    controller,
+    /name:\s*1,\s*email:\s*1/s
+  );
+  assert.match(
+    controller,
+    /userAccount:\s*\{\s*\$in:\s*userIds/s
+  );
+  assert.doesNotMatch(
+    controller,
+    /serialiseProfileOnlyEmployee/
+  );
+  assert.doesNotMatch(
     controller,
     /employeeType:\s*"profile-only"/
   );
-  assert.match(
+  assert.doesNotMatch(
     controller,
-    /Stylist\.find\(\)/
-  );
-  assert.match(
-    controller,
-    /profileOnlyEmployees/
+    /"Salon employee"/
   );
 });

@@ -35,14 +35,33 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
   const [closed, setClosed] = useState(new Set());
   const sections = useMemo(() => {
     const term = query.trim().toLowerCase();
+    const canReadAllProfiles =
+      hasPermission(
+        user,
+        "profile:all:read"
+      );
+
     return MANAGEMENT_SECTIONS.map((section) => ({
       ...section,
-      links: section.links.filter((link) =>
-        (!link.adminOnly || isSuperAdminRole(user?.role)) &&
-        (!link.permission || hasPermission(user, link.permission)) &&
-        (!link.featureId || isFeatureEnabled(link.featureId)) &&
-        (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
-      ),
+      links: section.links
+        .map((link) =>
+          link.to === "/staff/profile" &&
+          canReadAllProfiles
+            ? {
+                ...link,
+                label:
+                  "Staff profiles",
+                description:
+                  "Team photos, bios and specialties",
+              }
+            : link
+        )
+        .filter((link) =>
+          (!link.adminOnly || isSuperAdminRole(user?.role)) &&
+          (!link.permission || hasPermission(user, link.permission)) &&
+          (!link.featureId || isFeatureEnabled(link.featureId)) &&
+          (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
+        ),
     })).filter((section) => section.links.length);
   }, [isFeatureEnabled, query, user?.permissions, user?.role]);
 
