@@ -99,17 +99,23 @@ const userSchema = new Schema(
       ],
     },
 
+    passwordAuthEnabled: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
     password: {
       type: String,
-      required: [
-        true,
-        "Password is required.",
-      ],
+      required() {
+        return this.passwordAuthEnabled !== false;
+      },
       minlength: [
         6,
         "Password must contain at least 6 characters.",
       ],
       select: false,
+      default: undefined,
     },
 
     role: {
