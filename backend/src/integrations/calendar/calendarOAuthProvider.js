@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 
 import { env } from "../../config/env.js";
@@ -120,7 +121,7 @@ export function createCalendarAuthorization({
       audience: "salonai-calendar-oauth",
       issuer: "salonai",
       jwtid:
-        globalThis.crypto.randomUUID(),
+        randomUUID(),
     }
   );
 
