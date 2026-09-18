@@ -33,25 +33,34 @@ import {
   hasPermission,
 } from "../utils/permissions.js";
 import {
-  isAdminRole,
+  isSuperAdminRole,
 } from "../utils/roles.js";
 
 const STAFF_ROLES = [
   {
+    value: "super_admin",
+    label: "Super Admin",
+    assignable: false,
+  },
+  {
     value: "stylist",
     label: "Stylist",
+    assignable: true,
   },
   {
     value: "receptionist",
     label: "Receptionist",
+    assignable: true,
   },
   {
     value: "manager",
     label: "Manager",
+    assignable: true,
   },
   {
     value: "admin",
     label: "Administrator",
+    assignable: true,
   },
 ];
 
@@ -153,7 +162,7 @@ export default function AdminStaffAccountsPage() {
     );
 
   const canManageRoles =
-    isAdminRole(
+    isSuperAdminRole(
       currentUser?.role
     );
 
@@ -949,13 +958,14 @@ export default function AdminStaffAccountsPage() {
                     >
                       {STAFF_ROLES.filter(
                         (role) =>
-                          canManageRoles ||
-                          [
-                            "stylist",
-                            "receptionist",
-                          ].includes(
-                            role.value
-                          )
+                          role.assignable &&
+                          (canManageRoles ||
+                            [
+                              "stylist",
+                              "receptionist",
+                            ].includes(
+                              role.value
+                            ))
                       ).map(
                         (role) => (
                           <option

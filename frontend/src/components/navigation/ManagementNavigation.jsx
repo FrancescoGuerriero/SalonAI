@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, PackagePlus, Scissors, Search, Send, Share2, Sparkles, ToggleLeft, Upload, UsersRound, Workflow } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth.js";
-import { isAdminRole } from "../../utils/roles.js";
+import { isSuperAdminRole } from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 
@@ -38,7 +38,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
     return MANAGEMENT_SECTIONS.map((section) => ({
       ...section,
       links: section.links.filter((link) =>
-        (!link.adminOnly || isAdminRole(user?.role)) &&
+        (!link.adminOnly || isSuperAdminRole(user?.role)) &&
         (!link.permission || hasPermission(user, link.permission)) &&
         (!link.featureId || isFeatureEnabled(link.featureId)) &&
         (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))

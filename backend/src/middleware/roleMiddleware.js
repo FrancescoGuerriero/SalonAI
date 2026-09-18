@@ -1,6 +1,7 @@
 export {
   authorize,
   adminOnly,
+  superAdminOnly,
   managementOnly,
 } from "./authMiddleware.js";
 
@@ -12,8 +13,8 @@ export function ownerOnly(request, response, next) {
     return next(error);
   }
 
-  if (!["owner", "admin"].includes(request.user.role)) {
-    const error = new Error("Owner access is required to perform this action.");
+  if (request.user.role !== "super_admin") {
+    const error = new Error("Super Admin access is required to perform this action.");
     error.statusCode = 403;
     error.status = 403;
     return next(error);
