@@ -1,7 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+
 import AppError from "../errors/AppError.js";
-import { requirePermissions } from "../middleware/permissionMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
+
+function responseRecorder() {
+  const state = {
+    statusCode: 200,
+    body: null,
+  };
+
+  return {
+    state,
+    status(code) {
+      state.statusCode = code;
+      return this;
+    },
+    json(body) {
+      state.body = body;
+      return this;
+    },
+  };
+}
 
 test("AppError exposes structured properties", () => {
   const error = new AppError(
@@ -16,26 +38,51 @@ test("AppError exposes structured properties", () => {
   assert.equal(error.code, "FORBIDDEN");
 });
 
-test("permission middleware allows admin role", async () => {
+test("permission middleware allows Super Admin role", () => {
   const middleware =
     requirePermissions("system.settings.write");
-
-  const req = {
-    user: {
-      role: "admin",
-      permissions: [],
-    },
-  };
 
   let nextCalled = false;
 
   middleware(
-    req,
-    {},
+    {
+      user: {
+        role: "super_admin",
+        permissions: [],
+      },
+    },
+    responseRecorder(),
     () => {
       nextCalled = true;
     }
   );
 
   assert.equal(nextCalled, true);
+});
+
+test("permission middleware no longer gives Admin an implicit bypass", () => {
+  const middleware =
+    requirePermissions("system.settings.write");
+  const response =
+    responseRecorder();
+  let nextCalled = false;
+
+  middleware(
+    {
+      user: {
+        role: "admin",
+        permissions: [],
+      },
+    },
+    response,
+    () => {
+      nextCalled = true;
+    }
+  );
+
+  assert.equal(nextCalled, false);
+  assert.equal(
+    response.state.statusCode,
+    403
+  );
 });

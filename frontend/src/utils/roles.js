@@ -1,4 +1,5 @@
 export const MANAGEMENT_ROLES = new Set([
+  "super_admin",
   "admin",
   "manager",
   "receptionist",
@@ -11,6 +12,18 @@ export function isManagementRole(role) {
   );
 }
 
+export function isSuperAdminRole(role) {
+  return (
+    String(role || "").trim().toLowerCase() ===
+    "super_admin"
+  );
+}
+
 export function isAdminRole(role) {
-  return String(role || "").trim().toLowerCase() === "admin";
+  return [
+    "super_admin",
+    "admin",
+  ].includes(
+    String(role || "").trim().toLowerCase()
+  );
 }
