@@ -159,6 +159,8 @@ function serialiseUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    isSuperAdmin:
+      user.isSuperAdmin === true,
     permissions:
       user.permissions || [],
     phone: user.phone || "",
