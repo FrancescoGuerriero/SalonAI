@@ -176,6 +176,10 @@ async function createGoogleSubscription({
   connection,
   accessToken,
 }) {
+  const previousSubscriptionId =
+    text(connection.subscriptionId);
+  const previousResourceId =
+    text(connection.subscriptionResourceId);
   const id = crypto.randomUUID();
   const payload = await providerRequest({
     provider: "google",
@@ -206,6 +210,27 @@ async function createGoogleSubscription({
     : new Date(Date.now() + GOOGLE_TTL_SECONDS * 1000);
 
   await connection.save();
+
+  if (
+    previousSubscriptionId &&
+    previousResourceId &&
+    previousSubscriptionId !==
+      connection.subscriptionId
+  ) {
+    await providerRequest({
+      provider: "google",
+      accessToken,
+      url: "https://www.googleapis.com/calendar/v3/channels/stop",
+      body: {
+        id:
+          previousSubscriptionId,
+        resourceId:
+          previousResourceId,
+      },
+    }).catch(
+      () => undefined
+    );
+  }
 
   return {
     provider: "google",
