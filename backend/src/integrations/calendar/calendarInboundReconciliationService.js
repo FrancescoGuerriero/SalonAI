@@ -1,3 +1,4 @@
+import ExternalCalendarConnection from "../../models/ExternalCalendarConnection.js";
 import ExternalCalendarEventLink from "../../models/ExternalCalendarEventLink.js";
 import User from "../../models/user.js";
 import {
@@ -434,12 +435,7 @@ export async function reconcileAllEnabledCalendars({
   limit = 50,
 } = {}) {
   const connections =
-    await (
-      await import(
-        "../../models/ExternalCalendarConnection.js"
-      )
-    ).default
-      .find({
+    await ExternalCalendarConnection.find({
         status:
           "connected",
         syncEnabled: true,
