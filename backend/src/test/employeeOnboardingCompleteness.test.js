@@ -91,21 +91,44 @@ test("employee onboarding validates nested data before creating the User", async
       "../controllers/adminUserController.js"
     );
 
-  const services =
+  const start =
     controller.indexOf(
+      "export async function createStaffUserByAdmin"
+    );
+  const end =
+    controller.indexOf(
+      "export function normaliseEmployeeManagementUpdate",
+      start
+    );
+
+  assert.ok(
+    start >= 0 &&
+      end >
+        start
+  );
+
+  const handler =
+    controller.slice(
+      start,
+      end
+    );
+
+  const services =
+    handler.indexOf(
       "await normaliseServiceIds"
     );
   const schedule =
-    controller.indexOf(
+    handler.indexOf(
       "normaliseEmployeeSchedule("
     );
   const userCreate =
-    controller.indexOf(
-      "createdUser ="
+    handler.indexOf(
+      "await User.create"
     );
 
   assert.ok(
     services >= 0 &&
+      userCreate >= 0 &&
       services <
         userCreate
   );
