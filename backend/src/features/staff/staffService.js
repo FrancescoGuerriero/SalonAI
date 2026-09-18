@@ -138,18 +138,27 @@ function effectiveAvailabilityMatch(staffId, target) {
   };
 }
 
-function fallbackRanges(stylist, target) {
+function fallbackRangesForDay(
+  stylist,
+  dayOfWeek
+) {
   const dayName =
     DAY_NAMES[
-      salonDayOfWeek(
-        target
-      )
+      Number(dayOfWeek)
     ];
-  const workingDay = stylist.workingHours?.find(
-    (entry) => entry.day === dayName
-  );
 
-  if (!workingDay || workingDay.available === false) {
+  const workingDay =
+    stylist.workingHours?.find(
+      (entry) =>
+        entry.day ===
+        dayName
+    );
+
+  if (
+    !workingDay ||
+    workingDay.available ===
+      false
+  ) {
     return [];
   }
 
@@ -159,6 +168,7 @@ function fallbackRanges(stylist, target) {
   const end =
     workingDay.end ||
     "17:00";
+
   const dayStart =
     timeToMinutes(
       start,
@@ -169,37 +179,47 @@ function fallbackRanges(stylist, target) {
       end,
       "workingHours.end"
     );
+
   const breaks =
-    (workingDay.breaks || [])
-      .map((entry, index) => ({
-        start:
-          String(
-            entry?.start ||
-              ""
-          ).trim(),
-        end:
-          String(
-            entry?.end ||
-              ""
-          ).trim(),
-        startMinutes:
-          timeToMinutes(
-            entry?.start,
-            `workingHours.breaks[${index}].start`
-          ),
-        endMinutes:
-          timeToMinutes(
-            entry?.end,
-            `workingHours.breaks[${index}].end`
-          ),
-      }))
-      .filter((entry) =>
-        entry.endMinutes >
-          entry.startMinutes &&
-        entry.startMinutes >=
-          dayStart &&
-        entry.endMinutes <=
-          dayEnd
+    (
+      workingDay.breaks ||
+      []
+    )
+      .map(
+        (
+          entry,
+          index
+        ) => ({
+          start:
+            String(
+              entry?.start ||
+                ""
+            ).trim(),
+          end:
+            String(
+              entry?.end ||
+                ""
+            ).trim(),
+          startMinutes:
+            timeToMinutes(
+              entry?.start,
+              `workingHours.breaks[${index}].start`
+            ),
+          endMinutes:
+            timeToMinutes(
+              entry?.end,
+              `workingHours.breaks[${index}].end`
+            ),
+        })
+      )
+      .filter(
+        (entry) =>
+          entry.endMinutes >
+            entry.startMinutes &&
+          entry.startMinutes >=
+            dayStart &&
+          entry.endMinutes <=
+            dayEnd
       )
       .sort(
         (left, right) =>
@@ -213,7 +233,9 @@ function fallbackRanges(stylist, target) {
   let cursorLabel =
     start;
 
-  for (const pause of breaks) {
+  for (
+    const pause of breaks
+  ) {
     if (
       pause.startMinutes <
       cursor
@@ -239,7 +261,10 @@ function fallbackRanges(stylist, target) {
       pause.end;
   }
 
-  if (cursor < dayEnd) {
+  if (
+    cursor <
+    dayEnd
+  ) {
     ranges.push({
       start:
         cursorLabel,
@@ -249,6 +274,18 @@ function fallbackRanges(stylist, target) {
 
   return validateRanges(
     ranges
+  );
+}
+
+function fallbackRanges(
+  stylist,
+  target
+) {
+  return fallbackRangesForDay(
+    stylist,
+    salonDayOfWeek(
+      target
+    )
   );
 }
 
@@ -304,6 +341,80 @@ export async function weeklyAvailability(staffId) {
   return StaffAvailability.find({ staff: staffId })
     .sort({ dayOfWeek: 1, effectiveFrom: -1 })
     .lean();
+}
+
+export async function weeklyAvailabilityWithFallback(staffId) {
+  const stylist =
+    await requireStylist(
+      staffId
+    );
+
+  const configured =
+    await StaffAvailability.find({
+      staff:
+        staffId,
+    })
+      .sort({
+        dayOfWeek: 1,
+        effectiveFrom: -1,
+      })
+      .lean();
+
+  return Array.from(
+    {
+      length: 7,
+    },
+    (
+      _,
+      dayOfWeek
+    ) => {
+      const matching =
+        configured.filter(
+          (entry) =>
+            Number(
+              entry.dayOfWeek
+            ) ===
+            dayOfWeek
+        );
+
+      const base =
+        matching.find(
+          (entry) =>
+            !entry.effectiveFrom
+        ) ||
+        matching[0];
+
+      if (base) {
+        return {
+          ...base,
+          source:
+            "configured_availability",
+        };
+      }
+
+      const ranges =
+        fallbackRangesForDay(
+          stylist,
+          dayOfWeek
+        );
+
+      return {
+        staff:
+          stylist._id,
+        dayOfWeek,
+        ranges,
+        active:
+          ranges.length >
+          0,
+        effectiveFrom:
+          null,
+        effectiveTo:
+          null,
+        source:
+          "stylist_working_hours",
+      };
+    }
+  );
 }
 
 export async function dayAvailability(staffId, date) {
