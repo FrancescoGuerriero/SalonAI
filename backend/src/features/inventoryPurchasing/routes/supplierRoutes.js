@@ -7,6 +7,10 @@ import {
 import {
   managementOnly,
 } from "../../../middleware/roleMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   createSupplier,
@@ -19,17 +23,30 @@ import {
 
 const router = express.Router();
 
+const readInventory =
+  requireAnyPermission(
+    "inventory:read",
+    "inventory:manage"
+  );
+
+const manageInventory =
+  requirePermissions(
+    "inventory:manage"
+  );
+
 router.use(protect);
 router.use(managementOnly);
 
 router
   .route("/")
   .get(
+    readInventory,
     asyncHandler(
       listSuppliers
     )
   )
   .post(
+    manageInventory,
     asyncHandler(
       createSupplier
     )
@@ -38,16 +55,19 @@ router
 router
   .route("/:supplierId")
   .get(
+    readInventory,
     asyncHandler(
       getSupplier
     )
   )
   .patch(
+    manageInventory,
     asyncHandler(
       updateSupplier
     )
   )
   .delete(
+    manageInventory,
     asyncHandler(
       deactivateSupplier
     )
