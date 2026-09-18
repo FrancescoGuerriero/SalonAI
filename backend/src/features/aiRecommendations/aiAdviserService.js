@@ -12,6 +12,9 @@ import {
 import {
   buildAdviserDomainContext,
 } from "./aiAdviserContextService.js";
+import {
+  suggestAdviserActions,
+} from "./aiAdviserProposalService.js";
 
 const MODEL_NAME =
   "salonai-adviser-grounded";
@@ -418,6 +421,11 @@ export async function askSalonAiAdviser({
 
   const startedAt =
     Date.now();
+  const suggestedActions =
+    suggestAdviserActions({
+      contextPath,
+      user,
+    });
 
   const [
     payload,
@@ -479,6 +487,7 @@ export async function askSalonAiAdviser({
       payload.issues ||
       [],
     domainContext,
+    suggestedActions,
     knowledge:
       knowledge.map(
         (item) => ({
@@ -551,6 +560,7 @@ export async function askSalonAiAdviser({
     answer:
       generated.text,
     evidence,
+    suggestedActions,
     inferenceId:
       String(
         inference._id
