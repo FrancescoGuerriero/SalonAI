@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import StylistCard from "../components/StylistCard";
 import StylistForm from "../components/StylistForm";
 import stylistService from "../Services/stylistService";
 
 export default function AdminStylists() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [stylists, setStylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -30,6 +32,46 @@ export default function AdminStylists() {
   useEffect(() => {
     loadStylists();
   }, []);
+
+  useEffect(() => {
+    const editProfileId =
+      searchParams.get("edit");
+
+    if (
+      !editProfileId ||
+      !stylists.length
+    ) {
+      return;
+    }
+
+    const target =
+      stylists.find(
+        (stylist) =>
+          String(stylist._id) ===
+          String(editProfileId)
+      );
+
+    if (target) {
+      setSelectedStylist(target);
+      setShowForm(true);
+    }
+
+    const nextParams =
+      new URLSearchParams(
+        searchParams
+      );
+    nextParams.delete("edit");
+    setSearchParams(
+      nextParams,
+      {
+        replace: true,
+      }
+    );
+  }, [
+    searchParams,
+    setSearchParams,
+    stylists,
+  ]);
 
   const filteredStylists = useMemo(() => {
     const query = search.toLowerCase().trim();

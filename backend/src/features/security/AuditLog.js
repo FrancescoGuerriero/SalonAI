@@ -43,8 +43,17 @@ auditLogSchema.index({
   entityId: 1,
 });
 
-const AuditLog =
-  mongoose.models.AuditLog ||
-  mongoose.model("AuditLog", auditLogSchema);
+/*
+ * Keep future-feature security auditing isolated from the canonical
+ * backend/src/models/AuditLog model. Registering two different schemas under
+ * the same Mongoose model name made import order decide whether an audit write
+ * required resourceType/resourceId or entityType/entityId.
+ */
+const FutureFeatureAuditLog =
+  mongoose.models.FutureFeatureAuditLog ||
+  mongoose.model(
+    "FutureFeatureAuditLog",
+    auditLogSchema
+  );
 
-export default AuditLog;
+export default FutureFeatureAuditLog;

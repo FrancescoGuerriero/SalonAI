@@ -228,7 +228,7 @@ export default function AdminStaffAccountsPage() {
         try {
           const response =
             await adminStaffService.list({
-              limit: 100,
+              limit: 500,
             });
 
           setUsers(
@@ -678,7 +678,7 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      {canManageRoles ? (
+                      {canManageRoles && user.accountLinked !== false ? (
                         <select
                           value={user.role}
                           disabled={Boolean(updatingId)}
@@ -748,54 +748,69 @@ export default function AdminStaffAccountsPage() {
                     Employee controls
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <SettingSwitch
-                      checked={user.isActive !== false}
-                      disabled={Boolean(updatingId) || !canDeactivate}
-                      label="Active"
-                      onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "isActive",
-                          value
-                        )
-                      }
-                    />
+                  {user.accountLinked !== false ? (
+                    <div className="flex flex-wrap gap-2">
+                      <SettingSwitch
+                        checked={user.isActive !== false}
+                        disabled={Boolean(updatingId) || !canDeactivate}
+                        label="Active"
+                        onChange={(value) =>
+                          updateEmployeeSetting(
+                            user,
+                            "isActive",
+                            value
+                          )
+                        }
+                      />
 
-                    <SettingSwitch
-                      checked={user.stylistProfile?.profilePublished === true}
-                      disabled={Boolean(updatingId) || !canUpdate}
-                      label="Published"
-                      onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "profilePublished",
-                          value
-                        )
-                      }
-                    />
+                      <SettingSwitch
+                        checked={user.stylistProfile?.profilePublished === true}
+                        disabled={Boolean(updatingId) || !canUpdate}
+                        label="Published"
+                        onChange={(value) =>
+                          updateEmployeeSetting(
+                            user,
+                            "profilePublished",
+                            value
+                          )
+                        }
+                      />
 
-                    <SettingSwitch
-                      checked={user.stylistProfile?.acceptsAppointments === true}
-                      disabled={Boolean(updatingId) || !canUpdate}
-                      label="Bookable"
-                      onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "acceptsAppointments",
-                          value
-                        )
-                      }
-                    />
-                  </div>
+                      <SettingSwitch
+                        checked={user.stylistProfile?.acceptsAppointments === true}
+                        disabled={Boolean(updatingId) || !canUpdate}
+                        label="Bookable"
+                        onChange={(value) =>
+                          updateEmployeeSetting(
+                            user,
+                            "acceptsAppointments",
+                            value
+                          )
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-black">
+                      Legacy employee profile: no SalonAI login account is linked yet. Profile details remain fully editable by an administrator.
+                    </p>
+                  )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      to={`/admin/employees/${user.id}`}
-                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                    >
-                      Manage employee
-                    </Link>
+                    {user.accountLinked !== false ? (
+                      <Link
+                        to={`/admin/employees/${user.id}`}
+                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                      >
+                        Manage employee
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/admin/stylists?edit=${user.stylistProfile?.id}`}
+                        className="rounded-lg border border-black bg-amber-400 px-3 py-2 text-xs font-bold text-black hover:bg-amber-300"
+                      >
+                        Edit employee profile
+                      </Link>
+                    )}
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (

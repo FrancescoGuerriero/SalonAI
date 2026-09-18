@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { PUBLIC_STYLIST_FIELDS } from "../controllers/stylistController.js";
+import CanonicalAuditLog from "../models/AuditLog.js";
+import FutureFeatureAuditLog from "../features/security/AuditLog.js";
 import {
   FEATURE_CONTROLS,
   createRequireFeature,
@@ -116,4 +118,27 @@ test("system administration feature controls are mounted and admin-only", async 
   assert.match(routes, /router\.patch\("\/features\/:featureId"/);
   assert.match(app, /"\/api\/system-administration"/);
   assert.match(app, /"\/api\/app-configuration"/);
+});
+
+
+test("system and future-feature audits use distinct Mongoose models", () => {
+  assert.equal(CanonicalAuditLog.modelName, "AuditLog");
+  assert.equal(
+    FutureFeatureAuditLog.modelName,
+    "FutureFeatureAuditLog"
+  );
+  assert.notEqual(
+    CanonicalAuditLog,
+    FutureFeatureAuditLog
+  );
+  assert.ok(
+    CanonicalAuditLog.schema.path(
+      "resourceType"
+    )
+  );
+  assert.ok(
+    FutureFeatureAuditLog.schema.path(
+      "entityType"
+    )
+  );
 });
