@@ -188,6 +188,25 @@ export function AuthProvider({
       []
     );
 
+  const completeSocialLogin =
+    useCallback(
+      async () => {
+        const response =
+          await authService.completeSocialLogin();
+
+        setToken(
+          response.token
+        );
+        setUser(
+          response.user ??
+            null
+        );
+
+        return response;
+      },
+      []
+    );
+
   const register =
     useCallback(
       async (
@@ -262,6 +281,7 @@ export function AuthProvider({
         token,
         loading,
         login,
+        completeSocialLogin,
         register,
         logout,
         refreshAccount,
@@ -274,6 +294,7 @@ export function AuthProvider({
         token,
         loading,
         login,
+        completeSocialLogin,
         register,
         logout,
         refreshAccount,
