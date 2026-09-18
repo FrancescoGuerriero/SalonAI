@@ -1,5 +1,6 @@
 import React from "react";
 import AppointmentCalendar from "../components/calendar/AppointmentCalendar";
+import StaffCalendarConnections from "../components/calendar/StaffCalendarConnections.jsx";
 
 export default function CalendarPage() {
   return (
@@ -18,6 +19,8 @@ export default function CalendarPage() {
         </div>
 
       </div>
+
+      <StaffCalendarConnections />
 
       <AppointmentCalendar />
 
