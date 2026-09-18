@@ -1,20 +1,25 @@
-import {
-  LoaderCircle,
-} from "lucide-react";
+export default function PageLoader({
+  message = "Loading SalonAI…",
+  compact = false,
+}) {
+  const className = compact
+    ? "page-loader page-loader-compact"
+    : "page-loader";
 
-export default function PageLoader() {
   return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="text-center">
-        <LoaderCircle
-          size={32}
-          className="mx-auto animate-spin text-indigo-600"
-        />
+    <div
+      className={className}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={message}
+    >
+      <span
+        className="page-loader-spinner"
+        aria-hidden="true"
+      />
 
-        <p className="mt-3 text-sm font-semibold text-slate-600">
-          Loading SalonAI…
-        </p>
-      </div>
+      <p>{message}</p>
     </div>
   );
 }
