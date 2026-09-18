@@ -1,4 +1,5 @@
 import ExternalCalendarConnection from "../../models/ExternalCalendarConnection.js";
+import User from "../../models/user.js";
 import {
   encryptCalendarSecret,
 } from "./calendarCredentialCrypto.js";
@@ -57,6 +58,33 @@ export async function saveOAuthConnection({
   provider,
   code,
 }) {
+  const user =
+    await User.findById(
+      userId
+    ).select(
+      "role isActive"
+    );
+
+  if (
+    !user ||
+    user.isActive === false ||
+    ![
+      "super_admin",
+      "admin",
+      "manager",
+      "receptionist",
+      "stylist",
+    ].includes(user.role)
+  ) {
+    const error = new Error(
+      "The staff account for this calendar connection is no longer eligible."
+    );
+    error.statusCode = 403;
+    error.code =
+      "CALENDAR_CONNECTION_ACCOUNT_INELIGIBLE";
+    throw error;
+  }
+
   const token =
     await exchangeCalendarAuthorizationCode({
       provider,
