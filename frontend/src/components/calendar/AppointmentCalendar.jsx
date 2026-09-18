@@ -430,8 +430,17 @@ export default function AppointmentCalendar() {
     );
 
   useEffect(() => {
-    void loadOptions();
-  }, [loadOptions]);
+    if (
+      canCreate ||
+      canUpdate
+    ) {
+      void loadOptions();
+    }
+  }, [
+    canCreate,
+    canUpdate,
+    loadOptions,
+  ]);
 
   useEffect(() => {
     void loadAppointments(
