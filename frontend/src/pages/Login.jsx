@@ -103,6 +103,7 @@ export default function Login() {
   const socialAttempted = useRef(false);
 
   const {
+    user: currentUser,
     login,
     completeSocialLogin,
     loading: authLoading,
@@ -278,28 +279,25 @@ export default function Login() {
       !forgotMode &&
       !resetMode &&
       !verificationMode &&
+      !socialStatus &&
       !authLoading &&
       isAuthenticated
     ) {
-      const result = await login({
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-      });
-
       navigate(
         destinationForUser(
-          result.user
+          currentUser
         ),
         { replace: true }
       );
     }
   }, [
     authLoading,
+    currentUser,
     forgotMode,
     isAuthenticated,
     navigate,
-    redirectPath,
     resetMode,
+    socialStatus,
     verificationMode,
   ]);
 
@@ -312,12 +310,18 @@ export default function Login() {
     try {
       setSubmitting(true);
 
-      await login({
-        email: form.email.trim().toLowerCase(),
-        password: form.password,
-      });
+      const result =
+        await login({
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+        });
 
-      navigate(redirectPath, { replace: true });
+      navigate(
+        destinationForUser(
+          result.user
+        ),
+        { replace: true }
+      );
     } catch (requestError) {
       console.error("Login failed:", requestError);
       const code = requestError?.response?.data?.code;
