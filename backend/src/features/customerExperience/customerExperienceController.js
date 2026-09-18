@@ -12,6 +12,9 @@ import {
 import CustomerExperienceProfile from "./CustomerExperienceProfile.js";
 import SalonOffer from "./SalonOffer.js";
 import {
+  isFeatureEnabled,
+} from "../../services/featureControlService.js";
+import {
   integer,
   normaliseDiscovery,
   normaliseOffer,
@@ -75,36 +78,218 @@ function publicGiftCard(card) {
 }
 
 export async function getCustomerExperience(req, res) {
-  const profile = await profileFor(req.user._id);
+  const controlledFeatures = [
+    "reviews",
+    "favourites",
+    "offers",
+    "wallet",
+    "loyalty",
+    "appointments",
+    "inbox",
+    "salon-discovery",
+    "consultation",
+    "inspiration",
+    "referrals",
+    "feedback",
+  ];
+
+  const enabledValues =
+    await Promise.all(
+      controlledFeatures.map(
+        (featureId) =>
+          isFeatureEnabled(
+            featureId
+          )
+      )
+    );
+
+  const featureAvailability =
+    Object.fromEntries(
+      controlledFeatures.map(
+        (
+          featureId,
+          index
+        ) => [
+          featureId,
+          enabledValues[
+            index
+          ],
+        ]
+      )
+    );
+
+  const profile =
+    await profileFor(
+      req.user._id
+    );
+
   await profile.populate([
-    { path: "reviews.appointment", select: "startsAt appointmentDate appointmentTime status", populate: { path: "service", select: "name" } },
-    { path: "appointmentRequests.appointment", select: "startsAt appointmentDate appointmentTime status", populate: { path: "service", select: "name" } },
-    { path: "claimedOffers.offer", select: "title description discountType value minimumSpend endsAt active" },
-    { path: "walletCards.giftCard", select: "codeLastFour originalValue balance currency status expiresAt" },
+    {
+      path: "reviews.appointment",
+      select: "startsAt appointmentDate appointmentTime status",
+      populate: {
+        path: "service",
+        select: "name",
+      },
+    },
+    {
+      path: "appointmentRequests.appointment",
+      select: "startsAt appointmentDate appointmentTime status",
+      populate: {
+        path: "service",
+        select: "name",
+      },
+    },
+    {
+      path: "claimedOffers.offer",
+      select: "title description discountType value minimumSpend endsAt active",
+    },
+    {
+      path: "walletCards.giftCard",
+      select: "codeLastFour originalValue balance currency status expiresAt",
+    },
   ]);
 
-  const [loyalty, referrals, inbox, offers] = await Promise.all([
-    LoyaltyAccount.findOne({ customer: req.user._id }).lean(),
-    Referral.find({ referrer: req.user._id }).sort({ createdAt: -1 }).limit(50).lean(),
-    Notification.find({ customer: req.user._id }).sort({ createdAt: -1 }).limit(100).lean(),
-    SalonOffer.find(activeOfferQuery()).sort({ endsAt: 1 }).lean(),
-  ]);
-
-  const result = profile.toObject();
-  result.walletCards = result.walletCards.map((entry) => ({
-    id: entry._id,
-    label: entry.label,
-    addedAt: entry.addedAt,
-    giftCard: publicGiftCard(entry.giftCard),
-  }));
-
-  return res.json({
-    success: true,
-    profile: result,
-    loyalty: loyalty || { pointsBalance: 0, lifetimePointsEarned: 0, tier: "bronze", transactions: [] },
+  const [
+    loyalty,
     referrals,
     inbox,
     offers,
+  ] = await Promise.all([
+    featureAvailability.loyalty
+      ? LoyaltyAccount.findOne({
+          customer:
+            req.user._id,
+        }).lean()
+      : null,
+    featureAvailability.referrals
+      ? Referral.find({
+          referrer:
+            req.user._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .limit(50)
+          .lean()
+      : [],
+    featureAvailability.inbox
+      ? Notification.find({
+          customer:
+            req.user._id,
+        })
+          .sort({
+            createdAt: -1,
+          })
+          .limit(100)
+          .lean()
+      : [],
+    featureAvailability.offers
+      ? SalonOffer.find(
+          activeOfferQuery()
+        )
+          .sort({
+            endsAt: 1,
+          })
+          .lean()
+      : [],
+  ]);
+
+  const result =
+    profile.toObject();
+
+  result.walletCards =
+    featureAvailability.wallet
+      ? result.walletCards.map(
+          (entry) => ({
+            id: entry._id,
+            label:
+              entry.label,
+            addedAt:
+              entry.addedAt,
+            giftCard:
+              publicGiftCard(
+                entry.giftCard
+              ),
+          })
+        )
+      : [];
+
+  if (
+    !featureAvailability.reviews
+  ) {
+    result.reviews = [];
+  }
+
+  if (
+    !featureAvailability.favourites
+  ) {
+    result.favourites = [];
+  }
+
+  if (
+    !featureAvailability.offers
+  ) {
+    result.claimedOffers = [];
+  }
+
+  if (
+    !featureAvailability.appointments
+  ) {
+    result.appointmentRequests = [];
+  }
+
+  if (
+    !featureAvailability[
+      "salon-discovery"
+    ]
+  ) {
+    result.discovery = {};
+  }
+
+  if (
+    !featureAvailability.consultation
+  ) {
+    result.consultations = [];
+  }
+
+  if (
+    !featureAvailability.inspiration
+  ) {
+    result.inspirationItems = [];
+  }
+
+  if (
+    !featureAvailability.feedback
+  ) {
+    result.feedback = [];
+  }
+
+  return res.json({
+    success: true,
+    featureAvailability,
+    profile: result,
+    loyalty:
+      featureAvailability.loyalty
+        ? loyalty || {
+            pointsBalance: 0,
+            lifetimePointsEarned: 0,
+            tier: "bronze",
+            transactions: [],
+          }
+        : null,
+    referrals:
+      featureAvailability.referrals
+        ? referrals
+        : [],
+    inbox:
+      featureAvailability.inbox
+        ? inbox
+        : [],
+    offers:
+      featureAvailability.offers
+        ? offers
+        : [],
   });
 }
 
