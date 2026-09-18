@@ -5,16 +5,27 @@ import {
   Save,
   Scissors,
   Sparkles,
+  UsersRound,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
+import {
+  useSearchParams,
+} from "react-router-dom";
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
+import adminStaffService from "../Services/adminStaffService.js";
 import stylistService from "../Services/stylistService.js";
+import useAuth from "../hooks/useAuth.js";
+import {
+  hasPermission,
+} from "../utils/permissions.js";
 
 const emptyProfile = {
   firstName: "",
@@ -33,29 +44,16 @@ const emptyProfile = {
 };
 
 function listToText(value) {
-  if (
-    Array.isArray(
-      value
-    )
-  ) {
-    return value.join(
-      ", "
-    );
-  }
-
-  return String(
-    value || ""
-  );
+  return Array.isArray(value)
+    ? value.join(", ")
+    : String(value || "");
 }
 
 function stylistToForm(stylist = {}) {
   return {
-    firstName:
-      stylist.firstName || "",
-    lastName:
-      stylist.lastName || "",
-    email:
-      stylist.email || "",
+    firstName: stylist.firstName || "",
+    lastName: stylist.lastName || "",
+    email: stylist.email || "",
     jobTitle:
       stylist.jobTitle ||
       "Hair professional",
@@ -65,8 +63,7 @@ function stylistToForm(stylist = {}) {
       stylist.profileImage || "",
     yearsExperience:
       Number(
-        stylist.yearsExperience ||
-          0
+        stylist.yearsExperience || 0
       ),
     specialties:
       listToText(
@@ -83,15 +80,12 @@ function stylistToForm(stylist = {}) {
     website:
       stylist.website || "",
     profilePublished:
-      stylist.profilePublished !==
-      false,
+      stylist.profilePublished === true,
   };
 }
 
 function splitList(value) {
-  return String(
-    value || ""
-  )
+  return String(value || "")
     .split(",")
     .map((item) =>
       item.trim()
@@ -99,80 +93,322 @@ function splitList(value) {
     .filter(Boolean);
 }
 
+function errorMessage(
+  error,
+  fallback
+) {
+  return (
+    error?.response?.data
+      ?.message ||
+    error?.message ||
+    fallback
+  );
+}
+
+function profilePayload(form) {
+  return {
+    jobTitle:
+      form.jobTitle,
+    biography:
+      form.biography,
+    profileImage:
+      form.profileImage,
+    yearsExperience:
+      Number(
+        form.yearsExperience
+      ) || 0,
+    specialties:
+      splitList(
+        form.specialties
+      ),
+    languages:
+      splitList(
+        form.languages
+      ),
+    instagram:
+      form.instagram,
+    facebook:
+      form.facebook,
+    website:
+      form.website,
+    profilePublished:
+      form.profilePublished,
+  };
+}
+
 export default function StaffProfileEditorPage() {
+  const {
+    user,
+  } = useAuth();
+
+  const [
+    searchParams,
+    setSearchParams,
+  ] = useSearchParams();
+
+  const canReadAll =
+    hasPermission(
+      user,
+      "profile:all:read"
+    );
+
+  const canUpdateAll =
+    hasPermission(
+      user,
+      "profile:all:update"
+    );
+
+  const canUpdateOwn =
+    hasPermission(
+      user,
+      "profile:own:update"
+    );
+
+  const [
+    employees,
+    setEmployees,
+  ] = useState([]);
+
+  const [
+    selectedEmployeeId,
+    setSelectedEmployeeId,
+  ] = useState("");
+
+  const [
+    selectedProfileId,
+    setSelectedProfileId,
+  ] = useState("");
+
   const [
     form,
     setForm,
   ] = useState(
     emptyProfile
   );
+
   const [
     loading,
     setLoading,
-  ] = useState(
-    true
-  );
+  ] = useState(true);
+
   const [
     saving,
     setSaving,
-  ] = useState(
-    false
-  );
+  ] = useState(false);
+
   const [
     error,
     setError,
   ] = useState("");
+
   const [
     message,
     setMessage,
   ] = useState("");
 
-  useEffect(() => {
-    let active =
-      true;
+  const selectedEmployee =
+    useMemo(
+      () =>
+        employees.find(
+          (employee) =>
+            String(
+              employee.id
+            ) ===
+            String(
+              selectedEmployeeId
+            )
+        ) || null,
+      [
+        employees,
+        selectedEmployeeId,
+      ]
+    );
 
-    stylistService
-      .getMyProfile()
-      .then(
-        (payload) => {
-          if (!active) {
+  const loadEmployeeProfile =
+    useCallback(
+      async (employee) => {
+        const profileId =
+          employee
+            ?.stylistProfile
+            ?.id;
+
+        if (!profileId) {
+          setSelectedProfileId(
+            ""
+          );
+          setForm(
+            emptyProfile
+          );
+          setError(
+            "This staff account does not yet have a linked public profile. Open Manage employee first to create/link its operational profile."
+          );
+          return;
+        }
+
+        const stylist =
+          await stylistService.getStylist(
+            profileId
+          );
+
+        setSelectedProfileId(
+          String(profileId)
+        );
+
+        setForm(
+          stylistToForm(
+            stylist
+          )
+        );
+      },
+      []
+    );
+
+  const load =
+    useCallback(
+      async () => {
+        setLoading(true);
+        setError("");
+        setMessage("");
+
+        try {
+          if (!canReadAll) {
+            const payload =
+              await stylistService.getMyProfile();
+
+            setEmployees([]);
+            setSelectedEmployeeId(
+              ""
+            );
+            setSelectedProfileId(
+              String(
+                payload
+                  ?.stylist
+                  ?._id || ""
+              )
+            );
+            setForm(
+              stylistToForm(
+                payload?.stylist
+              )
+            );
             return;
           }
 
-          setForm(
-            stylistToForm(
-              payload?.stylist
+          const result =
+            await adminStaffService.list({
+              limit: 500,
+            });
+
+          const staff =
+            Array.isArray(
+              result?.users
+            )
+              ? result.users
+              : [];
+
+          setEmployees(
+            staff
+          );
+
+          if (!staff.length) {
+            setSelectedEmployeeId(
+              ""
+            );
+            setSelectedProfileId(
+              ""
+            );
+            setForm(
+              emptyProfile
+            );
+            setError(
+              "No staff accounts are available."
+            );
+            return;
+          }
+
+          const requested =
+            searchParams.get(
+              "edit"
+            );
+
+          const target =
+            staff.find(
+              (employee) =>
+                String(
+                  employee.id
+                ) ===
+                  String(
+                    requested ||
+                      ""
+                  ) ||
+                String(
+                  employee
+                    ?.stylistProfile
+                    ?.id || ""
+                ) ===
+                  String(
+                    requested ||
+                      ""
+                  )
+            ) ||
+            staff[0];
+
+          setSelectedEmployeeId(
+            String(
+              target.id
             )
           );
-        }
-      )
-      .catch(
-        (requestError) => {
-          if (!active) {
-            return;
-          }
 
-          setError(
-            requestError
-              .response
-              ?.data
-              ?.message ||
-              "Your staff profile could not be loaded."
+          await loadEmployeeProfile(
+            target
           );
-        }
-      )
-      .finally(() => {
-        if (active) {
+
+          if (requested) {
+            const next =
+              new URLSearchParams(
+                searchParams
+              );
+
+            next.delete(
+              "edit"
+            );
+
+            setSearchParams(
+              next,
+              {
+                replace:
+                  true,
+              }
+            );
+          }
+        } catch (
+          requestError
+        ) {
+          setError(
+            errorMessage(
+              requestError,
+              canReadAll
+                ? "Staff profiles could not be loaded."
+                : "Your staff profile could not be loaded."
+            )
+          );
+        } finally {
           setLoading(
             false
           );
         }
-      });
+      },
+      [
+        canReadAll,
+        loadEmployeeProfile,
+        searchParams,
+        setSearchParams,
+      ]
+    );
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   function update(
     field,
@@ -190,68 +426,139 @@ export default function StaffProfileEditorPage() {
     );
   }
 
-  async function submit(
-    event
+  async function changeEmployee(
+    employeeId
   ) {
-    event.preventDefault();
+    const employee =
+      employees.find(
+        (item) =>
+          String(item.id) ===
+          String(employeeId)
+      );
 
-    setSaving(
-      true
+    setSelectedEmployeeId(
+      String(
+        employeeId
+      )
     );
     setError("");
     setMessage("");
 
-    try {
-      const response =
-        await stylistService.updateMyProfile(
-          {
-            jobTitle:
-              form.jobTitle,
-            biography:
-              form.biography,
-            profileImage:
-              form.profileImage,
-            yearsExperience:
-              Number(
-                form.yearsExperience
-              ) || 0,
-            specialties:
-              splitList(
-                form.specialties
-              ),
-            languages:
-              splitList(
-                form.languages
-              ),
-            instagram:
-              form.instagram,
-            facebook:
-              form.facebook,
-            website:
-              form.website,
-            profilePublished:
-              form.profilePublished,
-          }
-        );
+    if (!employee) {
+      return;
+    }
 
-      setForm(
-        stylistToForm(
-          response?.stylist
-        )
-      );
-      setMessage(
-        response?.message ||
-          "Your staff profile has been saved."
+    setLoading(true);
+
+    try {
+      await loadEmployeeProfile(
+        employee
       );
     } catch (
       requestError
     ) {
       setError(
-        requestError
-          .response
-          ?.data
-          ?.message ||
-          "Your staff profile could not be saved."
+        errorMessage(
+          requestError,
+          "The selected staff profile could not be loaded."
+        )
+      );
+    } finally {
+      setLoading(
+        false
+      );
+    }
+  }
+
+  async function submit(
+    event
+  ) {
+    event.preventDefault();
+
+    if (
+      canReadAll &&
+      !canUpdateAll
+    ) {
+      setError(
+        "You can view staff profiles but you do not have permission to edit them."
+      );
+      return;
+    }
+
+    if (
+      !canReadAll &&
+      !canUpdateOwn
+    ) {
+      setError(
+        "You do not have permission to edit this profile."
+      );
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      let response;
+
+      if (
+        canReadAll
+      ) {
+        if (
+          !selectedProfileId
+        ) {
+          throw new Error(
+            "The selected staff account does not have a linked profile."
+          );
+        }
+
+        response =
+          await stylistService.updateStylist(
+            selectedProfileId,
+            profilePayload(
+              form
+            )
+          );
+
+        setForm(
+          stylistToForm(
+            response
+          )
+        );
+
+        setMessage(
+          `${selectedEmployee?.name || "Staff"} profile has been saved.`
+        );
+      } else {
+        response =
+          await stylistService.updateMyProfile(
+            profilePayload(
+              form
+            )
+          );
+
+        setForm(
+          stylistToForm(
+            response?.stylist
+          )
+        );
+
+        setMessage(
+          response?.message ||
+            "Your staff profile has been saved."
+        );
+      }
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError,
+          canReadAll
+            ? "The selected staff profile could not be saved."
+            : "Your staff profile could not be saved."
+        )
       );
     } finally {
       setSaving(
@@ -270,6 +577,11 @@ export default function StaffProfileEditorPage() {
     );
   }
 
+  const editable =
+    canReadAll
+      ? canUpdateAll
+      : canUpdateOwn;
+
   return (
     <main
       className="staff-profile-page"
@@ -279,19 +591,30 @@ export default function StaffProfileEditorPage() {
       <section className="staff-profile-hero">
         <div>
           <p className="customer-eyebrow">
-            <Sparkles
-              size={16}
-            />
-            Staff profile
+            {canReadAll ? (
+              <UsersRound
+                size={16}
+              />
+            ) : (
+              <Sparkles
+                size={16}
+              />
+            )}
+            {canReadAll
+              ? "Staff profiles"
+              : "My public profile"}
           </p>
+
           <h1>
-            Publish the professional
-            profile clients see.
+            {canReadAll
+              ? "Manage the professional profiles clients see."
+              : "Publish the professional profile clients see."}
           </h1>
+
           <p>
-            Keep your photograph, title, biography, specialties and public
-            links current. Private contact information is not editable here and
-            is not included in the public team endpoint.
+            {canReadAll
+              ? "Select a genuine staff account, then maintain its photograph, title, biography, specialties and public links. Historical booking records are not treated as staff identities."
+              : "Keep your photograph, title, biography, specialties and public links current. Private account information remains separate from the public profile."}
           </p>
         </div>
 
@@ -318,6 +641,57 @@ export default function StaffProfileEditorPage() {
           </div>
         </div>
       </section>
+
+      {canReadAll ? (
+        <section className="mb-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <UsersRound
+              size={20}
+            />
+            <div>
+              <h2 className="font-bold text-black">
+                Select staff profile
+              </h2>
+              <p className="text-sm text-stone-600">
+                The list uses canonical SalonAI staff accounts, in the same order as Employees.
+              </p>
+            </div>
+          </div>
+
+          <label className="mt-4 block max-w-xl text-sm font-semibold text-black">
+            Staff member
+            <select
+              className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-black"
+              value={
+                selectedEmployeeId
+              }
+              onChange={(
+                event
+              ) =>
+                void changeEmployee(
+                  event.target
+                    .value
+                )
+              }
+            >
+              {employees.map(
+                (employee) => (
+                  <option
+                    key={
+                      employee.id
+                    }
+                    value={
+                      employee.id
+                    }
+                  >
+                    {employee.name} · {employee.role}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+        </section>
+      ) : null}
 
       {error ? (
         <Alert
@@ -380,7 +754,8 @@ export default function StaffProfileEditorPage() {
             name={`${form.firstName} ${form.lastName}`}
             label="Professional profile photograph"
             disabled={
-              saving
+              saving ||
+              !editable
             }
           />
 
@@ -392,6 +767,9 @@ export default function StaffProfileEditorPage() {
                   form.jobTitle
                 }
                 maxLength={120}
+                disabled={
+                  !editable
+                }
                 onChange={(
                   event
                 ) =>
@@ -414,6 +792,9 @@ export default function StaffProfileEditorPage() {
                 value={
                   form.yearsExperience
                 }
+                disabled={
+                  !editable
+                }
                 onChange={(
                   event
                 ) =>
@@ -434,6 +815,9 @@ export default function StaffProfileEditorPage() {
                 value={
                   form.biography
                 }
+                disabled={
+                  !editable
+                }
                 onChange={(
                   event
                 ) =>
@@ -445,11 +829,7 @@ export default function StaffProfileEditorPage() {
                 }
               />
               <small>
-                {
-                  form.biography
-                    .length
-                }
-                /2000 characters
+                {form.biography.length}/2000 characters
               </small>
             </label>
 
@@ -458,6 +838,9 @@ export default function StaffProfileEditorPage() {
               <input
                 value={
                   form.specialties
+                }
+                disabled={
+                  !editable
                 }
                 onChange={(
                   event
@@ -481,6 +864,9 @@ export default function StaffProfileEditorPage() {
                 value={
                   form.languages
                 }
+                disabled={
+                  !editable
+                }
                 onChange={(
                   event
                 ) =>
@@ -499,6 +885,9 @@ export default function StaffProfileEditorPage() {
               <input
                 value={
                   form.instagram
+                }
+                disabled={
+                  !editable
                 }
                 onChange={(
                   event
@@ -520,6 +909,9 @@ export default function StaffProfileEditorPage() {
                 value={
                   form.facebook
                 }
+                disabled={
+                  !editable
+                }
                 onChange={(
                   event
                 ) =>
@@ -539,6 +931,9 @@ export default function StaffProfileEditorPage() {
                 type="url"
                 value={
                   form.website
+                }
+                disabled={
+                  !editable
                 }
                 onChange={(
                   event
@@ -561,8 +956,7 @@ export default function StaffProfileEditorPage() {
               Publish this profile
             </strong>
             <p>
-              When enabled, the profile appears on the public About/team
-              experience.
+              When enabled, the profile may appear on public team experiences subject to the salon&apos;s Public team feature control.
             </p>
           </div>
 
@@ -571,6 +965,9 @@ export default function StaffProfileEditorPage() {
               type="checkbox"
               checked={
                 form.profilePublished
+              }
+              disabled={
+                !editable
               }
               onChange={(
                 event
@@ -595,7 +992,10 @@ export default function StaffProfileEditorPage() {
             type="submit"
             className="app-button app-button-primary"
             disabled={
-              saving
+              saving ||
+              !editable ||
+              (canReadAll &&
+                !selectedProfileId)
             }
           >
             <Save
@@ -603,7 +1003,9 @@ export default function StaffProfileEditorPage() {
             />
             {saving
               ? "Saving…"
-              : "Save staff profile"}
+              : canReadAll
+                ? "Save selected profile"
+                : "Save my profile"}
           </button>
         </footer>
       </form>
