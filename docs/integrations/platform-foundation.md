@@ -4,18 +4,52 @@
 
 This layer provides a provider-neutral boundary for future SalonAI integrations. It is intentionally not an API endpoint, database model, credential store or production activation mechanism.
 
-The first foundation keeps external-provider work separate from active Developer 2 UI/accessibility work and Developer 3 dashboard/RBAC/control-plane work.
+Developer 1 owns application development and the product roadmap. Developer 2 and Developer 3 operate as independent audit/checking lanes whose findings feed Developer 1 implementation.
 
-## Repository and lane model
+## Development roles
 
-SalonAI uses one authoritative repository with isolated worktrees or clones:
+### Developer 1 — application builder
 
-- Developer 1: `integrations/*`, `operations/*`, `crm/*`, `analytics/*`, `ai/*`
-- Developer 2: `errors-improvements/*`
-- Developer 3: `dashboard/*`
-- `main`: PR integration and release only
+Developer 1 owns:
 
-Separate repositories are not used for these lanes because the frontend, backend, AI service, MongoDB contracts, CI workflows and immutable release process form one deployable product.
+- roadmap implementation;
+- backend, frontend and AI architecture;
+- schemas and API contracts;
+- external integrations;
+- operations, CRM/retention, analytics/BI, AI and automation;
+- integration of validated audit findings;
+- CI/CD and release coordination.
+
+Normal feature development is performed through Developer 1 feature branches.
+
+### Developer 2 — error and quality audit
+
+Developer 2 independently checks the application for bugs, regressions, UI/UX defects, accessibility issues, responsive/layout problems, loading/error/recovery defects and visual inconsistencies.
+
+Developer 2 records reproducible evidence and verifies Developer 1 corrections. Major application features or architecture are not independently implemented by this lane unless a narrowly scoped corrective patch is explicitly delegated.
+
+### Developer 3 — feature and dashboard completeness audit
+
+Developer 3 independently checks management/dashboard workflows for missing, incomplete, incorrectly wired or inconsistent functionality.
+
+Developer 3 records expected behaviour, affected surfaces and acceptance criteria, then verifies Developer 1 implementation. Major management, RBAC, schema or control-plane changes are not independently implemented by this lane unless explicitly delegated.
+
+## Repository model
+
+SalonAI uses one authoritative repository. Independent work may use separate local worktrees/clones, but they share the same Git history, issues, CI and release process.
+
+- Developer 1 uses short-lived roadmap branches such as `integrations/*`, `operations/*`, `crm/*`, `analytics/*` and `ai/*`.
+- Developer 2/3 use audit/reproduction branches only when a code branch is necessary.
+- `main` remains the PR integration and release baseline.
+
+A finding follows this path:
+
+1. Developer 2/3 reproduces and documents it.
+2. Developer 1 triages it against current architecture and roadmap.
+3. Developer 1 implements the correction/feature on a dedicated branch.
+4. automated gates run;
+5. Developer 2/3 re-checks the corrected behaviour;
+6. Developer 1 integrates and releases.
 
 ## Foundation contracts
 
@@ -45,7 +79,7 @@ Planned adapter families:
 
 ## Integration sequence
 
-Each provider should be added in a short-lived PR with this order:
+Each provider should be added through Developer 1 in this order:
 
 1. provider-independent contract/capability definition;
 2. adapter implementation behind the registry;
@@ -53,15 +87,18 @@ Each provider should be added in a short-lived PR with this order:
 4. environment/config validation;
 5. signed webhook/idempotency handling where applicable;
 6. API/service wiring;
-7. management UI only after backend contracts are stable;
+7. management/customer UI after backend contracts are stable;
 8. sandbox acceptance evidence;
-9. immutable release and controlled production activation.
-
-Do not mix provider activation with unrelated dashboard or visual changes.
+9. independent Developer 2/3 verification where relevant;
+10. immutable release and controlled production activation.
 
 ## Conflict rule
 
-If another developer needs to consume an integration contract while Developer 1 is changing it, merge the contract PR first. The consuming developer rebases onto that contract and implements against the merged interface. Two developers should not independently edit the same contract file and resolve semantics through a last-minute Git conflict.
+Developer 2/3 findings should not produce competing implementations. Developer 1 owns the implementation and cross-cutting contracts.
+
+If a narrowly delegated audit-lane patch overlaps an active Developer 1 branch, integrate one branch first, then rebase and rerun the second branch against the new `main`.
+
+Architectural decisions must be resolved before merge, not through last-minute Git conflict resolution.
 
 ## Security constraints
 
@@ -70,4 +107,4 @@ If another developer needs to consume an integration contract while Developer 1 
 - provider webhooks require signature validation and replay/idempotency protection;
 - OAuth providers must use least-privilege scopes and encrypted token storage;
 - production activation remains separate from code merge;
-- feature/RBAC enforcement remains governed by the application control plane rather than bypassed by provider adapters.
+- feature/RBAC enforcement remains governed by SalonAI application policy rather than bypassed by provider adapters.
