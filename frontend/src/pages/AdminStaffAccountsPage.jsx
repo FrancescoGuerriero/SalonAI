@@ -114,7 +114,7 @@ function SettingSwitch({
       onClick={() =>
         onChange(!checked)
       }
-      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-amber-500 disabled:cursor-wait disabled:opacity-50"
+      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
     >
       <span
         aria-hidden="true"
@@ -1097,7 +1097,7 @@ export default function AdminStaffAccountsPage() {
 
                 {form.role ===
                 "stylist" ? (
-                  <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-800">
                     A professional employee profile will automatically be created or linked using this email address.
                   </div>
                 ) : null}
