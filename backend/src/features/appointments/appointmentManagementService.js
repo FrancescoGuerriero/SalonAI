@@ -712,6 +712,63 @@ async function checkAppointmentConflict(
   };
 }
 
+async function searchAppointmentCustomers(
+  query = ""
+) {
+  const search =
+    normaliseText(query);
+  const filter = {
+    status: {
+      $ne: "deleted",
+    },
+  };
+
+  if (search) {
+    const expression =
+      new RegExp(
+        escapeRegularExpression(
+          search
+        ),
+        "i"
+      );
+
+    filter.$or = [
+      {
+        firstName:
+          expression,
+      },
+      {
+        lastName:
+          expression,
+      },
+      {
+        preferredName:
+          expression,
+      },
+      {
+        email:
+          expression,
+      },
+      {
+        phone:
+          expression,
+      },
+    ];
+  }
+
+  return Customer.find(filter)
+    .select(
+      "firstName lastName preferredName email phone status"
+    )
+    .sort({
+      lastName: 1,
+      firstName: 1,
+      _id: 1,
+    })
+    .limit(25)
+    .lean();
+}
+
 /*
 |--------------------------------------------------------------------------
 | Staff-managed appointment creation
@@ -1967,6 +2024,7 @@ export {
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  searchAppointmentCustomers,
 };
 
 export default {
@@ -1981,4 +2039,5 @@ export default {
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  searchAppointmentCustomers,
 };
