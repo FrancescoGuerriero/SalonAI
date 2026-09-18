@@ -9,6 +9,9 @@ import {
 import {
   buildManagementCopilotPayload,
 } from "./aiManagementCopilotService.js";
+import {
+  buildAdviserDomainContext,
+} from "./aiAdviserContextService.js";
 
 const MODEL_NAME =
   "salonai-adviser-grounded";
@@ -231,6 +234,7 @@ function fallbackAnswer({
   question,
   payload,
   knowledge,
+  domainContext,
 }) {
   const metrics =
     metricSummary(
@@ -288,6 +292,22 @@ function fallbackAnswer({
       )
       .join("; ");
 
+  const domainText =
+    domainContext?.sections
+      ?.length
+      ? ` Page-specific context: ${domainContext.sections
+          .map(
+            (section) =>
+              `${section.domain}: ${Object.entries(section.metrics)
+                .map(
+                  ([key, value]) =>
+                    `${key}=${value}`
+                )
+                .join(", ")}`
+          )
+          .join("; ")}.`
+      : "";
+
   const knowledgeText =
     knowledge.length
       ? ` I also found reviewed knowledge relevant to your question: ${knowledge
@@ -301,6 +321,7 @@ function fallbackAnswer({
   return (
     `For ${payload.period_label.toLowerCase()}, the current SalonAI evidence is: ${facts}. ` +
     `This read-only Adviser response is grounded in current operational aggregates rather than a trained generative SalonAI model.` +
+    domainText +
     knowledgeText
   );
 }
@@ -323,6 +344,7 @@ function userPrompt({
   contextPath,
   payload,
   knowledge,
+  domainContext,
 }) {
   return JSON.stringify(
     {
@@ -339,6 +361,8 @@ function userPrompt({
       issues:
         payload.issues ||
         [],
+      contextualDomainEvidence:
+        domainContext,
       reviewedKnowledge:
         knowledge,
     },
@@ -398,6 +422,7 @@ export async function askSalonAiAdviser({
   const [
     payload,
     knowledge,
+    domainContext,
   ] = await Promise.all([
     buildManagementCopilotPayload({
       periodDays:
@@ -407,6 +432,10 @@ export async function askSalonAiAdviser({
       safeQuestion,
       user
     ),
+    buildAdviserDomainContext({
+      contextPath,
+      user,
+    }),
   ]);
 
   const fallback =
@@ -415,6 +444,7 @@ export async function askSalonAiAdviser({
         safeQuestion,
       payload,
       knowledge,
+      domainContext,
     });
 
   const generated =
@@ -431,6 +461,7 @@ export async function askSalonAiAdviser({
             ),
           payload,
           knowledge,
+          domainContext,
         }),
       fallback,
     });
@@ -447,6 +478,7 @@ export async function askSalonAiAdviser({
     issues:
       payload.issues ||
       [],
+    domainContext,
     knowledge:
       knowledge.map(
         (item) => ({
