@@ -59,6 +59,7 @@ async function providerRequest({
   accessToken,
   method = "GET",
   body = null,
+  headers = {},
 }) {
   const response =
     await fetch(url, {
@@ -72,6 +73,7 @@ async function providerRequest({
                 "application/json",
             }
           : {}),
+        ...headers,
       },
       body:
         body
@@ -259,6 +261,128 @@ function eventId(value) {
       value,
       "Provider event identifier"
     )
+  );
+}
+
+export async function getProviderEvent({
+  provider,
+  calendarId,
+  providerEventId,
+  accessToken,
+}) {
+  if (
+    provider === "google"
+  ) {
+    const payload =
+      await providerRequest({
+        provider,
+        accessToken,
+        url:
+          `https://www.googleapis.com/calendar/v3/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
+      });
+
+    return {
+      providerEventId:
+        text(payload.id),
+      providerVersion:
+        text(payload.etag),
+      providerUpdatedAt:
+        payload.updated ||
+        null,
+      deleted:
+        payload.status ===
+        "cancelled",
+      start:
+        payload.start
+          ?.dateTime ||
+        null,
+      end:
+        payload.end
+          ?.dateTime ||
+        null,
+    };
+  }
+
+  if (
+    provider === "outlook"
+  ) {
+    try {
+      const payload =
+        await providerRequest({
+          provider,
+          accessToken,
+          url:
+            `https://graph.microsoft.com/v1.0/me/calendars/${encoded(calendarId)}/events/${eventId(providerEventId)}`,
+          headers: {
+            Prefer:
+              'outlook.timezone="UTC"',
+          },
+        });
+
+      const utcInstant =
+        (value) => {
+          const safe =
+            text(value);
+
+          if (!safe) {
+            return null;
+          }
+
+          return /(?:Z|[+-]\d{2}:\d{2})$/.test(
+            safe
+          )
+            ? safe
+            : safe + "Z";
+        };
+
+      return {
+        providerEventId:
+          text(payload.id),
+        providerVersion:
+          text(
+            payload.changeKey
+          ),
+        providerUpdatedAt:
+          payload.lastModifiedDateTime ||
+          null,
+        deleted: false,
+        start:
+          utcInstant(
+            payload.start
+              ?.dateTime
+          ),
+        end:
+          utcInstant(
+            payload.end
+              ?.dateTime
+          ),
+      };
+    } catch (error) {
+      if (
+        error.providerStatus ===
+        404
+      ) {
+        return {
+          providerEventId:
+            text(
+              providerEventId
+            ),
+          providerVersion:
+            "",
+          providerUpdatedAt:
+            null,
+          deleted: true,
+          start: null,
+          end: null,
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error(
+    `Unsupported calendar provider: ${provider}`
   );
 }
 
