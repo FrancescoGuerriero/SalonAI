@@ -1072,15 +1072,14 @@ textarea {
 .app-footer nav a:hover { color: #f1c56f; }
 .app-footer-note { grid-column: 1 / -1; margin: .3rem 0 0; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.09); color: #a89b89; font-size: .62rem; }
 
-.management-shell { display: flex; min-height: calc(100vh - var(--app-header-height)); }
-.management-sidebar { width: var(--app-sidebar-width); flex: 0 0 var(--app-sidebar-width); border-right: 1px solid var(--app-line); background: rgba(255,254,251,.96); transition: width .2s ease, flex-basis .2s ease; }
+.management-shell { display: flex; min-height: 100vh; align-items: flex-start; }
+.management-sidebar { position: sticky; top: 0; align-self: flex-start; display: flex; flex-direction: column; width: var(--app-sidebar-width); height: 100vh; height: 100dvh; flex: 0 0 var(--app-sidebar-width); overflow: hidden; border-right: 1px solid var(--app-line); background: rgba(255,254,251,.96); transition: width .2s ease, flex-basis .2s ease; }
 .management-sidebar.is-collapsed { width: var(--app-sidebar-collapsed); flex-basis: var(--app-sidebar-collapsed); }
-.management-sidebar > div { position: sticky; top: var(--app-header-height); }
-.management-sidebar-head { height: 76px; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 0 1rem; border-bottom: 1px solid #eee7da; }
+.management-sidebar-head { flex: 0 0 76px; height: 76px; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 0 1rem; border-bottom: 1px solid #eee7da; }
 .management-sidebar-head > div { display: grid; }
 .management-sidebar-head strong { font-size: 1rem; }
-.management-sidebar-scroll { height: calc(100vh - var(--app-header-height) - 150px); overflow-y: auto; padding: .8rem; scrollbar-width: thin; }
-.management-sidebar-foot { padding: .8rem; border-top: 1px solid #eee7da; }
+.management-sidebar-scroll { flex: 1 1 auto; min-height: 0; height: auto; overflow-y: auto; overscroll-behavior: contain; padding: .8rem; scrollbar-width: thin; scrollbar-gutter: stable; }
+.management-sidebar-foot { flex: 0 0 auto; padding: .8rem; border-top: 1px solid #eee7da; }
 .management-workspace-card { border: 1px solid #eddcb8; border-radius: 10px; background: linear-gradient(145deg,#fff9e9,#fffdf8); padding: .85rem; }
 .management-workspace-card span { font-weight: 800; }
 .management-workspace-card p { margin: .35rem 0 0; color: var(--app-muted); font-size: .7rem; line-height: 1.55; }

@@ -41,3 +41,22 @@ test("interface source contains only neutral, gold and sand colour values", () =
   }
   assert.deepEqual(violations, []);
 });
+
+test("React templates do not use blue, indigo or navy utility semantics", () => {
+  const violations = [];
+  const templateFiles = filesIn(root).filter((file) => /\.(jsx|js)$/.test(file));
+
+  for (const file of templateFiles) {
+    const source = fs.readFileSync(file, "utf8");
+    const utilityPattern =
+      /\b(?:bg|text|border|ring|outline|accent|from|via|to)-(?:blue|indigo|navy)(?:-\d{2,3})?\b/gi;
+
+    for (const match of source.matchAll(utilityPattern)) {
+      violations.push(
+        `${path.relative(root, file)}: ${match[0]}`
+      );
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
