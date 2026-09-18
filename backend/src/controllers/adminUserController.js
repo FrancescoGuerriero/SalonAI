@@ -1700,6 +1700,16 @@ export async function updateAdminUserStatus(
     );
 
     if (
+      user.role === "super_admin" &&
+      req.user.role !== "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can change a Super Admin account.",
+        403
+      );
+    }
+
+    if (
       String(user._id) ===
         String(
           req.user._id
