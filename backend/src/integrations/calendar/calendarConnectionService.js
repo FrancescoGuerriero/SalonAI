@@ -210,7 +210,7 @@ export async function getCalendarProviderContext({
     await ExternalCalendarConnection.findById(
       connectionId
     ).select(
-      "+encryptedAccessToken +encryptedRefreshToken"
+      "+encryptedAccessToken +encryptedRefreshToken +subscriptionId +subscriptionResourceId"
     );
 
   if (!connection) {
