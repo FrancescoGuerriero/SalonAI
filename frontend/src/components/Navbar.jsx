@@ -32,6 +32,7 @@ import {
   isManagementRole,
 } from "../utils/roles.js";
 import useFeatureControls from "../hooks/useFeatureControls.js";
+import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 
 const PUBLIC_LINKS = [
   {
@@ -110,6 +111,19 @@ export default function Navbar() {
 
   const accountRef =
     useRef(null);
+  const mobileTriggerRef =
+    useRef(null);
+  const mobilePanelRef =
+    useRef(null);
+
+  useModalFocusTrap({
+    open: mobileOpen,
+    containerRef:
+      mobilePanelRef,
+    returnFocusRef:
+      mobileTriggerRef,
+    setOpen: setMobileOpen,
+  });
 
   const showManagement =
     isManagementRole(
@@ -506,6 +520,7 @@ export default function Navbar() {
           )}
 
           <button
+            ref={mobileTriggerRef}
             type="button"
             className="app-icon-button app-mobile-only"
             onClick={() =>
@@ -543,8 +558,10 @@ export default function Navbar() {
           />
 
           <aside
+            ref={mobilePanelRef}
             className="app-mobile-panel"
             id="salonai-mobile-navigation"
+            tabIndex="-1"
           >
             <div className="app-mobile-panel-head">
               <span className="app-brand">

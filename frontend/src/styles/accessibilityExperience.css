@@ -148,13 +148,23 @@
   .app-button,
   .app-icon-button,
   .app-nav-link,
-  .navbar-link {
+  .navbar-link,
+  .management-link,
+  .management-section-toggle,
+  .customer-card-action,
+  .commerce-details-link {
     min-height: 44px;
     touch-action: manipulation;
   }
 
   .app-icon-button {
     min-width: 44px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
   }
 }
 
