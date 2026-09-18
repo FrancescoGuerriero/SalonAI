@@ -1438,7 +1438,7 @@ export default function AddEmployeeModal({
               Location
             </strong>
             <p className="mt-1">
-              This single-salon onboarding uses the existing rota location model (default: Main salon). Branch/location identity will remain with Developer 1&apos;s future multi-salon architecture rather than introducing a second employee-location source here.
+              New employees use the current rota location, <strong>Main salon</strong>. Location and shift changes are managed from Staff Rota.
             </p>
           </section>
         </div>
