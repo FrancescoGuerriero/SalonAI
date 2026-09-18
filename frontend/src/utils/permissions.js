@@ -23,6 +23,10 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "profile:all:read", label: "View all staff profiles", group: "Profiles" },
   { value: "profile:all:update", label: "Edit all staff profiles", group: "Profiles" },
 
+  { value: "schedule:own:read", label: "View own availability and leave", group: "My schedule" },
+  { value: "schedule:own:update", label: "Update own availability", group: "My schedule" },
+  { value: "leave:own:request", label: "Request own leave", group: "My schedule" },
+
   { value: "service:read", label: "View salon services", group: "Services" },
   { value: "service:create", label: "Create salon services", group: "Services" },
   { value: "service:update", label: "Edit salon services", group: "Services" },
@@ -53,11 +57,8 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
 ]);
 
 const STYLIST_BASELINE = Object.freeze([
-  "dashboard:view",
   "appointment:read",
   "appointment:create",
-  "profile:own:read",
-  "profile:own:update",
 ]);
 
 export function effectivePermissions(user) {
