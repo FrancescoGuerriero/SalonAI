@@ -14,6 +14,7 @@ import Appointment, {
 } from "../../models/Appointment.js";
 import Service from "../../models/service.js";
 import Customer from "../../models/customer.js";
+import Stylist from "../../models/Stylist.js";
 import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";
 import {
   assertAppointmentWithinStaffAvailability,
@@ -710,6 +711,80 @@ async function checkAppointmentConflict(
       duration: window.duration,
     },
   };
+}
+
+async function listAppointmentStylists() {
+  return Stylist.find({
+    isActive: true,
+    acceptsAppointments: true,
+  })
+    .select(
+      "name firstName lastName title jobTitle image profilePublished isActive acceptsAppointments"
+    )
+    .sort({
+      name: 1,
+      firstName: 1,
+      lastName: 1,
+      _id: 1,
+    })
+    .lean();
+}
+
+async function searchAppointmentCustomers(
+  query = ""
+) {
+  const search =
+    normaliseText(query);
+  const filter = {
+    status: {
+      $ne: "deleted",
+    },
+  };
+
+  if (search) {
+    const expression =
+      new RegExp(
+        escapeRegularExpression(
+          search
+        ),
+        "i"
+      );
+
+    filter.$or = [
+      {
+        firstName:
+          expression,
+      },
+      {
+        lastName:
+          expression,
+      },
+      {
+        preferredName:
+          expression,
+      },
+      {
+        email:
+          expression,
+      },
+      {
+        phone:
+          expression,
+      },
+    ];
+  }
+
+  return Customer.find(filter)
+    .select(
+      "firstName lastName preferredName email phone status"
+    )
+    .sort({
+      lastName: 1,
+      firstName: 1,
+      _id: 1,
+    })
+    .limit(25)
+    .lean();
 }
 
 /*
@@ -1967,6 +2042,8 @@ export {
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  listAppointmentStylists,
+  searchAppointmentCustomers,
 };
 
 export default {
@@ -1981,4 +2058,6 @@ export default {
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  listAppointmentStylists,
+  searchAppointmentCustomers,
 };

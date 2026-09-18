@@ -16,18 +16,35 @@ function findRoute(router, path, method) {
   )?.route;
 }
 
-function executeGuard(guard, role) {
+function executeGuard(
+  guard,
+  role,
+  permissions = []
+) {
   let nextCalled = false;
   let nextError = null;
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    },
+  };
 
   guard(
     {
       user: {
         _id: `${role}-user`,
         role,
+        permissions,
       },
     },
-    {},
+    response,
     (error) => {
       nextCalled = true;
       nextError = error || null;
@@ -37,6 +54,7 @@ function executeGuard(guard, role) {
   return {
     nextCalled,
     nextError,
+    response,
   };
 }
 
@@ -82,7 +100,7 @@ test(
 );
 
 test(
-  "new product creation is administrator only",
+  "new product creation follows delegated product:create permission",
   () => {
     const route = findRoute(
       commerceRoutes,
@@ -96,43 +114,52 @@ test(
       3
     );
 
-    const adminGuard =
+    const permissionGuard =
       route.stack[1].handle;
 
-    for (const role of [
-      "stylist",
-      "receptionist",
-      "manager",
-      "customer",
-    ]) {
-      const result =
-        executeGuard(
-          adminGuard,
-          role
-        );
-
-      assert.equal(
-        result.nextCalled,
-        true
-      );
-      assert.equal(
-        result.nextError?.statusCode,
-        403
-      );
-    }
-
-    const adminResult =
+    const denied =
       executeGuard(
-        adminGuard,
+        permissionGuard,
         "admin"
       );
 
     assert.equal(
-      adminResult.nextCalled,
+      denied.nextCalled,
+      false
+    );
+    assert.equal(
+      denied.response.statusCode,
+      403
+    );
+
+    const delegated =
+      executeGuard(
+        permissionGuard,
+        "admin",
+        ["product:create"]
+      );
+
+    assert.equal(
+      delegated.nextCalled,
       true
     );
     assert.equal(
-      adminResult.nextError,
+      delegated.nextError,
+      null
+    );
+
+    const superAdmin =
+      executeGuard(
+        permissionGuard,
+        "super_admin"
+      );
+
+    assert.equal(
+      superAdmin.nextCalled,
+      true
+    );
+    assert.equal(
+      superAdmin.nextError,
       null
     );
   }

@@ -1,12 +1,34 @@
 import * as service from "./commerceService.js";
 import { refundOrder } from "./orderRefundService.js";
+import {
+  hasUserPermission,
+} from "../../middleware/permissionMiddleware.js";
 
 export function getCommerceConfig(req, res) {
   res.json(service.commerceConfig());
 }
 
 export async function createProduct(req, res) {
-  res.status(201).json(await service.createProduct(req.body));
+  res.status(201).json(
+    await service.createProduct({
+      ...req.body,
+      stockQuantity:
+        hasUserPermission(
+          req.user,
+          "product:inventory:update"
+        )
+          ? req.body.stockQuantity
+          : 0,
+      reorderLevel:
+        hasUserPermission(
+          req.user,
+          "product:inventory:update"
+        )
+          ? req.body.reorderLevel
+          : 5,
+      active: false,
+    })
+  );
 }
 
 export async function listProducts(req, res) {
@@ -14,7 +36,19 @@ export async function listProducts(req, res) {
 }
 
 export async function listInventoryProducts(req, res) {
-  res.json(await service.listProducts(req.query, { management: true }));
+  res.json(
+    await service.listProducts(
+      req.query,
+      {
+        management: true,
+        includeCost:
+          hasUserPermission(
+            req.user,
+            "product:cost:read"
+          ),
+      }
+    )
+  );
 }
 
 export async function getProduct(req, res) {
@@ -22,7 +56,51 @@ export async function getProduct(req, res) {
 }
 
 export async function updateProduct(req, res) {
-  res.json(await service.updateProduct(req.params.id, req.body));
+  const payload = {
+    ...req.body,
+  };
+
+  // Publication and inventory are governed independently from catalogue editing.
+  delete payload.active;
+  delete payload.stockQuantity;
+
+  if (
+    !hasUserPermission(
+      req.user,
+      "product:inventory:update"
+    )
+  ) {
+    delete payload.reorderLevel;
+  }
+
+  res.json(
+    await service.updateProduct(
+      req.params.id,
+      payload
+    )
+  );
+}
+
+export async function updateProductPublication(req, res) {
+  if (
+    typeof req.body.active !==
+    "boolean"
+  ) {
+    return res.status(400).json({
+      message:
+        "active must be true or false.",
+    });
+  }
+
+  return res.json(
+    await service.updateProduct(
+      req.params.id,
+      {
+        active:
+          req.body.active,
+      }
+    )
+  );
 }
 
 export async function adjustStock(req, res) {
@@ -34,7 +112,15 @@ export async function listStockAdjustments(req, res) {
 }
 
 export async function inventorySummary(req, res) {
-  res.json(await service.inventorySummary());
+  res.json(
+    await service.inventorySummary({
+      includeCost:
+        hasUserPermission(
+          req.user,
+          "product:cost:read"
+        ),
+    })
+  );
 }
 
 export async function createCheckout(req, res) {
