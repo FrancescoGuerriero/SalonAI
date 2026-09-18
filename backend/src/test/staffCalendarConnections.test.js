@@ -60,7 +60,7 @@ test("staff calendar UI exposes independent Google and Outlook connection contro
   const source =
     await readFile(
       new URL(
-        "../../frontend/src/components/calendar/StaffCalendarConnections.jsx",
+        "../../../frontend/src/components/calendar/StaffCalendarConnections.jsx",
         import.meta.url
       ),
       "utf8"
