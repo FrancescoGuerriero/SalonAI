@@ -3,6 +3,7 @@ import {
   calendarAppointments,
   changeAppointmentStatus,
   checkAppointmentConflict,
+  createManagedAppointment,
   getAppointmentManagementSummary,
   getManagedAppointment,
   queueAppointmentReminder,
@@ -136,6 +137,40 @@ function serialiseDocument(
   }
 
   return value;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Staff-managed appointment creation
+|--------------------------------------------------------------------------
+*/
+
+async function create(
+  request,
+  response
+) {
+  const appointment =
+    await createManagedAppointment(
+      getRequestBody(
+        request
+      ),
+      {
+        actor:
+          getActor(request),
+      }
+    );
+
+  return response
+    .status(201)
+    .json({
+      success: true,
+      message:
+        "Appointment created successfully.",
+      appointment:
+        serialiseDocument(
+          appointment
+        ),
+    });
 }
 
 /*
@@ -586,6 +621,9 @@ export {
   conflict,
   conflict as checkConflict,
 
+  create,
+  create as createAppointment,
+
   getAppointment,
   getAppointment as get,
 
@@ -607,6 +645,7 @@ export {
 
 export default {
   bulkStatus,
+  create,
   calendar,
   conflict,
   getAppointment,
