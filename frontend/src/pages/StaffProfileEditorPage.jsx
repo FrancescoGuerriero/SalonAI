@@ -143,7 +143,6 @@ export default function StaffProfileEditorPage() {
 
   const [
     searchParams,
-    setSearchParams,
   ] = useSearchParams();
 
   const canReadAll =
@@ -363,24 +362,6 @@ export default function StaffProfileEditorPage() {
             target
           );
 
-          if (requested) {
-            const next =
-              new URLSearchParams(
-                searchParams
-              );
-
-            next.delete(
-              "edit"
-            );
-
-            setSearchParams(
-              next,
-              {
-                replace:
-                  true,
-              }
-            );
-          }
         } catch (
           requestError
         ) {
@@ -402,7 +383,6 @@ export default function StaffProfileEditorPage() {
         canReadAll,
         loadEmployeeProfile,
         searchParams,
-        setSearchParams,
       ]
     );
 
