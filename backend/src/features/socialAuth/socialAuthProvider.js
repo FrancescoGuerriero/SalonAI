@@ -321,17 +321,23 @@ async function exchangeCode(
     });
 
   const response =
-    await fetch(
-      settings.tokenUrl,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded",
-        },
-        body: params,
-      }
-    );
+    settings.provider === "facebook"
+      ? await fetch(
+          settings.tokenUrl +
+            "?" +
+            params.toString()
+        )
+      : await fetch(
+          settings.tokenUrl,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded",
+            },
+            body: params,
+          }
+        );
 
   const payload =
     await responseJson(
@@ -426,7 +432,7 @@ export async function resolveSocialIdentity({
             profile.userPrincipalName
           )
         ).toLowerCase(),
-      emailVerified: true,
+      emailVerified: false,
       name:
         text(
           profile.displayName
