@@ -71,11 +71,6 @@ export async function saveOAuthConnection({
       "+encryptedRefreshToken"
     );
 
-  const refreshToken =
-    token.refreshToken ||
-    previous?.encryptedRefreshToken ||
-    "";
-
   const update = {
     providerAccountId:
       token.account.id,
