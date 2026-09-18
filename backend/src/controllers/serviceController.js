@@ -20,15 +20,36 @@ export async function getServices(
   }
 }
 
+export async function getManagementServices(
+  req,
+  res,
+  next
+) {
+  try {
+    const services = await Service.find()
+      .sort({
+        name: 1,
+      });
+
+    return res.json({
+      success: true,
+      services,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function createService(
   req,
   res,
   next
 ) {
   try {
-    const service = await Service.create(
-      req.body
-    );
+    const service = await Service.create({
+      ...req.body,
+      active: false,
+    });
 
     return res.status(201).json({
       message: "Service created successfully.",
@@ -89,10 +110,17 @@ export async function updateService(
       });
     }
 
+    const payload = {
+      ...req.body,
+    };
+
+    // Publication is a separate privileged action.
+    delete payload.active;
+
     const service =
       await Service.findByIdAndUpdate(
         req.params.id,
-        req.body,
+        payload,
         {
           new: true,
           runValidators: true
@@ -147,5 +175,64 @@ export async function deleteService(
     });
   } catch (error) {
     next(error);
+  }
+}
+
+export async function updateServicePublication(
+  req,
+  res,
+  next
+) {
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      return res.status(400).json({
+        message:
+          "The service identifier is invalid.",
+      });
+    }
+
+    if (
+      typeof req.body.active !==
+      "boolean"
+    ) {
+      return res.status(400).json({
+        message:
+          "active must be true or false.",
+      });
+    }
+
+    const service =
+      await Service.findByIdAndUpdate(
+        req.params.id,
+        {
+          active:
+            req.body.active,
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+    if (!service) {
+      return res.status(404).json({
+        message:
+          "Service not found.",
+      });
+    }
+
+    return res.json({
+      message:
+        service.active
+          ? "Service published."
+          : "Service unpublished.",
+      service,
+    });
+  } catch (error) {
+    return next(error);
   }
 }
