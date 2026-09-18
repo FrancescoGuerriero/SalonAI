@@ -18,7 +18,6 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import appointmentManagementApi from "../../Services/appointmentManagementApi.js";
 import serviceService from "../../Services/serviceService.js";
-import stylistService from "../../Services/stylistService.js";
 import useAuth from "../../hooks/useAuth.js";
 import {
   hasPermission,
@@ -333,7 +332,7 @@ export default function AppointmentCalendar() {
           ] =
             await Promise.all([
               serviceService.getServices(),
-              stylistService.getBookingStylists(),
+              appointmentManagementApi.stylists(),
             ]);
 
           setServices(
