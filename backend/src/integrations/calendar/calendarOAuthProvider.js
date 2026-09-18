@@ -212,6 +212,15 @@ export async function exchangeCalendarAuthorizationCode({
     grant_type: "authorization_code",
   });
 
+  if (
+    provider === "outlook"
+  ) {
+    params.set(
+      "scope",
+      config.scopes.join(" ")
+    );
+  }
+
   const token = await parseJson(
     await fetch(config.tokenUrl, {
       method: "POST",
