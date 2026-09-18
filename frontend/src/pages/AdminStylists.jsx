@@ -1,41 +1,129 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Plus,
+  RefreshCw,
+  Search,
+  UsersRound,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  Link,
+  useSearchParams,
+} from "react-router-dom";
 
-import StylistCard from "../components/StylistCard";
-import StylistForm from "../components/StylistForm";
-import stylistService from "../Services/stylistService";
+import StylistCard from "../components/StylistCard.jsx";
+import StylistForm from "../components/StylistForm.jsx";
+import stylistService from "../Services/stylistService.js";
+
+function requestErrorMessage(
+  error,
+  fallback
+) {
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+}
 
 export default function AdminStylists() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [stylists, setStylists] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [
+    searchParams,
+    setSearchParams,
+  ] = useSearchParams();
+  const [
+    stylists,
+    setStylists,
+  ] = useState([]);
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+  const [
+    visibilityFilter,
+    setVisibilityFilter,
+  ] = useState("all");
+  const [
+    error,
+    setError,
+  ] = useState("");
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
+  const [
+    showForm,
+    setShowForm,
+  ] = useState(false);
+  const [
+    selectedStylist,
+    setSelectedStylist,
+  ] = useState(null);
 
-  const [showForm, setShowForm] = useState(false);
-  const [selectedStylist, setSelectedStylist] = useState(null);
+  const loadStylists =
+    useCallback(
+      async ({
+        quiet = false,
+      } = {}) => {
+        try {
+          if (quiet) {
+            setRefreshing(true);
+          } else {
+            setLoading(true);
+          }
 
-  async function loadStylists() {
-    try {
-      setLoading(true);
+          setError("");
 
-      const response = await stylistService.getStylists();
+          const response =
+            await stylistService.getStylists();
 
-      setStylists(response.stylists || response);
-    } catch (error) {
-      console.error("Unable to load stylists:", error);
-      alert("Unable to load stylists.");
-    } finally {
-      setLoading(false);
-    }
-  }
+          setStylists(
+            Array.isArray(
+              response
+            )
+              ? response
+              : response?.stylists ||
+                  []
+          );
+        } catch (
+          requestError
+        ) {
+          setError(
+            requestErrorMessage(
+              requestError,
+              "Unable to load employee profiles."
+            )
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      },
+      []
+    );
 
   useEffect(() => {
-    loadStylists();
-  }, []);
+    void loadStylists();
+  }, [loadStylists]);
 
   useEffect(() => {
     const editProfileId =
-      searchParams.get("edit");
+      searchParams.get(
+        "edit"
+      );
 
     if (
       !editProfileId ||
@@ -47,20 +135,34 @@ export default function AdminStylists() {
     const target =
       stylists.find(
         (stylist) =>
-          String(stylist._id) ===
-          String(editProfileId)
+          String(
+            stylist._id
+          ) ===
+          String(
+            editProfileId
+          )
       );
 
     if (target) {
-      setSelectedStylist(target);
+      setSelectedStylist(
+        target
+      );
       setShowForm(true);
+    } else {
+      setError(
+        "The requested employee profile could not be found."
+      );
     }
 
     const nextParams =
       new URLSearchParams(
         searchParams
       );
-    nextParams.delete("edit");
+
+    nextParams.delete(
+      "edit"
+    );
+
     setSearchParams(
       nextParams,
       {
@@ -73,244 +175,459 @@ export default function AdminStylists() {
     stylists,
   ]);
 
-  const filteredStylists = useMemo(() => {
-    const query = search.toLowerCase().trim();
+  const filteredStylists =
+    useMemo(() => {
+      const query =
+        search
+          .trim()
+          .toLowerCase();
 
-    return stylists.filter((stylist) => {
-      const fullName =
-        `${stylist.firstName} ${stylist.lastName}`.toLowerCase();
+      return stylists.filter(
+        (stylist) => {
+          const searchable =
+            [
+              stylist.firstName,
+              stylist.lastName,
+              stylist.email,
+              stylist.jobTitle,
+              ...(stylist.specialties ||
+                []),
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
 
-      const specialties =
-        stylist.specialties?.join(" ").toLowerCase() || "";
+          if (
+            query &&
+            !searchable.includes(
+              query
+            )
+          ) {
+            return false;
+          }
 
-      return (
-        fullName.includes(query) ||
-        specialties.includes(query)
+          if (
+            visibilityFilter ===
+            "published"
+          ) {
+            return (
+              stylist.profilePublished ===
+              true
+            );
+          }
+
+          if (
+            visibilityFilter ===
+            "hidden"
+          ) {
+            return (
+              stylist.profilePublished !==
+              true
+            );
+          }
+
+          if (
+            visibilityFilter ===
+            "bookable"
+          ) {
+            return (
+              stylist.acceptsAppointments ===
+              true
+            );
+          }
+
+          if (
+            visibilityFilter ===
+            "inactive"
+          ) {
+            return (
+              stylist.isActive ===
+              false
+            );
+          }
+
+          return true;
+        }
       );
-    });
-  }, [stylists, search]);
+    }, [
+      search,
+      stylists,
+      visibilityFilter,
+    ]);
 
-  function handleAddStylist() {
-    setSelectedStylist(null);
+  function openCreateForm() {
+    setError("");
+    setSuccess("");
+    setSelectedStylist(
+      null
+    );
     setShowForm(true);
   }
 
-  function handleEditStylist(stylist) {
-    setSelectedStylist(stylist);
+  function handleEditStylist(
+    stylist
+  ) {
+    setError("");
+    setSuccess("");
+    setSelectedStylist(
+      stylist
+    );
     setShowForm(true);
   }
 
   function closeModal() {
     setShowForm(false);
-    setSelectedStylist(null);
+    setSelectedStylist(
+      null
+    );
   }
 
-  async function handleSaveStylist(data) {
-    try {
-      if (selectedStylist) {
-        await stylistService.updateStylist(
-          selectedStylist._id,
-          data
-        );
-      } else {
-        await stylistService.createStylist(data);
-      }
-
-      closeModal();
-
-      await loadStylists();
-    } catch (error) {
-      console.error(
-        "Unable to save stylist:",
-        error
+  async function handleSaveStylist(
+    data
+  ) {
+    if (
+      selectedStylist
+    ) {
+      await stylistService.updateStylist(
+        selectedStylist._id,
+        data
       );
 
-      throw error;
+      setSuccess(
+        "Employee profile updated."
+      );
+    } else {
+      await stylistService.createStylist(
+        data
+      );
+
+      setSuccess(
+        "Employee profile created."
+      );
     }
+
+    closeModal();
+
+    await loadStylists({
+      quiet: true,
+    });
   }
 
-  async function handleDeleteStylist(stylist) {
-    const confirmed = window.confirm(
-      `Delete ${stylist.firstName} ${stylist.lastName}?`
-    );
+  async function handleDeleteStylist(
+    stylist
+  ) {
+    const name =
+      [
+        stylist.firstName,
+        stylist.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ") ||
+      "this employee profile";
 
-    if (!confirmed) return;
+    if (
+      !window.confirm(
+        `Delete ${name}? This permanently removes the stylist profile and should only be used for a genuine duplicate or obsolete profile.`
+      )
+    ) {
+      return;
+    }
 
     try {
+      setError("");
+      setSuccess("");
+
       await stylistService.deleteStylist(
         stylist._id
       );
 
-      await loadStylists();
-    } catch (error) {
-      console.error(
-        "Unable to delete stylist:",
-        error
+      setSuccess(
+        `${name} was removed.`
       );
 
-      alert(
-        error.response?.data?.message ||
-          "Unable to delete stylist."
+      await loadStylists({
+        quiet: true,
+      });
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestErrorMessage(
+          requestError,
+          "Unable to delete the employee profile."
+        )
       );
     }
   }
 
-  async function handleToggleStatus(stylist) {
+  async function handleToggleStatus(
+    stylist
+  ) {
     try {
+      setError("");
+      setSuccess("");
+
       await stylistService.toggleStatus(
         stylist._id
       );
 
-      await loadStylists();
-    } catch (error) {
-      console.error(
-        "Unable to update stylist:",
-        error
+      setSuccess(
+        stylist.isActive !==
+          false
+          ? "Employee profile deactivated."
+          : "Employee profile activated."
       );
 
-      alert(
-        error.response?.data?.message ||
-          "Unable to update stylist."
+      await loadStylists({
+        quiet: true,
+      });
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestErrorMessage(
+          requestError,
+          "Unable to update the employee profile."
+        )
       );
     }
   }
 
   return (
-    <div className="container py-4">
+    <main
+      className="space-y-6 p-4 sm:p-6 lg:p-8"
+      id="main-content"
+      tabIndex="-1"
+    >
+      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-amber-700">
+              <UsersRound
+                size={20}
+              />
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Administration
+              </span>
+            </div>
 
-      <div className="d-flex justify-content-between align-items-center mb-4">
+            <h1 className="mt-2 text-2xl font-bold text-black sm:text-3xl">
+              Employee profiles
+            </h1>
 
-        <div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              Manage the professional information shown for salon employees, including photographs, biography, specialties, public visibility and online-booking presentation.
+            </p>
+          </div>
 
-          <h2 className="mb-1">
-            Stylist Management
-          </h2>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/employees"
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+            >
+              <ArrowLeft
+                size={17}
+              />
+              Employees
+            </Link>
 
-          <p className="text-muted mb-0">
-            Manage all salon stylists.
-          </p>
-
-        </div>
-
-        <button
-          className="btn btn-primary"
-          onClick={handleAddStylist}
-        >
-          + Add Stylist
-        </button>
-
-      </div>
-
-      <div className="card shadow-sm mb-4">
-
-        <div className="card-body">
-
-          <div className="row g-3">
-
-            <div className="col-md-9">
-
-              <input
-                className="form-control"
-                placeholder="Search by name or specialty..."
-                value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                refreshing
+              }
+              onClick={() =>
+                void loadStylists({
+                  quiet: true,
+                })
+              }
+            >
+              <RefreshCw
+                size={17}
+                className={
+                  refreshing
+                    ? "animate-spin"
+                    : ""
                 }
               />
+              Refresh
+            </button>
 
-            </div>
-
-            <div className="col-md-3">
-
-              <button
-                className="btn btn-outline-secondary w-100"
-                onClick={loadStylists}
-              >
-                Refresh
-              </button>
-
-            </div>
-
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black shadow-sm hover:bg-amber-300"
+              onClick={
+                openCreateForm
+              }
+            >
+              <Plus
+                size={17}
+              />
+              Add profile
+            </button>
           </div>
+        </div>
+      </header>
 
+      {error ? (
+        <div
+          className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          role="alert"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div
+          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+          role="status"
+        >
+          {success}
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_15rem]">
+          <label className="relative block">
+            <span className="sr-only">
+              Search employee profiles
+            </span>
+            <Search
+              size={18}
+              className="pointer-events-none absolute left-3 top-3 text-slate-500"
+            />
+            <input
+              type="search"
+              className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
+              placeholder="Search name, email, job title or specialty..."
+              value={
+                search
+              }
+              onChange={(
+                event
+              ) =>
+                setSearch(
+                  event.target
+                    .value
+                )
+              }
+            />
+          </label>
+
+          <label>
+            <span className="sr-only">
+              Filter employee profiles
+            </span>
+            <select
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
+              value={
+                visibilityFilter
+              }
+              onChange={(
+                event
+              ) =>
+                setVisibilityFilter(
+                  event.target
+                    .value
+                )
+              }
+            >
+              <option value="all">
+                All profiles
+              </option>
+              <option value="published">
+                Published
+              </option>
+              <option value="hidden">
+                Hidden
+              </option>
+              <option value="bookable">
+                Bookable
+              </option>
+              <option value="inactive">
+                Inactive
+              </option>
+            </select>
+          </label>
         </div>
 
-      </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500">
+          {filteredStylists.length} of {stylists.length} profiles shown
+        </p>
+      </section>
 
       {loading ? (
-
-        <div className="text-center py-5">
-
-          <div
-            className="spinner-border"
-            role="status"
-          >
-            <span className="visually-hidden">
-              Loading...
-            </span>
-          </div>
-
-          <p className="mt-3">
-            Loading stylists...
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"
+          aria-live="polite"
+        >
+          <RefreshCw
+            size={24}
+            className="mx-auto animate-spin text-amber-600"
+          />
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            Loading employee profiles...
           </p>
-
-        </div>
-
-      ) : filteredStylists.length === 0 ? (
-
-        <div className="alert alert-info">
-
-          No stylists found.
-
-        </div>
-
+        </section>
+      ) : filteredStylists.length ===
+        0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <UsersRound
+            size={32}
+            className="mx-auto text-slate-400"
+          />
+          <h2 className="mt-3 font-bold text-black">
+            No matching profiles
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Change the search or filter to see other employee profiles.
+          </p>
+        </section>
       ) : (
-
-        <>
-          <div className="mb-3">
-
-            <strong>
-              {filteredStylists.length}
-            </strong>{" "}
-            stylist(s) found
-
-          </div>
-
-          <div className="row">
-
-            {filteredStylists.map((stylist) => (
-
-              <div
-                key={stylist._id}
-                className="col-lg-4 col-md-6 mb-4"
-              >
-
-                <StylistCard
-                  stylist={stylist}
-                  onEdit={handleEditStylist}
-                  onDelete={handleDeleteStylist}
-                  onToggleStatus={
-                    handleToggleStatus
-                  }
-                />
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </>
-
+        <section
+          className="grid gap-4 xl:grid-cols-2"
+          aria-label="Employee profiles"
+        >
+          {filteredStylists.map(
+            (stylist) => (
+              <StylistCard
+                key={
+                  stylist._id
+                }
+                stylist={
+                  stylist
+                }
+                onEdit={
+                  handleEditStylist
+                }
+                onDelete={
+                  handleDeleteStylist
+                }
+                onToggleStatus={
+                  handleToggleStatus
+                }
+              />
+            )
+          )}
+        </section>
       )}
 
       <StylistForm
-        show={showForm}
-        stylist={selectedStylist}
-        onClose={closeModal}
-        onSave={handleSaveStylist}
+        show={
+          showForm
+        }
+        stylist={
+          selectedStylist
+        }
+        onClose={
+          closeModal
+        }
+        onSave={
+          handleSaveStylist
+        }
       />
-
-    </div>
+    </main>
   );
 }
