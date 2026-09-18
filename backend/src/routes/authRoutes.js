@@ -1,5 +1,7 @@
 import express from "express";
 
+import socialAuthRoutes from "../features/socialAuth/socialAuthRoutes.js";
+
 import {
   loginUser,
   logoutUser,
@@ -46,6 +48,11 @@ import {
 
 const router =
   express.Router();
+
+router.use(
+  "/social",
+  socialAuthRoutes
+);
 
 router.post(
   "/register",
