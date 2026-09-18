@@ -2,10 +2,12 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
-  adminOnly,
   managementOnly,
   protect,
 } from "../../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../../middleware/permissionMiddleware.js";
 import * as controller from "./commerceController.js";
 import { requireFeature } from "../../services/featureControlService.js";
 
@@ -16,7 +18,9 @@ router.get("/products", requireFeature("online-shop"), asyncHandler(controller.l
 router.get(
   "/inventory/products",
   protect,
-  managementOnly,
+  requirePermissions(
+    "product:read"
+  ),
   asyncHandler(controller.listInventoryProducts)
 );
 router.get("/products/:identifier", requireFeature("online-shop"), asyncHandler(controller.getProduct));
@@ -24,31 +28,52 @@ router.get("/products/:identifier", requireFeature("online-shop"), asyncHandler(
 router.post(
   "/products",
   protect,
-  adminOnly,
+  requirePermissions(
+    "product:create"
+  ),
   asyncHandler(controller.createProduct)
 );
 router.patch(
   "/products/:id",
   protect,
-  managementOnly,
+  requirePermissions(
+    "product:update"
+  ),
   asyncHandler(controller.updateProduct)
+);
+
+router.patch(
+  "/products/:id/publication",
+  protect,
+  requirePermissions(
+    "product:publish"
+  ),
+  asyncHandler(
+    controller.updateProductPublication
+  )
 );
 router.post(
   "/products/:id/stock-adjustments",
   protect,
-  managementOnly,
+  requirePermissions(
+    "product:inventory:update"
+  ),
   asyncHandler(controller.adjustStock)
 );
 router.get(
   "/products/:id/stock-adjustments",
   protect,
-  managementOnly,
+  requirePermissions(
+    "inventory:read"
+  ),
   asyncHandler(controller.listStockAdjustments)
 );
 router.get(
   "/inventory/summary",
   protect,
-  managementOnly,
+  requirePermissions(
+    "inventory:read"
+  ),
   asyncHandler(controller.inventorySummary)
 );
 
