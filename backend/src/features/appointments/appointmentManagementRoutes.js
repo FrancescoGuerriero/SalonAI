@@ -7,11 +7,13 @@ import {
   calendar,
   conflict,
   create,
+  customers,
   getAppointment,
   queueReminders,
   reminder,
   reschedule,
   status,
+  stylists,
   summary,
 } from "./appointmentManagementController.js";
 import {
@@ -93,6 +95,24 @@ router.post(
 | Calendar and reporting
 |--------------------------------------------------------------------------
 */
+
+router.get(
+  "/stylists",
+  requireAnyPermission(
+    "appointment:create",
+    "appointment:update"
+  ),
+  asyncHandler(stylists)
+);
+
+router.get(
+  "/customers",
+  requireAnyPermission(
+    "appointment:create",
+    "appointment:update"
+  ),
+  asyncHandler(customers)
+);
 
 router.get(
   "/calendar",
