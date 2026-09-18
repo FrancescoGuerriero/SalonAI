@@ -212,6 +212,15 @@ export async function exchangeCalendarAuthorizationCode({
     grant_type: "authorization_code",
   });
 
+  if (
+    provider === "outlook"
+  ) {
+    params.set(
+      "scope",
+      config.scopes.join(" ")
+    );
+  }
+
   const token = await parseJson(
     await fetch(config.tokenUrl, {
       method: "POST",
@@ -265,6 +274,170 @@ export async function exchangeCalendarAuthorizationCode({
             name: text(profile.displayName),
           },
   };
+}
+
+export async function refreshCalendarAccessToken({
+  provider,
+  refreshToken,
+}) {
+  const config =
+    requireConfigured(provider);
+
+  const params =
+    new URLSearchParams({
+      client_id:
+        config.clientId,
+      client_secret:
+        config.clientSecret,
+      refresh_token:
+        text(refreshToken),
+      grant_type:
+        "refresh_token",
+    });
+
+  if (
+    provider === "outlook"
+  ) {
+    params.set(
+      "scope",
+      config.scopes.join(" ")
+    );
+  }
+
+  const token =
+    await parseJson(
+      await fetch(
+        config.tokenUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/x-www-form-urlencoded",
+          },
+          body: params,
+        }
+      )
+    );
+
+  const accessToken =
+    text(
+      token.access_token
+    );
+
+  if (!accessToken) {
+    throw new Error(
+      "Calendar provider did not return a refreshed access token."
+    );
+  }
+
+  return {
+    accessToken,
+    refreshToken:
+      text(
+        token.refresh_token
+      ),
+    expiresIn:
+      Number(
+        token.expires_in
+      ) || 3600,
+    scopes:
+      text(
+        token.scope
+      )
+        .split(" ")
+        .filter(Boolean),
+  };
+}
+
+export async function listProviderCalendars({
+  provider,
+  accessToken,
+}) {
+  const url =
+    provider === "google"
+      ? "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer&showHidden=false&maxResults=250"
+      : "https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,canEdit,isDefaultCalendar&$top=100";
+
+  const payload =
+    await parseJson(
+      await fetch(
+        url,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+        }
+      )
+    );
+
+  if (
+    provider === "google"
+  ) {
+    return (
+      payload.items || []
+    )
+      .filter(
+        (calendar) =>
+          [
+            "writer",
+            "owner",
+          ].includes(
+            calendar.accessRole
+          )
+      )
+      .map(
+        (calendar) => ({
+          id:
+            text(
+              calendar.id
+            ),
+          name:
+            text(
+              calendar.summaryOverride ||
+              calendar.summary
+            ) ||
+            "Calendar",
+          primary:
+            calendar.primary ===
+            true,
+          canEdit: true,
+          timeZone:
+            text(
+              calendar.timeZone
+            ),
+        })
+      );
+  }
+
+  return (
+    payload.value || []
+  )
+    .filter(
+      (calendar) =>
+        calendar.canEdit !==
+        false
+    )
+    .map(
+      (calendar) => ({
+        id:
+          text(
+            calendar.id
+          ),
+        name:
+          text(
+            calendar.name
+          ) ||
+          "Calendar",
+        primary:
+          calendar.isDefaultCalendar ===
+          true,
+        canEdit:
+          calendar.canEdit !==
+          false,
+        timeZone: "",
+      })
+    );
 }
 
 export function calendarFrontendRedirect({

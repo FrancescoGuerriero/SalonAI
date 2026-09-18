@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
 import {
+  enqueueCalendarSyncTask,
+} from "../integrations/calendar/calendarSyncQueue.js";
+
+import {
   combineSalonDateAndTime,
   formatSalonTime,
   salonDateAnchor,
@@ -844,6 +848,67 @@ appointmentSchema.methods.recordReschedule =
 
     return this;
   };
+
+/*
+|--------------------------------------------------------------------------
+| External calendar outbox
+|--------------------------------------------------------------------------
+*/
+
+const CALENDAR_SYNC_FIELDS =
+  Object.freeze([
+    "stylist",
+    "service",
+    "startsAt",
+    "endsAt",
+    "appointmentDate",
+    "appointmentTime",
+    "duration",
+    "status",
+    "bookingSource",
+  ]);
+
+appointmentSchema.pre(
+  "save",
+  function markCalendarSyncRequirement() {
+    this.$locals.queueCalendarSync =
+      this.isNew ||
+      CALENDAR_SYNC_FIELDS.some(
+        (field) =>
+          this.isModified(
+            field
+          )
+      );
+  }
+);
+
+appointmentSchema.post(
+  "save",
+  async function queueCalendarSync(
+    document
+  ) {
+    if (
+      !this.$locals
+        .queueCalendarSync
+    ) {
+      return;
+    }
+
+    try {
+      await enqueueCalendarSyncTask(
+        document._id
+      );
+    } catch (error) {
+      // The SalonAI appointment is canonical. A local outbox write
+      // failure must never turn a committed appointment into an API
+      // failure after the database mutation already succeeded.
+      console.error(
+        "Calendar sync task enqueue failed:",
+        error
+      );
+    }
+  }
+);
 
 /*
 |--------------------------------------------------------------------------

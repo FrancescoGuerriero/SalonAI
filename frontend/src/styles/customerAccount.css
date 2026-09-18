@@ -232,6 +232,58 @@
   font-size: 0.9rem;
 }
 
+
+.account-calendar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 6px;
+}
+
+.account-calendar-actions-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--palette-grey-700);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.account-calendar-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-calendar-button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--palette-grey-300);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--palette-black);
+  font: inherit;
+  font-size: 0.73rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.account-calendar-button:hover,
+.account-calendar-button:focus-visible {
+  border-color: var(--palette-gold-dark);
+  background: var(--palette-cream);
+}
+
+.account-calendar-button:focus-visible {
+  outline: 2px solid var(--palette-gold-dark);
+  outline-offset: 2px;
+}
+
 @media (max-width: 900px) {
   .account-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
