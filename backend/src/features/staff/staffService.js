@@ -478,8 +478,23 @@ export async function requestTimeOff(staffId, payload = {}) {
     startsAt,
     endsAt,
     reason: String(payload.reason || "").trim(),
-    status: payload.status || "requested",
+    status: "requested",
   });
+}
+
+export async function getTimeOff(id) {
+  if (!mongoose.isValidObjectId(id)) {
+    throw createServiceError(
+      "Time-off request identifier is invalid.",
+      400,
+      { field: "id" }
+    );
+  }
+
+  return assertFound(
+    await StaffTimeOff.findById(id).lean(),
+    "Time-off request not found."
+  );
 }
 
 export async function updateTimeOff(id, status, user) {
