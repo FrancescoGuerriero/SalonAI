@@ -16,7 +16,8 @@
     "seed:booking": "node scripts/seedBookingCatalogue.js",
     "seed:davines-summer": "node scripts/seedDavinesSummerProducts.js",
     "superadmin:set": "node scripts/promoteSuperAdmin.js",
-    "ai:dataset:no-show": "node scripts/buildNoShowTrainingDataset.js"
+    "ai:dataset:no-show": "node scripts/buildNoShowTrainingDataset.js",
+    "calendar:acceptance": "node scripts/testCalendarProviderAcceptance.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
