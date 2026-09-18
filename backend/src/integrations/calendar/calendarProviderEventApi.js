@@ -352,11 +352,24 @@ export async function getProviderEvent({
             return null;
           }
 
-          return /(?:Z|[+-]\d{2}:\d{2})$/.test(
-            safe
-          )
-            ? safe
-            : safe + "Z";
+          if (
+            /(?:Z|[+-]\d{2}:\d{2})$/.test(
+              safe
+            )
+          ) {
+            return safe;
+          }
+
+          const milliseconds =
+            safe.replace(
+              /(\.\d{3})\d+$/,
+              "$1"
+            );
+
+          return (
+            milliseconds +
+            "Z"
+          );
         };
 
       return {
