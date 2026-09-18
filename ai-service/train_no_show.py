@@ -659,6 +659,18 @@ def main() -> None:
             rules_threshold,
         )
 
+        beats_rules_baseline = (
+            test_metrics["pr_auc"]
+            > rules_test_metrics["pr_auc"]
+            and test_metrics["brier_score"]
+            <= rules_test_metrics["brier_score"]
+        )
+        lifecycle = (
+            "candidate"
+            if beats_rules_baseline
+            else "experiment"
+        )
+
         artifact_dir = (
             Path(args.artifact_dir)
             / args.dataset_version
@@ -689,6 +701,8 @@ def main() -> None:
             "rules_test": rules_test_metrics,
             "rules_model": "salonai-no-show-risk-rules-v1",
             "feature_names": ALL_FEATURES,
+            "beats_rules_baseline": beats_rules_baseline,
+            "lifecycle": lifecycle,
             "trained_at": datetime.now(
                 timezone.utc
             ).isoformat(),
@@ -728,7 +742,7 @@ def main() -> None:
                 "version": args.model_version,
                 "task": TASK,
                 "modelType": "classification",
-                "lifecycle": "candidate",
+                "lifecycle": lifecycle,
                 "trainingDataset": dataset_id,
                 "featureVersion": FEATURE_VERSION,
                 "algorithm": winner_name,
@@ -767,7 +781,8 @@ def main() -> None:
         print(
             json.dumps(
                 {
-                    "status": "candidate",
+                    "status": lifecycle,
+                    "beatsRulesBaseline": beats_rules_baseline,
                     "model": MODEL_NAME,
                     "version": args.model_version,
                     "datasetVersion": args.dataset_version,
