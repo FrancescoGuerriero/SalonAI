@@ -1,7 +1,7 @@
 import express from "express";
 import asyncHandler from "../middleware/asyncHandler.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { adminOnly } from "../middleware/roleMiddleware.js";
+import { superAdminOnly } from "../middleware/roleMiddleware.js";
 import {
   listAuditLogs,
   listDeadLetters,
@@ -15,7 +15,7 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(adminOnly);
+router.use(superAdminOnly);
 
 router.get("/features", asyncHandler(listFeatureControls));
 router.patch("/features/:featureId", asyncHandler(updateFeatureControl));
