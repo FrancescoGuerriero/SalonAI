@@ -163,3 +163,56 @@ test("customer login and registration expose all provider choices", async () => 
     /user\?\.role === "customer"[\s\S]*?"\/account"/
   );
 });
+
+test("account settings expose explicit provider linking with lockout protection", async () => {
+  const service =
+    await readFile(
+      new URL(
+        "../features/socialAuth/socialAuthService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const settings =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/auth/SocialAccountLinks.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    service,
+    /LAST_SIGN_IN_METHOD/
+  );
+  assert.match(
+    service,
+    /passwordAuthEnabled/
+  );
+  assert.match(
+    settings,
+    /Connected sign-in accounts/
+  );
+  assert.match(
+    settings,
+    /Google/
+  );
+  assert.match(
+    settings,
+    /Facebook/
+  );
+  assert.match(
+    settings,
+    /Microsoft/
+  );
+  assert.match(
+    settings,
+    /Yahoo/
+  );
+  assert.match(
+    settings,
+    /Unlink/
+  );
+});
