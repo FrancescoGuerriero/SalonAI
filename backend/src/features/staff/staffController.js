@@ -259,7 +259,7 @@ export async function myWeek(
   res.json({
     staff: stylist,
     items:
-      await service.weeklyAvailability(
+      await service.weeklyAvailabilityWithFallback(
         stylist._id
       ),
   });
