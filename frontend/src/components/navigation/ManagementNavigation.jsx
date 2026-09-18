@@ -9,19 +9,19 @@ import useFeatureControls from "../../hooks/useFeatureControls.js";
 
 export const MANAGEMENT_SECTIONS = [
   { id: "operations", label: "Salon operations", links: [
-    ["/dashboard", "Dashboard", "Performance overview", Gauge], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays], ["/customers", "Customers", "Profiles and activity", ContactRound], ["/admin/employees", "Employees", "Roles, booking and visibility", UsersRound, false, "employee:read"], ["/staff/profile", "My public profile", "Photo, bio and specialties", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake], ["/manage/services", "Salon services", "Services and pricing", Scissors, false, "service:read"], ["/manage/products", "Products", "Retail catalogue and publishing", Package, false, "product:read"], ["/data-imports", "Data imports", "Customers and products", Upload, true], ["/admin/system", "On/Off Ideas", "Administrator feature controls", ToggleLeft, true],
+    ["/dashboard", "Dashboard", "Performance overview", Gauge, false, "dashboard:view"], ["/appointments", "Appointments", "Bookings and schedules", CalendarDays, false, "appointment:read"], ["/customers", "Customers", "Profiles and activity", ContactRound, false, "customer:read"], ["/admin/employees", "Employees", "Roles, booking and visibility", UsersRound, false, "employee:read"], ["/staff/profile", "My public profile", "Photo, bio and specialties", ContactRound], ["/customer-segments", "Customer segments", "Audience groups", UsersRound, false, "customer:read"], ["/retention-actions", "Retention actions", "Re-engagement work", HeartHandshake, false, "customer:read"], ["/manage/services", "Salon services", "Services and pricing", Scissors, false, "service:read"], ["/manage/products", "Products", "Retail catalogue and publishing", Package, false, "product:read"], ["/data-imports", "Data imports", "Customers and products", Upload, true], ["/admin/system", "On/Off Ideas", "Administrator feature controls", ToggleLeft, true],
   ]},
   { id: "communications", label: "Communications", links: [
-    ["/communications", "Communications", "Contact history", Mail, false, "", "communications"], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText, false, "", "communications"], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone, false, "", "communications"], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock, false, "", "communications"], ["/message-delivery", "Message delivery", "Monitor and retry", Send, false, "", "communications"],
+    ["/communications", "Communications", "Contact history", Mail, false, "communications:read", "communications"], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText, false, "communications:read", "communications"], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone, false, "communications:read", "communications"], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock, false, "communications:read", "communications"], ["/message-delivery", "Message delivery", "Monitor and retry", Send, false, "communications:read", "communications"],
   ]},
   { id: "inventory", label: "Inventory and purchasing", links: [
-    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"], ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "", "inventory-purchasing"], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "", "inventory-purchasing"], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "", "inventory-purchasing"],
+    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"], ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
   ]},
   { id: "ai", label: "SalonAI tools", links: [
-    ["/ai/haircare", "Haircare AI", "Recommendations", Sparkles, false, "", "ai-tools"], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", FileText, false, "", "ai-tools"], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", UsersRound, false, "", "ai-tools"], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", BarChart3, false, "", "ai-tools"], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", Megaphone, false, "", "ai-tools"], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", CalendarClock, false, "", "ai-tools"], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", BadgePoundSterling, false, "", "ai-tools"], ["/management-copilot", "Management copilot", "Prioritised actions", Sparkles, false, "", "ai-tools"],
+    ["/ai/haircare", "Haircare AI", "Recommendations", Sparkles, false, "ai:use", "ai-tools"], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", FileText, false, "ai:use", "ai-tools"], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", UsersRound, false, "ai:use", "ai-tools"], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", BarChart3, false, "ai:use", "ai-tools"], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", Megaphone, false, "ai:use", "ai-tools"], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", CalendarClock, false, "ai:use", "ai-tools"], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", BadgePoundSterling, false, "ai:use", "ai-tools"], ["/management-copilot", "Management copilot", "Prioritised actions", Sparkles, false, "ai:use", "ai-tools"],
   ]},
   { id: "premium", label: "Premium features", links: [
-    ["/customer-experience-management", "Experience desk", "Reviews and requests", ClipboardList],
+    ["/customer-experience-management", "Experience desk", "Reviews and requests", ClipboardList, false, "customer:read"],
     ["/loyalty", "Loyalty programme", "Points and tiers", Award, false, "", "loyalty"], ["/gift-cards", "Gift cards", "Issue and redeem", Gift, false, "", "wallet"], ["/referrals", "Referral system", "Rewards and tracking", Share2, false, "", "referrals"], ["/notification-centre", "Notification centre", "Delivery status", BellRing, false, "", "notifications"], ["/push-notifications", "Push notifications", "Browser delivery", BellRing, false, "", "notifications"], ["/email-campaigns", "Email campaigns", "Targeted emails", Mail, false, "", "communications"], ["/sms-reminders", "SMS reminders", "Reminder rules", MessageSquareText, false, "", "communications"], ["/whatsapp-booking", "WhatsApp booking", "Conversations", MessageCircle, false, "", "whatsapp-booking"], ["/retention-automation", "Retention automation", "Customer journeys", Workflow, false, "", "retention-automation"], ["/premium-analytics", "Premium analytics", "Feature performance", BarChart3, false, "", "premium-analytics"],
   ]},
 ].map((section) => ({ ...section, links: section.links.map(([to, label, description, icon, adminOnly, permission, featureId]) => ({ to, label, description, icon, adminOnly: Boolean(adminOnly), permission: permission || "", featureId: featureId || "" })) }));
@@ -41,6 +41,12 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
         "profile:all:read"
       );
 
+    const canReadOwnProfile =
+      hasPermission(
+        user,
+        "profile:own:read"
+      );
+
     return MANAGEMENT_SECTIONS.map((section) => ({
       ...section,
       links: section.links
@@ -58,12 +64,20 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
         )
         .filter((link) =>
           (!link.adminOnly || isSuperAdminRole(user?.role)) &&
+          (link.to !== "/staff/profile" ||
+            canReadOwnProfile ||
+            canReadAllProfiles) &&
           (!link.permission || hasPermission(user, link.permission)) &&
           (!link.featureId || isFeatureEnabled(link.featureId)) &&
           (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
         ),
     })).filter((section) => section.links.length);
-  }, [isFeatureEnabled, query, user?.permissions, user?.role]);
+  }, [
+    isFeatureEnabled,
+    query,
+    user?.permissions,
+    user?.role,
+  ]);
 
   function toggle(id) {
     setClosed((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
