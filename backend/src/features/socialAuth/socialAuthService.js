@@ -307,9 +307,18 @@ export async function linkSocialIdentity(
   userId,
   identity
 ) {
-  validateIdentity(
-    identity
-  );
+  if (
+    !identity?.provider ||
+    !identity.subject
+  ) {
+    const error = new Error(
+      "The sign-in provider did not return a stable account identity."
+    );
+    error.statusCode = 502;
+    error.code =
+      "SOCIAL_IDENTITY_INCOMPLETE";
+    throw error;
+  }
 
   const user =
     await User.findById(
