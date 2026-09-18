@@ -84,6 +84,7 @@ const externalCalendarConnectionSchema =
         type: String,
         select: false,
         default: "",
+        index: true,
       },
       subscriptionResourceId: {
         type: String,
