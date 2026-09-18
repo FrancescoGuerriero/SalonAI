@@ -6,6 +6,10 @@ import {
   enqueueCalendarSyncTask,
 } from "./calendarSyncQueue.js";
 import {
+  ensureCalendarWebhookSubscription,
+  stopCalendarWebhookSubscription,
+} from "./calendarWebhookProviderService.js";
+import {
   decryptCalendarSecret,
   encryptCalendarSecret,
 } from "./calendarCredentialCrypto.js";
@@ -33,6 +37,18 @@ function descriptor(connection, availability) {
       connection?.calendarId || "",
     calendarName:
       connection?.calendarName || "",
+    webhookActive:
+      Boolean(
+        connection?.subscriptionId &&
+        connection?.subscriptionExpiresAt &&
+        new Date(
+          connection.subscriptionExpiresAt
+        ).getTime() > Date.now()
+      ),
+    subscriptionExpiresAt:
+      connection?.subscriptionExpiresAt || null,
+    lastWebhookAt:
+      connection?.lastWebhookAt || null,
     lastSyncedAt:
       connection?.lastSyncedAt || null,
     lastSyncError:
@@ -46,7 +62,9 @@ export async function listCalendarConnections(
   const connections =
     await ExternalCalendarConnection.find({
       user: userId,
-    }).lean();
+    })
+      .select("+subscriptionId")
+      .lean();
 
   return providerAvailability().map(
     (availability) =>
@@ -70,7 +88,7 @@ async function connectionWithCredentials({
       user: userId,
       provider,
     }).select(
-      "+encryptedAccessToken +encryptedRefreshToken"
+      "+encryptedAccessToken +encryptedRefreshToken +subscriptionId +subscriptionResourceId"
     );
 
   if (!connection) {
@@ -192,7 +210,7 @@ export async function getCalendarProviderContext({
     await ExternalCalendarConnection.findById(
       connectionId
     ).select(
-      "+encryptedAccessToken +encryptedRefreshToken"
+      "+encryptedAccessToken +encryptedRefreshToken +subscriptionId +subscriptionResourceId"
     );
 
   if (!connection) {
@@ -289,6 +307,13 @@ export async function selectCalendar({
     throw error;
   }
 
+  if (connection.subscriptionId) {
+    await stopCalendarWebhookSubscription({
+      connection,
+      accessToken,
+    }).catch(() => undefined);
+  }
+
   connection.calendarId =
     selected.id;
   connection.calendarName =
@@ -298,7 +323,13 @@ export async function selectCalendar({
   connection.syncCursor = "";
   connection.subscriptionId =
     "";
+  connection.subscriptionResourceId =
+    "";
   connection.subscriptionExpiresAt =
+    null;
+  connection.reconcileRequestedAt =
+    null;
+  connection.lastWebhookAt =
     null;
   connection.lastSyncedAt =
     null;
@@ -383,8 +414,16 @@ export async function saveOAuthConnection({
       user: userId,
       provider,
     }).select(
-      "+encryptedRefreshToken"
+      "+encryptedRefreshToken +subscriptionId +subscriptionResourceId"
     );
+
+  if (previous?.subscriptionId) {
+    await stopCalendarWebhookSubscription({
+      connection: previous,
+      accessToken:
+        token.accessToken,
+    }).catch(() => undefined);
+  }
 
   const update = {
     providerAccountId:
@@ -439,8 +478,13 @@ export async function saveOAuthConnection({
         syncEnabled: false,
         syncCursor: "",
         subscriptionId: "",
+        subscriptionResourceId:
+          "",
         subscriptionExpiresAt:
           null,
+        reconcileRequestedAt:
+          null,
+        lastWebhookAt: null,
         lastSyncedAt: null,
       },
     },
@@ -525,36 +569,81 @@ export async function setCalendarSyncEnabled({
   enabled,
 }) {
   const connection =
-    await ExternalCalendarConnection.findOne({
-      user: userId,
+    await connectionWithCredentials({
+      userId,
       provider,
     });
 
-  if (!connection) {
-    const error = new Error(
-      "Connect the calendar account before enabling synchronization."
-    );
-    error.statusCode = 409;
-    error.code =
-      "CALENDAR_CONNECTION_REQUIRED";
-    throw error;
+  const shouldEnable =
+    enabled === true;
+
+  if (
+    !shouldEnable &&
+    connection.subscriptionId
+  ) {
+    try {
+      const accessToken =
+        await validAccessToken(
+          connection
+        );
+
+      await stopCalendarWebhookSubscription({
+        connection,
+        accessToken,
+      });
+    } catch {
+      connection.subscriptionId =
+        "";
+      connection.subscriptionResourceId =
+        "";
+      connection.subscriptionExpiresAt =
+        null;
+    }
   }
 
   connection.syncEnabled =
-    enabled === true;
+    shouldEnable;
 
-  if (!connection.syncEnabled) {
+  if (!shouldEnable) {
     connection.lastSyncError = "";
+    connection.reconcileRequestedAt =
+      null;
   }
 
   await connection.save();
 
-  if (
-    connection.syncEnabled
-  ) {
+  if (shouldEnable) {
     await queueCurrentStaffAppointments(
       userId
     );
+
+    try {
+      const accessToken =
+        await validAccessToken(
+          connection
+        );
+
+      await ensureCalendarWebhookSubscription({
+        connection,
+        accessToken,
+      });
+
+      if (
+        connection.lastSyncError.startsWith(
+          "Calendar webhook registration failed:"
+        )
+      ) {
+        connection.lastSyncError = "";
+        await connection.save();
+      }
+    } catch (error) {
+      connection.lastSyncError =
+        `Calendar webhook registration failed: ${String(
+          error?.message ||
+            "unknown provider error"
+        ).slice(0, 1900)}`;
+      await connection.save();
+    }
   }
 
   return connection;
@@ -564,6 +653,30 @@ export async function disconnectCalendar({
   userId,
   provider,
 }) {
+  const connection =
+    await ExternalCalendarConnection.findOne({
+      user: userId,
+      provider,
+    }).select(
+      "+encryptedAccessToken +encryptedRefreshToken +subscriptionId +subscriptionResourceId"
+    );
+
+  if (connection?.subscriptionId) {
+    try {
+      const accessToken =
+        await validAccessToken(
+          connection
+        );
+
+      await stopCalendarWebhookSubscription({
+        connection,
+        accessToken,
+      });
+    } catch {
+      // Provider subscriptions expire automatically; local disconnect remains authoritative.
+    }
+  }
+
   await ExternalCalendarConnection.deleteOne({
     user: userId,
     provider,
