@@ -5,8 +5,10 @@ import {
 } from "./calendarOAuthProvider.js";
 import {
   disconnectCalendar,
+  listAvailableCalendars,
   listCalendarConnections,
   saveOAuthConnection,
+  selectCalendar,
   setCalendarSyncEnabled,
 } from "./calendarConnectionService.js";
 
@@ -63,6 +65,50 @@ export async function startConnection(
   return response.json({
     success: true,
     ...result,
+  });
+}
+
+export async function calendars(
+  request,
+  response
+) {
+  const items =
+    await listAvailableCalendars({
+      userId:
+        request.user._id,
+      provider:
+        provider(
+          request.params.provider
+        ),
+    });
+
+  return response.json({
+    success: true,
+    calendars: items,
+  });
+}
+
+export async function updateCalendar(
+  request,
+  response
+) {
+  const result =
+    await selectCalendar({
+      userId:
+        request.user._id,
+      provider:
+        provider(
+          request.params.provider
+        ),
+      calendarId:
+        request.body?.calendarId,
+    });
+
+  return response.json({
+    success: true,
+    message:
+      "Calendar selection updated. Synchronization is paused until you turn it on again.",
+    connection: result,
   });
 }
 
