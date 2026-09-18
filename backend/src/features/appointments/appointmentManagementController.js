@@ -9,6 +9,7 @@ import {
   queueAppointmentReminder,
   queueUpcomingReminders,
   rescheduleAppointment,
+  searchAppointmentCustomers,
 } from "./appointmentManagementService.js";
 
 import {
@@ -137,6 +138,26 @@ function serialiseDocument(
   }
 
   return value;
+}
+
+async function customers(
+  request,
+  response
+) {
+  const items =
+    await searchAppointmentCustomers(
+      request.query?.search
+    );
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      customers:
+        serialiseDocument(
+          items
+        ),
+    });
 }
 
 /*
@@ -624,6 +645,9 @@ export {
   create,
   create as createAppointment,
 
+  customers,
+  customers as searchCustomers,
+
   getAppointment,
   getAppointment as get,
 
@@ -646,6 +670,7 @@ export {
 export default {
   bulkStatus,
   create,
+  customers,
   calendar,
   conflict,
   getAppointment,
