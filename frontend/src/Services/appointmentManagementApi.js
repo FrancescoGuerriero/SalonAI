@@ -16,6 +16,12 @@ export function createManagedAppointment(
   ).then(responseData);
 }
 
+export function getAppointmentStylists() {
+  return API.get(
+    `${BASE_URL}/stylists`
+  ).then(responseData);
+}
+
 export function searchAppointmentCustomers(
   search = ""
 ) {
@@ -154,6 +160,9 @@ export function queueUpcomingAppointmentReminders(
 const appointmentManagementApi = {
   create:
     createManagedAppointment,
+
+  stylists:
+    getAppointmentStylists,
 
   searchCustomers:
     searchAppointmentCustomers,
