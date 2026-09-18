@@ -7,6 +7,10 @@ import {
 import {
   managementOnly,
 } from "../../../middleware/roleMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   getSupplierPerformance,
@@ -16,11 +20,23 @@ import {
 
 const router = express.Router();
 
+const readInventory =
+  requireAnyPermission(
+    "inventory:read",
+    "inventory:manage"
+  );
+
+const manageInventory =
+  requirePermissions(
+    "inventory:manage"
+  );
+
 router.use(protect);
 router.use(managementOnly);
 
 router.get(
   "/reorder-recommendations",
+  readInventory,
   asyncHandler(
     listReorderRecommendations
   )
@@ -28,6 +44,7 @@ router.get(
 
 router.get(
   "/supplier-performance",
+  readInventory,
   asyncHandler(
     getSupplierPerformance
   )
