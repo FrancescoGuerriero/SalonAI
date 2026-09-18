@@ -31,10 +31,19 @@
   place-items: center;
   align-content: center;
   gap: 14px;
-  min-height: 280px;
+  min-height: 50vh;
+  width: 100%;
   padding: 36px;
   color: var(--color-text-muted);
   text-align: center;
+}
+
+.page-loader p {
+  margin: 0;
+  color: var(--palette-grey-700);
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.5;
 }
 
 .page-loader-compact {
@@ -43,8 +52,8 @@
 }
 
 .page-loader-spinner {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 4px solid var(--palette-grey-200);
   border-top-color: var(--palette-gold-dark);
   border-radius: 50%;
