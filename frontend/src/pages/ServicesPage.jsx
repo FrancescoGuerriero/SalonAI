@@ -1,15 +1,15 @@
 import {
-  AlertCircle,
-  CheckCircle2,
-  Clock3,
+  Eye,
+  EyeOff,
   ImageOff,
-  Layers3,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
   Scissors,
-  WalletCards,
+  Trash2,
+  X,
 } from "lucide-react";
-
 import {
   useCallback,
   useEffect,
@@ -17,747 +17,1049 @@ import {
   useState,
 } from "react";
 
-import API from "../api/axios.js";
+import serviceService from "../Services/serviceService.js";
+import useAuth from "../hooks/useAuth.js";
+import {
+  hasPermission,
+} from "../utils/permissions.js";
 
-function extractServices(responseData) {
-  if (Array.isArray(responseData)) {
-    return responseData;
-  }
+const EMPTY_SERVICE = {
+  name: "",
+  category: "",
+  description: "",
+  image: "",
+  price: "",
+  priceLabel: "",
+  priceOnConsultation: false,
+  duration: "60",
+  durationEstimated: false,
+  onlineBookable: true,
+};
 
-  if (Array.isArray(responseData?.services)) {
-    return responseData.services;
-  }
-
-  if (Array.isArray(responseData?.data)) {
-    return responseData.data;
-  }
-
-  if (
-    Array.isArray(
-      responseData?.data?.services
-    )
-  ) {
-    return responseData.data.services;
-  }
-
-  return [];
-}
-
-function getServiceName(service) {
+function messageFrom(
+  error,
+  fallback
+) {
   return (
-    String(
-      service?.name ||
-        service?.title ||
-        ""
-    ).trim() || "Unnamed service"
+    error?.response?.data
+      ?.message ||
+    error?.message ||
+    fallback
   );
 }
 
-function getCategory(service) {
-  return (
-    String(
-      service?.category || ""
-    ).trim() || "Uncategorised"
+function toForm(service = {}) {
+  return {
+    name: service.name || "",
+    category:
+      service.category || "",
+    description:
+      service.description || "",
+    image:
+      service.image || "",
+    price:
+      String(
+        service.price ?? ""
+      ),
+    priceLabel:
+      service.priceLabel || "",
+    priceOnConsultation:
+      service.priceOnConsultation ===
+      true,
+    duration:
+      String(
+        service.duration ?? 60
+      ),
+    durationEstimated:
+      service.durationEstimated ===
+      true,
+    onlineBookable:
+      service.onlineBookable !==
+      false,
+  };
+}
+
+function servicePayload(form) {
+  return {
+    name:
+      form.name.trim(),
+    category:
+      form.category.trim(),
+    description:
+      form.description.trim(),
+    image:
+      form.image.trim(),
+    price:
+      Number(form.price || 0),
+    priceLabel:
+      form.priceLabel.trim(),
+    priceOnConsultation:
+      form.priceOnConsultation,
+    duration:
+      Number(
+        form.duration || 0
+      ),
+    durationEstimated:
+      form.durationEstimated,
+    onlineBookable:
+      form.onlineBookable,
+  };
+}
+
+function money(value) {
+  return new Intl.NumberFormat(
+    "en-GB",
+    {
+      style: "currency",
+      currency: "GBP",
+    }
+  ).format(
+    Number(value || 0)
   );
 }
 
-function getPrice(service) {
-  return Number(service?.price || 0);
-}
-
-function getDuration(service) {
-  return Number(service?.duration || 0);
-}
-
-function isServiceActive(service) {
-  return service?.active !== false;
-}
-
-function formatCurrency(value) {
-  const amount = Number(value);
-
-  if (!Number.isFinite(amount)) {
-    return "£0.00";
-  }
-
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(amount);
-}
-
-function formatDuration(value) {
-  const minutes = Number(value);
-
-  if (
-    !Number.isFinite(minutes) ||
-    minutes <= 0
-  ) {
-    return "Not set";
-  }
-
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes =
-    minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `${hours} hr`;
-  }
-
-  return `${hours} hr ${remainingMinutes} min`;
-}
-
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  description,
+function PublicationBadge({
+  active,
 }) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-slate-500">
-            {label}
-          </p>
-
-          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            {value}
-          </p>
-
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            {description}
-          </p>
-        </div>
-
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-          <Icon size={21} />
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ServiceImage({ service }) {
-  const [imageFailed, setImageFailed] =
-    useState(false);
-
-  if (
-    !service.image ||
-    imageFailed
-  ) {
-    return (
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-        <ImageOff size={20} />
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={service.image}
-      alt={getServiceName(service)}
-      onError={() =>
-        setImageFailed(true)
-      }
-      className="h-12 w-12 shrink-0 rounded-xl object-cover"
-    />
-  );
-}
-
-function StatusBadge({ active }) {
-  return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${
         active
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-slate-200 bg-slate-100 text-slate-600"
+          ? "border-amber-400 bg-amber-50 text-black"
+          : "border-stone-300 bg-stone-100 text-stone-700"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          active
-            ? "bg-emerald-500"
-            : "bg-slate-400"
-        }`}
-      />
-
-      {active ? "Active" : "Inactive"}
+      {active ? (
+        <Eye size={13} />
+      ) : (
+        <EyeOff
+          size={13}
+        />
+      )}
+      {active
+        ? "Published"
+        : "Unpublished"}
     </span>
   );
 }
 
-function ServiceRow({ service }) {
-  return (
-    <tr className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80">
-      <td className="px-5 py-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <ServiceImage
-            service={service}
-          />
-
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {getServiceName(service)}
-            </p>
-
-            <p className="mt-0.5 max-w-sm truncate text-xs text-slate-500">
-              {service.description ||
-                "No description provided"}
-            </p>
-          </div>
-        </div>
-      </td>
-
-      <td className="px-5 py-4 text-sm font-medium text-slate-700">
-        {getCategory(service)}
-      </td>
-
-      <td className="px-5 py-4 text-sm font-bold text-slate-900">
-        {formatCurrency(
-          getPrice(service)
-        )}
-      </td>
-
-      <td className="px-5 py-4">
-        <div className="flex items-center gap-2 text-sm text-slate-700">
-          <Clock3
-            size={15}
-            className="text-slate-400"
-          />
-
-          {formatDuration(
-            getDuration(service)
-          )}
-        </div>
-      </td>
-
-      <td className="px-5 py-4">
-        <StatusBadge
-          active={isServiceActive(
-            service
-          )}
-        />
-      </td>
-    </tr>
-  );
-}
-
-function ServiceMobileCard({
-  service,
-}) {
-  return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="relative h-40 bg-slate-100">
-        {service.image ? (
-          <img
-            src={service.image}
-            alt={getServiceName(service)}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-400">
-            <div className="text-center">
-              <ImageOff
-                size={30}
-                className="mx-auto"
-              />
-
-              <p className="mt-2 text-xs font-medium">
-                No service image
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="absolute right-3 top-3">
-          <StatusBadge
-            active={isServiceActive(
-              service
-            )}
-          />
-        </div>
-      </div>
-
-      <div className="p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">
-          {getCategory(service)}
-        </p>
-
-        <div className="mt-2 flex items-start justify-between gap-3">
-          <h2 className="text-base font-bold text-slate-900">
-            {getServiceName(service)}
-          </h2>
-
-          <p className="shrink-0 text-base font-bold text-slate-900">
-            {formatCurrency(
-              getPrice(service)
-            )}
-          </p>
-        </div>
-
-        <p className="mt-3 text-sm leading-6 text-slate-600">
-          {service.description ||
-            "No description has been provided for this service."}
-        </p>
-
-        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-sm font-medium text-slate-600">
-          <Clock3
-            size={16}
-            className="text-slate-400"
-          />
-
-          {formatDuration(
-            getDuration(service)
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 export default function ServicesPage() {
-  const [services, setServices] =
-    useState([]);
+  const {
+    user,
+  } = useAuth();
 
-  const [searchTerm, setSearchTerm] =
-    useState("");
+  const canCreate =
+    hasPermission(
+      user,
+      "service:create"
+    );
+  const canUpdate =
+    hasPermission(
+      user,
+      "service:update"
+    );
+  const canPublish =
+    hasPermission(
+      user,
+      "service:publish"
+    );
+  const canDelete =
+    hasPermission(
+      user,
+      "service:delete"
+    );
 
   const [
-    selectedCategory,
-    setSelectedCategory,
-  ] = useState("all");
-
+    services,
+    setServices,
+  ] = useState([]);
   const [
-    selectedStatus,
-    setSelectedStatus,
+    loading,
+    setLoading,
+  ] = useState(true);
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
+  const [
+    actionId,
+    setActionId,
+  ] = useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+  const [
+    publication,
+    setPublication,
   ] = useState("all");
+  const [
+    editingId,
+    setEditingId,
+  ] = useState("");
+  const [
+    showForm,
+    setShowForm,
+  ] = useState(false);
+  const [
+    form,
+    setForm,
+  ] = useState(
+    EMPTY_SERVICE
+  );
+  const [
+    error,
+    setError,
+  ] = useState("");
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const load =
+    useCallback(
+      async () => {
+        setLoading(true);
+        setError("");
 
-  const [error, setError] =
-    useState("");
-
-  const loadServices =
-    useCallback(async () => {
-      setIsLoading(true);
-      setError("");
-
-      try {
-        const response =
-          await API.get("/services");
-
-        setServices(
-          extractServices(response.data)
-        );
-      } catch (requestError) {
-        setServices([]);
-
-        setError(
-          requestError.response?.data
-            ?.message ||
-            requestError.message ||
-            "Unable to load salon services."
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    }, []);
+        try {
+          setServices(
+            await serviceService.getManagementServices()
+          );
+        } catch (
+          requestError
+        ) {
+          setError(
+            messageFrom(
+              requestError,
+              "The service catalogue could not be loaded."
+            )
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
   useEffect(() => {
-    loadServices();
-  }, [loadServices]);
+    void load();
+  }, [load]);
 
-  const categories = useMemo(() => {
-    const values = services
-      .map(getCategory)
-      .filter(Boolean);
-
-    return [
-      "all",
-      ...Array.from(
-        new Set(values)
-      ).sort((first, second) =>
-        first.localeCompare(second)
-      ),
-    ];
-  }, [services]);
-
-  const filteredServices =
+  const filtered =
     useMemo(() => {
-      const query = searchTerm
-        .trim()
-        .toLowerCase();
+      const term =
+        search
+          .trim()
+          .toLowerCase();
 
       return services.filter(
         (service) => {
-          const categoryMatches =
-            selectedCategory ===
-              "all" ||
-            getCategory(service) ===
-              selectedCategory;
-
-          const statusMatches =
-            selectedStatus === "all" ||
-            (selectedStatus ===
-              "active" &&
-              isServiceActive(
-                service
-              )) ||
-            (selectedStatus ===
-              "inactive" &&
-              !isServiceActive(
-                service
-              ));
-
-          const textMatches =
-            !query ||
+          const matchesText =
+            !term ||
             [
-              getServiceName(service),
-              getCategory(service),
+              service.name,
+              service.category,
               service.description,
-              service._id,
-              service.id,
-            ].some((value) =>
-              String(value || "")
-                .toLowerCase()
-                .includes(query)
+              service.priceLabel,
+            ].some(
+              (value) =>
+                String(
+                  value || ""
+                )
+                  .toLowerCase()
+                  .includes(
+                    term
+                  )
             );
 
+          const matchesStatus =
+            publication ===
+              "all" ||
+            (publication ===
+              "published" &&
+              service.active ===
+                true) ||
+            (publication ===
+              "unpublished" &&
+              service.active !==
+                true);
+
           return (
-            categoryMatches &&
-            statusMatches &&
-            textMatches
+            matchesText &&
+            matchesStatus
           );
         }
       );
     }, [
+      publication,
+      search,
       services,
-      searchTerm,
-      selectedCategory,
-      selectedStatus,
     ]);
 
-  const summary = useMemo(() => {
-    return services.reduce(
-      (totals, service) => {
-        totals.total += 1;
-        totals.totalPrice +=
-          getPrice(service);
-        totals.totalDuration +=
-          getDuration(service);
+  function openCreate() {
+    setEditingId("");
+    setForm({
+      ...EMPTY_SERVICE,
+    });
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  }
 
-        if (
-          isServiceActive(service)
-        ) {
-          totals.active += 1;
-        }
-
-        return totals;
-      },
-      {
-        total: 0,
-        active: 0,
-        totalPrice: 0,
-        totalDuration: 0,
-      }
+  function openEdit(service) {
+    setEditingId(
+      String(service._id)
     );
-  }, [services]);
+    setForm(
+      toForm(service)
+    );
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  }
 
-  const averagePrice =
-    summary.total > 0
-      ? summary.totalPrice /
-        summary.total
-      : 0;
+  function closeForm() {
+    if (saving) {
+      return;
+    }
 
-  const averageDuration =
-    summary.total > 0
-      ? Math.round(
-          summary.totalDuration /
-            summary.total
+    setShowForm(false);
+    setEditingId("");
+    setForm({
+      ...EMPTY_SERVICE,
+    });
+  }
+
+  function update(
+    field,
+    value
+  ) {
+    setForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+      })
+    );
+  }
+
+  async function save(
+    event
+  ) {
+    event.preventDefault();
+
+    if (
+      editingId &&
+      !canUpdate
+    ) {
+      setError(
+        "You do not have permission to edit services."
+      );
+      return;
+    }
+
+    if (
+      !editingId &&
+      !canCreate
+    ) {
+      setError(
+        "You do not have permission to create services."
+      );
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+
+      const payload =
+        servicePayload(form);
+
+      if (editingId) {
+        await serviceService.updateService(
+          editingId,
+          payload
+        );
+        setSuccess(
+          "Service details updated."
+        );
+      } else {
+        await serviceService.createService(
+          payload
+        );
+        setSuccess(
+          "Service created as unpublished. Publish it when it is ready for customers."
+        );
+      }
+
+      closeForm();
+      await load();
+    } catch (
+      requestError
+    ) {
+      setError(
+        messageFrom(
+          requestError,
+          "The service could not be saved."
         )
-      : 0;
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function togglePublication(
+    service
+  ) {
+    if (!canPublish) {
+      return;
+    }
+
+    try {
+      setActionId(
+        String(service._id)
+      );
+      setError("");
+      setSuccess("");
+
+      const next =
+        service.active !==
+        true;
+
+      await serviceService.setPublication(
+        service._id,
+        next
+      );
+
+      setSuccess(
+        next
+          ? `${service.name} is now published.`
+          : `${service.name} is now unpublished.`
+      );
+
+      await load();
+    } catch (
+      requestError
+    ) {
+      setError(
+        messageFrom(
+          requestError,
+          "Publication could not be changed."
+        )
+      );
+    } finally {
+      setActionId("");
+    }
+  }
+
+  async function remove(
+    service
+  ) {
+    if (
+      !canDelete ||
+      !window.confirm(
+        `Permanently delete ${service.name}? Use Unpublish instead when you only want to remove it from customer booking.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setActionId(
+        String(service._id)
+      );
+      setError("");
+      await serviceService.deleteService(
+        service._id
+      );
+      setSuccess(
+        `${service.name} was permanently deleted.`
+      );
+      await load();
+    } catch (
+      requestError
+    ) {
+      setError(
+        messageFrom(
+          requestError,
+          "The service could not be deleted."
+        )
+      );
+    } finally {
+      setActionId("");
+    }
+  }
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard
-            icon={Scissors}
-            label="Total services"
-            value={summary.total}
-            description="All catalogue services"
-          />
+    <main
+      className="space-y-6 p-4 sm:p-6 lg:p-8"
+      id="main-content"
+      tabIndex="-1"
+    >
+      <header className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
+              Catalogue management
+            </p>
+            <h1 className="mt-2 text-2xl font-bold text-black sm:text-3xl">
+              Salon services
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
+              Maintain the customer-facing service catalogue. Editing service content and publishing it are separate permissions.
+            </p>
+          </div>
 
-          <SummaryCard
-            icon={CheckCircle2}
-            label="Active services"
-            value={summary.active}
-            description="Available for booking"
-          />
-
-          <SummaryCard
-            icon={WalletCards}
-            label="Average price"
-            value={formatCurrency(
-              averagePrice
-            )}
-            description="Average catalogue price"
-          />
-
-          <SummaryCard
-            icon={Clock3}
-            label="Average duration"
-            value={formatDuration(
-              averageDuration
-            )}
-            description="Average appointment time"
-          />
-        </section>
-
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Service catalogue
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Review salon treatments,
-                prices, duration and
-                availability.
-              </p>
-            </div>
-
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={loadServices}
-              disabled={isLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+              onClick={() =>
+                void load()
+              }
+              disabled={
+                loading
+              }
             >
               <RefreshCw
                 size={17}
                 className={
-                  isLoading
+                  loading
                     ? "animate-spin"
                     : ""
                 }
               />
-
               Refresh
             </button>
-          </div>
 
-          <div className="grid gap-3 border-b border-slate-200 p-5 lg:grid-cols-[1fr_220px_180px]">
-            <div className="relative">
-              <Search
-                size={18}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <input
-                type="search"
-                value={searchTerm}
-                onChange={(event) =>
-                  setSearchTerm(
-                    event.target.value
-                  )
+            {canCreate ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
+                onClick={
+                  openCreate
                 }
-                placeholder="Search services by name, category or description"
-                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
-              />
-            </div>
-
-            <div className="relative">
-              <Layers3
-                size={17}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-
-              <select
-                value={selectedCategory}
-                onChange={(event) =>
-                  setSelectedCategory(
-                    event.target.value
-                  )
-                }
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
               >
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category === "all"
-                        ? "All categories"
-                        : category}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
+                <Plus
+                  size={17}
+                />
+                Add service
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </header>
 
-            <select
-              value={selectedStatus}
-              onChange={(event) =>
-                setSelectedStatus(
-                  event.target.value
+      {error ? (
+        <div
+          className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          role="alert"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div
+          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-black"
+          role="status"
+        >
+          {success}
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14rem]">
+          <label className="relative block">
+            <span className="sr-only">
+              Search services
+            </span>
+            <Search
+              size={18}
+              className="pointer-events-none absolute left-3 top-3 text-stone-500"
+            />
+            <input
+              type="search"
+              value={
+                search
+              }
+              onChange={(
+                event
+              ) =>
+                setSearch(
+                  event.target
+                    .value
                 )
               }
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
-            >
-              <option value="all">
-                All statuses
-              </option>
+              placeholder="Search name, category or description..."
+              className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
+            />
+          </label>
 
-              <option value="active">
-                Active
-              </option>
+          <select
+            value={
+              publication
+            }
+            onChange={(
+              event
+            ) =>
+              setPublication(
+                event.target
+                  .value
+              )
+            }
+            className="rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-black"
+            aria-label="Publication filter"
+          >
+            <option value="all">
+              All services
+            </option>
+            <option value="published">
+              Published
+            </option>
+            <option value="unpublished">
+              Unpublished
+            </option>
+          </select>
+        </div>
+      </section>
 
-              <option value="inactive">
-                Inactive
-              </option>
-            </select>
+      <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+        <div className="border-b border-stone-200 px-5 py-4">
+          <h2 className="font-bold text-black">
+            Service catalogue
+          </h2>
+          <p className="mt-1 text-xs text-stone-500">
+            {filtered.length} of {services.length} services shown
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="p-10 text-center text-sm font-semibold text-stone-600">
+            Loading services…
           </div>
-
-          {error && (
-            <div className="m-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-              <AlertCircle
-                size={18}
-                className="mt-0.5 shrink-0"
-              />
-
-              <div>
-                <p className="font-semibold">
-                  Services could not be
-                  loaded
-                </p>
-
-                <p className="mt-1">
-                  {error}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {isLoading ? (
-            <div className="space-y-3 p-5">
-              {Array.from({
-                length: 6,
-              }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-16 animate-pulse rounded-xl bg-slate-100"
-                />
-              ))}
-            </div>
-          ) : filteredServices.length >
-            0 ? (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="min-w-full">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Service
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Category
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Price
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Duration
-                      </th>
-
-                      <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredServices.map(
-                      (service) => (
-                        <ServiceRow
-                          key={
-                            service._id ||
-                            service.id ||
-                            `${service.name}-${service.category}`
-                          }
-                          service={
-                            service
-                          }
-                        />
-                      )
+        ) : filtered.length ===
+          0 ? (
+          <div className="p-10 text-center">
+            <Scissors
+              size={30}
+              className="mx-auto text-stone-400"
+            />
+            <p className="mt-3 font-bold text-black">
+              No matching services
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-stone-200">
+            {filtered.map(
+              (service) => (
+                <article
+                  key={
+                    service._id
+                  }
+                  className="grid gap-4 p-5 lg:grid-cols-[5rem_minmax(0,1fr)_auto] lg:items-center"
+                >
+                  <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                    {service.image ? (
+                      <img
+                        src={
+                          service.image
+                        }
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageOff
+                        size={22}
+                        className="text-stone-400"
+                      />
                     )}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
 
-              <div className="grid gap-4 p-4 sm:grid-cols-2 md:hidden">
-                {filteredServices.map(
-                  (service) => (
-                    <ServiceMobileCard
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-bold text-black">
+                        {service.name}
+                      </h3>
+                      <PublicationBadge
+                        active={
+                          service.active ===
+                          true
+                        }
+                      />
+                      {service.onlineBookable ? (
+                        <span className="rounded-full border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-700">
+                          Online bookable
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      {service.category}
+                    </p>
+                    <p className="mt-2 text-sm text-stone-600">
+                      {service.description ||
+                        "No description provided."}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-black">
+                      {service.priceOnConsultation
+                        ? service.priceLabel ||
+                          "Price on consultation"
+                        : money(
+                            service.price
+                          )}
+                      {" · "}
+                      {service.duration} min
+                      {service.durationEstimated
+                        ? " estimated"
+                        : ""}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                    {canUpdate ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                        onClick={() =>
+                          openEdit(
+                            service
+                          )
+                        }
+                      >
+                        <Pencil
+                          size={14}
+                        />
+                        Edit
+                      </button>
+                    ) : null}
+
+                    {canPublish ? (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-black bg-amber-400 px-3 py-2 text-xs font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+                        disabled={
+                          actionId ===
+                          String(
+                            service._id
+                          )
+                        }
+                        onClick={() =>
+                          void togglePublication(
+                            service
+                          )
+                        }
+                      >
+                        {service.active
+                          ? "Unpublish"
+                          : "Publish"}
+                      </button>
+                    ) : null}
+
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-50"
+                        onClick={() =>
+                          void remove(
+                            service
+                          )
+                        }
+                      >
+                        <Trash2
+                          size={14}
+                        />
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              )
+            )}
+          </div>
+        )}
+      </section>
+
+      {showForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="service-form-title"
+        >
+          <form
+            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+            onSubmit={
+              save
+            }
+          >
+            <header className="flex items-start justify-between border-b border-stone-200 p-5">
+              <div>
+                <h2
+                  id="service-form-title"
+                  className="text-xl font-bold text-black"
+                >
+                  {editingId
+                    ? "Edit service"
+                    : "Add service"}
+                </h2>
+                <p className="mt-1 text-sm text-stone-600">
+                  New services are created unpublished.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-black hover:bg-stone-100"
+                onClick={
+                  closeForm
+                }
+                aria-label="Close service editor"
+              >
+                <X size={20} />
+              </button>
+            </header>
+
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-black">
+                Service name
+                <input
+                  required
+                  value={
+                    form.name
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "name",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Category
+                <input
+                  required
+                  value={
+                    form.category
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "category",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <label className="sm:col-span-2 text-sm font-semibold text-black">
+                Description
+                <textarea
+                  rows="5"
+                  value={
+                    form.description
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "description",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <label className="sm:col-span-2 text-sm font-semibold text-black">
+                Image URL
+                <input
+                  type="url"
+                  value={
+                    form.image
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "image",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="https://..."
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              {form.image ? (
+                <div className="sm:col-span-2">
+                  <img
+                    src={
+                      form.image
+                    }
+                    alt="Service preview"
+                    className="h-40 w-full rounded-xl border border-stone-200 object-cover"
+                  />
+                </div>
+              ) : null}
+
+              <label className="text-sm font-semibold text-black">
+                Base price (£)
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={
+                    form.price
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "price",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Price label
+                <input
+                  value={
+                    form.priceLabel
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "priceLabel",
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="From £75"
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Duration (minutes)
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={
+                    form.duration
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    update(
+                      "duration",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
+                />
+              </label>
+
+              <div className="space-y-3 rounded-xl border border-stone-200 p-4">
+                {[
+                  [
+                    "priceOnConsultation",
+                    "Price on consultation",
+                  ],
+                  [
+                    "durationEstimated",
+                    "Duration is estimated",
+                  ],
+                  [
+                    "onlineBookable",
+                    "Available for online booking",
+                  ],
+                ].map(
+                  ([
+                    field,
+                    label,
+                  ]) => (
+                    <label
                       key={
-                        service._id ||
-                        service.id ||
-                        `${service.name}-${service.category}`
+                        field
                       }
-                      service={
-                        service
-                      }
-                    />
+                      className="flex items-center gap-3 text-sm font-semibold text-black"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={
+                          form[
+                            field
+                          ]
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          update(
+                            field,
+                            event
+                              .target
+                              .checked
+                          )
+                        }
+                        className="h-4 w-4 accent-amber-500"
+                      />
+                      {label}
+                    </label>
                   )
                 )}
               </div>
-
-              <div className="border-t border-slate-200 px-5 py-3 text-sm text-slate-500">
-                Showing{" "}
-                <span className="font-semibold text-slate-700">
-                  {
-                    filteredServices.length
-                  }
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-slate-700">
-                  {services.length}
-                </span>{" "}
-                services
-              </div>
-            </>
-          ) : (
-            <div className="px-6 py-16 text-center">
-              <Scissors
-                size={38}
-                className="mx-auto text-slate-300"
-              />
-
-              <h3 className="mt-4 text-base font-bold text-slate-900">
-                No services found
-              </h3>
-
-              <p className="mt-2 text-sm text-slate-500">
-                {searchTerm ||
-                selectedCategory !== "all" ||
-                selectedStatus !== "all"
-                  ? "No services match the selected filters."
-                  : "Salon services will appear here once they have been created."}
-              </p>
             </div>
-          )}
-        </section>
-      </div>
-    </div>
+
+            <footer className="flex justify-end gap-2 border-t border-stone-200 p-5">
+              <button
+                type="button"
+                className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black"
+                onClick={
+                  closeForm
+                }
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  saving
+                }
+                className="rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+              >
+                {saving
+                  ? "Saving…"
+                  : editingId
+                    ? "Save changes"
+                    : "Create service"}
+              </button>
+            </footer>
+          </form>
+        </div>
+      ) : null}
+    </main>
   );
 }
