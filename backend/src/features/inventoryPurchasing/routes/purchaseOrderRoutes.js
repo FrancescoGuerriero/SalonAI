@@ -7,6 +7,10 @@ import {
 import {
   managementOnly,
 } from "../../../middleware/roleMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   approvePurchaseOrderHandler,
@@ -22,17 +26,30 @@ import {
 
 const router = express.Router();
 
+const readInventory =
+  requireAnyPermission(
+    "inventory:read",
+    "inventory:manage"
+  );
+
+const manageInventory =
+  requirePermissions(
+    "inventory:manage"
+  );
+
 router.use(protect);
 router.use(managementOnly);
 
 router
   .route("/")
   .get(
+    readInventory,
     asyncHandler(
       listPurchaseOrders
     )
   )
   .post(
+    manageInventory,
     asyncHandler(
       createPurchaseOrderHandler
     )
@@ -41,11 +58,13 @@ router
 router
   .route("/:purchaseOrderId")
   .get(
+    readInventory,
     asyncHandler(
       getPurchaseOrder
     )
   )
   .patch(
+    manageInventory,
     asyncHandler(
       updatePurchaseOrder
     )
@@ -53,6 +72,7 @@ router
 
 router.post(
   "/:purchaseOrderId/submit",
+  manageInventory,
   asyncHandler(
     submitPurchaseOrderHandler
   )
@@ -60,6 +80,7 @@ router.post(
 
 router.post(
   "/:purchaseOrderId/approve",
+  manageInventory,
   asyncHandler(
     approvePurchaseOrderHandler
   )
@@ -67,6 +88,7 @@ router.post(
 
 router.post(
   "/:purchaseOrderId/cancel",
+  manageInventory,
   asyncHandler(
     cancelPurchaseOrderHandler
   )
@@ -74,6 +96,7 @@ router.post(
 
 router.post(
   "/:purchaseOrderId/receive",
+  manageInventory,
   asyncHandler(
     receivePurchaseOrderHandler
   )
