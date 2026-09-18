@@ -378,4 +378,175 @@ test.describe("SalonAI layout regressions", () => {
     await expect(trigger).toBeFocused();
   });
 
+
+  test("service editor traps focus, closes with Escape and restores the trigger on mobile", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 720,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/services/management") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ services: [] }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/manage/services");
+
+    const trigger = page.getByRole("button", {
+      name: /add service/i,
+    });
+
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", {
+      name: "Add service",
+    });
+    const close = dialog.getByRole("button", {
+      name: "Close service editor",
+    });
+
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      dialog.getByRole("button", {
+        name: /create service/i,
+      })
+    ).toBeFocused();
+
+    await page.keyboard.press("Escape");
+
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(page.locator("body")).not.toHaveCSS(
+      "overflow",
+      "hidden"
+    );
+  });
+
+  test("product editor keeps its close control reachable and restores focus", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 720,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/commerce/inventory/products") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [] }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/manage/products");
+
+    const trigger = page.getByRole("button", {
+      name: /add product/i,
+    });
+
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+
+    const dialog = page.getByRole("dialog", {
+      name: "Add product",
+    });
+    const close = dialog.getByRole("button", {
+      name: "Close product editor",
+    });
+
+    await expect(dialog).toBeVisible();
+    await expect(close).toBeFocused();
+
+    await page.keyboard.press("Escape");
+
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
 });
