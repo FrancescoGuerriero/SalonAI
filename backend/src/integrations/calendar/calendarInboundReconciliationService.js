@@ -17,6 +17,9 @@ import {
 import {
   enqueueCalendarSyncTask,
 } from "./calendarSyncQueue.js";
+import {
+  ensureCalendarWebhookSubscription,
+} from "./calendarWebhookProviderService.js";
 
 function instant(value) {
   const date =
@@ -314,6 +317,28 @@ export async function reconcileCalendarConnection(
       connectionId,
     });
 
+  const reconciliationRequest =
+    connection.reconcileRequestedAt
+      ? new Date(
+          connection.reconcileRequestedAt
+        )
+      : null;
+
+  let webhookError = "";
+
+  try {
+    await ensureCalendarWebhookSubscription({
+      connection,
+      accessToken,
+    });
+  } catch (error) {
+    webhookError =
+      `Calendar webhook maintenance failed: ${String(
+        error?.message ||
+          "unknown provider error"
+      ).slice(0, 1900)}`;
+  }
+
   const actor =
     await User.findById(
       connection.user
@@ -394,8 +419,30 @@ export async function reconcileCalendarConnection(
         !result.success
     )
       ? "One or more inbound calendar events could not be reconciled."
-      : "";
+      : webhookError;
   await connection.save();
+
+  if (
+    reconciliationRequest &&
+    !Number.isNaN(
+      reconciliationRequest.getTime()
+    )
+  ) {
+    await ExternalCalendarConnection.updateOne(
+      {
+        _id:
+          connection._id,
+        reconcileRequestedAt:
+          reconciliationRequest,
+      },
+      {
+        $set: {
+          reconcileRequestedAt:
+            null,
+        },
+      }
+    );
+  }
 
   return {
     connectionId:
@@ -431,32 +478,9 @@ export async function reconcileCalendarConnection(
   };
 }
 
-export async function reconcileAllEnabledCalendars({
-  limit = 50,
-} = {}) {
-  const connections =
-    await ExternalCalendarConnection.find({
-        status:
-          "connected",
-        syncEnabled: true,
-      })
-      .select("_id")
-      .sort({
-        lastSyncedAt: 1,
-        updatedAt: 1,
-      })
-      .limit(
-        Math.max(
-          1,
-          Math.min(
-            200,
-            Number(limit) ||
-              50
-          )
-        )
-      )
-      .lean();
-
+async function reconcileConnections(
+  connections
+) {
   const results = [];
 
   for (
@@ -495,7 +519,77 @@ export async function reconcileAllEnabledCalendars({
   };
 }
 
+function boundedLimit(
+  value
+) {
+  return Math.max(
+    1,
+    Math.min(
+      200,
+      Number(value) ||
+        50
+    )
+  );
+}
+
+export async function reconcileRequestedCalendars({
+  limit = 50,
+} = {}) {
+  const connections =
+    await ExternalCalendarConnection.find({
+        status:
+          "connected",
+        syncEnabled: true,
+        reconcileRequestedAt: {
+          $ne: null,
+        },
+      })
+      .select("_id reconcileRequestedAt")
+      .sort({
+        reconcileRequestedAt: 1,
+        updatedAt: 1,
+      })
+      .limit(
+        boundedLimit(
+          limit
+        )
+      )
+      .lean();
+
+  return reconcileConnections(
+    connections
+  );
+}
+
+export async function reconcileAllEnabledCalendars({
+  limit = 50,
+} = {}) {
+  const connections =
+    await ExternalCalendarConnection.find({
+        status:
+          "connected",
+        syncEnabled: true,
+      })
+      .select("_id reconcileRequestedAt")
+      .sort({
+        reconcileRequestedAt: -1,
+        lastSyncedAt: 1,
+        updatedAt: 1,
+      })
+      .limit(
+        boundedLimit(
+          limit
+        )
+      )
+      .lean();
+
+  return reconcileConnections(
+    connections
+  );
+}
+
 export default {
   reconcileAllEnabledCalendars,
+  reconcileRequestedCalendars,
   reconcileCalendarConnection,
 };
