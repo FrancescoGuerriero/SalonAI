@@ -6,8 +6,23 @@ import {
   managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
+
+const readCommunications =
+  requireAnyPermission(
+    "communications:read",
+    "communications:manage"
+  );
+
+const manageCommunications =
+  requirePermissions(
+    "communications:manage"
+  );
 
 router.use(protect);
 router.use(managementOnly);
@@ -21,13 +36,15 @@ router.use(managementOnly);
 // Create a new communication template.
 router.post(
   "/",
-  communicationTemplateController.createCommunicationTemplate
+  manageCommunications,
+  communicationTemplateController\.createCommunicationTemplate
 );
 
 // List, search, filter, sort and paginate templates.
 router.get(
   "/",
-  communicationTemplateController.listCommunicationTemplates
+  readCommunications,
+  communicationTemplateController\.listCommunicationTemplates
 );
 
 /*
@@ -39,7 +56,8 @@ router.get(
 // Return template totals, usage, channels and campaigns.
 router.get(
   "/summary",
-  communicationTemplateController.getCommunicationTemplateSummary
+  readCommunications,
+  communicationTemplateController\.getCommunicationTemplateSummary
 );
 
 /*
@@ -52,13 +70,15 @@ router.get(
 // This route must remain above "/:templateId".
 router.get(
   "/slug/:slug",
-  communicationTemplateController.getCommunicationTemplateBySlug
+  readCommunications,
+  communicationTemplateController\.getCommunicationTemplateBySlug
 );
 
 // Retrieve one template using its MongoDB ID.
 router.get(
   "/:templateId",
-  communicationTemplateController.getCommunicationTemplate
+  readCommunications,
+  communicationTemplateController\.getCommunicationTemplate
 );
 
 /*
@@ -70,31 +90,36 @@ router.get(
 // Update template content and configuration.
 router.patch(
   "/:templateId",
-  communicationTemplateController.updateCommunicationTemplate
+  manageCommunications,
+  communicationTemplateController\.updateCommunicationTemplate
 );
 
 // Activate or deactivate a template.
 router.patch(
   "/:templateId/status",
-  communicationTemplateController.setCommunicationTemplateStatus
+  manageCommunications,
+  communicationTemplateController\.setCommunicationTemplateStatus
 );
 
 // Render a template using supplied variables.
 router.post(
   "/:templateId/render",
-  communicationTemplateController.renderCommunicationTemplate
+  readCommunications,
+  communicationTemplateController\.renderCommunicationTemplate
 );
 
 // Duplicate an existing template.
 router.post(
   "/:templateId/duplicate",
-  communicationTemplateController.duplicateCommunicationTemplate
+  manageCommunications,
+  communicationTemplateController\.duplicateCommunicationTemplate
 );
 
 // Delete a non-system communication template.
 router.delete(
   "/:templateId",
-  communicationTemplateController.deleteCommunicationTemplate
+  manageCommunications,
+  communicationTemplateController\.deleteCommunicationTemplate
 );
 
 export default router;
