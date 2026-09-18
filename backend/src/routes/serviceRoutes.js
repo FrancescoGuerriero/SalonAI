@@ -12,7 +12,6 @@ import {
 
 import {
   protect,
-  superAdminOnly,
 } from "../middleware/authMiddleware.js";
 import {
   requirePermissions,
@@ -64,7 +63,9 @@ router.put(
 router.delete(
   "/:id",
   protect,
-  superAdminOnly,
+  requirePermissions(
+    "service:delete"
+  ),
   deleteService
 );
 
