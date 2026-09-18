@@ -261,15 +261,14 @@ export default function MainLayout() {
               aria-modal="true"
               aria-label="Management navigation"
             >
-              <button
-                type="button"
+              <div
                 className="app-mobile-backdrop"
                 onClick={() =>
                   setMobileOpen(
                     false
                   )
                 }
-                aria-label="Close management navigation"
+                aria-hidden="true"
               />
 
               <aside

@@ -546,15 +546,14 @@ export default function Navbar() {
           aria-modal="true"
           aria-label="Mobile navigation"
         >
-          <button
-            type="button"
+          <div
             className="app-mobile-backdrop"
             onClick={() =>
               setMobileOpen(
                 false
               )
             }
-            aria-label="Close navigation"
+            aria-hidden="true"
           />
 
           <aside
