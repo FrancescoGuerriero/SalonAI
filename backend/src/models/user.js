@@ -148,6 +148,16 @@ const userSchema = new Schema(
       default: [],
     },
 
+    rolePermissions: {
+      type: [
+        {
+          type: String,
+          enum: EMPLOYEE_PERMISSIONS,
+        },
+      ],
+      default: [],
+    },
+
     phone: {
       type: String,
       trim: true,
