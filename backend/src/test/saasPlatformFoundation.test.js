@@ -18,16 +18,37 @@ import {
   getRuntimePlatformConfiguration,
 } from "../platform/platformConfigurationService.js";
 
-test("SaaS foundation registers SalonAI as the default vertical", () => {
+test("AI Business Platform registers the four current vertical products", () => {
   assert.equal(DEFAULT_VERTICAL_ID, "salon");
-  assert.equal(isRegisteredVertical("salon"), true);
 
-  const vertical = getVerticalDefinition();
-  assert.equal(vertical.id, "salon");
-  assert.equal(vertical.terminology.staffMember, "Stylist");
-  assert.equal(vertical.terminology.booking, "Appointment");
-  assert.ok(vertical.capabilities.includes("ai"));
-  assert.equal(listVerticalDefinitions().length >= 1, true);
+  const expectedVerticals = [
+    ["salon", "Salon AI"],
+    ["plastic-surgery", "Plastic Surgery AI"],
+    ["spa", "Spa AI"],
+    ["fitness", "Fitness AI"],
+  ];
+
+  for (const [id, label] of expectedVerticals) {
+    assert.equal(isRegisteredVertical(id), true);
+    assert.equal(getVerticalDefinition(id).label, label);
+  }
+
+  assert.equal(listVerticalDefinitions().length, 4);
+
+  const salon = getVerticalDefinition();
+  assert.equal(salon.terminology.staffMember, "Stylist");
+  assert.equal(salon.terminology.booking, "Appointment");
+  assert.ok(salon.capabilities.includes("ai"));
+
+  const plasticSurgery = getVerticalDefinition("plastic-surgery");
+  assert.equal(plasticSurgery.terminology.customer, "Patient");
+  assert.equal(plasticSurgery.terminology.booking, "Consultation");
+
+  const spa = getVerticalDefinition("spa");
+  assert.equal(spa.terminology.staffMember, "Therapist");
+
+  const fitness = getVerticalDefinition("fitness");
+  assert.equal(fitness.terminology.customer, "Member");
 });
 
 test("unsupported business types fail closed", () => {
@@ -97,7 +118,7 @@ test("tenant ownership checks return 404 semantics across tenant boundaries", ()
   );
 });
 
-test("Business model defaults to the registered salon vertical", () => {
+test("Business model defaults to the registered Salon AI vertical", () => {
   const business = new Business({
     name: "Example Salon",
     slug: "example-salon",
@@ -107,6 +128,23 @@ test("Business model defaults to the registered salon vertical", () => {
   assert.equal(business.settings.currency, "GBP");
   assert.equal(business.subscription.provider, "stripe");
   assert.equal(business.validateSync(), undefined);
+});
+
+test("Business model accepts every registered current vertical", () => {
+  for (const businessType of [
+    "salon",
+    "plastic-surgery",
+    "spa",
+    "fitness",
+  ]) {
+    const business = new Business({
+      name: `Example ${businessType}`,
+      slug: `example-${businessType}`,
+      businessType,
+    });
+
+    assert.equal(business.validateSync(), undefined);
+  }
 });
 
 test("Business model rejects unregistered verticals before persistence", () => {
@@ -122,14 +160,25 @@ test("Business model rejects unregistered verticals before persistence", () => {
   assert.ok(validationError.errors.businessType);
 });
 
-test("public platform configuration exposes vertical metadata without tenant data", () => {
+test("public platform configuration exposes product metadata without tenant data", () => {
   const configuration = getRuntimePlatformConfiguration({
-    SALONAI_BUSINESS_TYPE: "salon",
+    AI_BUSINESS_PLATFORM_VERTICAL: "spa",
   });
 
-  assert.equal(configuration.platform, "SalonAI");
-  assert.equal(configuration.businessType, "salon");
-  assert.equal(configuration.terminology.business, "Salon");
+  assert.equal(configuration.platform, "AI Business Platform");
+  assert.equal(configuration.businessType, "spa");
+  assert.equal(configuration.verticalLabel, "Spa AI");
+  assert.equal(configuration.terminology.business, "Spa");
   assert.ok(configuration.capabilities.includes("communications"));
   assert.equal("tenantId" in configuration, false);
+});
+
+test("legacy SalonAI business-type configuration remains compatible", () => {
+  const configuration = getRuntimePlatformConfiguration({
+    SALONAI_BUSINESS_TYPE: "fitness",
+  });
+
+  assert.equal(configuration.platform, "AI Business Platform");
+  assert.equal(configuration.businessType, "fitness");
+  assert.equal(configuration.verticalLabel, "Fitness AI");
 });
