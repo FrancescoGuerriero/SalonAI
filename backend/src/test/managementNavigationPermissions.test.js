@@ -319,7 +319,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("unconditional full-dashboard bypass is reserved to Super Admin", async () => {
+test("core management roles retain full dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -337,13 +337,23 @@ test("unconditional full-dashboard bypass is reserved to Super Admin", async () 
   assert.ok(
     fullDashboardBlock
   );
-  assert.match(
-    fullDashboardBlock[1],
-    /"super_admin"/
-  );
+  for (const role of [
+    "super_admin",
+    "admin",
+    "manager",
+    "receptionist",
+  ]) {
+    assert.match(
+      fullDashboardBlock[1],
+      new RegExp(
+        `"${role}"`
+      )
+    );
+  }
+
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"admin"|"manager"|"receptionist"|"stylist"/
+    /"stylist"/
   );
 });
 
