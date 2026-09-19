@@ -155,3 +155,35 @@ test("management navigation exposes separate Products and Inventory workspaces",
     /"product:read"/
   );
 });
+
+
+test("service catalogue mutations write canonical audit history", async () => {
+  const controller =
+    await source(
+      "../controllers/serviceController.js"
+    );
+
+  assert.match(
+    controller,
+    /recordAuditEvent/
+  );
+
+  for (const action of [
+    "service.created",
+    "service.updated",
+    "service.publication_updated",
+    "service.deleted",
+  ]) {
+    assert.ok(
+      controller.includes(
+        `action:\n        "${action}"`
+      ),
+      `Missing service audit action: ${action}`
+    );
+  }
+
+  assert.match(
+    controller,
+    /changedFields:\s*Object\.keys\(\s*payload\s*\)/
+  );
+});

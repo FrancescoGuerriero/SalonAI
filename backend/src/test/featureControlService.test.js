@@ -7,6 +7,7 @@ import CanonicalAuditLog from "../models/AuditLog.js";
 import FutureFeatureAuditLog from "../features/security/AuditLog.js";
 import {
   FEATURE_CONTROLS,
+  FEATURE_CONTROL_IMPACTS,
   createRequireFeature,
   featureSettingKey,
   normaliseFeatureControlUpdate,
@@ -22,6 +23,67 @@ test("feature controls provide unique boolean code defaults", () => {
     assert.ok(definition.label);
     assert.ok(definition.category);
   }
+});
+
+test("every feature control publishes an administrator-readable impact contract", () => {
+  for (const definition of FEATURE_CONTROLS) {
+    const impact =
+      FEATURE_CONTROL_IMPACTS[
+        definition.id
+      ];
+
+    assert.ok(
+      impact,
+      `Missing impact contract for ${definition.id}`
+    );
+    assert.ok(
+      [
+        "capability",
+        "workspace",
+        "required",
+      ].includes(
+        impact.controlMode
+      )
+    );
+    assert.ok(
+      Array.isArray(
+        impact.impactScopes
+      )
+    );
+    assert.ok(
+      impact.enforcement
+    );
+  }
+
+  const resolved =
+    resolveFeatureControls(
+      []
+    );
+  const booking =
+    resolved.find(
+      ({ id }) =>
+        id ===
+        "online-booking"
+    );
+  const responsive =
+    resolved.find(
+      ({ id }) =>
+        id ===
+        "responsive"
+    );
+
+  assert.equal(
+    booking.controlMode,
+    "capability"
+  );
+  assert.match(
+    booking.enforcement,
+    /appointment creation/i
+  );
+  assert.equal(
+    responsive.controlMode,
+    "workspace"
+  );
 });
 
 test("administrator overrides take precedence and missing values use code defaults", () => {
@@ -84,6 +146,10 @@ test("stylist API separates protected management data from public booking data",
     "utf8"
   );
 
+  assert.match(
+    routes,
+    /"\/public",\s*requireFeature\("public-team"\),\s*getPublicStylists/s
+  );
   assert.match(routes, /"\/booking",\s*requireFeature\("online-booking"\),\s*getBookingStylists/s);
   assert.match(
     routes,
@@ -148,5 +214,104 @@ test("system and future-feature audits use distinct Mongoose models", () => {
     FutureFeatureAuditLog.schema.path(
       "entityType"
     )
+  );
+});
+
+
+test("customer aggregate hides disabled optional feature data while retaining records", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../features/customerExperience/customerExperienceController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /isFeatureEnabled/
+  );
+  assert.match(
+    controller,
+    /featureAvailability/
+  );
+
+  for (const field of [
+    "result.reviews = []",
+    "result.favourites = []",
+    "result.claimedOffers = []",
+    "result.appointmentRequests = []",
+    "result.consultations = []",
+    "result.inspirationItems = []",
+    "result.feedback = []",
+  ]) {
+    assert.ok(
+      controller.includes(
+        field
+      ),
+      `Missing aggregate suppression: ${field}`
+    );
+  }
+
+  assert.match(
+    controller,
+    /featureAvailability\.wallet[\s\S]*result\.walletCards\.map/
+  );
+});
+
+
+test("public team frontend route is independent from online booking", async () => {
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const stylistsPage =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/Stylists.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    app,
+    /path="stylists"[\s\S]{0,160}element=\{<Stylists \/>\}/
+  );
+
+  assert.doesNotMatch(
+    app,
+    /path="stylists"[\s\S]{0,180}featurePage/
+  );
+
+  assert.match(
+    stylistsPage,
+    /"public-team"/
+  );
+
+  assert.match(
+    stylistsPage,
+    /"online-booking"/
+  );
+
+  assert.match(
+    stylistsPage,
+    /getPublicTeam\(\)/
+  );
+
+  assert.match(
+    stylistsPage,
+    /getBookingStylists\(\)/
+  );
+
+  assert.match(
+    app,
+    /path="booking"[\s\S]*featurePage\(protectedPage\(Booking\), "online-booking"\)/
   );
 });

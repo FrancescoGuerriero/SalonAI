@@ -20,10 +20,25 @@ import {
   managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 import twilioWebhookProtection from "../middleware/twilioWebhookMiddleware.js";
 
 const router = express.Router();
+
+const readCommunications =
+  requireAnyPermission(
+    "communications:read",
+    "communications:manage"
+  );
+
+const manageCommunications =
+  requirePermissions(
+    "communications:manage"
+  );
 
 /*
  * Twilio sends status callbacks as
@@ -61,16 +76,19 @@ router.use(managementOnly);
  */
 router.get(
   "/configuration",
+  readCommunications,
   getConfiguration
 );
 
 router.post(
   "/verify",
+  manageCommunications,
   verifyAllChannels
 );
 
 router.post(
   "/verify/:channel",
+  manageCommunications,
   verifyChannel
 );
 
@@ -79,11 +97,13 @@ router.post(
  */
 router.post(
   "/send",
+  manageCommunications,
   sendMessage
 );
 
 router.post(
   "/send-batch",
+  manageCommunications,
   sendMessageBatch
 );
 
@@ -96,6 +116,7 @@ router.post(
  */
 router.post(
   "/deliveries/retries/process-due",
+  manageCommunications,
   retryDueDeliveries
 );
 
@@ -104,16 +125,19 @@ router.post(
  */
 router.get(
   "/deliveries",
+  readCommunications,
   listDeliveries
 );
 
 router.get(
   "/campaigns/:campaignId/summary",
+  readCommunications,
   getCampaignSummary
 );
 
 router.get(
   "/provider-status/:channel/:providerMessageId",
+  readCommunications,
   getProviderStatus
 );
 
@@ -122,16 +146,19 @@ router.get(
  */
 router.get(
   "/deliveries/:identifier",
+  readCommunications,
   getDelivery
 );
 
 router.post(
   "/deliveries/:identifier/retry",
+  manageCommunications,
   retryDelivery
 );
 
 router.patch(
   "/deliveries/:identifier/cancel",
+  manageCommunications,
   cancelDelivery
 );
 

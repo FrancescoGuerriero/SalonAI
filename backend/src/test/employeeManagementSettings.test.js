@@ -213,3 +213,36 @@ test("employee roster uses canonical staff accounts and only attaches matching p
     /"Salon employee"/
   );
 });
+
+
+test("employee dashboard preserves multiple daily breaks", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/AdminEmployeeDetailPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /function addBreak\(/
+  );
+  assert.match(
+    page,
+    /function updateBreak\(/
+  );
+  assert.match(
+    page,
+    /function removeBreak\(/
+  );
+  assert.match(
+    page,
+    /row\.breaks \|\| \[\]/
+  );
+  assert.doesNotMatch(
+    page,
+    /breakStart|breakEnd/
+  );
+});

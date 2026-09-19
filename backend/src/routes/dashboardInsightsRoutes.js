@@ -6,11 +6,19 @@ import {
   managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
 router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "dashboard:view"
+  )
+);
 
 router.get(
   "/",

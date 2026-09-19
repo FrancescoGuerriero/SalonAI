@@ -5,9 +5,13 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "appointment:create", label: "Create appointments", group: "Appointments" },
   { value: "appointment:update", label: "Update appointments", group: "Appointments" },
   { value: "appointment:cancel", label: "Cancel appointments", group: "Appointments" },
+  { value: "appointment:payment:manage", label: "Manage appointment payments", group: "Appointments" },
 
   { value: "customer:read", label: "View customers", group: "Customers" },
+  { value: "customer:create", label: "Create customers", group: "Customers" },
   { value: "customer:update", label: "Update customers", group: "Customers" },
+  { value: "customer:archive", label: "Archive or restore customers", group: "Customers" },
+  { value: "customer:delete", label: "Permanently delete customers", group: "Customers" },
 
   { value: "employee:read", label: "View employees", group: "Employees" },
   { value: "employee:create", label: "Add employees", group: "Employees" },
@@ -22,6 +26,10 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "profile:own:update", label: "Edit own public profile", group: "Profiles" },
   { value: "profile:all:read", label: "View all staff profiles", group: "Profiles" },
   { value: "profile:all:update", label: "Edit all staff profiles", group: "Profiles" },
+
+  { value: "schedule:own:read", label: "View own availability and leave", group: "My schedule" },
+  { value: "schedule:own:update", label: "Update own availability", group: "My schedule" },
+  { value: "leave:own:request", label: "Request own leave", group: "My schedule" },
 
   { value: "service:read", label: "View salon services", group: "Services" },
   { value: "service:create", label: "Create salon services", group: "Services" },
@@ -53,11 +61,8 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
 ]);
 
 const STYLIST_BASELINE = Object.freeze([
-  "dashboard:view",
   "appointment:read",
   "appointment:create",
-  "profile:own:read",
-  "profile:own:update",
 ]);
 
 export function effectivePermissions(user) {

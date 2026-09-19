@@ -37,6 +37,164 @@ export const FEATURE_CONTROLS = Object.freeze([
   { id: "privacy", label: "Privacy and consent centre", category: "Required controls", description: "Keep essential privacy and consent controls available to every customer.", defaultEnabled: true, required: true },
 ]);
 
+export const FEATURE_CONTROL_IMPACTS = Object.freeze({
+  "online-booking": {
+    controlMode: "capability",
+    impactScopes: ["Customer action", "Public booking API"],
+    enforcement: "Customer appointment creation, booking staff lists and staff availability.",
+  },
+  "whatsapp-booking": {
+    controlMode: "capability",
+    impactScopes: ["Customer channel", "Management workspace", "API"],
+    enforcement: "WhatsApp-assisted booking conversations and management endpoints.",
+  },
+  appointments: {
+    controlMode: "capability",
+    impactScopes: ["Customer action"],
+    enforcement: "Customer cancellation and rescheduling request submission.",
+  },
+  "public-team": {
+    controlMode: "capability",
+    impactScopes: ["Public website", "Public API"],
+    enforcement: "Published public staff profiles. Internal staff-profile management remains available.",
+  },
+  "online-shop": {
+    controlMode: "capability",
+    impactScopes: ["Public website", "Checkout", "Customer orders", "API"],
+    enforcement: "Public products, product detail, cart/checkout and customer online-order actions.",
+  },
+  reviews: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Review history visibility in the customer aggregate and new verified review submissions.",
+  },
+  favourites: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Saved-favourite visibility plus add/remove actions.",
+  },
+  offers: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Public offers, claimed-offer visibility and offer-claim actions. Management records are retained.",
+  },
+  wallet: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Customer gift-card wallet visibility and wallet mutations; retained salon records are not deleted.",
+  },
+  loyalty: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "API"],
+    enforcement: "Customer loyalty balances/activity and loyalty endpoints.",
+  },
+  inbox: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Customer inbox visibility and message-read actions.",
+  },
+  "salon-discovery": {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Customer salon-discovery preference visibility and updates.",
+  },
+  consultation: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Customer consultation history visibility and new consultation submissions. Management history is retained.",
+  },
+  inspiration: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Private inspiration-board visibility and add/remove actions.",
+  },
+  referrals: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "API"],
+    enforcement: "Customer referral history and referral creation/qualification endpoints.",
+  },
+  feedback: {
+    controlMode: "capability",
+    impactScopes: ["Customer experience", "Customer API"],
+    enforcement: "Customer feedback history and new feedback submissions. Management history is retained.",
+  },
+  notifications: {
+    controlMode: "capability",
+    impactScopes: ["Customer notifications", "Management workspace", "API"],
+    enforcement: "Managed notification and browser-push capabilities.",
+  },
+  communications: {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Delivery APIs"],
+    enforcement: "Campaign email/SMS, templates, schedules and delivery management.",
+  },
+  "retention-automation": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Automation API"],
+    enforcement: "Automated retention journeys and rule execution surfaces.",
+  },
+  "inventory-purchasing": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Operations API"],
+    enforcement: "Supplier, purchase-order and replenishment capabilities. Core retained product records remain intact.",
+  },
+  "ai-tools": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "AI API"],
+    enforcement: "SalonAI management recommendations, summaries, segmentation and forecasting tools.",
+  },
+  "salon-chatbot": {
+    controlMode: "capability",
+    impactScopes: ["Customer website", "Assistant API"],
+    enforcement: "Customer assistant visibility and assistant-message processing.",
+  },
+  "premium-analytics": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Analytics API"],
+    enforcement: "Premium feature-performance analytics.",
+  },
+  pwa: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to installable-app guidance and diagnostics; it does not uninstall an already installed browser PWA.",
+  },
+  seo: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to search-visibility guidance and diagnostics.",
+  },
+  analytics: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls the analytics-transparency workspace. Privacy consent remains independently available.",
+  },
+  performance: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to browser performance diagnostics.",
+  },
+  responsive: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to responsive-experience diagnostics; it does not disable responsive CSS.",
+  },
+  testing: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to safe browser smoke-check tooling; CI release gates remain independent.",
+  },
+  release: {
+    controlMode: "workspace",
+    impactScopes: ["Customer workspace"],
+    enforcement: "Controls access to release-readiness diagnostics; it does not enable or disable deployment workflows.",
+  },
+  privacy: {
+    controlMode: "required",
+    impactScopes: ["Customer privacy", "Required control"],
+    enforcement: "Essential privacy and consent controls are always available and cannot be disabled.",
+  },
+});
+
 export const FEATURE_CONTROL_MAP = Object.freeze(
   Object.fromEntries(FEATURE_CONTROLS.map((definition) => [definition.id, definition]))
 );
@@ -90,6 +248,15 @@ export function resolveFeatureControls(settings = []) {
 
     return {
       ...definition,
+      ...(FEATURE_CONTROL_IMPACTS[
+        definition.id
+      ] || {
+        controlMode:
+          "capability",
+        impactScopes: [],
+        enforcement:
+          definition.description,
+      }),
       enabled: definition.required
         ? true
         : hasAdminOverride

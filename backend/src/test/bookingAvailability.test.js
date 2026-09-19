@@ -376,6 +376,17 @@ test(
 
         "service-b"
       ),
+      false
+    );
+
+    assert.equal(
+      stylistOffersService(
+        {
+          services: [],
+        },
+
+        ""
+      ),
       true
     );
   }

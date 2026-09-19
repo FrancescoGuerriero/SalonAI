@@ -255,6 +255,13 @@ const StaffManagementPage = lazy(
     )
 );
 
+const StaffSelfServicePage = lazy(
+  () =>
+    import(
+      "./pages/StaffSelfServicePage.jsx"
+    )
+);
+
 const StaffPerformancePage = lazy(
   () =>
     import(
@@ -611,7 +618,7 @@ function AppRoutes() {
 
         <Route
           path="stylists"
-          element={featurePage(<Stylists />, "online-booking")}
+          element={<Stylists />}
         />
 
         <Route
@@ -897,6 +904,14 @@ function AppRoutes() {
           path="staff/profile"
           element={managementPage(
             StaffProfileEditorPage
+          )}
+        />
+
+        <Route
+          path="staff/self-service"
+          element={permissionPage(
+            StaffSelfServicePage,
+            "schedule:own:read"
           )}
         />
 
