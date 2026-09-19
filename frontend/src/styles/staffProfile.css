@@ -152,14 +152,34 @@
 
 .staff-profile-switch {
   display: flex;
+  min-height: 44px;
   align-items: center;
-  gap: .55rem;
+  gap: .7rem;
+  padding: .6rem .75rem;
+  border: 1px solid var(--app-line);
+  border-radius: .75rem;
   font-weight: 800;
+  cursor: pointer;
+}
+
+.staff-profile-switch:hover {
+  background: var(--palette-gold-soft);
+}
+
+.staff-profile-switch:focus-within {
+  outline: 3px solid var(--palette-gold-dark);
+  outline-offset: 3px;
 }
 
 .staff-profile-switch input {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: var(--palette-gold-dark);
+}
+
+.staff-profile-switch input:disabled {
+  cursor: not-allowed;
 }
 
 .staff-profile-actions {
