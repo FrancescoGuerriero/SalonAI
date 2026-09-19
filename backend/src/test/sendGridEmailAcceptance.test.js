@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import {
+  readFile,
+} from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -224,5 +227,46 @@ test("SendGrid acceptance verifies transport then sends one redacted test messag
   assert.equal(
     result.providerMessageId,
     "sendgrid-message-1"
+  );
+});
+
+
+test("repository exposes SendGrid acceptance without persisting the confirmation token", async () => {
+  const packageJson =
+    JSON.parse(
+      await readFile(
+        new URL(
+          "../../package.json",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+  const envExample =
+    await readFile(
+      new URL(
+        "../../.env.example",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.equal(
+    packageJson.scripts[
+      "sendgrid:acceptance"
+    ],
+    "node scripts/testSendGridEmailAcceptance.js"
+  );
+  assert.match(
+    envExample,
+    /^EMAIL_PROVIDER=sendgrid$/m
+  );
+  assert.match(
+    envExample,
+    /^SENDGRID_API_KEY=$/m
+  );
+  assert.doesNotMatch(
+    envExample,
+    /^SENDGRID_ACCEPTANCE_CONFIRM=/m
   );
 });
