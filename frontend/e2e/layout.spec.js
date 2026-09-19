@@ -901,6 +901,120 @@ test.describe("SalonAI layout regressions", () => {
     }
   });
 
+  test("staff profile publication control remains touch-sized on mobile", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/auth/admin/staff") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            users: [
+              {
+                id: "employee-anna",
+                name: "Anna Smith",
+                email: "anna@example.test",
+                role: "stylist",
+                stylistProfile: {
+                  id: "profile-anna",
+                  profilePublished: true,
+                },
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/stylists/profile-anna") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            _id: "profile-anna",
+            firstName: "Anna",
+            lastName: "Smith",
+            email: "anna@example.test",
+            jobTitle: "Senior Stylist",
+            profilePublished: true,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/admin/stylists");
+
+    await expect(
+      page.getByRole("heading", {
+        name: "Manage the professional profiles clients see.",
+      })
+    ).toBeVisible();
+
+    const publicationControl = page
+      .locator("label")
+      .filter({
+        hasText: "Published",
+      })
+      .last();
+
+    await expect(publicationControl).toBeVisible();
+
+    const box = await publicationControl.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
+  });
+
   test("System Administration feature switches are labelled and touch-sized", async ({
     page,
   }, testInfo) => {
