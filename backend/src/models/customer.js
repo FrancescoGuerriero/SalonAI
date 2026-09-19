@@ -522,6 +522,23 @@ const customerSchema = new Schema(
         default: true,
       },
 
+      emailSuppressed: {
+        type: Boolean,
+        default: false,
+      },
+
+      emailSuppressedAt: {
+        type: Date,
+        default: null,
+      },
+
+      emailSuppressionReason: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: 150,
+      },
+
       smsConsent: {
         type: Boolean,
         default: false,
