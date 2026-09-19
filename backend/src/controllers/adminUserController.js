@@ -1407,16 +1407,18 @@ export async function createStaffUserByAdmin(
           }).permissions
         : [];
 
-    const rolePermissions =
-      roleDefinition.system ===
-      false
-        ? [
-            ...(
-              roleDefinition.permissions ||
-              []
-            ),
-          ]
-        : [];
+    const rolePermissions = [
+      ...(
+        roleDefinition.rolePermissions ||
+        (
+          roleDefinition.system ===
+          false
+            ? roleDefinition.permissions
+            : []
+        ) ||
+        []
+      ),
+    ];
 
     if (
       !name ||
@@ -1915,16 +1917,18 @@ export async function updateEmployeeManagementSettings(
         );
       }
 
-      nextRolePermissions =
-        nextRoleDefinition.system ===
-        false
-          ? [
-              ...(
-                nextRoleDefinition.permissions ||
-                []
-              ),
-            ]
-          : [];
+      nextRolePermissions = [
+        ...(
+          nextRoleDefinition.rolePermissions ||
+          (
+            nextRoleDefinition.system ===
+            false
+              ? nextRoleDefinition.permissions
+              : []
+          ) ||
+          []
+        ),
+      ];
     }
 
     if (
