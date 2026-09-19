@@ -195,7 +195,13 @@ SalonAI withdraws **email marketing only** for the resolved local Customer:
 
 Channel-wide `communicationPreferences.emailUnsubscribed`, appointment reminders, service updates and the general `communicationPreferences.unsubscribed` flag are not changed by provider marketing suppression. Transactional communications therefore remain separate from marketing opt-out.
 
-`group_unsubscribe` is treated conservatively as a global SalonAI email-marketing suppression because SalonAI does not yet maintain a SendGrid ASM-group-to-marketing-category mapping. The SendGrid ASM group identifier remains in provider evidence so a category-specific model can be introduced later without losing provenance.
+Provider suppression now has two scopes:
+
+- SendGrid `unsubscribe` and `spamreport` create a global SalonAI email-marketing suppression;
+- `group_unsubscribe` adds only the supplied SendGrid ASM group ID to the customer's group-suppression set;
+- `group_resubscribe` clears only that same ASM group and never re-grants general SalonAI marketing consent.
+
+A marketing campaign may declare `options.sendGridSuppressionGroupId`. Audience preparation and delivery-time consent checks then block only customers suppressed for that group.
 
 ### Identity boundary
 
@@ -206,11 +212,11 @@ SalonAI first strongly matches the provider event to a local `MessageDelivery` u
 1. the trusted local `MessageDelivery.customer` reference; or
 2. the trusted local `MessageDelivery.recipient.email` as a fallback.
 
-If the Customer cannot be resolved from local delivery evidence, no marketing preference is mutated.
+If the Customer cannot be resolved from local delivery evidence, no marketing preference is mutated. The matched `MessageDelivery` must also carry a SalonAI `campaign` reference; otherwise the event is treated as transactional engagement evidence only and cannot mutate marketing consent or suppression state.
 
 ### Re-consent
 
-A signed, strongly matched SendGrid `group_resubscribe` event can clear `marketing.emailSuppressed`, because it is provider-state evidence. It **does not** re-grant SalonAI marketing consent.
+A signed, strongly matched SendGrid `group_resubscribe` event can clear only the matching entry in `marketing.emailSuppressionGroups`. It **does not** clear global provider suppression and it **does not** re-grant SalonAI marketing consent.
 
 Local email marketing consent can be restored only through an explicit SalonAI customer-preference action where:
 
@@ -232,7 +238,8 @@ Both campaign preparation and real campaign delivery now read the canonical Cust
 - channel-wide `communicationPreferences.emailUnsubscribed`;
 - marketing preference `communicationPreferences.promotionalMessages`;
 - local consent `marketing.emailConsent`;
-- provider state `marketing.emailSuppressed`.
+- global provider state `marketing.emailSuppressed`;
+- group-scoped provider state `marketing.emailSuppressionGroups` when the campaign declares `options.sendGridSuppressionGroupId`.
 
 Marketing-only fields apply to marketing email campaigns, while the `appointment_reminder` campaign type does not inherit marketing-only suppression. Channel/global unsubscribe controls remain authoritative for transactional email as well.
 
