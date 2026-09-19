@@ -5,9 +5,13 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "appointment:create", label: "Create appointments", group: "Appointments" },
   { value: "appointment:update", label: "Update appointments", group: "Appointments" },
   { value: "appointment:cancel", label: "Cancel appointments", group: "Appointments" },
+  { value: "appointment:payment:manage", label: "Manage appointment payments", group: "Appointments" },
 
   { value: "customer:read", label: "View customers", group: "Customers" },
+  { value: "customer:create", label: "Create customers", group: "Customers" },
   { value: "customer:update", label: "Update customers", group: "Customers" },
+  { value: "customer:archive", label: "Archive or restore customers", group: "Customers" },
+  { value: "customer:delete", label: "Permanently delete customers", group: "Customers" },
 
   { value: "employee:read", label: "View employees", group: "Employees" },
   { value: "employee:create", label: "Add employees", group: "Employees" },
