@@ -1937,6 +1937,14 @@ export async function updateEmployeeManagementSettings(
             []
           ),
         ];
+      } else if (
+        currentRoleDefinition?.system ===
+        false &&
+        !Array.isArray(
+          update.permissions
+        )
+      ) {
+        update.permissions = [];
       }
     }
 
