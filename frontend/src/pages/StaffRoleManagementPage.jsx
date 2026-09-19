@@ -1,0 +1,847 @@
+import {
+  CheckCircle2,
+  Plus,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  Link,
+} from "react-router-dom";
+
+import staffRoleService from "../Services/staffRoleService.js";
+import {
+  EMPLOYEE_PERMISSIONS,
+} from "../utils/permissions.js";
+
+function errorMessage(error) {
+  return (
+    error?.response?.data
+      ?.message ||
+    error?.message ||
+    "The staff-role operation failed."
+  );
+}
+
+function emptyRole() {
+  return {
+    name: "",
+    key: "",
+    description: "",
+    active: true,
+    permissions: [],
+  };
+}
+
+function groupPermissions() {
+  const groups = new Map();
+
+  for (const permission of
+    EMPLOYEE_PERMISSIONS) {
+    const group =
+      permission.group ||
+      "Other";
+
+    if (!groups.has(group)) {
+      groups.set(
+        group,
+        []
+      );
+    }
+
+    groups
+      .get(group)
+      .push(
+        permission
+      );
+  }
+
+  return [
+    ...groups.entries(),
+  ];
+}
+
+function permissionLabel(value) {
+  return (
+    EMPLOYEE_PERMISSIONS.find(
+      (permission) =>
+        permission.value ===
+        value
+    )?.label ||
+    value
+  );
+}
+
+export default function StaffRoleManagementPage() {
+  const [
+    roles,
+    setRoles,
+  ] = useState([]);
+  const [
+    form,
+    setForm,
+  ] = useState(
+    emptyRole
+  );
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+  const [
+    saving,
+    setSaving,
+  ] = useState("");
+  const [
+    error,
+    setError,
+  ] = useState("");
+  const [
+    success,
+    setSuccess,
+  ] = useState("");
+
+  const permissionGroups =
+    useMemo(
+      groupPermissions,
+      []
+    );
+
+  const load =
+    useCallback(
+      async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+          setRoles(
+            await staffRoleService.list()
+          );
+        } catch (
+          requestError
+        ) {
+          setError(
+            errorMessage(
+              requestError
+            )
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      []
+    );
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function updateForm(
+    field,
+    value
+  ) {
+    setForm(
+      (current) => ({
+        ...current,
+        [field]:
+          value,
+      })
+    );
+  }
+
+  function toggleFormPermission(
+    permission
+  ) {
+    setForm(
+      (current) => ({
+        ...current,
+        permissions:
+          current.permissions.includes(
+            permission
+          )
+            ? current.permissions.filter(
+                (item) =>
+                  item !==
+                  permission
+              )
+            : [
+                ...current.permissions,
+                permission,
+              ],
+      })
+    );
+  }
+
+  function patchRoleState(
+    id,
+    field,
+    value
+  ) {
+    setRoles(
+      (current) =>
+        current.map(
+          (role) =>
+            role.id === id
+              ? {
+                  ...role,
+                  [field]:
+                    value,
+                }
+              : role
+        )
+    );
+  }
+
+  function toggleRolePermission(
+    role,
+    permission
+  ) {
+    const permissions =
+      role.permissions || [];
+
+    patchRoleState(
+      role.id,
+      "permissions",
+      permissions.includes(
+        permission
+      )
+        ? permissions.filter(
+            (item) =>
+              item !==
+              permission
+          )
+        : [
+            ...permissions,
+            permission,
+          ]
+    );
+  }
+
+  async function createRole(
+    event
+  ) {
+    event.preventDefault();
+
+    setSaving("create");
+    setError("");
+    setSuccess("");
+
+    try {
+      const response =
+        await staffRoleService.create(
+          form
+        );
+
+      setRoles(
+        (current) => [
+          ...current,
+          response.role,
+        ]
+      );
+      setForm(
+        emptyRole()
+      );
+      setSuccess(
+        response.message
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function saveRole(
+    role
+  ) {
+    setSaving(
+      role.id
+    );
+    setError("");
+    setSuccess("");
+
+    try {
+      const response =
+        await staffRoleService.update(
+          role.id,
+          {
+            name:
+              role.name,
+            description:
+              role.description,
+            permissions:
+              role.permissions,
+            active:
+              role.active,
+          }
+        );
+
+      setRoles(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              role.id
+                ? response.role
+                : item
+          )
+      );
+      setSuccess(
+        response.assignedEmployeesUpdated
+          ? `${response.message} ${response.assignedEmployeesUpdated} assigned employee account(s) were synchronised.`
+          : response.message
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setSaving("");
+    }
+  }
+
+  async function deleteRole(
+    role
+  ) {
+    if (
+      !window.confirm(
+        `Delete custom role "${role.name}"? This is only allowed when no employees are assigned to it.`
+      )
+    ) {
+      return;
+    }
+
+    setSaving(
+      role.id
+    );
+    setError("");
+    setSuccess("");
+
+    try {
+      const response =
+        await staffRoleService.remove(
+          role.id
+        );
+
+      setRoles(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !==
+              role.id
+          )
+      );
+      setSuccess(
+        response.message
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setSaving("");
+    }
+  }
+
+  const builtIn =
+    roles.filter(
+      (role) =>
+        role.system
+    );
+  const custom =
+    roles.filter(
+      (role) =>
+        !role.system
+    );
+
+  return (
+    <main
+      className="space-y-6 p-4 sm:p-6 lg:p-8"
+      id="main-content"
+      tabIndex="-1"
+    >
+      <header className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-amber-700">
+              <ShieldCheck
+                size={20}
+              />
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Super Admin
+              </span>
+            </div>
+            <h1 className="mt-2 text-2xl font-bold text-black">
+              Staff roles
+            </h1>
+            <p className="mt-1 max-w-3xl text-sm text-stone-600">
+              Create reusable staff roles and define exactly which SalonAI management capabilities each custom role receives.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/admin/employees"
+              className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+            >
+              Employees
+            </Link>
+            <button
+              type="button"
+              onClick={() =>
+                void load()
+              }
+              disabled={
+                loading
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-stone-50 disabled:opacity-50"
+            >
+              <RefreshCw
+                size={16}
+                className={
+                  loading
+                    ? "animate-spin"
+                    : ""
+                }
+              />
+              Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {error ? (
+        <div
+          className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          role="alert"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {success ? (
+        <div
+          className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+          role="status"
+        >
+          <CheckCircle2
+            size={17}
+          />
+          {success}
+        </div>
+      ) : null}
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-black">
+          Built-in roles
+        </h2>
+        <p className="mt-1 text-sm text-stone-600">
+          SalonAI system roles remain protected. Additional authority is delegated through employee permissions.
+        </p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {builtIn.map(
+            (role) => (
+              <article
+                key={
+                  role.key
+                }
+                className="rounded-xl border border-stone-200 bg-stone-50 p-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <strong className="text-black">
+                    {role.name}
+                  </strong>
+                  <span className="rounded-full border border-stone-300 bg-white px-2 py-1 text-xs font-bold text-stone-600">
+                    System
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-stone-500">
+                  {role.key}
+                </p>
+                <p className="mt-3 text-sm text-stone-600">
+                  {role.permissions?.length
+                    ? role.permissions
+                        .map(
+                          permissionLabel
+                        )
+                        .join(", ")
+                    : "No automatic permissions."}
+                </p>
+              </article>
+            )
+          )}
+        </div>
+      </section>
+
+      <form
+        className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+        onSubmit={
+          createRole
+        }
+      >
+        <div className="flex items-center gap-2">
+          <Plus size={19} />
+          <h2 className="text-lg font-bold text-black">
+            Create custom role
+          </h2>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="text-sm font-semibold text-black">
+            Role name
+            <input
+              required
+              maxLength={80}
+              value={
+                form.name
+              }
+              onChange={(
+                event
+              ) =>
+                updateForm(
+                  "name",
+                  event.target
+                    .value
+                )
+              }
+              className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+              placeholder="Colour Specialist"
+            />
+          </label>
+
+          <label className="text-sm font-semibold text-black">
+            Role key
+            <input
+              maxLength={40}
+              value={
+                form.key
+              }
+              onChange={(
+                event
+              ) =>
+                updateForm(
+                  "key",
+                  event.target
+                    .value
+                )
+              }
+              className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+              placeholder="colour_specialist"
+            />
+            <span className="mt-1 block text-xs font-normal text-stone-500">
+              Optional. Generated from the role name when left blank.
+            </span>
+          </label>
+        </div>
+
+        <label className="mt-4 block text-sm font-semibold text-black">
+          Description
+          <textarea
+            rows="3"
+            maxLength={500}
+            value={
+              form.description
+            }
+            onChange={(
+              event
+            ) =>
+              updateForm(
+                "description",
+                event.target
+                  .value
+              )
+            }
+            className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+          />
+        </label>
+
+        <div className="mt-5 space-y-4">
+          {permissionGroups.map(
+            ([
+              group,
+              permissions,
+            ]) => (
+              <fieldset
+                key={group}
+                className="rounded-xl border border-stone-200 p-4"
+              >
+                <legend className="px-2 text-sm font-bold text-black">
+                  {group}
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {permissions.map(
+                    (
+                      permission
+                    ) => (
+                      <label
+                        key={
+                          permission.value
+                        }
+                        className="flex items-start gap-2 text-sm text-stone-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={
+                            form.permissions.includes(
+                              permission.value
+                            )
+                          }
+                          onChange={() =>
+                            toggleFormPermission(
+                              permission.value
+                            )
+                          }
+                          className="mt-1 h-4 w-4 accent-amber-500"
+                        />
+                        <span>
+                          {
+                            permission.label
+                          }
+                        </span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </fieldset>
+            )
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={
+            saving ===
+            "create"
+          }
+          className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+        >
+          <Plus size={16} />
+          {saving ===
+          "create"
+            ? "Creating..."
+            : "Create role"}
+        </button>
+      </form>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-black">
+            Custom roles
+          </h2>
+          <p className="text-sm text-stone-600">
+            Permission edits are synchronised to employees assigned to the role.
+          </p>
+        </div>
+
+        {custom.length ? (
+          custom.map(
+            (role) => (
+              <article
+                key={
+                  role.id
+                }
+                className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="text-sm font-semibold text-black">
+                    Name
+                    <input
+                      value={
+                        role.name
+                      }
+                      maxLength={80}
+                      onChange={(
+                        event
+                      ) =>
+                        patchRoleState(
+                          role.id,
+                          "name",
+                          event.target
+                            .value
+                        )
+                      }
+                      className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+                    />
+                  </label>
+
+                  <div>
+                    <span className="text-sm font-semibold text-black">
+                      Role key
+                    </span>
+                    <div className="mt-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 font-mono text-sm text-stone-700">
+                      {role.key}
+                    </div>
+                  </div>
+                </div>
+
+                <label className="mt-4 block text-sm font-semibold text-black">
+                  Description
+                  <textarea
+                    rows="2"
+                    maxLength={500}
+                    value={
+                      role.description ||
+                      ""
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      patchRoleState(
+                        role.id,
+                        "description",
+                        event.target
+                          .value
+                      )
+                    }
+                    className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+                  />
+                </label>
+
+                <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-black">
+                  <input
+                    type="checkbox"
+                    checked={
+                      role.active !==
+                      false
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      patchRoleState(
+                        role.id,
+                        "active",
+                        event.target
+                          .checked
+                      )
+                    }
+                    className="h-4 w-4 accent-amber-500"
+                  />
+                  Active and assignable
+                </label>
+
+                <div className="mt-5 space-y-4">
+                  {permissionGroups.map(
+                    ([
+                      group,
+                      permissions,
+                    ]) => (
+                      <fieldset
+                        key={group}
+                        className="rounded-xl border border-stone-200 p-4"
+                      >
+                        <legend className="px-2 text-sm font-bold text-black">
+                          {group}
+                        </legend>
+                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {permissions.map(
+                            (
+                              permission
+                            ) => (
+                              <label
+                                key={
+                                  permission.value
+                                }
+                                className="flex items-start gap-2 text-sm text-stone-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={(
+                                    role.permissions ||
+                                    []
+                                  ).includes(
+                                    permission.value
+                                  )}
+                                  onChange={() =>
+                                    toggleRolePermission(
+                                      role,
+                                      permission.value
+                                    )
+                                  }
+                                  className="mt-1 h-4 w-4 accent-amber-500"
+                                />
+                                <span>
+                                  {
+                                    permission.label
+                                  }
+                                </span>
+                              </label>
+                            )
+                          )}
+                        </div>
+                      </fieldset>
+                    )
+                  )}
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      saving ===
+                      role.id
+                    }
+                    onClick={() =>
+                      void saveRole(
+                        role
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+                  >
+                    <Save
+                      size={16}
+                    />
+                    Save role
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={
+                      saving ===
+                      role.id
+                    }
+                    onClick={() =>
+                      void deleteRole(
+                        role
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <Trash2
+                      size={16}
+                    />
+                    Delete
+                  </button>
+                </div>
+              </article>
+            )
+          )
+        ) : (
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-6 text-sm text-stone-600">
+            No custom staff roles have been created yet.
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
