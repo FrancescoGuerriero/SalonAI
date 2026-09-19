@@ -12,6 +12,7 @@ import {
 
 import {
   getMessageDeliveryConfig,
+  getSafeMessageDeliveryConfig,
   validateMessageDeliveryConfig,
 } from "../config/messageDeliveryConfig.js";
 
@@ -113,6 +114,9 @@ function productionEnvironment(
     EMAIL_PROVIDER:
       "smtp",
 
+    SENDGRID_API_KEY:
+      "",
+
     EMAIL_PROVIDER_MODE:
       "",
 
@@ -210,7 +214,7 @@ test(
 
     assert.match(
       envExample,
-      /^EMAIL_PROVIDER=smtp$/m
+      /^EMAIL_PROVIDER=sendgrid$/m
     );
 
     assert.match(
@@ -643,6 +647,173 @@ test(
     assert.match(
       `${result.stdout}\n${result.stderr}`,
       /MESSAGE_DELIVERY_MODE.*live|live.*delivery/i
+    );
+  }
+);
+
+test(
+  "Twilio SendGrid derives the standard SMTP relay without duplicating provider credentials",
+  async () => {
+    await withEnvironment(
+      {
+        MESSAGE_DELIVERY_MODE:
+          "live",
+        EMAIL_DELIVERY_ENABLED:
+          "true",
+        EMAIL_PROVIDER:
+          "sendgrid",
+        SENDGRID_API_KEY:
+          "SG.test-key",
+        SMTP_HOST:
+          null,
+        SMTP_USER:
+          null,
+        SMTP_PASSWORD:
+          null,
+        EMAIL_FROM_ADDRESS:
+          "info@example.com",
+        EMAIL_REPLY_TO:
+          "reply@example.com",
+        SMS_DELIVERY_ENABLED:
+          "false",
+      },
+      async () => {
+        const config =
+          getMessageDeliveryConfig();
+        const validation =
+          validateMessageDeliveryConfig(
+            config,
+            {
+              throwOnError:
+                false,
+            }
+          );
+
+        assert.equal(
+          config.email.provider,
+          "sendgrid"
+        );
+        assert.equal(
+          config.email.smtp.host,
+          "smtp.sendgrid.net"
+        );
+        assert.equal(
+          config.email.smtp.user,
+          "apikey"
+        );
+        assert.equal(
+          config.email.smtp.password,
+          "SG.test-key"
+        );
+        assert.equal(
+          validation.channels.email.valid,
+          true
+        );
+
+        const safe =
+          getSafeMessageDeliveryConfig();
+
+        assert.equal(
+          safe.email.sendgrid.configured,
+          true
+        );
+        assert.equal(
+          safe.email.sendgrid.apiKey,
+          "********"
+        );
+        assert.notEqual(
+          safe.email.smtp.password,
+          "SG.test-key"
+        );
+      }
+    );
+  }
+);
+
+test(
+  "live SendGrid configuration fails closed when SENDGRID_API_KEY is missing",
+  async () => {
+    await withEnvironment(
+      {
+        MESSAGE_DELIVERY_MODE:
+          "live",
+        EMAIL_DELIVERY_ENABLED:
+          "true",
+        EMAIL_PROVIDER:
+          "sendgrid",
+        SENDGRID_API_KEY:
+          null,
+        SMTP_HOST:
+          null,
+        SMTP_USER:
+          null,
+        SMTP_PASSWORD:
+          null,
+        EMAIL_FROM_ADDRESS:
+          "info@example.com",
+        SMS_DELIVERY_ENABLED:
+          "false",
+      },
+      async () => {
+        const validation =
+          validateMessageDeliveryConfig(
+            getMessageDeliveryConfig(),
+            {
+              throwOnError:
+                false,
+            }
+          );
+
+        assert.equal(
+          validation.valid,
+          false
+        );
+        assert.ok(
+          validation.channels.email.errors.some(
+            (message) =>
+              /SENDGRID_API_KEY/.test(
+                message
+              )
+          )
+        );
+      }
+    );
+  }
+);
+
+test(
+  "production email verification accepts live Twilio SendGrid delivery",
+  () => {
+    const result =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          EMAIL_VERIFICATION_REQUIRED:
+            "true",
+          EMAIL_DELIVERY_ENABLED:
+            "true",
+          EMAIL_PROVIDER:
+            "sendgrid",
+          SENDGRID_API_KEY:
+            "SG.production-shaped-test-key",
+          SMTP_HOST:
+            "",
+          SMTP_USER:
+            "",
+          SMTP_PASSWORD:
+            "",
+          EMAIL_FROM_ADDRESS:
+            "info@example.com",
+          SMS_DELIVERY_ENABLED:
+            "false",
+        })
+      );
+
+    assert.equal(
+      result.status,
+      0,
+      `${result.stdout}\n${result.stderr}`
     );
   }
 );
