@@ -12,7 +12,7 @@ import {
   recordAuditEvent,
 } from "../services/auditService.js";
 import {
-  EMPLOYEE_PERMISSION_SET,
+  ASSIGNABLE_EMPLOYEE_PERMISSION_SET,
 } from "../constants/permissions.js";
 import {
   hasUserPermission,
@@ -1767,7 +1767,7 @@ export function normaliseEmployeeManagementUpdate(
     const invalid =
       permissions.filter(
         (permission) =>
-          !EMPLOYEE_PERMISSION_SET.has(
+          !ASSIGNABLE_EMPLOYEE_PERMISSION_SET.has(
             permission
           )
       );
