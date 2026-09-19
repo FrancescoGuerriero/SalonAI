@@ -106,24 +106,56 @@ function splitUserName(name) {
   };
 }
 
-export function normaliseStaffProfileUpdate(body = {}) {
-  const yearsExperience =
-    Number(body.yearsExperience);
+export function normaliseStaffProfileUpdate(
+  body = {},
+  {
+    partial = false,
+    allowPublication = true,
+  } = {}
+) {
+  const update = {};
 
-  return {
-    jobTitle: cleanText(
-      body.jobTitle || "Hair professional",
-      120
-    ),
-    biography: cleanText(
-      body.biography,
-      2000
-    ),
-    profileImage:
+  function includes(field) {
+    return (
+      !partial ||
+      Object.prototype.hasOwnProperty.call(
+        body,
+        field
+      )
+    );
+  }
+
+  if (includes("jobTitle")) {
+    update.jobTitle =
+      cleanText(
+        body.jobTitle ||
+          "Hair professional",
+        120
+      );
+  }
+
+  if (includes("biography")) {
+    update.biography =
+      cleanText(
+        body.biography,
+        2000
+      );
+  }
+
+  if (includes("profileImage")) {
+    update.profileImage =
       normaliseProfileImage(
         body.profileImage
-      ),
-    yearsExperience:
+      );
+  }
+
+  if (includes("yearsExperience")) {
+    const yearsExperience =
+      Number(
+        body.yearsExperience
+      );
+
+    update.yearsExperience =
       Number.isFinite(
         yearsExperience
       )
@@ -136,36 +168,61 @@ export function normaliseStaffProfileUpdate(body = {}) {
               )
             )
           )
-        : 0,
-    specialties: cleanList(
-      body.specialties,
-      12,
-      120
-    ),
-    languages: cleanList(
-      body.languages,
-      10,
-      80
-    ),
-    instagram:
+        : 0;
+  }
+
+  if (includes("specialties")) {
+    update.specialties =
+      cleanList(
+        body.specialties,
+        12,
+        120
+      );
+  }
+
+  if (includes("languages")) {
+    update.languages =
+      cleanList(
+        body.languages,
+        10,
+        80
+      );
+  }
+
+  if (includes("instagram")) {
+    update.instagram =
       normalisePublicProfileUrl(
         body.instagram,
         {
           allowHandle: true,
         }
-      ),
-    facebook:
+      );
+  }
+
+  if (includes("facebook")) {
+    update.facebook =
       normalisePublicProfileUrl(
         body.facebook
-      ),
-    website:
+      );
+  }
+
+  if (includes("website")) {
+    update.website =
       normalisePublicProfileUrl(
         body.website
-      ),
-    profilePublished:
+      );
+  }
+
+  if (
+    allowPublication &&
+    includes("profilePublished")
+  ) {
+    update.profilePublished =
       body.profilePublished !==
-      false,
-  };
+      false;
+  }
+
+  return update;
 }
 
 async function findOwnedStylist(

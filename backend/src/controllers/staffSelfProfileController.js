@@ -8,6 +8,7 @@ const MANAGEMENT_ROLES = new Set([
   "receptionist",
   "manager",
   "admin",
+  "super_admin",
 ]);
 
 const DEFAULT_JOB_TITLES = {
@@ -15,6 +16,7 @@ const DEFAULT_JOB_TITLES = {
   receptionist: "Receptionist",
   manager: "Salon manager",
   admin: "Salon administrator",
+  super_admin: "Super administrator",
 };
 
 function createHttpError(message, statusCode) {
@@ -184,7 +186,12 @@ export async function updateMyStaffProfile(
 
     const update =
       normaliseStaffProfileUpdate(
-        request.body
+        request.body,
+        {
+          partial: true,
+          allowPublication:
+            false,
+        }
       );
 
     Object.assign(
@@ -211,9 +218,7 @@ export async function updateMyStaffProfile(
     return response.json({
       success: true,
       message:
-        update.profilePublished
-          ? "Your public staff profile has been published."
-          : "Your staff profile has been saved as unpublished.",
+        "Your staff profile has been saved. Profile visibility remains controlled by authorised salon management.",
       stylist,
     });
   } catch (error) {
