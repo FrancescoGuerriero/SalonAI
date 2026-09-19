@@ -479,20 +479,14 @@ export function isExplicitlyUnsubscribed(
     customer?.[channelUnsubscribeField] ===
       true ||
     preferences?.[channelUnsubscribeField] ===
-      true ||
-    (
-      channel ===
-        "email" &&
-      preferences
-        ?.promotionalMessages ===
-        false
-    )
+      true
   );
 }
 
 export function hasExplicitConsentFailure(
   customer,
-  channel
+  channel,
+  campaignType = ""
 ) {
   const consent =
     customer?.consent ||
@@ -508,9 +502,23 @@ export function hasExplicitConsentFailure(
     (
       channel ===
         "email" &&
-      customer?.marketing
-        ?.emailConsent ===
-        false
+      String(
+        campaignType || ""
+      )
+        .trim()
+        .toLowerCase() !==
+        "appointment_reminder" &&
+      (
+        customer?.communicationPreferences
+          ?.promotionalMessages ===
+          false ||
+        customer?.marketing
+          ?.emailConsent ===
+          false ||
+        customer?.marketing
+          ?.emailSuppressed ===
+          true
+      )
     )
   ) {
     return true;
@@ -2225,7 +2233,8 @@ function evaluateCustomerEligibility(
     options.requireContactConsent &&
     hasExplicitConsentFailure(
       customer,
-      channel
+      channel,
+      campaign.campaignType
     )
   ) {
     return {
@@ -2354,13 +2363,15 @@ async function createRecipientPayloads(
       consentVerified:
         !hasExplicitConsentFailure(
           customer,
-          campaign.channel
+          campaign.channel,
+          campaign.campaignType
         ),
 
       consentVerifiedAt:
         !hasExplicitConsentFailure(
           customer,
-          campaign.channel
+          campaign.channel,
+          campaign.campaignType
         )
           ? new Date()
           : null,
