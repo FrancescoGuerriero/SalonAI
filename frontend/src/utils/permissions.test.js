@@ -69,7 +69,7 @@ test("staff require an explicit permission outside role baseline", () => {
   );
 });
 
-test("Stylist baseline preserves appointment and own-profile access", () => {
+test("Stylist baseline is limited to appointment view/create", () => {
   const stylist = {
     role: "stylist",
     permissions: [],
@@ -78,8 +78,6 @@ test("Stylist baseline preserves appointment and own-profile access", () => {
   for (const permission of [
     "appointment:read",
     "appointment:create",
-    "profile:own:read",
-    "profile:own:update",
   ]) {
     assert.equal(
       hasPermission(
@@ -90,20 +88,32 @@ test("Stylist baseline preserves appointment and own-profile access", () => {
     );
   }
 
-  assert.equal(
-    hasPermission(
-      stylist,
-      "employee:update"
-    ),
-    false
-  );
+  for (const permission of [
+    "dashboard:view",
+    "profile:own:read",
+    "profile:own:update",
+    "schedule:own:read",
+    "schedule:own:update",
+    "leave:own:request",
+    "employee:update",
+  ]) {
+    assert.equal(
+      hasPermission(
+        stylist,
+        permission
+      ),
+      false
+    );
+  }
 
-  assert.ok(
+  assert.deepEqual(
     effectivePermissions(
       stylist
-    ).includes(
-      "appointment:create"
-    )
+    ),
+    [
+      "appointment:read",
+      "appointment:create",
+    ]
   );
 });
 
