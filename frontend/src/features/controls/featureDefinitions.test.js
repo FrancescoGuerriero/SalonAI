@@ -45,14 +45,20 @@ test("public navigation consistently hides administrator-disabled actions", asyn
     ),
   ]);
 
+  assert.match(
+    navbar,
+    /superAdminPreview\s*\|\|\s*isFeatureEnabled\(\s*featureId\s*\)/,
+    "Feature visibility must continue to honour administrator feature controls while allowing Super Admin preview."
+  );
+
   const whatsappGuards = navbar.match(
-    /whatsappUrl\s*&&\s*isFeatureEnabled\("whatsapp-booking"\)/g
+    /whatsappUrl\s*&&\s*featureVisible\("whatsapp-booking"\)/g
   ) || [];
 
   assert.equal(
     whatsappGuards.length,
     2,
-    "Desktop and mobile WhatsApp actions must both honour the feature control."
+    "Desktop and mobile WhatsApp actions must both use the governed feature-visibility helper."
   );
   assert.match(
     footer,
