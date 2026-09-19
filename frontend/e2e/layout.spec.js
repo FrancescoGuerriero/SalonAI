@@ -1121,6 +1121,37 @@ test.describe("SalonAI layout regressions", () => {
 
     expect(box.height).toBeGreaterThanOrEqual(targetMinimum);
     expect(box.width).toBeGreaterThanOrEqual(44);
+
+    const thumb = featureSwitch.locator("span");
+    const thumbBox = await thumb.boundingBox();
+    expect(thumbBox).not.toBeNull();
+
+    expect(thumbBox.x).toBeGreaterThanOrEqual(box.x);
+    expect(
+      thumbBox.x + thumbBox.width
+    ).toBeLessThanOrEqual(
+      box.x + box.width
+    );
+
+    const switchCentre =
+      box.y + box.height / 2;
+    const thumbCentre =
+      thumbBox.y + thumbBox.height / 2;
+
+    expect(
+      Math.abs(
+        switchCentre -
+        thumbCentre
+      )
+    ).toBeLessThanOrEqual(1);
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
   });
 
   test("staff role controls remain touch-sized and overflow-free on mobile", async ({
