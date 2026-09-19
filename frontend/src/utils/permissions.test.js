@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ASSIGNABLE_EMPLOYEE_PERMISSIONS,
   EMPLOYEE_PERMISSIONS,
   effectivePermissions,
   hasPermission,
@@ -196,6 +197,35 @@ test("Admin and Receptionist can manage roles except delete by default", () => {
         "staff-role:delete"
       ),
       false
+    );
+  }
+});
+
+
+test("role and permission mutation authority is reserved from assignable grants", () => {
+  const assignable =
+    new Set(
+      ASSIGNABLE_EMPLOYEE_PERMISSIONS.map(
+        ({ value }) => value
+      )
+    );
+
+  for (const reserved of [
+    "employee:role:update",
+    "employee:permissions:update",
+  ]) {
+    assert.equal(
+      assignable.has(
+        reserved
+      ),
+      false
+    );
+    assert.equal(
+      EMPLOYEE_PERMISSIONS.some(
+        ({ value }) =>
+          value === reserved
+      ),
+      true
     );
   }
 });
