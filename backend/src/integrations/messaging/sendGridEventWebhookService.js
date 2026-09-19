@@ -842,6 +842,9 @@ export async function processSendGridEvent(
             event.eventId,
           occurredAt:
             event.occurredAt,
+          asmGroupId:
+            event.evidence
+              .asmGroupId,
           delivery,
         });
 
@@ -855,16 +858,34 @@ export async function processSendGridEvent(
         "processed";
 
       if (
-        marketing.applied
+        marketing.applied &&
+        marketing.suppressionScope ===
+          "global"
       ) {
         record.processingReason =
           "marketing_suppression_applied";
       } else if (
-        marketing.reason ===
-        "local_reconsent_required"
+        marketing.applied &&
+        marketing.suppressionScope ===
+          "group"
       ) {
         record.processingReason =
-          "marketing_reconsent_requires_local_confirmation";
+          event.eventType ===
+          "group_resubscribe"
+            ? "marketing_group_resubscribe_applied"
+            : "marketing_group_suppression_applied";
+      } else if (
+        marketing.reason ===
+        "transactional_delivery_not_marketing"
+      ) {
+        record.processingReason =
+          "engagement_transactional_evidence_only";
+      } else if (
+        marketing.reason ===
+        "marketing_group_id_missing"
+      ) {
+        record.processingReason =
+          "marketing_group_evidence_missing_group_id";
       } else if (
         marketing.reason ===
         "customer_not_resolved"
@@ -904,6 +925,12 @@ export async function processSendGridEvent(
           ),
         marketingConsentReason:
           marketing.reason,
+        marketingSuppressionScope:
+          marketing.suppressionScope ||
+          null,
+        marketingSuppressionGroupId:
+          marketing.asmGroupId ??
+          null,
       };
     }
 
