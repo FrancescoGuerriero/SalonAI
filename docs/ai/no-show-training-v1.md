@@ -45,9 +45,19 @@ npm run ai:dataset:no-show -- --dataset-version=v1
 npm run ai:dataset:no-show -- --dataset-version=v1 --apply --confirm=build-no-show-training-dataset
 ```
 
-The apply command refuses to freeze a dataset with fewer than 30 eligible resolved observations. A dataset below 100 observations is explicitly marked with a small-dataset warning.
+The dry-run summary includes a deterministic freeze-readiness report with the total label distribution and completed/no-show counts for each temporal train/validation/test split.
 
-The frozen data is stored in `AiFeatureSnapshot` and registered in `AiTrainingDataset`.
+The apply command refuses to freeze a dataset when:
+
+- there are fewer than 30 eligible resolved observations;
+- train, validation or test is empty;
+- any temporal split contains only completed labels or only no-show labels.
+
+These checks mirror the minimum structural requirements of the Python training pipeline, so SalonAI does not knowingly freeze a dataset that the trainer will immediately reject.
+
+A dataset below 100 observations is explicitly marked with a small-dataset warning. Severe overall class imbalance is also reported as a warning for evaluation review rather than silently treated as reliable evidence.
+
+The frozen data is stored in `AiFeatureSnapshot` and registered in `AiTrainingDataset`, including the split label distribution and readiness evidence used at freeze time.
 
 ## Training environment
 
