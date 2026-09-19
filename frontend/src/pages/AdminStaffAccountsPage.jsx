@@ -204,7 +204,9 @@ export default function AdminStaffAccountsPage() {
               adminStaffService.list({
                 limit: 500,
               }),
-              staffRoleService.list(),
+              canViewStaffRoles
+                ? staffRoleService.list()
+                : Promise.resolve([]),
             ]);
 
           setUsers(
