@@ -1,5 +1,8 @@
 import Appointment from "../../models/Appointment.js";
 import { predictNoShowRisk } from "../../services/aiMicroserviceClient.js";
+import {
+  logNoShowPredictions,
+} from "../aiPlatform/noShowInferenceLedgerService.js";
 
 const asId = (v) => !v ? null : typeof v === "string" ? v : String(v._id || v.id || v);
 const asNumber = (v, f = 0) => Number.isFinite(Number(v)) ? Number(v) : f;
@@ -52,8 +55,83 @@ export async function buildNoShowPredictionPayload(options = {}) {
 }
 
 export async function generateNoShowPredictions(options = {}) {
-  const payload = await buildNoShowPredictionPayload(options);
-  if (!payload.appointments.length) return { prediction:{ generated_at:new Date().toISOString(),as_of_date:payload.as_of_date,summary:{total_appointments:0,high_risk_count:0,medium_risk_count:0,low_risk_count:0,expected_no_shows:0,revenue_at_risk:0,average_probability:0,recommended_actions:[]},predictions:[],metadata:{model_name:"salonai-no-show-risk-rules-v1",provider_mode:"local-empty",rules_applied:[]}},source:{appointmentRecords:0,aggregateOnly:false} };
-  return { prediction: await predictNoShowRisk(payload,{requestId:options.requestId}), source:{appointmentRecords:payload.appointments.length,asOfDate:payload.as_of_date,aggregateOnly:false} };
+  const payload =
+    await buildNoShowPredictionPayload(
+      options
+    );
+
+  if (
+    !payload.appointments.length
+  ) {
+    return {
+      prediction: {
+        generated_at:
+          new Date().toISOString(),
+        as_of_date:
+          payload.as_of_date,
+        summary: {
+          total_appointments: 0,
+          high_risk_count: 0,
+          medium_risk_count: 0,
+          low_risk_count: 0,
+          expected_no_shows: 0,
+          revenue_at_risk: 0,
+          average_probability: 0,
+          recommended_actions: [],
+        },
+        predictions: [],
+        metadata: {
+          model_name:
+            "salonai-no-show-risk-rules-v1",
+          provider_mode:
+            "local-empty",
+          rules_applied: [],
+        },
+      },
+      source: {
+        appointmentRecords: 0,
+        aggregateOnly: false,
+        inferenceLedgerRecords: 0,
+      },
+    };
+  }
+
+  const startedAt =
+    Date.now();
+  const prediction =
+    await predictNoShowRisk(
+      payload,
+      {
+        requestId:
+          options.requestId,
+      }
+    );
+  const latencyMs =
+    Date.now() -
+    startedAt;
+  const ledger =
+    await logNoShowPredictions({
+      prediction,
+      requestId:
+        options.requestId,
+      actorRole:
+        options.actorRole,
+      actorUserId:
+        options.actorUserId,
+      latencyMs,
+    });
+
+  return {
+    prediction,
+    source: {
+      appointmentRecords:
+        payload.appointments.length,
+      asOfDate:
+        payload.as_of_date,
+      aggregateOnly: false,
+      inferenceLedgerRecords:
+        ledger.logged,
+    },
+  };
 }
 export default { buildNoShowPredictionPayload, generateNoShowPredictions };
