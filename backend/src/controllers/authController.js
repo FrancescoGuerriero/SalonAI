@@ -161,6 +161,8 @@ export function serialiseUser(user) {
     role: user.role,
     permissions:
       user.permissions || [],
+    rolePermissions:
+      user.rolePermissions || [],
     phone: user.phone || "",
     profilePhoto:
       user.profilePhoto || "",
