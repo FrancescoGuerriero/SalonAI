@@ -96,15 +96,33 @@ function labelledRows(
   return rows
     .map(
       (row) => {
+        const rawProbability =
+          row?.prediction
+            ?.probability;
+        const rawLabel =
+          row?.outcome
+            ?.noShowLabel;
+
+        if (
+          rawProbability ===
+            null ||
+          rawProbability ===
+            undefined ||
+          rawLabel ===
+            null ||
+          rawLabel ===
+            undefined
+        ) {
+          return null;
+        }
+
         const probability =
           Number(
-            row?.prediction
-              ?.probability
+            rawProbability
           );
         const label =
           Number(
-            row?.outcome
-              ?.noShowLabel
+            rawLabel
           );
 
         if (
