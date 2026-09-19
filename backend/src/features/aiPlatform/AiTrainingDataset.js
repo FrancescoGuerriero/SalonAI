@@ -104,6 +104,20 @@ const aiTrainingDatasetSchema =
           type: Schema.Types.Mixed,
           default: {},
         },
+        splitLabelDistribution: {
+          type: Schema.Types.Mixed,
+          default: {},
+        },
+        readiness: {
+          readyToFreeze: {
+            type: Boolean,
+            default: false,
+          },
+          blockers: {
+            type: [String],
+            default: [],
+          },
+        },
         warnings: {
           type: [String],
           default: [],
