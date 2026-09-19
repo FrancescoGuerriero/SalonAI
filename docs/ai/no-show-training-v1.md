@@ -132,3 +132,21 @@ Do not change production inference from the rules model until a separate promoti
 6. rollback to rules;
 7. inference/outcome logging;
 8. approved model lifecycle transition.
+
+## Adviser model evidence
+
+When an offline no-show experiment has been written to `AiModelVersion`, the latest learned-model evaluation is exposed to the contextual `Ask SalonAI` experience on appointment/calendar pages.
+
+Only governed evaluation evidence is exposed:
+
+- model name and version;
+- lifecycle state;
+- algorithm and feature version;
+- test PR-AUC, ROC-AUC, Brier score, precision, recall and threshold;
+- the equivalent current-rules test metrics;
+- whether the learned model beat the rules benchmark under the experiment gate;
+- declared limitations.
+
+Artifact paths, training dataset identifiers and internal model metadata are not exposed through the Adviser context.
+
+A model with `experiment`, `candidate` or `approved` lifecycle remains explicitly labelled **not active in production**. The Adviser may describe its evaluation evidence, but this integration does not promote the model, change the production no-show predictor or introduce an automatic promotion path.

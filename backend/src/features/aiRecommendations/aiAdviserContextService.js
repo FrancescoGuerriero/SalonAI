@@ -6,6 +6,9 @@ import Product from "../commerce/Product.js";
 import {
   hasUserPermission,
 } from "../../middleware/permissionMiddleware.js";
+import {
+  latestNoShowModelEvidence,
+} from "../aiPlatform/noShowModelEvidenceService.js";
 
 function path(value) {
   return String(
@@ -52,6 +55,7 @@ async function appointmentContext(
   const [
     upcomingSevenDays,
     activeNow,
+    noShowModelEvidence,
   ] = await Promise.all([
     Appointment.countDocuments({
       startsAt: {
@@ -76,6 +80,7 @@ async function appointmentContext(
         ],
       },
     }),
+    latestNoShowModelEvidence(),
   ]);
 
   return {
@@ -87,6 +92,14 @@ async function appointmentContext(
       upcomingSevenDays,
       activeNow,
     },
+    ...(noShowModelEvidence
+      ? {
+          modelEvidence: {
+            noShowRisk:
+              noShowModelEvidence,
+          },
+        }
+      : {}),
   };
 }
 
