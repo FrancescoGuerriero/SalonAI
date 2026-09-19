@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildNoShowTrainingRows,
+  evaluateNoShowDatasetReadiness,
   FEATURE_VERSION,
   PREDICTION_LEAD_HOURS,
 } from "../features/aiPlatform/noShowTrainingDatasetService.js";
@@ -283,5 +284,161 @@ test("post-prediction reschedules are excluded because final service/stylist/tim
   assert.equal(
     rows.length,
     0
+  );
+});
+
+test("no-show dataset readiness accepts temporal splits only when every split contains both labels", () => {
+  const rows = [];
+
+  for (
+    const split of [
+      "train",
+      "validation",
+      "test",
+    ]
+  ) {
+    for (
+      let index = 0;
+      index < 10;
+      index += 1
+    ) {
+      rows.push({
+        split,
+        label:
+          index % 2,
+      });
+    }
+  }
+
+  const readiness =
+    evaluateNoShowDatasetReadiness(
+      rows
+    );
+
+  assert.equal(
+    readiness.readyToFreeze,
+    true
+  );
+  assert.deepEqual(
+    readiness.blockers,
+    []
+  );
+  assert.equal(
+    readiness
+      .splitLabelDistribution
+      .validation["0"],
+    5
+  );
+  assert.equal(
+    readiness
+      .splitLabelDistribution
+      .validation["1"],
+    5
+  );
+  assert.match(
+    readiness.warnings.join(
+      " "
+    ),
+    /Small dataset/
+  );
+});
+
+test("no-show dataset readiness blocks a frozen dataset that the Python trainer would reject", () => {
+  const rows = [
+    ...Array.from(
+      {
+        length: 21,
+      },
+      (_, index) => ({
+        split: "train",
+        label:
+          index % 2,
+      })
+    ),
+    ...Array.from(
+      {
+        length: 5,
+      },
+      () => ({
+        split:
+          "validation",
+        label: 0,
+      })
+    ),
+    {
+      split: "test",
+      label: 0,
+    },
+    {
+      split: "test",
+      label: 1,
+    },
+    {
+      split: "test",
+      label: 0,
+    },
+    {
+      split: "test",
+      label: 1,
+    },
+  ];
+
+  const readiness =
+    evaluateNoShowDatasetReadiness(
+      rows
+    );
+
+  assert.equal(
+    rows.length,
+    30
+  );
+  assert.equal(
+    readiness.readyToFreeze,
+    false
+  );
+  assert.match(
+    readiness.blockers.join(
+      " "
+    ),
+    /validation.*both completed.*no-show/
+  );
+  assert.equal(
+    readiness
+      .splitLabelDistribution
+      .validation["1"],
+    0
+  );
+});
+
+test("no-show dataset readiness reports empty temporal splits before apply", () => {
+  const readiness =
+    evaluateNoShowDatasetReadiness(
+      Array.from(
+        {
+          length: 30,
+        },
+        (_, index) => ({
+          split: "train",
+          label:
+            index % 2,
+        })
+      )
+    );
+
+  assert.equal(
+    readiness.readyToFreeze,
+    false
+  );
+  assert.match(
+    readiness.blockers.join(
+      " "
+    ),
+    /validation.*empty/
+  );
+  assert.match(
+    readiness.blockers.join(
+      " "
+    ),
+    /test.*empty/
   );
 });

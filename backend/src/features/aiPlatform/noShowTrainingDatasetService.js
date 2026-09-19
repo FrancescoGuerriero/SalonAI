@@ -12,6 +12,11 @@ const DATASET_NAME =
   "salonai-no-show";
 const PREDICTION_LEAD_HOURS =
   48;
+const DATASET_SPLITS = [
+  "train",
+  "validation",
+  "test",
+];
 
 const LABEL_STATUSES =
   new Set([
@@ -602,6 +607,145 @@ function labelDistribution(
   );
 }
 
+function splitLabelDistribution(
+  rows
+) {
+  const distribution =
+    Object.fromEntries(
+      DATASET_SPLITS.map(
+        (split) => [
+          split,
+          {
+            "0": 0,
+            "1": 0,
+          },
+        ]
+      )
+    );
+
+  for (const row of rows) {
+    if (
+      !Object.hasOwn(
+        distribution,
+        row.split
+      )
+    ) {
+      continue;
+    }
+
+    const label =
+      String(row.label);
+
+    if (
+      label === "0" ||
+      label === "1"
+    ) {
+      distribution[
+        row.split
+      ][label] += 1;
+    }
+  }
+
+  return distribution;
+}
+
+export function evaluateNoShowDatasetReadiness(
+  rows
+) {
+  const safeRows =
+    Array.isArray(rows)
+      ? rows
+      : [];
+  const blockers = [];
+  const warnings = [];
+  const splitLabels =
+    splitLabelDistribution(
+      safeRows
+    );
+
+  if (
+    safeRows.length < 30
+  ) {
+    blockers.push(
+      "At least 30 eligible historical appointments are required."
+    );
+  }
+
+  for (
+    const split of
+    DATASET_SPLITS
+  ) {
+    const labels =
+      splitLabels[split];
+    const count =
+      labels["0"] +
+      labels["1"];
+
+    if (count === 0) {
+      blockers.push(
+        `Temporal split '${split}' is empty.`
+      );
+      continue;
+    }
+
+    if (
+      labels["0"] === 0 ||
+      labels["1"] === 0
+    ) {
+      blockers.push(
+        `Temporal split '${split}' must contain both completed (0) and no-show (1) labels.`
+      );
+    }
+  }
+
+  if (
+    safeRows.length > 0 &&
+    safeRows.length < 100
+  ) {
+    warnings.push(
+      "Small dataset: treat model metrics as exploratory until more resolved appointments are available."
+    );
+  }
+
+  const totals =
+    labelDistribution(
+      safeRows
+    );
+  const positiveRate =
+    safeRows.length
+      ? (
+          Number(
+            totals["1"] ||
+              0
+          ) /
+          safeRows.length
+        )
+      : 0;
+
+  if (
+    safeRows.length >= 30 &&
+    (
+      positiveRate <
+        0.05 ||
+      positiveRate >
+        0.95
+    )
+  ) {
+    warnings.push(
+      "Severe class imbalance: review no-show prevalence and evaluation uncertainty before interpreting model metrics."
+    );
+  }
+
+  return {
+    readyToFreeze:
+      blockers.length === 0,
+    blockers,
+    warnings,
+    splitLabelDistribution:
+      splitLabels,
+  };
+}
+
 export function buildNoShowTrainingRows(
   appointments,
   {
@@ -687,6 +831,11 @@ export async function materialiseNoShowTrainingDataset({
         row._sortDate
     );
 
+  const readiness =
+    evaluateNoShowDatasetReadiness(
+      rows
+    );
+
   const summary = {
     task: TASK,
     datasetName:
@@ -713,6 +862,18 @@ export async function materialiseNoShowTrainingDataset({
         },
         {}
       ),
+    splitLabelDistribution:
+      readiness
+        .splitLabelDistribution,
+    readiness: {
+      readyToFreeze:
+        readiness
+          .readyToFreeze,
+      blockers:
+        readiness.blockers,
+      warnings:
+        readiness.warnings,
+    },
     schemaHash:
       schemaHash(rows),
     observationStart:
@@ -730,14 +891,31 @@ export async function materialiseNoShowTrainingDataset({
   }
 
   if (
-    rows.length < 30
+    !readiness
+      .readyToFreeze
   ) {
     const error =
       new Error(
-        "At least 30 eligible historical appointments are required before freezing a no-show training dataset."
+        "No-show training dataset is not ready to freeze: " +
+        readiness.blockers.join(
+          " "
+        )
       );
+
     error.code =
-      "INSUFFICIENT_AI_TRAINING_DATA";
+      rows.length < 30
+        ? "INSUFFICIENT_AI_TRAINING_DATA"
+        : "AI_TRAINING_DATASET_NOT_READY";
+    error.details = {
+      blockers:
+        readiness.blockers,
+      warnings:
+        readiness.warnings,
+      splitLabelDistribution:
+        readiness
+          .splitLabelDistribution,
+    };
+
     throw error;
   }
 
@@ -817,12 +995,19 @@ export async function materialiseNoShowTrainingDataset({
             labelDistribution:
               summary
                 .labelDistribution,
+            splitLabelDistribution:
+              readiness
+                .splitLabelDistribution,
+            readiness: {
+              readyToFreeze:
+                readiness
+                  .readyToFreeze,
+              blockers:
+                readiness
+                  .blockers,
+            },
             warnings:
-              rows.length < 100
-                ? [
-                    "Small dataset: treat model metrics as exploratory until more resolved appointments are available.",
-                  ]
-                : [],
+              readiness.warnings,
           },
           notes:
             "48-hour no-show classification dataset. Cancelled appointments are excluded from labels; payment fields are excluded until timestamped payment history is available.",
@@ -853,5 +1038,6 @@ export {
 
 export default {
   buildNoShowTrainingRows,
+  evaluateNoShowDatasetReadiness,
   materialiseNoShowTrainingDataset,
 };
