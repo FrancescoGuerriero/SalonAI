@@ -38,3 +38,84 @@ test("staff profile publication can be disabled", () => {
 
   assert.equal(result.profilePublished, false);
 });
+
+
+test("staff self-profile partial updates change only supplied safe fields", () => {
+  const result =
+    normaliseStaffProfileUpdate(
+      {
+        biography:
+          "  Updated biography only.  ",
+        profilePublished:
+          true,
+      },
+      {
+        partial: true,
+        allowPublication:
+          false,
+      }
+    );
+
+  assert.deepEqual(
+    result,
+    {
+      biography:
+        "Updated biography only.",
+    }
+  );
+});
+
+test("self-profile controller excludes publication from own updates", async () => {
+  const { readFile } =
+    await import(
+      "node:fs/promises"
+    );
+
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/staffSelfProfileController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /partial:\s*true/
+  );
+  assert.match(
+    controller,
+    /allowPublication:\s*false/
+  );
+  assert.match(
+    controller,
+    /"super_admin"/
+  );
+});
+
+test("staff self-service UI does not expose profile publication control", async () => {
+  const { readFile } =
+    await import(
+      "node:fs/promises"
+    );
+
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/StaffProfileEditorPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /includePublication\s*=\s*false/
+  );
+
+  assert.match(
+    page,
+    /\{canReadAll \? \(\s*<section className="staff-profile-publish">/
+  );
+});
