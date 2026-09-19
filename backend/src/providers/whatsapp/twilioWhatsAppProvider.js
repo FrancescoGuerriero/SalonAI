@@ -1,5 +1,9 @@
 import twilio from "twilio";
 
+import {
+  resolveTwilioMessagingStatusCallback,
+} from "../../config/messageDeliveryConfig.js";
+
 function whatsappAddress(value) {
   const text = String(value || "").trim();
 
@@ -95,10 +99,14 @@ export async function sendTwilioWhatsApp({
     to: whatsappAddress(to),
   };
 
-  const callback = String(
-    statusCallbackUrl ||
+  const configuredCallback =
+    resolveTwilioMessagingStatusCallback(
       process.env
-        .TWILIO_WHATSAPP_STATUS_CALLBACK_URL ||
+    ).url;
+
+  const callback = String(
+    configuredCallback ||
+      statusCallbackUrl ||
       ""
   ).trim();
 
