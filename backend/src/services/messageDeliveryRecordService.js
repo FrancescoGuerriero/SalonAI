@@ -14,6 +14,10 @@ import {
   normaliseChannel,
 } from "./messageDeliveryService.js";
 
+import {
+  reconcileTwilioStatusAfterProviderPersistence,
+} from "../integrations/messaging/twilioStatusReconciliationTrigger.js";
+
 const PROVIDER_STATUS_MAP = {
   pending: "pending",
   processing: "processing",
@@ -23,6 +27,7 @@ const PROVIDER_STATUS_MAP = {
   sending: "processing",
   sent: "sent",
   delivered: "delivered",
+  read: "delivered",
   partially_delivered:
     "partially_delivered",
   sandbox: "sandbox",
@@ -989,6 +994,16 @@ async function processDeliveryRecord(
       }
 
       await record.save();
+
+      if (
+        record.provider ===
+          "twilio" &&
+        record.providerMessageId
+      ) {
+        await reconcileTwilioStatusAfterProviderPersistence(
+          record.providerMessageId
+        );
+      }
 
       return {
         success: true,
