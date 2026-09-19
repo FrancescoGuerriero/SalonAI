@@ -17,21 +17,14 @@ import {
 import {
   hasUserPermission,
 } from "../middleware/permissionMiddleware.js";
+import {
+  BUILT_IN_STAFF_ROLE_KEYS,
+  isPotentialStaffRole,
+  resolveStaffRole,
+} from "../services/staffRoleRegistryService.js";
 
-export const STAFF_ROLES = Object.freeze([
-  "stylist",
-  "receptionist",
-  "manager",
-  "admin",
-  "super_admin",
-]);
-
-const ASSIGNABLE_STAFF_ROLES = Object.freeze([
-  "stylist",
-  "receptionist",
-  "manager",
-  "admin",
-]);
+export const STAFF_ROLES =
+  BUILT_IN_STAFF_ROLE_KEYS;
 
 const EMPLOYEE_SETTING_FIELDS = Object.freeze([
   "role",
@@ -234,7 +227,7 @@ function assertStaffAccount(
 ) {
   if (
     !user ||
-    !STAFF_ROLES.includes(
+    !isPotentialStaffRole(
       user.role
     )
   ) {
@@ -809,16 +802,6 @@ export async function listAdminUsers(
       30
     );
 
-    if (
-      role &&
-      !STAFF_ROLES.includes(role)
-    ) {
-      throw httpError(
-        "Invalid role filter.",
-        400
-      );
-    }
-
     /*
      * Employee management is based on canonical staff User accounts.
      * Stylist documents are attached public/booking profiles, not independent
@@ -828,7 +811,10 @@ export async function listAdminUsers(
     const query = {
       role: role
         ? role
-        : { $in: STAFF_ROLES },
+        : {
+            $ne:
+              "customer",
+          },
     };
 
     if (search) {
@@ -1299,14 +1285,32 @@ export async function createStaffUserByAdmin(
         false
       );
 
-    if (
-      !ASSIGNABLE_STAFF_ROLES.includes(
+
+    const roleDefinition =
+      await resolveStaffRole(
         role
-      )
+      );
+
+    if (
+      !roleDefinition ||
+      roleDefinition.assignable ===
+        false
     ) {
       throw httpError(
-        "Staff role must be stylist, receptionist, manager or admin.",
+        "Select an active, assignable staff role.",
         400
+      );
+    }
+
+    if (
+      roleDefinition.superAdminOnly ===
+        true &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only the Super Admin can assign this staff role.",
+        403
       );
     }
 
@@ -1391,7 +1395,7 @@ export async function createStaffUserByAdmin(
           )
         : undefined;
 
-    const permissions =
+    let permissions =
       Array.isArray(
         req.body.permissions
       )
@@ -1400,6 +1404,18 @@ export async function createStaffUserByAdmin(
               req.body.permissions,
           }).permissions
         : [];
+
+    if (
+      roleDefinition.system ===
+      false
+    ) {
+      permissions = [
+        ...(
+          roleDefinition.permissions ||
+          []
+        ),
+      ];
+    }
 
     if (
       !name ||
@@ -1428,20 +1444,6 @@ export async function createStaffUserByAdmin(
       throw httpError(
         "Password must contain at least 8 characters.",
         400
-      );
-    }
-
-    if (
-      req.user.role !==
-        "super_admin" &&
-      [
-        "admin",
-        "manager",
-      ].includes(role)
-    ) {
-      throw httpError(
-        "Only the Super Admin can create manager or administrator accounts.",
-        403
       );
     }
 
@@ -1719,12 +1721,12 @@ export function normaliseEmployeeManagementUpdate(
       );
 
     if (
-      !ASSIGNABLE_STAFF_ROLES.includes(
+      !/^[a-z][a-z0-9_]{2,39}$/.test(
         update.role
       )
     ) {
       throw httpError(
-        "Staff role must be stylist, receptionist, manager or admin.",
+        "Staff role must use a valid SalonAI role key.",
         400
       );
     }
@@ -1884,6 +1886,59 @@ export async function updateEmployeeManagementSettings(
       update,
       req.user
     );
+
+    const currentRoleDefinition =
+      await resolveStaffRole(
+        user.role,
+        {
+          activeOnly:
+            false,
+        }
+      );
+
+    if (
+      Array.isArray(
+        update.permissions
+      ) &&
+      !update.role &&
+      currentRoleDefinition?.system ===
+        false
+    ) {
+      throw httpError(
+        "Permissions for a custom role are managed from the role registry.",
+        409
+      );
+    }
+
+    if (update.role) {
+      const nextRoleDefinition =
+        await resolveStaffRole(
+          update.role
+        );
+
+      if (
+        !nextRoleDefinition ||
+        nextRoleDefinition.assignable ===
+          false
+      ) {
+        throw httpError(
+          "Select an active, assignable staff role.",
+          400
+        );
+      }
+
+      if (
+        nextRoleDefinition.system ===
+        false
+      ) {
+        update.permissions = [
+          ...(
+            nextRoleDefinition.permissions ||
+            []
+          ),
+        ];
+      }
+    }
 
     if (
       req.user.role !==
