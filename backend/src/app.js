@@ -35,6 +35,7 @@ import serviceRoutes from "./routes/serviceRoutes.js";
 import stylistRoutes from "./routes/stylistRoutes.js";
 import appConfigurationRoutes from "./routes/appConfigurationRoutes.js";
 import systemAdministrationRoutes from "./routes/systemAdministrationRoutes.js";
+import staffRoleRoutes from "./routes/staffRoleRoutes.js";
 import calendarOAuthCallbackRoutes from "./integrations/calendar/calendarOAuthCallbackRoutes.js";
 import calendarWebhookRoutes from "./integrations/calendar/calendarWebhookRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
@@ -421,6 +422,11 @@ app.use(
 app.use(
   "/api/system-administration",
   systemAdministrationRoutes
+);
+
+app.use(
+  "/api/staff-roles",
+  staffRoleRoutes
 );
 
 /*
