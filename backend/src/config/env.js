@@ -245,6 +245,32 @@ function validateMessageDeliveryConfiguration(isProduction) {
 
   if (
     isProduction &&
+    config.email.enabled &&
+    config.email.provider ===
+      "sendgrid"
+  ) {
+    if (
+      !readBoolean(
+        process.env
+          .SENDGRID_EVENT_WEBHOOK_ENABLED,
+        false
+      )
+    ) {
+      throw new Error(
+        "Production Twilio SendGrid email delivery requires SENDGRID_EVENT_WEBHOOK_ENABLED=true so provider delivery outcomes can be reconciled."
+      );
+    }
+
+    assertRequired(
+      [
+        "SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY",
+      ],
+      "SendGrid Event Webhook"
+    );
+  }
+
+  if (
+    isProduction &&
     readBoolean(process.env.EMAIL_VERIFICATION_REQUIRED, false) &&
     (
       !config.email.enabled ||
