@@ -127,7 +127,6 @@ test("appointment and customer-visible eligibility fail closed", () => {
     customerVisibleStylistFilter(),
     {
       isActive: true,
-      acceptsAppointments: true,
       profilePublished: true,
     }
   );
@@ -161,6 +160,14 @@ test("appointment and customer-visible eligibility fail closed", () => {
       profilePublished: false,
     }),
     false
+  );
+  assert.equal(
+    isCustomerVisibleStylist({
+      ...maya,
+      acceptsAppointments: false,
+      profilePublished: true,
+    }),
+    true
   );
   assert.deepEqual(
     filterCustomerVisibleStylists([
@@ -347,7 +354,11 @@ test("strict shared eligibility is wired through production booking surfaces", (
 
   assert.match(
     orchestrator,
-    /customerVisibleStylistFilter\(\)/
+    /appointmentEligibleStylistFilter\(\)/
+  );
+  assert.match(
+    orchestrator,
+    /isAppointmentEligibleStylist/
   );
   assert.match(
     controller,
@@ -355,7 +366,7 @@ test("strict shared eligibility is wired through production booking surfaces", (
   );
   assert.match(
     stylistController,
-    /isCustomerVisibleStylist/
+    /isAppointmentEligibleStylist/
   );
   assert.doesNotMatch(
     orchestrator,
