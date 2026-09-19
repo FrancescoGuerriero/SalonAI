@@ -50,10 +50,9 @@ export function buildNoShowPredictionOptions(
       ),
     requestId:
       request.id ||
-      request.headers
-        ?.[
-          "x-request-id"
-        ],
+      request.headers?.[
+        "x-request-id"
+      ],
     actorUserId:
       request.user
         ?._id ||
