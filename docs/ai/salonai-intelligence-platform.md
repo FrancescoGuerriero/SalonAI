@@ -227,3 +227,18 @@ Later:
 - embedding-based retrieval and hybrid search;
 - LLM tool orchestration for Adviser;
 - fine-tuning only when measured evaluation shows a clear advantage over prompting/RAG/tools.
+
+## Adviser feedback loop
+
+Every new `Ask SalonAI` answer is stored as an `AiInferenceLog` and bound to the authenticated user who requested it.
+
+The management Adviser exposes useful / not-useful feedback against the exact returned `inferenceId`. Feedback updates are accepted only when:
+
+- the caller is authenticated and still has `ai:use`;
+- the inference belongs to the `management-adviser` capability;
+- the inference was originally created by the same authenticated user;
+- the rating is explicitly `1` (useful) or `-1` (not useful).
+
+Historical inference records that predate actor ownership are deliberately not made editable by inference ID alone.
+
+This feedback is evaluation data, not an autonomous training signal. It may support later quality analysis, prompt/tool evaluation and reviewed dataset construction, but it does not automatically retrain, promote or modify an AI model.
