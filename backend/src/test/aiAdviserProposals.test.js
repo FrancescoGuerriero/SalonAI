@@ -63,6 +63,37 @@ test("Adviser action suggestions are page-context and permission scoped", () => 
     noPermission,
     []
   );
+
+  const communications =
+    suggestAdviserActions({
+      contextPath:
+        "/communications/campaigns",
+      user: {
+        role: "admin",
+        permissions: [
+          "ai:use",
+          "communications:manage",
+        ],
+      },
+    });
+
+  const campaignAction =
+    communications.find(
+      (action) =>
+        action.actionType ===
+        "communications.campaign_review"
+    );
+
+  assert.equal(
+    campaignAction
+      ?.preparationAvailable,
+    true
+  );
+  assert.equal(
+    campaignAction
+      ?.preparationMode,
+    "duplicate_draft"
+  );
 });
 
 test("proposal changes are allow-listed and reject sensitive data", () => {
@@ -118,7 +149,7 @@ test("proposal changes are allow-listed and reject sensitive data", () => {
   );
 });
 
-test("proposal model records approval separately from execution and has no executable state", () => {
+test("proposal model records approval separately from explicit draft preparation", () => {
   const paths =
     AiActionProposal
       .schema
@@ -153,7 +184,28 @@ test("proposal model records approval separately from execution and has no execu
       .options.enum,
     [
       "blocked",
+      "preparing",
+      "prepared",
+      "failed",
     ]
+  );
+  assert.equal(
+    Boolean(
+      paths.executionResult
+    ),
+    true
+  );
+  assert.equal(
+    Boolean(
+      paths.executedBy
+    ),
+    true
+  );
+  assert.equal(
+    Boolean(
+      paths.executedAt
+    ),
+    true
   );
 });
 

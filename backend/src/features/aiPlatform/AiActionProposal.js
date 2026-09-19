@@ -13,6 +13,9 @@ export const AI_ACTION_PROPOSAL_STATUSES =
 export const AI_ACTION_EXECUTION_STATUSES =
   Object.freeze([
     "blocked",
+    "preparing",
+    "prepared",
+    "failed",
   ]);
 
 const aiActionProposalSchema =
@@ -124,6 +127,26 @@ const aiActionProposalSchema =
         maxlength: 1000,
         default:
           "Approved proposals are review records only. SalonAI does not automatically execute Adviser proposals.",
+      },
+      executionResult: {
+        type: Schema.Types.Mixed,
+        default: null,
+      },
+      executedBy: {
+        type:
+          Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      executedAt: {
+        type: Date,
+        default: null,
+      },
+      executionError: {
+        type: String,
+        trim: true,
+        maxlength: 1000,
+        default: "",
       },
     },
     {
