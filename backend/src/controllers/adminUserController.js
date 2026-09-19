@@ -1889,15 +1889,6 @@ export async function updateEmployeeManagementSettings(
       req.user
     );
 
-    const currentRoleDefinition =
-      await resolveStaffRole(
-        user.role,
-        {
-          activeOnly:
-            false,
-        }
-      );
-
     let nextRolePermissions =
       Array.isArray(
         user.rolePermissions
