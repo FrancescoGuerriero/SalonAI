@@ -129,3 +129,29 @@ test("employee permission catalogue is unique", () => {
     values.length
   );
 });
+
+
+test("custom staff roles use their assigned permission template", () => {
+  const colourSpecialist = {
+    role: "colour_specialist",
+    permissions: [
+      "service:read",
+      "profile:own:read",
+    ],
+  };
+
+  assert.equal(
+    hasPermission(
+      colourSpecialist,
+      "service:read"
+    ),
+    true
+  );
+  assert.equal(
+    hasPermission(
+      colourSpecialist,
+      "appointment:create"
+    ),
+    false
+  );
+});
