@@ -56,6 +56,21 @@ test("custom role permissions are limited to the canonical catalogue", () => {
     (error) =>
       error.statusCode === 400
   );
+
+  for (const reserved of [
+    "employee:role:update",
+    "employee:permissions:update",
+  ]) {
+    assert.throws(
+      () =>
+        normaliseRolePermissions([
+          "employee:read",
+          reserved,
+        ]),
+      (error) =>
+        error.statusCode === 400
+    );
+  }
 });
 
 test("built-in staff roles retain their protected semantics", () => {
