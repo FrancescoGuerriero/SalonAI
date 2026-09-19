@@ -166,6 +166,13 @@ test("public platform configuration exposes product metadata without tenant data
   });
 
   assert.equal(configuration.platform, "AI Business Platform");
+  assert.equal(configuration.referenceApplication, "Salon AI");
+  assert.deepEqual(configuration.availableProducts, [
+    { id: "salon", label: "Salon AI" },
+    { id: "plastic-surgery", label: "Plastic Surgery AI" },
+    { id: "spa", label: "Spa AI" },
+    { id: "fitness", label: "Fitness AI" },
+  ]);
   assert.equal(configuration.businessType, "spa");
   assert.equal(configuration.verticalLabel, "Spa AI");
   assert.equal(configuration.terminology.business, "Spa");
