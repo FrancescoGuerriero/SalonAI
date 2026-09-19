@@ -16,9 +16,9 @@ import {
   resolveStylistName,
 } from "./stylistName.js";
 import {
-  customerVisibleStylistFilter,
+  appointmentEligibleStylistFilter,
   extractRequestedStylistName,
-  filterCustomerVisibleStylists,
+  isAppointmentEligibleStylist,
 } from "../../../services/stylistBookingEligibilityService.js";
 
 
@@ -1371,8 +1371,14 @@ export async function runWhatsAppBotTurn(
     );
 
   stylists =
-    filterCustomerVisibleStylists(
-      stylists
+    (
+      Array.isArray(
+        stylists
+      )
+        ? stylists
+        : []
+    ).filter(
+      isAppointmentEligibleStylist
     );
 
   if (!config.enabled) {
@@ -2763,7 +2769,7 @@ export async function processWhatsAppBotMessage(
         .lean(),
 
       Stylist.find(
-        customerVisibleStylistFilter()
+        appointmentEligibleStylistFilter()
       )
         .sort({
           displayOrder: 1,
