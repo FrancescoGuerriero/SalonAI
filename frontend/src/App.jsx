@@ -1193,8 +1193,9 @@ function AppRoutes() {
 
         <Route
           path="admin/staff-roles"
-          element={adminPage(
-            StaffRoleManagementPage
+          element={permissionPage(
+            StaffRoleManagementPage,
+            "staff-role:read"
           )}
         />
 
