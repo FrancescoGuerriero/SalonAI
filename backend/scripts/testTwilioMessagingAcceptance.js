@@ -13,11 +13,6 @@ import {
   sendTwilioWhatsApp,
 } from "../src/providers/whatsapp/twilioWhatsAppProvider.js";
 
-function text(value) {
-  return String(
-    value ?? ""
-  ).trim();
-}
 
 async function getWhatsAppStatus(
   messageId
