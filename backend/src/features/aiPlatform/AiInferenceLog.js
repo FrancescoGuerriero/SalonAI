@@ -88,6 +88,10 @@ const aiInferenceLogSchema =
           maxlength: 2000,
           default: "",
         },
+        submittedAt: {
+          type: Date,
+          default: null,
+        },
       },
       context: {
         requestId: {
@@ -100,6 +104,12 @@ const aiInferenceLogSchema =
           type: String,
           trim: true,
           default: "",
+        },
+        actorUserId: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          default: null,
+          index: true,
         },
         source: {
           type: String,
