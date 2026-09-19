@@ -56,23 +56,38 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   );
 });
 
-test("Stylist baseline preserves appointment view/create and own-profile access", () => {
+test("Stylist baseline is limited to appointment view/create", () => {
   const baseline =
     STAFF_ROLE_BASELINE_PERMISSIONS.stylist;
 
+  assert.deepEqual(
+    baseline,
+    [
+      "appointment:read",
+      "appointment:create",
+    ]
+  );
+
   for (const permission of [
-    "appointment:read",
-    "appointment:create",
+    "dashboard:view",
     "profile:own:read",
     "profile:own:update",
+    "schedule:own:read",
+    "schedule:own:update",
+    "leave:own:request",
+    "employee:update",
   ]) {
-    assert.ok(baseline.includes(permission));
+    assert.equal(
+      permissionsForRole(
+        "stylist",
+        []
+      ).includes(
+        permission
+      ),
+      false,
+      `Stylist baseline must not include ${permission}`
+    );
   }
-
-  assert.equal(
-    permissionsForRole("stylist", []).includes("employee:update"),
-    false
-  );
 });
 
 test("Assigned permissions extend subordinate role capability", () => {
@@ -163,6 +178,9 @@ test("expanded catalogue contains management permissions required by the new mod
   for (const permission of [
     "employee:permissions:update",
     "profile:all:update",
+    "schedule:own:read",
+    "schedule:own:update",
+    "leave:own:request",
     "service:publish",
     "product:publish",
     "feature-control:update",
