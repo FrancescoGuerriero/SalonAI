@@ -173,16 +173,27 @@ test(
       const eventType of [
         "unsubscribe",
         "spamreport",
-        "group_unsubscribe",
       ]
     ) {
       assert.equal(
         classifySendGridMarketingConsentEvent(
           eventType
         ).action,
-        "suppress"
+        "suppress_global"
       );
     }
+
+    assert.deepEqual(
+      classifySendGridMarketingConsentEvent(
+        "group_unsubscribe"
+      ),
+      {
+        action:
+          "suppress_group",
+        reason:
+          "provider_group_suppression",
+      }
+    );
 
     assert.deepEqual(
       classifySendGridMarketingConsentEvent(
@@ -190,9 +201,9 @@ test(
       ),
       {
         action:
-          "clear_provider_suppression",
+          "clear_group",
         reason:
-          "local_reconsent_required",
+          "provider_group_resubscribe",
       }
     );
 
@@ -238,6 +249,8 @@ test(
             "2026-09-19T19:00:00.000Z"
           ),
         delivery: {
+          campaign:
+            "campaign-1",
           customer:
             "customer-1",
           recipient: {
@@ -359,6 +372,8 @@ test(
         eventId:
           "sendgrid-event-2",
         delivery: {
+          campaign:
+            "campaign-1",
           customer:
             "different-user-id",
           recipient: {
@@ -388,7 +403,7 @@ test(
 );
 
 test(
-  "group resubscribe never re-grants SalonAI marketing consent automatically",
+  "group unsubscribe and resubscribe remain scoped to the matching SendGrid ASM group",
   async () => {
     const customer =
       customerFixture({
@@ -396,25 +411,21 @@ test(
           appointmentReminders:
             true,
           promotionalMessages:
-            false,
+            true,
           serviceUpdates:
             true,
           emailUnsubscribed:
-            true,
+            false,
           unsubscribed:
             false,
         },
         marketing: {
           emailConsent:
-            false,
-          emailSuppressed:
             true,
-          emailSuppressedAt:
-            new Date(
-              "2026-09-19T18:00:00.000Z"
-            ),
-          emailSuppressionReason:
-            "group_unsubscribe",
+          emailSuppressed:
+            false,
+          emailSuppressionGroups:
+            [99],
         },
       });
 
@@ -427,13 +438,17 @@ test(
       },
     };
 
-    const result =
+    const unsubscribe =
       await applySendGridMarketingSuppression({
         eventType:
-          "group_resubscribe",
+          "group_unsubscribe",
         eventId:
-          "sendgrid-event-3",
+          "sendgrid-group-unsubscribe",
+        asmGroupId:
+          42,
         delivery: {
+          campaign:
+            "campaign-1",
           customer:
             "customer-1",
           recipient: {
@@ -448,6 +463,136 @@ test(
       });
 
     assert.equal(
+      unsubscribe.applied,
+      true
+    );
+    assert.equal(
+      unsubscribe.suppressionScope,
+      "group"
+    );
+    assert.equal(
+      unsubscribe.asmGroupId,
+      42
+    );
+    assert.deepEqual(
+      customer.marketing
+        .emailSuppressionGroups
+        .sort(
+          (a, b) =>
+            a - b
+        ),
+      [
+        42,
+        99,
+      ]
+    );
+    assert.equal(
+      customer.marketing
+        .emailConsent,
+      true
+    );
+    assert.equal(
+      customer.marketing
+        .emailSuppressed,
+      false
+    );
+    assert.equal(
+      customer
+        .communicationPreferences
+        .promotionalMessages,
+      true
+    );
+
+    const resubscribe =
+      await applySendGridMarketingSuppression({
+        eventType:
+          "group_resubscribe",
+        eventId:
+          "sendgrid-group-resubscribe",
+        asmGroupId:
+          42,
+        delivery: {
+          campaign:
+            "campaign-1",
+          customer:
+            "customer-1",
+          recipient: {
+            email:
+              "customer@example.com",
+          },
+        },
+        CustomerModel,
+        ConsentModel:
+          consentModelFixture()
+            .model,
+      });
+
+    assert.equal(
+      resubscribe.applied,
+      true
+    );
+    assert.equal(
+      resubscribe.reason,
+      "provider_group_resubscribe"
+    );
+    assert.deepEqual(
+      customer.marketing
+        .emailSuppressionGroups,
+      [99]
+    );
+    assert.equal(
+      customer.marketing
+        .emailConsent,
+      true
+    );
+    assert.equal(
+      customer.saved,
+      2
+    );
+  }
+);
+
+test(
+  "transactional SendGrid engagement evidence never mutates marketing consent",
+  async () => {
+    const customer =
+      customerFixture();
+    const consent =
+      consentModelFixture();
+    let findCalls =
+      0;
+
+    const result =
+      await applySendGridMarketingSuppression({
+        eventType:
+          "unsubscribe",
+        eventId:
+          "transactional-unsubscribe",
+        delivery: {
+          customer:
+            "customer-1",
+          recipient: {
+            email:
+              "customer@example.com",
+          },
+        },
+        CustomerModel: {
+          async findById() {
+            findCalls +=
+              1;
+            return customer;
+          },
+          async findOne() {
+            findCalls +=
+              1;
+            return customer;
+          },
+        },
+        ConsentModel:
+          consent.model,
+      });
+
+    assert.equal(
       result.applied,
       false
     );
@@ -457,26 +602,24 @@ test(
     );
     assert.equal(
       result.reason,
-      "local_reconsent_required"
+      "transactional_delivery_not_marketing"
+    );
+    assert.equal(
+      findCalls,
+      0
+    );
+    assert.equal(
+      customer.saved,
+      0
     );
     assert.equal(
       customer.marketing
         .emailConsent,
-      false
-    );
-    assert.equal(
-      customer.marketing
-        .emailSuppressed,
-      false
-    );
-    assert.equal(
-      result
-        .providerSuppressionChanged,
       true
     );
     assert.equal(
-      customer.saved,
-      1
+      consent.created.length,
+      0
     );
   }
 );
@@ -542,6 +685,8 @@ test(
         eventId:
           "sendgrid-event-5",
         delivery: {
+          campaign:
+            "campaign-1",
           customer:
             "customer-1",
         },
@@ -596,6 +741,8 @@ test(
         "delivery-object-1",
       deliveryId:
         "delivery-1",
+      campaign:
+        "campaign-1",
       providerMessageId:
         "<message@example.com>",
       status:
@@ -721,6 +868,8 @@ test(
           false,
         emailSuppressed:
           true,
+        emailSuppressionGroups:
+          [55],
       },
     };
 
@@ -798,6 +947,65 @@ test(
         source:
           "",
       }
+    );
+
+    assert.deepEqual(
+      getExplicitConsentValue(
+        {
+          communicationPreferences: {
+            promotionalMessages:
+              true,
+            emailUnsubscribed:
+              false,
+          },
+          marketing: {
+            emailConsent:
+              true,
+            emailSuppressed:
+              false,
+            emailSuppressionGroups:
+              [55],
+          },
+        },
+        "email",
+        {
+          campaignType:
+            "promotion",
+          sendGridSuppressionGroupId:
+            55,
+        }
+      ),
+      {
+        found:
+          true,
+        granted:
+          false,
+        source:
+          "marketing.emailSuppressionGroups:55",
+      }
+    );
+
+    assert.equal(
+      hasExplicitConsentFailure(
+        {
+          communicationPreferences: {
+            promotionalMessages:
+              true,
+          },
+          marketing: {
+            emailConsent:
+              true,
+            emailSuppressed:
+              false,
+            emailSuppressionGroups:
+              [55],
+          },
+        },
+        "email",
+        "promotion",
+        55
+      ),
+      true
     );
 
     assert.equal(
