@@ -66,6 +66,27 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "data-export:manage", label: "Manage data exports", group: "System" },
 ]);
 
+export const NON_DELEGABLE_EMPLOYEE_PERMISSIONS =
+  Object.freeze([
+    "employee:role:update",
+    "employee:permissions:update",
+  ]);
+
+const NON_DELEGABLE_EMPLOYEE_PERMISSION_SET =
+  new Set(
+    NON_DELEGABLE_EMPLOYEE_PERMISSIONS
+  );
+
+export const ASSIGNABLE_EMPLOYEE_PERMISSIONS =
+  Object.freeze(
+    EMPLOYEE_PERMISSIONS.filter(
+      ({ value }) =>
+        !NON_DELEGABLE_EMPLOYEE_PERMISSION_SET.has(
+          value
+        )
+    )
+  );
+
 const ROLE_BASELINES = Object.freeze({
   admin: Object.freeze([
     "staff-role:read",
