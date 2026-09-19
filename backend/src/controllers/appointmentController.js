@@ -510,6 +510,19 @@ async function getBookingResources(
   }
 
   if (
+    service.onlineBookable ===
+    false
+  ) {
+    throw createHttpError(
+      "The selected service is not available for online booking.",
+      409,
+      {
+        field: "service",
+      }
+    );
+  }
+
+  if (
     !stylist ||
     stylist.isActive !== true ||
     stylist.acceptsAppointments !== true ||
