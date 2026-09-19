@@ -5,10 +5,14 @@ const GLOBAL_SUPPRESSION_EVENTS =
   new Set([
     "unsubscribe",
     "spamreport",
+  ]);
+
+const GROUP_SUPPRESSION_EVENTS =
+  new Set([
     "group_unsubscribe",
   ]);
 
-const LOCAL_RECONSENT_REQUIRED_EVENTS =
+const GROUP_RESUBSCRIBE_EVENTS =
   new Set([
     "group_resubscribe",
   ]);
@@ -49,25 +53,35 @@ export function classifySendGridMarketingConsentEvent(
   ) {
     return {
       action:
-        "suppress",
+        "suppress_global",
       reason:
-        event ===
-        "group_unsubscribe"
-          ? "conservative_group_suppression"
-          : "provider_marketing_suppression",
+        "provider_marketing_suppression",
     };
   }
 
   if (
-    LOCAL_RECONSENT_REQUIRED_EVENTS.has(
+    GROUP_SUPPRESSION_EVENTS.has(
       event
     )
   ) {
     return {
       action:
-        "clear_provider_suppression",
+        "suppress_group",
       reason:
-        "local_reconsent_required",
+        "provider_group_suppression",
+    };
+  }
+
+  if (
+    GROUP_RESUBSCRIBE_EVENTS.has(
+      event
+    )
+  ) {
+    return {
+      action:
+        "clear_group",
+      reason:
+        "provider_group_resubscribe",
     };
   }
 
@@ -227,10 +241,51 @@ async function recordConsentWithdrawal({
   };
 }
 
+function normaliseGroupId(
+  value
+) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isInteger(
+      number
+    ) ||
+    number <= 0
+  ) {
+    return null;
+  }
+
+  return number;
+}
+
+function currentSuppressionGroups(
+  customer
+) {
+  const groups =
+    customer?.marketing
+      ?.emailSuppressionGroups;
+
+  if (!Array.isArray(groups)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      groups
+        .map(
+          normaliseGroupId
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
 export async function applySendGridMarketingSuppression({
   eventType,
   eventId = "",
   occurredAt = null,
+  asmGroupId = null,
   delivery,
   CustomerModel =
     Customer,
@@ -253,6 +308,59 @@ export async function applySendGridMarketingSuppression({
         false,
       reason:
         classification.reason,
+      customerId:
+        "",
+      matchedBy:
+        "",
+      auditRecorded:
+        false,
+      providerSuppressionChanged:
+        false,
+    };
+  }
+
+  if (
+    !delivery?.campaign
+  ) {
+    return {
+      applied:
+        false,
+      evidenceOnly:
+        true,
+      reason:
+        "transactional_delivery_not_marketing",
+      customerId:
+        "",
+      matchedBy:
+        "",
+      auditRecorded:
+        false,
+      providerSuppressionChanged:
+        false,
+    };
+  }
+
+  const groupId =
+    normaliseGroupId(
+      asmGroupId
+    );
+
+  if (
+    [
+      "suppress_group",
+      "clear_group",
+    ].includes(
+      classification.action
+    ) &&
+    !groupId
+  ) {
+    return {
+      applied:
+        false,
+      evidenceOnly:
+        true,
+      reason:
+        "marketing_group_id_missing",
       customerId:
         "",
       matchedBy:
@@ -293,38 +401,64 @@ export async function applySendGridMarketingSuppression({
     resolved.customer;
 
   if (
-    classification.action ===
-    "clear_provider_suppression"
+    [
+      "suppress_group",
+      "clear_group",
+    ].includes(
+      classification.action
+    )
   ) {
     ensureCustomerMarketingObjects(
       customer
     );
 
+    const existingGroups =
+      currentSuppressionGroups(
+        customer
+      );
+    const hasGroup =
+      existingGroups.includes(
+        groupId
+      );
+
+    const nextGroups =
+      classification.action ===
+        "suppress_group"
+        ? Array.from(
+            new Set([
+              ...existingGroups,
+              groupId,
+            ])
+          )
+        : existingGroups.filter(
+            (value) =>
+              value !==
+              groupId
+          );
+
     const providerSuppressionChanged =
-      customer.marketing
-        .emailSuppressed ===
-      true;
+      classification.action ===
+        "suppress_group"
+        ? !hasGroup
+        : hasGroup;
 
     if (
       providerSuppressionChanged
     ) {
       customer.marketing
-        .emailSuppressed =
-        false;
+        .emailSuppressionGroups =
+        nextGroups;
       customer.marketing
-        .emailSuppressedAt =
-        null;
-      customer.marketing
-        .emailSuppressionReason =
-        "";
+        .emailSuppressionGroupsUpdatedAt =
+        new Date();
       await customer.save();
     }
 
     return {
       applied:
-        false,
+        providerSuppressionChanged,
       evidenceOnly:
-        true,
+        false,
       reason:
         classification.reason,
       customerId:
@@ -337,6 +471,10 @@ export async function applySendGridMarketingSuppression({
       auditRecorded:
         false,
       providerSuppressionChanged,
+      suppressionScope:
+        "group",
+      asmGroupId:
+        groupId,
     };
   }
 
@@ -427,6 +565,10 @@ export async function applySendGridMarketingSuppression({
       audit.reason,
     providerSuppressionChanged:
       true,
+    suppressionScope:
+      "global",
+    asmGroupId:
+      null,
   };
 }
 
