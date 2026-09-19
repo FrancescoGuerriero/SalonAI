@@ -40,6 +40,9 @@ import {
   askAdviser,
 } from "./aiAdviserController.js";
 import {
+  submitFeedback,
+} from "./aiAdviserFeedbackController.js";
+import {
   createProposal,
   listProposals,
   reviewProposal,
@@ -96,6 +99,16 @@ router.post(
   ),
   asyncHandler(
     askAdviser
+  )
+);
+
+router.patch(
+  "/adviser/inferences/:inferenceId/feedback",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    submitFeedback
   )
 );
 
