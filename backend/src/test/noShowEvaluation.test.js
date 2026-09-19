@@ -224,3 +224,43 @@ test("model evaluation never converts monitoring evidence into automatic lifecyc
     false
   );
 });
+
+
+test("calibration ignores missing labels and probabilities instead of coercing null to zero", () => {
+  const metrics =
+    calibrationMetrics([
+      {
+        prediction: {
+          probability:
+            null,
+        },
+        outcome: {
+          noShowLabel:
+            0,
+        },
+      },
+      {
+        prediction: {
+          probability:
+            0.5,
+        },
+        outcome: {
+          noShowLabel:
+            null,
+        },
+      },
+      row(
+        0.7,
+        1
+      ),
+    ]);
+
+  assert.equal(
+    metrics.sampleCount,
+    1
+  );
+  assert.equal(
+    metrics.positiveCount,
+    1
+  );
+});
