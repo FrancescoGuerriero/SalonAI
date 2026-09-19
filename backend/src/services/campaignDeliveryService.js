@@ -737,8 +737,19 @@ function getCampaignContent(
 
 function getExplicitConsentValue(
   customer,
-  channel
+  channel,
+  {
+    campaignType = "",
+  } = {}
 ) {
+  const marketingEmail =
+    channel ===
+      "email" &&
+    normaliseLowercase(
+      campaignType
+    ) !==
+      "appointment_reminder";
+
   const channelPaths =
     channel === "email"
       ? [
@@ -747,7 +758,12 @@ function getExplicitConsentValue(
           "preferences.email",
           "preferences.emailMarketing",
           "marketingConsent.email",
-          "marketing.emailConsent",
+          ...(marketingEmail
+            ? [
+                "communicationPreferences.promotionalMessages",
+                "marketing.emailConsent",
+              ]
+            : []),
           "consent.email",
           "emailConsent",
           "emailMarketingConsent",
@@ -760,13 +776,42 @@ function getExplicitConsentValue(
           "preferences.sms",
           "preferences.smsMarketing",
           "marketingConsent.sms",
-          "marketing.smsConsent",
           "consent.sms",
           "smsConsent",
           "smsMarketingConsent",
           "allowSms",
           "subscribedToSms",
         ];
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "marketing.emailSuppressed"
+    ) === true
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "marketing.emailSuppressed",
+    };
+  }
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "communicationPreferences.promotionalMessages"
+    ) === false
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "communicationPreferences.promotionalMessages",
+    };
+  }
 
   for (const path of channelPaths) {
     const value =
@@ -823,17 +868,6 @@ function isCustomerUnsubscribed(
           "preferences.smsUnsubscribed",
         ];
 
-  if (
-    channel ===
-      "email" &&
-    getValueByPath(
-      customer,
-      "communicationPreferences.promotionalMessages"
-    ) === false
-  ) {
-    return true;
-  }
-
   return [
     ...generalPaths,
     ...channelPaths,
@@ -854,6 +888,7 @@ function resolveCustomerConsent(
   {
     consentRequired,
     excludeUnsubscribed,
+    campaignType = "",
   }
 ) {
   if (
@@ -890,7 +925,10 @@ function resolveCustomerConsent(
   const consent =
     getExplicitConsentValue(
       customer,
-      channel
+      channel,
+      {
+        campaignType,
+      }
     );
 
   return {
@@ -2375,6 +2413,10 @@ async function processCampaignDelivery(
       options.excludeUnsubscribed ??
       config.consent
         .excludeUnsubscribed,
+    campaignType:
+      normaliseLowercase(
+        campaign.campaignType
+      ),
   };
 
   const deliveryOptions = {
@@ -2672,6 +2714,10 @@ async function previewCampaignAudience(
       options.excludeUnsubscribed ??
       config.consent
         .excludeUnsubscribed,
+    campaignType:
+      normaliseLowercase(
+        campaign.campaignType
+      ),
   };
 
   const preview =
