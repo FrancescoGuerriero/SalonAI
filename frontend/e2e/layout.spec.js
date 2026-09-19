@@ -598,6 +598,24 @@ test.describe("SalonAI layout regressions", () => {
         return;
       }
 
+      if (url.pathname === "/api/services/management") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            services: [
+              {
+                _id: "507f1f77bcf86cd799439011",
+                name: "Haircut QA",
+                category: "Hair",
+                active: true,
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -631,6 +649,70 @@ test.describe("SalonAI layout regressions", () => {
         name: "Create employee",
       })
     ).toBeFocused();
+
+    const assignServices = dialog
+      .locator("label")
+      .filter({
+        hasText: "Assign services during onboarding",
+      });
+
+    await expect(
+      assignServices.locator("input")
+    ).toBeEnabled();
+    await assignServices.click();
+
+    const serviceChoice = dialog
+      .locator("label")
+      .filter({
+        hasText: "Haircut QA",
+      })
+      .first();
+
+    await expect(serviceChoice).toBeVisible();
+
+    const configureSchedule = dialog
+      .locator("label")
+      .filter({
+        hasText: "Configure schedule during onboarding",
+      });
+
+    await configureSchedule.click();
+
+    const mondayChoice = dialog
+      .locator("label")
+      .filter({
+        hasText: "Monday",
+      })
+      .first();
+
+    const permissionsDetails = dialog
+      .locator("details")
+      .filter({
+        hasText: "Initial access permissions",
+      });
+
+    await permissionsDetails
+      .locator("summary")
+      .click();
+
+    const permissionChoice = permissionsDetails
+      .locator("label")
+      .filter({
+        hasText: "View dashboard",
+      })
+      .first();
+
+    for (const control of [
+      assignServices,
+      serviceChoice,
+      configureSchedule,
+      mondayChoice,
+      permissionChoice,
+    ]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
 
     await page.keyboard.press("Escape");
 
@@ -1018,6 +1100,20 @@ test.describe("SalonAI layout regressions", () => {
       })
       .first();
 
+    const customRole = page
+      .locator("article")
+      .filter({
+        hasText: "colour_specialist",
+      })
+      .first();
+
+    const editPermission = customRole
+      .locator("label")
+      .filter({
+        hasText: "Create salon services",
+      })
+      .first();
+
     const activeAssignable = page
       .locator("label")
       .filter({
@@ -1027,6 +1123,7 @@ test.describe("SalonAI layout regressions", () => {
 
     for (const control of [
       createPermission,
+      editPermission,
       activeAssignable,
     ]) {
       const box = await control.boundingBox();
