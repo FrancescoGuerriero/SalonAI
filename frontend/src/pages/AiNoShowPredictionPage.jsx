@@ -415,8 +415,7 @@ export default function AiNoShowPredictionPage() {
                             )}
                           </td>
                           <td className="px-5 py-4">
-                            {item.recommended_actions
-                              ?.[0] ||
+                            {item.recommended_actions?.[0] ||
                               "Standard reminder"}
                           </td>
                         </tr>
