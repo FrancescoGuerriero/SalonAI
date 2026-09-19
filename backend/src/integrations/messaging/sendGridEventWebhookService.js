@@ -3,6 +3,9 @@ import {
   updateDeliveryFromProviderEvent,
 } from "../../services/messageDeliveryRecordService.js";
 import SendGridWebhookEvent from "./SendGridWebhookEvent.js";
+import {
+  applySendGridMarketingSuppression,
+} from "./emailMarketingSuppressionService.js";
 
 const DELIVERY_EVENTS =
   new Set([
@@ -557,6 +560,8 @@ async function applyDeliveryEvent(
       MessageDelivery,
     updateDelivery =
       updateDeliveryFromProviderEvent,
+    applyMarketingSuppression =
+      applySendGridMarketingSuppression,
   } = {}
 ) {
   let delivery =
@@ -829,6 +834,17 @@ export async function processSendGridEvent(
           }
         );
 
+      const marketing =
+        await applyMarketingSuppression({
+          eventType:
+            event.eventType,
+          eventId:
+            event.eventId,
+          occurredAt:
+            event.occurredAt,
+          delivery,
+        });
+
       record.delivery =
         delivery?._id ||
         null;
@@ -837,10 +853,31 @@ export async function processSendGridEvent(
         "";
       record.processingStatus =
         "processed";
-      record.processingReason =
-        delivery
-          ? "engagement_evidence_recorded"
-          : "engagement_unmatched";
+
+      if (
+        marketing.applied
+      ) {
+        record.processingReason =
+          "marketing_suppression_applied";
+      } else if (
+        marketing.reason ===
+        "local_reconsent_required"
+      ) {
+        record.processingReason =
+          "marketing_reconsent_requires_local_confirmation";
+      } else if (
+        marketing.reason ===
+        "customer_not_resolved"
+      ) {
+        record.processingReason =
+          "marketing_suppression_customer_unmatched";
+      } else {
+        record.processingReason =
+          delivery
+            ? "engagement_evidence_recorded"
+            : "engagement_unmatched";
+      }
+
       record.processedAt =
         new Date();
       await record.save();
@@ -858,6 +895,10 @@ export async function processSendGridEvent(
           record.deliveryId,
         statusChanged:
           false,
+        marketingConsentChanged:
+          marketing.applied,
+        marketingConsentReason:
+          marketing.reason,
       };
     }
 
