@@ -271,14 +271,43 @@ test("public team frontend route is independent from online booking", async () =
       "utf8"
     );
 
+  const stylistsPage =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/Stylists.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
   assert.match(
     app,
-    /path="stylists"[\s\S]*featurePage\(<Stylists \/>, "public-team"\)/
+    /path="stylists"[\s\S]{0,160}element=\{<Stylists \/>\}/
   );
 
   assert.doesNotMatch(
     app,
-    /path="stylists"[\s\S]{0,160}featurePage\(<Stylists \/>, "online-booking"\)/
+    /path="stylists"[\s\S]{0,180}featurePage/
+  );
+
+  assert.match(
+    stylistsPage,
+    /"public-team"/
+  );
+
+  assert.match(
+    stylistsPage,
+    /"online-booking"/
+  );
+
+  assert.match(
+    stylistsPage,
+    /getPublicTeam\(\)/
+  );
+
+  assert.match(
+    stylistsPage,
+    /getBookingStylists\(\)/
   );
 
   assert.match(
