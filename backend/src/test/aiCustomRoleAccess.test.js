@@ -82,7 +82,25 @@ test("custom staff roles can use AI when ai:use is granted by their role templat
   );
 });
 
-test("custom roles and built-in staff without ai:use remain denied", () => {
+test("management dashboard roles receive AI access while custom and salon staff still require delegation", () => {
+  for (const role of [
+    "admin",
+    "receptionist",
+    "manager",
+  ]) {
+    const result =
+      runAiPermission({
+        role,
+        permissions: [],
+      });
+
+    assert.equal(
+      result.nextCalled,
+      true,
+      `${role} should retain AI and marketing workspace access`
+    );
+  }
+
   for (const user of [
     {
       role:
@@ -92,7 +110,7 @@ test("custom roles and built-in staff without ai:use remain denied", () => {
     },
     {
       role:
-        "receptionist",
+        "stylist",
       permissions: [],
     },
     {
