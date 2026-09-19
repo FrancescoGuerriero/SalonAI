@@ -27,13 +27,13 @@ function Toggle({ checked, disabled, label, onChange }) {
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-7 w-12 shrink-0 rounded-full border border-black/15 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
+      className={`relative inline-flex h-8 w-12 shrink-0 rounded-full border border-black/15 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 ${
         checked ? "bg-amber-400" : "bg-stone-300"
       } ${disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
     >
       <span
-        className={`mt-1 h-5 w-5 rounded-full bg-white shadow transition ${
-          checked ? "translate-x-6" : "translate-x-1"
+        className={`absolute left-1 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
