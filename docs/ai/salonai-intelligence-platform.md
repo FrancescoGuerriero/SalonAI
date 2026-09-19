@@ -296,3 +296,35 @@ This is dry-run by default. Applying changes requires both:
 `--apply --confirm=reconcile-no-show-outcomes`
 
 Outcome linkage supplies evaluation evidence only. It does not retrain, promote, approve or activate a model.
+
+
+## No-show calibration and drift monitoring
+
+The no-show prediction workspace exposes aggregate evaluation evidence once linked appointment outcomes are available.
+
+Evaluation is calculated per model name/version rather than pooling different models together.
+
+For the selected current outcome window, SalonAI reports:
+
+- labelled outcome count;
+- observed no-show rate;
+- mean predicted probability;
+- Brier score for probability accuracy;
+- fixed-bin expected calibration error.
+
+The same model/version is compared with the immediately preceding equal-duration outcome window for probability-distribution drift. Monitoring uses:
+
+- mean predicted-probability shift;
+- a five-bin Population Stability Index (PSI);
+- internal review states: `stable`, `review`, `significant_shift`, or `insufficient_data`.
+
+These thresholds are internal operational heuristics, not universal statistical guarantees. Drift/calibration evidence never changes model lifecycle automatically.
+
+At least 30 labelled outcomes in the current window are required before evidence is marked ready for human lifecycle review. Drift comparison additionally requires at least 30 labelled outcomes in the preceding reference window.
+
+The production API routes are permission-governed under `ai:use`:
+
+- `GET /api/ai/no-show-predictions`;
+- `GET /api/ai/no-show-evaluation?periodDays=90`.
+
+No customer identifiers or individual appointment records are returned by the evaluation endpoint.
