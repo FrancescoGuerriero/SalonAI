@@ -4,6 +4,7 @@ import CommunicationCampaign from "../models/CommunicationCampaign.js";
 
 import {
   getMessageDeliveryConfig,
+  getSendGridMarketingReadiness,
 } from "../config/messageDeliveryConfig.js";
 
 import {
@@ -1917,6 +1918,17 @@ function createDeliveryRequest({
           campaign.audience?.type
         ),
 
+      campaignType:
+        normaliseLowercase(
+          campaign.campaignType
+        ),
+
+      sendGridSuppressionGroupId:
+        normaliseSuppressionGroupId(
+          campaign.options
+            ?.sendGridSuppressionGroupId
+        ),
+
       templateValues:
         content.values,
     },
@@ -2392,6 +2404,138 @@ function assertCampaignCanBeProcessed(
   }
 }
 
+function normaliseSuppressionGroupId(
+  value
+) {
+  const groupId =
+    Number(value);
+
+  if (
+    !Number.isInteger(
+      groupId
+    ) ||
+    groupId <= 0
+  ) {
+    return null;
+  }
+
+  return groupId;
+}
+
+function isMarketingEmailCampaign(
+  campaign
+) {
+  return (
+    getCampaignChannel(
+      campaign
+    ) === "email" &&
+    normaliseLowercase(
+      campaign?.campaignType
+    ) !==
+      "appointment_reminder"
+  );
+}
+
+function getLiveMarketingCampaignReadiness(
+  campaign,
+  suppliedConfig = null
+) {
+  const config =
+    suppliedConfig ||
+    getMessageDeliveryConfig();
+  const marketingEmail =
+    isMarketingEmailCampaign(
+      campaign
+    );
+  const groupId =
+    normaliseSuppressionGroupId(
+      campaign?.options
+        ?.sendGridSuppressionGroupId
+    );
+
+  if (!marketingEmail) {
+    return {
+      required: false,
+      ready: true,
+      mode: config.mode,
+      groupId,
+      blockers: [],
+    };
+  }
+
+  if (
+    config.mode !== "live"
+  ) {
+    return {
+      required: false,
+      ready: true,
+      mode: config.mode,
+      sandbox: true,
+      groupId,
+      blockers: [],
+    };
+  }
+
+  const providerReadiness =
+    getSendGridMarketingReadiness(
+      config
+    );
+  const blockers = [
+    ...providerReadiness
+      .blockers,
+  ];
+
+  if (!groupId) {
+    blockers.push(
+      "campaignSuppressionGroupId"
+    );
+  }
+
+  return {
+    required: true,
+    ready:
+      blockers.length === 0,
+    mode: config.mode,
+    groupId,
+    blockers:
+      Array.from(
+        new Set(blockers)
+      ),
+    provider:
+      providerReadiness,
+  };
+}
+
+function assertLiveMarketingCampaignReady(
+  campaign,
+  suppliedConfig = null
+) {
+  const readiness =
+    getLiveMarketingCampaignReadiness(
+      campaign,
+      suppliedConfig
+    );
+
+  if (
+    readiness.required &&
+    !readiness.ready
+  ) {
+    throw createCampaignDeliveryError(
+      "Live SendGrid marketing delivery is not ready.",
+      {
+        statusCode: 503,
+        code:
+          "SENDGRID_MARKETING_NOT_READY",
+        campaign,
+        details:
+          readiness,
+      }
+    );
+  }
+
+  return readiness;
+}
+
 async function processCampaignDelivery(
   campaignId,
   options = {}
@@ -2413,6 +2557,11 @@ async function processCampaignDelivery(
     getCampaignChannel(
       campaign
     );
+
+  assertLiveMarketingCampaignReady(
+    campaign,
+    config
+  );
 
   const recipients =
     await resolveCampaignAudience(
@@ -2790,6 +2939,12 @@ async function previewCampaignAudience(
       null,
   };
 
+  const marketingReadiness =
+    getLiveMarketingCampaignReadiness(
+      campaign,
+      config
+    );
+
   const preview =
     recipients.map((customer) => {
       const consent =
@@ -2872,6 +3027,8 @@ async function previewCampaignAudience(
           entry.consent.required &&
           !entry.consent.granted
       ).length,
+
+    marketingReadiness,
 
     recipients: preview,
   };
@@ -3071,8 +3228,10 @@ async function processDueCampaigns({
 export {
   PROCESSABLE_CAMPAIGN_STATUSES,
   SUPPORTED_CAMPAIGN_CHANNELS,
+  assertLiveMarketingCampaignReady,
   createCampaignDeliveryError,
   getDueCampaigns,
+  getLiveMarketingCampaignReadiness,
   previewCampaignAudience,
   processCampaignDelivery,
   processDueCampaigns,

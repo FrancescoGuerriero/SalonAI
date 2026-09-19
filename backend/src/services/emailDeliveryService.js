@@ -509,6 +509,106 @@ function buildSender(
     : senderAddress;
 }
 
+function normaliseSendGridSuppressionGroupId(
+  value
+) {
+  const groupId =
+    Number(value);
+
+  if (
+    !Number.isInteger(
+      groupId
+    ) ||
+    groupId <= 0
+  ) {
+    return null;
+  }
+
+  return groupId;
+}
+
+function buildSendGridSmtpApiHeader(
+  message,
+  emailConfig
+) {
+  if (
+    emailConfig?.provider !==
+    "sendgrid"
+  ) {
+    return null;
+  }
+
+  const groupId =
+    normaliseSendGridSuppressionGroupId(
+      message?.metadata
+        ?.sendGridSuppressionGroupId
+    );
+
+  if (!groupId) {
+    return null;
+  }
+
+  return JSON.stringify({
+    asm_group_id:
+      groupId,
+  });
+}
+
+function buildProviderHeaders(
+  message,
+  emailConfig
+) {
+  const suppliedHeaders = {
+    ...(
+      message?.headers &&
+      typeof message.headers ===
+        "object"
+        ? message.headers
+        : {}
+    ),
+  };
+
+  if (
+    emailConfig?.provider ===
+    "sendgrid"
+  ) {
+    for (
+      const headerName of
+      Object.keys(
+        suppliedHeaders
+      )
+    ) {
+      if (
+        headerName
+          .toLowerCase() ===
+        "x-smtpapi"
+      ) {
+        delete suppliedHeaders[
+          headerName
+        ];
+      }
+    }
+  }
+
+  const smtpApiHeader =
+    buildSendGridSmtpApiHeader(
+      message,
+      emailConfig
+    );
+
+  return {
+    "X-SalonAI-Application":
+      "SalonAI",
+    ...suppliedHeaders,
+    ...(smtpApiHeader
+      ? {
+          "X-SMTPAPI":
+            smtpApiHeader,
+        }
+      : {}),
+  };
+}
+
 function buildProviderMessage({
   message,
   emailConfig,
@@ -539,11 +639,11 @@ function buildProviderMessage({
     text: message.text,
     html: message.html,
 
-    headers: {
-      "X-SalonAI-Application":
-        "SalonAI",
-      ...message.headers,
-    },
+    headers:
+      buildProviderHeaders(
+        message,
+        emailConfig
+      ),
 
     attachments:
       message.attachments.length > 0
@@ -867,6 +967,8 @@ function closeEmailDeliveryConnection() {
 }
 
 export {
+  buildProviderHeaders,
+  buildSendGridSmtpApiHeader,
   closeEmailDeliveryConnection,
   createEmailDeliveryError,
   normaliseEmailAddress,

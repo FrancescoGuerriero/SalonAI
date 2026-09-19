@@ -1,6 +1,7 @@
 import {
   DELIVERY_MODES,
   getMessageDeliveryConfig,
+  getSendGridMarketingReadiness,
   validateMessageDeliveryConfig,
 } from "./messageDeliveryConfig.js";
 
@@ -267,6 +268,25 @@ function validateMessageDeliveryConfiguration(isProduction) {
       ],
       "SendGrid Event Webhook"
     );
+
+    if (
+      config.email.sendgrid
+        ?.marketing
+        ?.enabled
+    ) {
+      const marketingReadiness =
+        getSendGridMarketingReadiness(
+          config
+        );
+
+      if (
+        !marketingReadiness.ready
+      ) {
+        throw new Error(
+          `Production SendGrid marketing is enabled but not ready. Blocking checks: ${marketingReadiness.blockers.join(", ")}.`
+        );
+      }
+    }
   }
 
   if (
