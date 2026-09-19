@@ -9,8 +9,10 @@ import {
   X,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -18,6 +20,7 @@ import ProfilePhotoUploader from "../profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../../Services/adminStaffService.js";
 import serviceService from "../../Services/serviceService.js";
 import useAuth from "../../hooks/useAuth.js";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 import {
   EMPLOYEE_PERMISSIONS,
   hasPermission,
@@ -165,6 +168,8 @@ export default function AddEmployeeModal({
   const {
     user,
   } = useAuth();
+  const modalPanelRef =
+    useRef(null);
 
   const canManageRoles =
     isSuperAdminRole(
@@ -290,6 +295,48 @@ export default function AddEmployeeModal({
     canAssignServices,
     open,
   ]);
+
+  const closeModal =
+    useCallback(() => {
+      if (!submitting) {
+        onClose?.();
+      }
+    }, [onClose, submitting]);
+
+  const setModalOpen =
+    useCallback(
+      (nextOpen) => {
+        if (!nextOpen) {
+          closeModal();
+        }
+      },
+      [closeModal]
+    );
+
+  useModalFocusTrap({
+    open,
+    containerRef:
+      modalPanelRef,
+    setOpen:
+      setModalOpen,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const prior =
+      document.body.style
+        .overflow;
+    document.body.style
+      .overflow = "hidden";
+
+    return () => {
+      document.body.style
+        .overflow = prior;
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -633,7 +680,7 @@ export default function AddEmployeeModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-employee-title"
@@ -645,12 +692,13 @@ export default function AddEmployeeModal({
             event.currentTarget &&
           !submitting
         ) {
-          onClose?.();
+          closeModal();
         }
       }}
     >
       <form
-        className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+        ref={modalPanelRef}
+        className="max-h-[calc(100dvh-1rem)] w-full max-w-5xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
         onSubmit={
           submit
         }
@@ -673,13 +721,11 @@ export default function AddEmployeeModal({
 
           <button
             type="button"
-            className="rounded-lg p-2 text-black hover:bg-stone-100 disabled:opacity-50"
+            className="min-h-11 min-w-11 rounded-lg p-2 text-black hover:bg-stone-100 disabled:opacity-50"
             disabled={
               submitting
             }
-            onClick={() =>
-              onClose?.()
-            }
+            onClick={closeModal}
             aria-label="Close employee onboarding"
           >
             <X size={20} />
@@ -1443,16 +1489,14 @@ export default function AddEmployeeModal({
           </section>
         </div>
 
-        <footer className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-stone-200 bg-white p-5">
+        <footer className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:justify-end sm:p-5">
           <button
             type="button"
             className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-stone-50"
             disabled={
               submitting
             }
-            onClick={() =>
-              onClose?.()
-            }
+            onClick={closeModal}
           >
             Cancel
           </button>
