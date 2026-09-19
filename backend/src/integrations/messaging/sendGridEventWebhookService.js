@@ -412,6 +412,20 @@ export function decideSendGridDeliveryStatus(
     "dropped"
   ) {
     if (
+      current ===
+      "delivered"
+    ) {
+      return {
+        action:
+          "ignore",
+        reason:
+          "delivered_status_final",
+        status:
+          current,
+      };
+    }
+
+    if (
       PROVIDER_FAILURE_STATUSES.has(
         current
       )
@@ -863,14 +877,22 @@ export async function processSendGridEvent(
       result.delivery
         ?.deliveryId ||
       "";
+    const pendingMatch =
+      result.reason ===
+      "unknown_provider_message";
+
     record.processingStatus =
-      result.ignored
-        ? "ignored"
-        : "processed";
+      pendingMatch
+        ? "pending"
+        : result.ignored
+          ? "ignored"
+          : "processed";
     record.processingReason =
       result.reason;
     record.processedAt =
-      new Date();
+      pendingMatch
+        ? null
+        : new Date();
     await record.save();
 
     return {
