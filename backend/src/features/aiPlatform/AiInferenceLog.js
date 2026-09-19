@@ -128,6 +128,19 @@ aiInferenceLogSchema.index({
   requestedAt: -1,
 });
 
+aiInferenceLogSchema.index({
+  capability: 1,
+  entityType: 1,
+  entityKey: 1,
+  requestedAt: -1,
+});
+
+aiInferenceLogSchema.index({
+  capability: 1,
+  outcomeObservedAt: 1,
+  requestedAt: -1,
+});
+
 const AiInferenceLog =
   mongoose.models
     .AiInferenceLog ||
