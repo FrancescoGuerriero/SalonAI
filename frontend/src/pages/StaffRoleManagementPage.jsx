@@ -821,7 +821,7 @@ export default function StaffRoleManagementPage() {
                                 key={
                                   permission.value
                                 }
-                                className="flex items-start gap-2 text-sm text-stone-700"
+                                className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-stone-700 hover:bg-amber-50"
                               >
                                 <input
                                   type="checkbox"
