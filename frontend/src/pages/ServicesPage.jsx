@@ -14,11 +14,13 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import serviceService from "../Services/serviceService.js";
 import useAuth from "../hooks/useAuth.js";
+import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import {
   hasPermission,
 } from "../utils/permissions.js";
@@ -201,6 +203,8 @@ export default function ServicesPage() {
     showForm,
     setShowForm,
   ] = useState(false);
+  const editorPanelRef =
+    useRef(null);
   const [
     form,
     setForm,
@@ -321,17 +325,56 @@ export default function ServicesPage() {
     setShowForm(true);
   }
 
-  function closeForm() {
-    if (saving) {
-      return;
+  const closeForm =
+    useCallback(() => {
+      if (saving) {
+        return;
+      }
+
+      setShowForm(false);
+      setEditingId("");
+      setForm({
+        ...EMPTY_SERVICE,
+      });
+    }, [saving]);
+
+  const setEditorOpen =
+    useCallback(
+      (nextOpen) => {
+        if (nextOpen) {
+          setShowForm(true);
+          return;
+        }
+
+        closeForm();
+      },
+      [closeForm]
+    );
+
+  useModalFocusTrap({
+    open: showForm,
+    containerRef:
+      editorPanelRef,
+    setOpen:
+      setEditorOpen,
+  });
+
+  useEffect(() => {
+    if (!showForm) {
+      return undefined;
     }
 
-    setShowForm(false);
-    setEditingId("");
-    setForm({
-      ...EMPTY_SERVICE,
-    });
-  }
+    const prior =
+      document.body.style
+        .overflow;
+    document.body.style
+      .overflow = "hidden";
+
+    return () => {
+      document.body.style
+        .overflow = prior;
+    };
+  }, [showForm]);
 
   function update(
     field,
@@ -789,18 +832,27 @@ export default function ServicesPage() {
 
       {showForm ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="service-form-title"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              closeForm();
+            }
+          }}
         >
           <form
-            className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+            ref={editorPanelRef}
+            className="max-h-[calc(100dvh-1rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
             onSubmit={
               save
             }
           >
-            <header className="flex items-start justify-between border-b border-stone-200 p-5">
+            <header className="sticky top-0 z-10 flex items-start justify-between border-b border-stone-200 bg-white p-4 sm:p-5">
               <div>
                 <h2
                   id="service-form-title"
@@ -816,7 +868,7 @@ export default function ServicesPage() {
               </div>
               <button
                 type="button"
-                className="rounded-lg p-2 text-black hover:bg-stone-100"
+                className="min-h-11 min-w-11 rounded-lg p-2 text-black hover:bg-stone-100"
                 onClick={
                   closeForm
                 }
@@ -826,7 +878,7 @@ export default function ServicesPage() {
               </button>
             </header>
 
-            <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
               <label className="text-sm font-semibold text-black">
                 Service name
                 <input
@@ -1037,7 +1089,7 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            <footer className="flex justify-end gap-2 border-t border-stone-200 p-5">
+            <footer className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
               <button
                 type="button"
                 className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black"

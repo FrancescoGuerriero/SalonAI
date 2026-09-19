@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -25,6 +26,7 @@ import ManagementNavigation, {
 } from "./navigation/ManagementNavigation.jsx";
 import Seo from "./Seo.jsx";
 import useFeatureControls from "../hooks/useFeatureControls.js";
+import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import useAuth from "../hooks/useAuth.js";
 import {
   hasPermission,
@@ -63,6 +65,11 @@ export default function MainLayout() {
     setMobileOpen,
   ] = useState(false);
 
+  const mobileTriggerRef =
+    useRef(null);
+  const mobilePanelRef =
+    useRef(null);
+
   const [
     collapsed,
     setCollapsed,
@@ -82,6 +89,15 @@ export default function MainLayout() {
     isManagementRoute(
       location.pathname
     );
+
+  useModalFocusTrap({
+    open: mobileOpen,
+    containerRef:
+      mobilePanelRef,
+    returnFocusRef:
+      mobileTriggerRef,
+    setOpen: setMobileOpen,
+  });
 
   useEffect(
     () =>
@@ -114,32 +130,12 @@ export default function MainLayout() {
     document.body.style
       .overflow = "hidden";
 
-    const close =
-      (event) => {
-        if (
-          event.key ===
-          "Escape"
-        ) {
-          setMobileOpen(
-            false
-          );
-        }
-      };
-
-    document.addEventListener(
-      "keydown",
-      close
-    );
 
     return () => {
       document.body.style
         .overflow =
         prior;
 
-      document.removeEventListener(
-        "keydown",
-        close
-      );
     };
   }, [mobileOpen]);
 
@@ -241,6 +237,7 @@ export default function MainLayout() {
           <section className="management-content">
             <div className="management-mobile-bar">
               <button
+                ref={mobileTriggerRef}
                 type="button"
                 className="app-button app-button-secondary"
                 onClick={() =>
@@ -285,20 +282,21 @@ export default function MainLayout() {
               aria-modal="true"
               aria-label="Management navigation"
             >
-              <button
-                type="button"
+              <div
                 className="app-mobile-backdrop"
                 onClick={() =>
                   setMobileOpen(
                     false
                   )
                 }
-                aria-label="Close management navigation"
+                aria-hidden="true"
               />
 
               <aside
+                ref={mobilePanelRef}
                 className="management-mobile-panel"
                 id="salonai-management-mobile-navigation"
+                tabIndex="-1"
               >
                 <div className="app-mobile-panel-head">
                   <div>

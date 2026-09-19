@@ -4,12 +4,15 @@ import {
   X,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 import appointmentManagementApi from "../../Services/appointmentManagementApi.js";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const STATUSES = [
   "pending",
@@ -154,6 +157,7 @@ export default function AppointmentEditorDialog({
   onClose,
   onSaved,
 }) {
+  const modalPanelRef = useRef(null);
   const editing =
     Boolean(
       appointment?._id
@@ -524,13 +528,55 @@ export default function AppointmentEditorDialog({
     }
   }
 
+  const closeDialog =
+    useCallback(() => {
+      if (!saving) {
+        onClose?.();
+      }
+    }, [onClose, saving]);
+
+  const setDialogOpen =
+    useCallback(
+      (nextOpen) => {
+        if (!nextOpen) {
+          closeDialog();
+        }
+      },
+      [closeDialog]
+    );
+
+  useModalFocusTrap({
+    open,
+    containerRef:
+      modalPanelRef,
+    setOpen:
+      setDialogOpen,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const prior =
+      document.body.style
+        .overflow;
+    document.body.style
+      .overflow = "hidden";
+
+    return () => {
+      document.body.style
+        .overflow = prior;
+    };
+  }, [open]);
+
   if (!open) {
     return null;
   }
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-2 sm:p-4"
       role="presentation"
       onMouseDown={(event) => {
         if (
@@ -538,15 +584,16 @@ export default function AppointmentEditorDialog({
           event.currentTarget &&
           !saving
         ) {
-          onClose?.();
+          closeDialog();
         }
       }}
     >
       <section
+        ref={modalPanelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="appointment-editor-title"
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-stone-200 bg-white shadow-2xl"
+        className="max-h-[calc(100dvh-1rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-stone-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
       >
         <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-stone-200 bg-white px-6 py-5">
           <div className="flex items-start gap-3">
@@ -576,17 +623,15 @@ export default function AppointmentEditorDialog({
             type="button"
             aria-label="Close appointment editor"
             disabled={saving}
-            onClick={() =>
-              onClose?.()
-            }
-            className="rounded-xl border border-stone-300 p-2 text-black hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50"
+            onClick={closeDialog}
+            className="min-h-11 min-w-11 rounded-xl border border-stone-300 p-2 text-black hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50"
           >
             <X size={18} />
           </button>
         </header>
 
         <form
-          className="grid gap-5 p-6"
+          className="grid gap-5 p-4 sm:p-6"
           onSubmit={save}
         >
           {error ? (
@@ -1001,13 +1046,11 @@ export default function AppointmentEditorDialog({
             </div>
           )}
 
-          <footer className="flex flex-wrap justify-end gap-3 border-t border-stone-200 pt-5">
+          <footer className="sticky bottom-0 z-10 flex flex-col-reverse gap-3 border-t border-stone-200 bg-white pt-5 sm:flex-row sm:flex-wrap sm:justify-end">
             <button
               type="button"
               disabled={saving}
-              onClick={() =>
-                onClose?.()
-              }
+              onClick={closeDialog}
               className="rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm font-bold text-black hover:border-amber-400 disabled:opacity-50"
             >
               Close

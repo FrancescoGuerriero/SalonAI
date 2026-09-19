@@ -37,6 +37,7 @@ import {
   previewNewCampaignAudience,
   updateCommunicationCampaign,
 } from "../../Services/communicationCampaignApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 import {
   getCommunicationTemplates,
@@ -731,7 +732,7 @@ function OptionCheckbox({
         onChange={(event) =>
           onChange(event.target.checked)
         }
-        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
       />
 
       <span>
@@ -754,6 +755,7 @@ export default function CampaignComposerModal({
   onClose,
   onSaved,
 }) {
+  const modalPanelRef = useRef(null);
   const subjectInputRef = useRef(null);
   const bodyTextAreaRef = useRef(null);
 
@@ -1013,6 +1015,11 @@ export default function CampaignComposerModal({
     previewingAudience,
     onClose,
   ]);
+
+  useModalFocusTrap({
+    open,
+    containerRef: modalPanelRef,
+  });
 
   if (!open) {
     return null;
@@ -1799,7 +1806,7 @@ export default function CampaignComposerModal({
               className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 disabled:bg-gray-100 ${
                 errors.name
                   ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                  : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                  : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
               }`}
             />
 
@@ -1826,7 +1833,7 @@ export default function CampaignComposerModal({
                 )
               }
               disabled={saving}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
             >
               {CAMPAIGN_TYPES.map(
                 (option) => (
@@ -1867,7 +1874,7 @@ export default function CampaignComposerModal({
             maxLength={1000}
             disabled={saving}
             placeholder="Describe the objective of this campaign."
-            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
           />
 
           <p className="mt-1 text-right text-xs text-gray-400">
@@ -1899,7 +1906,7 @@ export default function CampaignComposerModal({
                   disabled={saving}
                   className={`flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition disabled:opacity-50 ${
                     selected
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100"
+                      ? "border-amber-500 bg-amber-50 text-amber-700 ring-2 ring-amber-100"
                       : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                   }`}
                 >
@@ -1934,7 +1941,7 @@ export default function CampaignComposerModal({
             disabled={
               saving || loadingTemplates
             }
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
           >
             <option value="">
               Start without a template
@@ -1969,14 +1976,14 @@ export default function CampaignComposerModal({
           ) : null}
 
           {selectedTemplate ? (
-            <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-              <p className="text-sm font-semibold text-indigo-900">
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">
                 {getTemplateName(
                   selectedTemplate
                 )}
               </p>
 
-              <p className="mt-1 text-xs leading-5 text-indigo-700">
+              <p className="mt-1 text-xs leading-5 text-amber-700">
                 {selectedTemplate.description ||
                   "The campaign message has been populated from this template."}
               </p>
@@ -2050,7 +2057,7 @@ export default function CampaignComposerModal({
                   }
                   className={`text-xs font-semibold ${
                     activeEditor === "subject"
-                      ? "text-indigo-700"
+                      ? "text-amber-700"
                       : "text-gray-500"
                   }`}
                 >
@@ -2078,7 +2085,7 @@ export default function CampaignComposerModal({
                 className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 disabled:bg-gray-100 ${
                   errors.subject
                     ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                    : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                    : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
                 }`}
               />
 
@@ -2104,7 +2111,7 @@ export default function CampaignComposerModal({
                 }
                 className={`text-xs font-semibold ${
                   activeEditor === "body"
-                    ? "text-indigo-700"
+                    ? "text-amber-700"
                     : "text-gray-500"
                 }`}
               >
@@ -2134,7 +2141,7 @@ export default function CampaignComposerModal({
               className={`w-full resize-y rounded-lg border px-3 py-3 text-sm leading-6 outline-none focus:ring-2 disabled:bg-gray-100 ${
                 errors.body
                   ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                  : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-100"
+                  : "border-gray-300 focus:border-amber-500 focus:ring-amber-100"
               }`}
             />
 
@@ -2160,7 +2167,7 @@ export default function CampaignComposerModal({
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center gap-2">
               <Braces
-                className="text-indigo-600"
+                className="text-amber-600"
                 size={18}
               />
 
@@ -2183,7 +2190,7 @@ export default function CampaignComposerModal({
                   }
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                     activeEditor === "subject"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-amber-600 text-white"
                       : "border border-gray-300 bg-white text-gray-600"
                   }`}
                 >
@@ -2198,7 +2205,7 @@ export default function CampaignComposerModal({
                 }
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                   activeEditor === "body"
-                    ? "bg-indigo-600 text-white"
+                    ? "bg-amber-600 text-white"
                     : "border border-gray-300 bg-white text-gray-600"
                 }`}
               >
@@ -2218,7 +2225,7 @@ export default function CampaignComposerModal({
                       )
                     }
                     disabled={saving}
-                    className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 font-mono text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-50"
+                    className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-mono text-xs font-semibold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
                   >
                     {variableName}
                   </button>
@@ -2265,7 +2272,7 @@ export default function CampaignComposerModal({
                           `Default ${variableName}`
                         }
                         disabled={saving}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
                       />
                     </div>
                   )
@@ -2346,7 +2353,7 @@ export default function CampaignComposerModal({
                 disabled={saving}
                 className={`rounded-xl border p-4 text-left transition disabled:opacity-50 ${
                   selected
-                    ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100"
+                    ? "border-amber-500 bg-amber-50 ring-2 ring-amber-100"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
@@ -2354,7 +2361,7 @@ export default function CampaignComposerModal({
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-lg ${
                       selected
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-amber-600 text-white"
                         : "bg-gray-100 text-gray-500"
                     }`}
                   >
@@ -2363,7 +2370,7 @@ export default function CampaignComposerModal({
 
                   {selected ? (
                     <CheckCircle2
-                      className="text-indigo-600"
+                      className="text-amber-600"
                       size={19}
                     />
                   ) : null}
@@ -2383,11 +2390,11 @@ export default function CampaignComposerModal({
 
         {form.schedule.mode ===
         "scheduled" ? (
-          <div className="grid gap-5 rounded-xl border border-indigo-200 bg-indigo-50 p-5 md:grid-cols-2">
+          <div className="grid gap-5 rounded-xl border border-amber-200 bg-amber-50 p-5 md:grid-cols-2">
             <div>
               <label
                 htmlFor="campaign-scheduled-at"
-                className="mb-2 block text-sm font-semibold text-indigo-900"
+                className="mb-2 block text-sm font-semibold text-amber-900"
               >
                 Scheduled date and time
               </label>
@@ -2413,7 +2420,7 @@ export default function CampaignComposerModal({
                 className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 disabled:bg-gray-100 ${
                   errors.scheduledAt
                     ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                    : "border-indigo-300 focus:border-indigo-500 focus:ring-indigo-100"
+                    : "border-amber-300 focus:border-amber-500 focus:ring-amber-100"
                 }`}
               />
 
@@ -2425,7 +2432,7 @@ export default function CampaignComposerModal({
             <div>
               <label
                 htmlFor="campaign-timezone"
-                className="mb-2 block text-sm font-semibold text-indigo-900"
+                className="mb-2 block text-sm font-semibold text-amber-900"
               >
                 Timezone
               </label>
@@ -2442,7 +2449,7 @@ export default function CampaignComposerModal({
                   )
                 }
                 disabled={saving}
-                className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
               >
                 <option value="Europe/London">
                   Europe/London
@@ -2459,7 +2466,7 @@ export default function CampaignComposerModal({
         <div>
           <div className="flex items-center gap-2">
             <Settings2
-              className="text-indigo-600"
+              className="text-amber-600"
               size={19}
             />
 
@@ -2492,7 +2499,7 @@ export default function CampaignComposerModal({
                   )
                 }
                 disabled={saving}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
               />
 
               <FieldError
@@ -2525,7 +2532,7 @@ export default function CampaignComposerModal({
                     )
                   }
                   disabled={saving}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-20 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:bg-gray-100"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-20 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
                 />
 
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
@@ -2848,7 +2855,7 @@ export default function CampaignComposerModal({
 
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-5 py-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
               {form.channel === "email" ? (
                 <Mail size={19} />
               ) : form.channel === "sms" ? (
@@ -2900,7 +2907,7 @@ export default function CampaignComposerModal({
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div className="flex items-center gap-2">
             <Clock3
-              className="text-indigo-600"
+              className="text-amber-600"
               size={19}
             />
 
@@ -2971,10 +2978,13 @@ export default function CampaignComposerModal({
       aria-labelledby="campaign-composer-title"
       onMouseDown={handleBackdropClick}
     >
-      <div className="flex max-h-[96vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-5 sm:px-7">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
               <Send size={22} />
             </div>
 
@@ -3035,7 +3045,7 @@ export default function CampaignComposerModal({
                     <span
                       className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold transition ${
                         active
-                          ? "border-indigo-600 bg-indigo-600 text-white"
+                          ? "border-amber-600 bg-amber-600 text-white"
                           : complete
                             ? "border-green-600 bg-green-600 text-white"
                             : "border-gray-300 bg-white text-gray-500"
@@ -3051,7 +3061,7 @@ export default function CampaignComposerModal({
                     <span
                       className={`hidden text-sm font-semibold sm:block ${
                         active
-                          ? "text-indigo-700"
+                          ? "text-amber-700"
                           : complete
                             ? "text-green-700"
                             : "text-gray-500"
@@ -3165,7 +3175,7 @@ export default function CampaignComposerModal({
                   type="button"
                   onClick={handleNext}
                   disabled={saving}
-                  className="inline-flex min-w-32 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                  className="inline-flex min-w-32 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                 >
                   Continue
                   <ArrowRight size={17} />
@@ -3174,7 +3184,7 @@ export default function CampaignComposerModal({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex min-w-44 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-w-44 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? (
                     <>
