@@ -493,6 +493,8 @@ function serialiseAdminUser(
       user.role,
     permissions:
       user.permissions || [],
+    rolePermissions:
+      user.rolePermissions || [],
     phone:
       user.phone || "",
     profilePhoto:
@@ -839,7 +841,7 @@ export async function listAdminUsers(
       await Promise.all([
         User.find(query)
           .select(
-            "name email role permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
+            "name email role permissions rolePermissions phone profilePhoto isActive emailVerified createdAt updatedAt"
           )
           .sort({
             name: 1,
@@ -976,7 +978,7 @@ async function employeeAndProfile(
     await User.findById(
       employeeId
     ).select(
-      "name email role permissions phone profilePhoto isActive emailVerified createdAt updatedAt"
+      "name email role permissions rolePermissions phone profilePhoto isActive emailVerified createdAt updatedAt"
     );
 
   if (!user) {
@@ -1395,7 +1397,7 @@ export async function createStaffUserByAdmin(
           )
         : undefined;
 
-    let permissions =
+    const permissions =
       Array.isArray(
         req.body.permissions
       )
@@ -1405,17 +1407,16 @@ export async function createStaffUserByAdmin(
           }).permissions
         : [];
 
-    if (
+    const rolePermissions =
       roleDefinition.system ===
       false
-    ) {
-      permissions = [
-        ...(
-          roleDefinition.permissions ||
-          []
-        ),
-      ];
-    }
+        ? [
+            ...(
+              roleDefinition.permissions ||
+              []
+            ),
+          ]
+        : [];
 
     if (
       !name ||
@@ -1552,6 +1553,7 @@ export async function createStaffUserByAdmin(
           "super_admin"
             ? permissions
             : [],
+        rolePermissions,
         phone,
         profilePhoto,
         isActive,
@@ -1896,19 +1898,14 @@ export async function updateEmployeeManagementSettings(
         }
       );
 
-    if (
+    let nextRolePermissions =
       Array.isArray(
-        update.permissions
-      ) &&
-      !update.role &&
-      currentRoleDefinition?.system ===
-        false
-    ) {
-      throw httpError(
-        "Permissions for a custom role are managed from the role registry.",
-        409
-      );
-    }
+        user.rolePermissions
+      )
+        ? [
+            ...user.rolePermissions,
+          ]
+        : [];
 
     if (update.role) {
       const nextRoleDefinition =
@@ -1927,25 +1924,16 @@ export async function updateEmployeeManagementSettings(
         );
       }
 
-      if (
+      nextRolePermissions =
         nextRoleDefinition.system ===
         false
-      ) {
-        update.permissions = [
-          ...(
-            nextRoleDefinition.permissions ||
-            []
-          ),
-        ];
-      } else if (
-        currentRoleDefinition?.system ===
-        false &&
-        !Array.isArray(
-          update.permissions
-        )
-      ) {
-        update.permissions = [];
-      }
+          ? [
+              ...(
+                nextRoleDefinition.permissions ||
+                []
+              ),
+            ]
+          : [];
     }
 
     if (
@@ -2004,6 +1992,8 @@ export async function updateEmployeeManagementSettings(
     if (update.role) {
       user.role =
         update.role;
+      user.rolePermissions =
+        nextRolePermissions;
     }
 
     if (
