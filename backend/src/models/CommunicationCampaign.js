@@ -396,6 +396,12 @@ const campaignOptionsSchema =
         default: true,
       },
 
+      sendGridSuppressionGroupId: {
+        type: Number,
+        min: 1,
+        default: null,
+      },
+
       excludeInvalidContacts: {
         type: Boolean,
         default: true,
