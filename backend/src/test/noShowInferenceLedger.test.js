@@ -247,3 +247,44 @@ test("production no-show prediction path logs inferences and appointment saves l
     /outcomeObservedAt:[\s\S]*?requestedAt/
   );
 });
+
+
+test("no-show reconciliation command is dry-run first and requires explicit apply confirmation", async () => {
+  const script =
+    await readFile(
+      new URL(
+        "../../scripts/reconcileNoShowInferenceOutcomes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const packageJson =
+    JSON.parse(
+      await readFile(
+        new URL(
+          "../../package.json",
+          import.meta.url
+        ),
+        "utf8"
+      )
+    );
+
+  assert.match(
+    script,
+    /--apply/
+  );
+  assert.match(
+    script,
+    /--confirm=reconcile-no-show-outcomes/
+  );
+  assert.match(
+    script,
+    /dry-run/
+  );
+  assert.equal(
+    packageJson.scripts[
+      "ai:outcomes:no-show"
+    ],
+    "node scripts/reconcileNoShowInferenceOutcomes.js"
+  );
+});
