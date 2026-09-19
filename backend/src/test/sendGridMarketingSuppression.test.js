@@ -55,6 +55,12 @@ function customerFixture(
     marketing: {
       emailConsent:
         true,
+      emailSuppressed:
+        false,
+      emailSuppressedAt:
+        null,
+      emailSuppressionReason:
+        "",
       smsConsent:
         false,
       emailConsentUpdatedAt:
@@ -183,7 +189,7 @@ test(
       ),
       {
         action:
-          "evidence_only",
+          "clear_provider_suppression",
         reason:
           "local_reconsent_required",
       }
@@ -255,7 +261,7 @@ test(
       customer
         .communicationPreferences
         .emailUnsubscribed,
-      true
+      false
     );
     assert.equal(
       customer
@@ -267,6 +273,16 @@ test(
       customer.marketing
         .emailConsent,
       false
+    );
+    assert.equal(
+      customer.marketing
+        .emailSuppressed,
+      true
+    );
+    assert.equal(
+      customer.marketing
+        .emailSuppressionReason,
+      "unsubscribe"
     );
 
     assert.equal(
@@ -390,6 +406,14 @@ test(
         marketing: {
           emailConsent:
             false,
+          emailSuppressed:
+            true,
+          emailSuppressedAt:
+            new Date(
+              "2026-09-19T18:00:00.000Z"
+            ),
+          emailSuppressionReason:
+            "group_unsubscribe",
         },
       });
 
@@ -440,8 +464,18 @@ test(
       false
     );
     assert.equal(
+      customer.marketing
+        .emailSuppressed,
+      false
+    );
+    assert.equal(
+      result
+        .providerSuppressionChanged,
+      true
+    );
+    assert.equal(
       customer.saved,
-      0
+      1
     );
   }
 );
@@ -648,7 +682,7 @@ test(
 );
 
 test(
-  "campaign audience preparation recognises canonical Customer email opt-out fields",
+  "campaign audience preparation separates channel unsubscribe from marketing-only consent",
   () => {
     assert.equal(
       isExplicitlyUnsubscribed(
@@ -673,36 +707,68 @@ test(
         },
         "email"
       ),
+      false
+    );
+
+    const suppressed = {
+      communicationPreferences: {
+        promotionalMessages:
+          false,
+      },
+      marketing: {
+        emailConsent:
+          false,
+        emailSuppressed:
+          true,
+      },
+    };
+
+    assert.equal(
+      hasExplicitConsentFailure(
+        suppressed,
+        "email",
+        "promotion"
+      ),
       true
     );
 
     assert.equal(
       hasExplicitConsentFailure(
-        {
-          marketing: {
-            emailConsent:
-              false,
-          },
-        },
-        "email"
+        suppressed,
+        "email",
+        "appointment_reminder"
       ),
-      true
+      false
     );
   }
 );
 
 test(
-  "campaign delivery recognises canonical marketing consent and opt-out fields",
+  "campaign delivery applies marketing consent by campaign purpose",
   () => {
+    const customer = {
+      communicationPreferences: {
+        promotionalMessages:
+          false,
+        emailUnsubscribed:
+          false,
+      },
+      marketing: {
+        emailConsent:
+          false,
+        emailSuppressed:
+          true,
+      },
+    };
+
     assert.deepEqual(
       getExplicitConsentValue(
+        customer,
+        "email",
         {
-          marketing: {
-            emailConsent:
-              false,
-          },
-        },
-        "email"
+          campaignType:
+            "promotion",
+        }
       ),
       {
         found:
@@ -710,21 +776,35 @@ test(
         granted:
           false,
         source:
-          "marketing.emailConsent",
+          "marketing.emailSuppressed",
+      }
+    );
+
+    assert.deepEqual(
+      getExplicitConsentValue(
+        customer,
+        "email",
+        {
+          campaignType:
+            "appointment_reminder",
+        }
+      ),
+      {
+        found:
+          false,
+        granted:
+          false,
+        source:
+          "",
       }
     );
 
     assert.equal(
       isCustomerUnsubscribed(
-        {
-          communicationPreferences: {
-            promotionalMessages:
-              false,
-          },
-        },
+        customer,
         "email"
       ),
-      true
+      false
     );
 
     assert.equal(
