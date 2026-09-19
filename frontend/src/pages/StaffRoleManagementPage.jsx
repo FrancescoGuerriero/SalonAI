@@ -679,7 +679,7 @@ export default function StaffRoleManagementPage() {
         saving ===
         "create"
         }
-        className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
         >
         <Plus size={16} />
         {saving ===
