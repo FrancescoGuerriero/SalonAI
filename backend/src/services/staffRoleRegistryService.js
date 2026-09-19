@@ -104,6 +104,23 @@ export function normaliseRolePermissions(
   return unique;
 }
 
+export function assignableRolePermissions(
+  permissions = []
+) {
+  return (
+    Array.isArray(
+      permissions
+    )
+      ? permissions
+      : []
+  ).filter(
+    (permission) =>
+      ASSIGNABLE_EMPLOYEE_PERMISSION_SET.has(
+        permission
+      )
+  );
+}
+
 export function assertCustomRoleKey(
   key
 ) {
@@ -204,6 +221,10 @@ export async function resolveStaffRole(
 
   return {
     ...custom,
+    permissions:
+      assignableRolePermissions(
+        custom.permissions
+      ),
     system: false,
     assignable: true,
     superAdminOnly: true,
@@ -234,6 +255,10 @@ export async function listStaffRoleDefinitions() {
     ...customRoles.map(
       (role) => ({
         ...role,
+        permissions:
+          assignableRolePermissions(
+            role.permissions
+          ),
         system: false,
         assignable: true,
         superAdminOnly: true,
