@@ -5,9 +5,13 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "appointment:create",
   "appointment:update",
   "appointment:cancel",
+  "appointment:payment:manage",
 
   "customer:read",
+  "customer:create",
   "customer:update",
+  "customer:archive",
+  "customer:delete",
 
   "employee:read",
   "employee:create",
