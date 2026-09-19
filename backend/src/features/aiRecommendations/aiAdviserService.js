@@ -611,6 +611,9 @@ export async function askSalonAiAdviser({
           text(
             user?.role
           ),
+        actorUserId:
+          user?._id ||
+          null,
         source:
           "management-ui",
       },
