@@ -346,3 +346,59 @@ test("unconditional full-dashboard bypass is reserved to Super Admin", async () 
     /"admin"|"manager"|"receptionist"|"stylist"/
   );
 });
+
+
+test("dashboard navigation contains no dead primary links", async () => {
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const routePaths =
+    new Set(
+      [
+        ...app.matchAll(
+          /path="([^"]+)"/g
+        ),
+      ].map(
+        (match) =>
+          `/${match[1]}`
+      )
+    );
+
+  const navigationPaths =
+    [
+      ...navigation.matchAll(
+        /\["(\/[^"]+)"/g
+      ),
+    ].map(
+      (match) =>
+        match[1]
+    );
+
+  const dead =
+    navigationPaths.filter(
+      (path) =>
+        !routePaths.has(
+          path
+        )
+    );
+
+  assert.deepEqual(
+    dead,
+    []
+  );
+});
