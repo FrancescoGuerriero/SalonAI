@@ -105,7 +105,12 @@ function errorMessage(
   );
 }
 
-function profilePayload(form) {
+function profilePayload(
+  form,
+  {
+    includePublication = false,
+  } = {}
+) {
   return {
     jobTitle:
       form.jobTitle,
@@ -131,8 +136,12 @@ function profilePayload(form) {
       form.facebook,
     website:
       form.website,
-    profilePublished:
-      form.profilePublished,
+    ...(includePublication
+      ? {
+          profilePublished:
+            form.profilePublished,
+        }
+      : {}),
   };
 }
 
@@ -497,7 +506,11 @@ export default function StaffProfileEditorPage() {
           await stylistService.updateStylist(
             selectedProfileId,
             profilePayload(
-              form
+              form,
+              {
+                includePublication:
+                  true,
+              }
             )
           );
 
@@ -588,7 +601,7 @@ export default function StaffProfileEditorPage() {
           <h1>
             {canReadAll
               ? "Manage the professional profiles clients see."
-              : "Publish the professional profile clients see."}
+              : "Maintain the professional profile clients see."}
           </h1>
 
           <p>
@@ -930,42 +943,45 @@ export default function StaffProfileEditorPage() {
           </div>
         </section>
 
-        <section className="staff-profile-publish">
-          <div>
-            <strong>
-              Publish this profile
-            </strong>
-            <p>
-              When enabled, the profile may appear on public team experiences subject to the salon&apos;s Public team feature control.
-            </p>
-          </div>
+        {canReadAll ? (
+          <section className="staff-profile-publish">
+            <div>
+              <strong>
+                Publish this profile
+              </strong>
+              <p>
+                When enabled, the profile may appear on public team experiences subject to the salon&apos;s Public team feature control.
+              </p>
+            </div>
 
-          <label className="staff-profile-switch">
-            <input
-              type="checkbox"
-              checked={
-                form.profilePublished
-              }
-              disabled={
-                !editable
-              }
-              onChange={(
-                event
-              ) =>
-                update(
-                  "profilePublished",
-                  event.target
-                    .checked
-                )
-              }
-            />
-            <span>
-              {form.profilePublished
-                ? "Published"
-                : "Hidden"}
-            </span>
-          </label>
-        </section>
+            <label className="staff-profile-switch">
+              <input
+                type="checkbox"
+                checked={
+                  form.profilePublished
+                }
+                disabled={
+                  !editable
+                }
+                onChange={(
+                  event
+                ) =>
+                  update(
+                    "profilePublished",
+                    event.target
+                      .checked
+                  )
+                }
+              />
+              <span>
+                {form.profilePublished
+                  ? "Published"
+                  : "Hidden"}
+              </span>
+            </label>
+          </section>
+
+        ) : null}
 
         <footer className="staff-profile-actions">
           <button

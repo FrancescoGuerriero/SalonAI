@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 import Service from "../models/service.js";
+import {
+  recordAuditEvent,
+} from "../services/auditService.js";
 
 export async function getServices(
   req,
@@ -49,6 +52,19 @@ export async function createService(
     const service = await Service.create({
       ...req.body,
       active: false,
+    });
+
+    await recordAuditEvent({
+      req,
+      action:
+        "service.created",
+      resourceType:
+        "service",
+      resourceId:
+        service._id,
+      before: null,
+      after:
+        service.toObject(),
     });
 
     return res.status(201).json({
@@ -119,6 +135,17 @@ export async function updateService(
     // Publication is a separate privileged action.
     delete payload.active;
 
+    const before =
+      await Service.findById(
+        req.params.id
+      ).lean();
+
+    if (!before) {
+      return res.status(404).json({
+        message: "Service not found."
+      });
+    }
+
     const service =
       await Service.findByIdAndUpdate(
         req.params.id,
@@ -129,11 +156,24 @@ export async function updateService(
         }
       );
 
-    if (!service) {
-      return res.status(404).json({
-        message: "Service not found."
-      });
-    }
+    await recordAuditEvent({
+      req,
+      action:
+        "service.updated",
+      resourceType:
+        "service",
+      resourceId:
+        service._id,
+      before,
+      after:
+        service.toObject(),
+      metadata: {
+        changedFields:
+          Object.keys(
+            payload
+          ),
+      },
+    });
 
     return res.json({
       message: "Service updated successfully.",
@@ -172,6 +212,19 @@ export async function deleteService(
       });
     }
 
+    await recordAuditEvent({
+      req,
+      action:
+        "service.deleted",
+      resourceType:
+        "service",
+      resourceId:
+        service._id,
+      before:
+        service.toObject(),
+      after: null,
+    });
+
     return res.json({
       message: "Service deleted successfully."
     });
@@ -207,6 +260,18 @@ export async function updateServicePublication(
       });
     }
 
+    const before =
+      await Service.findById(
+        req.params.id
+      ).lean();
+
+    if (!before) {
+      return res.status(404).json({
+        message:
+          "Service not found.",
+      });
+    }
+
     const service =
       await Service.findByIdAndUpdate(
         req.params.id,
@@ -220,12 +285,27 @@ export async function updateServicePublication(
         }
       );
 
-    if (!service) {
-      return res.status(404).json({
-        message:
-          "Service not found.",
-      });
-    }
+    await recordAuditEvent({
+      req,
+      action:
+        "service.publication_updated",
+      resourceType:
+        "service",
+      resourceId:
+        service._id,
+      before: {
+        active:
+          before.active,
+      },
+      after: {
+        active:
+          service.active,
+      },
+      metadata: {
+        name:
+          service.name,
+      },
+    });
 
     return res.json({
       message:

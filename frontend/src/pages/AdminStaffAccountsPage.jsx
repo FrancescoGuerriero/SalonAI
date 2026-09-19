@@ -3,30 +3,26 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  KeyRound,
   Plus,
   RefreshCw,
   Scissors,
   ShieldCheck,
   UsersRound,
-  X,
 } from "lucide-react";
 
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
   Link,
 } from "react-router-dom";
 
-import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
+import AddEmployeeModal from "../components/employees/AddEmployeeModal.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
 import useAuth from "../hooks/useAuth.js";
-import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import {
   employeeScheduleForDate,
   employeeServiceNames,
@@ -65,17 +61,6 @@ const STAFF_ROLES = [
     assignable: true,
   },
 ];
-
-const emptyForm = {
-  name: "",
-  email: "",
-  phone: "",
-  role: "stylist",
-  password: "",
-  profilePhoto: "",
-  profilePublished: false,
-  acceptsAppointments: false,
-};
 
 function errorMessage(error) {
   return (
@@ -145,11 +130,6 @@ export default function AdminStaffAccountsPage() {
     user: currentUser,
   } = useAuth();
 
-  const createTriggerRef =
-    useRef(null);
-  const createPanelRef =
-    useRef(null);
-
   const canCreate =
     hasPermission(
       currentUser,
@@ -189,11 +169,6 @@ export default function AdminStaffAccountsPage() {
   ] = useState(false);
 
   const [
-    submitting,
-    setSubmitting,
-  ] = useState(false);
-
-  const [
     updatingId,
     setUpdatingId,
   ] = useState("");
@@ -212,11 +187,6 @@ export default function AdminStaffAccountsPage() {
     roleFilter,
     setRoleFilter,
   ] = useState("");
-
-  const [
-    form,
-    setForm,
-  ] = useState(emptyForm);
 
   const [
     error,
@@ -311,151 +281,10 @@ export default function AdminStaffAccountsPage() {
       roleFilter,
     ]);
 
-  function updateForm(
-    field,
-    value
-  ) {
-    setForm(
-      (current) => ({
-        ...current,
-        [field]: value,
-      })
-    );
-  }
-
   function openCreateForm() {
-    setForm(emptyForm);
     setError("");
     setSuccess("");
     setShowForm(true);
-  }
-
-  const closeCreateForm =
-    useCallback(() => {
-      if (submitting) {
-        return;
-      }
-
-      setShowForm(false);
-      setForm(emptyForm);
-    }, [submitting]);
-
-  const setCreateFormOpen =
-    useCallback(
-      (nextOpen) => {
-        if (nextOpen) {
-          setShowForm(true);
-          return;
-        }
-
-        closeCreateForm();
-      },
-      [closeCreateForm]
-    );
-
-  useModalFocusTrap({
-    open: showForm,
-    containerRef:
-      createPanelRef,
-    returnFocusRef:
-      createTriggerRef,
-    setOpen:
-      setCreateFormOpen,
-  });
-
-  useEffect(() => {
-    if (!showForm) {
-      return undefined;
-    }
-
-    const prior =
-      document.body.style
-        .overflow;
-    document.body.style
-      .overflow = "hidden";
-
-    return () => {
-      document.body.style
-        .overflow = prior;
-    };
-  }, [showForm]);
-
-  async function createStaff(
-    event
-  ) {
-    event.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    if (
-      !form.name.trim() ||
-      !form.email.trim() ||
-      !form.password
-    ) {
-      setError(
-        "Name, email and temporary password are required."
-      );
-      return;
-    }
-
-    if (
-      form.password.length <
-      8
-    ) {
-      setError(
-        "Temporary password must contain at least 8 characters."
-      );
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const response =
-        await adminStaffService.create({
-          name:
-            form.name.trim(),
-          email:
-            form.email
-              .trim()
-              .toLowerCase(),
-          phone:
-            form.phone.trim(),
-          role:
-            form.role,
-          password:
-            form.password,
-          profilePhoto:
-            form.profilePhoto,
-          profilePublished:
-            form.profilePublished,
-          acceptsAppointments:
-            form.acceptsAppointments,
-        });
-
-      setSuccess(
-        response?.message ||
-          "Staff account created."
-      );
-
-      setShowForm(false);
-      setForm(emptyForm);
-
-      await loadUsers({
-        quiet: true,
-      });
-    } catch (
-      requestError
-    ) {
-      setError(
-        errorMessage(
-          requestError
-        )
-      );
-    } finally {
-      setSubmitting(false);
-    }
   }
 
   async function updateEmployeeSetting(
@@ -580,7 +409,6 @@ export default function AdminStaffAccountsPage() {
 
           {canCreate ? (
             <button
-              ref={createTriggerRef}
               type="button"
               className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
               onClick={
@@ -877,324 +705,26 @@ export default function AdminStaffAccountsPage() {
         </section>
       )}
 
-      {showForm ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-2 sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-staff-title"
-          onMouseDown={(
-            event
-          ) => {
-            if (
-              event.target ===
-                event.currentTarget
-            ) {
-              closeCreateForm();
-            }
-          }}
-        >
-          <div
-            ref={createPanelRef}
-            className="max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
-            tabIndex="-1"
-          >
-            <form
-              onSubmit={
-                createStaff
-              }
-            >
-              <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-4 sm:p-5">
-                <div>
-                  <h2
-                    id="add-staff-title"
-                    className="text-xl font-bold text-slate-900"
-                  >
-                    Add employee
-                  </h2>
+      <AddEmployeeModal
+        open={showForm}
+        onClose={() =>
+          setShowForm(false)
+        }
+        onCreated={async (
+          response
+        ) => {
+          setError("");
+          setSuccess(
+            response?.message ||
+              "Employee account and profile created successfully."
+          );
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Create a SalonAI account and employee profile.
-                  </p>
-                </div>
+          await loadUsers({
+            quiet: true,
+          });
+        }}
+      />
 
-                <button
-                  type="button"
-                  className="min-h-11 min-w-11 rounded-lg p-2 text-slate-700 hover:bg-slate-100"
-                  disabled={
-                    submitting
-                  }
-                  onClick={
-                    closeCreateForm
-                  }
-                  aria-label="Close"
-                >
-                  <X size={20} />
-                </button>
-              </header>
-
-              <div className="space-y-5 p-4 sm:p-5">
-                <ProfilePhotoUploader
-                  value={
-                    form.profilePhoto
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    updateForm(
-                      "profilePhoto",
-                      value
-                    )
-                  }
-                  name={
-                    form.name
-                  }
-                  label="Staff profile photograph"
-                  disabled={
-                    submitting
-                  }
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="text-sm font-semibold text-slate-700">
-                    Full name
-
-                    <input
-                      type="text"
-                      required
-                      maxLength={120}
-                      value={
-                        form.name
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          "name",
-                          event.target
-                            .value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold text-slate-700">
-                    Role
-
-                    <select
-                      required
-                      value={
-                        form.role
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          "role",
-                          event.target
-                            .value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal"
-                    >
-                      {STAFF_ROLES.filter(
-                        (role) =>
-                          role.assignable &&
-                          (canManageRoles ||
-                            [
-                              "stylist",
-                              "receptionist",
-                            ].includes(
-                              role.value
-                            ))
-                      ).map(
-                        (role) => (
-                          <option
-                            key={
-                              role.value
-                            }
-                            value={
-                              role.value
-                            }
-                          >
-                            {
-                              role.label
-                            }
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
-
-                  <label className="text-sm font-semibold text-slate-700">
-                    Email
-
-                    <input
-                      type="email"
-                      required
-                      maxLength={254}
-                      value={
-                        form.email
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          "email",
-                          event.target
-                            .value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"
-                    />
-                  </label>
-
-                  <label className="text-sm font-semibold text-slate-700">
-                    Phone
-
-                    <input
-                      type="tel"
-                      maxLength={30}
-                      value={
-                        form.phone
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          "phone",
-                          event.target
-                            .value
-                        )
-                      }
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal"
-                    />
-                  </label>
-                </div>
-
-                <label className="block text-sm font-semibold text-slate-700">
-                  Temporary password
-
-                  <div className="relative mt-2">
-                    <KeyRound
-                      size={17}
-                      className="absolute left-3 top-3 text-slate-400"
-                    />
-
-                    <input
-                      type="password"
-                      required
-                      minLength={8}
-                      autoComplete="new-password"
-                      value={
-                        form.password
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        updateForm(
-                          "password",
-                          event.target
-                            .value
-                        )
-                      }
-                      className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-3 font-normal"
-                    />
-                  </div>
-
-                  <span className="mt-1 block text-xs font-normal text-slate-500">
-                    At least 8 characters. Share it securely with the staff member.
-                  </span>
-                </label>
-
-                <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-                  <label className="flex items-start gap-3 text-sm text-black">
-                    <input
-                      type="checkbox"
-                      checked={form.profilePublished}
-                      onChange={(event) =>
-                        updateForm(
-                          "profilePublished",
-                          event.target.checked
-                        )
-                      }
-                      className="mt-1 h-4 w-4 accent-amber-400"
-                    />
-
-                    <span>
-                      <strong className="block">Publish profile</strong>
-                      Show this employee on public team pages.
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-3 text-sm text-black">
-                    <input
-                      type="checkbox"
-                      checked={form.acceptsAppointments}
-                      onChange={(event) =>
-                        updateForm(
-                          "acceptsAppointments",
-                          event.target.checked
-                        )
-                      }
-                      className="mt-1 h-4 w-4 accent-amber-400"
-                    />
-
-                    <span>
-                      <strong className="block">Bookable online</strong>
-                      Allow customers to select this employee for bookings.
-                    </span>
-                  </label>
-                </div>
-
-                {form.role ===
-                "stylist" ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-800">
-                    A professional employee profile will automatically be created or linked using this email address.
-                  </div>
-                ) : null}
-
-                {form.role ===
-                "admin" ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                    Administrator accounts have elevated access. Create them only for trusted administrators.
-                  </div>
-                ) : null}
-              </div>
-
-              <footer className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
-                <button
-                  type="button"
-                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700"
-                  disabled={
-                    submitting
-                  }
-                  onClick={
-                    closeCreateForm
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
-                  disabled={
-                    submitting
-                  }
-                >
-                  <Plus size={17} />
-
-                  {submitting
-                    ? "Creating..."
-                    : "Create employee"}
-                </button>
-              </footer>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

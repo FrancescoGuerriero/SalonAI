@@ -204,6 +204,32 @@ export default function SystemAdministrationPage() {
                           </span>
                         </div>
                         <p className="mt-1 text-sm text-stone-600">{feature.description}</p>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-black/10 bg-stone-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-stone-700">
+                            {feature.controlMode === "workspace"
+                              ? "Workspace visibility"
+                              : feature.controlMode === "required"
+                                ? "Required control"
+                                : "Real capability"}
+                          </span>
+
+                          {(feature.impactScopes || []).map((scope) => (
+                            <span
+                              key={scope}
+                              className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-black"
+                            >
+                              {scope}
+                            </span>
+                          ))}
+                        </div>
+
+                        {feature.enforcement ? (
+                          <p className="mt-2 text-xs leading-5 text-stone-500">
+                            <strong className="text-stone-700">OFF means:</strong>{" "}
+                            {feature.enforcement}
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-3">

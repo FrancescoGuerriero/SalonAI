@@ -429,7 +429,12 @@ export function stylistOffersService(
     stylist.services.length ===
       0
   ) {
-    return true;
+    /*
+     * An empty assignment means the employee is not qualified for any
+     * customer-selectable service. Treating an empty list as unrestricted
+     * would bypass the dashboard's explicit service-assignment controls.
+     */
+    return false;
   }
 
   const requestedId =
