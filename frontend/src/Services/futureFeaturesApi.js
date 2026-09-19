@@ -276,6 +276,34 @@ export const loyaltyApi = {
 };
 
 export const staffApi = {
+  myWeek: () =>
+    api
+      .get("/staff/me/availability")
+      .then(data),
+  setMyAvailability: (payload) =>
+    api
+      .put(
+        "/staff/me/availability",
+        payload
+      )
+      .then(data),
+  myDay: (date) =>
+    api
+      .get("/staff/me/day", {
+        params: { date },
+      })
+      .then(data),
+  listMyTimeOff: () =>
+    api
+      .get("/staff/me/time-off")
+      .then(data),
+  requestMyTimeOff: (payload) =>
+    api
+      .post(
+        "/staff/me/time-off",
+        payload
+      )
+      .then(data),
   week: (staffId) =>
     api
       .get(`/staff/${staffId}/availability`)
