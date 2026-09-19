@@ -611,7 +611,7 @@ function AppRoutes() {
 
         <Route
           path="stylists"
-          element={featurePage(<Stylists />, "public-team")}
+          element={<Stylists />}
         />
 
         <Route
