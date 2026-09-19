@@ -847,8 +847,12 @@ customerSchema
       !this.communicationPreferences
         ?.unsubscribed &&
       (
-        this.marketing
-          ?.emailConsent ||
+        (
+          this.marketing
+            ?.emailConsent &&
+          !this.marketing
+            ?.emailSuppressed
+        ) ||
         this.marketing
           ?.smsConsent
       )
