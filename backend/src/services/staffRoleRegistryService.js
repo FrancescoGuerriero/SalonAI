@@ -1,6 +1,6 @@
 import StaffRole from "../models/StaffRole.js";
 import {
-  EMPLOYEE_PERMISSION_SET,
+  ASSIGNABLE_EMPLOYEE_PERMISSION_SET,
   STAFF_ROLE_BASELINE_PERMISSIONS,
 } from "../constants/permissions.js";
 
@@ -87,7 +87,7 @@ export function normaliseRolePermissions(
   const invalid =
     unique.filter(
       (permission) =>
-        !EMPLOYEE_PERMISSION_SET.has(
+        !ASSIGNABLE_EMPLOYEE_PERMISSION_SET.has(
           permission
         )
     );
