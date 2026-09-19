@@ -76,3 +76,87 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
     /link\.to !== "\/staff\/profile"/
   );
 });
+
+
+test("core management roles bypass menu hiding while granular permissions remain on links", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const roles =
+    await readFile(
+      new URL(
+        "../../../frontend/src/utils/roles.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    navigation,
+    /hasFullManagementDashboard/
+  );
+  assert.match(
+    navigation,
+    /fullDashboard \|\| hasPermission/
+  );
+
+  for (const role of [
+    "super_admin",
+    "admin",
+    "manager",
+    "receptionist",
+  ]) {
+    assert.match(
+      roles,
+      new RegExp(`"${role}"`)
+    );
+  }
+});
+
+test("restored dashboard exposes planning marketing growth and performance routes", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  for (const route of [
+    "/calendar",
+    "/waitlist",
+    "/booking-demand",
+    "/booking-loss",
+    "/customer-follow-ups",
+    "/customer-value",
+    "/retention-predictions",
+    "/rebooking-opportunities",
+    "/rebooking-campaigns",
+    "/marketing-attribution",
+    "/revenue-forecast",
+    "/reports",
+    "/staff-rota",
+    "/staff-performance",
+    "/service-performance",
+    "/executive-command-centre",
+    "/data-export-audit",
+  ]) {
+    assert.match(
+      navigation,
+      new RegExp(
+        route.replace(
+          /\//g,
+          "\\/"
+        )
+      ),
+      `Missing restored dashboard route: ${route}`
+    );
+  }
+});
