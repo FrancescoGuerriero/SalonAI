@@ -446,7 +446,7 @@ function getMissingContactReason(
   return null;
 }
 
-function isExplicitlyUnsubscribed(
+export function isExplicitlyUnsubscribed(
   customer,
   channel
 ) {
@@ -475,10 +475,22 @@ function isExplicitlyUnsubscribed(
   const channelUnsubscribeField =
     `${channel}Unsubscribed`;
 
-  return customer?.[channelUnsubscribeField] === true;
+  return (
+    customer?.[channelUnsubscribeField] ===
+      true ||
+    preferences?.[channelUnsubscribeField] ===
+      true ||
+    (
+      channel ===
+        "email" &&
+      preferences
+        ?.promotionalMessages ===
+        false
+    )
+  );
 }
 
-function hasExplicitConsentFailure(
+export function hasExplicitConsentFailure(
   customer,
   channel
 ) {
@@ -492,7 +504,14 @@ function hasExplicitConsentFailure(
     customer?.marketingConsent === false ||
     consent?.marketing === false ||
     consent?.communications === false ||
-    consent?.[channel] === false
+    consent?.[channel] === false ||
+    (
+      channel ===
+        "email" &&
+      customer?.marketing
+        ?.emailConsent ===
+        false
+    )
   ) {
     return true;
   }
