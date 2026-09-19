@@ -476,6 +476,13 @@ const AdminEmployeeDetailPage = lazy(
     )
 );
 
+const StaffRoleManagementPage = lazy(
+  () =>
+    import(
+      "./pages/StaffRoleManagementPage.jsx"
+    )
+);
+
 const AdminAppointments = lazy(
   () =>
     import(
@@ -1181,6 +1188,13 @@ function AppRoutes() {
           element={permissionPage(
             AdminStaffAccountsPage,
             "employee:read"
+          )}
+        />
+
+        <Route
+          path="admin/staff-roles"
+          element={adminPage(
+            StaffRoleManagementPage
           )}
         />
 
