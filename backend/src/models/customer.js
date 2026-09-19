@@ -539,6 +539,21 @@ const customerSchema = new Schema(
         maxlength: 150,
       },
 
+      emailSuppressionGroups: {
+        type: [
+          {
+            type: Number,
+            min: 1,
+          },
+        ],
+        default: [],
+      },
+
+      emailSuppressionGroupsUpdatedAt: {
+        type: Date,
+        default: null,
+      },
+
       smsConsent: {
         type: Boolean,
         default: false,
