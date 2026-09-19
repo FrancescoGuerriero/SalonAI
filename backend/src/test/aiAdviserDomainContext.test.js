@@ -103,3 +103,39 @@ test("Adviser prompt and evidence include permitted domain context", async () =>
     /domainContext/
   );
 });
+
+test("calendar Adviser context exposes governed no-show model evidence without treating candidates as production", async () => {
+  const contextSource =
+    await readFile(
+      new URL(
+        "../features/aiRecommendations/aiAdviserContextService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const adviserSource =
+    await readFile(
+      new URL(
+        "../features/aiRecommendations/aiAdviserService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    contextSource,
+    /latestNoShowModelEvidence/
+  );
+  assert.match(
+    contextSource,
+    /modelEvidence/
+  );
+  assert.match(
+    adviserSource,
+    /productionActive/
+  );
+  assert.match(
+    adviserSource,
+    /not active in production/
+  );
+});
