@@ -926,4 +926,130 @@ test.describe("SalonAI layout regressions", () => {
     expect(box.height).toBeGreaterThanOrEqual(targetMinimum);
     expect(box.width).toBeGreaterThanOrEqual(44);
   });
+
+  test("staff role controls remain touch-sized and overflow-free on mobile", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/staff-roles") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            roles: [
+              {
+                id: "super_admin",
+                key: "super_admin",
+                name: "Super Admin",
+                description: "Protected system role",
+                system: true,
+                active: true,
+                permissions: [],
+              },
+              {
+                id: "colour-specialist",
+                key: "colour_specialist",
+                name: "Colour Specialist",
+                description: "Custom salon role",
+                system: false,
+                active: true,
+                permissions: ["service:read"],
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/admin/staff-roles");
+
+    await expect(
+      page.getByRole("heading", {
+        name: "Staff roles",
+      })
+    ).toBeVisible();
+
+    const createPermission = page
+      .locator("label")
+      .filter({
+        hasText: "Create salon services",
+      })
+      .first();
+
+    const activeAssignable = page
+      .locator("label")
+      .filter({
+        hasText: "Active and assignable",
+      })
+      .first();
+
+    for (const control of [
+      createPermission,
+      activeAssignable,
+    ]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+
+    const createButton = page.getByRole("button", {
+      name: "Create role",
+    });
+    const createButtonBox =
+      await createButton.boundingBox();
+
+    expect(createButtonBox).not.toBeNull();
+    expect(createButtonBox.height).toBeGreaterThanOrEqual(44);
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
+  });
+
 });
