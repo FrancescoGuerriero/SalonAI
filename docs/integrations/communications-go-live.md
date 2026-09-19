@@ -119,6 +119,55 @@ Recommended order:
 9. enable schedulers/reminders;
 10. enable controlled campaign sending after consent/unsubscribe verification.
 
-## Next communications increment
+## Current communications increment
 
-Provider acceptance proves that SalonAI can hand a message to the provider. The next communications increment should add/complete SendGrid Event Webhook ingestion so delivered, bounced, deferred, opened, clicked and unsubscribe events can be reconciled into SalonAI's delivery/campaign evidence without trusting SMTP acceptance as final delivery.
+Provider acceptance proves that SalonAI can hand a message to the provider. Signed SendGrid Event Webhook ingestion now reconciles provider delivery and engagement evidence without trusting SMTP acceptance as final delivery.
+
+
+## SendGrid Event Webhook reconciliation
+
+SMTP acceptance is not treated as final delivery evidence. SalonAI exposes a dedicated signed provider callback:
+
+`POST /api/message-delivery/webhooks/sendgrid/events`
+
+The route is mounted before the general JSON parser because SendGrid signs the original raw request bytes.
+
+Required production configuration:
+
+```text
+SENDGRID_EVENT_WEBHOOK_ENABLED=true
+SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY=<SendGrid signed Event Webhook public key>
+```
+
+Production live SendGrid email fails closed unless the signed callback is enabled and a public verification key is configured.
+
+### Event handling
+
+SalonAI stores a privacy-limited event ledger keyed by SendGrid `sg_event_id` so repeated provider callbacks are idempotent.
+
+Delivery events:
+- `processed` can advance an early delivery to accepted;
+- `delivered` marks a matching delivery delivered;
+- `deferred` is retained as evidence but does not regress the SalonAI delivery status;
+- `bounce` marks a strongly matched message undelivered;
+- `dropped` marks a strongly matched message failed.
+
+The provider event is matched to SalonAI by strong message identifiers. The SMTP `smtp-id` is normalised and compared with the SMTP Message-ID stored in the MessageDelivery ledger. Recipient email is not used as a fallback identity.
+
+Engagement/suppression events such as `open`, `click`, `spamreport`, `unsubscribe`, `group_unsubscribe` and `group_resubscribe` are persisted as provider evidence but do not alter delivery status.
+
+The event ledger deliberately excludes recipient email, clicked URLs, IP addresses and user-agent strings. Suppression/consent mutation is a separate governed marketing increment.
+
+### Go-live implications
+
+The communications activation order is now:
+
+1. configure and verify SendGrid sender/domain;
+2. configure the signed Event Webhook and verification key;
+3. pass provider acceptance to a dedicated test recipient;
+4. verify signed delivery callbacks reconcile into MessageDelivery;
+5. configure and acceptance-test Twilio SMS/WhatsApp;
+6. enable transactional channels;
+7. validate retries and scheduler/reminder operation;
+8. integrate SendGrid suppression/unsubscribe signals with SalonAI marketing consent;
+9. enable controlled campaign/newsletter sending.

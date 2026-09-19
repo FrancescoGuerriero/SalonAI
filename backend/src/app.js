@@ -38,6 +38,7 @@ import systemAdministrationRoutes from "./routes/systemAdministrationRoutes.js";
 import staffRoleRoutes from "./routes/staffRoleRoutes.js";
 import calendarOAuthCallbackRoutes from "./integrations/calendar/calendarOAuthCallbackRoutes.js";
 import calendarWebhookRoutes from "./integrations/calendar/calendarWebhookRoutes.js";
+import sendGridEventWebhookRoutes from "./integrations/messaging/sendGridEventWebhookRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import { requireFeature } from "./services/featureControlService.js";
 
@@ -115,6 +116,17 @@ app.use(
 app.use(
   "/api/calendar-webhooks",
   calendarWebhookRoutes
+);
+
+/*
+ * SendGrid signature verification requires
+ * the exact raw JSON bytes. Keep this route
+ * before express.json(), JWT middleware and
+ * interactive API rate limiting.
+ */
+app.use(
+  "/api/message-delivery/webhooks/sendgrid",
+  sendGridEventWebhookRoutes
 );
 
 app.use(

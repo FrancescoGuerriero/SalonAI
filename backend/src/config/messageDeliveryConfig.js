@@ -305,6 +305,19 @@ function getMessageDeliveryConfig() {
           "smtp.sendgrid.net",
         smtpUsername:
           "apikey",
+        eventWebhook: {
+          enabled:
+            normaliseBoolean(
+              process.env
+                .SENDGRID_EVENT_WEBHOOK_ENABLED,
+              false
+            ),
+          publicKey:
+            normaliseText(
+              process.env
+                .SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY
+            ),
+        },
       },
       smtp: {
         host: smtpHost,
@@ -399,6 +412,25 @@ function validateEmailConfiguration(config, errors, warnings) {
         "SENDGRID_API_KEY_REQUIRED",
       message:
         "SENDGRID_API_KEY is required for live Twilio SendGrid email delivery.",
+    });
+  }
+
+  if (
+    emailConfig.provider ===
+      EMAIL_PROVIDERS.SENDGRID &&
+    emailConfig.sendgrid
+      ?.eventWebhook
+      ?.enabled &&
+    !emailConfig.sendgrid
+      ?.eventWebhook
+      ?.publicKey
+  ) {
+    errors.push({
+      channel: "email",
+      code:
+        "SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY_REQUIRED",
+      message:
+        "SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY is required when the signed SendGrid Event Webhook is enabled.",
     });
   }
 
@@ -698,6 +730,20 @@ function getSafeMessageDeliveryConfig() {
           config.email.sendgrid
             ?.smtpUsername ||
           "",
+        eventWebhook: {
+          enabled:
+            Boolean(
+              config.email.sendgrid
+                ?.eventWebhook
+                ?.enabled
+            ),
+          configured:
+            Boolean(
+              config.email.sendgrid
+                ?.eventWebhook
+                ?.publicKey
+            ),
+        },
       },
       smtp: {
         host: config.email.smtp.host,

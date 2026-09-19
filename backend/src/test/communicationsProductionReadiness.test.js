@@ -117,6 +117,12 @@ function productionEnvironment(
     SENDGRID_API_KEY:
       "",
 
+    SENDGRID_EVENT_WEBHOOK_ENABLED:
+      "false",
+
+    SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+      "",
+
     EMAIL_PROVIDER_MODE:
       "",
 
@@ -220,6 +226,16 @@ test(
     assert.match(
       envExample,
       /^SMS_PROVIDER=twilio$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_EVENT_WEBHOOK_ENABLED=false$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY=$/m
     );
 
     assert.doesNotMatch(
@@ -797,6 +813,10 @@ test(
             "sendgrid",
           SENDGRID_API_KEY:
             "SG.production-shaped-test-key",
+          SENDGRID_EVENT_WEBHOOK_ENABLED:
+            "true",
+          SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+            "test-public-key",
           SMTP_HOST:
             "",
           SMTP_USER:
@@ -814,6 +834,74 @@ test(
       result.status,
       0,
       `${result.stdout}\n${result.stderr}`
+    );
+  }
+);
+
+
+test(
+  "production live SendGrid fails closed without a signed Event Webhook",
+  () => {
+    const disabled =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          EMAIL_DELIVERY_ENABLED:
+            "true",
+          EMAIL_PROVIDER:
+            "sendgrid",
+          SENDGRID_API_KEY:
+            "SG.production-shaped-test-key",
+          SENDGRID_EVENT_WEBHOOK_ENABLED:
+            "false",
+          SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+            "",
+          EMAIL_FROM_ADDRESS:
+            "info@example.com",
+          SMS_DELIVERY_ENABLED:
+            "false",
+        })
+      );
+
+    assert.notEqual(
+      disabled.status,
+      0
+    );
+    assert.match(
+      `${disabled.stdout}\n${disabled.stderr}`,
+      /SENDGRID_EVENT_WEBHOOK_ENABLED=true/
+    );
+
+    const missingKey =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          EMAIL_DELIVERY_ENABLED:
+            "true",
+          EMAIL_PROVIDER:
+            "sendgrid",
+          SENDGRID_API_KEY:
+            "SG.production-shaped-test-key",
+          SENDGRID_EVENT_WEBHOOK_ENABLED:
+            "true",
+          SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+            "",
+          EMAIL_FROM_ADDRESS:
+            "info@example.com",
+          SMS_DELIVERY_ENABLED:
+            "false",
+        })
+      );
+
+    assert.notEqual(
+      missingKey.status,
+      0
+    );
+    assert.match(
+      `${missingKey.stdout}\n${missingKey.stderr}`,
+      /SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY/
     );
   }
 );
