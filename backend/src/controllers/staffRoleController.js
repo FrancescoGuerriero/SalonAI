@@ -329,7 +329,7 @@ export async function updateStaffRole(
           },
           {
             $set: {
-              permissions:
+              rolePermissions:
                 role.permissions,
               updatedBy:
                 req.user?._id ||
