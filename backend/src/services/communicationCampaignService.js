@@ -446,7 +446,7 @@ function getMissingContactReason(
   return null;
 }
 
-function isExplicitlyUnsubscribed(
+export function isExplicitlyUnsubscribed(
   customer,
   channel
 ) {
@@ -475,13 +475,46 @@ function isExplicitlyUnsubscribed(
   const channelUnsubscribeField =
     `${channel}Unsubscribed`;
 
-  return customer?.[channelUnsubscribeField] === true;
+  return (
+    customer?.[channelUnsubscribeField] ===
+      true ||
+    preferences?.[channelUnsubscribeField] ===
+      true
+  );
 }
 
-function hasExplicitConsentFailure(
+export function hasExplicitConsentFailure(
   customer,
-  channel
+  channel,
+  campaignType = "",
+  sendGridSuppressionGroupId = null
 ) {
+  const suppressionGroupId =
+    Number(
+      sendGridSuppressionGroupId
+    );
+  const hasSuppressionGroupId =
+    Number.isInteger(
+      suppressionGroupId
+    ) &&
+    suppressionGroupId > 0;
+  const suppressedGroups =
+    Array.isArray(
+      customer?.marketing
+        ?.emailSuppressionGroups
+    )
+      ? customer.marketing
+          .emailSuppressionGroups
+          .map(Number)
+          .filter(
+            (value) =>
+              Number.isInteger(
+                value
+              ) &&
+              value > 0
+          )
+      : [];
+
   const consent =
     customer?.consent ||
     customer?.consents ||
@@ -492,7 +525,34 @@ function hasExplicitConsentFailure(
     customer?.marketingConsent === false ||
     consent?.marketing === false ||
     consent?.communications === false ||
-    consent?.[channel] === false
+    consent?.[channel] === false ||
+    (
+      channel ===
+        "email" &&
+      String(
+        campaignType || ""
+      )
+        .trim()
+        .toLowerCase() !==
+        "appointment_reminder" &&
+      (
+        customer?.communicationPreferences
+          ?.promotionalMessages ===
+          false ||
+        customer?.marketing
+          ?.emailConsent ===
+          false ||
+        customer?.marketing
+          ?.emailSuppressed ===
+          true ||
+        (
+          hasSuppressionGroupId &&
+          suppressedGroups.includes(
+            suppressionGroupId
+          )
+        )
+      )
+    )
   ) {
     return true;
   }
@@ -1124,6 +1184,8 @@ function prepareCampaignOptions(options = {}) {
 
   const prepared = {
     ...defaults,
+    sendGridSuppressionGroupId:
+      null,
   };
 
   for (const field of Object.keys(defaults)) {
@@ -1134,6 +1196,33 @@ function prepareCampaignOptions(options = {}) {
     if (value !== undefined) {
       prepared[field] = value;
     }
+  }
+
+  if (
+    options.sendGridSuppressionGroupId !==
+      undefined &&
+    options.sendGridSuppressionGroupId !==
+      null &&
+    options.sendGridSuppressionGroupId !==
+      ""
+  ) {
+    const groupId = Number(
+      options.sendGridSuppressionGroupId
+    );
+
+    if (
+      !Number.isInteger(groupId) ||
+      groupId <= 0
+    ) {
+      throw createServiceError(
+        "SendGrid suppression group ID must be a positive integer.",
+        400,
+        "INVALID_SENDGRID_SUPPRESSION_GROUP_ID"
+      );
+    }
+
+    prepared.sendGridSuppressionGroupId =
+      groupId;
   }
 
   return prepared;
@@ -2206,7 +2295,11 @@ function evaluateCustomerEligibility(
     options.requireContactConsent &&
     hasExplicitConsentFailure(
       customer,
-      channel
+      channel,
+      campaign.campaignType,
+      campaign.options
+        ?.sendGridSuppressionGroupId ??
+        null
     )
   ) {
     return {
@@ -2335,13 +2428,15 @@ async function createRecipientPayloads(
       consentVerified:
         !hasExplicitConsentFailure(
           customer,
-          campaign.channel
+          campaign.channel,
+          campaign.campaignType
         ),
 
       consentVerifiedAt:
         !hasExplicitConsentFailure(
           customer,
-          campaign.channel
+          campaign.channel,
+          campaign.campaignType
         )
           ? new Date()
           : null,

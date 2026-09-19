@@ -522,6 +522,38 @@ const customerSchema = new Schema(
         default: true,
       },
 
+      emailSuppressed: {
+        type: Boolean,
+        default: false,
+      },
+
+      emailSuppressedAt: {
+        type: Date,
+        default: null,
+      },
+
+      emailSuppressionReason: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: 150,
+      },
+
+      emailSuppressionGroups: {
+        type: [
+          {
+            type: Number,
+            min: 1,
+          },
+        ],
+        default: [],
+      },
+
+      emailSuppressionGroupsUpdatedAt: {
+        type: Date,
+        default: null,
+      },
+
       smsConsent: {
         type: Boolean,
         default: false,
@@ -830,8 +862,12 @@ customerSchema
       !this.communicationPreferences
         ?.unsubscribed &&
       (
-        this.marketing
-          ?.emailConsent ||
+        (
+          this.marketing
+            ?.emailConsent &&
+          !this.marketing
+            ?.emailSuppressed
+        ) ||
         this.marketing
           ?.smsConsent
       )

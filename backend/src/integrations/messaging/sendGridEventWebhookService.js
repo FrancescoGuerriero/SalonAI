@@ -3,6 +3,9 @@ import {
   updateDeliveryFromProviderEvent,
 } from "../../services/messageDeliveryRecordService.js";
 import SendGridWebhookEvent from "./SendGridWebhookEvent.js";
+import {
+  applySendGridMarketingSuppression,
+} from "./emailMarketingSuppressionService.js";
 
 const DELIVERY_EVENTS =
   new Set([
@@ -725,6 +728,8 @@ export async function processSendGridEvent(
       MessageDelivery,
     updateDelivery =
       updateDeliveryFromProviderEvent,
+    applyMarketingSuppression =
+      applySendGridMarketingSuppression,
   } = {}
 ) {
   const event =
@@ -829,6 +834,20 @@ export async function processSendGridEvent(
           }
         );
 
+      const marketing =
+        await applyMarketingSuppression({
+          eventType:
+            event.eventType,
+          eventId:
+            event.eventId,
+          occurredAt:
+            event.occurredAt,
+          asmGroupId:
+            event.evidence
+              .asmGroupId,
+          delivery,
+        });
+
       record.delivery =
         delivery?._id ||
         null;
@@ -837,10 +856,49 @@ export async function processSendGridEvent(
         "";
       record.processingStatus =
         "processed";
-      record.processingReason =
-        delivery
-          ? "engagement_evidence_recorded"
-          : "engagement_unmatched";
+
+      if (
+        marketing.applied &&
+        marketing.suppressionScope ===
+          "global"
+      ) {
+        record.processingReason =
+          "marketing_suppression_applied";
+      } else if (
+        marketing.applied &&
+        marketing.suppressionScope ===
+          "group"
+      ) {
+        record.processingReason =
+          event.eventType ===
+          "group_resubscribe"
+            ? "marketing_group_resubscribe_applied"
+            : "marketing_group_suppression_applied";
+      } else if (
+        marketing.reason ===
+        "transactional_delivery_not_marketing"
+      ) {
+        record.processingReason =
+          "engagement_transactional_evidence_only";
+      } else if (
+        marketing.reason ===
+        "marketing_group_id_missing"
+      ) {
+        record.processingReason =
+          "marketing_group_evidence_missing_group_id";
+      } else if (
+        marketing.reason ===
+        "customer_not_resolved"
+      ) {
+        record.processingReason =
+          "marketing_suppression_customer_unmatched";
+      } else {
+        record.processingReason =
+          delivery
+            ? "engagement_evidence_recorded"
+            : "engagement_unmatched";
+      }
+
       record.processedAt =
         new Date();
       await record.save();
@@ -858,6 +916,21 @@ export async function processSendGridEvent(
           record.deliveryId,
         statusChanged:
           false,
+        marketingConsentChanged:
+          marketing.applied,
+        providerSuppressionChanged:
+          Boolean(
+            marketing
+              .providerSuppressionChanged
+          ),
+        marketingConsentReason:
+          marketing.reason,
+        marketingSuppressionScope:
+          marketing.suppressionScope ||
+          null,
+        marketingSuppressionGroupId:
+          marketing.asmGroupId ??
+          null,
       };
     }
 
