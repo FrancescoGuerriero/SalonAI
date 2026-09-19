@@ -758,17 +758,16 @@ function getExplicitConsentValue(
           "preferences.email",
           "preferences.emailMarketing",
           "marketingConsent.email",
-          ...(marketingEmail
-            ? [
-                "communicationPreferences.promotionalMessages",
-                "marketing.emailConsent",
-              ]
-            : []),
           "consent.email",
           "emailConsent",
           "emailMarketingConsent",
           "allowEmail",
           "subscribedToEmail",
+          ...(marketingEmail
+            ? [
+                "marketing.emailConsent",
+              ]
+            : []),
         ]
       : [
           "communicationPreferences.sms",
@@ -810,6 +809,21 @@ function getExplicitConsentValue(
       granted: false,
       source:
         "communicationPreferences.promotionalMessages",
+    };
+  }
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "marketing.emailConsent"
+    ) === false
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "marketing.emailConsent",
     };
   }
 
