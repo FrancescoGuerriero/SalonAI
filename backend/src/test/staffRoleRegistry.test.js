@@ -132,11 +132,20 @@ test("employee management resolves custom role assignments through the registry"
   );
 });
 
-test("custom staff roles pass management guards without making customers staff", async () => {
+test("custom staff roles use the management shell but not legacy blanket backend access", async () => {
   const backendGuard =
     await readFile(
       new URL(
         "../middleware/authMiddleware.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const futureRoutes =
+    await readFile(
+      new URL(
+        "../features/futureFeatureRoutes.js",
         import.meta.url
       ),
       "utf8"
@@ -153,11 +162,39 @@ test("custom staff roles pass management guards without making customers staff",
 
   assert.match(
     backendGuard,
-    /role === "customer"/
+    /export const managementOnly = authorize\(/
+  );
+  assert.match(
+    backendGuard,
+    /"super_admin"/
   );
   assert.match(
     frontendRoles,
     /normalised !== "customer"/
+  );
+
+  const appointmentIndex =
+    futureRoutes.indexOf(
+      '"/appointment-management"'
+    );
+  const staffIndex =
+    futureRoutes.indexOf(
+      '"/staff"'
+    );
+  const legacyGateIndex =
+    futureRoutes.indexOf(
+      "router.use(managementOnly)"
+    );
+
+  assert.ok(
+    appointmentIndex >= 0 &&
+    appointmentIndex <
+      legacyGateIndex
+  );
+  assert.ok(
+    staffIndex >= 0 &&
+    staffIndex <
+      legacyGateIndex
   );
 });
 
