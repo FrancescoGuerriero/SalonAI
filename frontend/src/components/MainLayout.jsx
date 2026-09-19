@@ -144,11 +144,11 @@ export default function MainLayout() {
       <Seo />
 
       {/*
-       * Public/customer screens use the main Navbar burger on mobile.
-       * Management screens use the management sidebar/burger instead.
-       * Rendering both was the source of the duplicate mobile menus.
+       * The global Navbar is part of every SalonAI page.
+       * Management pages additionally expose the management sidebar/burger
+       * as workspace navigation rather than replacing the global header.
        */}
-      {!management ? <Navbar /> : null}
+      <Navbar />
 
       {!management ? (
         <>

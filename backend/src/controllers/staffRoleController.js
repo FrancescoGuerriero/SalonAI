@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import StaffRole from "../models/StaffRole.js";
 import User from "../models/user.js";
 import {
@@ -5,9 +7,12 @@ import {
 } from "../services/auditService.js";
 import {
   assertCustomRoleKey,
+  builtInRoleDefinition,
+  isBuiltInStaffRoleKey,
   listStaffRoleDefinitions,
   normaliseRoleKey,
   normaliseRolePermissions,
+  resolveStaffRole,
 } from "../services/staffRoleRegistryService.js";
 
 function httpError(
@@ -51,7 +56,9 @@ function serialiseRole(
 
   return {
     id:
-      value?._id,
+      value?.system
+        ? value?.key
+        : value?._id,
     key:
       value?.key,
     name:
@@ -60,6 +67,12 @@ function serialiseRole(
       value?.description || "",
     permissions:
       value?.permissions || [],
+    baselinePermissions:
+      value?.baselinePermissions || [],
+    rolePermissions:
+      value?.rolePermissions || [],
+    editable:
+      value?.editable !== false,
     active:
       value?.active !== false,
     system:
@@ -203,14 +216,261 @@ export async function updateStaffRole(
   next
 ) {
   try {
-    const role =
-      await StaffRole.findById(
-        req.params.id
+    const identifier =
+      String(
+        req.params.id || ""
+      ).trim();
+
+    let role = null;
+    let builtIn =
+      builtInRoleDefinition(
+        identifier
       );
+
+    if (
+      !builtIn &&
+      mongoose.isValidObjectId(
+        identifier
+      )
+    ) {
+      role =
+        await StaffRole.findById(
+          identifier
+        );
+
+      if (
+        role &&
+        isBuiltInStaffRoleKey(
+          role.key
+        )
+      ) {
+        builtIn =
+          builtInRoleDefinition(
+            role.key
+          );
+      }
+    }
+
+    if (builtIn) {
+      if (
+        builtIn.key ===
+        "super_admin"
+      ) {
+        throw httpError(
+          "Super Admin permissions are fixed and always include every capability.",
+          409
+        );
+      }
+
+      const beforeDefinition =
+        await resolveStaffRole(
+          builtIn.key,
+          {
+            activeOnly:
+              false,
+          }
+        );
+
+      const before =
+        serialiseRole(
+          beforeDefinition
+        );
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "key"
+        ) &&
+        normaliseRoleKey(
+          req.body.key
+        ) !==
+          builtIn.key
+      ) {
+        throw httpError(
+          "Built-in role keys are protected.",
+          400
+        );
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "name"
+        ) &&
+        cleanText(
+          req.body.name,
+          80
+        ) !==
+          builtIn.name
+      ) {
+        throw httpError(
+          "Built-in role names are protected.",
+          400
+        );
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "active"
+        )
+      ) {
+        throw httpError(
+          "Built-in roles cannot be deactivated.",
+          400
+        );
+      }
+
+      if (!role) {
+        role =
+          await StaffRole.findOne({
+            key:
+              builtIn.key,
+          });
+      }
+
+      if (!role) {
+        role =
+          new StaffRole({
+            key:
+              builtIn.key,
+            name:
+              builtIn.name,
+            description:
+              "",
+            permissions:
+              [],
+            active:
+              true,
+            createdBy:
+              req.user?._id ||
+              null,
+          });
+      }
+
+      let permissionsChanged =
+        false;
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "permissions"
+        )
+      ) {
+        const selected =
+          normaliseRolePermissions(
+            req.body.permissions
+          );
+
+        const baseline =
+          builtIn.baselinePermissions ||
+          [];
+
+        role.permissions =
+          selected.filter(
+            (permission) =>
+              !baseline.includes(
+                permission
+              )
+          );
+
+        permissionsChanged =
+          true;
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "description"
+        )
+      ) {
+        role.description =
+          cleanText(
+            req.body.description,
+            500
+          );
+      }
+
+      role.name =
+        builtIn.name;
+      role.active =
+        true;
+      role.updatedBy =
+        req.user?._id ||
+        null;
+
+      await role.save();
+
+      let assignedEmployeesUpdated =
+        0;
+
+      if (permissionsChanged) {
+        const result =
+          await User.updateMany(
+            {
+              role:
+                builtIn.key,
+            },
+            {
+              $set: {
+                rolePermissions:
+                  role.permissions,
+                updatedBy:
+                  req.user?._id ||
+                  null,
+              },
+            }
+          );
+
+        assignedEmployeesUpdated =
+          result.modifiedCount ||
+          0;
+      }
+
+      const afterDefinition =
+        await resolveStaffRole(
+          builtIn.key,
+          {
+            activeOnly:
+              false,
+          }
+        );
+
+      const after =
+        serialiseRole(
+          afterDefinition
+        );
+
+      await recordAuditEvent({
+        req,
+        action:
+          "staff_role.updated",
+        resourceType:
+          "staffRole",
+        resourceId:
+          role._id,
+        before,
+        after,
+        metadata: {
+          assignedEmployeesUpdated,
+          systemRole:
+            true,
+        },
+      });
+
+      return res.json({
+        success: true,
+        message:
+          "Built-in staff role updated.",
+        role:
+          after,
+        assignedEmployeesUpdated,
+      });
+    }
 
     if (!role) {
       throw httpError(
-        "Custom staff role not found.",
+        "Staff role not found.",
         404
       );
     }
@@ -345,7 +605,17 @@ export async function updateStaffRole(
 
     const after =
       serialiseRole(
-        role
+        {
+          ...role.toObject(),
+          system:
+            false,
+          editable:
+            true,
+          baselinePermissions:
+            [],
+          rolePermissions:
+            role.permissions,
+        }
       );
 
     await recordAuditEvent({
@@ -360,6 +630,8 @@ export async function updateStaffRole(
       after,
       metadata: {
         assignedEmployeesUpdated,
+        systemRole:
+          false,
       },
     });
 
@@ -382,6 +654,17 @@ export async function deleteStaffRole(
   next
 ) {
   try {
+    if (
+      isBuiltInStaffRoleKey(
+        req.params.id
+      )
+    ) {
+      throw httpError(
+        "Built-in staff roles cannot be deleted.",
+        409
+      );
+    }
+
     const role =
       await StaffRole.findById(
         req.params.id
@@ -391,6 +674,17 @@ export async function deleteStaffRole(
       throw httpError(
         "Custom staff role not found.",
         404
+      );
+    }
+
+    if (
+      isBuiltInStaffRoleKey(
+        role.key
+      )
+    ) {
+      throw httpError(
+        "Built-in staff roles cannot be deleted.",
+        409
       );
     }
 

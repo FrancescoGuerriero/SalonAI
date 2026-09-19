@@ -306,24 +306,36 @@ export default function StaffRoleManagementPage() {
     setSuccess("");
 
     try {
-      const payload = {
-        ...(canUpdate
+      const payload =
+        role.system
           ? {
-              name:
-                role.name,
-              description:
-                role.description,
-              permissions:
-                role.permissions,
+              ...(canUpdate
+                ? {
+                    description:
+                      role.description,
+                    permissions:
+                      role.permissions,
+                  }
+                : {}),
             }
-          : {}),
-        ...(canActivate
-          ? {
-              active:
-                role.active,
-            }
-          : {}),
-      };
+          : {
+              ...(canUpdate
+                ? {
+                    name:
+                      role.name,
+                    description:
+                      role.description,
+                    permissions:
+                      role.permissions,
+                  }
+                : {}),
+              ...(canActivate
+                ? {
+                    active:
+                      role.active,
+                  }
+                : {}),
+            };
 
       const response =
         await staffRoleService.update(
@@ -438,7 +450,7 @@ export default function StaffRoleManagementPage() {
               Staff roles
             </h1>
             <p className="mt-1 max-w-3xl text-sm text-stone-600">
-              Create reusable staff roles and define exactly which SalonAI management capabilities each custom role receives.
+              Manage built-in and custom staff-role permissions. Protected system role keys stay stable while authorised managers can change the capabilities assigned to each role.
             </p>
           </div>
 
@@ -501,40 +513,172 @@ export default function StaffRoleManagementPage() {
           Built-in roles
         </h2>
         <p className="mt-1 text-sm text-stone-600">
-          SalonAI system roles remain protected. Additional authority is delegated through employee permissions.
+          Administrator, Receptionist, Manager and Stylist permissions can be edited here. Required baseline permissions are protected; additional permissions can be added or removed. Super Admin always retains every capability.
         </p>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 space-y-4">
           {builtIn.map(
-            (role) => (
-              <article
-                key={
-                  role.key
-                }
-                className="rounded-xl border border-stone-200 bg-stone-50 p-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <strong className="text-black">
-                    {role.name}
-                  </strong>
-                  <span className="rounded-full border border-stone-300 bg-white px-2 py-1 text-xs font-bold text-stone-600">
-                    System
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-stone-500">
-                  {role.key}
-                </p>
-                <p className="mt-3 text-sm text-stone-600">
-                  {role.permissions?.length
-                    ? role.permissions
-                        .map(
-                          permissionLabel
-                        )
-                        .join(", ")
-                    : "No automatic permissions."}
-                </p>
-              </article>
-            )
+            (role) => {
+              const baseline =
+                role.baselinePermissions ||
+                [];
+              const editable =
+                canUpdate &&
+                role.editable !==
+                  false;
+
+              return (
+                <article
+                  key={
+                    role.key
+                  }
+                  className="rounded-xl border border-stone-200 bg-stone-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <strong className="text-black">
+                        {role.name}
+                      </strong>
+                      <p className="mt-1 text-xs font-mono text-stone-500">
+                        {role.key}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-stone-300 bg-white px-2 py-1 text-xs font-bold text-stone-600">
+                      {role.editable === false
+                        ? "Protected"
+                        : "System role"}
+                    </span>
+                  </div>
+
+                  {role.editable !== false ? (
+                    <>
+                      <label className="mt-4 block text-sm font-semibold text-black">
+                        Description
+                        <textarea
+                          rows="2"
+                          disabled={
+                            !editable
+                          }
+                          maxLength={500}
+                          value={
+                            role.description ||
+                            ""
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            patchRoleState(
+                              role.id,
+                              "description",
+                              event.target
+                                .value
+                            )
+                          }
+                          className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300 disabled:bg-stone-100"
+                        />
+                      </label>
+
+                      <div className="mt-5 space-y-4">
+                        {permissionGroups.map(
+                          ([
+                            group,
+                            permissions,
+                          ]) => (
+                            <fieldset
+                              key={group}
+                              className="rounded-xl border border-stone-200 bg-white p-4"
+                            >
+                              <legend className="px-2 text-sm font-bold text-black">
+                                {group}
+                              </legend>
+                              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {permissions.map(
+                                  (
+                                    permission
+                                  ) => {
+                                    const required =
+                                      baseline.includes(
+                                        permission.value
+                                      );
+
+                                    return (
+                                      <label
+                                        key={
+                                          permission.value
+                                        }
+                                        className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-stone-700 hover:bg-amber-50"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={(
+                                            role.permissions ||
+                                            []
+                                          ).includes(
+                                            permission.value
+                                          )}
+                                          disabled={
+                                            !editable ||
+                                            required
+                                          }
+                                          onChange={() =>
+                                            toggleRolePermission(
+                                              role,
+                                              permission.value
+                                            )
+                                          }
+                                          className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
+                                        />
+                                        <span>
+                                          {
+                                            permission.label
+                                          }
+                                          {required ? (
+                                            <small className="ml-1 font-semibold text-stone-500">
+                                              Required
+                                            </small>
+                                          ) : null}
+                                        </span>
+                                      </label>
+                                    );
+                                  }
+                                )}
+                              </div>
+                            </fieldset>
+                          )
+                        )}
+                      </div>
+
+                      {editable ? (
+                        <button
+                          type="button"
+                          disabled={
+                            saving ===
+                            role.id
+                          }
+                          onClick={() =>
+                            void saveRole(
+                              role
+                            )
+                          }
+                          className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                        >
+                          <Save
+                            size={16}
+                          />
+                          {saving === role.id
+                            ? "Saving..."
+                            : "Save role permissions"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm text-stone-600">
+                      Super Admin has every SalonAI permission and cannot be reduced.
+                    </p>
+                  )}
+                </article>
+              );
+            }
           )}
         </div>
       </section>

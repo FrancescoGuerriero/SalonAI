@@ -95,6 +95,14 @@ test("built-in staff roles retain their protected semantics", () => {
     stylist.assignable,
     true
   );
+  assert.equal(
+    superAdmin.editable,
+    false
+  );
+  assert.equal(
+    stylist.editable,
+    true
+  );
   assert.deepEqual(
     stylist.permissions,
     [
@@ -302,5 +310,56 @@ test("employee special permissions remain independent from custom role templates
   assert.doesNotMatch(
     controller,
     /Permissions for a custom role are managed from the role registry/
+  );
+});
+
+
+test("built-in role profiles are editable without exposing system identity mutation", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/staffRoleController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/StaffRoleManagementPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /Built-in staff role updated/
+  );
+  assert.match(
+    controller,
+    /Built-in role keys are protected/
+  );
+  assert.match(
+    controller,
+    /Built-in roles cannot be deactivated/
+  );
+  assert.match(
+    controller,
+    /rolePermissions/
+  );
+
+  assert.match(
+    page,
+    /Save role permissions/
+  );
+  assert.match(
+    page,
+    /baselinePermissions/
+  );
+  assert.match(
+    page,
+    /Required/
   );
 });
