@@ -13,8 +13,11 @@ import {
   listDeliveryRecords,
   retryDeliveryRecord,
   retryDueDeliveryRecords,
-  updateDeliveryFromProviderEvent,
 } from "../services/messageDeliveryRecordService.js";
+
+import {
+  processTwilioStatusEvent,
+} from "../integrations/messaging/twilioStatusWebhookService.js";
 
 const MAX_BATCH_SIZE = 1000;
 const DEFAULT_BATCH_CONCURRENCY = 5;
@@ -1052,59 +1055,25 @@ async function receiveTwilioStatusWebhook(
       );
     }
 
-    const delivery =
-      await updateDeliveryFromProviderEvent(
-        {
-          providerMessageId,
-          status:
-            providerStatus,
-
-          errorCode:
-            request.body
-              ?.ErrorCode,
-
-          errorMessage:
-            request.body
-              ?.ErrorMessage,
-
-          price:
-            request.body
-              ?.Price,
-
-          priceUnit:
-            request.body
-              ?.PriceUnit,
-
-          segments:
-            request.body
-              ?.NumSegments,
-
-          providerResponse: {
-            ...request.body,
-
-            receivedAt:
-              new Date().toISOString(),
-
-            ipAddress:
-              getRequestIpAddress(
-                request
-              ),
-          },
-        }
+    const result =
+      await processTwilioStatusEvent(
+        request.body || {}
       );
 
-    response.status(200).json({
-      success: true,
-
-      message:
-        "Twilio delivery status processed successfully.",
-
-      deliveryId:
-        delivery.deliveryId,
-
-      status:
-        delivery.status,
-    });
+    response
+      .status(
+        result.pending
+          ? 202
+          : 200
+      )
+      .json({
+        success: true,
+        message:
+          result.pending
+            ? "Twilio delivery status stored for reconciliation."
+            : "Twilio delivery status processed successfully.",
+        ...result,
+      });
   } catch (error) {
     next(error);
   }
