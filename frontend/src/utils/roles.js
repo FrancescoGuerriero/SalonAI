@@ -8,6 +8,9 @@ export const MANAGEMENT_ROLES = new Set([
 
 export const FULL_DASHBOARD_ROLES = new Set([
   "super_admin",
+  "admin",
+  "manager",
+  "receptionist",
 ]);
 
 export function isManagementRole(role) {
