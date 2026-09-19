@@ -102,16 +102,41 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   );
 });
 
-test("Built-in role-management defaults follow the configured hierarchy", () => {
-  assert.deepEqual(
-    STAFF_ROLE_BASELINE_PERMISSIONS.admin,
-    [
-      "staff-role:read",
-      "staff-role:create",
-      "staff-role:update",
-      "staff-role:activate",
-    ]
-  );
+test("Built-in management roles retain full dashboard visibility and role editing", () => {
+  const requiredManagementPermissions = [
+    "dashboard:view",
+    "appointment:read",
+    "customer:read",
+    "employee:read",
+    "service:read",
+    "product:read",
+    "communications:read",
+    "inventory:read",
+    "reports:read",
+    "ai:use",
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ];
+
+  for (const role of [
+    "admin",
+    "receptionist",
+    "manager",
+  ]) {
+    for (const permission of requiredManagementPermissions) {
+      assert.equal(
+        STAFF_ROLE_BASELINE_PERMISSIONS[
+          role
+        ].includes(
+          permission
+        ),
+        true,
+        `${role} baseline is missing ${permission}`
+      );
+    }
+  }
 
   assert.deepEqual(
     STAFF_ROLE_BASELINE_PERMISSIONS.receptionist,
