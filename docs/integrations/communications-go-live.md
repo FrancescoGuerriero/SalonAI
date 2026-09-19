@@ -187,13 +187,13 @@ When a signed, strongly matched SendGrid event is one of:
 
 SalonAI withdraws **email marketing only** for the resolved local Customer:
 
-- `communicationPreferences.emailUnsubscribed = true`;
 - `communicationPreferences.promotionalMessages = false`;
 - `marketing.emailConsent = false`;
+- `marketing.emailSuppressed = true`, with suppression timestamp/reason;
 - consent timestamps/source are updated;
 - a `ConsentRecord` withdrawal is written when the Customer has a linked user account.
 
-Appointment reminders, service updates and the general `communicationPreferences.unsubscribed` flag are not changed. Transactional communications therefore remain separate from marketing opt-out.
+Channel-wide `communicationPreferences.emailUnsubscribed`, appointment reminders, service updates and the general `communicationPreferences.unsubscribed` flag are not changed by provider marketing suppression. Transactional communications therefore remain separate from marketing opt-out.
 
 `group_unsubscribe` is treated conservatively as a global SalonAI email-marketing suppression because SalonAI does not yet maintain a SendGrid ASM-group-to-marketing-category mapping. The SendGrid ASM group identifier remains in provider evidence so a category-specific model can be introduced later without losing provenance.
 
@@ -210,23 +210,31 @@ If the Customer cannot be resolved from local delivery evidence, no marketing pr
 
 ### Re-consent
 
-A SendGrid `group_resubscribe` event is evidence only. It never re-grants SalonAI marketing consent automatically.
+A signed, strongly matched SendGrid `group_resubscribe` event can clear `marketing.emailSuppressed`, because it is provider-state evidence. It **does not** re-grant SalonAI marketing consent.
 
 Local email marketing consent can be restored only through an explicit SalonAI customer-preference action where:
 
 - promotional messages are enabled;
-- email unsubscribe is disabled; and
+- channel-wide email unsubscribe is disabled; and
 - global unsubscribe is disabled.
 
-That local preference change updates `marketing.emailConsent` and writes a consent audit record when the value changes.
+That local preference change updates `marketing.emailConsent` and writes a consent audit record when the value changes. It does not clear provider suppression by itself.
+
+Marketing email is therefore eligible only when both sides agree:
+
+- SalonAI local marketing consent is granted; and
+- provider marketing suppression is clear.
 
 ### Campaign enforcement
 
 Both campaign preparation and real campaign delivery now read the canonical Customer fields:
 
-- `communicationPreferences.emailUnsubscribed`;
-- `communicationPreferences.promotionalMessages`;
-- `marketing.emailConsent`.
+- channel-wide `communicationPreferences.emailUnsubscribed`;
+- marketing preference `communicationPreferences.promotionalMessages`;
+- local consent `marketing.emailConsent`;
+- provider state `marketing.emailSuppressed`.
+
+Marketing-only fields apply to marketing email campaigns, while the `appointment_reminder` campaign type does not inherit marketing-only suppression. Channel/global unsubscribe controls remain authoritative for transactional email as well.
 
 This closes the legacy-field gap where an opt-out could exist on the Customer record but not be observed consistently by every campaign path.
 
