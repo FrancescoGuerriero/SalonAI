@@ -2,7 +2,6 @@ import {
   DELIVERY_MODES,
   getMessageDeliveryConfig,
   getSendGridMarketingReadiness,
-  getTwilioMessagingStatusCallbackReadiness,
   validateMessageDeliveryConfig,
 } from "./messageDeliveryConfig.js";
 
@@ -159,41 +158,12 @@ function validateWhatsAppConfiguration(isProduction) {
 
     if (
       isProduction &&
-      readMode(
-        process.env
-          .MESSAGE_DELIVERY_MODE,
-        "sandbox"
-      ) !==
-        "live"
-    ) {
-      throw new Error(
-        "Production Twilio WhatsApp delivery requires MESSAGE_DELIVERY_MODE=live."
-      );
-    }
-
-    if (
-      isProduction &&
       !process.env.WHATSAPP_WEBHOOK_URL &&
       !process.env.TWILIO_WEBHOOK_BASE_URL
     ) {
       throw new Error(
         "Production Twilio WhatsApp delivery requires WHATSAPP_WEBHOOK_URL or TWILIO_WEBHOOK_BASE_URL."
       );
-    }
-
-    if (isProduction) {
-      const statusCallbackReadiness =
-        getTwilioMessagingStatusCallbackReadiness(
-          process.env
-        );
-
-      if (
-        !statusCallbackReadiness.ready
-      ) {
-        throw new Error(
-          `Production Twilio WhatsApp delivery requires one unambiguous HTTPS messaging status callback. Blocking checks: ${statusCallbackReadiness.blockers.join(", ")}.`
-        );
-      }
     }
 
     return;

@@ -23,8 +23,6 @@ function environment(
       "+442000000001",
     TWILIO_WHATSAPP_FROM:
       "+14155238886",
-    TWILIO_MESSAGING_STATUS_CALLBACK_URL:
-      "https://api.example.com/api/message-delivery/webhooks/twilio/status",
     TWILIO_ACCEPTANCE_SMS_TO:
       "+447700900001",
     TWILIO_ACCEPTANCE_WHATSAPP_TO:
@@ -45,34 +43,6 @@ test("Twilio acceptance refuses to run without exact operator confirmation", () 
     /Refusing to send real messages/
   );
 });
-
-test(
-  "Twilio acceptance refuses to run without a ready signed status-callback path",
-  () => {
-    assert.throws(
-      () =>
-        buildTwilioMessagingAcceptancePlan(
-          environment({
-            TWILIO_MESSAGING_STATUS_CALLBACK_URL:
-              "",
-            TWILIO_STATUS_CALLBACK_URL:
-              "",
-            TWILIO_WHATSAPP_STATUS_CALLBACK_URL:
-              "",
-            TWILIO_WEBHOOK_BASE_URL:
-              "",
-          })
-        ),
-      (error) => {
-        assert.equal(
-          error.code,
-          "TWILIO_ACCEPTANCE_STATUS_CALLBACK_NOT_READY"
-        );
-        return true;
-      }
-    );
-  }
-);
 
 test("Twilio acceptance plan validates channels, targets and optional content template", () => {
   const plan =

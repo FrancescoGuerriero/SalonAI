@@ -304,33 +304,3 @@ After this suppression/consent layer is validated and merged, the remaining go-l
 4. enable transactional communications;
 5. validate scheduler, reminders and retry recovery;
 6. enable controlled marketing/newsletter sending only after consent and suppression evidence is confirmed end-to-end.
-
-
-## Twilio SMS and WhatsApp status-callback contract
-
-SalonAI uses one canonical outbound Twilio delivery-status endpoint for both SMS and Twilio-hosted WhatsApp:
-
-`/api/message-delivery/webhooks/twilio/status`
-
-Production should set the exact public HTTPS URL in:
-
-`TWILIO_MESSAGING_STATUS_CALLBACK_URL`
-
-For example:
-
-`https://api.example.com/api/message-delivery/webhooks/twilio/status`
-
-`TWILIO_STATUS_CALLBACK_URL` and `TWILIO_WHATSAPP_STATUS_CALLBACK_URL` remain compatibility aliases. If both legacy values are configured differently while the canonical URL is absent, SalonAI fails closed rather than guessing which URL Twilio signed.
-
-When only `TWILIO_WEBHOOK_BASE_URL` is supplied, SalonAI derives the canonical status path from that base.
-
-The same resolved URL is used by:
-
-- outbound Twilio SMS;
-- outbound Twilio WhatsApp;
-- Twilio request-signature verification.
-
-This is required because Twilio signs the exact callback URL. Live SMS and production Twilio WhatsApp therefore require one unambiguous HTTPS status callback before acceptance or activation.
-
-The existing acceptance command also refuses to run unless this callback contract is ready. A provider send alone is not considered sufficient end-to-end acceptance.
-
