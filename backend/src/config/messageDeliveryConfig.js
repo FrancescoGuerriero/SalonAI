@@ -5,6 +5,7 @@ const DELIVERY_MODES = Object.freeze({
 
 const EMAIL_PROVIDERS = Object.freeze({
   SMTP: "smtp",
+  SENDGRID: "sendgrid",
 });
 
 const SMS_PROVIDERS = Object.freeze({
@@ -164,9 +165,44 @@ function createConfigurationError(
 
 function getMessageDeliveryConfig() {
   const mode = normaliseDeliveryMode(process.env.MESSAGE_DELIVERY_MODE);
+  const emailProvider = resolveEmailProvider();
+  const sendGridApiKey =
+    normaliseText(
+      process.env.SENDGRID_API_KEY
+    );
 
-  const smtpUser = normaliseText(process.env.SMTP_USER);
-  const smtpPassword = normaliseText(process.env.SMTP_PASSWORD);
+  const smtpHost =
+    normaliseText(
+      process.env.SMTP_HOST
+    ) ||
+    (
+      emailProvider ===
+      EMAIL_PROVIDERS.SENDGRID
+        ? "smtp.sendgrid.net"
+        : ""
+    );
+
+  const smtpUser =
+    normaliseText(
+      process.env.SMTP_USER
+    ) ||
+    (
+      emailProvider ===
+      EMAIL_PROVIDERS.SENDGRID
+        ? "apikey"
+        : ""
+    );
+
+  const smtpPassword =
+    normaliseText(
+      process.env.SMTP_PASSWORD
+    ) ||
+    (
+      emailProvider ===
+      EMAIL_PROVIDERS.SENDGRID
+        ? sendGridApiKey
+        : ""
+    );
 
   const emailFromName =
     normaliseText(process.env.EMAIL_FROM_NAME) ||
@@ -241,7 +277,7 @@ function getMessageDeliveryConfig() {
 
     email: {
       enabled: normaliseBoolean(process.env.EMAIL_DELIVERY_ENABLED, false),
-      provider: resolveEmailProvider(),
+      provider: emailProvider,
       batchSize: normaliseInteger(
         process.env.EMAIL_DELIVERY_BATCH_SIZE,
         100,
@@ -263,8 +299,15 @@ function getMessageDeliveryConfig() {
       connectionTimeoutMs,
       greetingTimeoutMs,
       socketTimeoutMs,
+      sendgrid: {
+        apiKey: sendGridApiKey,
+        smtpRelay:
+          "smtp.sendgrid.net",
+        smtpUsername:
+          "apikey",
+      },
       smtp: {
-        host: normaliseText(process.env.SMTP_HOST),
+        host: smtpHost,
         port: normaliseInteger(process.env.SMTP_PORT, 587, 1, 65535),
         secure: normaliseBoolean(process.env.SMTP_SECURE, false),
         requireTls: normaliseBoolean(process.env.SMTP_REQUIRE_TLS, true),
@@ -342,6 +385,21 @@ function validateEmailConfiguration(config, errors, warnings) {
 
   if (config.mode === DELIVERY_MODES.SANDBOX) {
     return;
+  }
+
+  if (
+    emailConfig.provider ===
+      EMAIL_PROVIDERS.SENDGRID &&
+    !emailConfig.sendgrid
+      ?.apiKey
+  ) {
+    errors.push({
+      channel: "email",
+      code:
+        "SENDGRID_API_KEY_REQUIRED",
+      message:
+        "SENDGRID_API_KEY is required for live Twilio SendGrid email delivery.",
+    });
   }
 
   if (!emailConfig.smtp.host) {
@@ -621,6 +679,26 @@ function getSafeMessageDeliveryConfig() {
       connectionTimeoutMs: config.email.connectionTimeoutMs,
       greetingTimeoutMs: config.email.greetingTimeoutMs,
       socketTimeoutMs: config.email.socketTimeoutMs,
+      sendgrid: {
+        configured:
+          Boolean(
+            config.email.sendgrid
+              ?.apiKey
+          ),
+        apiKey:
+          config.email.sendgrid
+            ?.apiKey
+            ? "********"
+            : "",
+        smtpRelay:
+          config.email.sendgrid
+            ?.smtpRelay ||
+          "",
+        smtpUsername:
+          config.email.sendgrid
+            ?.smtpUsername ||
+          "",
+      },
       smtp: {
         host: config.email.smtp.host,
         port: config.email.smtp.port,
