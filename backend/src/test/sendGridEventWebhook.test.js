@@ -431,6 +431,21 @@ test(
       ).action,
       "ignore"
     );
+
+    assert.deepEqual(
+      decideSendGridDeliveryStatus(
+        "delivered",
+        "dropped"
+      ),
+      {
+        action:
+          "ignore",
+        reason:
+          "delivered_status_final",
+        status:
+          "delivered",
+      }
+    );
   }
 );
 
@@ -548,6 +563,65 @@ test(
     assert.equal(
       updates,
       1
+    );
+  }
+);
+
+test(
+  "unmatched delivery event remains pending for later reconciliation",
+  async () => {
+    const {
+      model:
+        EventModel,
+      records,
+    } =
+      createEventModel();
+
+    const result =
+      await processSendGridEvent(
+        {
+          event:
+            "delivered",
+          sg_event_id:
+            "early-event-1",
+          sg_message_id:
+            "early-message-1",
+          "smtp-id":
+            "<early-message@example.com>",
+          timestamp:
+            1789848000,
+        },
+        {
+          EventModel,
+          DeliveryModel: {
+            async findOne() {
+              return null;
+            },
+          },
+        }
+      );
+
+    assert.equal(
+      result.reason,
+      "unknown_provider_message"
+    );
+    assert.equal(
+      result.ignored,
+      true
+    );
+
+    const stored =
+      records.get(
+        "early-event-1"
+      );
+
+    assert.equal(
+      stored.processingStatus,
+      "pending"
+    );
+    assert.equal(
+      stored.processedAt,
+      null
     );
   }
 );
