@@ -1,7 +1,6 @@
 import express from "express";
 
 import {
-  managementOnly,
   protect,
 } from "../../middleware/authMiddleware.js";
 
@@ -58,12 +57,18 @@ const router = express.Router();
 |--------------------------------------------------------------------------
 |
 | Every route in this router contains operational or AI-generated management
-| information. A valid authenticated management account is therefore required.
+| information. Authentication plus the delegated ai:use capability is required.
+| This keeps custom staff roles permission-driven rather than tied to a legacy
+| hard-coded role name.
 |
 */
 
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "ai:use"
+  )
+);
 
 
 /*
