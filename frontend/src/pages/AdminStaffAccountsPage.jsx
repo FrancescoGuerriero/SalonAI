@@ -22,6 +22,7 @@ import {
 
 import AddEmployeeModal from "../components/employees/AddEmployeeModal.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
+import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
   employeeScheduleForDate,
@@ -33,34 +34,6 @@ import {
 import {
   isSuperAdminRole,
 } from "../utils/roles.js";
-
-const STAFF_ROLES = [
-  {
-    value: "super_admin",
-    label: "Super Admin",
-    assignable: false,
-  },
-  {
-    value: "stylist",
-    label: "Stylist",
-    assignable: true,
-  },
-  {
-    value: "receptionist",
-    label: "Receptionist",
-    assignable: true,
-  },
-  {
-    value: "manager",
-    label: "Manager",
-    assignable: true,
-  },
-  {
-    value: "admin",
-    label: "Administrator",
-    assignable: true,
-  },
-];
 
 function errorMessage(error) {
   return (
@@ -153,9 +126,20 @@ export default function AdminStaffAccountsPage() {
       currentUser?.role
     );
 
+  const canViewStaffRoles =
+    hasPermission(
+      currentUser,
+      "staff-role:read"
+    );
+
   const [
     users,
     setUsers,
+  ] = useState([]);
+
+  const [
+    roles,
+    setRoles,
   ] = useState([]);
 
   const [
@@ -212,13 +196,26 @@ export default function AdminStaffAccountsPage() {
         setError("");
 
         try {
-          const response =
-            await adminStaffService.list({
-              limit: 500,
-            });
+          const [
+            response,
+            roleRows,
+          ] =
+            await Promise.all([
+              adminStaffService.list({
+                limit: 500,
+              }),
+              canViewStaffRoles
+                ? staffRoleService.list()
+                : Promise.resolve([]),
+            ]);
 
           setUsers(
             response?.users || []
+          );
+          setRoles(
+            Array.isArray(roleRows)
+              ? roleRows
+              : []
           );
         } catch (
           requestError
@@ -233,7 +230,9 @@ export default function AdminStaffAccountsPage() {
           setRefreshing(false);
         }
       },
-      []
+      [
+        canViewStaffRoles,
+      ]
     );
 
   useEffect(() => {
@@ -407,6 +406,16 @@ export default function AdminStaffAccountsPage() {
             Refresh
           </button>
 
+          {canViewStaffRoles ? (
+            <Link
+              to="/admin/staff-roles"
+              className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+            >
+              <ShieldCheck size={17} />
+              Manage roles
+            </Link>
+          ) : null}
+
           {canCreate ? (
             <button
               type="button"
@@ -478,17 +487,20 @@ export default function AdminStaffAccountsPage() {
               All staff roles
             </option>
 
-            {STAFF_ROLES.map(
+            {roles.map(
               (role) => (
                 <option
                   key={
-                    role.value
+                    role.key
                   }
                   value={
-                    role.value
+                    role.key
                   }
                 >
-                  {role.label}
+                  {role.name}
+                  {role.active === false
+                    ? " (inactive)"
+                    : ""}
                 </option>
               )
             )}
@@ -578,28 +590,34 @@ export default function AdminStaffAccountsPage() {
                           className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
                           aria-label={`Role for ${user.name}`}
                         >
-                          {STAFF_ROLES.map(
+                          {roles.map(
                             (role) => (
                               <option
-                                key={role.value}
-                                value={role.value}
+                                key={role.key}
+                                value={role.key}
                                 disabled={
-                                  role.assignable === false &&
-                                  user.role !== role.value
+                                  (
+                                    role.assignable === false ||
+                                    role.active === false
+                                  ) &&
+                                  user.role !== role.key
                                 }
                               >
-                                {role.label}
+                                {role.name}
+                                {role.active === false
+                                  ? " (inactive)"
+                                  : ""}
                               </option>
                             )
                           )}
                         </select>
                       ) : (
                         <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-black">
-                          {STAFF_ROLES.find(
+                          {roles.find(
                             (role) =>
-                              role.value ===
+                              role.key ===
                               user.role
-                          )?.label || user.role}
+                          )?.name || user.role}
                         </span>
                       )}
                     </label>

@@ -157,10 +157,11 @@ test(
 );
 
 test(
-  "managementOnly permits the configured management roles",
+  "managementOnly permits the configured built-in management roles",
   () => {
     const allowedRoles = [
       "admin",
+      "super_admin",
       "stylist",
       "receptionist",
       "manager",
@@ -178,16 +179,12 @@ test(
 );
 
 test(
-  "managementOnly rejects customer and owner roles",
+  "managementOnly rejects customers and custom roles from legacy blanket access",
   () => {
-    const deniedRoles = [
+    for (const role of [
       "customer",
-      "owner",
-    ];
-
-    for (
-      const role of deniedRoles
-    ) {
+      "colour_specialist",
+    ]) {
       assertDenied(
         managementOnly,
         role

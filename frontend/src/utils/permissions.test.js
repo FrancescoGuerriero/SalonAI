@@ -69,7 +69,7 @@ test("staff require an explicit permission outside role baseline", () => {
   );
 });
 
-test("Stylist baseline is limited to appointment view/create", () => {
+test("Salon staff baseline includes role view/create plus appointment access", () => {
   const stylist = {
     role: "stylist",
     permissions: [],
@@ -78,6 +78,8 @@ test("Stylist baseline is limited to appointment view/create", () => {
   for (const permission of [
     "appointment:read",
     "appointment:create",
+    "staff-role:read",
+    "staff-role:create",
   ]) {
     assert.equal(
       hasPermission(
@@ -113,6 +115,8 @@ test("Stylist baseline is limited to appointment view/create", () => {
     [
       "appointment:read",
       "appointment:create",
+      "staff-role:read",
+      "staff-role:create",
     ]
   );
 });
@@ -128,4 +132,70 @@ test("employee permission catalogue is unique", () => {
     new Set(values).size,
     values.length
   );
+});
+
+
+test("custom role templates and employee special permissions combine", () => {
+  const colourSpecialist = {
+    role: "colour_specialist",
+    rolePermissions: [
+      "service:read",
+    ],
+    permissions: [
+      "profile:own:read",
+    ],
+  };
+
+  assert.equal(
+    hasPermission(
+      colourSpecialist,
+      "service:read"
+    ),
+    true
+  );
+  assert.equal(
+    hasPermission(
+      colourSpecialist,
+      "appointment:create"
+    ),
+    false
+  );
+});
+
+
+test("Admin and Receptionist can manage roles except delete by default", () => {
+  for (const role of [
+    "admin",
+    "receptionist",
+    "manager",
+  ]) {
+    for (const permission of [
+      "staff-role:read",
+      "staff-role:create",
+      "staff-role:update",
+      "staff-role:activate",
+    ]) {
+      assert.equal(
+        hasPermission(
+          {
+            role,
+            permissions: [],
+          },
+          permission
+        ),
+        true
+      );
+    }
+
+    assert.equal(
+      hasPermission(
+        {
+          role,
+          permissions: [],
+        },
+        "staff-role:delete"
+      ),
+      false
+    );
+  }
 });
