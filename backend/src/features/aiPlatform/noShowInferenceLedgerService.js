@@ -37,6 +37,30 @@ function finiteNumber(
     : fallback;
 }
 
+function validDate(
+  value,
+  fallback =
+    new Date()
+) {
+  const date =
+    value
+      ? new Date(
+          value
+        )
+      : null;
+
+  return (
+    date &&
+    !Number.isNaN(
+      date.getTime()
+    )
+  )
+    ? date
+    : new Date(
+        fallback
+      );
+}
+
 function modelVersion(
   metadata = {}
 ) {
@@ -265,7 +289,7 @@ export function normaliseNoShowOutcome(
   return {
     appointmentKey,
     observedAt:
-      new Date(
+      validDate(
         observedAt
       ),
     outcome: {
