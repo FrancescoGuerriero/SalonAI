@@ -897,6 +897,11 @@ export async function processSendGridEvent(
           false,
         marketingConsentChanged:
           marketing.applied,
+        providerSuppressionChanged:
+          Boolean(
+            marketing
+              .providerSuppressionChanged
+          ),
         marketingConsentReason:
           marketing.reason,
       };
