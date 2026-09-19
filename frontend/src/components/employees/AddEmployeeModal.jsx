@@ -23,7 +23,7 @@ import staffRoleService from "../../Services/staffRoleService.js";
 import useAuth from "../../hooks/useAuth.js";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 import {
-  EMPLOYEE_PERMISSIONS,
+  ASSIGNABLE_EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../../utils/permissions.js";
 import {
@@ -154,7 +154,7 @@ function groupPermissions() {
 
   for (
     const permission of
-      EMPLOYEE_PERMISSIONS
+      ASSIGNABLE_EMPLOYEE_PERMISSIONS
   ) {
     const group =
       permission.group ||

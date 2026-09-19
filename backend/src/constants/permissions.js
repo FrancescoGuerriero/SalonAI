@@ -70,6 +70,32 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
 export const EMPLOYEE_PERMISSION_SET =
   new Set(EMPLOYEE_PERMISSIONS);
 
+export const NON_DELEGABLE_EMPLOYEE_PERMISSIONS =
+  Object.freeze([
+    "employee:role:update",
+    "employee:permissions:update",
+  ]);
+
+const NON_DELEGABLE_EMPLOYEE_PERMISSION_SET =
+  new Set(
+    NON_DELEGABLE_EMPLOYEE_PERMISSIONS
+  );
+
+export const ASSIGNABLE_EMPLOYEE_PERMISSIONS =
+  Object.freeze(
+    EMPLOYEE_PERMISSIONS.filter(
+      (permission) =>
+        !NON_DELEGABLE_EMPLOYEE_PERMISSION_SET.has(
+          permission
+        )
+    )
+  );
+
+export const ASSIGNABLE_EMPLOYEE_PERMISSION_SET =
+  new Set(
+    ASSIGNABLE_EMPLOYEE_PERMISSIONS
+  );
+
 /*
  * Baseline permissions are intentionally narrow. They preserve capabilities
  * that a role must have before the Super Admin makes any additional grants.

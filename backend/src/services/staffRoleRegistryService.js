@@ -1,6 +1,6 @@
 import StaffRole from "../models/StaffRole.js";
 import {
-  EMPLOYEE_PERMISSION_SET,
+  ASSIGNABLE_EMPLOYEE_PERMISSION_SET,
   STAFF_ROLE_BASELINE_PERMISSIONS,
 } from "../constants/permissions.js";
 
@@ -87,7 +87,7 @@ export function normaliseRolePermissions(
   const invalid =
     unique.filter(
       (permission) =>
-        !EMPLOYEE_PERMISSION_SET.has(
+        !ASSIGNABLE_EMPLOYEE_PERMISSION_SET.has(
           permission
         )
     );
@@ -102,6 +102,23 @@ export function normaliseRolePermissions(
   }
 
   return unique;
+}
+
+export function assignableRolePermissions(
+  permissions = []
+) {
+  return (
+    Array.isArray(
+      permissions
+    )
+      ? permissions
+      : []
+  ).filter(
+    (permission) =>
+      ASSIGNABLE_EMPLOYEE_PERMISSION_SET.has(
+        permission
+      )
+  );
 }
 
 export function assertCustomRoleKey(
@@ -204,6 +221,10 @@ export async function resolveStaffRole(
 
   return {
     ...custom,
+    permissions:
+      assignableRolePermissions(
+        custom.permissions
+      ),
     system: false,
     assignable: true,
     superAdminOnly: true,
@@ -234,6 +255,10 @@ export async function listStaffRoleDefinitions() {
     ...customRoles.map(
       (role) => ({
         ...role,
+        permissions:
+          assignableRolePermissions(
+            role.permissions
+          ),
         system: false,
         assignable: true,
         superAdminOnly: true,
