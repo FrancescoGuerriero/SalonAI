@@ -43,6 +43,9 @@ import {
   submitFeedback,
 } from "./aiAdviserFeedbackController.js";
 import {
+  getEvaluation,
+} from "./aiAdviserEvaluationController.js";
+import {
   createProposal,
   listProposals,
   reviewProposal,
@@ -109,6 +112,16 @@ router.patch(
   ),
   asyncHandler(
     submitFeedback
+  )
+);
+
+router.get(
+  "/adviser/evaluation",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    getEvaluation
   )
 );
 
