@@ -13,6 +13,7 @@ import {
 import {
   getMessageDeliveryConfig,
   getSafeMessageDeliveryConfig,
+  getSendGridMarketingReadiness,
   validateMessageDeliveryConfig,
 } from "../config/messageDeliveryConfig.js";
 
@@ -122,6 +123,18 @@ function productionEnvironment(
 
     SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
       "",
+
+    SENDGRID_MARKETING_ENABLED:
+      "false",
+
+    SENDGRID_SENDER_VERIFIED:
+      "false",
+
+    SENDGRID_DOMAIN_AUTHENTICATED:
+      "false",
+
+    SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED:
+      "false",
 
     EMAIL_PROVIDER_MODE:
       "",
@@ -236,6 +249,26 @@ test(
     assert.match(
       envExample,
       /^SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY=$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_MARKETING_ENABLED=false$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_SENDER_VERIFIED=false$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_DOMAIN_AUTHENTICATED=false$/m
+    );
+
+    assert.match(
+      envExample,
+      /^SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED=false$/m
     );
 
     assert.doesNotMatch(
@@ -823,6 +856,151 @@ test(
             "",
           SMTP_PASSWORD:
             "",
+          EMAIL_FROM_ADDRESS:
+            "info@example.com",
+          SMS_DELIVERY_ENABLED:
+            "false",
+        })
+      );
+
+    assert.equal(
+      result.status,
+      0,
+      `${result.stdout}\n${result.stderr}`
+    );
+  }
+);
+
+
+test(
+  "SendGrid marketing readiness is exposed without revealing provider secrets",
+  async () => {
+    await withEnvironment(
+      {
+        MESSAGE_DELIVERY_MODE:
+          "live",
+        EMAIL_DELIVERY_ENABLED:
+          "true",
+        EMAIL_PROVIDER:
+          "sendgrid",
+        SENDGRID_API_KEY:
+          "SG.test-key",
+        SENDGRID_EVENT_WEBHOOK_ENABLED:
+          "true",
+        SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+          "test-public-key",
+        SENDGRID_MARKETING_ENABLED:
+          "true",
+        SENDGRID_SENDER_VERIFIED:
+          "true",
+        SENDGRID_DOMAIN_AUTHENTICATED:
+          "true",
+        SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED:
+          "true",
+        EMAIL_FROM_ADDRESS:
+          "info@example.com",
+        SMS_DELIVERY_ENABLED:
+          "false",
+      },
+      async () => {
+        const readiness =
+          getSendGridMarketingReadiness(
+            getMessageDeliveryConfig()
+          );
+
+        assert.equal(
+          readiness.ready,
+          true
+        );
+
+        const safe =
+          getSafeMessageDeliveryConfig();
+
+        assert.equal(
+          safe.email.sendgrid
+            .marketing
+            .readiness.ready,
+          true
+        );
+        assert.equal(
+          safe.email.sendgrid.apiKey,
+          "********"
+        );
+      }
+    );
+  }
+);
+
+test(
+  "production refuses partially enabled SendGrid marketing",
+  () => {
+    const result =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          EMAIL_DELIVERY_ENABLED:
+            "true",
+          EMAIL_PROVIDER:
+            "sendgrid",
+          SENDGRID_API_KEY:
+            "SG.production-shaped-test-key",
+          SENDGRID_EVENT_WEBHOOK_ENABLED:
+            "true",
+          SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+            "test-public-key",
+          SENDGRID_MARKETING_ENABLED:
+            "true",
+          SENDGRID_SENDER_VERIFIED:
+            "false",
+          SENDGRID_DOMAIN_AUTHENTICATED:
+            "true",
+          SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED:
+            "true",
+          EMAIL_FROM_ADDRESS:
+            "info@example.com",
+          SMS_DELIVERY_ENABLED:
+            "false",
+        })
+      );
+
+    assert.notEqual(
+      result.status,
+      0
+    );
+    assert.match(
+      `${result.stdout}\n${result.stderr}`,
+      /SendGrid marketing is enabled but not ready.*senderVerified/i
+    );
+  }
+);
+
+test(
+  "production accepts fully attested SendGrid marketing readiness",
+  () => {
+    const result =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          EMAIL_DELIVERY_ENABLED:
+            "true",
+          EMAIL_PROVIDER:
+            "sendgrid",
+          SENDGRID_API_KEY:
+            "SG.production-shaped-test-key",
+          SENDGRID_EVENT_WEBHOOK_ENABLED:
+            "true",
+          SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY:
+            "test-public-key",
+          SENDGRID_MARKETING_ENABLED:
+            "true",
+          SENDGRID_SENDER_VERIFIED:
+            "true",
+          SENDGRID_DOMAIN_AUTHENTICATED:
+            "true",
+          SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED:
+            "true",
           EMAIL_FROM_ADDRESS:
             "info@example.com",
           SMS_DELIVERY_ENABLED:
