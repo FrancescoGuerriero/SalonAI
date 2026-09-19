@@ -157,14 +157,14 @@ test(
 );
 
 test(
-  "managementOnly permits built-in and custom staff roles",
+  "managementOnly permits the configured built-in management roles",
   () => {
     const allowedRoles = [
       "admin",
+      "super_admin",
       "stylist",
       "receptionist",
       "manager",
-      "colour_specialist",
     ];
 
     for (
@@ -179,12 +179,17 @@ test(
 );
 
 test(
-  "managementOnly rejects customer accounts",
+  "managementOnly rejects customers and custom roles from legacy blanket access",
   () => {
-    assertDenied(
-      managementOnly,
-      "customer"
-    );
+    for (const role of [
+      "customer",
+      "colour_specialist",
+    ]) {
+      assertDenied(
+        managementOnly,
+        role
+      );
+    }
   }
 );
 
