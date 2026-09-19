@@ -5,6 +5,10 @@ import {
 } from "../integrations/calendar/calendarSyncQueue.js";
 
 import {
+  observeNoShowOutcomeForAppointment,
+} from "../features/aiPlatform/noShowInferenceLedgerService.js";
+
+import {
   combineSalonDateAndTime,
   formatSalonTime,
   salonDateAnchor,
@@ -904,6 +908,48 @@ appointmentSchema.post(
       // failure after the database mutation already succeeded.
       console.error(
         "Calendar sync task enqueue failed:",
+        error
+      );
+    }
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| AI outcome observation
+|--------------------------------------------------------------------------
+|
+| Appointment state remains canonical. Once a visit reaches a terminal
+| state, attach that observed result to any prior governed no-show
+| inferences for the same appointment. Ledger linkage is evaluation-only
+| and must never turn a committed appointment mutation into an API failure.
+|
+*/
+
+appointmentSchema.post(
+  "save",
+  async function linkNoShowOutcome(
+    document
+  ) {
+    if (
+      ![
+        "completed",
+        "cancelled",
+        "no_show",
+      ].includes(
+        document.status
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await observeNoShowOutcomeForAppointment(
+        document
+      );
+    } catch (error) {
+      console.error(
+        "No-show inference outcome linkage failed:",
         error
       );
     }

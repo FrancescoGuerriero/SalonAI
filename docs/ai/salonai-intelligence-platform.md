@@ -262,3 +262,37 @@ The read-only evaluation endpoint reports, for a bounded reporting window:
 The endpoint deliberately excludes prompts, generated answers, actor IDs and customer-level records. It is intended for model and product evaluation rather than operational surveillance.
 
 Adviser feedback remains evaluation evidence only. It does not automatically retrain, fine-tune, promote, approve or activate any model. Model lifecycle changes continue to require explicit reviewed evidence and the existing governed model registry process.
+
+
+## No-show inference outcome linkage
+
+Operational no-show predictions are now written to the governed `AiInferenceLog` as appointment-level inference records using feature version `no-show-v1`.
+
+Each record contains:
+
+- appointment entity key;
+- model name and explicit model version;
+- prediction probability, risk level and confidence;
+- provider mode and request latency;
+- risk factors and recommended actions;
+- request/audit context.
+
+Customer identifiers are deliberately not copied into these inference documents.
+
+When an appointment later reaches a terminal state, SalonAI links the observed result back to all earlier no-show inferences for that appointment:
+
+- `no_show` -> binary evaluation label `1`;
+- `completed` -> binary evaluation label `0`;
+- `cancelled` -> observed terminal outcome but excluded from binary no-show evaluation.
+
+The appointment record remains canonical. Outcome-linkage failure never rolls back or rejects a committed appointment state change.
+
+A bounded reconciliation command is also available for recovery from legacy/import/update paths:
+
+`npm run ai:outcomes:no-show -- --limit=500`
+
+This is dry-run by default. Applying changes requires both:
+
+`--apply --confirm=reconcile-no-show-outcomes`
+
+Outcome linkage supplies evaluation evidence only. It does not retrain, promote, approve or activate a model.
