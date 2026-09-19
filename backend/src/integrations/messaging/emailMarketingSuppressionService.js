@@ -330,10 +330,6 @@ export async function applySendGridMarketingSuppression({
 
   customer
     .communicationPreferences
-    .emailUnsubscribed =
-    true;
-  customer
-    .communicationPreferences
     .promotionalMessages =
     false;
   customer
@@ -349,6 +345,20 @@ export async function applySendGridMarketingSuppression({
     .marketing
     .emailConsent =
     false;
+  customer
+    .marketing
+    .emailSuppressed =
+    true;
+  customer
+    .marketing
+    .emailSuppressedAt =
+    effectiveAt;
+  customer
+    .marketing
+    .emailSuppressionReason =
+    lower(
+      eventType
+    );
   customer
     .marketing
     .emailConsentUpdatedAt =
