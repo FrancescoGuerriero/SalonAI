@@ -560,8 +560,6 @@ async function applyDeliveryEvent(
       MessageDelivery,
     updateDelivery =
       updateDeliveryFromProviderEvent,
-    applyMarketingSuppression =
-      applySendGridMarketingSuppression,
   } = {}
 ) {
   let delivery =
@@ -730,6 +728,8 @@ export async function processSendGridEvent(
       MessageDelivery,
     updateDelivery =
       updateDeliveryFromProviderEvent,
+    applyMarketingSuppression =
+      applySendGridMarketingSuppression,
   } = {}
 ) {
   const event =
