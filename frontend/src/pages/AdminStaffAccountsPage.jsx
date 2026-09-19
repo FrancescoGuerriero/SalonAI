@@ -126,6 +126,12 @@ export default function AdminStaffAccountsPage() {
       currentUser?.role
     );
 
+  const canViewStaffRoles =
+    hasPermission(
+      currentUser,
+      "staff-role:read"
+    );
+
   const [
     users,
     setUsers,
@@ -396,7 +402,7 @@ export default function AdminStaffAccountsPage() {
             Refresh
           </button>
 
-          {canManageRoles ? (
+          {canViewStaffRoles ? (
             <Link
               to="/admin/staff-roles"
               className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
