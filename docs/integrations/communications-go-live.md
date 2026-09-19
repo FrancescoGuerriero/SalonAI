@@ -49,6 +49,18 @@ EMAIL_REPLY_TO=<reply address>
 
 Before enabling account email verification, the sender/domain and real provider acceptance test must pass.
 
+### Safe SendGrid readiness check
+
+Before sending any real email, run:
+
+```bash
+npm run sendgrid:readiness
+```
+
+The command is non-destructive: it does not send email and does not print the SendGrid API key or Event Webhook public key. It checks the application-side and provider-attestation prerequisites required before the controlled acceptance run.
+
+A zero exit code means the environment is ready for `npm run sendgrid:acceptance`. A non-zero exit code prints the remaining blockers and next steps.
+
 ## Real-provider acceptance
 
 Acceptance sends a real message and is therefore deliberately gated.
@@ -106,18 +118,19 @@ SendGrid being configured does not itself authorise marketing contact.
 
 Do not switch all communications on simultaneously.
 
-Recommended order:
+Recommended order for the remaining communications work:
 
-1. configure and verify SendGrid sender/domain;
-2. pass SendGrid acceptance to a dedicated test address;
-3. configure Twilio SMS and WhatsApp credentials/templates;
-4. pass Twilio acceptance using dedicated test recipients;
-5. verify webhook/status callback endpoints;
-6. enable transactional email;
-7. enable SMS/WhatsApp transactional flows;
-8. validate delivery ledger and retry behavior;
-9. enable schedulers/reminders;
-10. enable controlled campaign sending after consent/unsubscribe verification.
+1. preserve the existing tested Twilio SMS/WhatsApp, WhatsApp bot and WhatsApp booking baseline;
+2. configure and verify the SendGrid sender/domain;
+3. configure the signed SendGrid Event Webhook and public verification key;
+4. run `npm run sendgrid:readiness`;
+5. pass SendGrid acceptance to a dedicated test address;
+6. verify the signed SendGrid delivery callback reconciles into SalonAI;
+7. enable transactional email;
+8. validate delivery ledger, scheduler/reminders and retry recovery;
+9. enable controlled campaign sending only after consent/suppression verification.
+
+Do not redesign or re-accept the already-tested WhatsApp/bot/WhatsApp-booking subsystem unless a regression is found.
 
 ## Current communications increment
 
@@ -160,17 +173,17 @@ The event ledger deliberately excludes recipient email, clicked URLs, IP address
 
 ### Go-live implications
 
-The communications activation order is now:
+The remaining communications activation order is now:
 
-1. configure and verify SendGrid sender/domain;
-2. configure the signed Event Webhook and verification key;
-3. pass provider acceptance to a dedicated test recipient;
-4. verify signed delivery callbacks reconcile into MessageDelivery;
-5. configure and acceptance-test Twilio SMS/WhatsApp;
-6. enable transactional channels;
-7. validate retries and scheduler/reminder operation;
-8. integrate SendGrid suppression/unsubscribe signals with SalonAI marketing consent;
-9. enable controlled campaign/newsletter sending.
+1. keep the already-tested Twilio SMS/WhatsApp, WhatsApp bot and WhatsApp booking paths unchanged;
+2. configure and verify SendGrid sender/domain;
+3. configure the signed Event Webhook and verification key;
+4. run the safe SendGrid readiness check;
+5. pass provider acceptance to a dedicated test recipient;
+6. verify signed delivery callbacks reconcile into MessageDelivery;
+7. enable transactional email;
+8. validate retries and scheduler/reminder operation;
+9. enable controlled campaign/newsletter sending after consent/suppression verification.
 
 
 ## SendGrid marketing suppression and local re-consent
