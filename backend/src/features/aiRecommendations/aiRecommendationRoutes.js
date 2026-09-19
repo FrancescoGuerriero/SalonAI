@@ -45,6 +45,9 @@ import {
   listProposals,
   reviewProposal,
 } from "./aiAdviserProposalController.js";
+import {
+  prepareProposalDraft,
+} from "./aiAdviserProposalPreparationController.js";
 
 const router = express.Router();
 
@@ -118,6 +121,16 @@ router.patch(
   ),
   asyncHandler(
     reviewProposal
+  )
+);
+
+router.post(
+  "/adviser/proposals/:proposalId/prepare",
+  requirePermissions(
+    "ai:use"
+  ),
+  asyncHandler(
+    prepareProposalDraft
   )
 );
 
