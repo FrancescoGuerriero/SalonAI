@@ -30,6 +30,7 @@ import useAuth from "../hooks/useAuth.js";
 import useCart from "../hooks/useCart.js";
 import {
   isManagementRole,
+  isSuperAdminRole,
 } from "../utils/roles.js";
 import useFeatureControls from "../hooks/useFeatureControls.js";
 import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
@@ -129,6 +130,18 @@ export default function Navbar() {
     isManagementRole(
       user?.role
     );
+
+  const superAdminPreview =
+    isSuperAdminRole(
+      user?.role
+    );
+
+  const featureVisible =
+    (featureId) =>
+      superAdminPreview ||
+      isFeatureEnabled(
+        featureId
+      );
 
   const whatsappUrl =
     useMemo(
@@ -234,7 +247,7 @@ export default function Navbar() {
   }
 
   const customerLinks =
-    isAuthenticated && isFeatureEnabled("online-booking")
+    isAuthenticated && featureVisible("online-booking")
       ? [
           {
             to: "/booking",
@@ -244,13 +257,17 @@ export default function Navbar() {
       : [];
 
   const publicLinks = PUBLIC_LINKS.filter(
-    ({ featureId }) => !featureId || isFeatureEnabled(featureId)
+    ({ featureId }) =>
+      !featureId ||
+      featureVisible(
+        featureId
+      )
   );
 
   const mobileLinks = [
     ...publicLinks,
     ...customerLinks,
-    ...(isAuthenticated && isFeatureEnabled("online-shop")
+    ...(isAuthenticated && featureVisible("online-shop")
       ? [
           {
             to: "/orders",
@@ -349,7 +366,7 @@ export default function Navbar() {
         </nav>
 
         <div className="app-topbar-actions">
-          {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
+          {whatsappUrl && featureVisible("whatsapp-booking") ? (
             <a
               href={
                 whatsappUrl
@@ -365,7 +382,7 @@ export default function Navbar() {
             </a>
           ) : null}
 
-          {isFeatureEnabled("online-shop") ? <NavLink
+          {featureVisible("online-shop") ? <NavLink
             to="/cart"
             className="app-icon-button"
             aria-label={`Cart with ${itemCount} items`}
@@ -677,7 +694,7 @@ export default function Navbar() {
                 </div>
               ) : null}
 
-              {whatsappUrl && isFeatureEnabled("whatsapp-booking") ? (
+              {whatsappUrl && featureVisible("whatsapp-booking") ? (
                 <a
                   href={
                     whatsappUrl
