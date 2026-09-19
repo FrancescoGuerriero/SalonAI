@@ -25,8 +25,23 @@ import {
   managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
+
+const readCommunications =
+  requireAnyPermission(
+    "communications:read",
+    "communications:manage"
+  );
+
+const manageCommunications =
+  requirePermissions(
+    "communications:manage"
+  );
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +65,7 @@ router.use(managementOnly);
  */
 router.post(
   "/preview",
+  manageCommunications,
   previewNewCampaignAudience
 );
 
@@ -60,6 +76,7 @@ router.post(
  */
 router.get(
   "/summary",
+  readCommunications,
   getCampaignSummary
 );
 
@@ -70,6 +87,7 @@ router.get(
  */
 router.post(
   "/",
+  manageCommunications,
   createCampaign
 );
 
@@ -80,6 +98,7 @@ router.post(
  */
 router.get(
   "/",
+  readCommunications,
   listCampaigns
 );
 
@@ -97,6 +116,7 @@ router.get(
  */
 router.post(
   "/:campaignId/audience/preview",
+  manageCommunications,
   previewExistingCampaignAudience
 );
 
@@ -108,6 +128,7 @@ router.post(
  */
 router.post(
   "/:campaignId/recipients/prepare",
+  manageCommunications,
   prepareRecipients
 );
 
@@ -119,6 +140,7 @@ router.post(
  */
 router.get(
   "/:campaignId/recipients",
+  readCommunications,
   listRecipients
 );
 
@@ -130,6 +152,7 @@ router.get(
  */
 router.get(
   "/:campaignId/recipients/:recipientId",
+  readCommunications,
   getRecipient
 );
 
@@ -147,6 +170,7 @@ router.get(
  */
 router.post(
   "/:campaignId/launch",
+  manageCommunications,
   launchCampaign
 );
 
@@ -158,6 +182,7 @@ router.post(
  */
 router.post(
   "/:campaignId/schedule",
+  manageCommunications,
   scheduleCampaign
 );
 
@@ -169,6 +194,7 @@ router.post(
  */
 router.post(
   "/:campaignId/pause",
+  manageCommunications,
   pauseCampaign
 );
 
@@ -180,6 +206,7 @@ router.post(
  */
 router.post(
   "/:campaignId/resume",
+  manageCommunications,
   resumeCampaign
 );
 
@@ -191,6 +218,7 @@ router.post(
  */
 router.post(
   "/:campaignId/cancel",
+  manageCommunications,
   cancelCampaign
 );
 
@@ -202,6 +230,7 @@ router.post(
  */
 router.post(
   "/:campaignId/delivery-counts/refresh",
+  manageCommunications,
   refreshDeliveryCounts
 );
 
@@ -219,6 +248,7 @@ router.post(
  */
 router.post(
   "/:campaignId/duplicate",
+  manageCommunications,
   duplicateCampaign
 );
 
@@ -229,6 +259,7 @@ router.post(
  */
 router.get(
   "/:campaignId",
+  readCommunications,
   getCampaign
 );
 
@@ -239,6 +270,7 @@ router.get(
  */
 router.patch(
   "/:campaignId",
+  manageCommunications,
   updateCampaign
 );
 
@@ -249,6 +281,7 @@ router.patch(
  */
 router.delete(
   "/:campaignId",
+  manageCommunications,
   removeCampaign
 );
 
