@@ -90,6 +90,25 @@ test("employee management rejects unsupported permissions", () => {
   );
 });
 
+test("employee special permissions exclude Super Admin-only authority", () => {
+  for (const reserved of [
+    "employee:role:update",
+    "employee:permissions:update",
+  ]) {
+    assert.throws(
+      () =>
+        normaliseEmployeeManagementUpdate({
+          permissions: [
+            "employee:read",
+            reserved,
+          ],
+        }),
+      (error) =>
+        error.statusCode === 400
+    );
+  }
+});
+
 test("employee schedule normalises working hours and breaks", () => {
   assert.deepEqual(
     normaliseEmployeeSchedule([
