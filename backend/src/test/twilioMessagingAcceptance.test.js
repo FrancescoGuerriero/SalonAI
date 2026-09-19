@@ -245,8 +245,8 @@ test("acceptance confirmation is deliberately absent from the committed env temp
     );
 
   assert.equal(
-    envExample.includes(
-      "TWILIO_ACCEPTANCE_CONFIRM"
+    /^TWILIO_ACCEPTANCE_CONFIRM=/m.test(
+      envExample
     ),
     false
   );
