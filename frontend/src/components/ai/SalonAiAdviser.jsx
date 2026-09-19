@@ -26,6 +26,38 @@ function errorMessage(
   );
 }
 
+function modelEvidenceItems(
+  result
+) {
+  return (
+    result?.evidence
+      ?.domainContext
+      ?.sections ||
+    []
+  ).flatMap(
+    (section) =>
+      Object.values(
+        section
+          .modelEvidence ||
+          {}
+      )
+  )
+    .filter(Boolean);
+}
+
+function modelMetric(
+  value
+) {
+  const number =
+    Number(value);
+
+  return Number.isFinite(
+    number
+  )
+    ? number.toFixed(3)
+    : "n/a";
+}
+
 export default function SalonAiAdviser({
   contextPath = "",
 }) {
@@ -54,6 +86,11 @@ export default function SalonAiAdviser({
     error,
     setError,
   ] = useState("");
+
+  const modelEvidence =
+    modelEvidenceItems(
+      result
+    );
 
   useModalFocusTrap({
     open,
@@ -230,6 +267,57 @@ export default function SalonAiAdviser({
                       ? "AI-generated"
                       : "Local grounded response"}
                   </div>
+
+                  {modelEvidence.length ? (
+                    <div className="mt-3 space-y-2">
+                      {modelEvidence.map(
+                        (item) => (
+                          <div
+                            key={`${item.modelName}-${item.modelVersion}`}
+                            className="rounded-xl border border-stone-300 bg-white p-3 text-xs text-stone-700"
+                          >
+                            <div className="font-bold text-black">
+                              Model evidence ·{" "}
+                              {item.modelName}{" "}
+                              {item.modelVersion}
+                            </div>
+                            <div className="mt-1">
+                              {item.productionActive
+                                ? "Production active"
+                                : `${item.lifecycle || "experiment"} · not active in production`}
+                            </div>
+                            <div className="mt-1">
+                              Test PR-AUC{" "}
+                              {modelMetric(
+                                item.testMetrics
+                                  ?.prAuc
+                              )}
+                              {" · "}
+                              Rules PR-AUC{" "}
+                              {modelMetric(
+                                item.rulesBaseline
+                                  ?.metrics
+                                  ?.prAuc
+                              )}
+                              {" · "}
+                              Test Brier{" "}
+                              {modelMetric(
+                                item.testMetrics
+                                  ?.brierScore
+                              )}
+                              {" · "}
+                              Rules Brier{" "}
+                              {modelMetric(
+                                item.rulesBaseline
+                                  ?.metrics
+                                  ?.brierScore
+                              )}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  ) : null}
                 </article>
               ) : (
                 <div className="rounded-2xl border border-dashed border-stone-300 p-5 text-sm text-stone-600">
