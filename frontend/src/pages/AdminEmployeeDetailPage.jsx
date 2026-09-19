@@ -13,7 +13,6 @@ import {
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 import {
@@ -209,11 +208,19 @@ export default function AdminEmployeeDetailPage() {
       currentUser,
       "employee:deactivate"
     );
+  const canReadServices =
+    hasPermission(
+      currentUser,
+      "service:read"
+    );
   const canUpdateServices =
     hasPermission(
       currentUser,
       "employee:services:update"
     );
+  const canManageServices =
+    canReadServices &&
+    canUpdateServices;
   const canUpdateSchedule =
     hasPermission(
       currentUser,
@@ -244,7 +251,9 @@ export default function AdminEmployeeDetailPage() {
               adminStaffService.get(
                 id
               ),
-              serviceService.getServices(),
+              canReadServices
+                ? serviceService.getManagementServices()
+                : Promise.resolve([]),
             ]);
           const nextEmployee =
             employeeResponse.user;
@@ -342,6 +351,7 @@ export default function AdminEmployeeDetailPage() {
       },
       [
         canReadAppointments,
+        canReadServices,
         id,
       ]
     );
@@ -349,17 +359,6 @@ export default function AdminEmployeeDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const activeServices =
-    useMemo(
-      () =>
-        services.filter(
-          (service) =>
-            service.active !==
-            false
-        ),
-      [services]
-    );
 
   async function updateSettings(
     settings,
@@ -798,15 +797,29 @@ export default function AdminEmployeeDetailPage() {
             <Scissors size={21} />
             <div><h2 className="text-lg font-bold text-black">Services</h2><p className="text-sm text-slate-600">Choose exactly which services this employee provides.</p></div>
           </div>
-          {canUpdateServices ? <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50" disabled={saving === "services"} onClick={saveServices}><Save size={16} />{saving === "services" ? "Saving..." : "Save services"}</button> : null}
+          {canManageServices ? <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50" disabled={saving === "services"} onClick={saveServices}><Save size={16} />{saving === "services" ? "Saving..." : "Save services"}</button> : null}
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {activeServices.map((service) => {
-            const serviceId = String(service._id);
-            return <label key={serviceId} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="mt-1 h-4 w-4 accent-amber-400" checked={selectedServices.includes(serviceId)} disabled={!canUpdateServices} onChange={() => toggleService(serviceId)} /><span><strong className="block">{service.name}</strong><small className="text-slate-500">{service.category || "Salon service"}</small></span></label>;
-          })}
-        </div>
+        {!canReadServices ? (
+          <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            Service catalogue access is not permitted for this account.
+          </p>
+        ) : null}
+
+        {canReadServices && services.length === 0 ? (
+          <p className="mt-5 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+            No services are configured yet.
+          </p>
+        ) : null}
+
+        {canReadServices ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {services.map((service) => {
+              const serviceId = String(service._id);
+              return <label key={serviceId} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="mt-1 h-4 w-4 accent-amber-400" checked={selectedServices.includes(serviceId)} disabled={!canManageServices} onChange={() => toggleService(serviceId)} /><span><strong className="block">{service.name}</strong><small className="text-slate-500">{service.category || "Salon service"} · {service.active === false ? "Unpublished" : "Published"}</small></span></label>;
+            })}
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
