@@ -17,8 +17,10 @@ import {
 } from "react-router-dom";
 
 import staffRoleService from "../Services/staffRoleService.js";
+import useAuth from "../hooks/useAuth.js";
 import {
   EMPLOYEE_PERMISSIONS,
+  hasPermission,
 } from "../utils/permissions.js";
 
 function errorMessage(error) {
@@ -80,6 +82,31 @@ function permissionLabel(value) {
 }
 
 export default function StaffRoleManagementPage() {
+  const {
+    user,
+  } = useAuth();
+
+  const canCreate =
+    hasPermission(
+      user,
+      "staff-role:create"
+    );
+  const canUpdate =
+    hasPermission(
+      user,
+      "staff-role:update"
+    );
+  const canActivate =
+    hasPermission(
+      user,
+      "staff-role:activate"
+    );
+  const canDelete =
+    hasPermission(
+      user,
+      "staff-role:delete"
+    );
+
   const [
     roles,
     setRoles,
@@ -273,19 +300,29 @@ export default function StaffRoleManagementPage() {
     setSuccess("");
 
     try {
+      const payload = {
+        ...(canUpdate
+          ? {
+              name:
+                role.name,
+              description:
+                role.description,
+              permissions:
+                role.permissions,
+            }
+          : {}),
+        ...(canActivate
+          ? {
+              active:
+                role.active,
+            }
+          : {}),
+      };
+
       const response =
         await staffRoleService.update(
           role.id,
-          {
-            name:
-              role.name,
-            description:
-              role.description,
-            permissions:
-              role.permissions,
-            active:
-              role.active,
-          }
+          payload
         );
 
       setRoles(
@@ -388,7 +425,7 @@ export default function StaffRoleManagementPage() {
                 size={20}
               />
               <span className="text-xs font-bold uppercase tracking-wider">
-                Super Admin
+                Role management
               </span>
             </div>
             <h1 className="mt-2 text-2xl font-bold text-black">
@@ -494,155 +531,161 @@ export default function StaffRoleManagementPage() {
         </div>
       </section>
 
-      <form
+      {canCreate ? (
+        <form
         className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
         onSubmit={
-          createRole
+        createRole
         }
-      >
-        <div className="flex items-center gap-2">
-          <Plus size={19} />
-          <h2 className="text-lg font-bold text-black">
-            Create custom role
-          </h2>
-        </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-semibold text-black">
-            Role name
-            <input
-              required
-              maxLength={80}
-              value={
-                form.name
-              }
-              onChange={(
-                event
-              ) =>
-                updateForm(
-                  "name",
-                  event.target
-                    .value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
-              placeholder="Colour Specialist"
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-black">
-            Role key
-            <input
-              maxLength={40}
-              value={
-                form.key
-              }
-              onChange={(
-                event
-              ) =>
-                updateForm(
-                  "key",
-                  event.target
-                    .value
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
-              placeholder="colour_specialist"
-            />
-            <span className="mt-1 block text-xs font-normal text-stone-500">
-              Optional. Generated from the role name when left blank.
-            </span>
-          </label>
-        </div>
-
-        <label className="mt-4 block text-sm font-semibold text-black">
-          Description
-          <textarea
-            rows="3"
-            maxLength={500}
-            value={
-              form.description
-            }
-            onChange={(
-              event
-            ) =>
-              updateForm(
-                "description",
-                event.target
-                  .value
-              )
-            }
-            className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
-          />
-        </label>
-
-        <div className="mt-5 space-y-4">
-          {permissionGroups.map(
-            ([
-              group,
-              permissions,
-            ]) => (
-              <fieldset
-                key={group}
-                className="rounded-xl border border-stone-200 p-4"
-              >
-                <legend className="px-2 text-sm font-bold text-black">
-                  {group}
-                </legend>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {permissions.map(
-                    (
-                      permission
-                    ) => (
-                      <label
-                        key={
-                          permission.value
-                        }
-                        className="flex items-start gap-2 text-sm text-stone-700"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={
-                            form.permissions.includes(
-                              permission.value
-                            )
-                          }
-                          onChange={() =>
-                            toggleFormPermission(
-                              permission.value
-                            )
-                          }
-                          className="mt-1 h-4 w-4 accent-amber-500"
-                        />
-                        <span>
-                          {
-                            permission.label
-                          }
-                        </span>
-                      </label>
-                    )
-                  )}
-                </div>
-              </fieldset>
-            )
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={
-            saving ===
-            "create"
-          }
-          className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
         >
-          <Plus size={16} />
-          {saving ===
-          "create"
-            ? "Creating..."
-            : "Create role"}
+        <div className="flex items-center gap-2">
+        <Plus size={19} />
+        <h2 className="text-lg font-bold text-black">
+        Create custom role
+        </h2>
+        </div>
+        
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <label className="text-sm font-semibold text-black">
+        Role name
+        <input
+        required
+        maxLength={80}
+        value={
+        form.name
+        }
+        onChange={(
+        event
+        ) =>
+        updateForm(
+        "name",
+        event.target
+        .value
+        )
+        }
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        placeholder="Colour Specialist"
+        />
+        </label>
+        
+        <label className="text-sm font-semibold text-black">
+        Role key
+        <input
+        maxLength={40}
+        value={
+        form.key
+        }
+        onChange={(
+        event
+        ) =>
+        updateForm(
+        "key",
+        event.target
+        .value
+        )
+        }
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        placeholder="colour_specialist"
+        />
+        <span className="mt-1 block text-xs font-normal text-stone-500">
+        Optional. Generated from the role name when left blank.
+        </span>
+        </label>
+        </div>
+        
+        <label className="mt-4 block text-sm font-semibold text-black">
+        Description
+        <textarea
+        rows="3"
+        maxLength={500}
+        value={
+        form.description
+        }
+        onChange={(
+        event
+        ) =>
+        updateForm(
+        "description",
+        event.target
+        .value
+        )
+        }
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        />
+        </label>
+        
+        <div className="mt-5 space-y-4">
+        {permissionGroups.map(
+        ([
+        group,
+        permissions,
+        ]) => (
+        <fieldset
+        key={group}
+        className="rounded-xl border border-stone-200 p-4"
+        >
+        <legend className="px-2 text-sm font-bold text-black">
+        {group}
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {permissions.map(
+        (
+        permission
+        ) => (
+        <label
+        key={
+        permission.value
+        }
+        className="flex items-start gap-2 text-sm text-stone-700"
+        >
+        <input
+        type="checkbox"
+        checked={
+        form.permissions.includes(
+        permission.value
+        )
+        }
+        onChange={() =>
+        toggleFormPermission(
+        permission.value
+        )
+        }
+        className="mt-1 h-4 w-4 accent-amber-500"
+        />
+        <span>
+        {
+        permission.label
+        }
+        </span>
+        </label>
+        )
+        )}
+        </div>
+        </fieldset>
+        )
+        )}
+        </div>
+        
+        <button
+        type="submit"
+        disabled={
+        saving ===
+        "create"
+        }
+        className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+        >
+        <Plus size={16} />
+        {saving ===
+        "create"
+        ? "Creating..."
+        : "Create role"}
         </button>
-      </form>
+        </form>
+      ) : (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm">
+          You can view staff roles, but your account does not have permission to create new roles.
+        </section>
+      )}
 
       <section className="space-y-4">
         <div>
@@ -669,6 +712,9 @@ export default function StaffRoleManagementPage() {
                     <input
                       value={
                         role.name
+                      }
+                      disabled={
+                        !canUpdate
                       }
                       maxLength={80}
                       onChange={(
@@ -699,6 +745,9 @@ export default function StaffRoleManagementPage() {
                   Description
                   <textarea
                     rows="2"
+                    disabled={
+                      !canUpdate
+                    }
                     maxLength={500}
                     value={
                       role.description ||
@@ -724,6 +773,9 @@ export default function StaffRoleManagementPage() {
                     checked={
                       role.active !==
                       false
+                    }
+                    disabled={
+                      !canActivate
                     }
                     onChange={(
                       event
@@ -766,6 +818,9 @@ export default function StaffRoleManagementPage() {
                               >
                                 <input
                                   type="checkbox"
+                                  disabled={
+                                    !canUpdate
+                                  }
                                   checked={(
                                     role.permissions ||
                                     []
@@ -795,43 +850,47 @@ export default function StaffRoleManagementPage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={
-                      saving ===
-                      role.id
-                    }
-                    onClick={() =>
-                      void saveRole(
-                        role
-                      )
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
-                  >
-                    <Save
-                      size={16}
-                    />
-                    Save role
-                  </button>
+                  {canUpdate || canActivate ? (
+                    <button
+                      type="button"
+                      disabled={
+                        saving ===
+                        role.id
+                      }
+                      onClick={() =>
+                        void saveRole(
+                          role
+                        )
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+                    >
+                      <Save
+                        size={16}
+                      />
+                      Save allowed changes
+                    </button>
+                  ) : null}
 
-                  <button
-                    type="button"
-                    disabled={
-                      saving ===
-                      role.id
-                    }
-                    onClick={() =>
-                      void deleteRole(
-                        role
-                      )
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    <Trash2
-                      size={16}
-                    />
-                    Delete
-                  </button>
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      disabled={
+                        saving ===
+                        role.id
+                      }
+                      onClick={() =>
+                        void deleteRole(
+                          role
+                        )
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2
+                        size={16}
+                      />
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
               </article>
             )
