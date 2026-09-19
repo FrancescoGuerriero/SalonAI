@@ -2,9 +2,9 @@ import express from "express";
 
 import {
   protect,
-  superAdminOnly,
 } from "../middleware/authMiddleware.js";
 import {
+  hasUserPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
 import {
@@ -17,11 +17,81 @@ import {
 const router =
   express.Router();
 
+function requireStaffRoleChanges(
+  req,
+  res,
+  next
+) {
+  const required = [];
+
+  const changesDefinition =
+    [
+      "key",
+      "name",
+      "description",
+      "permissions",
+    ].some(
+      (field) =>
+        Object.prototype.hasOwnProperty.call(
+          req.body || {},
+          field
+        )
+    );
+
+  const changesActiveState =
+    Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      "active"
+    );
+
+  if (
+    changesDefinition ||
+    !changesActiveState
+  ) {
+    required.push(
+      "staff-role:update"
+    );
+  }
+
+  if (changesActiveState) {
+    required.push(
+      "staff-role:activate"
+    );
+  }
+
+  const missing =
+    required.filter(
+      (permission) =>
+        !hasUserPermission(
+          req.user,
+          permission
+        )
+    );
+
+  if (missing.length) {
+    return res
+      .status(403)
+      .json({
+        success: false,
+        code:
+          "INSUFFICIENT_PERMISSIONS",
+        message:
+          "You do not have permission to perform this action.",
+        missingPermissions:
+          missing,
+        requestId:
+          req.requestId,
+      });
+  }
+
+  return next();
+}
+
 router.get(
   "/",
   protect,
   requirePermissions(
-    "employee:read"
+    "staff-role:read"
   ),
   listStaffRoles
 );
@@ -29,21 +99,25 @@ router.get(
 router.post(
   "/",
   protect,
-  superAdminOnly,
+  requirePermissions(
+    "staff-role:create"
+  ),
   createStaffRole
 );
 
 router.patch(
   "/:id",
   protect,
-  superAdminOnly,
+  requireStaffRoleChanges,
   updateStaffRole
 );
 
 router.delete(
   "/:id",
   protect,
-  superAdminOnly,
+  requirePermissions(
+    "staff-role:delete"
+  ),
   deleteStaffRole
 );
 
