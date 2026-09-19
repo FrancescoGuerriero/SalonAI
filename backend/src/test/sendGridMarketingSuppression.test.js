@@ -661,7 +661,7 @@ test(
     );
     assert.equal(
       result.reason,
-      "customer_not_resolved"
+      "transactional_delivery_not_marketing"
     );
     assert.equal(
       saved,
