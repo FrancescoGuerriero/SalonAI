@@ -83,13 +83,78 @@ export function listVerticalDefinitions() {
 
 registerVertical({
   id: "salon",
-  label: "Salon",
+  label: "Salon AI",
   terminology: {
     business: "Salon",
     staffMember: "Stylist",
     service: "Service",
     booking: "Appointment",
     customer: "Customer",
+  },
+  capabilities: [
+    "appointments",
+    "staff",
+    "services",
+    "commerce",
+    "communications",
+    "calendar",
+    "analytics",
+    "ai",
+  ],
+});
+
+registerVertical({
+  id: "plastic-surgery",
+  label: "Plastic Surgery AI",
+  terminology: {
+    business: "Plastic Surgery Clinic",
+    staffMember: "Practitioner",
+    service: "Procedure",
+    booking: "Consultation",
+    customer: "Patient",
+  },
+  capabilities: [
+    "appointments",
+    "staff",
+    "services",
+    "communications",
+    "calendar",
+    "analytics",
+    "ai",
+  ],
+});
+
+registerVertical({
+  id: "spa",
+  label: "Spa AI",
+  terminology: {
+    business: "Spa",
+    staffMember: "Therapist",
+    service: "Treatment",
+    booking: "Appointment",
+    customer: "Client",
+  },
+  capabilities: [
+    "appointments",
+    "staff",
+    "services",
+    "commerce",
+    "communications",
+    "calendar",
+    "analytics",
+    "ai",
+  ],
+});
+
+registerVertical({
+  id: "fitness",
+  label: "Fitness AI",
+  terminology: {
+    business: "Fitness Business",
+    staffMember: "Trainer",
+    service: "Session",
+    booking: "Booking",
+    customer: "Member",
   },
   capabilities: [
     "appointments",
