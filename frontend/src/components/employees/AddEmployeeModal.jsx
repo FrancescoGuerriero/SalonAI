@@ -436,16 +436,7 @@ export default function AddEmployeeModal({
           ] ||
           definition?.name ||
           current.jobTitle,
-        permissions:
-          definition?.system ===
-          false
-            ? [
-                ...(
-                  definition.permissions ||
-                  []
-                ),
-              ]
-            : [],
+        permissions: [],
       })
     );
   }
@@ -1511,9 +1502,28 @@ export default function AddEmployeeModal({
               </summary>
               <p className="mt-2 text-sm text-stone-600">
                 {customRoleSelected
-                  ? "This custom role uses the permission template defined in Staff Roles. Edit the role template to change access for everyone assigned to it."
-                  : "Optional. Built-in role labels do not provide broad access; assign only the capabilities this employee needs."}
+                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that only Super Admin can grant."
+                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can only be granted by Super Admin."}
               </p>
+
+              {customRoleSelected && selectedRole?.permissions?.length ? (
+                <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600">
+                  <strong className="block text-black">
+                    Included by role
+                  </strong>
+                  <span>
+                    {selectedRole.permissions
+                      .map(
+                        (value) =>
+                          EMPLOYEE_PERMISSIONS.find(
+                            (permission) =>
+                              permission.value === value
+                          )?.label || value
+                      )
+                      .join(", ")}
+                  </span>
+                </div>
+              ) : null}
 
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 {permissionGroups.map(
@@ -1547,15 +1557,12 @@ export default function AddEmployeeModal({
                                     permission.value
                                   )
                                 }
-                                disabled={
-                                  customRoleSelected
-                                }
                                 onChange={() =>
                                   togglePermission(
                                     permission.value
                                   )
                                 }
-                                className="mt-1 h-4 w-4 accent-amber-500 disabled:opacity-50"
+                                className="mt-1 h-4 w-4 accent-amber-500"
                               />
                               <span>
                                 {permission.label}
