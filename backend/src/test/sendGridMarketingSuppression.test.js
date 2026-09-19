@@ -780,6 +780,10 @@ test(
             true,
           reason:
             "provider_marketing_suppression",
+          suppressionScope:
+            "global",
+          asmGroupId:
+            null,
         };
       },
     };
