@@ -3,9 +3,11 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Plus,
   Save,
   Scissors,
   ShieldCheck,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import {
@@ -54,8 +56,7 @@ const EMPTY_SCHEDULE =
       day === "Saturday"
         ? "15:00"
         : "17:00",
-    breakStart: "",
-    breakEnd: "",
+    breaks: [],
   }));
 
 function errorMessage(error) {
@@ -107,9 +108,6 @@ function buildSchedule(
             item.day ===
             fallback.day
         );
-      const pause =
-        row?.breaks?.[0];
-
       return {
         ...fallback,
         ...(row || {}),
@@ -118,10 +116,21 @@ function buildSchedule(
             ? row.available !==
               false
             : fallback.available,
-        breakStart:
-          pause?.start || "",
-        breakEnd:
-          pause?.end || "",
+        breaks:
+          Array.isArray(
+            row?.breaks
+          )
+            ? row.breaks.map(
+                (pause) => ({
+                  start:
+                    pause?.start ||
+                    "",
+                  end:
+                    pause?.end ||
+                    "",
+                })
+              )
+            : [],
       };
     }
   );
@@ -477,6 +486,91 @@ export default function AdminEmployeeDetailPage() {
     );
   }
 
+  function addBreak(
+    dayIndex
+  ) {
+    setSchedule(
+      (current) =>
+        current.map(
+          (row, rowIndex) =>
+            rowIndex === dayIndex
+              ? {
+                  ...row,
+                  breaks: [
+                    ...(row.breaks || []),
+                    {
+                      start: "",
+                      end: "",
+                    },
+                  ],
+                }
+              : row
+        )
+    );
+  }
+
+  function updateBreak(
+    dayIndex,
+    breakIndex,
+    field,
+    value
+  ) {
+    setSchedule(
+      (current) =>
+        current.map(
+          (row, rowIndex) =>
+            rowIndex === dayIndex
+              ? {
+                  ...row,
+                  breaks: (
+                    row.breaks || []
+                  ).map(
+                    (
+                      pause,
+                      pauseIndex
+                    ) =>
+                      pauseIndex ===
+                      breakIndex
+                        ? {
+                            ...pause,
+                            [field]:
+                              value,
+                          }
+                        : pause
+                  ),
+                }
+              : row
+        )
+    );
+  }
+
+  function removeBreak(
+    dayIndex,
+    breakIndex
+  ) {
+    setSchedule(
+      (current) =>
+        current.map(
+          (row, rowIndex) =>
+            rowIndex === dayIndex
+              ? {
+                  ...row,
+                  breaks: (
+                    row.breaks || []
+                  ).filter(
+                    (
+                      _pause,
+                      pauseIndex
+                    ) =>
+                      pauseIndex !==
+                      breakIndex
+                  ),
+                }
+              : row
+        )
+    );
+  }
+
   async function saveSchedule() {
     setSaving("schedule");
     setError("");
@@ -494,17 +588,22 @@ export default function AdminEmployeeDetailPage() {
             start: row.start,
             end: row.end,
             breaks:
-              row.breakStart &&
-              row.breakEnd
-                ? [
-                    {
-                      start:
-                        row.breakStart,
-                      end:
-                        row.breakEnd,
-                    },
-                  ]
-                : [],
+              (
+                row.breaks || []
+              )
+                .filter(
+                  (pause) =>
+                    pause.start &&
+                    pause.end
+                )
+                .map(
+                  (pause) => ({
+                    start:
+                      pause.start,
+                    end:
+                      pause.end,
+                  })
+                ),
           })
         );
       const response =
@@ -712,17 +811,244 @@ export default function AdminEmployeeDetailPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2"><Clock3 size={21} /><div><h2 className="text-lg font-bold text-black">Weekly schedule and breaks</h2><p className="text-sm text-slate-600">Configure normal working hours and one daily break.</p></div></div>
-          {canUpdateSchedule ? <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50" disabled={saving === "schedule"} onClick={saveSchedule}><Save size={16} />{saving === "schedule" ? "Saving..." : "Save schedule"}</button> : null}
+          <div className="flex items-center gap-2">
+            <Clock3 size={21} />
+            <div>
+              <h2 className="text-lg font-bold text-black">
+                Weekly schedule and breaks
+              </h2>
+              <p className="text-sm text-slate-600">
+                Configure normal working hours and every break that applies during each working day.
+              </p>
+            </div>
+          </div>
+
+          {canUpdateSchedule ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+              disabled={
+                saving ===
+                "schedule"
+              }
+              onClick={
+                saveSchedule
+              }
+            >
+              <Save size={16} />
+              {saving ===
+              "schedule"
+                ? "Saving..."
+                : "Save schedule"}
+            </button>
+          ) : null}
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead><tr className="text-left text-xs font-bold uppercase text-slate-500"><th className="px-3 py-2">Day</th><th className="px-3 py-2">Working</th><th className="px-3 py-2">Start</th><th className="px-3 py-2">End</th><th className="px-3 py-2">Break start</th><th className="px-3 py-2">Break end</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">
-              {schedule.map((row, index) => <tr key={row.day}><td className="px-3 py-3 font-bold text-black">{row.day}</td><td className="px-3 py-3"><input type="checkbox" checked={row.available} disabled={!canUpdateSchedule} onChange={(event) => updateScheduleRow(index, "available", event.target.checked)} className="h-4 w-4 accent-amber-400" /></td>{["start", "end", "breakStart", "breakEnd"].map((field) => <td key={field} className="px-3 py-3"><input type="time" value={row[field]} disabled={!canUpdateSchedule || !row.available} onChange={(event) => updateScheduleRow(index, field, event.target.value)} className="rounded-lg border border-slate-300 px-2 py-1.5 text-black disabled:bg-slate-100" /></td>)}</tr>)}
-            </tbody>
-          </table>
+        <div className="mt-5 space-y-4">
+          {schedule.map(
+            (
+              row,
+              dayIndex
+            ) => (
+              <article
+                key={row.day}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <div className="grid gap-3 lg:grid-cols-[10rem_7rem_1fr_1fr_auto] lg:items-end">
+                  <div>
+                    <span className="text-sm font-bold text-black">
+                      {row.day}
+                    </span>
+                    <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={
+                          row.available
+                        }
+                        disabled={
+                          !canUpdateSchedule
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          updateScheduleRow(
+                            dayIndex,
+                            "available",
+                            event.target
+                              .checked
+                          )
+                        }
+                        className="h-4 w-4 accent-amber-400"
+                      />
+                      Working
+                    </label>
+                  </div>
+
+                  <label className="text-xs font-bold uppercase text-slate-500">
+                    Start
+                    <input
+                      type="time"
+                      value={
+                        row.start
+                      }
+                      disabled={
+                        !canUpdateSchedule ||
+                        !row.available
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateScheduleRow(
+                          dayIndex,
+                          "start",
+                          event.target
+                            .value
+                        )
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-black disabled:bg-slate-100"
+                    />
+                  </label>
+
+                  <label className="text-xs font-bold uppercase text-slate-500">
+                    End
+                    <input
+                      type="time"
+                      value={
+                        row.end
+                      }
+                      disabled={
+                        !canUpdateSchedule ||
+                        !row.available
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        updateScheduleRow(
+                          dayIndex,
+                          "end",
+                          event.target
+                            .value
+                        )
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-black disabled:bg-slate-100"
+                    />
+                  </label>
+
+                  <div className="lg:col-span-2 lg:text-right">
+                    {canUpdateSchedule &&
+                    row.available ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-lg border border-black bg-white px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                        onClick={() =>
+                          addBreak(
+                            dayIndex
+                          )
+                        }
+                      >
+                        <Plus
+                          size={14}
+                        />
+                        Add break
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {row.available ? (
+                  <div className="mt-4 space-y-2">
+                    {(row.breaks || [])
+                      .length ? (
+                      (row.breaks || []).map(
+                        (
+                          pause,
+                          breakIndex
+                        ) => (
+                          <div
+                            key={`${row.day}-break-${breakIndex}`}
+                            className="grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+                          >
+                            <label className="text-xs font-bold uppercase text-slate-500">
+                              Break start
+                              <input
+                                type="time"
+                                value={
+                                  pause.start
+                                }
+                                disabled={
+                                  !canUpdateSchedule
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  updateBreak(
+                                    dayIndex,
+                                    breakIndex,
+                                    "start",
+                                    event.target
+                                      .value
+                                  )
+                                }
+                                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-black"
+                              />
+                            </label>
+
+                            <label className="text-xs font-bold uppercase text-slate-500">
+                              Break end
+                              <input
+                                type="time"
+                                value={
+                                  pause.end
+                                }
+                                disabled={
+                                  !canUpdateSchedule
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  updateBreak(
+                                    dayIndex,
+                                    breakIndex,
+                                    "end",
+                                    event.target
+                                      .value
+                                  )
+                                }
+                                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-black"
+                              />
+                            </label>
+
+                            {canUpdateSchedule ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-black hover:bg-red-50"
+                                onClick={() =>
+                                  removeBreak(
+                                    dayIndex,
+                                    breakIndex
+                                  )
+                                }
+                                aria-label={`Remove break ${breakIndex + 1} from ${row.day}`}
+                              >
+                                <Trash2
+                                  size={14}
+                                />
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        )
+                      )
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        No breaks configured for this day.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </article>
+            )
+          )}
         </div>
       </section>
 
