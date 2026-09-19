@@ -242,3 +242,23 @@ The management Adviser exposes useful / not-useful feedback against the exact re
 Historical inference records that predate actor ownership are deliberately not made editable by inference ID alone.
 
 This feedback is evaluation data, not an autonomous training signal. It may support later quality analysis, prompt/tool evaluation and reviewed dataset construction, but it does not automatically retrain, promote or modify an AI model.
+
+
+## Adviser evaluation metrics
+
+The Management Copilot exposes aggregate quality evidence for the governed `management-adviser` inference stream.
+
+The read-only evaluation endpoint reports, for a bounded reporting window:
+
+- total Adviser responses;
+- feedback coverage;
+- useful / not-useful feedback rate;
+- feedback-comment count;
+- observed-outcome linkage coverage;
+- mean response latency;
+- model/version/provider breakdowns;
+- the most-used application contexts.
+
+The endpoint deliberately excludes prompts, generated answers, actor IDs and customer-level records. It is intended for model and product evaluation rather than operational surveillance.
+
+Adviser feedback remains evaluation evidence only. It does not automatically retrain, fine-tune, promote, approve or activate any model. Model lifecycle changes continue to require explicit reviewed evidence and the existing governed model registry process.
