@@ -87,6 +87,8 @@ const ACTION_SPECS =
           ]),
         label:
           "Prepare campaign change for review",
+        preparationMode:
+          "duplicate_draft",
       }),
     "inventory.restock_review":
       Object.freeze({
@@ -481,6 +483,13 @@ export function suggestAdviserActions({
           true,
         automaticExecution:
           false,
+        preparationAvailable:
+          Boolean(
+            spec.preparationMode
+          ),
+        preparationMode:
+          spec.preparationMode ||
+          null,
       })
     );
 }
@@ -858,7 +867,12 @@ export async function reviewAdviserActionProposal({
   proposal.executionBlockedReason =
     selectedDecision ===
     "approved"
-      ? "Human approval is recorded. No automatic Adviser executor is enabled; execute the business change through its governed SalonAI workflow."
+      ? (
+          proposal.actionType ===
+          "communications.campaign_review"
+            ? "Human approval is recorded. A separate explicit prepare action may create an unscheduled communications draft; SalonAI will not send it automatically."
+            : "Human approval is recorded. This proposal remains review-only and cannot automatically change SalonAI business data."
+        )
       : "Proposal was rejected and cannot be executed.";
 
   await proposal.save();
