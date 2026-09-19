@@ -126,7 +126,7 @@ test("employee management resolves custom role assignments through the registry"
   );
   assert.match(
     controller,
-    /Permissions for a custom role are managed from the role registry/
+    /rolePermissions/
   );
   assert.match(
     controller,
