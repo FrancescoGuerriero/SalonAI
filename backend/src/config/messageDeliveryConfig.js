@@ -305,6 +305,32 @@ function getMessageDeliveryConfig() {
           "smtp.sendgrid.net",
         smtpUsername:
           "apikey",
+        marketing: {
+          enabled:
+            normaliseBoolean(
+              process.env
+                .SENDGRID_MARKETING_ENABLED,
+              false
+            ),
+          senderVerified:
+            normaliseBoolean(
+              process.env
+                .SENDGRID_SENDER_VERIFIED,
+              false
+            ),
+          domainAuthenticated:
+            normaliseBoolean(
+              process.env
+                .SENDGRID_DOMAIN_AUTHENTICATED,
+              false
+            ),
+          acceptanceConfirmed:
+            normaliseBoolean(
+              process.env
+                .SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED,
+              false
+            ),
+        },
         eventWebhook: {
           enabled:
             normaliseBoolean(
@@ -372,6 +398,75 @@ function getMessageDeliveryConfig() {
           normaliseBoolean(process.env.TWILIO_WEBHOOK_VALIDATION_ENABLED, false),
       },
     },
+  };
+}
+
+function getSendGridMarketingReadiness(
+  suppliedConfig = null
+) {
+  const config =
+    suppliedConfig ||
+    getMessageDeliveryConfig();
+  const email =
+    config.email || {};
+  const sendgrid =
+    email.sendgrid || {};
+  const marketing =
+    sendgrid.marketing || {};
+  const eventWebhook =
+    sendgrid.eventWebhook || {};
+
+  const checks = {
+    liveMode:
+      config.mode ===
+      DELIVERY_MODES.LIVE,
+    emailEnabled:
+      email.enabled === true,
+    sendGridProvider:
+      email.provider ===
+      EMAIL_PROVIDERS.SENDGRID,
+    apiKeyConfigured:
+      Boolean(
+        sendgrid.apiKey
+      ),
+    signedEventWebhook:
+      eventWebhook.enabled ===
+        true &&
+      Boolean(
+        eventWebhook.publicKey
+      ),
+    senderVerified:
+      marketing.senderVerified ===
+      true,
+    domainAuthenticated:
+      marketing.domainAuthenticated ===
+      true,
+    acceptanceConfirmed:
+      marketing.acceptanceConfirmed ===
+      true,
+    marketingEnabled:
+      marketing.enabled ===
+      true,
+  };
+
+  const blockers =
+    Object.entries(checks)
+      .filter(
+        ([, ready]) =>
+          ready !== true
+      )
+      .map(
+        ([check]) =>
+          check
+      );
+
+  return {
+    ready:
+      blockers.length === 0,
+    enabled:
+      marketing.enabled === true,
+    checks,
+    blockers,
   };
 }
 
@@ -730,6 +825,36 @@ function getSafeMessageDeliveryConfig() {
           config.email.sendgrid
             ?.smtpUsername ||
           "",
+        marketing: {
+          enabled:
+            Boolean(
+              config.email.sendgrid
+                ?.marketing
+                ?.enabled
+            ),
+          senderVerified:
+            Boolean(
+              config.email.sendgrid
+                ?.marketing
+                ?.senderVerified
+            ),
+          domainAuthenticated:
+            Boolean(
+              config.email.sendgrid
+                ?.marketing
+                ?.domainAuthenticated
+            ),
+          acceptanceConfirmed:
+            Boolean(
+              config.email.sendgrid
+                ?.marketing
+                ?.acceptanceConfirmed
+            ),
+          readiness:
+            getSendGridMarketingReadiness(
+              config
+            ),
+        },
         eventWebhook: {
           enabled:
             Boolean(
@@ -788,6 +913,7 @@ export {
   createConfigurationError,
   getMessageDeliveryConfig,
   getSafeMessageDeliveryConfig,
+  getSendGridMarketingReadiness,
   isValidE164Number,
   validateMessageDeliveryConfig,
 };
