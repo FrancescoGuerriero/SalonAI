@@ -598,6 +598,24 @@ test.describe("SalonAI layout regressions", () => {
         return;
       }
 
+      if (url.pathname === "/api/services/management") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            services: [
+              {
+                _id: "507f1f77bcf86cd799439011",
+                name: "Haircut QA",
+                category: "Hair",
+                active: true,
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -631,6 +649,70 @@ test.describe("SalonAI layout regressions", () => {
         name: "Create employee",
       })
     ).toBeFocused();
+
+    const assignServices = dialog
+      .locator("label")
+      .filter({
+        hasText: "Assign services during onboarding",
+      });
+
+    await expect(
+      assignServices.locator("input")
+    ).toBeEnabled();
+    await assignServices.click();
+
+    const serviceChoice = dialog
+      .locator("label")
+      .filter({
+        hasText: "Haircut QA",
+      })
+      .first();
+
+    await expect(serviceChoice).toBeVisible();
+
+    const configureSchedule = dialog
+      .locator("label")
+      .filter({
+        hasText: "Configure schedule during onboarding",
+      });
+
+    await configureSchedule.click();
+
+    const mondayChoice = dialog
+      .locator("label")
+      .filter({
+        hasText: "Monday",
+      })
+      .first();
+
+    const permissionsDetails = dialog
+      .locator("details")
+      .filter({
+        hasText: "Initial access permissions",
+      });
+
+    await permissionsDetails
+      .locator("summary")
+      .click();
+
+    const permissionChoice = permissionsDetails
+      .locator("label")
+      .filter({
+        hasText: "View dashboard",
+      })
+      .first();
+
+    for (const control of [
+      assignServices,
+      serviceChoice,
+      configureSchedule,
+      mondayChoice,
+      permissionChoice,
+    ]) {
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
 
     await page.keyboard.press("Escape");
 
@@ -819,6 +901,120 @@ test.describe("SalonAI layout regressions", () => {
     }
   });
 
+  test("staff profile publication control remains touch-sized on mobile", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+
+    await page.setViewportSize({
+      width: 390,
+      height: 844,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem("salonai_token", "qa-token");
+      localStorage.setItem("salonai_user", JSON.stringify(user));
+    }, superAdmin);
+
+    await page.route("**/api/**", async (route) => {
+      const url = new URL(route.request().url());
+
+      if (url.pathname === "/api/auth/me") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ user: superAdmin }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/app-configuration/features") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ features: {} }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/auth/admin/staff") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            users: [
+              {
+                id: "employee-anna",
+                name: "Anna Smith",
+                email: "anna@example.test",
+                role: "stylist",
+                stylistProfile: {
+                  id: "profile-anna",
+                  profilePublished: true,
+                },
+              },
+            ],
+          }),
+        });
+        return;
+      }
+
+      if (url.pathname === "/api/stylists/profile-anna") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            _id: "profile-anna",
+            firstName: "Anna",
+            lastName: "Smith",
+            email: "anna@example.test",
+            jobTitle: "Senior Stylist",
+            profilePublished: true,
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
+    });
+
+    await page.goto("/admin/stylists");
+
+    await expect(
+      page.getByRole("heading", {
+        name: "Manage the professional profiles clients see.",
+      })
+    ).toBeVisible();
+
+    const publicationControl = page
+      .locator("label")
+      .filter({
+        hasText: "Published",
+      })
+      .last();
+
+    await expect(publicationControl).toBeVisible();
+
+    const box = await publicationControl.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
+  });
+
   test("System Administration feature switches are labelled and touch-sized", async ({
     page,
   }, testInfo) => {
@@ -925,6 +1121,37 @@ test.describe("SalonAI layout regressions", () => {
 
     expect(box.height).toBeGreaterThanOrEqual(targetMinimum);
     expect(box.width).toBeGreaterThanOrEqual(44);
+
+    const thumb = featureSwitch.locator("span");
+    const thumbBox = await thumb.boundingBox();
+    expect(thumbBox).not.toBeNull();
+
+    expect(thumbBox.x).toBeGreaterThanOrEqual(box.x);
+    expect(
+      thumbBox.x + thumbBox.width
+    ).toBeLessThanOrEqual(
+      box.x + box.width
+    );
+
+    const switchCentre =
+      box.y + box.height / 2;
+    const thumbCentre =
+      thumbBox.y + thumbBox.height / 2;
+
+    expect(
+      Math.abs(
+        switchCentre -
+        thumbCentre
+      )
+    ).toBeLessThanOrEqual(1);
+
+    const horizontalOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth
+    );
+
+    expect(horizontalOverflow).toBe(false);
   });
 
   test("staff role controls remain touch-sized and overflow-free on mobile", async ({
@@ -1018,6 +1245,20 @@ test.describe("SalonAI layout regressions", () => {
       })
       .first();
 
+    const customRole = page
+      .locator("article")
+      .filter({
+        hasText: "colour_specialist",
+      })
+      .first();
+
+    const editPermission = customRole
+      .locator("label")
+      .filter({
+        hasText: "Create salon services",
+      })
+      .first();
+
     const activeAssignable = page
       .locator("label")
       .filter({
@@ -1027,6 +1268,7 @@ test.describe("SalonAI layout regressions", () => {
 
     for (const control of [
       createPermission,
+      editPermission,
       activeAssignable,
     ]) {
       const box = await control.boundingBox();

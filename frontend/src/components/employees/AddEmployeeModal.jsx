@@ -1025,7 +1025,7 @@ export default function AddEmployeeModal({
                         .checked
                     )
                   }
-                  className="mt-1 h-4 w-4 accent-amber-500"
+                  className="mt-1 h-5 w-5 accent-amber-500"
                 />
                 <span>
                   <strong className="block">
@@ -1050,7 +1050,7 @@ export default function AddEmployeeModal({
                         .checked
                     )
                   }
-                  className="mt-1 h-4 w-4 accent-amber-500"
+                  className="mt-1 h-5 w-5 accent-amber-500"
                 />
                 <span>
                   <strong className="block">
@@ -1075,7 +1075,7 @@ export default function AddEmployeeModal({
                         .checked
                     )
                   }
-                  className="mt-1 h-4 w-4 accent-amber-500"
+                  className="mt-1 h-5 w-5 accent-amber-500"
                 />
                 <span>
                   <strong className="block">
@@ -1197,7 +1197,7 @@ export default function AddEmployeeModal({
                           .checked
                       )
                     }
-                    className="h-4 w-4 accent-amber-500"
+                    className="h-5 w-5 accent-amber-500"
                   />
                   Assign services during onboarding
                 </label>
@@ -1237,7 +1237,7 @@ export default function AddEmployeeModal({
                                   id
                                 )
                               }
-                              className="mt-1 h-4 w-4 accent-amber-500"
+                              className="mt-1 h-5 w-5 accent-amber-500"
                             />
                             <span>
                               <strong className="block">
@@ -1298,7 +1298,7 @@ export default function AddEmployeeModal({
                           .checked
                       )
                     }
-                    className="h-4 w-4 accent-amber-500"
+                    className="h-5 w-5 accent-amber-500"
                   />
                   Configure schedule during onboarding
                 </label>
@@ -1317,7 +1317,7 @@ export default function AddEmployeeModal({
                           className="rounded-xl border border-stone-200 p-4"
                         >
                           <div className="grid gap-3 lg:grid-cols-[9rem_1fr]">
-                            <label className="flex items-center gap-2 text-sm font-bold text-black">
+                            <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-sm font-bold text-black hover:bg-amber-50">
                               <input
                                 type="checkbox"
                                 checked={
@@ -1334,7 +1334,7 @@ export default function AddEmployeeModal({
                                       .checked
                                   )
                                 }
-                                className="h-4 w-4 accent-amber-500"
+                                className="h-5 w-5 accent-amber-500"
                               />
                               {row.day}
                             </label>
@@ -1562,7 +1562,7 @@ export default function AddEmployeeModal({
                                     permission.value
                                   )
                                 }
-                                className="mt-1 h-4 w-4 accent-amber-500"
+                                className="mt-1 h-5 w-5 accent-amber-500"
                               />
                               <span>
                                 {permission.label}
