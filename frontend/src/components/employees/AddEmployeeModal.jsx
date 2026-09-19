@@ -19,6 +19,7 @@ import {
 import ProfilePhotoUploader from "../profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../../Services/adminStaffService.js";
 import serviceService from "../../Services/serviceService.js";
+import staffRoleService from "../../Services/staffRoleService.js";
 import useAuth from "../../hooks/useAuth.js";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 import {
@@ -29,24 +30,42 @@ import {
   isSuperAdminRole,
 } from "../../utils/roles.js";
 
-const STAFF_ROLES = [
+const DEFAULT_STAFF_ROLES = [
   {
-    value: "stylist",
-    label: "Stylist",
+    key: "stylist",
+    name: "Stylist",
+    system: true,
+    active: true,
+    assignable: true,
+    superAdminOnly: false,
+    permissions: [],
   },
   {
-    value: "receptionist",
-    label: "Receptionist",
+    key: "receptionist",
+    name: "Receptionist",
+    system: true,
+    active: true,
+    assignable: true,
+    superAdminOnly: false,
+    permissions: [],
   },
   {
-    value: "manager",
-    label: "Manager",
+    key: "manager",
+    name: "Manager",
+    system: true,
+    active: true,
+    assignable: true,
     superAdminOnly: true,
+    permissions: [],
   },
   {
-    value: "admin",
-    label: "Administrator",
+    key: "admin",
+    name: "Administrator",
+    system: true,
+    active: true,
+    assignable: true,
     superAdminOnly: true,
+    permissions: [],
   },
 ];
 
@@ -211,6 +230,13 @@ export default function AddEmployeeModal({
   ] = useState([]);
 
   const [
+    roles,
+    setRoles,
+  ] = useState(
+    DEFAULT_STAFF_ROLES
+  );
+
+  const [
     servicesLoaded,
     setServicesLoaded,
   ] = useState(false);
@@ -235,6 +261,40 @@ export default function AddEmployeeModal({
       groupPermissions,
       []
     );
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    let active = true;
+
+    staffRoleService
+      .list()
+      .then((rows) => {
+        if (!active) {
+          return;
+        }
+
+        setRoles(
+          Array.isArray(rows) &&
+          rows.length
+            ? rows
+            : DEFAULT_STAFF_ROLES
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setRoles(
+            DEFAULT_STAFF_ROLES
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -360,6 +420,12 @@ export default function AddEmployeeModal({
   function updateRole(
     role
   ) {
+    const definition =
+      roles.find(
+        (item) =>
+          item.key === role
+      );
+
     setForm(
       (current) => ({
         ...current,
@@ -368,7 +434,18 @@ export default function AddEmployeeModal({
           DEFAULT_JOB_TITLES[
             role
           ] ||
+          definition?.name ||
           current.jobTitle,
+        permissions:
+          definition?.system ===
+          false
+            ? [
+                ...(
+                  definition.permissions ||
+                  []
+                ),
+              ]
+            : [],
       })
     );
   }
@@ -672,11 +749,28 @@ export default function AddEmployeeModal({
   }
 
   const visibleRoles =
-    STAFF_ROLES.filter(
+    roles.filter(
       (role) =>
-        !role.superAdminOnly ||
-        canManageRoles
+        role.assignable !==
+          false &&
+        role.active !==
+          false &&
+        (
+          !role.superAdminOnly ||
+          canManageRoles
+        )
     );
+
+  const selectedRole =
+    roles.find(
+      (role) =>
+        role.key ===
+        form.role
+    );
+
+  const customRoleSelected =
+    selectedRole?.system ===
+    false;
 
   return (
     <div
@@ -878,13 +972,13 @@ export default function AddEmployeeModal({
                     (role) => (
                       <option
                         key={
-                          role.value
+                          role.key
                         }
                         value={
-                          role.value
+                          role.key
                         }
                       >
-                        {role.label}
+                        {role.name}
                       </option>
                     )
                   )}
@@ -1416,7 +1510,9 @@ export default function AddEmployeeModal({
                 Initial access permissions
               </summary>
               <p className="mt-2 text-sm text-stone-600">
-                Optional. Role labels do not provide broad access; assign only the capabilities this employee needs.
+                {customRoleSelected
+                  ? "This custom role uses the permission template defined in Staff Roles. Edit the role template to change access for everyone assigned to it."
+                  : "Optional. Built-in role labels do not provide broad access; assign only the capabilities this employee needs."}
               </p>
 
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -1451,12 +1547,15 @@ export default function AddEmployeeModal({
                                     permission.value
                                   )
                                 }
+                                disabled={
+                                  customRoleSelected
+                                }
                                 onChange={() =>
                                   togglePermission(
                                     permission.value
                                   )
                                 }
-                                className="mt-1 h-4 w-4 accent-amber-500"
+                                className="mt-1 h-4 w-4 accent-amber-500 disabled:opacity-50"
                               />
                               <span>
                                 {permission.label}
