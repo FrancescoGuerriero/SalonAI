@@ -44,6 +44,11 @@ export const BUILT_IN_STAFF_ROLE_KEYS =
     )
   );
 
+const BUILT_IN_STAFF_ROLE_KEY_SET =
+  new Set(
+    BUILT_IN_STAFF_ROLE_KEYS
+  );
+
 const RESERVED_ROLE_KEYS =
   new Set([
     "customer",
@@ -153,6 +158,16 @@ export function assertCustomRoleKey(
   return key;
 }
 
+export function isBuiltInStaffRoleKey(
+  roleKey
+) {
+  return BUILT_IN_STAFF_ROLE_KEY_SET.has(
+    String(roleKey || "")
+      .trim()
+      .toLowerCase()
+  );
+}
+
 export function builtInRoleDefinition(
   roleKey
 ) {
@@ -171,14 +186,66 @@ export function builtInRoleDefinition(
     return null;
   }
 
+  const baselinePermissions =
+    STAFF_ROLE_BASELINE_PERMISSIONS[
+      key
+    ] || [];
+
   return {
     ...definition,
     system: true,
     active: true,
+    editable:
+      key !==
+      "super_admin",
+    baselinePermissions:
+      [...baselinePermissions],
+    rolePermissions: [],
     permissions:
-      STAFF_ROLE_BASELINE_PERMISSIONS[
-        key
-      ] || [],
+      [...baselinePermissions],
+  };
+}
+
+function mergeBuiltInOverride(
+  definition,
+  override
+) {
+  if (!definition) {
+    return null;
+  }
+
+  const baselinePermissions =
+    definition.baselinePermissions ||
+    [];
+
+  const rolePermissions =
+    assignableRolePermissions(
+      override?.permissions
+    ).filter(
+      (permission) =>
+        !baselinePermissions.includes(
+          permission
+        )
+    );
+
+  return {
+    ...definition,
+    _id:
+      override?._id,
+    description:
+      override?.description ||
+      "",
+    createdAt:
+      override?.createdAt,
+    updatedAt:
+      override?.updatedAt,
+    rolePermissions,
+    permissions: [
+      ...new Set([
+        ...baselinePermissions,
+        ...rolePermissions,
+      ]),
+    ],
   };
 }
 
@@ -199,7 +266,15 @@ export async function resolveStaffRole(
     );
 
   if (builtIn) {
-    return builtIn;
+    const override =
+      await StaffRole.findOne({
+        key,
+      }).lean();
+
+    return mergeBuiltInOverride(
+      builtIn,
+      override
+    );
   }
 
   const query = {
@@ -219,20 +294,26 @@ export async function resolveStaffRole(
     return null;
   }
 
+  const permissions =
+    assignableRolePermissions(
+      custom.permissions
+    );
+
   return {
     ...custom,
-    permissions:
-      assignableRolePermissions(
-        custom.permissions
-      ),
+    permissions,
+    baselinePermissions: [],
+    rolePermissions:
+      permissions,
     system: false,
+    editable: true,
     assignable: true,
     superAdminOnly: true,
   };
 }
 
 export async function listStaffRoleDefinitions() {
-  const customRoles =
+  const storedRoles =
     await StaffRole.find()
       .sort({
         active: -1,
@@ -240,30 +321,61 @@ export async function listStaffRoleDefinitions() {
       })
       .lean();
 
-  return [
-    ...BUILT_IN_STAFF_ROLES.map(
-      (role) => ({
-        ...role,
-        system: true,
-        active: true,
-        permissions:
-          STAFF_ROLE_BASELINE_PERMISSIONS[
+  const storedByKey =
+    new Map(
+      storedRoles.map(
+        (role) => [
+          role.key,
+          role,
+        ]
+      )
+    );
+
+  const builtIn =
+    BUILT_IN_STAFF_ROLES.map(
+      (role) =>
+        mergeBuiltInOverride(
+          builtInRoleDefinition(
             role.key
-          ] || [],
-      })
-    ),
-    ...customRoles.map(
-      (role) => ({
-        ...role,
-        permissions:
-          assignableRolePermissions(
-            role.permissions
           ),
-        system: false,
-        assignable: true,
-        superAdminOnly: true,
-      })
-    ),
+          storedByKey.get(
+            role.key
+          )
+        )
+    );
+
+  const custom =
+    storedRoles
+      .filter(
+        (role) =>
+          !isBuiltInStaffRoleKey(
+            role.key
+          )
+      )
+      .map(
+        (role) => {
+          const permissions =
+            assignableRolePermissions(
+              role.permissions
+            );
+
+          return {
+            ...role,
+            permissions,
+            baselinePermissions: [],
+            rolePermissions:
+              permissions,
+            system: false,
+            editable: true,
+            assignable: true,
+            superAdminOnly: true,
+          };
+        }
+      );
+
+  return [
+    ...builtIn,
+    ...custom,
   ];
 }
 

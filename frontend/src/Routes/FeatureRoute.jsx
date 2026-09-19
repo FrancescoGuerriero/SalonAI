@@ -3,15 +3,28 @@ import { Power } from "lucide-react";
 
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import useFeatureControls from "../hooks/useFeatureControls.js";
+import useAuth from "../hooks/useAuth.js";
+import {
+  isSuperAdminRole,
+} from "../utils/roles.js";
 
 export default function FeatureRoute({ children, featureId }) {
   const { loading, isFeatureEnabled } = useFeatureControls();
+  const { user } = useAuth();
+
+  const superAdminPreview =
+    isSuperAdminRole(
+      user?.role
+    );
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
-  if (!isFeatureEnabled(featureId)) {
+  if (
+    !superAdminPreview &&
+    !isFeatureEnabled(featureId)
+  ) {
     return (
       <main className="min-h-[60vh] px-4 py-16" id="main-content" tabIndex="-1">
         <section className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
