@@ -59,14 +59,20 @@ export default function StylistCard({
           </span>
         </div>
 
-        <button
-          type="button"
-          className="customer-card-action"
-          onClick={() => onSelect?.(stylist)}
-        >
-          {actionLabel}
-          <ArrowRight size={17} />
-        </button>
+        {onSelect ? (
+          <button
+            type="button"
+            className="customer-card-action"
+            onClick={() =>
+              onSelect(
+                stylist
+              )
+            }
+          >
+            {actionLabel}
+            <ArrowRight size={17} />
+          </button>
+        ) : null}
       </div>
     </article>
   );
