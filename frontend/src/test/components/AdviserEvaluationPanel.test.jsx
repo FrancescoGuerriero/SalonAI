@@ -87,15 +87,19 @@ describe(
           )
         ).toBeInTheDocument();
         expect(
-          screen.getByText(
+          screen.getAllByText(
             "50.0%"
-          )
-        ).toBeInTheDocument();
+          ).length
+        ).toBeGreaterThan(
+          0
+        );
         expect(
-          screen.getByText(
+          screen.getAllByText(
             "80.0%"
-          )
-        ).toBeInTheDocument();
+          ).length
+        ).toBeGreaterThan(
+          0
+        );
         expect(
           screen.getByText(
             /does not automatically retrain/i
