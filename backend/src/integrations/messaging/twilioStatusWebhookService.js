@@ -1092,8 +1092,92 @@ export async function reconcilePendingTwilioStatusEvents(
   };
 }
 
+export async function listTwilioStatusEvents(
+  {
+    providerMessageId = "",
+    processingStatus = "",
+    channel = "",
+    limit = 50,
+  } = {},
+  {
+    EventModel =
+      TwilioStatusWebhookEvent,
+  } = {}
+) {
+  const query = {};
+
+  const messageId =
+    text(
+      providerMessageId
+    );
+  const status =
+    lower(
+      processingStatus
+    );
+  const resolvedChannel =
+    lower(
+      channel
+    );
+
+  if (messageId) {
+    query.providerMessageId =
+      messageId;
+  }
+
+  if (
+    [
+      "pending",
+      "processed",
+      "ignored",
+      "failed",
+    ].includes(
+      status
+    )
+  ) {
+    query.processingStatus =
+      status;
+  }
+
+  if (
+    [
+      "sms",
+      "whatsapp",
+      "unknown",
+    ].includes(
+      resolvedChannel
+    )
+  ) {
+    query.channel =
+      resolvedChannel;
+  }
+
+  const safeLimit =
+    Math.min(
+      200,
+      Math.max(
+        1,
+        Number.parseInt(
+          limit,
+          10
+        ) || 50
+      )
+    );
+
+  return EventModel
+    .find(query)
+    .sort({
+      receivedAt: -1,
+      createdAt: -1,
+    })
+    .limit(
+      safeLimit
+    )
+    .lean();
+}
+
 export default {
   decideTwilioDeliveryStatusUpdate,
+  listTwilioStatusEvents,
   normaliseTwilioStatusEvent,
   processTwilioStatusEvent,
   reconcilePendingTwilioStatusEvents,
