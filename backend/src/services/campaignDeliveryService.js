@@ -737,8 +737,50 @@ function getCampaignContent(
 
 function getExplicitConsentValue(
   customer,
-  channel
+  channel,
+  {
+    campaignType = "",
+    sendGridSuppressionGroupId = null,
+  } = {}
 ) {
+  const marketingEmail =
+    channel ===
+      "email" &&
+    normaliseLowercase(
+      campaignType
+    ) !==
+      "appointment_reminder";
+
+  const suppressionGroupId =
+    Number(
+      sendGridSuppressionGroupId
+    );
+  const hasSuppressionGroupId =
+    Number.isInteger(
+      suppressionGroupId
+    ) &&
+    suppressionGroupId > 0;
+  const suppressedGroups =
+    Array.isArray(
+      getValueByPath(
+        customer,
+        "marketing.emailSuppressionGroups"
+      )
+    )
+      ? getValueByPath(
+          customer,
+          "marketing.emailSuppressionGroups"
+        )
+          .map(Number)
+          .filter(
+            (value) =>
+              Number.isInteger(
+                value
+              ) &&
+              value > 0
+          )
+      : [];
+
   const channelPaths =
     channel === "email"
       ? [
@@ -752,6 +794,11 @@ function getExplicitConsentValue(
           "emailMarketingConsent",
           "allowEmail",
           "subscribedToEmail",
+          ...(marketingEmail
+            ? [
+                "marketing.emailConsent",
+              ]
+            : []),
         ]
       : [
           "communicationPreferences.sms",
@@ -765,6 +812,66 @@ function getExplicitConsentValue(
           "allowSms",
           "subscribedToSms",
         ];
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "marketing.emailSuppressed"
+    ) === true
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "marketing.emailSuppressed",
+    };
+  }
+
+  if (
+    marketingEmail &&
+    hasSuppressionGroupId &&
+    suppressedGroups.includes(
+      suppressionGroupId
+    )
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        `marketing.emailSuppressionGroups:${suppressionGroupId}`,
+    };
+  }
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "communicationPreferences.promotionalMessages"
+    ) === false
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "communicationPreferences.promotionalMessages",
+    };
+  }
+
+  if (
+    marketingEmail &&
+    getValueByPath(
+      customer,
+      "marketing.emailConsent"
+    ) === false
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        "marketing.emailConsent",
+    };
+  }
 
   for (const path of channelPaths) {
     const value =
@@ -841,6 +948,8 @@ function resolveCustomerConsent(
   {
     consentRequired,
     excludeUnsubscribed,
+    campaignType = "",
+    sendGridSuppressionGroupId = null,
   }
 ) {
   if (
@@ -877,7 +986,11 @@ function resolveCustomerConsent(
   const consent =
     getExplicitConsentValue(
       customer,
-      channel
+      channel,
+      {
+        campaignType,
+        sendGridSuppressionGroupId,
+      }
     );
 
   return {
@@ -2362,6 +2475,14 @@ async function processCampaignDelivery(
       options.excludeUnsubscribed ??
       config.consent
         .excludeUnsubscribed,
+    campaignType:
+      normaliseLowercase(
+        campaign.campaignType
+      ),
+    sendGridSuppressionGroupId:
+      campaign.options
+        ?.sendGridSuppressionGroupId ??
+      null,
   };
 
   const deliveryOptions = {
@@ -2659,6 +2780,14 @@ async function previewCampaignAudience(
       options.excludeUnsubscribed ??
       config.consent
         .excludeUnsubscribed,
+    campaignType:
+      normaliseLowercase(
+        campaign.campaignType
+      ),
+    sendGridSuppressionGroupId:
+      campaign.options
+        ?.sendGridSuppressionGroupId ??
+      null,
   };
 
   const preview =
@@ -2948,6 +3077,8 @@ export {
   processCampaignDelivery,
   processDueCampaigns,
   resolveCampaignAudience,
+  getExplicitConsentValue,
+  isCustomerUnsubscribed,
 };
 
 export default processCampaignDelivery;
