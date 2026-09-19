@@ -47,10 +47,23 @@ export const MANAGEMENT_SECTIONS = [
     ["/data-export-audit", "Data export audit", "Export activity and governance", FileText],
   ]},
   { id: "inventory", label: "Inventory and purchasing", links: [
-    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"], ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
+    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"],
+    ["/manage/orders", "Order management", "Customer orders and fulfilment", ClipboardList],
+    ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"],
+    ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"],
+    ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
+    ["/inventory-forecasting", "Inventory forecasting", "Stock demand forecasting", BarChart3, false, "", "inventory-purchasing"],
   ]},
   { id: "ai", label: "SalonAI tools", links: [
     ["/ai/haircare", "Haircare AI", "Recommendations", Sparkles, false, "ai:use", "ai-tools"], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", FileText, false, "ai:use", "ai-tools"], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", UsersRound, false, "ai:use", "ai-tools"], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", BarChart3, false, "ai:use", "ai-tools"], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", Megaphone, false, "ai:use", "ai-tools"], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", CalendarClock, false, "ai:use", "ai-tools"], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", BadgePoundSterling, false, "ai:use", "ai-tools"], ["/management-copilot", "Management copilot", "Prioritised actions", Sparkles, false, "ai:use", "ai-tools"],
+  ]},
+  { id: "administration", label: "Administration", links: [
+    ["/admin", "Admin overview", "Administrator control centre", Gauge, true],
+    ["/admin/services", "Admin services", "Legacy service administration", Scissors, true],
+    ["/admin/stylists", "Admin stylists", "Legacy stylist administration", UsersRound, true],
+    ["/admin/appointments", "Admin appointments", "Administrator appointment controls", CalendarDays, true],
+    ["/admin/customers", "Admin customers", "Administrator customer controls", ContactRound, true],
+    ["/admin/staff-accounts", "Staff accounts", "Staff account administration", UsersRound, false, "employee:read"],
   ]},
   { id: "premium", label: "Premium features", links: [
     ["/customer-experience-management", "Experience desk", "Reviews and requests", ClipboardList, false, "customer:read"],
@@ -105,7 +118,13 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
             canReadOwnProfile ||
             canReadAllProfiles) &&
           (!link.permission || fullDashboard || hasPermission(user, link.permission)) &&
-          (!link.featureId || isFeatureEnabled(link.featureId)) &&
+          (!link.featureId ||
+            isSuperAdminRole(
+              user?.role
+            ) ||
+            isFeatureEnabled(
+              link.featureId
+            )) &&
           (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
         ),
     })).filter((section) => section.links.length);
