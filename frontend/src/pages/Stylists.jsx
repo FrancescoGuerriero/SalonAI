@@ -23,6 +23,7 @@ import {
   BookingContext,
 } from "../context/BookingContext.jsx";
 import stylistService from "../Services/stylistService.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 import {
   getStylistSearchText,
   isStylistActive,
@@ -80,6 +81,26 @@ export default function Stylists() {
     booking?.service ||
     null;
 
+  const {
+    isFeatureEnabled,
+  } =
+    useFeatureControls();
+
+  const publicTeamEnabled =
+    isFeatureEnabled(
+      "public-team"
+    );
+
+  const onlineBookingEnabled =
+    isFeatureEnabled(
+      "online-booking"
+    );
+
+  const activeModeEnabled =
+    selectedService
+      ? onlineBookingEnabled
+      : publicTeamEnabled;
+
   async function loadStylists() {
     try {
       setLoading(
@@ -87,8 +108,19 @@ export default function Stylists() {
       );
       setError("");
 
+      if (
+        !activeModeEnabled
+      ) {
+        setStylists([]);
+        return;
+      }
+
       const data =
-        await stylistService.getBookingStylists();
+        selectedService
+          ? await stylistService
+              .getBookingStylists()
+          : await stylistService
+              .getPublicTeam();
 
       setStylists(
         normaliseStylists(
@@ -129,6 +161,7 @@ export default function Stylists() {
   useEffect(() => {
     loadStylists();
   }, [
+    activeModeEnabled,
     selectedService?._id,
   ]);
 
@@ -347,6 +380,40 @@ export default function Stylists() {
 
         {!loading &&
         !error &&
+        !activeModeEnabled ? (
+          <EmptyState
+            icon={
+              UserRoundSearch
+            }
+            title={
+              selectedService
+                ? "Online booking is currently unavailable"
+                : "Salon team profiles are currently hidden"
+            }
+            description={
+              selectedService
+                ? "The selected service remains available to browse, but online stylist selection is switched off."
+                : "Public team profiles are switched off. Other customer services remain available."
+            }
+            action={
+              <button
+                type="button"
+                className="customer-inline-button"
+                onClick={() =>
+                  navigate(
+                    "/services"
+                  )
+                }
+              >
+                Browse services
+              </button>
+            }
+          />
+        ) : null}
+
+        {!loading &&
+        !error &&
+        activeModeEnabled &&
         filteredStylists.length ===
           0 ? (
           <EmptyState
@@ -396,6 +463,7 @@ export default function Stylists() {
         ) : null}
 
         {!loading &&
+        activeModeEnabled &&
         filteredStylists.length >
           0 ? (
           <section className="customer-card-grid">
@@ -409,7 +477,10 @@ export default function Stylists() {
                     stylist
                   }
                   onSelect={
-                    selectStylist
+                    selectedService ||
+                    onlineBookingEnabled
+                      ? selectStylist
+                      : null
                   }
                   actionLabel={
                     selectedService
