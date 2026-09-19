@@ -246,3 +246,40 @@ test("employee dashboard preserves multiple daily breaks", async () => {
     /breakStart|breakEnd/
   );
 });
+
+
+test("employee service assignment uses management catalogue and preserves unpublished services", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/AdminEmployeeDetailPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /serviceService\.getManagementServices\(\)/
+  );
+  assert.doesNotMatch(
+    page,
+    /serviceService\.getServices\(\)/
+  );
+  assert.match(
+    page,
+    /"service:read"/
+  );
+  assert.match(
+    page,
+    /canManageServices/
+  );
+  assert.match(
+    page,
+    /service\.active === false \? "Unpublished" : "Published"/
+  );
+  assert.doesNotMatch(
+    page,
+    /services\.filter\([\s\S]*service\.active !==[\s\S]*false/
+  );
+});
