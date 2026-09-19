@@ -106,6 +106,11 @@ export default function StaffRoleManagementPage() {
       user,
       "staff-role:delete"
     );
+  const canReadEmployees =
+    hasPermission(
+      user,
+      "employee:read"
+    );
 
   const [
     roles,
@@ -437,12 +442,14 @@ export default function StaffRoleManagementPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link
-              to="/admin/employees"
-              className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
-            >
-              Employees
-            </Link>
+            {canReadEmployees ? (
+              <Link
+                to="/admin/employees"
+                className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+              >
+                Employees
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={() =>
