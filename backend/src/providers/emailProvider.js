@@ -2,7 +2,9 @@ import nodemailer from "nodemailer";
 
 function providerMode() {
   return String(
-    process.env.EMAIL_PROVIDER_MODE || "mock"
+    process.env.EMAIL_PROVIDER ||
+      process.env.EMAIL_PROVIDER_MODE ||
+      "mock"
   )
     .trim()
     .toLowerCase();
@@ -31,8 +33,21 @@ function simulatedResult(mode, payload) {
 }
 
 function smtpConfiguration() {
+  const mode =
+    providerMode();
+  const sendGrid =
+    mode ===
+    "sendgrid";
+
   return {
-    host: String(process.env.SMTP_HOST || "").trim(),
+    host: String(
+      process.env.SMTP_HOST ||
+        (
+          sendGrid
+            ? "smtp.sendgrid.net"
+            : ""
+        )
+    ).trim(),
     port: Number(process.env.SMTP_PORT || 587),
     secure: boolean(process.env.SMTP_SECURE, false),
     requireTLS: boolean(process.env.SMTP_REQUIRE_TLS, true),
@@ -40,8 +55,23 @@ function smtpConfiguration() {
       process.env.SMTP_REJECT_UNAUTHORIZED,
       true
     ),
-    user: String(process.env.SMTP_USER || "").trim(),
-    password: String(process.env.SMTP_PASSWORD || ""),
+    user: String(
+      process.env.SMTP_USER ||
+        (
+          sendGrid
+            ? "apikey"
+            : ""
+        )
+    ).trim(),
+    password: String(
+      process.env.SMTP_PASSWORD ||
+        (
+          sendGrid
+            ? process.env.SENDGRID_API_KEY ||
+              ""
+            : ""
+        )
+    ),
     fromName: String(process.env.EMAIL_FROM_NAME || "SalonAI").trim(),
     fromAddress: String(
       process.env.EMAIL_FROM_ADDRESS ||
@@ -105,7 +135,14 @@ export function emailDeliveryStatus() {
   return {
     mode,
     enabled: deliveryEnabled(),
-    live: deliveryEnabled() && mode === "smtp",
+    live:
+      deliveryEnabled() &&
+      [
+        "smtp",
+        "sendgrid",
+      ].includes(
+        mode
+      ),
   };
 }
 
@@ -139,7 +176,7 @@ export async function sendEmail({
   if (!deliveryEnabled()) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
-        "Real email delivery is disabled in production. Set EMAIL_DELIVERY_ENABLED=true after configuring SMTP."
+        "Real email delivery is disabled in production. Set EMAIL_DELIVERY_ENABLED=true after configuring SMTP or Twilio SendGrid."
       );
     }
 
@@ -153,7 +190,7 @@ export async function sendEmail({
   if (["mock", "console"].includes(mode)) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
-        "Production email delivery cannot use mock or console mode. Set EMAIL_PROVIDER_MODE=smtp."
+        "Production email delivery cannot use mock or console mode. Set EMAIL_PROVIDER=smtp or sendgrid."
       );
     }
 
@@ -164,9 +201,16 @@ export async function sendEmail({
     });
   }
 
-  if (mode !== "smtp") {
+  if (
+    ![
+      "smtp",
+      "sendgrid",
+    ].includes(
+      mode
+    )
+  ) {
     throw new Error(
-      "EMAIL_PROVIDER_MODE must be mock, console or smtp."
+      "EMAIL_PROVIDER must be mock, console, smtp or sendgrid."
     );
   }
 
@@ -181,7 +225,7 @@ export async function sendEmail({
   });
 
   return {
-    provider: "smtp",
+    provider: mode,
     status: "sent",
     delivered: true,
     messageId: result.messageId,
