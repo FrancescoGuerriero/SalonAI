@@ -143,18 +143,62 @@
   color: var(--palette-black);
 }
 
+
+/* Dashboard toggles are explicit controls, not tiny decorative indicators. */
+button[role="switch"] {
+  min-width: 48px;
+  min-height: 32px;
+}
+
+button[role="switch"][aria-checked="true"] {
+  color: var(--palette-black);
+}
+
+button[role="switch"]:disabled,
+button[aria-disabled="true"],
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--palette-grey-600);
+  opacity: 1;
+}
+
+[role="status"],
+[role="alert"] {
+  overflow-wrap: anywhere;
+}
+
 @media (pointer: coarse) {
   button,
   .app-button,
   .app-icon-button,
   .app-nav-link,
-  .navbar-link {
+  .navbar-link,
+  .management-link,
+  .management-section-toggle,
+  .customer-card-action,
+  .commerce-details-link {
     min-height: 44px;
     touch-action: manipulation;
   }
 
-  .app-icon-button {
+  .app-icon-button,
+  button[role="switch"] {
     min-width: 44px;
+  }
+
+  button[role="switch"] {
+    min-width: 48px;
+    min-height: 44px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
   }
 }
 

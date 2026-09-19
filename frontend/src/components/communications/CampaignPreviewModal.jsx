@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -28,15 +29,16 @@ import {
   getCommunicationCampaignErrorMessage,
   previewExistingCampaignAudience,
 } from "../../Services/communicationCampaignApi";
+import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
 const CHANNEL_CONFIG = {
   email: {
     label: "Email",
     icon: Mail,
     badgeClass:
-      "border-blue-200 bg-blue-50 text-blue-700",
+      "border-amber-200 bg-amber-50 text-amber-700",
     iconClass:
-      "bg-blue-100 text-blue-700",
+      "bg-amber-100 text-amber-700",
   },
 
   sms: {
@@ -70,9 +72,9 @@ const CHANNEL_CONFIG = {
     label: "In App",
     icon: FileText,
     badgeClass:
-      "border-indigo-200 bg-indigo-50 text-indigo-700",
+      "border-amber-200 bg-amber-50 text-amber-700",
     iconClass:
-      "bg-indigo-100 text-indigo-700",
+      "bg-amber-100 text-amber-700",
   },
 };
 
@@ -86,7 +88,7 @@ const STATUS_CONFIG = {
   scheduled: {
     label: "Scheduled",
     className:
-      "border-blue-200 bg-blue-50 text-blue-700",
+      "border-amber-200 bg-amber-50 text-amber-700",
   },
 
   queued: {
@@ -495,6 +497,7 @@ export default function CampaignPreviewModal({
   onEdit,
   onLaunch,
 }) {
+  const modalPanelRef = useRef(null);
   const [activeTab, setActiveTab] =
     useState("overview");
 
@@ -758,6 +761,11 @@ export default function CampaignPreviewModal({
     onClose,
   ]);
 
+  useModalFocusTrap({
+    open: Boolean(open && campaignData),
+    containerRef: modalPanelRef,
+  });
+
   if (!open || !campaignData) {
     return null;
   }
@@ -885,7 +893,7 @@ export default function CampaignPreviewModal({
               </p>
             </div>
 
-            <span className="text-lg font-bold text-indigo-700">
+            <span className="text-lg font-bold text-amber-700">
               {formatPercentage(
                 progressPercentage
               )}
@@ -894,7 +902,7 @@ export default function CampaignPreviewModal({
 
           <div className="mt-4 h-3 overflow-hidden rounded-full bg-gray-100">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all"
+              className="h-full rounded-full bg-amber-600 transition-all"
               style={{
                 width: `${Math.min(
                   100,
@@ -959,7 +967,7 @@ export default function CampaignPreviewModal({
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="flex items-center gap-2">
               <FileText
-                className="text-indigo-600"
+                className="text-amber-600"
                 size={19}
               />
 
@@ -1014,7 +1022,7 @@ export default function CampaignPreviewModal({
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
             <div className="flex items-center gap-2">
               <CalendarClock
-                className="text-indigo-600"
+                className="text-amber-600"
                 size={19}
               />
 
@@ -1195,7 +1203,7 @@ export default function CampaignPreviewModal({
                       key={variableName}
                       className="rounded-lg border border-gray-200 bg-gray-50 p-3"
                     >
-                      <p className="font-mono text-xs font-semibold text-indigo-700">
+                      <p className="font-mono text-xs font-semibold text-amber-700">
                         {`{{${variableName}}}`}
                       </p>
 
@@ -1326,7 +1334,7 @@ export default function CampaignPreviewModal({
             <div>
               <div className="flex items-center gap-2">
                 <Users
-                  className="text-indigo-600"
+                  className="text-amber-600"
                   size={19}
                 />
 
@@ -1377,7 +1385,7 @@ export default function CampaignPreviewModal({
                   (segment) => (
                     <span
                       key={segment}
-                      className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700"
+                      className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700"
                     >
                       {SEGMENT_LABELS[
                         segment
@@ -1404,15 +1412,15 @@ export default function CampaignPreviewModal({
                       key={getRecordId(
                         customer
                       )}
-                      className="rounded-xl border border-indigo-200 bg-indigo-50 p-3"
+                      className="rounded-xl border border-amber-200 bg-amber-50 p-3"
                     >
-                      <p className="truncate text-sm font-semibold text-indigo-900">
+                      <p className="truncate text-sm font-semibold text-amber-900">
                         {getCustomerName(
                           customer
                         )}
                       </p>
 
-                      <p className="mt-1 truncate text-xs text-indigo-700">
+                      <p className="mt-1 truncate text-xs text-amber-700">
                         {getCustomerContact(
                           customer
                         ) ||
@@ -1585,7 +1593,10 @@ export default function CampaignPreviewModal({
       aria-labelledby="campaign-preview-title"
       onMouseDown={handleBackdropClick}
     >
-      <div className="flex max-h-[96vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div
+        ref={modalPanelRef}
+        className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]"
+      >
         <header className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-5 sm:px-7">
           <div className="flex min-w-0 items-start gap-3">
             <div
@@ -1656,7 +1667,7 @@ export default function CampaignPreviewModal({
                   }
                   className={`inline-flex min-w-fit items-center gap-2 border-b-2 px-4 py-4 text-sm font-semibold transition ${
                     selected
-                      ? "border-indigo-600 text-indigo-700"
+                      ? "border-amber-600 text-amber-700"
                       : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-900"
                   }`}
                 >
@@ -1694,7 +1705,7 @@ export default function CampaignPreviewModal({
           {loading ? (
             <div className="flex min-h-96 flex-col items-center justify-center">
               <RefreshCcw
-                className="animate-spin text-indigo-600"
+                className="animate-spin text-amber-600"
                 size={30}
               />
 
@@ -1747,7 +1758,7 @@ export default function CampaignPreviewModal({
                 type="button"
                 onClick={handleEdit}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-300 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50"
               >
                 <Edit3 size={17} />
                 Edit Campaign
@@ -1762,7 +1773,7 @@ export default function CampaignPreviewModal({
                 type="button"
                 onClick={handleLaunch}
                 disabled={loading}
-                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                className="inline-flex min-w-36 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
               >
                 <Send size={17} />
                 Launch Campaign
