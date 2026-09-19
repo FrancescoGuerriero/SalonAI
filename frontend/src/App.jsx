@@ -611,7 +611,7 @@ function AppRoutes() {
 
         <Route
           path="stylists"
-          element={featurePage(<Stylists />, "online-booking")}
+          element={featurePage(<Stylists />, "public-team")}
         />
 
         <Route
