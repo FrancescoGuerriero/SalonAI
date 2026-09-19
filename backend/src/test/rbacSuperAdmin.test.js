@@ -11,6 +11,9 @@ import {
   hasUserPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  builtInRoleDefinition,
+} from "../services/staffRoleRegistryService.js";
 
 function responseRecorder() {
   const state = {
@@ -31,11 +34,54 @@ function responseRecorder() {
   };
 }
 
-test("User role model includes super_admin", () => {
-  const values =
-    User.schema.path("role").enumValues;
+test("User role model supports governed custom keys while Super Admin remains built in", () => {
+  const customUser =
+    new User({
+      name:
+        "Colour Specialist",
+      email:
+        "colour@example.com",
+      password:
+        "password123",
+      role:
+        "colour_specialist",
+    });
 
-  assert.ok(values.includes("super_admin"));
+  assert.equal(
+    customUser.validateSync(),
+    undefined
+  );
+
+  const invalidUser =
+    new User({
+      name:
+        "Invalid Role",
+      email:
+        "invalid@example.com",
+      password:
+        "password123",
+      role:
+        "Owner Role!",
+    });
+
+  assert.ok(
+    invalidUser.validateSync()
+      ?.errors?.role
+  );
+
+  const superAdmin =
+    builtInRoleDefinition(
+      "super_admin"
+    );
+
+  assert.equal(
+    superAdmin?.system,
+    true
+  );
+  assert.equal(
+    superAdmin?.assignable,
+    false
+  );
 });
 
 test("Super Admin receives the only unconditional permission bypass", () => {
