@@ -193,6 +193,20 @@ export async function updateCommunicationPreferences(req, res) {
     customer.marketing
       .consentSource =
       "customer_portal";
+
+    if (
+      emailMarketingConsent
+    ) {
+      customer.marketing
+        .emailSuppressed =
+        false;
+      customer.marketing
+        .emailSuppressedAt =
+        null;
+      customer.marketing
+        .emailSuppressionReason =
+        "";
+    }
   }
 
   customer.updatedBy = req.user._id;
