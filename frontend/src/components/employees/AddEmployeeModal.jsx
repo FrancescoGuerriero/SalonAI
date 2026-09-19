@@ -1179,7 +1179,7 @@ export default function AddEmployeeModal({
 
             {canAssignServices ? (
               <>
-                <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-black">
+                <label className="mt-4 flex min-h-11 items-center gap-3 rounded-lg border border-stone-200 p-2.5 text-sm font-semibold text-black hover:bg-amber-50">
                   <input
                     type="checkbox"
                     checked={
@@ -1283,7 +1283,7 @@ export default function AddEmployeeModal({
 
             {canConfigureSchedule ? (
               <>
-                <label className="mt-4 flex items-center gap-3 text-sm font-semibold text-black">
+                <label className="mt-4 flex min-h-11 items-center gap-3 rounded-lg border border-stone-200 p-2.5 text-sm font-semibold text-black hover:bg-amber-50">
                   <input
                     type="checkbox"
                     checked={
@@ -1548,7 +1548,7 @@ export default function AddEmployeeModal({
                               key={
                                 permission.value
                               }
-                              className="flex items-start gap-2 text-sm text-black"
+                              className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-black hover:bg-amber-50"
                             >
                               <input
                                 type="checkbox"

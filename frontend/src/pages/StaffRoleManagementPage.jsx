@@ -422,7 +422,7 @@ export default function StaffRoleManagementPage() {
       id="main-content"
       tabIndex="-1"
     >
-      <header className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+      <header className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-amber-700">
@@ -445,7 +445,7 @@ export default function StaffRoleManagementPage() {
             {canReadEmployees ? (
               <Link
                 to="/admin/employees"
-                className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               >
                 Employees
               </Link>
@@ -458,7 +458,7 @@ export default function StaffRoleManagementPage() {
               disabled={
                 loading
               }
-              className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-stone-50 disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
             >
               <RefreshCw
                 size={16}
@@ -476,7 +476,7 @@ export default function StaffRoleManagementPage() {
 
       {error ? (
         <div
-          className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+          className="rounded-xl border border-black bg-white px-4 py-3 text-sm font-semibold text-black shadow-sm"
           role="alert"
         >
           {error}
@@ -485,7 +485,7 @@ export default function StaffRoleManagementPage() {
 
       {success ? (
         <div
-          className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+          className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-black"
           role="status"
         >
           <CheckCircle2
@@ -570,7 +570,7 @@ export default function StaffRoleManagementPage() {
         .value
         )
         }
-        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
         placeholder="Colour Specialist"
         />
         </label>
@@ -591,7 +591,7 @@ export default function StaffRoleManagementPage() {
         .value
         )
         }
-        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
         placeholder="colour_specialist"
         />
         <span className="mt-1 block text-xs font-normal text-stone-500">
@@ -617,7 +617,7 @@ export default function StaffRoleManagementPage() {
         .value
         )
         }
-        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
         />
         </label>
         
@@ -643,7 +643,7 @@ export default function StaffRoleManagementPage() {
         key={
         permission.value
         }
-        className="flex items-start gap-2 text-sm text-stone-700"
+        className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-stone-700 hover:bg-amber-50"
         >
         <input
         type="checkbox"
@@ -657,7 +657,7 @@ export default function StaffRoleManagementPage() {
         permission.value
         )
         }
-        className="mt-1 h-4 w-4 accent-amber-500"
+        className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
         />
         <span>
         {
@@ -679,7 +679,7 @@ export default function StaffRoleManagementPage() {
         saving ===
         "create"
         }
-        className="mt-5 inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
         >
         <Plus size={16} />
         {saving ===
@@ -734,7 +734,7 @@ export default function StaffRoleManagementPage() {
                             .value
                         )
                       }
-                      className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+                      className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
                     />
                   </label>
 
@@ -770,11 +770,11 @@ export default function StaffRoleManagementPage() {
                           .value
                       )
                     }
-                    className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal"
+                    className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-normal outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
                   />
                 </label>
 
-                <label className="mt-4 flex items-center gap-2 text-sm font-semibold text-black">
+                <label className="mt-4 flex min-h-11 items-center gap-3 rounded-lg border border-stone-200 p-2.5 text-sm font-semibold text-black hover:bg-amber-50">
                   <input
                     type="checkbox"
                     checked={
@@ -794,7 +794,7 @@ export default function StaffRoleManagementPage() {
                           .checked
                       )
                     }
-                    className="h-4 w-4 accent-amber-500"
+                    className="h-5 w-5 shrink-0 accent-amber-500"
                   />
                   Active and assignable
                 </label>
@@ -840,7 +840,7 @@ export default function StaffRoleManagementPage() {
                                       permission.value
                                     )
                                   }
-                                  className="mt-1 h-4 w-4 accent-amber-500"
+                                  className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
                                 />
                                 <span>
                                   {
@@ -869,7 +869,7 @@ export default function StaffRoleManagementPage() {
                           role
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
                     >
                       <Save
                         size={16}
@@ -890,7 +890,7 @@ export default function StaffRoleManagementPage() {
                           role
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
                     >
                       <Trash2
                         size={16}
