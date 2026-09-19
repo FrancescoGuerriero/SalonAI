@@ -36,7 +36,7 @@ test("employee management rejects invalid roles", () => {
   assert.throws(
     () =>
       normaliseEmployeeManagementUpdate({
-        role: "owner",
+        role: "Owner Role!",
       }),
     (error) =>
       error.statusCode === 400
