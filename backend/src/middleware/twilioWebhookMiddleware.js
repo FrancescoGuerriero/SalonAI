@@ -1,5 +1,6 @@
 import {
   getMessageDeliveryConfig,
+  resolveTwilioMessagingStatusCallback,
 } from "../config/messageDeliveryConfig.js";
 
 let twilioModule = null;
@@ -197,10 +198,9 @@ function getExpectedWebhookUrl(
    * any path and query parameters.
    */
   const exactWebhookUrl =
-    normaliseText(
+    resolveTwilioMessagingStatusCallback(
       process.env
-        .TWILIO_STATUS_CALLBACK_URL
-    );
+    ).url;
 
   if (exactWebhookUrl) {
     return exactWebhookUrl;

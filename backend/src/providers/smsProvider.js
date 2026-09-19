@@ -1,5 +1,9 @@
 import twilio from "twilio";
 
+import {
+  resolveTwilioMessagingStatusCallback,
+} from "../config/messageDeliveryConfig.js";
+
 const SIMULATED_MODES = new Set([
   "mock",
   "console",
@@ -85,7 +89,10 @@ function twilioConfiguration() {
       process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_SMS_FROM
     ),
     messagingServiceSid: text(process.env.TWILIO_MESSAGING_SERVICE_SID),
-    statusCallbackUrl: text(process.env.TWILIO_STATUS_CALLBACK_URL),
+    statusCallbackUrl:
+      resolveTwilioMessagingStatusCallback(
+        process.env
+      ).url,
   };
 }
 
