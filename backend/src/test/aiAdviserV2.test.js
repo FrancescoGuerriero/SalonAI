@@ -122,3 +122,27 @@ test("management shell exposes contextual Ask SalonAI only through ai:use", asyn
     /askSalonAiAdviser/
   );
 });
+
+test("Adviser UI labels offline model evidence without implying production activation", async () => {
+  const adviser =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/ai/SalonAiAdviser.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    adviser,
+    /Model evidence/
+  );
+  assert.match(
+    adviser,
+    /not active in production/
+  );
+  assert.match(
+    adviser,
+    /Rules PR-AUC/
+  );
+});
