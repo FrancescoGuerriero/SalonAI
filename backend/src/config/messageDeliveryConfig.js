@@ -128,6 +128,189 @@ function resolveSmsProvider() {
   return legacyMode;
 }
 
+const TWILIO_STATUS_CALLBACK_PATH =
+  "/api/message-delivery/webhooks/twilio/status";
+
+function removeTrailingSlash(
+  value
+) {
+  return normaliseText(
+    value
+  ).replace(
+    /\/+$/,
+    ""
+  );
+}
+
+function isValidHttpsUrl(
+  value
+) {
+  const source =
+    normaliseText(
+      value
+    );
+
+  if (!source) {
+    return false;
+  }
+
+  try {
+    const parsed =
+      new URL(source);
+
+    return (
+      parsed.protocol ===
+        "https:" &&
+      Boolean(
+        parsed.hostname
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function resolveTwilioMessagingStatusCallback(
+  environment =
+    process.env
+) {
+  const canonical =
+    normaliseText(
+      environment
+        .TWILIO_MESSAGING_STATUS_CALLBACK_URL
+    );
+  const smsLegacy =
+    normaliseText(
+      environment
+        .TWILIO_STATUS_CALLBACK_URL
+    );
+  const whatsappLegacy =
+    normaliseText(
+      environment
+        .TWILIO_WHATSAPP_STATUS_CALLBACK_URL
+    );
+  const webhookBaseUrl =
+    removeTrailingSlash(
+      environment
+        .TWILIO_WEBHOOK_BASE_URL
+    );
+
+  const legacyConflict =
+    !canonical &&
+    Boolean(
+      smsLegacy
+    ) &&
+    Boolean(
+      whatsappLegacy
+    ) &&
+    smsLegacy !==
+      whatsappLegacy;
+
+  let url = "";
+  let source = "";
+
+  if (canonical) {
+    url =
+      canonical;
+    source =
+      "TWILIO_MESSAGING_STATUS_CALLBACK_URL";
+  } else if (
+    !legacyConflict &&
+    smsLegacy
+  ) {
+    url =
+      smsLegacy;
+    source =
+      "TWILIO_STATUS_CALLBACK_URL";
+  } else if (
+    !legacyConflict &&
+    whatsappLegacy
+  ) {
+    url =
+      whatsappLegacy;
+    source =
+      "TWILIO_WHATSAPP_STATUS_CALLBACK_URL";
+  } else if (
+    !legacyConflict &&
+    webhookBaseUrl
+  ) {
+    url =
+      `${webhookBaseUrl}${TWILIO_STATUS_CALLBACK_PATH}`;
+    source =
+      "TWILIO_WEBHOOK_BASE_URL";
+  }
+
+  return {
+    url,
+    source,
+    legacyConflict,
+    legacySmsUrl:
+      smsLegacy,
+    legacyWhatsAppUrl:
+      whatsappLegacy,
+    canonicalUrl:
+      canonical,
+    derivedFromBaseUrl:
+      source ===
+      "TWILIO_WEBHOOK_BASE_URL",
+  };
+}
+
+function getTwilioMessagingStatusCallbackReadiness(
+  environment =
+    process.env
+) {
+  const resolved =
+    resolveTwilioMessagingStatusCallback(
+      environment
+    );
+
+  const checks = {
+    noLegacyConflict:
+      !resolved
+        .legacyConflict,
+    callbackConfigured:
+      Boolean(
+        resolved.url
+      ),
+    httpsCallback:
+      isValidHttpsUrl(
+        resolved.url
+      ),
+  };
+
+  const blockers =
+    Object.entries(
+      checks
+    )
+      .filter(
+        ([, ready]) =>
+          ready !== true
+      )
+      .map(
+        ([check]) =>
+          check
+      );
+
+  return {
+    ready:
+      blockers.length ===
+      0,
+    checks,
+    blockers,
+    url:
+      resolved.url,
+    source:
+      resolved.source,
+    legacyConflict:
+      resolved
+        .legacyConflict,
+    derivedFromBaseUrl:
+      resolved
+        .derivedFromBaseUrl,
+  };
+}
+
 function isValidEmailAddress(value) {
   const email = normaliseLowercase(value);
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -235,6 +418,11 @@ function getMessageDeliveryConfig() {
     1000,
     300000
   );
+
+  const twilioStatusCallback =
+    resolveTwilioMessagingStatusCallback(
+      process.env
+    );
 
   return {
     mode,
@@ -391,7 +579,15 @@ function getMessageDeliveryConfig() {
         messagingServiceSid: normaliseText(
           process.env.TWILIO_MESSAGING_SERVICE_SID
         ),
-        statusCallbackUrl: normaliseText(process.env.TWILIO_STATUS_CALLBACK_URL),
+        statusCallbackUrl:
+          twilioStatusCallback
+            .url,
+        statusCallbackSource:
+          twilioStatusCallback
+            .source,
+        legacyStatusCallbackConflict:
+          twilioStatusCallback
+            .legacyConflict,
         webhookBaseUrl: normaliseText(process.env.TWILIO_WEBHOOK_BASE_URL),
         webhookValidationEnabled:
           mode === DELIVERY_MODES.LIVE ||
@@ -602,6 +798,26 @@ function validateSmsConfiguration(config, errors, warnings) {
   }
 
   const twilioConfig = smsConfig.twilio;
+
+  if (
+    config.mode ===
+      DELIVERY_MODES.LIVE
+  ) {
+    const callbackReadiness =
+      getTwilioMessagingStatusCallbackReadiness();
+
+    if (
+      !callbackReadiness.ready
+    ) {
+      errors.push({
+        channel: "sms",
+        code:
+          "TWILIO_STATUS_CALLBACK_NOT_READY",
+        message:
+          `Live Twilio SMS delivery requires one unambiguous HTTPS messaging status callback. Blocking checks: ${callbackReadiness.blockers.join(", ")}.`,
+      });
+    }
+  }
 
   if (!twilioConfig.accountSid) {
     errors.push({
@@ -896,6 +1112,11 @@ function getSafeMessageDeliveryConfig() {
         fromNumber: config.sms.twilio.fromNumber,
         messagingServiceSid: redactSecret(config.sms.twilio.messagingServiceSid),
         statusCallbackUrl: config.sms.twilio.statusCallbackUrl,
+        statusCallbackSource:
+          config.sms.twilio
+            .statusCallbackSource,
+        statusCallbackReadiness:
+          getTwilioMessagingStatusCallbackReadiness(),
         webhookBaseUrl: config.sms.twilio.webhookBaseUrl,
         webhookValidationEnabled: config.sms.twilio.webhookValidationEnabled,
       },
@@ -914,7 +1135,9 @@ export {
   getMessageDeliveryConfig,
   getSafeMessageDeliveryConfig,
   getSendGridMarketingReadiness,
+  getTwilioMessagingStatusCallbackReadiness,
   isValidE164Number,
+  resolveTwilioMessagingStatusCallback,
   validateMessageDeliveryConfig,
 };
 
