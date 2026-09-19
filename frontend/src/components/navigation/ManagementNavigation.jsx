@@ -3,7 +3,10 @@ import { NavLink } from "react-router-dom";
 import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, CalendarOff, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, Package, PackagePlus, Scissors, Search, Send, Share2, Sparkles, ToggleLeft, Upload, UsersRound, Workflow } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth.js";
-import { isSuperAdminRole } from "../../utils/roles.js";
+import {
+  hasFullManagementDashboard,
+  isSuperAdminRole,
+} from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 
@@ -14,11 +17,53 @@ export const MANAGEMENT_SECTIONS = [
   { id: "communications", label: "Communications", links: [
     ["/communications", "Communications", "Contact history", Mail, false, "communications:read", "communications"], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText, false, "communications:read", "communications"], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone, false, "communications:read", "communications"], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock, false, "communications:read", "communications"], ["/message-delivery", "Message delivery", "Monitor and retry", Send, false, "communications:read", "communications"],
   ]},
+  { id: "booking-planning", label: "Booking and planning", links: [
+    ["/calendar", "Calendar", "Daily and weekly schedule", CalendarDays, false, "appointment:read"],
+    ["/waitlist", "Waitlist", "Customers waiting for space", ClipboardList, false, "appointment:read"],
+    ["/booking-demand", "Booking demand", "Demand and capacity signals", BarChart3, false, "appointment:read"],
+    ["/booking-loss", "Booking loss", "Lost booking opportunities", BadgePoundSterling, false, "appointment:read"],
+    ["/smart-appointments", "Smart appointments", "AI-assisted appointment planning", Sparkles, false, "ai:use", "ai-tools"],
+    ["/capacity-planning", "Capacity planning", "Staff and chair capacity", CalendarClock, false, "ai:use", "ai-tools"],
+    ["/dynamic-pricing", "Dynamic pricing", "Pricing opportunities", BadgePoundSterling, false, "ai:use", "ai-tools"],
+  ]},
+  { id: "marketing-growth", label: "Marketing and growth", links: [
+    ["/customer-follow-ups", "Customer follow-ups", "Follow-up opportunities", ContactRound, false, "customer:read"],
+    ["/customer-value", "Customer value", "Customer value analysis", BadgePoundSterling, false, "customer:read"],
+    ["/retention-predictions", "Retention predictions", "Customers at risk", HeartHandshake, false, "customer:read"],
+    ["/rebooking-opportunities", "Rebooking opportunities", "Customers ready to rebook", CalendarClock, false, "customer:read"],
+    ["/rebooking-campaigns", "Rebooking campaigns", "Targeted rebooking activity", Megaphone, false, "communications:read", "communications"],
+    ["/marketing-attribution", "Marketing attribution", "Campaign and channel impact", BarChart3, false, "ai:use", "ai-tools"],
+  ]},
+  { id: "performance", label: "Performance and reporting", links: [
+    ["/revenue-forecast", "Revenue forecast", "Revenue outlook", BadgePoundSterling, false, "reports:read"],
+    ["/reports", "Reports", "Business reporting centre", FileText, false, "reports:read"],
+    ["/daily-close", "Daily close", "End-of-day controls", ClipboardList, false, "reports:read"],
+    ["/staff-rota", "Staff rota", "Team rota planning", CalendarDays, false, "employee:read"],
+    ["/staff-management", "Staff management", "Operational staff controls", UsersRound, false, "employee:read"],
+    ["/staff-performance", "Staff performance", "Team performance", BarChart3, false, "reports:read"],
+    ["/service-performance", "Service performance", "Service results", Scissors, false, "reports:read"],
+    ["/feedback-analytics", "Feedback analytics", "Customer feedback trends", BarChart3, false, "ai:use", "ai-tools"],
+    ["/executive-command-centre", "Executive command centre", "Business-wide overview", Gauge, false, "ai:use", "ai-tools"],
+    ["/data-export-audit", "Data export audit", "Export activity and governance", FileText, false, "reports:read"],
+  ]},
   { id: "inventory", label: "Inventory and purchasing", links: [
-    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"], ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
+    ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"],
+    ["/manage/orders", "Order management", "Customer orders and fulfilment", ClipboardList, false, "product:read"],
+    ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"],
+    ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"],
+    ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
+    ["/inventory-forecasting", "Inventory forecasting", "Stock demand forecasting", BarChart3, false, "inventory:read", "inventory-purchasing"],
   ]},
   { id: "ai", label: "SalonAI tools", links: [
     ["/ai/haircare", "Haircare AI", "Recommendations", Sparkles, false, "ai:use", "ai-tools"], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", FileText, false, "ai:use", "ai-tools"], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", UsersRound, false, "ai:use", "ai-tools"], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", BarChart3, false, "ai:use", "ai-tools"], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", Megaphone, false, "ai:use", "ai-tools"], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", CalendarClock, false, "ai:use", "ai-tools"], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", BadgePoundSterling, false, "ai:use", "ai-tools"], ["/management-copilot", "Management copilot", "Prioritised actions", Sparkles, false, "ai:use", "ai-tools"],
+  ]},
+  { id: "administration", label: "Administration", links: [
+    ["/admin", "Admin overview", "Administrator control centre", Gauge, true],
+    ["/admin/services", "Admin services", "Legacy service administration", Scissors, true],
+    ["/admin/stylists", "Admin stylists", "Legacy stylist administration", UsersRound, true],
+    ["/admin/appointments", "Admin appointments", "Administrator appointment controls", CalendarDays, true],
+    ["/admin/customers", "Admin customers", "Administrator customer controls", ContactRound, true],
+    ["/admin/staff-accounts", "Staff accounts", "Staff account administration", UsersRound, false, "employee:read"],
   ]},
   { id: "premium", label: "Premium features", links: [
     ["/customer-experience-management", "Experience desk", "Reviews and requests", ClipboardList, false, "customer:read"],
@@ -47,6 +92,11 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
         "profile:own:read"
       );
 
+    const fullDashboard =
+      hasFullManagementDashboard(
+        user?.role
+      );
+
     return MANAGEMENT_SECTIONS.map((section) => ({
       ...section,
       links: section.links
@@ -67,8 +117,14 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
           (link.to !== "/staff/profile" ||
             canReadOwnProfile ||
             canReadAllProfiles) &&
-          (!link.permission || hasPermission(user, link.permission)) &&
-          (!link.featureId || isFeatureEnabled(link.featureId)) &&
+          (!link.permission || fullDashboard || hasPermission(user, link.permission)) &&
+          (!link.featureId ||
+            isSuperAdminRole(
+              user?.role
+            ) ||
+            isFeatureEnabled(
+              link.featureId
+            )) &&
           (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
         ),
     })).filter((section) => section.links.length);
@@ -76,6 +132,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
     isFeatureEnabled,
     query,
     user?.permissions,
+    user?.rolePermissions,
     user?.role,
   ]);
 
