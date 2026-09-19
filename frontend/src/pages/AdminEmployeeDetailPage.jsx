@@ -34,6 +34,7 @@ import {
 } from "../utils/permissions.js";
 import {
   isSuperAdminRole,
+  MANAGEMENT_ROLES,
 } from "../utils/roles.js";
 
 const DAYS = [
@@ -228,6 +229,22 @@ export default function AdminEmployeeDetailPage() {
     isSuperAdminRole(
       currentUser?.role
     );
+
+  const customRoleManaged =
+    Boolean(
+      employee?.role &&
+      !MANAGEMENT_ROLES.has(
+        String(
+          employee.role
+        )
+          .trim()
+          .toLowerCase()
+      )
+    );
+
+  const canEditPermissions =
+    canManagePermissions &&
+    !customRoleManaged;
 
   const load =
     useCallback(
@@ -1071,9 +1088,9 @@ export default function AdminEmployeeDetailPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2"><ShieldCheck size={21} /><div><h2 className="text-lg font-bold text-black">Permissions</h2><p className="text-sm text-slate-600">Control the dashboard actions available to this employee.</p></div></div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {EMPLOYEE_PERMISSIONS.map((permission) => <label key={permission.value} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="h-4 w-4 accent-amber-400" checked={(employee.permissions || []).includes(permission.value)} disabled={!canManagePermissions || Boolean(saving)} onChange={(event) => { const current = employee.permissions || []; const permissions = event.target.checked ? [...current, permission.value] : current.filter((item) => item !== permission.value); void updateSettings({ permissions }, "permissions"); }} /><span>{permission.label}</span></label>)}
+          {EMPLOYEE_PERMISSIONS.map((permission) => <label key={permission.value} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="h-4 w-4 accent-amber-400" checked={(employee.permissions || []).includes(permission.value)} disabled={!canEditPermissions || Boolean(saving)} onChange={(event) => { const current = employee.permissions || []; const permissions = event.target.checked ? [...current, permission.value] : current.filter((item) => item !== permission.value); void updateSettings({ permissions }, "permissions"); }} /><span>{permission.label}</span></label>)}
         </div>
-        {!canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only the Super Admin can change roles and permissions.</p> : null}
+        {customRoleManaged ? <p className="mt-4 text-xs text-slate-500">This employee uses a custom role. Change its permission template from Staff roles so every employee assigned to that role stays consistent.</p> : !canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only the Super Admin can change roles and permissions.</p> : null}
       </section>
     </main>
   );
