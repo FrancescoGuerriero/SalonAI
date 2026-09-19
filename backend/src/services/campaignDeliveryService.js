@@ -747,6 +747,7 @@ function getExplicitConsentValue(
           "preferences.email",
           "preferences.emailMarketing",
           "marketingConsent.email",
+          "marketing.emailConsent",
           "consent.email",
           "emailConsent",
           "emailMarketingConsent",
@@ -759,6 +760,7 @@ function getExplicitConsentValue(
           "preferences.sms",
           "preferences.smsMarketing",
           "marketingConsent.sms",
+          "marketing.smsConsent",
           "consent.sms",
           "smsConsent",
           "smsMarketingConsent",
@@ -820,6 +822,17 @@ function isCustomerUnsubscribed(
           "communicationPreferences.smsUnsubscribed",
           "preferences.smsUnsubscribed",
         ];
+
+  if (
+    channel ===
+      "email" &&
+    getValueByPath(
+      customer,
+      "communicationPreferences.promotionalMessages"
+    ) === false
+  ) {
+    return true;
+  }
 
   return [
     ...generalPaths,
@@ -2948,6 +2961,8 @@ export {
   processCampaignDelivery,
   processDueCampaigns,
   resolveCampaignAudience,
+  getExplicitConsentValue,
+  isCustomerUnsubscribed,
 };
 
 export default processCampaignDelivery;
