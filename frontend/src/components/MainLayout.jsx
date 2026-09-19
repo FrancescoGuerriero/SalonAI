@@ -148,7 +148,7 @@ export default function MainLayout() {
        * Management screens use the management sidebar/burger instead.
        * Rendering both was the source of the duplicate mobile menus.
        */}
-      {!management ? <Navbar /> : null}
+      <Navbar />
 
       {!management ? (
         <>
