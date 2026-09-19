@@ -27,6 +27,10 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "profile:all:read",
   "profile:all:update",
 
+  "schedule:own:read",
+  "schedule:own:update",
+  "leave:own:request",
+
   "service:read",
   "service:create",
   "service:update",
@@ -71,11 +75,8 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
   receptionist: Object.freeze([]),
   manager: Object.freeze([]),
   stylist: Object.freeze([
-    "dashboard:view",
     "appointment:read",
     "appointment:create",
-    "profile:own:read",
-    "profile:own:update",
   ]),
 });
 
