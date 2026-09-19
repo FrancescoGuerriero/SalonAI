@@ -142,7 +142,7 @@ test.describe("SalonAI layout regressions", () => {
 
     await mockFeatureControls(page);
 
-    await page.route("**/api/stylists/booking*", async (route) => {
+    await page.route("**/api/stylists/public*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
