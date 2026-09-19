@@ -175,6 +175,18 @@ function productionEnvironment(
     TWILIO_MESSAGING_SERVICE_SID:
       "",
 
+    TWILIO_MESSAGING_STATUS_CALLBACK_URL:
+      "",
+
+    TWILIO_STATUS_CALLBACK_URL:
+      "",
+
+    TWILIO_WHATSAPP_STATUS_CALLBACK_URL:
+      "",
+
+    TWILIO_WEBHOOK_BASE_URL:
+      "",
+
     WHATSAPP_PROVIDER:
       "console",
 
@@ -239,6 +251,11 @@ test(
     assert.match(
       envExample,
       /^SMS_PROVIDER=twilio$/m
+    );
+
+    assert.match(
+      envExample,
+      /^TWILIO_MESSAGING_STATUS_CALLBACK_URL=$/m
     );
 
     assert.match(
@@ -667,6 +684,140 @@ test(
     assert.match(
       `${result.stdout}\n${result.stderr}`,
       /WhatsApp.*console|console.*WhatsApp/i
+    );
+  }
+);
+
+test(
+  "production Twilio WhatsApp requires global live mode and a signed status callback contract",
+  () => {
+    const sandboxMode =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "sandbox",
+          WHATSAPP_PROVIDER:
+            "twilio",
+          WHATSAPP_DELIVERY_ENABLED:
+            "true",
+          TWILIO_ACCOUNT_SID:
+            "AC_test",
+          TWILIO_AUTH_TOKEN:
+            "secret",
+          TWILIO_WHATSAPP_FROM:
+            "+14155238886",
+          WHATSAPP_WEBHOOK_URL:
+            "https://api.example.com/api/whatsapp/webhook",
+          TWILIO_MESSAGING_STATUS_CALLBACK_URL:
+            "https://api.example.com/api/message-delivery/webhooks/twilio/status",
+        })
+      );
+
+    assert.notEqual(
+      sandboxMode.status,
+      0
+    );
+    assert.match(
+      `${sandboxMode.stdout}\n${sandboxMode.stderr}`,
+      /WhatsApp.*MESSAGE_DELIVERY_MODE=live|MESSAGE_DELIVERY_MODE=live.*WhatsApp/i
+    );
+
+    const missingStatusCallback =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          WHATSAPP_PROVIDER:
+            "twilio",
+          WHATSAPP_DELIVERY_ENABLED:
+            "true",
+          TWILIO_ACCOUNT_SID:
+            "AC_test",
+          TWILIO_AUTH_TOKEN:
+            "secret",
+          TWILIO_WHATSAPP_FROM:
+            "+14155238886",
+          WHATSAPP_WEBHOOK_URL:
+            "https://api.example.com/api/whatsapp/webhook",
+        })
+      );
+
+    assert.notEqual(
+      missingStatusCallback.status,
+      0
+    );
+    assert.match(
+      `${missingStatusCallback.stdout}\n${missingStatusCallback.stderr}`,
+      /messaging status callback/i
+    );
+  }
+);
+
+test(
+  "production Twilio WhatsApp accepts the canonical HTTPS status callback",
+  () => {
+    const result =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          WHATSAPP_PROVIDER:
+            "twilio",
+          WHATSAPP_DELIVERY_ENABLED:
+            "true",
+          TWILIO_ACCOUNT_SID:
+            "AC_test",
+          TWILIO_AUTH_TOKEN:
+            "secret",
+          TWILIO_WHATSAPP_FROM:
+            "+14155238886",
+          WHATSAPP_WEBHOOK_URL:
+            "https://api.example.com/api/whatsapp/webhook",
+          TWILIO_MESSAGING_STATUS_CALLBACK_URL:
+            "https://api.example.com/api/message-delivery/webhooks/twilio/status",
+        })
+      );
+
+    assert.equal(
+      result.status,
+      0,
+      `${result.stdout}\n${result.stderr}`
+    );
+  }
+);
+
+test(
+  "production live SMS rejects conflicting legacy Twilio callback URLs",
+  () => {
+    const result =
+      importEnvironmentModule(
+        productionEnvironment({
+          MESSAGE_DELIVERY_MODE:
+            "live",
+          SMS_DELIVERY_ENABLED:
+            "true",
+          SMS_PROVIDER:
+            "twilio",
+          TWILIO_ACCOUNT_SID:
+            "AC_test",
+          TWILIO_AUTH_TOKEN:
+            "secret",
+          TWILIO_FROM_NUMBER:
+            "+442000000001",
+          TWILIO_STATUS_CALLBACK_URL:
+            "https://api.example.com/sms-status",
+          TWILIO_WHATSAPP_STATUS_CALLBACK_URL:
+            "https://api.example.com/whatsapp-status",
+        })
+      );
+
+    assert.notEqual(
+      result.status,
+      0
+    );
+    assert.match(
+      `${result.stdout}\n${result.stderr}`,
+      /unambiguous HTTPS messaging status callback/i
     );
   }
 );
