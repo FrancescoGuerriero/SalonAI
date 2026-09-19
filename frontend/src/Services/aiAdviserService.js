@@ -26,6 +26,8 @@ export default {
     askSalonAiAdviser,
   feedback:
     submitSalonAiAdviserFeedback,
+  evaluation:
+    getSalonAiAdviserEvaluation,
 };
 
 export async function submitSalonAiAdviserFeedback({
@@ -43,6 +45,28 @@ export async function submitSalonAiAdviserFeedback({
     );
 
   return (
+    response?.data ||
+    response
+  );
+}
+
+export async function getSalonAiAdviserEvaluation({
+  periodDays = 30,
+} = {}) {
+  const response =
+    await API.get(
+      "/ai/adviser/evaluation",
+      {
+        params: {
+          periodDays,
+        },
+      }
+    );
+
+  return (
+    response?.data
+      ?.evaluation ||
+    response?.evaluation ||
     response?.data ||
     response
   );
