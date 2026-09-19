@@ -1,4 +1,5 @@
 import Customer from "../../models/customer.js";
+import ConsentRecord from "../../models/ConsentRecord.js";
 
 const ALLOWED_CHANNELS = new Set([
   "email",
@@ -44,6 +45,22 @@ async function customerFor(user) {
   return customer;
 }
 
+export function emailMarketingConsentFromPreferences(
+  preferences = {}
+) {
+  return (
+    preferences
+      .promotionalMessages !==
+      false &&
+    preferences
+      .emailUnsubscribed !==
+      true &&
+    preferences
+      .unsubscribed !==
+      true
+  );
+}
+
 function publicPreferences(customer) {
   const preferences = customer.communicationPreferences || {};
 
@@ -86,6 +103,9 @@ export async function updateCommunicationPreferences(req, res) {
     );
   }
 
+  const consentUpdatedAt =
+    new Date();
+
   customer.communicationPreferences = {
     ...current,
     preferredChannel,
@@ -121,11 +141,79 @@ export async function updateCommunicationPreferences(req, res) {
       body.unsubscribed === undefined
         ? current.unsubscribed
         : Boolean(body.unsubscribed),
-    consentUpdatedAt: new Date(),
+    consentUpdatedAt,
+    consentSource:
+      "customer_portal",
   };
+
+  const emailMarketingPreferenceUpdated =
+    [
+      "promotionalMessages",
+      "emailUnsubscribed",
+      "unsubscribed",
+    ].some((field) =>
+      Object.prototype
+        .hasOwnProperty.call(
+          body,
+          field
+        )
+    );
+
+  let emailMarketingConsentChanged =
+    false;
+  let emailMarketingConsent =
+    customer.marketing
+      ?.emailConsent;
+
+  if (
+    emailMarketingPreferenceUpdated
+  ) {
+    emailMarketingConsent =
+      emailMarketingConsentFromPreferences(
+        customer
+          .communicationPreferences
+      );
+
+    emailMarketingConsentChanged =
+      customer.marketing
+        ?.emailConsent !==
+      emailMarketingConsent;
+
+    if (!customer.marketing) {
+      customer.marketing =
+        {};
+    }
+
+    customer.marketing
+      .emailConsent =
+      emailMarketingConsent;
+    customer.marketing
+      .emailConsentUpdatedAt =
+      consentUpdatedAt;
+    customer.marketing
+      .consentSource =
+      "customer_portal";
+  }
 
   customer.updatedBy = req.user._id;
   await customer.save();
+
+  if (
+    emailMarketingConsentChanged
+  ) {
+    await ConsentRecord.create({
+      customer:
+        req.user._id,
+      purpose:
+        "email_marketing",
+      granted:
+        emailMarketingConsent,
+      source:
+        "customer_portal",
+      recordedAt:
+        consentUpdatedAt,
+    });
+  }
 
   return res.json({
     success: true,
