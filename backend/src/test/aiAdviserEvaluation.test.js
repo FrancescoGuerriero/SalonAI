@@ -65,7 +65,7 @@ test("Adviser evaluation reports feedback, usefulness, outcomes and latency from
             outcomesObserved:
               5,
             averageLatencyMs:
-              125.55,
+              125.56,
           },
         ],
         models: [
@@ -91,7 +91,7 @@ test("Adviser evaluation reports feedback, usefulness, outcomes and latency from
             outcomesObserved:
               5,
             averageLatencyMs:
-              125.55,
+              125.56,
           },
         ],
         contexts: [
