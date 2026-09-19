@@ -24,4 +24,26 @@ export async function askSalonAiAdviser({
 export default {
   ask:
     askSalonAiAdviser,
+  feedback:
+    submitSalonAiAdviserFeedback,
 };
+
+export async function submitSalonAiAdviserFeedback({
+  inferenceId,
+  rating,
+  comment = "",
+}) {
+  const response =
+    await API.patch(
+      `/ai/adviser/inferences/${inferenceId}/feedback`,
+      {
+        rating,
+        comment,
+      }
+    );
+
+  return (
+    response?.data ||
+    response
+  );
+}
