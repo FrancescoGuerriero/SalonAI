@@ -1,7 +1,6 @@
 import express from "express";
 
 import {
-  managementOnly,
   protect,
 } from "../../middleware/authMiddleware.js";
 
@@ -63,7 +62,11 @@ const router = express.Router();
 */
 
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "ai:use"
+  )
+);
 
 
 /*
