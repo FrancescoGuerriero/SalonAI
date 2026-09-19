@@ -7,8 +7,14 @@ export const MANAGEMENT_ROLES = new Set([
 ]);
 
 export function isManagementRole(role) {
-  return MANAGEMENT_ROLES.has(
-    String(role || "").trim().toLowerCase()
+  const normalised =
+    String(role || "")
+      .trim()
+      .toLowerCase();
+
+  return Boolean(
+    normalised &&
+    normalised !== "customer"
   );
 }
 
