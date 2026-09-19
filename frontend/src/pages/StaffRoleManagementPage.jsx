@@ -19,6 +19,7 @@ import {
 import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
+  ASSIGNABLE_EMPLOYEE_PERMISSIONS,
   EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
@@ -46,7 +47,7 @@ function groupPermissions() {
   const groups = new Map();
 
   for (const permission of
-    EMPLOYEE_PERMISSIONS) {
+    ASSIGNABLE_EMPLOYEE_PERMISSIONS) {
     const group =
       permission.group ||
       "Other";
