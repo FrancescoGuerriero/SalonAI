@@ -7,6 +7,10 @@ import {
   assertWhatsAppOutboundAllowed,
 } from "./whatsappOutboundPolicy.js";
 
+import {
+  reconcileTwilioStatusAfterProviderPersistence,
+} from "../../../integrations/messaging/twilioStatusReconciliationTrigger.js";
+
 
 const ALLOWED_PROVIDER_STATUSES =
   new Set([
@@ -300,6 +304,10 @@ export async function deliverWhatsAppBotReply(
       delivery,
       now,
     });
+
+  await reconcileTwilioStatusAfterProviderPersistence(
+    delivery?.messageId
+  );
 
   return {
     saved,
