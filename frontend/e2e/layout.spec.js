@@ -1018,9 +1018,12 @@ test.describe("SalonAI layout regressions", () => {
       })
       .first();
 
-    const activeAssignable = page.getByLabel(
-      "Active and assignable"
-    );
+    const activeAssignable = page
+      .locator("label")
+      .filter({
+        hasText: "Active and assignable",
+      })
+      .first();
 
     for (const control of [
       createPermission,
