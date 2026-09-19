@@ -17,7 +17,8 @@
     "seed:davines-summer": "node scripts/seedDavinesSummerProducts.js",
     "superadmin:set": "node scripts/promoteSuperAdmin.js",
     "ai:dataset:no-show": "node scripts/buildNoShowTrainingDataset.js",
-    "calendar:acceptance": "node scripts/testCalendarProviderAcceptance.js"
+    "calendar:acceptance": "node scripts/testCalendarProviderAcceptance.js",
+    "twilio:acceptance": "node scripts/testTwilioMessagingAcceptance.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
