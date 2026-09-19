@@ -803,18 +803,46 @@ function validateSmsConfiguration(config, errors, warnings) {
     config.mode ===
       DELIVERY_MODES.LIVE
   ) {
-    const callbackReadiness =
-      getTwilioMessagingStatusCallbackReadiness();
+    const callbackBlockers = [];
 
     if (
-      !callbackReadiness.ready
+      twilioConfig
+        .legacyStatusCallbackConflict ===
+      true
+    ) {
+      callbackBlockers.push(
+        "noLegacyConflict"
+      );
+    }
+
+    if (
+      !twilioConfig
+        .statusCallbackUrl
+    ) {
+      callbackBlockers.push(
+        "callbackConfigured"
+      );
+    } else if (
+      !isValidHttpsUrl(
+        twilioConfig
+          .statusCallbackUrl
+      )
+    ) {
+      callbackBlockers.push(
+        "httpsCallback"
+      );
+    }
+
+    if (
+      callbackBlockers.length >
+      0
     ) {
       errors.push({
         channel: "sms",
         code:
           "TWILIO_STATUS_CALLBACK_NOT_READY",
         message:
-          `Live Twilio SMS delivery requires one unambiguous HTTPS messaging status callback. Blocking checks: ${callbackReadiness.blockers.join(", ")}.`,
+          `Live Twilio SMS delivery requires one unambiguous HTTPS messaging status callback. Blocking checks: ${callbackBlockers.join(", ")}.`,
       });
     }
   }
