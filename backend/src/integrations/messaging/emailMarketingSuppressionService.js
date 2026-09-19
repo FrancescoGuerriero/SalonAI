@@ -65,7 +65,7 @@ export function classifySendGridMarketingConsentEvent(
   ) {
     return {
       action:
-        "evidence_only",
+        "clear_provider_suppression",
       reason:
         "local_reconsent_required",
     };
@@ -259,6 +259,8 @@ export async function applySendGridMarketingSuppression({
         "",
       auditRecorded:
         false,
+      providerSuppressionChanged:
+        false,
     };
   }
 
@@ -292,8 +294,32 @@ export async function applySendGridMarketingSuppression({
 
   if (
     classification.action ===
-    "evidence_only"
+    "clear_provider_suppression"
   ) {
+    ensureCustomerMarketingObjects(
+      customer
+    );
+
+    const providerSuppressionChanged =
+      customer.marketing
+        .emailSuppressed ===
+      true;
+
+    if (
+      providerSuppressionChanged
+    ) {
+      customer.marketing
+        .emailSuppressed =
+        false;
+      customer.marketing
+        .emailSuppressedAt =
+        null;
+      customer.marketing
+        .emailSuppressionReason =
+        "";
+      await customer.save();
+    }
+
     return {
       applied:
         false,
@@ -310,6 +336,7 @@ export async function applySendGridMarketingSuppression({
         resolved.matchedBy,
       auditRecorded:
         false,
+      providerSuppressionChanged,
     };
   }
 
@@ -398,6 +425,8 @@ export async function applySendGridMarketingSuppression({
       audit.recorded,
     auditReason:
       audit.reason,
+    providerSuppressionChanged:
+      true,
   };
 }
 
