@@ -151,41 +151,13 @@ export const superAdminOnly = authorize(
   "super_admin"
 );
 
-export function managementOnly(
-  request,
-  response,
-  next
-) {
-  if (!request.user) {
-    return next(
-      createHttpError(
-        "Authentication is required before authorisation can be checked.",
-        401
-      )
-    );
-  }
-
-  const role =
-    String(
-      request.user.role || ""
-    )
-      .trim()
-      .toLowerCase();
-
-  if (
-    !role ||
-    role === "customer"
-  ) {
-    return next(
-      createHttpError(
-        "You do not have permission to perform this action.",
-        403
-      )
-    );
-  }
-
-  return next();
-}
+export const managementOnly = authorize(
+  "admin",
+  "super_admin",
+  "stylist",
+  "receptionist",
+  "manager"
+);
 
 export default {
   protect,
