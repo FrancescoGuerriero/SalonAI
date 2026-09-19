@@ -85,6 +85,8 @@ test("built-in staff roles retain their protected semantics", () => {
     [
       "appointment:read",
       "appointment:create",
+      "staff-role:read",
+      "staff-role:create",
     ]
   );
 });
@@ -225,6 +227,65 @@ test("staff role management is audited and synchronises assigned employees", asy
   );
   assert.match(
     controller,
+    /rolePermissions/
+  );
+  assert.match(
+    controller,
     /assignedEmployeesUpdated/
+  );
+});
+
+
+test("staff role routes delegate view create edit activation and delete separately", async () => {
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/staffRoleRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  for (const permission of [
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+    "staff-role:delete",
+  ]) {
+    assert.match(
+      routes,
+      new RegExp(
+        permission.replace(
+          "-",
+          "\\-"
+        )
+      )
+    );
+  }
+
+  assert.doesNotMatch(
+    routes,
+    /superAdminOnly/
+  );
+});
+
+test("employee special permissions remain independent from custom role templates", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /rolePermissions/
+  );
+  assert.doesNotMatch(
+    controller,
+    /Permissions for a custom role are managed from the role registry/
   );
 });
