@@ -119,9 +119,9 @@ Recommended order:
 9. enable schedulers/reminders;
 10. enable controlled campaign sending after consent/unsubscribe verification.
 
-## Next communications increment
+## Current communications increment
 
-Provider acceptance proves that SalonAI can hand a message to the provider. The next communications increment should add/complete SendGrid Event Webhook ingestion so delivered, bounced, deferred, opened, clicked and unsubscribe events can be reconciled into SalonAI's delivery/campaign evidence without trusting SMTP acceptance as final delivery.
+Provider acceptance proves that SalonAI can hand a message to the provider. Signed SendGrid Event Webhook ingestion now reconciles provider delivery and engagement evidence without trusting SMTP acceptance as final delivery.
 
 
 ## SendGrid Event Webhook reconciliation
