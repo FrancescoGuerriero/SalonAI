@@ -2,6 +2,8 @@ import {
   Bot,
   Send,
   Sparkles,
+  ThumbsDown,
+  ThumbsUp,
   X,
 } from "lucide-react";
 import {
@@ -12,6 +14,7 @@ import {
 
 import {
   askSalonAiAdviser,
+  submitSalonAiAdviserFeedback,
 } from "../../Services/aiAdviserService.js";
 import useModalFocusTrap from "../../hooks/useModalFocusTrap.js";
 
@@ -86,6 +89,18 @@ export default function SalonAiAdviser({
     error,
     setError,
   ] = useState("");
+  const [
+    feedbackRating,
+    setFeedbackRating,
+  ] = useState(null);
+  const [
+    feedbackLoading,
+    setFeedbackLoading,
+  ] = useState(false);
+  const [
+    feedbackError,
+    setFeedbackError,
+  ] = useState("");
 
   const modelEvidence =
     modelEvidenceItems(
@@ -137,6 +152,10 @@ export default function SalonAiAdviser({
 
     setLoading(true);
     setError("");
+    setFeedbackRating(
+      null
+    );
+    setFeedbackError("");
 
     try {
       const response =
@@ -159,6 +178,46 @@ export default function SalonAiAdviser({
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function rateAnswer(
+    rating
+  ) {
+    if (
+      !result?.inferenceId ||
+      feedbackLoading
+    ) {
+      return;
+    }
+
+    setFeedbackLoading(
+      true
+    );
+    setFeedbackError("");
+
+    try {
+      await submitSalonAiAdviserFeedback({
+        inferenceId:
+          result.inferenceId,
+        rating,
+      });
+
+      setFeedbackRating(
+        rating
+      );
+    } catch (
+      requestError
+    ) {
+      setFeedbackError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setFeedbackLoading(
+        false
+      );
     }
   }
 
@@ -316,6 +375,81 @@ export default function SalonAiAdviser({
                           </div>
                         )
                       )}
+                    </div>
+                  ) : null}
+
+                  {result.inferenceId ? (
+                    <div className="mt-4 border-t border-stone-300 pt-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="mr-1 text-xs font-bold text-black">
+                          Was this useful?
+                        </span>
+
+                        <button
+                          type="button"
+                          aria-label="Mark SalonAI answer useful"
+                          aria-pressed={
+                            feedbackRating ===
+                            1
+                          }
+                          disabled={
+                            feedbackLoading
+                          }
+                          onClick={() =>
+                            rateAnswer(
+                              1
+                            )
+                          }
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-300 bg-white p-2 text-black hover:border-amber-400 disabled:opacity-50"
+                        >
+                          <ThumbsUp
+                            size={17}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label="Mark SalonAI answer not useful"
+                          aria-pressed={
+                            feedbackRating ===
+                            -1
+                          }
+                          disabled={
+                            feedbackLoading
+                          }
+                          onClick={() =>
+                            rateAnswer(
+                              -1
+                            )
+                          }
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-stone-300 bg-white p-2 text-black hover:border-amber-400 disabled:opacity-50"
+                        >
+                          <ThumbsDown
+                            size={17}
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {feedbackRating !==
+                        null ? (
+                          <span
+                            role="status"
+                            className="text-xs font-semibold text-stone-600"
+                          >
+                            Feedback saved.
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {feedbackError ? (
+                        <div
+                          role="alert"
+                          className="mt-2 text-xs font-semibold text-red-700"
+                        >
+                          {feedbackError}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </article>
