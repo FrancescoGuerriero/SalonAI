@@ -34,6 +34,12 @@ import {
   generateAiMarketingInsights,
 } from "./aiMarketingInsightsController.js";
 import {
+  getAiNoShowPredictions,
+} from "./aiNoShowPredictionController.js";
+import {
+  getAiNoShowEvaluation,
+} from "./aiNoShowEvaluationController.js";
+import {
   getAiManagementCopilot,
 } from "./aiManagementCopilotController.js";
 import {
@@ -172,6 +178,27 @@ router.get(
   ),
   asyncHandler(
     getAiManagementCopilot
+  )
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| Appointment no-show intelligence
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/no-show-predictions",
+  asyncHandler(
+    getAiNoShowPredictions
+  )
+);
+
+router.get(
+  "/no-show-evaluation",
+  asyncHandler(
+    getAiNoShowEvaluation
   )
 );
 

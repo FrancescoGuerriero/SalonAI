@@ -45,6 +45,14 @@ for (const request of [
       hairType: "curly",
     },
   },
+  {
+    method: "GET",
+    pathname: "/api/ai/no-show-predictions",
+  },
+  {
+    method: "GET",
+    pathname: "/api/ai/no-show-evaluation",
+  },
 ]) {
   test(`${request.method} ${request.pathname} rejects unauthenticated requests`, async () => {
     const response = await fetch(
