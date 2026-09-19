@@ -231,6 +231,28 @@ Marketing email is therefore eligible only when both sides agree:
 - SalonAI local marketing consent is granted; and
 - provider marketing suppression is clear.
 
+### Marketing activation readiness
+
+Live SendGrid marketing/newsletter delivery is fail-closed. Transactional email remains independently available.
+
+The provider configuration exposes a redacted marketing-readiness result. A live marketing campaign can proceed only when all of the following are true:
+
+- `MESSAGE_DELIVERY_MODE=live`;
+- email delivery is enabled with `EMAIL_PROVIDER=sendgrid`;
+- the SendGrid API key is configured;
+- the signed SendGrid Event Webhook is enabled and has its public key;
+- `SENDGRID_SENDER_VERIFIED=true`;
+- `SENDGRID_DOMAIN_AUTHENTICATED=true`;
+- the controlled marketing acceptance has been completed and recorded with `SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED=true`;
+- `SENDGRID_MARKETING_ENABLED=true`;
+- the campaign declares a positive `options.sendGridSuppressionGroupId`.
+
+The marketing enable flag is deliberately last in the operational sequence. Enabling it in production while any provider-readiness check is incomplete causes production environment validation to fail.
+
+For SMTP delivery, SalonAI generates the SendGrid `X-SMTPAPI` header from trusted campaign metadata using only the validated ASM group ID. Caller-supplied `X-SMTPAPI` headers are removed so application requests cannot inject list-management bypass directives.
+
+Sandbox campaigns remain usable while provider onboarding is incomplete.
+
 ### Campaign enforcement
 
 Both campaign preparation and real campaign delivery now read the canonical Customer fields:
