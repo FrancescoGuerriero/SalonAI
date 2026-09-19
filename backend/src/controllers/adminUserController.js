@@ -14,6 +14,9 @@ import {
 import {
   EMPLOYEE_PERMISSION_SET,
 } from "../constants/permissions.js";
+import {
+  hasUserPermission,
+} from "../middleware/permissionMiddleware.js";
 
 export const STAFF_ROLES = Object.freeze([
   "stylist",
@@ -36,6 +39,18 @@ const EMPLOYEE_SETTING_FIELDS = Object.freeze([
   "acceptsAppointments",
   "permissions",
 ]);
+
+
+const DEFAULT_JOB_TITLES = Object.freeze({
+  stylist:
+    "Hair professional",
+  receptionist:
+    "Receptionist",
+  manager:
+    "Salon manager",
+  admin:
+    "Salon administrator",
+});
 
 function httpError(
   message,
@@ -74,6 +89,144 @@ function normaliseEmail(
     value,
     254
   ).toLowerCase();
+}
+
+
+function cleanList(
+  value,
+  maximumItems,
+  maximumLength
+) {
+  const input =
+    Array.isArray(value)
+      ? value
+      : String(
+          value ?? ""
+        ).split(",");
+
+  const unique =
+    new Set();
+
+  for (
+    const item of input
+  ) {
+    const cleaned =
+      cleanText(
+        item,
+        maximumLength
+      );
+
+    if (cleaned) {
+      unique.add(
+        cleaned
+      );
+    }
+
+    if (
+      unique.size >=
+      maximumItems
+    ) {
+      break;
+    }
+  }
+
+  return [
+    ...unique,
+  ];
+}
+
+function booleanField(
+  value,
+  field,
+  defaultValue
+) {
+  if (
+    value ===
+    undefined
+  ) {
+    return defaultValue;
+  }
+
+  if (
+    typeof value !==
+    "boolean"
+  ) {
+    throw httpError(
+      `${field} must be true or false.`,
+      400
+    );
+  }
+
+  return value;
+}
+
+async function normaliseServiceIds(
+  services
+) {
+  if (
+    services ===
+    undefined
+  ) {
+    return [];
+  }
+
+  if (
+    !Array.isArray(
+      services
+    )
+  ) {
+    throw httpError(
+      "services must be an array.",
+      400
+    );
+  }
+
+  const serviceIds =
+    [
+      ...new Set(
+        services.map(
+          (serviceId) =>
+            String(
+              serviceId ||
+                ""
+            ).trim()
+        )
+      ),
+    ].filter(Boolean);
+
+  if (
+    serviceIds.some(
+      (serviceId) =>
+        !mongoose.isValidObjectId(
+          serviceId
+        )
+    )
+  ) {
+    throw httpError(
+      "Every service must use a valid identifier.",
+      400
+    );
+  }
+
+  const serviceCount =
+    await Service.countDocuments({
+      _id: {
+        $in:
+          serviceIds,
+      },
+    });
+
+  if (
+    serviceCount !==
+    serviceIds.length
+  ) {
+    throw httpError(
+      "One or more selected services do not exist.",
+      400
+    );
+  }
+
+  return serviceIds;
 }
 
 function assertStaffAccount(
@@ -372,6 +525,10 @@ function serialiseAdminUser(
               stylist.lastName,
             jobTitle:
               stylist.jobTitle,
+            biography:
+              stylist.biography || "",
+            specialties:
+              stylist.specialties || [],
             profileImage:
               stylist.profileImage || "",
             profilePublished:
@@ -411,10 +568,7 @@ async function stylistForUser(
 
 async function createOrLinkStylist(
   user,
-  {
-    profilePublished = false,
-    acceptsAppointments = false,
-  } = {}
+  options = {}
 ) {
   let stylist =
     await Stylist.findOne({
@@ -435,9 +589,55 @@ async function createOrLinkStylist(
     );
   }
 
+  const split =
+    splitName(
+      user.name
+    );
+
+  const firstName =
+    cleanText(
+      options.firstName ||
+        split.firstName,
+      60
+    );
+
+  const lastName =
+    cleanText(
+      options.lastName ||
+        split.lastName,
+      60
+    );
+
+  const has =
+    (field) =>
+      Object.prototype.hasOwnProperty.call(
+        options,
+        field
+      );
+
   if (stylist) {
     stylist.userAccount =
       user._id;
+
+    if (
+      has(
+        "firstName"
+      ) &&
+      firstName
+    ) {
+      stylist.firstName =
+        firstName;
+    }
+
+    if (
+      has(
+        "lastName"
+      ) &&
+      lastName
+    ) {
+      stylist.lastName =
+        lastName;
+    }
 
     if (
       !stylist.phone &&
@@ -455,31 +655,81 @@ async function createOrLinkStylist(
         user.profilePhoto;
     }
 
+    if (
+      has(
+        "jobTitle"
+      )
+    ) {
+      stylist.jobTitle =
+        options.jobTitle;
+    }
+
+    if (
+      has(
+        "biography"
+      )
+    ) {
+      stylist.biography =
+        options.biography;
+    }
+
+    if (
+      has(
+        "specialties"
+      )
+    ) {
+      stylist.specialties =
+        options.specialties;
+    }
+
+    if (
+      has(
+        "services"
+      )
+    ) {
+      stylist.services =
+        options.services;
+    }
+
+    if (
+      has(
+        "workingHours"
+      )
+    ) {
+      stylist.workingHours =
+        options.workingHours;
+    }
+
     stylist.isActive =
       user.isActive !==
       false;
 
-    stylist.profilePublished =
-      Boolean(
-        profilePublished
-      );
+    if (
+      has(
+        "profilePublished"
+      )
+    ) {
+      stylist.profilePublished =
+        Boolean(
+          options.profilePublished
+        );
+    }
 
-    stylist.acceptsAppointments =
-      Boolean(
-        acceptsAppointments
-      );
+    if (
+      has(
+        "acceptsAppointments"
+      )
+    ) {
+      stylist.acceptsAppointments =
+        Boolean(
+          options.acceptsAppointments
+        );
+    }
 
     await stylist.save();
 
     return stylist;
   }
-
-  const {
-    firstName,
-    lastName,
-  } = splitName(
-    user.name
-  );
 
   stylist =
     await Stylist.create({
@@ -494,14 +744,33 @@ async function createOrLinkStylist(
       profileImage:
         user.profilePhoto || "",
       jobTitle:
-        "Hair professional",
+        options.jobTitle ||
+        DEFAULT_JOB_TITLES[
+          user.role
+        ] ||
+        "Salon professional",
+      biography:
+        options.biography ||
+        "",
+      specialties:
+        options.specialties ||
+        [],
+      services:
+        options.services ||
+        [],
+      ...(options.workingHours
+        ? {
+            workingHours:
+              options.workingHours,
+          }
+        : {}),
       profilePublished:
         Boolean(
-          profilePublished
+          options.profilePublished
         ),
       acceptsAppointments:
         Boolean(
-          acceptsAppointments
+          options.acceptsAppointments
         ),
       isActive:
         user.isActive !==
@@ -804,61 +1073,10 @@ export async function updateEmployeeServices(
   next
 ) {
   try {
-    if (
-      !Array.isArray(
-        req.body.services
-      )
-    ) {
-      throw httpError(
-        "services must be an array.",
-        400
-      );
-    }
-
     const serviceIds =
-      [
-        ...new Set(
-          req.body.services.map(
-            (serviceId) =>
-              String(
-                serviceId ||
-                  ""
-              ).trim()
-          )
-        ),
-      ].filter(Boolean);
-
-    if (
-      serviceIds.some(
-        (serviceId) =>
-          !mongoose.isValidObjectId(
-            serviceId
-          )
-      )
-    ) {
-      throw httpError(
-        "Every service must use a valid identifier.",
-        400
+      await normaliseServiceIds(
+        req.body.services
       );
-    }
-
-    const serviceCount =
-      await Service.countDocuments({
-        _id: {
-          $in:
-            serviceIds,
-        },
-      });
-
-    if (
-      serviceCount !==
-      serviceIds.length
-    ) {
-      throw httpError(
-        "One or more selected services do not exist.",
-        400
-      );
-    }
 
     const {
       user,
@@ -983,13 +1201,54 @@ export async function createStaffUserByAdmin(
 ) {
   let createdUser =
     null;
+  let linkedStylist =
+    null;
+  let existingStylistBefore =
+    null;
 
   try {
-    const name =
+    const suppliedFirstName =
+      cleanText(
+        req.body.firstName,
+        60
+      );
+
+    const suppliedLastName =
+      cleanText(
+        req.body.lastName,
+        60
+      );
+
+    const requestedName =
       cleanText(
         req.body.name,
         120
       );
+
+    const name =
+      requestedName ||
+      cleanText(
+        [
+          suppliedFirstName,
+          suppliedLastName,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        120
+      );
+
+    const nameParts =
+      splitName(
+        name
+      );
+
+    const firstName =
+      suppliedFirstName ||
+      nameParts.firstName;
+
+    const lastName =
+      suppliedLastName ||
+      nameParts.lastName;
 
     const email =
       normaliseEmail(
@@ -1019,16 +1278,118 @@ export async function createStaffUserByAdmin(
         req.body.profilePhoto
       );
 
+    const isActive =
+      booleanField(
+        req.body.isActive,
+        "isActive",
+        true
+      );
+
     const profilePublished =
-      req.body.profilePublished ===
-      true;
+      booleanField(
+        req.body.profilePublished,
+        "profilePublished",
+        false
+      );
 
     const acceptsAppointments =
-      req.body.acceptsAppointments ===
-      undefined
-        ? false
-        : req.body.acceptsAppointments ===
-          true;
+      booleanField(
+        req.body.acceptsAppointments,
+        "acceptsAppointments",
+        false
+      );
+
+    if (
+      !ASSIGNABLE_STAFF_ROLES.includes(
+        role
+      )
+    ) {
+      throw httpError(
+        "Staff role must be stylist, receptionist, manager or admin.",
+        400
+      );
+    }
+
+    const hasFirstName =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "firstName"
+      );
+
+    const hasLastName =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "lastName"
+      );
+
+    const hasJobTitle =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "jobTitle"
+      );
+
+    const hasBiography =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "biography"
+      );
+
+    const hasSpecialties =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "specialties"
+      );
+
+    const hasServices =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "services"
+      );
+
+    const hasWorkingHours =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "workingHours"
+      );
+
+    const jobTitle =
+      hasJobTitle
+        ? cleanText(
+            req.body.jobTitle,
+            120
+          )
+        : undefined;
+
+    const biography =
+      hasBiography
+        ? cleanText(
+            req.body.biography,
+            2000
+          )
+        : undefined;
+
+    const specialties =
+      hasSpecialties
+        ? cleanList(
+            req.body.specialties,
+            12,
+            120
+          )
+        : undefined;
+
+    const serviceIds =
+      hasServices
+        ? await normaliseServiceIds(
+            req.body.services
+          )
+        : undefined;
+
+    const workingHours =
+      hasWorkingHours
+        ? normaliseEmployeeSchedule(
+            req.body.workingHours
+          )
+        : undefined;
 
     const permissions =
       Array.isArray(
@@ -1052,21 +1413,20 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      password.length < 8
+      !firstName ||
+      !lastName
     ) {
       throw httpError(
-        "Password must contain at least 8 characters.",
+        "First name and last name are required.",
         400
       );
     }
 
     if (
-      !ASSIGNABLE_STAFF_ROLES.includes(
-        role
-      )
+      password.length < 8
     ) {
       throw httpError(
-        "Staff role must be stylist, receptionist, manager or admin.",
+        "Password must contain at least 8 characters.",
         400
       );
     }
@@ -1085,6 +1445,59 @@ export async function createStaffUserByAdmin(
       );
     }
 
+    if (
+      req.user.role !==
+        "super_admin" &&
+      permissions.length >
+        0
+    ) {
+      throw httpError(
+        "Only the Super Admin can assign employee permissions during account creation.",
+        403
+      );
+    }
+
+
+    if (
+      hasServices &&
+      !hasUserPermission(
+        req.user,
+        "employee:services:update"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to assign employee services during account creation.",
+        403
+      );
+    }
+
+    if (
+      hasWorkingHours &&
+      !hasUserPermission(
+        req.user,
+        "employee:schedule:update"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to configure employee schedules during account creation.",
+        403
+      );
+    }
+
+    if (
+      isActive ===
+        false &&
+      !hasUserPermission(
+        req.user,
+        "employee:deactivate"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to create an inactive employee account.",
+        403
+      );
+    }
+
     const existingUser =
       await User.findOne({
         email,
@@ -1096,6 +1509,28 @@ export async function createStaffUserByAdmin(
         409
       );
     }
+
+    const existingStylist =
+      await Stylist.findOne({
+        email,
+      });
+
+    if (
+      existingStylist?.userAccount
+    ) {
+      throw httpError(
+        "A staff profile with this email is already linked to another account.",
+        409
+      );
+    }
+
+    existingStylistBefore =
+      existingStylist
+        ? existingStylist.toObject({
+            depopulate:
+              true,
+          })
+        : null;
 
     const hashedPassword =
       await bcrypt.hash(
@@ -1117,17 +1552,65 @@ export async function createStaffUserByAdmin(
             : [],
         phone,
         profilePhoto,
+        isActive,
         createdBy:
           req.user._id,
       });
 
-    const stylist =
+    linkedStylist =
       await createOrLinkStylist(
         createdUser,
         {
+          ...(hasFirstName
+            ? {
+                firstName,
+              }
+            : {}),
+          ...(hasLastName
+            ? {
+                lastName,
+              }
+            : {}),
+          ...(hasJobTitle
+            ? {
+                jobTitle,
+              }
+            : {}),
+          ...(hasBiography
+            ? {
+                biography,
+              }
+            : {}),
+          ...(hasSpecialties
+            ? {
+                specialties,
+              }
+            : {}),
+          ...(hasServices
+            ? {
+                services:
+                  serviceIds,
+              }
+            : {}),
+          ...(hasWorkingHours
+            ? {
+                workingHours,
+              }
+            : {}),
           profilePublished,
           acceptsAppointments,
         }
+      );
+
+    await linkedStylist.populate(
+      "services",
+      "name category price duration active onlineBookable"
+    );
+
+    const created =
+      serialiseAdminUser(
+        createdUser,
+        linkedStylist
       );
 
     await recordAuditEvent({
@@ -1139,10 +1622,13 @@ export async function createStaffUserByAdmin(
       resourceId:
         createdUser._id,
       after:
-        serialiseAdminUser(
-          createdUser,
-          stylist
-        ),
+        created,
+      metadata: {
+        initialServices:
+          serviceIds || [],
+        scheduleConfigured:
+          hasWorkingHours,
+      },
     });
 
     return res
@@ -1152,28 +1638,38 @@ export async function createStaffUserByAdmin(
         message:
           "Employee account and profile created successfully.",
         user:
-          serialiseAdminUser(
-            createdUser,
-            stylist
-          ),
+          created,
       });
   } catch (error) {
     if (
       createdUser?._id
     ) {
       try {
-        await Stylist.updateMany(
-          {
+        if (
+          existingStylistBefore?._id
+        ) {
+          await Stylist.replaceOne(
+            {
+              _id:
+                existingStylistBefore._id,
+            },
+            existingStylistBefore
+          );
+        } else if (
+          linkedStylist?._id
+        ) {
+          await Stylist.deleteOne({
+            _id:
+              linkedStylist._id,
             userAccount:
               createdUser._id,
-          },
-          {
-            $unset: {
-              userAccount:
-                1,
-            },
-          }
-        );
+          });
+        } else {
+          await Stylist.deleteMany({
+            userAccount:
+              createdUser._id,
+          });
+        }
 
         await User.deleteOne({
           _id:
