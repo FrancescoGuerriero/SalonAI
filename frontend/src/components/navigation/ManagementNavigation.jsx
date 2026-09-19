@@ -3,7 +3,10 @@ import { NavLink } from "react-router-dom";
 import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, CalendarOff, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, Package, PackagePlus, Scissors, Search, Send, Share2, Sparkles, ToggleLeft, Upload, UsersRound, Workflow } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth.js";
-import { isSuperAdminRole } from "../../utils/roles.js";
+import {
+  hasFullManagementDashboard,
+  isSuperAdminRole,
+} from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 
@@ -13,6 +16,35 @@ export const MANAGEMENT_SECTIONS = [
   ]},
   { id: "communications", label: "Communications", links: [
     ["/communications", "Communications", "Contact history", Mail, false, "communications:read", "communications"], ["/communication-templates", "Message templates", "Reusable content", MessageSquareText, false, "communications:read", "communications"], ["/communication-campaigns", "Campaign composer", "Create campaigns", Megaphone, false, "communications:read", "communications"], ["/scheduled-communications", "Scheduled messages", "Future delivery", CalendarClock, false, "communications:read", "communications"], ["/message-delivery", "Message delivery", "Monitor and retry", Send, false, "communications:read", "communications"],
+  ]},
+  { id: "booking-planning", label: "Booking and planning", links: [
+    ["/calendar", "Calendar", "Daily and weekly schedule", CalendarDays],
+    ["/waitlist", "Waitlist", "Customers waiting for space", ClipboardList],
+    ["/booking-demand", "Booking demand", "Demand and capacity signals", BarChart3],
+    ["/booking-loss", "Booking loss", "Lost booking opportunities", BadgePoundSterling],
+    ["/smart-appointments", "Smart appointments", "AI-assisted appointment planning", Sparkles, false, "", "ai-tools"],
+    ["/capacity-planning", "Capacity planning", "Staff and chair capacity", CalendarClock, false, "", "ai-tools"],
+    ["/dynamic-pricing", "Dynamic pricing", "Pricing opportunities", BadgePoundSterling, false, "", "ai-tools"],
+  ]},
+  { id: "marketing-growth", label: "Marketing and growth", links: [
+    ["/customer-follow-ups", "Customer follow-ups", "Follow-up opportunities", ContactRound],
+    ["/customer-value", "Customer value", "Customer value analysis", BadgePoundSterling],
+    ["/retention-predictions", "Retention predictions", "Customers at risk", HeartHandshake],
+    ["/rebooking-opportunities", "Rebooking opportunities", "Customers ready to rebook", CalendarClock],
+    ["/rebooking-campaigns", "Rebooking campaigns", "Targeted rebooking activity", Megaphone, false, "", "communications"],
+    ["/marketing-attribution", "Marketing attribution", "Campaign and channel impact", BarChart3, false, "", "ai-tools"],
+  ]},
+  { id: "performance", label: "Performance and reporting", links: [
+    ["/revenue-forecast", "Revenue forecast", "Revenue outlook", BadgePoundSterling],
+    ["/reports", "Reports", "Business reporting centre", FileText],
+    ["/daily-close", "Daily close", "End-of-day controls", ClipboardList],
+    ["/staff-rota", "Staff rota", "Team rota planning", CalendarDays],
+    ["/staff-management", "Staff management", "Operational staff controls", UsersRound],
+    ["/staff-performance", "Staff performance", "Team performance", BarChart3],
+    ["/service-performance", "Service performance", "Service results", Scissors],
+    ["/feedback-analytics", "Feedback analytics", "Customer feedback trends", BarChart3, false, "", "ai-tools"],
+    ["/executive-command-centre", "Executive command centre", "Business-wide overview", Gauge, false, "", "ai-tools"],
+    ["/data-export-audit", "Data export audit", "Export activity and governance", FileText],
   ]},
   { id: "inventory", label: "Inventory and purchasing", links: [
     ["/manage/inventory", "Inventory", "Stock levels and adjustments", Package, false, "inventory:read"], ["/suppliers", "Suppliers", "Accounts and terms", Building2, false, "inventory:read", "inventory-purchasing"], ["/purchase-orders", "Purchase orders", "Approve and receive", ClipboardList, false, "inventory:read", "inventory-purchasing"], ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", PackagePlus, false, "inventory:read", "inventory-purchasing"],
@@ -47,6 +79,11 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
         "profile:own:read"
       );
 
+    const fullDashboard =
+      hasFullManagementDashboard(
+        user?.role
+      );
+
     return MANAGEMENT_SECTIONS.map((section) => ({
       ...section,
       links: section.links
@@ -67,7 +104,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
           (link.to !== "/staff/profile" ||
             canReadOwnProfile ||
             canReadAllProfiles) &&
-          (!link.permission || hasPermission(user, link.permission)) &&
+          (!link.permission || fullDashboard || hasPermission(user, link.permission)) &&
           (!link.featureId || isFeatureEnabled(link.featureId)) &&
           (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
         ),
@@ -76,6 +113,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
     isFeatureEnabled,
     query,
     user?.permissions,
+    user?.rolePermissions,
     user?.role,
   ]);
 
