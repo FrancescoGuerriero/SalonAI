@@ -22,6 +22,12 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "employee:schedule:update", label: "Update schedules", group: "Employees" },
   { value: "employee:services:update", label: "Assign services", group: "Employees" },
 
+  { value: "staff-role:read", label: "View staff roles", group: "Roles & access" },
+  { value: "staff-role:create", label: "Create staff roles", group: "Roles & access" },
+  { value: "staff-role:update", label: "Edit staff roles", group: "Roles & access" },
+  { value: "staff-role:activate", label: "Activate or deactivate staff roles", group: "Roles & access" },
+  { value: "staff-role:delete", label: "Delete staff roles", group: "Roles & access" },
+
   { value: "profile:own:read", label: "View own public profile", group: "Profiles" },
   { value: "profile:own:update", label: "Edit own public profile", group: "Profiles" },
   { value: "profile:all:read", label: "View all staff profiles", group: "Profiles" },
@@ -60,10 +66,32 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "data-export:manage", label: "Manage data exports", group: "System" },
 ]);
 
-const STYLIST_BASELINE = Object.freeze([
-  "appointment:read",
-  "appointment:create",
-]);
+const ROLE_BASELINES = Object.freeze({
+  admin: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
+  receptionist: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
+  manager: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
+  stylist: Object.freeze([
+    "appointment:read",
+    "appointment:create",
+    "staff-role:read",
+    "staff-role:create",
+  ]),
+});
 
 export function effectivePermissions(user) {
   const role = String(user?.role || "").trim().toLowerCase();
@@ -74,7 +102,8 @@ export function effectivePermissions(user) {
 
   return [
     ...new Set([
-      ...(role === "stylist" ? STYLIST_BASELINE : []),
+      ...(ROLE_BASELINES[role] || []),
+      ...(Array.isArray(user?.rolePermissions) ? user.rolePermissions : []),
       ...(Array.isArray(user?.permissions) ? user.permissions : []),
     ]),
   ];

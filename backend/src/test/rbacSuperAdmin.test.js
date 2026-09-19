@@ -11,6 +11,9 @@ import {
   hasUserPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  builtInRoleDefinition,
+} from "../services/staffRoleRegistryService.js";
 
 function responseRecorder() {
   const state = {
@@ -31,11 +34,54 @@ function responseRecorder() {
   };
 }
 
-test("User role model includes super_admin", () => {
-  const values =
-    User.schema.path("role").enumValues;
+test("User role model supports governed custom keys while Super Admin remains built in", () => {
+  const customUser =
+    new User({
+      name:
+        "Colour Specialist",
+      email:
+        "colour@example.com",
+      password:
+        "password123",
+      role:
+        "colour_specialist",
+    });
 
-  assert.ok(values.includes("super_admin"));
+  assert.equal(
+    customUser.validateSync(),
+    undefined
+  );
+
+  const invalidUser =
+    new User({
+      name:
+        "Invalid Role",
+      email:
+        "invalid@example.com",
+      password:
+        "password123",
+      role:
+        "Owner Role!",
+    });
+
+  assert.ok(
+    invalidUser.validateSync()
+      ?.errors?.role
+  );
+
+  const superAdmin =
+    builtInRoleDefinition(
+      "super_admin"
+    );
+
+  assert.equal(
+    superAdmin?.system,
+    true
+  );
+  assert.equal(
+    superAdmin?.assignable,
+    false
+  );
 });
 
 test("Super Admin receives the only unconditional permission bypass", () => {
@@ -56,7 +102,27 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   );
 });
 
-test("Stylist baseline is limited to appointment view/create", () => {
+test("Built-in role-management defaults follow the configured hierarchy", () => {
+  assert.deepEqual(
+    STAFF_ROLE_BASELINE_PERMISSIONS.admin,
+    [
+      "staff-role:read",
+      "staff-role:create",
+      "staff-role:update",
+      "staff-role:activate",
+    ]
+  );
+
+  assert.deepEqual(
+    STAFF_ROLE_BASELINE_PERMISSIONS.receptionist,
+    STAFF_ROLE_BASELINE_PERMISSIONS.admin
+  );
+
+  assert.deepEqual(
+    STAFF_ROLE_BASELINE_PERMISSIONS.manager,
+    STAFF_ROLE_BASELINE_PERMISSIONS.admin
+  );
+
   const baseline =
     STAFF_ROLE_BASELINE_PERMISSIONS.stylist;
 
@@ -65,6 +131,8 @@ test("Stylist baseline is limited to appointment view/create", () => {
     [
       "appointment:read",
       "appointment:create",
+      "staff-role:read",
+      "staff-role:create",
     ]
   );
 
@@ -88,6 +156,42 @@ test("Stylist baseline is limited to appointment view/create", () => {
       `Stylist baseline must not include ${permission}`
     );
   }
+});
+
+test("Role-template and employee-specific permissions are additive", () => {
+  assert.equal(
+    hasUserPermission(
+      {
+        role:
+          "colour_specialist",
+        rolePermissions: [
+          "service:read",
+        ],
+        permissions: [
+          "customer:read",
+        ],
+      },
+      "service:read"
+    ),
+    true
+  );
+
+  assert.equal(
+    hasUserPermission(
+      {
+        role:
+          "colour_specialist",
+        rolePermissions: [
+          "service:read",
+        ],
+        permissions: [
+          "customer:read",
+        ],
+      },
+      "customer:read"
+    ),
+    true
+  );
 });
 
 test("Assigned permissions extend subordinate role capability", () => {
@@ -177,6 +281,11 @@ test("Permission middleware allows Super Admin and delegated staff", () => {
 test("expanded catalogue contains management permissions required by the new model", () => {
   for (const permission of [
     "employee:permissions:update",
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+    "staff-role:delete",
     "profile:all:update",
     "schedule:own:read",
     "schedule:own:update",

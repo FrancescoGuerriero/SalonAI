@@ -45,8 +45,23 @@ import { requireFeature } from "../services/featureControlService.js";
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
 router.use(auditFutureWrites);
+
+/*
+ * Custom staff roles must not inherit blanket access to legacy future-feature
+ * routers. Only routers that enforce granular permissions on every operation
+ * are mounted before the legacy built-in-role gate.
+ */
+router.use(
+  "/appointment-management",
+  appointmentManagementRoutes
+);
+router.use(
+  "/staff",
+  staffRoutes
+);
+
+router.use(managementOnly);
 
 router.use("/templates", requireFeature("communications"), templateRoutes);
 router.use("/segments", segmentRoutes);
@@ -54,14 +69,12 @@ router.use("/campaigns", requireFeature("communications"), campaignRoutes);
 router.use("/scheduler", requireFeature("communications"), schedulerRoutes);
 router.use("/customer-profiles", customerProfileRoutes);
 router.use("/retention-actions", retentionActionRoutes);
-router.use("/appointment-management", appointmentManagementRoutes);
 router.use("/calendar-connections", calendarConnectionRoutes);
 router.use("/waitlist", waitlistRoutes);
 router.use("/ai", requireFeature("ai-tools"), aiRoutes);
 router.use("/reports", reportRoutes);
 router.use("/revenue-forecast", revenueForecastRoutes);
 router.use("/loyalty", requireFeature("loyalty"), loyaltyRoutes);
-router.use("/staff", staffRoutes);
 router.use("/staff-rota", staffRotaRoutes);
 router.use("/security", securityRoutes);
 

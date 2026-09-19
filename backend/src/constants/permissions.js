@@ -22,6 +22,12 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "employee:schedule:update",
   "employee:services:update",
 
+  "staff-role:read",
+  "staff-role:create",
+  "staff-role:update",
+  "staff-role:activate",
+  "staff-role:delete",
+
   "profile:own:read",
   "profile:own:update",
   "profile:all:read",
@@ -71,16 +77,37 @@ export const EMPLOYEE_PERMISSION_SET =
  */
 export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
   super_admin: EMPLOYEE_PERMISSIONS,
-  admin: Object.freeze([]),
-  receptionist: Object.freeze([]),
-  manager: Object.freeze([]),
+  admin: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
+  receptionist: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
+  manager: Object.freeze([
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]),
   stylist: Object.freeze([
     "appointment:read",
     "appointment:create",
+    "staff-role:read",
+    "staff-role:create",
   ]),
 });
 
-export function permissionsForRole(role, assignedPermissions = []) {
+export function permissionsForRole(
+  role,
+  assignedPermissions = [],
+  rolePermissions = []
+) {
   const baseline =
     STAFF_ROLE_BASELINE_PERMISSIONS[
       String(role || "").trim().toLowerCase()
@@ -89,6 +116,7 @@ export function permissionsForRole(role, assignedPermissions = []) {
   return [
     ...new Set([
       ...baseline,
+      ...(Array.isArray(rolePermissions) ? rolePermissions : []),
       ...(Array.isArray(assignedPermissions) ? assignedPermissions : []),
     ]),
   ].filter((permission) => EMPLOYEE_PERMISSION_SET.has(permission));

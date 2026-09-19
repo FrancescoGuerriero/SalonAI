@@ -120,16 +120,35 @@ const userSchema = new Schema(
 
     role: {
       type: String,
-      enum: {
-        values: USER_ROLES,
-        message:
-          "User role must be customer, stylist, receptionist, manager, admin or super_admin.",
-      },
+      trim: true,
+      lowercase: true,
       default: "customer",
       index: true,
+      validate: {
+        validator(value) {
+          return (
+            value === "customer" ||
+            /^[a-z][a-z0-9_]{2,39}$/.test(
+              String(value || "")
+            )
+          );
+        },
+        message:
+          "User role must use a valid SalonAI role key.",
+      },
     },
 
     permissions: {
+      type: [
+        {
+          type: String,
+          enum: EMPLOYEE_PERMISSIONS,
+        },
+      ],
+      default: [],
+    },
+
+    rolePermissions: {
       type: [
         {
           type: String,
@@ -279,13 +298,10 @@ const userSchema = new Schema(
 userSchema
   .virtual("isManagementUser")
   .get(function getManagementStatus() {
-    return [
-      "stylist",
-      "receptionist",
-      "manager",
-      "admin",
-      "super_admin",
-    ].includes(this.role);
+    return Boolean(
+      this.role &&
+      this.role !== "customer"
+    );
   });
 
 userSchema
@@ -319,13 +335,10 @@ userSchema.pre(
 
 userSchema.methods.canManageSalon =
   function canManageSalon() {
-    return [
-      "stylist",
-      "receptionist",
-      "manager",
-      "admin",
-      "super_admin",
-    ].includes(this.role);
+    return Boolean(
+      this.role &&
+      this.role !== "customer"
+    );
   };
 
 userSchema.methods.isAdministrator =

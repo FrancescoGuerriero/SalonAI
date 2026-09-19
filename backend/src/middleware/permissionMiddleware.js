@@ -16,7 +16,8 @@ export function hasUserPermission(user, permission) {
 
   return permissionsForRole(
     user.role,
-    user.permissions
+    user.permissions,
+    user.rolePermissions
   ).includes(permission);
 }
 
