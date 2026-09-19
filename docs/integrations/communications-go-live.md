@@ -171,3 +171,72 @@ The communications activation order is now:
 7. validate retries and scheduler/reminder operation;
 8. integrate SendGrid suppression/unsubscribe signals with SalonAI marketing consent;
 9. enable controlled campaign/newsletter sending.
+
+
+## SendGrid marketing suppression and local re-consent
+
+Provider suppression evidence is reconciled into SalonAI's own marketing-consent controls before campaign/newsletter activation.
+
+### Global email-marketing suppression
+
+When a signed, strongly matched SendGrid event is one of:
+
+- `unsubscribe`;
+- `spamreport`;
+- `group_unsubscribe`;
+
+SalonAI withdraws **email marketing only** for the resolved local Customer:
+
+- `communicationPreferences.emailUnsubscribed = true`;
+- `communicationPreferences.promotionalMessages = false`;
+- `marketing.emailConsent = false`;
+- consent timestamps/source are updated;
+- a `ConsentRecord` withdrawal is written when the Customer has a linked user account.
+
+Appointment reminders, service updates and the general `communicationPreferences.unsubscribed` flag are not changed. Transactional communications therefore remain separate from marketing opt-out.
+
+`group_unsubscribe` is treated conservatively as a global SalonAI email-marketing suppression because SalonAI does not yet maintain a SendGrid ASM-group-to-marketing-category mapping. The SendGrid ASM group identifier remains in provider evidence so a category-specific model can be introduced later without losing provenance.
+
+### Identity boundary
+
+Suppression mutation never trusts the email address supplied in the provider event as customer identity.
+
+SalonAI first strongly matches the provider event to a local `MessageDelivery` using provider message identifiers. It then resolves the Customer from:
+
+1. the trusted local `MessageDelivery.customer` reference; or
+2. the trusted local `MessageDelivery.recipient.email` as a fallback.
+
+If the Customer cannot be resolved from local delivery evidence, no marketing preference is mutated.
+
+### Re-consent
+
+A SendGrid `group_resubscribe` event is evidence only. It never re-grants SalonAI marketing consent automatically.
+
+Local email marketing consent can be restored only through an explicit SalonAI customer-preference action where:
+
+- promotional messages are enabled;
+- email unsubscribe is disabled; and
+- global unsubscribe is disabled.
+
+That local preference change updates `marketing.emailConsent` and writes a consent audit record when the value changes.
+
+### Campaign enforcement
+
+Both campaign preparation and real campaign delivery now read the canonical Customer fields:
+
+- `communicationPreferences.emailUnsubscribed`;
+- `communicationPreferences.promotionalMessages`;
+- `marketing.emailConsent`.
+
+This closes the legacy-field gap where an opt-out could exist on the Customer record but not be observed consistently by every campaign path.
+
+### Next communications step
+
+After this suppression/consent layer is validated and merged, the remaining go-live sequence is:
+
+1. configure real SendGrid sender/domain, API key and signed Event Webhook;
+2. perform controlled provider acceptance and callback reconciliation with a dedicated test recipient;
+3. configure and acceptance-test Twilio SMS and WhatsApp;
+4. enable transactional communications;
+5. validate scheduler, reminders and retry recovery;
+6. enable controlled marketing/newsletter sending only after consent and suppression evidence is confirmed end-to-end.
