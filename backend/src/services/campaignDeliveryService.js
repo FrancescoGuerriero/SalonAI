@@ -740,6 +740,7 @@ function getExplicitConsentValue(
   channel,
   {
     campaignType = "",
+    sendGridSuppressionGroupId = null,
   } = {}
 ) {
   const marketingEmail =
@@ -749,6 +750,36 @@ function getExplicitConsentValue(
       campaignType
     ) !==
       "appointment_reminder";
+
+  const suppressionGroupId =
+    Number(
+      sendGridSuppressionGroupId
+    );
+  const hasSuppressionGroupId =
+    Number.isInteger(
+      suppressionGroupId
+    ) &&
+    suppressionGroupId > 0;
+  const suppressedGroups =
+    Array.isArray(
+      getValueByPath(
+        customer,
+        "marketing.emailSuppressionGroups"
+      )
+    )
+      ? getValueByPath(
+          customer,
+          "marketing.emailSuppressionGroups"
+        )
+          .map(Number)
+          .filter(
+            (value) =>
+              Number.isInteger(
+                value
+              ) &&
+              value > 0
+          )
+      : [];
 
   const channelPaths =
     channel === "email"
@@ -794,6 +825,21 @@ function getExplicitConsentValue(
       granted: false,
       source:
         "marketing.emailSuppressed",
+    };
+  }
+
+  if (
+    marketingEmail &&
+    hasSuppressionGroupId &&
+    suppressedGroups.includes(
+      suppressionGroupId
+    )
+  ) {
+    return {
+      found: true,
+      granted: false,
+      source:
+        `marketing.emailSuppressionGroups:${suppressionGroupId}`,
     };
   }
 
@@ -903,6 +949,7 @@ function resolveCustomerConsent(
     consentRequired,
     excludeUnsubscribed,
     campaignType = "",
+    sendGridSuppressionGroupId = null,
   }
 ) {
   if (
@@ -942,6 +989,7 @@ function resolveCustomerConsent(
       channel,
       {
         campaignType,
+        sendGridSuppressionGroupId,
       }
     );
 
@@ -2431,6 +2479,10 @@ async function processCampaignDelivery(
       normaliseLowercase(
         campaign.campaignType
       ),
+    sendGridSuppressionGroupId:
+      campaign.options
+        ?.sendGridSuppressionGroupId ??
+      null,
   };
 
   const deliveryOptions = {
@@ -2732,6 +2784,10 @@ async function previewCampaignAudience(
       normaliseLowercase(
         campaign.campaignType
       ),
+    sendGridSuppressionGroupId:
+      campaign.options
+        ?.sendGridSuppressionGroupId ??
+      null,
   };
 
   const preview =
