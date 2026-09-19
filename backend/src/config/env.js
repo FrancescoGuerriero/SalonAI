@@ -200,7 +200,7 @@ function validateLegacyDeliveryModes(isProduction, config) {
     ["mock", "console", "demo", "sandbox"].includes(legacyEmailMode)
   ) {
     throw new Error(
-      "Production email delivery cannot use legacy mock/console/sandbox provider mode. Set EMAIL_PROVIDER=smtp and MESSAGE_DELIVERY_MODE=live."
+      "Production email delivery cannot use legacy mock/console/sandbox provider mode. Set EMAIL_PROVIDER=smtp or sendgrid and MESSAGE_DELIVERY_MODE=live."
     );
   }
 
@@ -249,11 +249,16 @@ function validateMessageDeliveryConfiguration(isProduction) {
     (
       !config.email.enabled ||
       config.mode !== DELIVERY_MODES.LIVE ||
-      config.email.provider !== "smtp"
+      ![
+        "smtp",
+        "sendgrid",
+      ].includes(
+        config.email.provider
+      )
     )
   ) {
     throw new Error(
-      "EMAIL_VERIFICATION_REQUIRED=true requires live SMTP email delivery: EMAIL_DELIVERY_ENABLED=true, EMAIL_PROVIDER=smtp and MESSAGE_DELIVERY_MODE=live."
+      "EMAIL_VERIFICATION_REQUIRED=true requires live email delivery: EMAIL_DELIVERY_ENABLED=true, EMAIL_PROVIDER=smtp or sendgrid, and MESSAGE_DELIVERY_MODE=live."
     );
   }
 }
