@@ -19,6 +19,7 @@ import {
 import {
   emailMarketingConsentFromPreferences,
 } from "../features/customerExperience/customerCommunicationPreferencesController.js";
+import Customer from "../models/customer.js";
 
 function customerFixture(
   overrides = {}
@@ -859,6 +860,50 @@ test(
           false,
       }),
       false
+    );
+  }
+);
+
+
+test(
+  "customer marketing eligibility requires local consent and clear provider suppression",
+  () => {
+    const customer =
+      new Customer({
+        firstName:
+          "Test",
+        lastName:
+          "Customer",
+        email:
+          "test@example.com",
+        status:
+          "active",
+        communicationPreferences: {
+          unsubscribed:
+            false,
+        },
+        marketing: {
+          emailConsent:
+            true,
+          emailSuppressed:
+            true,
+          smsConsent:
+            false,
+        },
+      });
+
+    assert.equal(
+      customer.isMarketingEligible,
+      false
+    );
+
+    customer.marketing
+      .emailSuppressed =
+      false;
+
+    assert.equal(
+      customer.isMarketingEligible,
+      true
     );
   }
 );
