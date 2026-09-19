@@ -1,3 +1,7 @@
+import {
+  getTwilioMessagingStatusCallbackReadiness,
+} from "../../config/messageDeliveryConfig.js";
+
 const CONFIRMATION =
   "RUN_TWILIO_MESSAGING_ACCEPTANCE";
 
@@ -269,6 +273,23 @@ export function buildTwilioMessagingAcceptancePlan(
       );
     error.code =
       "TWILIO_ACCEPTANCE_CREDENTIALS_REQUIRED";
+    throw error;
+  }
+
+  const callbackReadiness =
+    getTwilioMessagingStatusCallbackReadiness(
+      environment
+    );
+
+  if (
+    !callbackReadiness.ready
+  ) {
+    const error =
+      new Error(
+        `Twilio acceptance requires one unambiguous HTTPS messaging status callback. Blocking checks: ${callbackReadiness.blockers.join(", ")}.`
+      );
+    error.code =
+      "TWILIO_ACCEPTANCE_STATUS_CALLBACK_NOT_READY";
     throw error;
   }
 
