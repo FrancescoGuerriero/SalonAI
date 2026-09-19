@@ -230,7 +230,9 @@ export default function AdminStaffAccountsPage() {
           setRefreshing(false);
         }
       },
-      []
+      [
+        canViewStaffRoles,
+      ]
     );
 
   useEffect(() => {
