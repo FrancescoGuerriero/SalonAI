@@ -4,6 +4,9 @@ import Customer from "../../../models/customer.js";
 import {
   sendWhatsApp,
 } from "../../../providers/whatsappProvider.js";
+import {
+  reconcileTwilioStatusAfterProviderPersistence,
+} from "../../../integrations/messaging/twilioStatusReconciliationTrigger.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
 import {
   normaliseWhatsAppPhone,
@@ -473,6 +476,10 @@ async function deliverAndRecord({
               true,
           }
         );
+
+  await reconcileTwilioStatusAfterProviderPersistence(
+    delivery?.messageId
+  );
 
   return {
     saved,
