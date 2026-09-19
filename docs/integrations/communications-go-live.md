@@ -253,6 +253,33 @@ For SMTP delivery, SalonAI generates the SendGrid `X-SMTPAPI` header from truste
 
 Sandbox campaigns remain usable while provider onboarding is incomplete.
 
+### Controlled marketing acceptance
+
+Before setting `SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED=true` or `SENDGRID_MARKETING_ENABLED=true`, run the dedicated one-off provider acceptance command:
+
+`npm run sendgrid:marketing-acceptance`
+
+The command requires these runtime-only inputs:
+
+- `SENDGRID_MARKETING_ACCEPTANCE_CONFIRM=RUN_SENDGRID_MARKETING_ACCEPTANCE`;
+- a dedicated `SENDGRID_MARKETING_ACCEPTANCE_TO` address;
+- a positive `SENDGRID_MARKETING_ACCEPTANCE_GROUP_ID`;
+- optional subject/message overrides.
+
+The confirmation token is deliberately not stored in `.env.example`.
+
+The acceptance service requires live SendGrid email, a configured signed Event Webhook, sender verification and domain authentication. It also refuses to run if `SENDGRID_MARKETING_ENABLED=true`, keeping acceptance ahead of activation.
+
+The one test message carries the supplied group through the same trusted `sendGridSuppressionGroupId` metadata used by campaigns, which produces the controlled SendGrid SMTP ASM header. The result redacts the recipient and reports the provider message ID, group ID and send timestamp.
+
+The command does **not** alter environment configuration and does **not** mark acceptance complete. After the run, verify:
+
+1. the dedicated recipient received the test;
+2. SendGrid accepted the expected provider message;
+3. signed Event Webhook evidence was received for that message/group path.
+
+Only after that evidence is confirmed should the operator set `SENDGRID_MARKETING_ACCEPTANCE_CONFIRMED=true`. Keep `SENDGRID_MARKETING_ENABLED=false` until the final activation decision.
+
 ### Campaign enforcement
 
 Both campaign preparation and real campaign delivery now read the canonical Customer fields:

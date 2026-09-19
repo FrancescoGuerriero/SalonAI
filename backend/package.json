@@ -20,7 +20,8 @@
     "calendar:acceptance": "node scripts/testCalendarProviderAcceptance.js",
     "twilio:acceptance": "node scripts/testTwilioMessagingAcceptance.js",
     "ai:outcomes:no-show": "node scripts/reconcileNoShowInferenceOutcomes.js",
-    "sendgrid:acceptance": "node scripts/testSendGridEmailAcceptance.js"
+    "sendgrid:acceptance": "node scripts/testSendGridEmailAcceptance.js",
+    "sendgrid:marketing-acceptance": "node scripts/testSendGridMarketingAcceptance.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
