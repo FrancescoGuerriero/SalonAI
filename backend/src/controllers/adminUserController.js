@@ -687,6 +687,123 @@ function serialiseProfileOnlyEmployee(
   };
 }
 
+export function buildAdminWorkforceRoster(
+  staffUsers = [],
+  stylistProfiles = []
+) {
+  const stylistByUserId =
+    new Map();
+  const unlinkedStylistByEmail =
+    new Map();
+
+  for (
+    const stylist
+    of stylistProfiles
+  ) {
+    if (
+      stylist.userAccount
+    ) {
+      stylistByUserId.set(
+        String(
+          stylist.userAccount
+        ),
+        stylist
+      );
+      continue;
+    }
+
+    const email =
+      profileIdentityEmail(
+        stylist
+      );
+
+    if (email) {
+      unlinkedStylistByEmail.set(
+        email,
+        preferCurrentProfile(
+          unlinkedStylistByEmail.get(
+            email
+          ),
+          stylist
+        )
+      );
+    }
+  }
+
+  const attachedProfileIds =
+    new Set();
+
+  const staffUserIds =
+    new Set(
+      staffUsers.map(
+        (user) =>
+          String(
+            user._id
+          )
+      )
+    );
+
+  const accountRows =
+    staffUsers.map(
+      (user) => {
+        const stylist =
+          stylistByUserId.get(
+            String(user._id)
+          ) ||
+          unlinkedStylistByEmail.get(
+            normaliseEmail(
+              user.email
+            )
+          ) ||
+          null;
+
+        if (stylist?._id) {
+          attachedProfileIds.add(
+            String(
+              stylist._id
+            )
+          );
+        }
+
+        return serialiseAdminUser(
+          user,
+          stylist
+        );
+      }
+    );
+
+  const profileRows =
+    stylistProfiles
+      .filter(
+        (stylist) =>
+          !attachedProfileIds.has(
+            String(
+              stylist._id
+            )
+          ) &&
+          !(
+            stylist.userAccount &&
+            staffUserIds.has(
+              String(
+                stylist.userAccount
+              )
+            )
+          )
+      )
+      .map(
+        serialiseProfileOnlyEmployee
+      );
+
+  return {
+    accountRows,
+    profileRows,
+    roster: [
+      ...accountRows,
+      ...profileRows,
+    ],
+  };
+}
+
 async function stylistForUser(
   user
 ) {
@@ -986,117 +1103,18 @@ export async function listAdminUsers(
           .lean(),
       ]);
 
-    const stylistByUserId =
-      new Map();
-    const stylistByEmail =
-      new Map();
-
-    for (
-      const stylist
-      of stylistProfiles
-    ) {
-      if (
-        stylist.userAccount
-      ) {
-        stylistByUserId.set(
-          String(
-            stylist.userAccount
-          ),
-          stylist
-        );
-      }
-
-      const email =
-        profileIdentityEmail(
-          stylist
-        );
-
-      if (email) {
-        stylistByEmail.set(
-          email,
-          preferCurrentProfile(
-            stylistByEmail.get(
-              email
-            ),
-            stylist
-          )
-        );
-      }
-    }
-
-    const attachedProfileIds =
-      new Set();
-
-    const staffUserIds =
-      new Set(
-        staffUsers.map(
-          (user) =>
-            String(
-              user._id
-            )
-        )
+    const {
+      accountRows,
+      profileRows,
+      roster: completeRoster,
+    } =
+      buildAdminWorkforceRoster(
+        staffUsers,
+        stylistProfiles
       );
-
-    const accountRows =
-      staffUsers.map(
-        (user) => {
-          const stylist =
-            stylistByUserId.get(
-              String(user._id)
-            ) ||
-            stylistByEmail.get(
-              normaliseEmail(
-                user.email
-              )
-            ) ||
-            null;
-
-          if (stylist?._id) {
-            attachedProfileIds.add(
-              String(
-                stylist._id
-              )
-            );
-          }
-
-          return serialiseAdminUser(
-            user,
-            stylist
-          );
-        }
-      );
-
-    /*
-     * Preserve every distinct unlinked staff profile. Historical/inactive
-     * records remain visible to administrators instead of being silently
-     * collapsed into a current employee. Their status makes the distinction
-     * explicit, and no login account is fabricated for them.
-     */
-    const profileRows =
-      stylistProfiles
-        .filter(
-          (stylist) =>
-            !attachedProfileIds.has(
-              String(
-                stylist._id
-              )
-            ) &&
-            !(
-              stylist.userAccount &&
-              staffUserIds.has(
-                String(
-                  stylist.userAccount
-                )
-              )
-            )
-        )
-        .map(
-          serialiseProfileOnlyEmployee
-        );
 
     let roster = [
-      ...accountRows,
-      ...profileRows,
+      ...completeRoster,
     ];
 
     if (role) {
