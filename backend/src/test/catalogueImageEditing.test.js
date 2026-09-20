@@ -65,6 +65,15 @@ test("catalogue media rejects insecure and protocol-relative image URLs", () => 
     (error) =>
       error.statusCode === 400
   );
+
+  assert.throws(
+    () =>
+      normaliseCatalogueImage(
+        `/${"a".repeat(2_001)}`
+      ),
+    (error) =>
+      error.statusCode === 400
+  );
 });
 
 test("product image normalisation de-duplicates images and enforces the production cap", () => {
