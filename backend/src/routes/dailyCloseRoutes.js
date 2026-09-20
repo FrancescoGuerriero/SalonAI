@@ -9,34 +9,52 @@ import {
 } from "../controllers/dailyCloseController.js";
 
 import {
-  authorize,
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
 
-router.get("/", getDailyCloseSnapshot);
-router.get("/history", getDailyCloseHistory);
+router.get(
+  "/",
+  requirePermissions(
+    "reports:read"
+  ),
+  getDailyCloseSnapshot
+);
+router.get(
+  "/history",
+  requirePermissions(
+    "reports:read"
+  ),
+  getDailyCloseHistory
+);
 
 router.put(
   "/draft",
-  authorize("admin", "manager"),
+  requirePermissions(
+    "reports:manage"
+  ),
   saveDailyCloseDraftController
 );
 
 router.post(
   "/close",
-  authorize("admin", "manager"),
+  requirePermissions(
+    "reports:manage"
+  ),
   closeDailyCloseController
 );
 
 router.post(
   "/reopen",
-  authorize("admin", "manager"),
+  requirePermissions(
+    "reports:manage"
+  ),
   reopenDailyCloseController
 );
 
