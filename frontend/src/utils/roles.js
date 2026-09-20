@@ -9,8 +9,6 @@ export const MANAGEMENT_ROLES = new Set([
 export const FULL_DASHBOARD_ROLES = new Set([
   "super_admin",
   "admin",
-  "manager",
-  "receptionist",
 ]);
 
 export function isManagementRole(role) {
@@ -40,7 +38,6 @@ export function isAdminRole(role) {
     String(role || "").trim().toLowerCase()
   );
 }
-
 
 export function hasFullManagementDashboard(role) {
   return FULL_DASHBOARD_ROLES.has(
