@@ -88,7 +88,7 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   assert.equal(
     hasUserPermission(
       { role: "super_admin", permissions: [] },
-      "feature-control:update"
+      "staff-role:delete"
     ),
     true
   );
@@ -96,7 +96,7 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   assert.equal(
     hasUserPermission(
       { role: "admin", permissions: [] },
-      "feature-control:update"
+      "staff-role:delete"
     ),
     false
   );
