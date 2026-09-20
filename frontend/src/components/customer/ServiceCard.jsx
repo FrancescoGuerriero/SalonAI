@@ -39,14 +39,19 @@ export default function ServiceCard({
   const { isFeatureEnabled } = useFeatureControls();
   const onlineBookingEnabled = isFeatureEnabled("online-booking");
   const whatsappBookingEnabled = isFeatureEnabled("whatsapp-booking");
+  const serviceBookable =
+    service.bookable !== false;
   const consultationOnly =
-    service.onlineBookable === false ||
     service.priceOnConsultation === true;
 
   const showWhatsAppAction =
-    consultationOnly && whatsappBookingEnabled;
+    serviceBookable &&
+    consultationOnly &&
+    whatsappBookingEnabled;
   const showOnlineBookingAction =
-    !consultationOnly && onlineBookingEnabled;
+    serviceBookable &&
+    !consultationOnly &&
+    onlineBookingEnabled;
 
   return (
     <article className="customer-card service-card">
