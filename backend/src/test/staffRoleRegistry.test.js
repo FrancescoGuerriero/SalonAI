@@ -107,8 +107,6 @@ test("built-in staff roles retain their protected semantics", () => {
     stylist.permissions,
     [
       "dashboard:view",
-      "profile:own:read",
-      "schedule:own:read",
     ]
   );
 });
