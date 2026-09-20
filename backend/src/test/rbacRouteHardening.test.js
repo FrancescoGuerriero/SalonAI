@@ -64,6 +64,10 @@ test("customer routes require granular delegated permissions", async () => {
     routes,
     /adminOnly/
   );
+  assert.doesNotMatch(
+    routes,
+    /managementOnly/
+  );
 });
 
 test("appointment communication and payment actions are explicitly delegated", async () => {
@@ -102,6 +106,7 @@ test("permission catalogues expose customer and appointment payment capabilities
     "customer:archive",
     "customer:delete",
     "appointment:payment:manage",
+    "reports:manage",
   ]) {
     assert.ok(
       backend.includes(
