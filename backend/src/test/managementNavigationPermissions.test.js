@@ -467,3 +467,97 @@ test("restored administrator routes use Admin-or-Super-Admin visibility", async 
     /router\.patch\([\s\S]*superAdminOnly/
   );
 });
+
+
+test("ordinary staff management routes fail closed behind explicit permissions", async () => {
+  const route =
+    await readFile(
+      new URL(
+        "../../../frontend/src/Routes/ManagementRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    route,
+    /MANAGEMENT_PERMISSION_RULES/
+  );
+  assert.match(
+    route,
+    /isAdminRole/
+  );
+  assert.match(
+    route,
+    /required\.length > 0/
+  );
+  assert.match(
+    route,
+    /hasPermission/
+  );
+
+  for (const permission of [
+    "dashboard:view",
+    "customer:read",
+    "appointment:read",
+    "employee:read",
+    "reports:read",
+    "ai:use",
+    "communications:read",
+    "product:read",
+    "inventory:read",
+  ]) {
+    assert.match(
+      route,
+      new RegExp(
+        permission.replace(
+          /:/g,
+          "\\:"
+        )
+      )
+    );
+  }
+});
+
+test("premium management navigation also requires delegated business permissions", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  for (const [route, permission] of [
+    ["/loyalty", "customer:read"],
+    ["/gift-cards", "customer:read"],
+    ["/referrals", "customer:read"],
+    ["/notification-centre", "communications:read"],
+    ["/email-campaigns", "communications:read"],
+    ["/whatsapp-booking", "communications:read"],
+    ["/premium-analytics", "reports:read"],
+  ]) {
+    const index =
+      navigation.indexOf(
+        `"${route}"`
+      );
+
+    assert.ok(
+      index >= 0,
+      `Missing management link: ${route}`
+    );
+
+    assert.ok(
+      navigation
+        .slice(
+          index,
+          index + 260
+        )
+        .includes(
+          `"${permission}"`
+        ),
+      `${route} is missing ${permission}`
+    );
+  }
+});
