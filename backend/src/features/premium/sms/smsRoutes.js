@@ -8,8 +8,8 @@ import {
 } from "../../../middleware/authMiddleware.js";
 
 import {
-  managementOnly,
-} from "../../../middleware/roleMiddleware.js";
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   createSmsRule,
@@ -46,7 +46,9 @@ router.use(
 );
 
 router.use(
-  managementOnly
+  requirePermissions(
+    "sms-reminder:manage"
+  )
 );
 
 router
