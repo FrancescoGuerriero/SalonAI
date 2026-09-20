@@ -11,6 +11,8 @@ import {
 
 import API from "../api/axios.js";
 import useFeatureControls from "../hooks/useFeatureControls.js";
+import useAuth from "../hooks/useAuth.js";
+import { isSuperAdminRole } from "../utils/roles.js";
 
 const TABS = [
   ["features", "On/Off Ideas", SlidersHorizontal],
@@ -41,6 +43,8 @@ function Toggle({ checked, disabled, label, onChange }) {
 }
 
 export default function SystemAdministrationPage() {
+  const { user } = useAuth();
+  const canMutateSystemControls = isSuperAdminRole(user?.role);
   const [tab, setTab] = useState("features");
   const [health, setHealth] = useState(null);
   const [settings, setSettings] = useState([]);
@@ -131,7 +135,7 @@ export default function SystemAdministrationPage() {
               </div>
               <h1 className="mt-2 text-3xl font-bold text-black">System Administration</h1>
               <p className="mt-2 max-w-3xl text-sm text-stone-600">
-                Code defines safe defaults. The On/Off Ideas tab stores administrator overrides without deleting features, applies backend enforcement and records each change in the audit history.
+                Code defines safe defaults. Super Admin and Administrator can inspect this workspace. Global feature and setting changes remain protected Super Admin actions and are recorded in the audit history.
               </p>
             </div>
 
@@ -167,6 +171,11 @@ export default function SystemAdministrationPage() {
         {error ? (
           <section className="rounded-2xl border border-amber-500 bg-amber-50 p-4 text-black" role="alert">
             {error}
+          </section>
+        ) : null}
+        {!canMutateSystemControls ? (
+          <section className="rounded-2xl border border-black/15 bg-stone-100 p-4 text-sm text-black" role="status">
+            Administrator view is read-only. Super Admin authority is required to change global feature controls or stored settings.
           </section>
         ) : null}
         {notice ? (
@@ -237,7 +246,7 @@ export default function SystemAdministrationPage() {
                           <button
                             type="button"
                             onClick={() => resetFeature(feature)}
-                            disabled={busyId === feature.id}
+                            disabled={!canMutateSystemControls || busyId === feature.id}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-xs font-semibold text-black transition hover:bg-stone-100 disabled:opacity-50"
                           >
                             <RotateCcw size={14} /> Reset to code
@@ -246,7 +255,7 @@ export default function SystemAdministrationPage() {
                         <span className="min-w-7 text-sm font-bold text-black">{feature.enabled ? "On" : "Off"}</span>
                         <Toggle
                           checked={feature.enabled}
-                          disabled={feature.required || busyId === feature.id}
+                          disabled={!canMutateSystemControls || feature.required || busyId === feature.id}
                           label={`${feature.enabled ? "Disable" : "Enable"} ${feature.label}`}
                           onChange={(enabled) => changeFeature(feature, enabled)}
                         />
