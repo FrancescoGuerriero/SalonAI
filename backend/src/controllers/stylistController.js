@@ -491,7 +491,7 @@ export async function getBookingStylists(
         )
         .populate(
           "services",
-          "name category price duration active onlineBookable"
+          "name category price duration active published bookable"
         )
         .sort({
           displayOrder: 1,
@@ -671,7 +671,21 @@ export async function getStylistAvailability(req, res, next) {
       Service.findOne({
         _id: serviceObjectId,
         active: { $ne: false },
-      }).lean(),
+        $or: [
+          {
+            published: true,
+          },
+          {
+            published: {
+              $exists: false,
+            },
+          },
+        ],
+      })
+        .select(
+          "+onlineBookable"
+        )
+        .lean(),
       Stylist.findById(stylistObjectId)
         .select(
           "services isActive acceptsAppointments profilePublished"
@@ -683,6 +697,23 @@ export async function getStylistAvailability(req, res, next) {
       throw createHttpError(
         "The selected service was not found or is inactive.",
         404
+      );
+    }
+
+    const serviceBookable =
+      typeof service.bookable ===
+      "boolean"
+        ? service.bookable
+        : service.onlineBookable !==
+          false;
+
+    if (!serviceBookable) {
+      throw createHttpError(
+        "The selected service is not available for booking.",
+        409,
+        {
+          field: "service",
+        }
       );
     }
 
