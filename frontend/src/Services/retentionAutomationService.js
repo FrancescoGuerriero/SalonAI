@@ -84,5 +84,6 @@ export {
 export default {
   createRetentionJourney,
   listRetentionJourneys,
+  previewRetentionJourney,
   updateRetentionJourney,
 };
