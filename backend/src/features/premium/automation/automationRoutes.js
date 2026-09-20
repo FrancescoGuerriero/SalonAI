@@ -5,8 +5,8 @@ import {
   protect,
 } from "../../../middleware/authMiddleware.js";
 import {
-  managementOnly,
-} from "../../../middleware/roleMiddleware.js";
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   createJourney,
@@ -19,7 +19,11 @@ const router =
   express.Router();
 
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "retention-automation:manage"
+  )
+);
 
 router
   .route("/journeys")
