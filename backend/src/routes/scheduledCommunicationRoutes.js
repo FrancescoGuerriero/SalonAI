@@ -12,7 +12,6 @@ import {
 } from "../controllers/scheduledCommunicationController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -34,7 +33,6 @@ const manageCommunications =
   );
 
 router.use(protect);
-router.use(managementOnly);
 
 /*
 |--------------------------------------------------------------------------

@@ -1,7 +1,9 @@
 import express from "express";
 import asyncHandler from "../middleware/asyncHandler.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { superAdminOnly } from "../middleware/roleMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 import {
   listAuditLogs,
   listDeadLetters,
@@ -15,14 +17,68 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(superAdminOnly);
-
-router.get("/features", asyncHandler(listFeatureControls));
-router.patch("/features/:featureId", asyncHandler(updateFeatureControl));
-router.delete("/features/:featureId", asyncHandler(resetFeatureControl));
-router.get("/settings", asyncHandler(listSettings));
-router.patch("/settings/:key", asyncHandler(updateSetting));
-router.get("/audit-logs", asyncHandler(listAuditLogs));
-router.get("/dead-letters", asyncHandler(listDeadLetters));
+router.get(
+  "/features",
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    listFeatureControls
+  )
+);
+router.patch(
+  "/features/:featureId",
+  requirePermissions(
+    "feature-control:update"
+  ),
+  asyncHandler(
+    updateFeatureControl
+  )
+);
+router.delete(
+  "/features/:featureId",
+  requirePermissions(
+    "feature-control:update"
+  ),
+  asyncHandler(
+    resetFeatureControl
+  )
+);
+router.get(
+  "/settings",
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    listSettings
+  )
+);
+router.patch(
+  "/settings/:key",
+  requirePermissions(
+    "feature-control:update"
+  ),
+  asyncHandler(
+    updateSetting
+  )
+);
+router.get(
+  "/audit-logs",
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    listAuditLogs
+  )
+);
+router.get(
+  "/dead-letters",
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    listDeadLetters
+  )
+);
 
 export default router;

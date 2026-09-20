@@ -21,6 +21,9 @@ import {
 import {
   stylistOffersService,
 } from "../services/bookingAvailabilityService.js";
+import {
+  isAppointmentEligibleStylist,
+} from "../services/stylistBookingEligibilityService.js";
 
 function normaliseText(value) {
   return String(value ?? "")
@@ -544,9 +547,9 @@ async function getBookingResources(
   }
 
   if (
-    !stylist ||
-    stylist.isActive !== true ||
-    stylist.acceptsAppointments !== true ||
+    !isAppointmentEligibleStylist(
+      stylist
+    ) ||
     stylist.active === false
   ) {
     throw createHttpError(

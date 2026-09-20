@@ -31,6 +31,9 @@ import {
 
 import useAuth from "../hooks/useAuth.js";
 import dailyCloseApi from "../Services/dailyCloseApi.js";
+import {
+  hasPermission,
+} from "../utils/permissions.js";
 
 const CHECKLIST_ITEMS = [
   {
@@ -167,7 +170,11 @@ function PersonLabel({ person, fallback }) {
 
 export default function DailyClosePage() {
   const { user } = useAuth();
-  const canManage = ["admin", "manager"].includes(user?.role);
+  const canManage =
+    hasPermission(
+      user,
+      "reports:manage"
+    );
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [data, setData] = useState(null);

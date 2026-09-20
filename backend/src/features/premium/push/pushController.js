@@ -16,3 +16,25 @@ export async function disableSubscription(req, res) {
   );
   res.json({ success: true });
 }
+
+
+export async function listSubscriptions(req, res) {
+  const subscriptions =
+    await PushSubscription.find({
+      active: {
+        $ne: false,
+      },
+    })
+      .select(
+        "_id customer active lastUsedAt createdAt updatedAt"
+      )
+      .sort({
+        updatedAt: -1,
+      })
+      .lean();
+
+  return res.json({
+    success: true,
+    subscriptions,
+  });
+}

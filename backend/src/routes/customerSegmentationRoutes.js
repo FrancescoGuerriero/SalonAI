@@ -8,13 +8,19 @@ import {
 
 import {
   protect,
-  managementOnly,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "customer:read"
+  )
+);
 
 router.get(
   "/definitions",
