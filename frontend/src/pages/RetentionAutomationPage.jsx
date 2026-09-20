@@ -23,6 +23,7 @@ import {
 import {
   createRetentionJourney,
   listRetentionJourneys,
+  previewRetentionJourney,
   updateRetentionJourney,
 } from "../Services/retentionAutomationService.js";
 
@@ -169,6 +170,55 @@ function channelLabel(value) {
   );
 }
 
+function previewCustomerName(
+  customer
+) {
+  return (
+    customer?.preferredName ||
+    [
+      customer?.firstName,
+      customer?.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    customer?.email ||
+    "Customer"
+  );
+}
+
+function previewDate(value) {
+  if (!value) {
+    return "—";
+  }
+
+  const date =
+    new Date(value);
+
+  return Number.isNaN(
+    date.getTime()
+  )
+    ? "—"
+    : new Intl.DateTimeFormat(
+        "en-GB",
+        {
+          dateStyle:
+            "medium",
+        }
+      ).format(date);
+}
+
+function previewMoney(value) {
+  return new Intl.NumberFormat(
+    "en-GB",
+    {
+      style: "currency",
+      currency: "GBP",
+    }
+  ).format(
+    Number(value) || 0
+  );
+}
+
 function journeyToForm(journey) {
   return {
     name:
@@ -254,6 +304,14 @@ export default function RetentionAutomationPage() {
     workingId,
     setWorkingId,
   ] = useState("");
+  const [
+    previewingId,
+    setPreviewingId,
+  ] = useState("");
+  const [
+    preview,
+    setPreview,
+  ] = useState(null);
   const [
     error,
     setError,
@@ -505,6 +563,39 @@ export default function RetentionAutomationPage() {
     }
   }
 
+  async function previewAudience(
+    journey
+  ) {
+    setPreviewingId(
+      journey._id
+    );
+    setError("");
+    setSuccess("");
+
+    try {
+      const result =
+        await previewRetentionJourney(
+          journey._id,
+          {
+            limit: 50,
+          }
+        );
+
+      setPreview(
+        result
+      );
+    } catch (requestError) {
+      setPreview(null);
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setPreviewingId("");
+    }
+  }
+
   async function toggleJourney(
     journey
   ) {
@@ -623,6 +714,209 @@ export default function RetentionAutomationPage() {
               size={18}
             />
             {success}
+          </section>
+        ) : null}
+
+        {preview ? (
+          <section className="rounded-2xl border border-indigo-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                  Audience dry-run
+                </p>
+                <h2 className="mt-1 text-xl font-bold text-slate-900">
+                  {preview.journey?.name ||
+                    "Retention journey"}
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                  {preview.message}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPreview(null)
+                }
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700"
+              >
+                Close preview
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Candidates
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  {preview.supported
+                    ? preview.candidateCount
+                    : "—"}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Returned
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  {preview.returnedCount ||
+                    0}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Messages queued
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  0
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Required channels
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-900">
+                  {preview.requiredChannels
+                    ?.length
+                    ? preview.requiredChannels
+                        .map(
+                          channelLabel
+                        )
+                        .join(", ")
+                    : "None"}
+                </p>
+              </div>
+            </div>
+
+            {preview.supported ? (
+              <>
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  This is evidence only. Consent, provider suppression, contactability, idempotency and stop conditions are not treated as passed by this preview and will be enforced before controlled execution is introduced.
+                </div>
+
+                <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                          <th className="px-4 py-3">
+                            Customer
+                          </th>
+                          <th className="px-4 py-3">
+                            Last visit
+                          </th>
+                          <th className="px-4 py-3">
+                            Inactive
+                          </th>
+                          <th className="px-4 py-3">
+                            Visits
+                          </th>
+                          <th className="px-4 py-3">
+                            LTV
+                          </th>
+                          <th className="px-4 py-3">
+                            Retention risk
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {(preview.items ||
+                          []).map(
+                          (customer) => (
+                            <tr
+                              key={
+                                customer._id
+                              }
+                            >
+                              <td className="px-4 py-3">
+                                <strong className="text-slate-900">
+                                  {previewCustomerName(
+                                    customer
+                                  )}
+                                </strong>
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {customer.email ||
+                                    customer.phone ||
+                                    "No contact destination"}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">
+                                {previewDate(
+                                  customer.lastVisit
+                                )}
+                              </td>
+                              <td className="px-4 py-3 font-semibold text-slate-700">
+                                {customer.daysInactive ||
+                                  0}{" "}
+                                days
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">
+                                {customer.visits ||
+                                  0}
+                              </td>
+                              <td className="px-4 py-3 text-slate-700">
+                                {previewMoney(
+                                  customer.lifetimeValue
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {customer.risk
+                                  ?.label ? (
+                                  <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold capitalize text-indigo-700">
+                                    {customer.risk.label}{" "}
+                                    {Number.isFinite(
+                                      Number(
+                                        customer
+                                          .risk
+                                          .score
+                                      )
+                                    )
+                                      ? `· ${Math.round(
+                                          Number(
+                                            customer
+                                              .risk
+                                              .score
+                                          ) *
+                                            100
+                                        )}%`
+                                      : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-slate-400">
+                                    No fresh prediction
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {preview.truncated ? (
+                    <p className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-500">
+                      Showing the first{" "}
+                      {preview.returnedCount}{" "}
+                      of{" "}
+                      {preview.candidateCount}{" "}
+                      candidates.
+                    </p>
+                  ) : null}
+
+                  {!preview.items
+                    ?.length ? (
+                    <p className="p-8 text-center text-sm text-slate-500">
+                      No customers currently match this journey definition.
+                    </p>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
           </section>
         ) : null}
 
@@ -1206,6 +1500,33 @@ export default function RetentionAutomationPage() {
                       </dl>
 
                       <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            previewingId ===
+                            journey._id
+                          }
+                          onClick={() =>
+                            void previewAudience(
+                              journey
+                            )
+                          }
+                          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 disabled:opacity-50"
+                        >
+                          {previewingId ===
+                          journey._id ? (
+                            <Loader2
+                              size={15}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <UsersRound
+                              size={15}
+                            />
+                          )}
+                          Preview audience
+                        </button>
+
                         <button
                           type="button"
                           onClick={() =>
