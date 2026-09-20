@@ -895,7 +895,7 @@ export async function listAdminUsers(
             )
             .populate(
               "services",
-              "name category active onlineBookable"
+              "name category active published bookable"
             )
             .lean()
         : [];
@@ -1018,7 +1018,7 @@ async function employeeAndProfile(
 
     await stylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
   }
 
@@ -1088,7 +1088,7 @@ export async function updateEmployeeServices(
     await stylist.save();
     await stylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
 
     const after =
@@ -1613,7 +1613,7 @@ export async function createStaffUserByAdmin(
 
     await linkedStylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
 
     const created =
@@ -2067,7 +2067,7 @@ export async function updateEmployeeManagementSettings(
 
     await stylist.populate(
       "services",
-      "name category active onlineBookable"
+      "name category active published bookable"
     );
 
     const after =
@@ -2215,7 +2215,7 @@ export async function updateAdminUserStatus(
       await stylist.save();
       await stylist.populate(
         "services",
-        "name category active onlineBookable"
+        "name category active published bookable"
       );
     }
 
