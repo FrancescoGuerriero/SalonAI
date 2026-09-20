@@ -1,7 +1,10 @@
 import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
-import { adminOnly, protect } from "../../middleware/authMiddleware.js";
+import { protect } from "../../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../../middleware/permissionMiddleware.js";
 import {
   commitDataImport,
   getDataImportHistory,
@@ -10,7 +13,12 @@ import {
 
 const router = express.Router();
 
-router.use(protect, adminOnly);
+router.use(
+  protect,
+  requirePermissions(
+    "data-import:manage"
+  )
+);
 
 router.get("/history", asyncHandler(getDataImportHistory));
 router.post("/preview", asyncHandler(previewDataImport));
