@@ -29,6 +29,34 @@ async function createRetentionJourney(
   return response.data;
 }
 
+
+async function previewRetentionJourney(
+  journeyId,
+  {
+    limit = 50,
+  } = {}
+) {
+  const response =
+    await API.get(
+      BASE_URL +
+        "/" +
+        encodeURIComponent(
+          journeyId
+        ) +
+        "/preview",
+      {
+        params: {
+          limit,
+        },
+      }
+    );
+
+  return (
+    response.data?.preview ||
+    null
+  );
+}
+
 async function updateRetentionJourney(
   journeyId,
   payload
@@ -49,6 +77,7 @@ async function updateRetentionJourney(
 export {
   createRetentionJourney,
   listRetentionJourneys,
+  previewRetentionJourney,
   updateRetentionJourney,
 };
 
