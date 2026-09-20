@@ -3,7 +3,6 @@ import express from "express";
 import communicationTemplateController from "../controllers/communicationTemplateController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -25,7 +24,6 @@ const manageCommunications =
   );
 
 router.use(protect);
-router.use(managementOnly);
 
 /*
 |--------------------------------------------------------------------------
