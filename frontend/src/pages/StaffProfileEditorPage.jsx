@@ -307,12 +307,22 @@ export default function StaffProfileEditorPage() {
               limit: 500,
             });
 
-          const staff =
+          const workforce =
             Array.isArray(
               result?.users
             )
               ? result.users
               : [];
+
+          const staff =
+            workforce.filter(
+              (employee) =>
+                Boolean(
+                  employee
+                    ?.stylistProfile
+                    ?.id
+                )
+            );
 
           setEmployees(
             staff
@@ -329,7 +339,7 @@ export default function StaffProfileEditorPage() {
               emptyProfile
             );
             setError(
-              "No staff accounts are available."
+              "No staff profiles are available."
             );
             return;
           }
@@ -378,7 +388,7 @@ export default function StaffProfileEditorPage() {
             errorMessage(
               requestError,
               canReadAll
-                ? "Staff profiles could not be loaded."
+                ? "The complete staff profile roster could not be loaded."
                 : "Your staff profile could not be loaded."
             )
           );
@@ -600,13 +610,13 @@ export default function StaffProfileEditorPage() {
 
           <h1>
             {canReadAll
-              ? "Manage the professional profiles clients see."
+              ? "Manage every salon staff profile from one place."
               : "Maintain the professional profile clients see."}
           </h1>
 
           <p>
             {canReadAll
-              ? "Select a genuine staff account, then maintain its photograph, title, biography, specialties and public links. Historical booking records are not treated as staff identities."
+              ? "The roster includes linked employee accounts and genuine staff profiles that do not yet have a login. Maintain photographs, titles, biographies, specialties and public links without hiding unlinked salon staff."
               : "Keep your photograph, title, biography, specialties and public links current. Private account information remains separate from the public profile."}
           </p>
         </div>
@@ -646,7 +656,7 @@ export default function StaffProfileEditorPage() {
                 Select staff profile
               </h2>
               <p className="text-sm text-stone-600">
-                The list uses canonical SalonAI staff accounts, in the same order as Employees.
+                The list shows every current staff profile visible to management, including profile-only salon staff without login accounts.
               </p>
             </div>
           </div>
@@ -677,7 +687,9 @@ export default function StaffProfileEditorPage() {
                       employee.id
                     }
                   >
-                    {employee.name} · {employee.role}
+                    {employee.name} · {employee.accountLinked === false
+                      ? "no login account"
+                      : employee.role}
                   </option>
                 )
               )}
