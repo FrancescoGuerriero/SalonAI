@@ -4,96 +4,221 @@ import {
 } from "node:fs/promises";
 import test from "node:test";
 
-async function source(
-  relativePath
-) {
-  return readFile(
-    new URL(
-      relativePath,
-      import.meta.url
+import Product from "../features/commerce/Product.js";
+import Service from "../models/service.js";
+import {
+  MAX_CATALOGUE_IMAGES,
+  normaliseCatalogueImage,
+  normaliseCatalogueImages,
+} from "../utils/catalogueMedia.js";
+
+const SMALL_IMAGE =
+  "data:image/jpeg;base64,aGVsbG8=";
+
+test("catalogue media accepts supported uploads, HTTPS URLs and app-relative paths", () => {
+  assert.equal(
+    normaliseCatalogueImage(
+      SMALL_IMAGE
     ),
-    "utf8"
+    SMALL_IMAGE
   );
-}
 
-test("service editor provides a real image upload and preview control", async () => {
-  const page =
-    await source(
-      "../../../frontend/src/pages/ServicesPage.jsx"
-    );
+  assert.equal(
+    normaliseCatalogueImage(
+      "https://cdn.example.com/service.jpg"
+    ),
+    "https://cdn.example.com/service.jpg"
+  );
 
-  assert.match(
-    page,
-    /CatalogueImagePicker/
-  );
-  assert.match(
-    page,
-    /label="Service image"/
-  );
-  assert.match(
-    page,
-    /form\.image/
+  assert.equal(
+    normaliseCatalogueImage(
+      "/services/cut image.jpg"
+    ),
+    "/services/cut%20image.jpg"
   );
 });
 
-test("product editor provides multi-image upload and primary-image management", async () => {
-  const page =
-    await source(
-      "../../../frontend/src/pages/ProductManagementPage.jsx"
-    );
+test("catalogue media rejects insecure and protocol-relative image URLs", () => {
+  assert.throws(
+    () =>
+      normaliseCatalogueImage(
+        "http://cdn.example.com/image.jpg"
+      ),
+    (error) =>
+      error.statusCode === 400
+  );
+
+  assert.throws(
+    () =>
+      normaliseCatalogueImage(
+        "//evil.example/image.jpg"
+      ),
+    (error) =>
+      error.statusCode === 400
+  );
+
+  assert.throws(
+    () =>
+      normaliseCatalogueImage(
+        "data:image/gif;base64,R0lGODlhAQABAIAAAAUEBA=="
+      ),
+    (error) =>
+      error.statusCode === 400
+  );
+});
+
+test("product image normalisation de-duplicates images and enforces the production cap", () => {
+  assert.deepEqual(
+    normaliseCatalogueImages([
+      "/products/a.jpg",
+      "/products/b.jpg",
+      "/products/a.jpg",
+    ]),
+    [
+      "/products/a.jpg",
+      "/products/b.jpg",
+    ]
+  );
+
+  assert.throws(
+    () =>
+      normaliseCatalogueImages(
+        Array.from(
+          {
+            length:
+              MAX_CATALOGUE_IMAGES +
+              1,
+          },
+          (_, index) =>
+            `/products/${index}.jpg`
+        )
+      ),
+    (error) =>
+      error.statusCode === 400
+  );
+});
+
+test("service model accepts supported catalogue image data and rejects unsafe URLs", () => {
+  const valid =
+    new Service({
+      name: "Cut",
+      category: "Hair",
+      price: 50,
+      duration: 60,
+      image: SMALL_IMAGE,
+    });
+
+  assert.equal(
+    valid.validateSync(),
+    undefined
+  );
+
+  const invalid =
+    new Service({
+      name: "Cut",
+      category: "Hair",
+      price: 50,
+      duration: 60,
+      image:
+        "http://cdn.example.com/cut.jpg",
+    });
+
+  assert.ok(
+    invalid.validateSync()
+      ?.errors?.image
+  );
+});
+
+test("product model preserves primary-image order and rejects more than six images", () => {
+  const valid =
+    new Product({
+      name: "Shampoo",
+      slug: "shampoo",
+      sku: "SHAMPOO-1",
+      price: 20,
+      images: [
+        "/products/primary.jpg",
+        SMALL_IMAGE,
+      ],
+    });
+
+  assert.equal(
+    valid.validateSync(),
+    undefined
+  );
+
+  assert.deepEqual(
+    valid.images.map(String),
+    [
+      "/products/primary.jpg",
+      SMALL_IMAGE,
+    ]
+  );
+
+  const invalid =
+    new Product({
+      name: "Conditioner",
+      slug: "conditioner",
+      sku: "COND-1",
+      price: 20,
+      images: Array.from(
+        {
+          length:
+            MAX_CATALOGUE_IMAGES +
+            1,
+        },
+        (_, index) =>
+          `/products/${index}.jpg`
+      ),
+    });
+
+  assert.ok(
+    invalid.validateSync()
+      ?.errors?.images
+  );
+});
+
+test("service and product editors expose the reusable image picker", async () => {
+  const [
+    servicePage,
+    productPage,
+  ] =
+    await Promise.all([
+      readFile(
+        new URL(
+          "../../../frontend/src/pages/ServicesPage.jsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../../../frontend/src/pages/ProductManagementPage.jsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+    ]);
 
   assert.match(
-    page,
+    servicePage,
     /CatalogueImagePicker/
   );
   assert.match(
-    page,
+    servicePage,
+    /label="Service image"/
+  );
+
+  assert.match(
+    productPage,
+    /CatalogueImagePicker/
+  );
+  assert.match(
+    productPage,
     /label="Product images"/
   );
   assert.match(
-    page,
+    productPage,
     /multiple/
-  );
-  assert.match(
-    page,
-    /images\.join/
-  );
-});
-
-test("catalogue image picker supports upload, URL entry, removal and primary selection", async () => {
-  const picker =
-    await source(
-      "../../../frontend/src/components/catalogue/CatalogueImagePicker.jsx"
-    );
-
-  for (const pattern of [
-    /type="file"/,
-    /image\/jpeg,image\/png,image\/webp/,
-    /\+ Add image/,
-    /Add URL/,
-    /Remove/,
-    /Set primary/,
-    /MAX_DATA_URL_LENGTH/,
-    /DEFAULT_MAX_IMAGES/,
-  ]) {
-    assert.match(
-      picker,
-      pattern
-    );
-  }
-
-  assert.match(
-    picker,
-    /MAX_DATA_URL_LENGTH\s*=\s*280_000/
-  );
-
-  assert.match(
-    picker,
-    /url\.protocol\s*!==\s*"https:"/
-  );
-
-  assert.match(
-    picker,
-    /text\.startsWith\("\/"\)/
   );
 });
