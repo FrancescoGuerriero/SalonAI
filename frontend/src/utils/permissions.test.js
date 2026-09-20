@@ -70,56 +70,42 @@ test("staff require an explicit permission outside role baseline", () => {
   );
 });
 
-test("Salon staff baseline includes role view/create plus appointment access", () => {
-  const stylist = {
-    role: "stylist",
-    permissions: [],
-  };
-
-  for (const permission of [
-    "appointment:read",
-    "appointment:create",
-    "staff-role:read",
-    "staff-role:create",
+test("non-admin staff baseline contains dashboard access only", () => {
+  for (const role of [
+    "stylist",
+    "manager",
+    "receptionist",
   ]) {
+    const user = {
+      role,
+      permissions: [],
+    };
+
+    assert.deepEqual(
+      effectivePermissions(
+        user
+      ),
+      [
+        "dashboard:view",
+      ]
+    );
+
     assert.equal(
       hasPermission(
-        stylist,
-        permission
+        user,
+        "dashboard:view"
       ),
       true
     );
-  }
 
-  for (const permission of [
-    "dashboard:view",
-    "profile:own:read",
-    "profile:own:update",
-    "schedule:own:read",
-    "schedule:own:update",
-    "leave:own:request",
-    "employee:update",
-  ]) {
     assert.equal(
       hasPermission(
-        stylist,
-        permission
+        user,
+        "customer:read"
       ),
       false
     );
   }
-
-  assert.deepEqual(
-    effectivePermissions(
-      stylist
-    ),
-    [
-      "appointment:read",
-      "appointment:create",
-      "staff-role:read",
-      "staff-role:create",
-    ]
-  );
 });
 
 test("employee permission catalogue is unique", () => {
@@ -164,41 +150,55 @@ test("custom role templates and employee special permissions combine", () => {
 });
 
 
-test("Admin and Receptionist can manage roles except delete by default", () => {
+test("Admin can govern staff permissions and roles while subordinate staff require grants", () => {
+  for (const permission of [
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+    "employee:permissions:update",
+  ]) {
+    assert.equal(
+      hasPermission(
+        {
+          role:
+            "admin",
+          permissions: [],
+        },
+        permission
+      ),
+      true
+    );
+  }
+
   for (const role of [
-    "admin",
     "receptionist",
     "manager",
+    "stylist",
   ]) {
-    for (const permission of [
-      "staff-role:read",
-      "staff-role:create",
-      "staff-role:update",
-      "staff-role:activate",
-    ]) {
-      assert.equal(
-        hasPermission(
-          {
-            role,
-            permissions: [],
-          },
-          permission
-        ),
-        true
-      );
-    }
-
     assert.equal(
       hasPermission(
         {
           role,
           permissions: [],
         },
-        "staff-role:delete"
+        "staff-role:update"
       ),
       false
     );
   }
+
+  assert.equal(
+    hasPermission(
+      {
+        role:
+          "admin",
+        permissions: [],
+      },
+      "staff-role:delete"
+    ),
+    false
+  );
 });
 
 
