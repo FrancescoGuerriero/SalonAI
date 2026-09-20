@@ -13,7 +13,7 @@ test("Published and Bookable remain independent employee states", () => {
   const publishedNotBookable = {
     isActive: true,
     profilePublished: true,
-    acceptsAppointments: false,
+    bookable: false,
   };
 
   assert.equal(
@@ -32,7 +32,7 @@ test("Published and Bookable remain independent employee states", () => {
   const bookableNotPublished = {
     isActive: true,
     profilePublished: false,
-    acceptsAppointments: true,
+    bookable: true,
   };
 
   assert.equal(
@@ -62,7 +62,7 @@ test("database filters keep public-team and booking semantics separate", () => {
     appointmentEligibleStylistFilter(),
     {
       isActive: true,
-      acceptsAppointments: true,
+      bookable: true,
     }
   );
 });
