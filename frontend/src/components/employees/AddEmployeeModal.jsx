@@ -1081,7 +1081,7 @@ export default function AddEmployeeModal({
                   <strong className="block">
                     Bookable
                   </strong>
-                  Allow selection for online appointments when otherwise eligible.
+                  Allow this employee to be selected for appointments across website, reception, in-salon, WhatsApp and future booking channels.
                 </span>
               </label>
             </div>
