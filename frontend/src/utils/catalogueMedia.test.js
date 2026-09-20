@@ -37,6 +37,13 @@ test("catalogue image URL normalisation rejects protocol-relative and insecure U
         "http://cdn.example.com/image.jpg"
       )
   );
+
+  assert.throws(
+    () =>
+      normaliseCatalogueImageUrl(
+        `/${"a".repeat(2_001)}`
+      )
+  );
 });
 
 test("catalogue image utilities de-duplicate and preserve primary ordering", () => {
