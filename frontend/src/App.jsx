@@ -1009,27 +1009,27 @@ function AppRoutes() {
 
         <Route
           path="suppliers"
-          element={featurePage(managementPage(SupplierManagementPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(SupplierManagementPage, "inventory:read"), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders"
-          element={featurePage(managementPage(PurchaseOrdersPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(PurchaseOrdersPage, "inventory:read"), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders/new"
-          element={featurePage(managementPage(CreatePurchaseOrderPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(CreatePurchaseOrderPage, "inventory:read"), "inventory-purchasing")}
         />
 
         <Route
           path="purchase-orders/:purchaseOrderId"
-          element={featurePage(managementPage(PurchaseOrderDetailsPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(PurchaseOrderDetailsPage, "inventory:read"), "inventory-purchasing")}
         />
 
         <Route
           path="reorder-recommendations"
-          element={featurePage(managementPage(ReorderRecommendationsPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(ReorderRecommendationsPage, "inventory:read"), "inventory-purchasing")}
         />
 
 
@@ -1041,54 +1041,52 @@ function AppRoutes() {
 
         <Route
           path="rebooking-campaigns"
-          element={featurePage(managementPage(RebookingCampaignsPage), "communications")}
+          element={featurePage(permissionPage(RebookingCampaignsPage, "communications:read"), "communications")}
         />
 
         <Route
           path="marketing-attribution"
-          element={featurePage(managementPage(MarketingAttributionPage), "ai-tools")}
+          element={featurePage(permissionPage(MarketingAttributionPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="smart-appointments"
-          element={featurePage(managementPage(SmartAppointmentsPage), "ai-tools")}
+          element={featurePage(permissionPage(SmartAppointmentsPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="capacity-planning"
-          element={featurePage(managementPage(CapacityPlanningPage), "ai-tools")}
+          element={featurePage(permissionPage(CapacityPlanningPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="dynamic-pricing"
-          element={featurePage(managementPage(DynamicPricingPage), "ai-tools")}
+          element={featurePage(permissionPage(DynamicPricingPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="inventory-forecasting"
-          element={featurePage(managementPage(InventoryForecastingPage), "inventory-purchasing")}
+          element={featurePage(permissionPage(InventoryForecastingPage, "inventory:read"), "inventory-purchasing")}
         />
 
         <Route
           path="feedback-analytics"
-          element={featurePage(managementPage(FeedbackAnalyticsPage), "ai-tools")}
+          element={featurePage(permissionPage(FeedbackAnalyticsPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="management-copilot"
-          element={featurePage(managementPage(ManagementCopilotPage), "ai-tools")}
+          element={featurePage(permissionPage(ManagementCopilotPage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="executive-command-centre"
-          element={featurePage(managementPage(ExecutiveCommandCentrePage), "ai-tools")}
+          element={featurePage(permissionPage(ExecutiveCommandCentrePage, "ai:use"), "ai-tools")}
         />
 
         <Route
           path="data-export-audit"
-          element={managementPage(
-            DataExportAuditPage
-          )}
+          element={permissionPage(DataExportAuditPage, "reports:read")}
         />
 
 
