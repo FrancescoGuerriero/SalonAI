@@ -12,7 +12,7 @@ async function source(relativePath) {
   );
 }
 
-test("customer appointment creation rejects services that are not online bookable", async () => {
+test("customer appointment creation rejects services that are not bookable", async () => {
   const controller =
     await source(
       "../controllers/appointmentController.js"
@@ -20,12 +20,12 @@ test("customer appointment creation rejects services that are not online bookabl
 
   assert.match(
     controller,
-    /service\.onlineBookable\s*===\s*false/
+    /service\.bookable\s*===\s*false/
   );
 
   assert.match(
     controller,
-    /The selected service is not available for online booking\./
+    /The selected service is not available for booking\./
   );
 });
 
@@ -37,7 +37,7 @@ test("public service card does not offer standard booking for non-bookable servi
 
   assert.match(
     card,
-    /service\.onlineBookable\s*===\s*false/
+    /service\.bookable\s*===\s*false/
   );
 
   assert.match(
