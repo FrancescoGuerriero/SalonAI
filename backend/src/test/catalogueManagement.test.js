@@ -80,7 +80,7 @@ test("product management separates catalogue, publication and inventory permissi
   );
   assert.match(
     controller,
-    /delete payload\.published/
+    /delete payload\.active/
   );
   assert.match(
     controller,
