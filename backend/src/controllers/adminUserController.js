@@ -1451,13 +1451,14 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      req.user.role !==
-        "super_admin" &&
-      permissions.length >
-        0
+      permissions.length > 0 &&
+      !hasUserPermission(
+        req.user,
+        "employee:permissions:update"
+      )
     ) {
       throw httpError(
-        "Only the Super Admin can assign employee permissions during account creation.",
+        "You do not have permission to assign employee permissions during account creation.",
         403
       );
     }
@@ -1551,8 +1552,10 @@ export async function createStaffUserByAdmin(
           hashedPassword,
         role,
         permissions:
-          req.user.role ===
-          "super_admin"
+          hasUserPermission(
+            req.user,
+            "employee:permissions:update"
+          )
             ? permissions
             : [],
         rolePermissions,
@@ -1931,20 +1934,50 @@ export async function updateEmployeeManagementSettings(
       ];
     }
 
-    if (
-      req.user.role !==
-        "super_admin" &&
-      (Object.prototype.hasOwnProperty.call(
+    const roleChangeRequested =
+      Object.prototype.hasOwnProperty.call(
         update,
         "role"
-      ) ||
-        Object.prototype.hasOwnProperty.call(
-          update,
-          "permissions"
-        ))
+      );
+    const permissionChangeRequested =
+      Object.prototype.hasOwnProperty.call(
+        update,
+        "permissions"
+      );
+
+    if (
+      roleChangeRequested &&
+      req.user.role !==
+        "super_admin"
     ) {
       throw httpError(
-        "Only the Super Admin can change employee roles or permissions.",
+        "Only the Super Admin can change employee access roles.",
+        403
+      );
+    }
+
+    if (
+      permissionChangeRequested &&
+      !hasUserPermission(
+        req.user,
+        "employee:permissions:update"
+      )
+    ) {
+      throw httpError(
+        "You do not have permission to change employee permissions.",
+        403
+      );
+    }
+
+    if (
+      permissionChangeRequested &&
+      user.role ===
+        "super_admin" &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can change a Super Admin account.",
         403
       );
     }
