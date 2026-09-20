@@ -376,7 +376,7 @@ export async function getStylists(req, res) {
       bookable !==
       undefined
     ) {
-      filter.acceptsAppointments =
+      filter.bookable =
         bookable === "true";
     }
 
@@ -739,7 +739,7 @@ export async function getStylistAvailability(req, res, next) {
         .lean(),
       Stylist.findById(stylistObjectId)
         .select(
-          "services isActive acceptsAppointments profilePublished"
+          "services isActive bookable profilePublished"
         )
         .lean(),
     ]);
