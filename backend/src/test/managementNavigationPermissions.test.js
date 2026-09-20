@@ -78,7 +78,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 });
 
 
-test("core management roles bypass menu hiding while granular permissions remain on links", async () => {
+test("Super Admin and Admin bypass menu hiding while other staff remain permission-driven", async () => {
   const navigation =
     await readFile(
       new URL(
@@ -106,17 +106,26 @@ test("core management roles bypass menu hiding while granular permissions remain
     /fullDashboard \|\| hasPermission/
   );
 
-  for (const role of [
-    "super_admin",
-    "admin",
-    "manager",
-    "receptionist",
-  ]) {
-    assert.match(
-      roles,
-      new RegExp(`"${role}"`)
+  const fullDashboardBlock =
+    roles.match(
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
     );
-  }
+
+  assert.ok(
+    fullDashboardBlock
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"super_admin"/
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"admin"/
+  );
+  assert.doesNotMatch(
+    fullDashboardBlock[1],
+    /"manager"|"receptionist"|"stylist"/
+  );
 });
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
@@ -327,7 +336,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("core management roles retain full dashboard visibility", async () => {
+test("only Super Admin and Administrator retain full dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -345,23 +354,17 @@ test("core management roles retain full dashboard visibility", async () => {
   assert.ok(
     fullDashboardBlock
   );
-  for (const role of [
-    "super_admin",
-    "admin",
-    "manager",
-    "receptionist",
-  ]) {
-    assert.match(
-      fullDashboardBlock[1],
-      new RegExp(
-        `"${role}"`
-      )
-    );
-  }
-
+  assert.match(
+    fullDashboardBlock[1],
+    /"super_admin"/
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"admin"/
+  );
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"stylist"/
+    /"manager"|"receptionist"|"stylist"/
   );
 });
 
