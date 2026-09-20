@@ -510,11 +510,11 @@ async function getBookingResources(
   }
 
   if (
-    service.onlineBookable ===
+    service.bookable ===
     false
   ) {
     throw createHttpError(
-      "The selected service is not available for online booking.",
+      "The selected service is not currently bookable.",
       409,
       {
         field: "service",
@@ -562,7 +562,7 @@ async function populateAppointment(
     )
     .populate(
       "service",
-      "name category description price duration active"
+      "name category description price duration active bookable"
     )
     .populate(
       "stylist",
@@ -833,7 +833,7 @@ export async function getAppointments(
         )
         .populate(
           "service",
-          "name category description price duration active"
+          "name category description price duration active bookable"
         )
         .populate(
           "stylist",
