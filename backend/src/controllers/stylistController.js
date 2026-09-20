@@ -50,6 +50,25 @@ export const BOOKING_STYLIST_FIELDS = [
   "displayOrder",
 ].join(" ");
 
+function isServicePublished(service) {
+  return (
+    typeof service?.published ===
+    "boolean"
+      ? service.published
+      : service?.active === true
+  );
+}
+
+function isServiceBookable(service) {
+  return (
+    typeof service?.bookable ===
+    "boolean"
+      ? service.bookable
+      : service?.onlineBookable !==
+        false
+  );
+}
+
 function createHttpError(message, statusCode, details = null) {
   const error = new Error(message);
 
@@ -453,7 +472,7 @@ export async function getPublicStylists(
         )
         .populate(
           "services",
-          "name category price duration active"
+          "name category price duration active published bookable"
         )
         .sort({
           displayOrder: 1,
@@ -491,7 +510,7 @@ export async function getBookingStylists(
         )
         .populate(
           "services",
-          "name category price duration active onlineBookable"
+          "name category price duration active published bookable"
         )
         .sort({
           displayOrder: 1,
@@ -668,10 +687,13 @@ export async function getStylistAvailability(req, res, next) {
     const stylistObjectId = new mongoose.Types.ObjectId(stylistId);
     const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
     const [service, stylist] = await Promise.all([
-      Service.findOne({
-        _id: serviceObjectId,
-        active: { $ne: false },
-      }).lean(),
+      Service.findById(
+        serviceObjectId
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .lean(),
       Stylist.findById(stylistObjectId)
         .select(
           "services isActive acceptsAppointments profilePublished"
@@ -679,10 +701,30 @@ export async function getStylistAvailability(req, res, next) {
         .lean(),
     ]);
 
-    if (!service) {
+    if (
+      !service ||
+      service.active === false ||
+      !isServicePublished(
+        service
+      )
+    ) {
       throw createHttpError(
-        "The selected service was not found or is inactive.",
+        "The selected service was not found, is inactive or is unpublished.",
         404
+      );
+    }
+
+    if (
+      !isServiceBookable(
+        service
+      )
+    ) {
+      throw createHttpError(
+        "The selected service is not currently bookable.",
+        409,
+        {
+          field: "service",
+        }
       );
     }
 
