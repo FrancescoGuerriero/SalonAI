@@ -1,37 +1,69 @@
-# Initial Super Admin Migration
+# Governed Super Admin Promotion
 
-The initial SalonAI Super Admin must be selected by the immutable MongoDB User ID of the existing administrator account. Name and email are deliberately not accepted by the migration command.
+SalonAI supports more than one active Super Admin. Promotion is intentionally kept outside the ordinary employee-role UI because `super_admin` grants unconditional application authority.
 
-## Why this is a deploy-time migration
+The promotion command can target one or more existing active staff accounts by immutable MongoDB User ID or by an exact, unique account name.
 
-The currently deployed pre-Super-Admin application does not understand the `super_admin` role. Promoting the account before deploying compatible application code could prevent that account from passing legacy role checks.
+## Safety rules
 
-Therefore the governed sequence for the first Super Admin release is:
+- Customer accounts cannot be promoted.
+- Inactive accounts cannot be promoted.
+- Exact-name lookup is case-insensitive but must resolve to exactly one active staff account.
+- If an exact name is ambiguous, the command aborts and requires `--user-id`.
+- Every selector is resolved and validated before any role change is written.
+- Existing Super Admin accounts are accepted and verified rather than treated as an error.
+- The command supports dry-run, apply and verify modes.
+- Ordinary employee management still cannot assign the protected `super_admin` role.
 
-1. release and verify immutable application images;
-2. dry-run the migration against the exact production User ID;
-3. deploy the Super-Admin-capable application;
-4. immediately apply the identity-bound migration during the controlled deployment window;
-5. verify the selected User ID now has `role=super_admin`;
-6. run authenticated RBAC/calendar acceptance;
-7. complete release closeout.
+Do not commit production MongoDB User IDs, email addresses or other private account identifiers to source control.
 
-Do not use the old email-based promotion command semantics.
+## Promote Francesco and Francesco Guerriero
 
-## Commands
+Run a dry-run first:
 
-Dry-run:
+```bash
+npm run superadmin:set -- \
+  --user-name="Francesco" \
+  --user-name="Francesco Guerriero"
+```
 
-`node scripts/promoteSuperAdmin.js --user-id=<USER_ID>`
+The dry-run must resolve exactly two intended staff accounts. If either name is ambiguous, use the exact MongoDB User ID for that account instead.
 
-Apply:
+Apply both promotions in one governed operation:
 
-`node scripts/promoteSuperAdmin.js --user-id=<USER_ID> --apply --confirm=salonai-initial-super-admin`
+```bash
+npm run superadmin:set -- \
+  --user-name="Francesco" \
+  --user-name="Francesco Guerriero" \
+  --apply \
+  --confirm=salonai-super-admin-promotion
+```
 
-Verify:
+Verify both accounts:
 
-`node scripts/promoteSuperAdmin.js --user-id=<USER_ID> --verify`
+```bash
+npm run superadmin:set -- \
+  --user-name="Francesco" \
+  --user-name="Francesco Guerriero" \
+  --verify
+```
 
-The migration refuses `--apply` without the confirmation phrase and refuses an initial promotion if another active Super Admin already exists.
+## User-ID form
 
-The User ID must be supplied through controlled deployment input/evidence. Do not commit a production User ID, email address or other account identity into source control.
+One or more immutable IDs can be supplied instead:
+
+```bash
+npm run superadmin:set -- \
+  --user-id=<USER_ID_1> \
+  --user-id=<USER_ID_2> \
+  --apply \
+  --confirm=salonai-super-admin-promotion
+```
+
+IDs and names may be mixed. Duplicate selectors that resolve to the same account are de-duplicated before application.
+
+## Deployment note
+
+Changing source code does not change a production MongoDB user's role. The apply command must be executed against the intended production database from the controlled production environment after the corrected script is integrated.
+
+The backend authorization middleware loads the current User record from MongoDB for authenticated requests, so the database role is authoritative once the promotion has been applied.
