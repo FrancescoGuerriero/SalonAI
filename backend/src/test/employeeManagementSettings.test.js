@@ -197,7 +197,7 @@ test("employee schedule rejects breaks outside working hours", () => {
 });
 
 
-test("employee roster uses canonical staff accounts and only attaches matching profiles", async () => {
+test("employee roster includes login accounts and unlinked salon staff profiles", async () => {
   const controller =
     await readFile(
       new URL(
@@ -209,30 +209,106 @@ test("employee roster uses canonical staff accounts and only attaches matching p
 
   assert.match(
     controller,
-    /User\.find\(query\)/
+    /User\.find\(\{[\s\S]*?role:[\s\S]*?\$ne:[\s\S]*?"customer"/
   );
+
   assert.match(
     controller,
-    /name:\s*1,\s*email:\s*1/s
+    /Stylist\.find\(\)/
   );
+
   assert.match(
-    controller,
-    /userAccount:\s*\{\s*\$in:\s*userIds/s
-  );
-  assert.doesNotMatch(
     controller,
     /serialiseProfileOnlyEmployee/
   );
-  assert.doesNotMatch(
+
+  assert.match(
     controller,
     /employeeType:\s*"profile-only"/
   );
+
+  assert.match(
+    controller,
+    /accountLinked:\s*false/
+  );
+
+  assert.match(
+    controller,
+    /profileOnlyTotal:/
+  );
+
+  assert.match(
+    controller,
+    /No login account/
+  );
+
   assert.doesNotMatch(
     controller,
-    /"Salon employee"/
+    /fabricated credentials/i
   );
 });
 
+test("Employees and Staff Accounts expose profile-only workforce records safely", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/AdminStaffAccountsPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /Profile only · no login account/
+  );
+
+  assert.match(
+    page,
+    /profile_only/
+  );
+
+  assert.match(
+    page,
+    /Manage staff profile/
+  );
+
+  assert.match(
+    page,
+    /user\.accountLinked ===[\s\S]*?false/
+  );
+
+  assert.match(
+    page,
+    /stylistService\.updateStylist/
+  );
+});
+
+test("management staff profile editor includes unlinked staff profiles", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/StaffProfileEditorPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /employee[\s\S]*?stylistProfile[\s\S]*?id/
+  );
+
+  assert.match(
+    page,
+    /no login account/
+  );
+
+  assert.match(
+    page,
+    /every current staff profile visible to management/
+  );
+});
 
 test("employee dashboard preserves multiple daily breaks", async () => {
   const page =
