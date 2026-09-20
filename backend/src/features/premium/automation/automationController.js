@@ -1,6 +1,7 @@
 import {
   createRetentionJourney,
   listRetentionJourneys,
+  previewRetentionJourney,
   updateRetentionJourney,
 } from "./retentionAutomationService.js";
 
@@ -55,5 +56,25 @@ export async function updateJourney(
         ? "Retention journey enabled."
         : "Retention journey saved.",
     journey,
+  });
+}
+
+
+export async function previewJourney(
+  req,
+  res
+) {
+  const preview =
+    await previewRetentionJourney(
+      req.params.journeyId,
+      {
+        limit:
+          req.query.limit,
+      }
+    );
+
+  return res.json({
+    success: true,
+    preview,
   });
 }
