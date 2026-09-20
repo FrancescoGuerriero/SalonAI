@@ -60,6 +60,21 @@ function httpError(
   return error;
 }
 
+function isPermissionAdministrator(
+  user
+) {
+  return [
+    "super_admin",
+    "admin",
+  ].includes(
+    String(
+      user?.role || ""
+    )
+      .trim()
+      .toLowerCase()
+  );
+}
+
 function cleanText(
   value,
   maximumLength
@@ -895,7 +910,7 @@ export async function listAdminUsers(
             )
             .populate(
               "services",
-              "name category active onlineBookable"
+              "name category active published bookable"
             )
             .lean()
         : [];
@@ -1018,7 +1033,7 @@ async function employeeAndProfile(
 
     await stylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
   }
 
@@ -1088,7 +1103,7 @@ export async function updateEmployeeServices(
     await stylist.save();
     await stylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
 
     const after =
@@ -1451,13 +1466,26 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      req.user.role !==
-        "super_admin" &&
       permissions.length >
-        0
+        0 &&
+      !isPermissionAdministrator(
+        req.user
+      )
     ) {
       throw httpError(
-        "Only the Super Admin can assign employee permissions during account creation.",
+        "Only the Super Admin or Administrator can assign employee permissions during account creation.",
+        403
+      );
+    }
+
+    if (
+      !isPermissionAdministrator(
+        req.user
+      ) &&
+      role !== "stylist"
+    ) {
+      throw httpError(
+        "Only the Super Admin or Administrator can assign staff roles during account creation.",
         403
       );
     }
@@ -1551,8 +1579,9 @@ export async function createStaffUserByAdmin(
           hashedPassword,
         role,
         permissions:
-          req.user.role ===
-          "super_admin"
+          isPermissionAdministrator(
+            req.user
+          )
             ? permissions
             : [],
         rolePermissions,
@@ -1610,7 +1639,7 @@ export async function createStaffUserByAdmin(
 
     await linkedStylist.populate(
       "services",
-      "name category price duration active onlineBookable"
+      "name category price duration active published bookable"
     );
 
     const created =
@@ -1885,6 +1914,18 @@ export async function updateEmployeeManagementSettings(
       user
     );
 
+    if (
+      user.role ===
+        "super_admin" &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can change a Super Admin account.",
+        403
+      );
+    }
+
     await protectFinalSuperAdmin(
       user,
       update,
@@ -1932,19 +1973,31 @@ export async function updateEmployeeManagementSettings(
     }
 
     if (
-      req.user.role !==
-        "super_admin" &&
-      (Object.prototype.hasOwnProperty.call(
+      Object.prototype.hasOwnProperty.call(
         update,
         "role"
-      ) ||
-        Object.prototype.hasOwnProperty.call(
-          update,
-          "permissions"
-        ))
+      ) &&
+      !isPermissionAdministrator(
+        req.user
+      )
     ) {
       throw httpError(
-        "Only the Super Admin can change employee roles or permissions.",
+        "Only the Super Admin or Administrator can change employee roles.",
+        403
+      );
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        update,
+        "permissions"
+      ) &&
+      !isPermissionAdministrator(
+        req.user
+      )
+    ) {
+      throw httpError(
+        "Only the Super Admin or Administrator can change employee permissions.",
         403
       );
     }
@@ -2034,7 +2087,7 @@ export async function updateEmployeeManagementSettings(
 
     await stylist.populate(
       "services",
-      "name category active onlineBookable"
+      "name category active published bookable"
     );
 
     const after =
@@ -2182,7 +2235,7 @@ export async function updateAdminUserStatus(
       await stylist.save();
       await stylist.populate(
         "services",
-        "name category active onlineBookable"
+        "name category active published bookable"
       );
     }
 
