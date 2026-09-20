@@ -22,6 +22,7 @@ import {
 
 import AddEmployeeModal from "../components/employees/AddEmployeeModal.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
+import stylistService from "../Services/stylistService.js";
 import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
@@ -113,6 +114,12 @@ export default function AdminStaffAccountsPage() {
     hasPermission(
       currentUser,
       "employee:update"
+    );
+
+  const canUpdateProfiles =
+    hasPermission(
+      currentUser,
+      "profile:all:update"
     );
 
   const canDeactivate =
@@ -250,8 +257,14 @@ export default function AdminStaffAccountsPage() {
         (user) => {
           if (
             roleFilter &&
-            user.role !==
-              roleFilter
+            (
+              roleFilter ===
+              "profile_only"
+                ? user.accountLinked !==
+                  false
+                : user.role !==
+                  roleFilter
+            )
           ) {
             return false;
           }
@@ -291,12 +304,18 @@ export default function AdminStaffAccountsPage() {
     field,
     value
   ) {
+    const profileOnly =
+      user.accountLinked ===
+      false;
+
     if (
       field ===
         "isActive" &&
       value === false &&
       !window.confirm(
-        `Deactivate ${user.name}? They will no longer be able to sign in or receive bookings.`
+        profileOnly
+          ? `Deactivate ${user.name}'s staff profile? They will no longer be available for salon operations or bookings.`
+          : `Deactivate ${user.name}? They will no longer be able to sign in or receive bookings.`
       )
     ) {
       return;
@@ -313,8 +332,80 @@ export default function AdminStaffAccountsPage() {
     setSuccess("");
 
     try {
+      if (profileOnly) {
+        const profileId =
+          user
+            ?.stylistProfile
+            ?.id;
+
+        if (!profileId) {
+          throw new Error(
+            "This workforce record does not have a staff profile."
+          );
+        }
+
+        if (
+          ![
+            "isActive",
+            "profilePublished",
+            "acceptsAppointments",
+          ].includes(
+            field
+          )
+        ) {
+          throw new Error(
+            "Create or link a login account before changing account roles or permissions."
+          );
+        }
+
+        const profile =
+          await stylistService.updateStylist(
+            profileId,
+            {
+              [field]:
+                value,
+            }
+          );
+
+        setUsers(
+          (current) =>
+            current.map(
+              (item) =>
+                item.id ===
+                user.id
+                  ? {
+                      ...item,
+                      isActive:
+                        field ===
+                        "isActive"
+                          ? profile.isActive ===
+                            true
+                          : item.isActive,
+                      profilePhoto:
+                        profile.profileImage ||
+                        item.profilePhoto,
+                      stylistProfile: {
+                        ...item.stylistProfile,
+                        ...profile,
+                        id:
+                          profile._id ||
+                          profileId,
+                      },
+                    }
+                  : item
+            )
+        );
+
+        setSuccess(
+          `${user.name} staff profile updated.`
+        );
+
+        return;
+      }
+
       const response =
-        field === "isActive"
+        field ===
+        "isActive"
           ? await adminStaffService.setStatus(
               user.id,
               value
@@ -377,9 +468,7 @@ export default function AdminStaffAccountsPage() {
           </h1>
 
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Manage employee roles, login access,
-            public visibility, online booking and
-            today&apos;s schedule from one page.
+            View the complete salon workforce, including staff without login accounts, and manage account access, public visibility, global booking eligibility and today&apos;s schedule from one page.
           </p>
         </div>
 
@@ -486,6 +575,9 @@ export default function AdminStaffAccountsPage() {
             <option value="">
               All staff roles
             </option>
+            <option value="profile_only">
+              No login account
+            </option>
 
             {roles.map(
               (role) => (
@@ -564,8 +656,16 @@ export default function AdminStaffAccountsPage() {
                     </div>
 
                     <p className="mt-1 break-all text-sm text-slate-600">
-                      {user.email}
+                      {user.email ||
+                        "No login account"}
                     </p>
+
+                    {user.accountLinked ===
+                    false ? (
+                      <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900">
+                        Profile only · no login account
+                      </span>
+                    ) : null}
 
                     {user.phone ? (
                       <p className="mt-1 text-sm text-slate-500">
@@ -576,7 +676,12 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      {canManageRoles ? (
+                      {user.accountLinked ===
+                      false ? (
+                        <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-amber-800">
+                          No login account
+                        </span>
+                      ) : canManageRoles ? (
                         <select
                           value={user.role}
                           disabled={Boolean(updatingId)}
@@ -659,8 +764,19 @@ export default function AdminStaffAccountsPage() {
                   <div className="flex flex-wrap gap-2">
                     <SettingSwitch
                       checked={user.isActive !== false}
-                      disabled={Boolean(updatingId) || !canDeactivate}
-                      label="Active"
+                      disabled={
+                        Boolean(updatingId) ||
+                        (user.accountLinked ===
+                        false
+                          ? !canUpdateProfiles
+                          : !canDeactivate)
+                      }
+                      label={
+                        user.accountLinked ===
+                        false
+                          ? "Profile active"
+                          : "Active"
+                      }
                       onChange={(value) =>
                         updateEmployeeSetting(
                           user,
@@ -672,7 +788,13 @@ export default function AdminStaffAccountsPage() {
 
                     <SettingSwitch
                       checked={user.stylistProfile?.profilePublished === true}
-                      disabled={Boolean(updatingId) || !canUpdate}
+                      disabled={
+                        Boolean(updatingId) ||
+                        (user.accountLinked ===
+                        false
+                          ? !canUpdateProfiles
+                          : !canUpdate)
+                      }
                       label="Published"
                       onChange={(value) =>
                         updateEmployeeSetting(
@@ -685,7 +807,13 @@ export default function AdminStaffAccountsPage() {
 
                     <SettingSwitch
                       checked={user.stylistProfile?.acceptsAppointments === true}
-                      disabled={Boolean(updatingId) || !canUpdate}
+                      disabled={
+                        Boolean(updatingId) ||
+                        (user.accountLinked ===
+                        false
+                          ? !canUpdateProfiles
+                          : !canUpdate)
+                      }
                       label="Bookable"
                       onChange={(value) =>
                         updateEmployeeSetting(
@@ -698,12 +826,22 @@ export default function AdminStaffAccountsPage() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      to={`/admin/employees/${user.id}`}
-                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                    >
-                      Manage employee
-                    </Link>
+                    {user.accountLinked ===
+                    false ? (
+                      <Link
+                        to={`/admin/stylists?edit=${user.stylistProfile?.id || ""}`}
+                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                      >
+                        Manage staff profile
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/admin/employees/${user.id}`}
+                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                      >
+                        Manage employee
+                      </Link>
+                    )}
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (

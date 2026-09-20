@@ -4,6 +4,9 @@ import Service from "../models/service.js";
 import {
   recordAuditEvent,
 } from "../services/auditService.js";
+import {
+  normaliseCatalogueImage,
+} from "../utils/catalogueMedia.js";
 
 function serialiseService(service) {
   const value =
@@ -124,6 +127,18 @@ export async function createService(
     delete payload.onlineBookable;
     delete payload.published;
 
+    if (
+      Object.prototype.hasOwnProperty.call(
+        payload,
+        "image"
+      )
+    ) {
+      payload.image =
+        normaliseCatalogueImage(
+          payload.image
+        );
+    }
+
     const service =
       await Service.create({
         ...payload,
@@ -233,6 +248,18 @@ export async function updateService(
     // Publication is a separate privileged action.
     delete payload.published;
     delete payload.onlineBookable;
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        payload,
+        "image"
+      )
+    ) {
+      payload.image =
+        normaliseCatalogueImage(
+          payload.image
+        );
+    }
 
     const before =
       await Service.findById(

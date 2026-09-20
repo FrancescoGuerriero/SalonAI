@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  buildAdminWorkforceRoster,
   normaliseEmployeeManagementUpdate,
   normaliseEmployeeSchedule,
 } from "../controllers/adminUserController.js";
@@ -197,7 +198,120 @@ test("employee schedule rejects breaks outside working hours", () => {
 });
 
 
-test("employee roster uses canonical staff accounts and only attaches matching profiles", async () => {
+test("employee workforce reconciliation respects explicit account links and uses email only for unlinked legacy profiles", () => {
+  const staffUsers = [
+    {
+      _id: "user-a",
+      name: "Account A",
+      email: "a@example.com",
+      role: "admin",
+      isActive: true,
+    },
+    {
+      _id: "user-b",
+      name: "Account B",
+      email: "b@example.com",
+      role: "stylist",
+      isActive: true,
+    },
+    {
+      _id: "user-c",
+      name: "Account C",
+      email: "c@example.com",
+      role: "stylist",
+      isActive: true,
+    },
+  ];
+
+  const stylistProfiles = [
+    {
+      _id: "profile-b",
+      userAccount: "user-b",
+      email: "a@example.com",
+      firstName: "Linked",
+      lastName: "B",
+      isActive: true,
+      profilePublished: true,
+      acceptsAppointments: true,
+    },
+    {
+      _id: "profile-c",
+      email: "c@example.com",
+      firstName: "Legacy",
+      lastName: "C",
+      isActive: true,
+      profilePublished: true,
+      acceptsAppointments: true,
+    },
+    {
+      _id: "profile-history",
+      email: "history@example.com",
+      firstName: "Historic",
+      lastName: "Stylist",
+      isActive: false,
+      profilePublished: false,
+      acceptsAppointments: false,
+    },
+  ];
+
+  const result =
+    buildAdminWorkforceRoster(
+      staffUsers,
+      stylistProfiles
+    );
+
+  const accountA =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-a"
+    );
+  const accountB =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-b"
+    );
+  const accountC =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-c"
+    );
+
+  assert.equal(
+    accountA.stylistProfile,
+    null
+  );
+  assert.equal(
+    accountB.stylistProfile.id,
+    "profile-b"
+  );
+  assert.equal(
+    accountC.stylistProfile.id,
+    "profile-c"
+  );
+
+  assert.equal(
+    result.profileRows.length,
+    1
+  );
+  assert.equal(
+    result.profileRows[0].id,
+    "profile:profile-history"
+  );
+  assert.equal(
+    result.profileRows[0].accountLinked,
+    false
+  );
+  assert.equal(
+    result.profileRows[0].isActive,
+    false
+  );
+  assert.deepEqual(
+    result.profileRows[0].permissions,
+    []
+  );
+});
+
+test("employee roster includes login accounts and unlinked salon staff profiles", async () => {
   const controller =
     await readFile(
       new URL(
@@ -209,30 +323,126 @@ test("employee roster uses canonical staff accounts and only attaches matching p
 
   assert.match(
     controller,
-    /User\.find\(query\)/
+    /User\.find\(\{[\s\S]*?role:[\s\S]*?\$ne:[\s\S]*?"customer"/
   );
+
   assert.match(
     controller,
-    /name:\s*1,\s*email:\s*1/s
+    /Stylist\.find\(\)/
   );
+
   assert.match(
-    controller,
-    /userAccount:\s*\{\s*\$in:\s*userIds/s
-  );
-  assert.doesNotMatch(
     controller,
     /serialiseProfileOnlyEmployee/
   );
-  assert.doesNotMatch(
+
+  assert.match(
     controller,
     /employeeType:\s*"profile-only"/
   );
-  assert.doesNotMatch(
+
+  assert.match(
     controller,
-    /"Salon employee"/
+    /accountLinked:\s*false/
+  );
+
+  assert.match(
+    controller,
+    /profileOnlyTotal:/
+  );
+
+  assert.match(
+    controller,
+    /No login account/
+  );
+
+  assert.match(
+    controller,
+    /permissions:\s*\[\]/
+  );
+
+  const rosterStart =
+    controller.indexOf(
+      "export async function listAdminUsers"
+    );
+  const rosterEnd =
+    controller.indexOf(
+      "async function employeeAndProfile",
+      rosterStart
+    );
+  const rosterSource =
+    controller.slice(
+      rosterStart,
+      rosterEnd
+    );
+
+  assert.doesNotMatch(
+    rosterSource,
+    /User\.create\(/
   );
 });
 
+test("Employees and Staff Accounts expose profile-only workforce records safely", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/AdminStaffAccountsPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /Profile only · no login account/
+  );
+
+  assert.match(
+    page,
+    /profile_only/
+  );
+
+  assert.match(
+    page,
+    /Manage staff profile/
+  );
+
+  assert.match(
+    page,
+    /user\.accountLinked ===[\s\S]*?false/
+  );
+
+  assert.match(
+    page,
+    /stylistService\.updateStylist/
+  );
+});
+
+test("management staff profile editor includes unlinked staff profiles", async () => {
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/StaffProfileEditorPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    page,
+    /employee[\s\S]*?stylistProfile[\s\S]*?id/
+  );
+
+  assert.match(
+    page,
+    /no login account/
+  );
+
+  assert.match(
+    page,
+    /every current staff profile visible to management/
+  );
+});
 
 test("employee dashboard preserves multiple daily breaks", async () => {
   const page =
