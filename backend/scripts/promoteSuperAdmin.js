@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { pathToFileURL } from "node:url";
 
 import User from "../src/models/user.js";
 
@@ -8,25 +9,39 @@ dotenv.config();
 const APPLY = "--apply";
 const VERIFY = "--verify";
 const CONFIRM =
+  "--confirm=salonai-super-admin-promotion";
+const LEGACY_CONFIRM =
   "--confirm=salonai-initial-super-admin";
 
-function argumentValue(name) {
+export function argumentValues(
+  name,
+  args = process.argv.slice(2)
+) {
   const prefix = `--${name}=`;
-  const match = process.argv
-    .slice(2)
-    .find((value) =>
-      String(value).startsWith(prefix)
-    );
 
-  return match
-    ? String(match).slice(prefix.length).trim()
-    : "";
+  return [
+    ...new Set(
+      args
+        .filter((value) =>
+          String(value).startsWith(prefix)
+        )
+        .map((value) =>
+          String(value)
+            .slice(prefix.length)
+            .trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
 }
 
-function selectedMode() {
-  const args = process.argv.slice(2);
-  const apply = args.includes(APPLY);
-  const verify = args.includes(VERIFY);
+export function selectedMode(
+  args = process.argv.slice(2)
+) {
+  const apply =
+    args.includes(APPLY);
+  const verify =
+    args.includes(VERIFY);
 
   if (apply && verify) {
     throw new Error(
@@ -34,9 +49,13 @@ function selectedMode() {
     );
   }
 
-  if (apply && !args.includes(CONFIRM)) {
+  if (
+    apply &&
+    !args.includes(CONFIRM) &&
+    !args.includes(LEGACY_CONFIRM)
+  ) {
     throw new Error(
-      `Applying the Super Admin migration requires ${CONFIRM}.`
+      `Applying a Super Admin promotion requires ${CONFIRM}.`
     );
   }
 
@@ -47,12 +66,79 @@ function selectedMode() {
       : "dry-run";
 }
 
+export function selectorPlan(
+  args = process.argv.slice(2)
+) {
+  const userIds =
+    argumentValues(
+      "user-id",
+      args
+    );
+  const userNames =
+    argumentValues(
+      "user-name",
+      args
+    );
+
+  if (
+    userIds.length === 0 &&
+    userNames.length === 0
+  ) {
+    throw new Error(
+      "Provide at least one --user-id=<MongoDB User ID> or --user-name=<exact account name>."
+    );
+  }
+
+  for (const userId of userIds) {
+    if (
+      !mongoose.isValidObjectId(
+        userId
+      )
+    ) {
+      throw new Error(
+        `Invalid --user-id value: ${userId}.`
+      );
+    }
+  }
+
+  return {
+    userIds,
+    userNames,
+  };
+}
+
+export function exactNameExpression(
+  name
+) {
+  const cleaned =
+    String(name || "")
+      .trim();
+
+  if (!cleaned) {
+    throw new Error(
+      "Super Admin account name cannot be empty."
+    );
+  }
+
+  const escaped =
+    cleaned.replace(
+      /[-/\\^$*+?.()|[\]{}]/g,
+      "\\$&"
+    );
+
+  return new RegExp(
+    `^${escaped}$`,
+    "i"
+  );
+}
+
 function mongoUri() {
-  const uri = String(
-    process.env.MONGODB_URI ||
-      process.env.MONGO_URI ||
-      ""
-  ).trim();
+  const uri =
+    String(
+      process.env.MONGODB_URI ||
+        process.env.MONGO_URI ||
+        ""
+    ).trim();
 
   if (!uri) {
     throw new Error(
@@ -63,156 +149,317 @@ function mongoUri() {
   return uri;
 }
 
-async function candidateById(userId) {
-  if (!mongoose.isValidObjectId(userId)) {
-    throw new Error(
-      "--user-id must be the exact MongoDB User ID."
-    );
-  }
-
-  const user = await User.findById(userId)
-    .select(
-      "name email role isActive"
-    );
-
+function assertEligibleCandidate(
+  user,
+  selectorDescription
+) {
   if (!user) {
     throw new Error(
-      "No SalonAI user exists for the supplied User ID."
-    );
-  }
-
-  if (user.isActive === false) {
-    throw new Error(
-      "The initial Super Admin account must be active."
+      `No SalonAI user exists for ${selectorDescription}.`
     );
   }
 
   if (
-    !["admin", "super_admin"].includes(
-      user.role
-    )
+    user.isActive === false
   ) {
     throw new Error(
-      "The initial Super Admin candidate must already be an administrator."
+      `The selected account for ${selectorDescription} is inactive.`
+    );
+  }
+
+  if (
+    String(user.role || "") ===
+    "customer"
+  ) {
+    throw new Error(
+      `The selected account for ${selectorDescription} is a customer account, not a staff account.`
     );
   }
 
   return user;
 }
 
-async function inspect(userId) {
-  const user = await candidateById(userId);
-  const otherSuperAdmins =
-    await User.countDocuments({
-      _id: { $ne: user._id },
-      role: "super_admin",
-      isActive: { $ne: false },
-    });
+async function candidateById(
+  userId
+) {
+  const user =
+    await User.findById(
+      userId
+    ).select(
+      "name role isActive"
+    );
 
-  return {
+  return assertEligibleCandidate(
     user,
-    otherSuperAdmins,
-    alreadyCorrect:
-      user.role === "super_admin",
+    `User ID ${userId}`
+  );
+}
+
+async function candidateByExactName(
+  userName
+) {
+  const users =
+    await User.find({
+      name:
+        exactNameExpression(
+          userName
+        ),
+      isActive: {
+        $ne: false,
+      },
+      role: {
+        $ne: "customer",
+      },
+    })
+      .select(
+        "name role isActive"
+      )
+      .limit(2);
+
+  if (
+    users.length === 0
+  ) {
+    throw new Error(
+      `No active SalonAI staff user exists with exact name "${userName}".`
+    );
+  }
+
+  if (
+    users.length > 1
+  ) {
+    throw new Error(
+      `More than one active SalonAI staff user has exact name "${userName}". Use --user-id for an unambiguous promotion.`
+    );
+  }
+
+  return users[0];
+}
+
+async function resolveCandidates(
+  plan
+) {
+  const candidates = [];
+
+  for (
+    const userId of
+      plan.userIds
+  ) {
+    candidates.push(
+      await candidateById(
+        userId
+      )
+    );
+  }
+
+  for (
+    const userName of
+      plan.userNames
+  ) {
+    candidates.push(
+      await candidateByExactName(
+        userName
+      )
+    );
+  }
+
+  const byId =
+    new Map();
+
+  for (const user of candidates) {
+    byId.set(
+      String(user._id),
+      user
+    );
+  }
+
+  return [
+    ...byId.values(),
+  ];
+}
+
+function candidateSummary(
+  user
+) {
+  return {
+    id:
+      String(user._id),
+    name:
+      user.name,
+    role:
+      user.role,
+    isActive:
+      user.isActive !== false,
+    changeRequired:
+      user.role !==
+      "super_admin",
   };
 }
 
-async function main() {
-  const mode = selectedMode();
-  const userId = argumentValue("user-id");
+async function verifyCandidates(
+  candidateIds
+) {
+  const users =
+    await User.find({
+      _id: {
+        $in:
+          candidateIds,
+      },
+    }).select(
+      "name role isActive"
+    );
 
-  if (!userId) {
+  const byId =
+    new Map(
+      users.map(
+        (user) => [
+          String(user._id),
+          user,
+        ]
+      )
+    );
+
+  const failures = [];
+
+  for (
+    const candidateId of
+      candidateIds
+  ) {
+    const user =
+      byId.get(
+        String(candidateId)
+      );
+
+    if (
+      !user ||
+      user.isActive === false ||
+      user.role !==
+        "super_admin"
+    ) {
+      failures.push(
+        String(candidateId)
+      );
+    }
+  }
+
+  if (failures.length) {
     throw new Error(
-      "Provide --user-id=<exact MongoDB User ID>. Email/name lookup is intentionally not supported."
+      `Super Admin verification failed for ${failures.length} selected account(s).`
     );
   }
+
+  return users;
+}
+
+export async function main(
+  args = process.argv.slice(2)
+) {
+  const mode =
+    selectedMode(args);
+  const plan =
+    selectorPlan(args);
 
   await mongoose.connect(
     mongoUri()
   );
 
-  const before =
-    await inspect(userId);
+  const candidates =
+    await resolveCandidates(
+      plan
+    );
+
+  if (!candidates.length) {
+    throw new Error(
+      "No Super Admin candidates were resolved."
+    );
+  }
 
   console.log(
     JSON.stringify(
       {
         mode,
-        candidate: {
-          id:
-            String(before.user._id),
-          role:
-            before.user.role,
-          isActive:
-            before.user.isActive !== false,
-        },
-        otherActiveSuperAdmins:
-          before.otherSuperAdmins,
-        changeRequired:
-          !before.alreadyCorrect,
+        candidates:
+          candidates.map(
+            candidateSummary
+          ),
+        selectedAccounts:
+          candidates.length,
       },
       null,
       2
     )
   );
 
+  const candidateIds =
+    candidates.map(
+      (user) =>
+        user._id
+    );
+
   if (mode === "verify") {
-    if (!before.alreadyCorrect) {
-      throw new Error(
-        "Super Admin verification failed: the selected account is not super_admin."
-      );
-    }
+    await verifyCandidates(
+      candidateIds
+    );
 
     console.log(
-      "[PASS] Initial Super Admin identity verified."
+      "[PASS] All selected Super Admin identities are active and verified."
     );
     return;
   }
 
   if (mode === "dry-run") {
     console.log(
-      "[PASS] Super Admin dry-run completed. No database changes were made."
+      "[PASS] Super Admin promotion dry-run completed. No database changes were made."
     );
     return;
   }
 
-  if (
-    before.otherSuperAdmins > 0 &&
-    !before.alreadyCorrect
-  ) {
-    throw new Error(
-      "Another active Super Admin already exists. Refusing an initial-authority migration."
-    );
-  }
+  await User.updateMany(
+    {
+      _id: {
+        $in:
+          candidateIds,
+      },
+      isActive: {
+        $ne: false,
+      },
+      role: {
+        $ne: "customer",
+      },
+    },
+    {
+      $set: {
+        role:
+          "super_admin",
+      },
+    }
+  );
 
-  if (!before.alreadyCorrect) {
-    before.user.role =
-      "super_admin";
-    await before.user.save();
-  }
-
-  const after =
-    await inspect(userId);
-
-  if (!after.alreadyCorrect) {
-    throw new Error(
-      "Super Admin verification failed after apply."
-    );
-  }
+  await verifyCandidates(
+    candidateIds
+  );
 
   console.log(
-    "[PASS] Initial Super Admin migration applied and verified."
+    "[PASS] All selected Super Admin promotions were applied and verified."
   );
 }
 
-main()
-  .catch((error) => {
-    console.error(
-      "[FAIL] Super Admin migration:",
-      error.message
-    );
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await mongoose.disconnect();
-  });
+const executedDirectly =
+  Boolean(process.argv[1]) &&
+  import.meta.url ===
+    pathToFileURL(
+      process.argv[1]
+    ).href;
+
+if (executedDirectly) {
+  main()
+    .catch((error) => {
+      console.error(
+        "[FAIL] Super Admin promotion:",
+        error.message
+      );
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await mongoose.disconnect();
+    });
+}
