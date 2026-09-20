@@ -11,6 +11,7 @@ import {
 import {
   createJourney,
   listJourneys,
+  previewJourney,
   updateJourney,
 } from "./automationController.js";
 
@@ -32,6 +33,13 @@ router
       createJourney
     )
   );
+
+router.get(
+  "/journeys/:journeyId/preview",
+  asyncHandler(
+    previewJourney
+  )
+);
 
 router.patch(
   "/journeys/:journeyId",
