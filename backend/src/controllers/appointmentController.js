@@ -492,6 +492,8 @@ async function getBookingResources(
   ] = await Promise.all([
     Service.findById(
       serviceId
+    ).select(
+      "+onlineBookable"
     ),
 
     Stylist.findById(
@@ -510,11 +512,30 @@ async function getBookingResources(
   }
 
   if (
-    service.onlineBookable ===
+    service.published ===
     false
   ) {
     throw createHttpError(
-      "The selected service is not available for online booking.",
+      "The selected service is not published.",
+      409,
+      {
+        field: "service",
+      }
+    );
+  }
+
+  const serviceBookable =
+    typeof service.bookable ===
+    "boolean"
+      ? service.bookable
+      : service.onlineBookable !==
+        false;
+
+  if (
+    serviceBookable === false
+  ) {
+    throw createHttpError(
+      "The selected service is not available for booking.",
       409,
       {
         field: "service",
@@ -562,7 +583,7 @@ async function populateAppointment(
     )
     .populate(
       "service",
-      "name category description price duration active"
+      "name category description price duration active published bookable"
     )
     .populate(
       "stylist",
@@ -833,7 +854,7 @@ export async function getAppointments(
         )
         .populate(
           "service",
-          "name category description price duration active"
+          "name category description price duration active published bookable"
         )
         .populate(
           "stylist",
