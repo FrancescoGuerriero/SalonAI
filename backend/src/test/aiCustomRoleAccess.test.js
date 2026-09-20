@@ -82,26 +82,30 @@ test("custom staff roles can use AI when ai:use is granted by their role templat
   );
 });
 
-test("management dashboard roles receive AI access while custom and salon staff still require delegation", () => {
-  for (const role of [
-    "admin",
-    "receptionist",
-    "manager",
-  ]) {
-    const result =
-      runAiPermission({
-        role,
-        permissions: [],
-      });
+test("Admin receives AI access while all other non-Super-Admin staff require delegation", () => {
+  const adminResult =
+    runAiPermission({
+      role:
+        "admin",
+      permissions: [],
+    });
 
-    assert.equal(
-      result.nextCalled,
-      true,
-      `${role} should retain AI and marketing workspace access`
-    );
-  }
+  assert.equal(
+    adminResult.nextCalled,
+    true
+  );
 
   for (const user of [
+    {
+      role:
+        "receptionist",
+      permissions: [],
+    },
+    {
+      role:
+        "manager",
+      permissions: [],
+    },
     {
       role:
         "colour_specialist",
