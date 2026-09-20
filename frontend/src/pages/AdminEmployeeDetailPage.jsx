@@ -823,7 +823,7 @@ export default function AdminEmployeeDetailPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => {
               const serviceId = String(service._id);
-              return <label key={serviceId} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="mt-1 h-4 w-4 accent-amber-400" checked={selectedServices.includes(serviceId)} disabled={!canManageServices} onChange={() => toggleService(serviceId)} /><span><strong className="block">{service.name}</strong><small className="text-slate-500">{service.category || "Salon service"} · {service.active === false ? "Unpublished" : "Published"}</small></span></label>;
+              return <label key={serviceId} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="mt-1 h-4 w-4 accent-amber-400" checked={selectedServices.includes(serviceId)} disabled={!canManageServices} onChange={() => toggleService(serviceId)} /><span><strong className="block">{service.name}</strong><small className="text-slate-500">{service.category || "Salon service"} · {service.active === false ? "Inactive" : "Active"} · {service.published === false ? "Unpublished" : "Published"} · {service.bookable === false ? "Not bookable" : "Bookable"}</small></span></label>;
             })}
           </div>
         ) : null}
