@@ -723,12 +723,24 @@ async function checkAppointmentConflict(
 async function appointmentEligibleStylist(
   stylistId
 ) {
+  assertValidObjectId(
+    stylistId,
+    "stylist"
+  );
+
+  /*
+   * Keep the user-supplied identifier out of a constructed MongoDB filter.
+   * findById() performs the identifier lookup, while the canonical booking
+   * eligibility predicate is composed separately. This preserves the shared
+   * global bookability rule and provides a local trust boundary for every
+   * caller of this helper.
+   */
   const stylist =
-    await Stylist.findOne({
-      _id:
-        stylistId,
-      ...appointmentEligibleStylistFilter(),
-    });
+    await Stylist.findById(
+      stylistId
+    ).where(
+      appointmentEligibleStylistFilter()
+    );
 
   if (!stylist) {
     throw createServiceError(
