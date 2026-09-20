@@ -1,3 +1,5 @@
+import AiPrediction from "../../ai/AiPrediction.js";
+import Customer from "../../../models/customer.js";
 import RetentionJourney, {
   RETENTION_CHANNELS,
   RETENTION_STOP_CONDITIONS,
@@ -353,4 +355,369 @@ export async function updateRetentionJourney(
   await journey.save();
 
   return journey;
+}
+
+
+function retentionPreviewError(
+  message,
+  statusCode
+) {
+  const error =
+    new Error(message);
+  error.statusCode =
+    statusCode;
+  return error;
+}
+
+export function buildInactiveRetentionPreviewPipeline({
+  conditions,
+  now = new Date(),
+  limit = 50,
+  aiPredictionCollection =
+    AiPrediction.collection.name,
+} = {}) {
+  const safeConditions =
+    normaliseRetentionConditions(
+      conditions
+    );
+
+  const safeLimit =
+    integer(
+      limit,
+      50,
+      1,
+      100
+    );
+
+  const cutoff =
+    new Date(
+      now.getTime() -
+        safeConditions
+          .inactiveDays *
+          86400000
+    );
+
+  const riskLevels =
+    safeConditions
+      .retentionRiskLevels;
+
+  const pipeline = [
+    {
+      $match: {
+        status: "active",
+        lastVisit: {
+          $ne: null,
+          $lt: cutoff,
+        },
+      },
+    },
+    {
+      $addFields: {
+        previewVisitCount: {
+          $ifNull: [
+            "$completedAppointmentCount",
+            {
+              $ifNull: [
+                "$visitCount",
+                0,
+              ],
+            },
+          ],
+        },
+        previewLifetimeValue: {
+          $ifNull: [
+            "$totalSpent",
+            0,
+          ],
+        },
+      },
+    },
+    {
+      $match: {
+        previewVisitCount: {
+          $gte:
+            safeConditions
+              .minimumVisits,
+        },
+        previewLifetimeValue: {
+          $gte:
+            safeConditions
+              .minimumLifetimeValue,
+        },
+      },
+    },
+    {
+      $lookup: {
+        from:
+          aiPredictionCollection,
+        let: {
+          customerId:
+            "$_id",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $eq: [
+                      "$customer",
+                      "$$customerId",
+                    ],
+                  },
+                  {
+                    $eq: [
+                      "$predictionType",
+                      "churn_risk",
+                    ],
+                  },
+                  {
+                    $gt: [
+                      "$expiresAt",
+                      now,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $sort: {
+              updatedAt: -1,
+            },
+          },
+          {
+            $limit: 1,
+          },
+          {
+            $project: {
+              _id: 0,
+              label: 1,
+              score: 1,
+              modelName: 1,
+              modelVersion: 1,
+              updatedAt: 1,
+              expiresAt: 1,
+            },
+          },
+        ],
+        as:
+          "retentionPrediction",
+      },
+    },
+    {
+      $unwind: {
+        path:
+          "$retentionPrediction",
+        preserveNullAndEmptyArrays:
+          true,
+      },
+    },
+  ];
+
+  if (riskLevels.length) {
+    pipeline.push({
+      $match: {
+        "retentionPrediction.label": {
+          $in: riskLevels,
+        },
+      },
+    });
+  }
+
+  pipeline.push(
+    {
+      $addFields: {
+        previewDaysInactive: {
+          $dateDiff: {
+            startDate:
+              "$lastVisit",
+            endDate: now,
+            unit: "day",
+          },
+        },
+      },
+    },
+    {
+      $sort: {
+        previewDaysInactive:
+          -1,
+        previewLifetimeValue:
+          -1,
+        _id: 1,
+      },
+    },
+    {
+      $facet: {
+        summary: [
+          {
+            $count: "count",
+          },
+        ],
+        items: [
+          {
+            $limit:
+              safeLimit,
+          },
+          {
+            $project: {
+              _id: 1,
+              firstName: 1,
+              lastName: 1,
+              preferredName: 1,
+              email: 1,
+              phone: 1,
+              lastVisit: 1,
+              visits:
+                "$previewVisitCount",
+              lifetimeValue:
+                "$previewLifetimeValue",
+              daysInactive:
+                "$previewDaysInactive",
+              risk: {
+                label:
+                  "$retentionPrediction.label",
+                score:
+                  "$retentionPrediction.score",
+                modelName:
+                  "$retentionPrediction.modelName",
+                modelVersion:
+                  "$retentionPrediction.modelVersion",
+                updatedAt:
+                  "$retentionPrediction.updatedAt",
+                expiresAt:
+                  "$retentionPrediction.expiresAt",
+              },
+            },
+          },
+        ],
+      },
+    }
+  );
+
+  return {
+    cutoff,
+    limit:
+      safeLimit,
+    conditions:
+      safeConditions,
+    pipeline,
+  };
+}
+
+export async function previewRetentionJourney(
+  journeyId,
+  {
+    limit = 50,
+  } = {}
+) {
+  const journey =
+    await RetentionJourney
+      .findById(
+        journeyId
+      )
+      .lean();
+
+  if (!journey) {
+    throw retentionPreviewError(
+      "Retention journey not found.",
+      404
+    );
+  }
+
+  const requiredChannels =
+    Array.from(
+      new Set(
+        (
+          journey.steps ||
+          []
+        )
+          .map(
+            (step) =>
+              step.channel
+          )
+          .filter(Boolean)
+      )
+    );
+
+  const baseResult = {
+    dryRun: true,
+    communicationQueued:
+      false,
+    previewedAt:
+      new Date(),
+    journey: {
+      _id:
+        journey._id,
+      name:
+        journey.name,
+      trigger:
+        journey.trigger,
+      enabled:
+        journey.enabled ===
+        true,
+    },
+    requiredChannels,
+  };
+
+  if (
+    journey.trigger !==
+    "customer_inactive"
+  ) {
+    return {
+      ...baseResult,
+      supported: false,
+      candidateCount: 0,
+      returnedCount: 0,
+      truncated: false,
+      items: [],
+      message:
+        "Audience preview is currently implemented only for customer-inactive journeys. No communication was queued.",
+    };
+  }
+
+  const built =
+    buildInactiveRetentionPreviewPipeline({
+      conditions:
+        journey.conditions,
+      now:
+        baseResult.previewedAt,
+      limit,
+    });
+
+  const [result] =
+    await Customer.aggregate(
+      built.pipeline
+    );
+
+  const items =
+    Array.isArray(
+      result?.items
+    )
+      ? result.items
+      : [];
+
+  const candidateCount =
+    Number(
+      result?.summary?.[0]
+        ?.count
+    ) || 0;
+
+  return {
+    ...baseResult,
+    supported: true,
+    conditions:
+      built.conditions,
+    cutoff:
+      built.cutoff,
+    candidateCount,
+    returnedCount:
+      items.length,
+    truncated:
+      candidateCount >
+      items.length,
+    items,
+    message:
+      "Dry-run preview only. Consent, suppression, idempotency and delivery checks remain mandatory before any future execution can queue communication.",
+  };
 }
