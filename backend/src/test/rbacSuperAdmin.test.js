@@ -102,8 +102,8 @@ test("Super Admin receives the only unconditional permission bypass", () => {
   );
 });
 
-test("Built-in management roles retain full dashboard visibility and role editing", () => {
-  const requiredManagementPermissions = [
+test("Admin retains management baseline while other staff require explicit management grants", () => {
+  const adminRequired = [
     "dashboard:view",
     "appointment:read",
     "customer:read",
@@ -120,65 +120,31 @@ test("Built-in management roles retain full dashboard visibility and role editin
     "staff-role:activate",
   ];
 
-  for (const role of [
-    "admin",
-    "receptionist",
-    "manager",
-  ]) {
-    for (const permission of requiredManagementPermissions) {
-      assert.equal(
-        STAFF_ROLE_BASELINE_PERMISSIONS[
-          role
-        ].includes(
-          permission
-        ),
-        true,
-        `${role} baseline is missing ${permission}`
-      );
-    }
-  }
-
-  assert.deepEqual(
-    STAFF_ROLE_BASELINE_PERMISSIONS.receptionist,
-    STAFF_ROLE_BASELINE_PERMISSIONS.admin
-  );
-
-  assert.deepEqual(
-    STAFF_ROLE_BASELINE_PERMISSIONS.manager,
-    STAFF_ROLE_BASELINE_PERMISSIONS.admin
-  );
-
-  const baseline =
-    STAFF_ROLE_BASELINE_PERMISSIONS.stylist;
-
-  assert.deepEqual(
-    baseline,
-    [
-      "appointment:read",
-      "appointment:create",
-      "staff-role:read",
-      "staff-role:create",
-    ]
-  );
-
-  for (const permission of [
-    "dashboard:view",
-    "profile:own:read",
-    "profile:own:update",
-    "schedule:own:read",
-    "schedule:own:update",
-    "leave:own:request",
-    "employee:update",
-  ]) {
+  for (const permission of adminRequired) {
     assert.equal(
-      permissionsForRole(
-        "stylist",
-        []
-      ).includes(
+      STAFF_ROLE_BASELINE_PERMISSIONS.admin.includes(
         permission
       ),
-      false,
-      `Stylist baseline must not include ${permission}`
+      true,
+      `Admin baseline is missing ${permission}`
+    );
+  }
+
+  for (const role of [
+    "manager",
+    "receptionist",
+    "stylist",
+  ]) {
+    assert.deepEqual(
+      STAFF_ROLE_BASELINE_PERMISSIONS[
+        role
+      ],
+      [
+        "dashboard:view",
+        "profile:own:read",
+        "schedule:own:read",
+      ],
+      `${role} should only receive dashboard/self-service baseline access`
     );
   }
 });
