@@ -117,13 +117,12 @@ export async function createService(
         ? req.body
         : {};
 
-    const {
-      onlineBookable:
-        ignoredLegacyBookable,
-      published:
-        ignoredPublished,
-      ...payload
-    } = body;
+    const payload = {
+      ...body,
+    };
+
+    delete payload.onlineBookable;
+    delete payload.published;
 
     const service =
       await Service.create({
