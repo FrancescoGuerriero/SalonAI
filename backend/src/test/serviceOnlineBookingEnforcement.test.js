@@ -12,7 +12,7 @@ async function source(relativePath) {
   );
 }
 
-test("customer appointment creation rejects services that are not online bookable", async () => {
+test("customer appointment creation rejects services that are globally non-bookable", async () => {
   const controller =
     await source(
       "../controllers/appointmentController.js"
@@ -20,16 +20,21 @@ test("customer appointment creation rejects services that are not online bookabl
 
   assert.match(
     controller,
-    /service\.onlineBookable\s*===\s*false/
+    /isServiceBookable/
   );
 
   assert.match(
     controller,
-    /The selected service is not available for online booking\./
+    /service\?\.bookable/
+  );
+
+  assert.match(
+    controller,
+    /The selected service is not currently bookable\./
   );
 });
 
-test("public service card does not offer standard booking for non-bookable services", async () => {
+test("public service card applies bookable across enabled booking channels", async () => {
   const card =
     await source(
       "../../../frontend/src/components/customer/ServiceCard.jsx"
@@ -37,16 +42,21 @@ test("public service card does not offer standard booking for non-bookable servi
 
   assert.match(
     card,
-    /service\.onlineBookable\s*===\s*false/
+    /service\.bookable\s*!==\s*false/
   );
 
   assert.match(
     card,
-    /showOnlineBookingAction/
+    /serviceBookable\s*&&[\s\S]*whatsappBookingEnabled/
   );
 
   assert.match(
     card,
-    /!consultationOnly\s*&&\s*onlineBookingEnabled/
+    /serviceBookable\s*&&[\s\S]*onlineBookingEnabled/
+  );
+
+  assert.doesNotMatch(
+    card,
+    /service\.onlineBookable/
   );
 });
