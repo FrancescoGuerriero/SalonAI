@@ -732,8 +732,8 @@ export default function AdminEmployeeDetailPage() {
             <span className={settingButtonClass(profile?.profilePublished === true)}>
               {profile?.profilePublished ? "Published" : "Unpublished"}
             </span>
-            <span className={settingButtonClass(profile?.acceptsAppointments === true)}>
-              {profile?.acceptsAppointments === true ? "Bookable" : "Not bookable"}
+            <span className={settingButtonClass(profile?.bookable === true)}>
+              {profile?.bookable === true ? "Bookable" : "Not bookable"}
             </span>
           </div>
         </div>
@@ -789,11 +789,11 @@ export default function AdminEmployeeDetailPage() {
           <div className="mt-5 flex flex-wrap gap-3">
             <button type="button" disabled={!canDeactivate || Boolean(saving)} className={settingButtonClass(employee.isActive !== false)} onClick={updateActiveStatus}>Active</button>
             <button type="button" disabled={!canUpdate || Boolean(saving)} className={settingButtonClass(profile?.profilePublished === true)} onClick={() => updateSettings({ profilePublished: !profile?.profilePublished }, "published")}>Published</button>
-            <button type="button" disabled={!canUpdate || Boolean(saving)} className={settingButtonClass(profile?.acceptsAppointments === true)} onClick={() => updateSettings({ acceptsAppointments: profile?.acceptsAppointments !== true }, "bookable")}>Bookable</button>
+            <button type="button" disabled={!canUpdate || Boolean(saving)} className={settingButtonClass(profile?.bookable === true)} onClick={() => updateSettings({ bookable: profile?.bookable !== true }, "bookable")}>Bookable</button>
           </div>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
-            Active controls system access, Published controls public visibility, and Bookable controls customer appointment selection.
+            Active controls system access, Published controls public visibility, and Bookable controls appointment eligibility across every booking channel.
           </p>
         </article>
       </section>
