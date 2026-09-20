@@ -5,6 +5,7 @@ import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarCloc
 import useAuth from "../../hooks/useAuth.js";
 import {
   hasFullManagementDashboard,
+  isAdminRole,
   isSuperAdminRole,
 } from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
@@ -113,7 +114,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
             : link
         )
         .filter((link) =>
-          (!link.adminOnly || isSuperAdminRole(user?.role)) &&
+          (!link.adminOnly || isAdminRole(user?.role)) &&
           (link.to !== "/staff/profile" ||
             canReadOwnProfile ||
             canReadAllProfiles) &&
