@@ -21,7 +21,8 @@ const MAX_SOURCE_BYTES =
   5 * 1024 * 1024;
 const MAX_DIMENSION = 1080;
 const MAX_DATA_URL_LENGTH =
-  420_000;
+  280_000;
+const DEFAULT_MAX_IMAGES = 6;
 
 function readFileAsDataUrl(file) {
   return new Promise(
@@ -273,6 +274,8 @@ export default function CatalogueImagePicker({
   multiple = false,
   disabled = false,
   label = "Images",
+  maxImages =
+    DEFAULT_MAX_IMAGES,
   help =
     "Upload JPEG, PNG or WebP images, or add an existing HTTPS/app image path.",
 }) {
@@ -307,13 +310,19 @@ export default function CatalogueImagePicker({
         nextImages
       );
 
-    onChange?.(
+    const bounded =
       multiple
-        ? unique
+        ? unique.slice(
+            0,
+            maxImages
+          )
         : unique.slice(
             0,
             1
-          )
+          );
+
+    onChange?.(
+      bounded
     );
   }
 
@@ -334,13 +343,28 @@ export default function CatalogueImagePicker({
     setProcessing(true);
 
     try {
-      const selected =
+      const availableSlots =
         multiple
-          ? files
-          : files.slice(
+          ? Math.max(
               0,
-              1
-            );
+              maxImages -
+                current.length
+            )
+          : 1;
+
+      if (
+        availableSlots === 0
+      ) {
+        throw new Error(
+          `You can add up to ${maxImages} images.`
+        );
+      }
+
+      const selected =
+        files.slice(
+          0,
+          availableSlots
+        );
 
       const prepared =
         [];
@@ -391,6 +415,16 @@ export default function CatalogueImagePicker({
         normaliseUrl(
           urlValue
         );
+
+      if (
+        multiple &&
+        current.length >=
+          maxImages
+      ) {
+        throw new Error(
+          `You can add up to ${maxImages} images.`
+        );
+      }
 
       commit(
         multiple
@@ -634,7 +668,12 @@ export default function CatalogueImagePicker({
           disabled={
             disabled ||
             processing ||
-            !urlValue.trim()
+            !urlValue.trim() ||
+            (
+              multiple &&
+              current.length >=
+                maxImages
+            )
           }
           onClick={
             addUrl
