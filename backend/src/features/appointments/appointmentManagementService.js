@@ -19,6 +19,9 @@ import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";
 import {
   assertAppointmentWithinStaffAvailability,
 } from "../staff/staffService.js";
+import {
+  appointmentEligibleStylistFilter,
+} from "../../services/stylistBookingEligibilityService.js";
 
 import {
   assertFound,
@@ -685,6 +688,10 @@ async function checkAppointmentConflict(
     );
   }
 
+  await appointmentEligibleStylist(
+    stylist
+  );
+
   const window = appointmentWindow(
     payload,
     service
@@ -713,11 +720,34 @@ async function checkAppointmentConflict(
   };
 }
 
+async function appointmentEligibleStylist(
+  stylistId
+) {
+  const stylist =
+    await Stylist.findOne({
+      _id:
+        stylistId,
+      ...appointmentEligibleStylistFilter(),
+    });
+
+  if (!stylist) {
+    throw createServiceError(
+      "The selected stylist is not currently bookable.",
+      409,
+      {
+        field:
+          "stylist",
+      }
+    );
+  }
+
+  return stylist;
+}
+
 async function listAppointmentStylists() {
-  return Stylist.find({
-    isActive: true,
-    acceptsAppointments: true,
-  })
+  return Stylist.find(
+    appointmentEligibleStylistFilter()
+  )
     .select(
       "name firstName lastName title jobTitle image profilePublished isActive acceptsAppointments"
     )
@@ -815,7 +845,10 @@ async function createManagedAppointment(
       "service"
     );
 
-  const [customer, service] =
+  const [
+    customer,
+    service,
+  ] =
     await Promise.all([
       Customer.findById(
         customerId
@@ -843,6 +876,10 @@ async function createManagedAppointment(
       }
     );
   }
+
+  await appointmentEligibleStylist(
+    stylistId
+  );
 
   const window =
     appointmentWindow(
@@ -1346,6 +1383,10 @@ async function rescheduleAppointment(
   assertValidObjectId(
     stylist,
     "stylist"
+  );
+
+  await appointmentEligibleStylist(
+    stylist
   );
 
   await assertAppointmentWithinStaffAvailability(
