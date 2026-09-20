@@ -5,8 +5,8 @@ import {
   protect,
 } from "../../../middleware/authMiddleware.js";
 import {
-  managementOnly,
-} from "../../../middleware/roleMiddleware.js";
+  requirePermissions,
+} from "../../../middleware/permissionMiddleware.js";
 
 import {
   confirmBooking,
@@ -60,7 +60,11 @@ router.post(
  * authenticated management account.
  */
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "whatsapp:manage"
+  )
+);
 
 router.get(
   "/outbound-policy",
