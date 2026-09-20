@@ -64,7 +64,7 @@ test(
         .filter(
           (entry) =>
             entry.set
-              .acceptsAppointments ===
+              .bookable ===
             true
         )
         .map(
@@ -108,7 +108,7 @@ test(
 
       assert.equal(
         entry.set
-          .acceptsAppointments,
+          .bookable,
         false
       );
 
@@ -143,7 +143,7 @@ test(
 
     assert.equal(
       historical.set
-        .acceptsAppointments,
+        .bookable,
       false
     );
 
@@ -278,7 +278,7 @@ test(
           "6a7c5c467c5b74ad029a28f9"
       );
 
-    amara.acceptsAppointments =
+    amara.bookable =
       false;
 
     const inspection =
@@ -296,7 +296,7 @@ test(
     assert.deepEqual(
       planned.changes,
       {
-        acceptsAppointments:
+        bookable:
           true,
       }
     );
@@ -310,14 +310,14 @@ test(
       selectRosterPhaseChanges(
         {
           isActive: true,
-          acceptsAppointments: false,
+          bookable: false,
           profilePublished: false,
           jobTitle: "Reception",
         },
         "prepare"
       ),
       {
-        acceptsAppointments: false,
+        bookable: false,
       }
     );
   }
@@ -328,7 +328,7 @@ test(
   () => {
     const changes = {
       isActive: true,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
       jobTitle: "Reception",
     };
@@ -395,7 +395,7 @@ test(
     assert.equal(
       active.every(
         (entry) =>
-          entry.set.acceptsAppointments === true
+          entry.set.bookable === true
       ),
       true
     );
@@ -403,7 +403,7 @@ test(
     assert.equal(
       inactive.every(
         (entry) =>
-          entry.set.acceptsAppointments === false
+          entry.set.bookable === false
       ),
       true
     );
@@ -417,7 +417,7 @@ test(
       selectRosterPhaseChanges(
         {
           isActive: false,
-          acceptsAppointments: false,
+          bookable: false,
           profilePublished: false,
           jobTitle: "Reception",
         },
@@ -520,7 +520,7 @@ test(
       () =>
         selectRosterPhaseChanges(
           {
-            acceptsAppointments:
+            bookable:
               true,
           },
           "unknown"
