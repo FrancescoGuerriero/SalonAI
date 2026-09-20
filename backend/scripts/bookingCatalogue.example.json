@@ -8,7 +8,9 @@
       "price": 45,
       "duration": 60,
       "image": "",
-      "active": true
+      "active": true,
+      "published": true,
+      "bookable": true
     },
     {
       "name": "Blow-dry",
@@ -17,7 +19,9 @@
       "price": 32,
       "duration": 45,
       "image": "",
-      "active": true
+      "active": true,
+      "published": true,
+      "bookable": true
     },
     {
       "name": "Root Colour",
@@ -26,7 +30,9 @@
       "price": 65,
       "duration": 90,
       "image": "",
-      "active": true
+      "active": true,
+      "published": true,
+      "bookable": true
     }
   ],
   "stylists": [
