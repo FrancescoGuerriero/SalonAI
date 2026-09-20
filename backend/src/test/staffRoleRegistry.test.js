@@ -106,10 +106,9 @@ test("built-in staff roles retain their protected semantics", () => {
   assert.deepEqual(
     stylist.permissions,
     [
-      "appointment:read",
-      "appointment:create",
-      "staff-role:read",
-      "staff-role:create",
+      "dashboard:view",
+      "profile:own:read",
+      "schedule:own:read",
     ]
   );
 });
@@ -157,16 +156,7 @@ test("employee management resolves custom role assignments through the registry"
   );
 });
 
-test("custom staff roles use the management shell but not legacy blanket backend access", async () => {
-  const backendGuard =
-    await readFile(
-      new URL(
-        "../middleware/authMiddleware.js",
-        import.meta.url
-      ),
-      "utf8"
-    );
-
+test("dashboard workspaces use granular backend permissions instead of blanket management access", async () => {
   const futureRoutes =
     await readFile(
       new URL(
@@ -176,50 +166,38 @@ test("custom staff roles use the management shell but not legacy blanket backend
       "utf8"
     );
 
-  const frontendRoles =
-    await readFile(
-      new URL(
-        "../../../frontend/src/utils/roles.js",
-        import.meta.url
-      ),
-      "utf8"
-    );
-
   assert.match(
-    backendGuard,
-    /export const managementOnly = authorize\(/
+    futureRoutes,
+    /requirePermissions/
   );
-  assert.match(
-    backendGuard,
-    /"super_admin"/
-  );
-  assert.match(
-    frontendRoles,
-    /normalised !== "customer"/
+  assert.doesNotMatch(
+    futureRoutes,
+    /router\.use\(managementOnly\);/
   );
 
-  const appointmentIndex =
-    futureRoutes.indexOf(
-      '"/appointment-management"'
+  for (const permission of [
+    "communications:read",
+    "customer:read",
+    "appointment:read",
+    "ai:use",
+    "reports:read",
+    "inventory:read",
+    "loyalty:manage",
+  ]) {
+    assert.match(
+      futureRoutes,
+      new RegExp(
+        permission.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )
+      )
     );
-  const staffIndex =
-    futureRoutes.indexOf(
-      '"/staff"'
-    );
-  const legacyGateIndex =
-    futureRoutes.indexOf(
-      "router.use(managementOnly)"
-    );
+  }
 
-  assert.ok(
-    appointmentIndex >= 0 &&
-    appointmentIndex <
-      legacyGateIndex
-  );
-  assert.ok(
-    staffIndex >= 0 &&
-    staffIndex <
-      legacyGateIndex
+  assert.match(
+    futureRoutes,
+    /"\/security",[\s\S]*managementOnly/
   );
 });
 
