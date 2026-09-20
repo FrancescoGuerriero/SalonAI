@@ -373,3 +373,67 @@ test("strict shared eligibility is wired through production booking surfaces", (
     /isActive:\s*\{\s*\$ne:\s*false/
   );
 });
+
+
+test("global bookability is enforced in customer and staff-managed appointment writes", () => {
+  const appointmentController = fs.readFileSync(
+    new URL(
+      "../controllers/appointmentController.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  const managementService = fs.readFileSync(
+    new URL(
+      "../features/appointments/appointmentManagementService.js",
+      import.meta.url
+    ),
+    "utf8"
+  );
+
+  assert.match(
+    appointmentController,
+    /isAppointmentEligibleStylist/
+  );
+
+  assert.match(
+    managementService,
+    /appointmentEligibleStylistFilter/
+  );
+
+  for (const operation of [
+    "checkAppointmentConflict",
+    "createManagedAppointment",
+    "rescheduleAppointment",
+  ]) {
+    const operationIndex =
+      managementService.indexOf(
+        `async function ${operation}`
+      );
+
+    assert.ok(
+      operationIndex >= 0,
+      `Missing managed appointment operation: ${operation}`
+    );
+
+    const nextOperation =
+      managementService.indexOf(
+        "\nasync function ",
+        operationIndex + 20
+      );
+
+    const operationSource =
+      managementService.slice(
+        operationIndex,
+        nextOperation >= 0
+          ? nextOperation
+          : managementService.length
+      );
+
+    assert.match(
+      operationSource,
+      /appointmentEligibleStylist\(/
+    );
+  }
+});
