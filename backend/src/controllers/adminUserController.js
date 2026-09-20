@@ -544,6 +544,266 @@ function serialiseAdminUser(
   };
 }
 
+function profileIdentityEmail(
+  stylist
+) {
+  return normaliseEmail(
+    stylist?.email
+  );
+}
+
+function preferCurrentProfile(
+  current,
+  candidate
+) {
+  if (!current) {
+    return candidate;
+  }
+
+  const score =
+    (profile) =>
+      (profile?.isActive === true
+        ? 8
+        : 0) +
+      (profile?.profilePublished === true
+        ? 4
+        : 0) +
+      (profile?.acceptsAppointments === true
+        ? 2
+        : 0) +
+      (profile?.userAccount
+        ? 1
+        : 0);
+
+  const currentScore =
+    score(current);
+  const candidateScore =
+    score(candidate);
+
+  if (
+    candidateScore !==
+    currentScore
+  ) {
+    return candidateScore >
+      currentScore
+      ? candidate
+      : current;
+  }
+
+  const currentUpdated =
+    new Date(
+      current?.updatedAt ||
+        current?.createdAt ||
+        0
+    ).getTime();
+  const candidateUpdated =
+    new Date(
+      candidate?.updatedAt ||
+        candidate?.createdAt ||
+        0
+    ).getTime();
+
+  return candidateUpdated >
+    currentUpdated
+    ? candidate
+    : current;
+}
+
+function serialiseProfileOnlyEmployee(
+  stylist
+) {
+  const name =
+    cleanText(
+      [
+        stylist.firstName,
+        stylist.lastName,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      120
+    ) ||
+    "Salon staff";
+
+  return {
+    id:
+      `profile:${stylist._id}`,
+    profileId:
+      stylist._id,
+    accountLinked:
+      false,
+    employeeType:
+      "profile-only",
+    name,
+    email:
+      stylist.email || "",
+    role:
+      "profile_only",
+    roleLabel:
+      "No login account",
+    permissions: [],
+    rolePermissions: [],
+    phone:
+      stylist.phone || "",
+    profilePhoto:
+      stylist.profileImage || "",
+    isActive:
+      stylist.isActive === true,
+    emailVerified:
+      false,
+    createdAt:
+      stylist.createdAt,
+    updatedAt:
+      stylist.updatedAt,
+    stylistProfile: {
+      id:
+        stylist._id,
+      firstName:
+        stylist.firstName,
+      lastName:
+        stylist.lastName,
+      jobTitle:
+        stylist.jobTitle ||
+        "Salon staff",
+      biography:
+        stylist.biography || "",
+      specialties:
+        stylist.specialties || [],
+      profileImage:
+        stylist.profileImage || "",
+      profilePublished:
+        stylist.profilePublished ===
+        true,
+      acceptsAppointments:
+        stylist.acceptsAppointments ===
+        true,
+      isActive:
+        stylist.isActive ===
+        true,
+      workingHours:
+        stylist.workingHours || [],
+      services:
+        stylist.services || [],
+    },
+  };
+}
+
+export function buildAdminWorkforceRoster(
+  staffUsers = [],
+  stylistProfiles = []
+) {
+  const stylistByUserId =
+    new Map();
+  const unlinkedStylistByEmail =
+    new Map();
+
+  for (
+    const stylist
+    of stylistProfiles
+  ) {
+    if (
+      stylist.userAccount
+    ) {
+      stylistByUserId.set(
+        String(
+          stylist.userAccount
+        ),
+        stylist
+      );
+      continue;
+    }
+
+    const email =
+      profileIdentityEmail(
+        stylist
+      );
+
+    if (email) {
+      unlinkedStylistByEmail.set(
+        email,
+        preferCurrentProfile(
+          unlinkedStylistByEmail.get(
+            email
+          ),
+          stylist
+        )
+      );
+    }
+  }
+
+  const attachedProfileIds =
+    new Set();
+
+  const staffUserIds =
+    new Set(
+      staffUsers.map(
+        (user) =>
+          String(
+            user._id
+          )
+      )
+    );
+
+  const accountRows =
+    staffUsers.map(
+      (user) => {
+        const stylist =
+          stylistByUserId.get(
+            String(user._id)
+          ) ||
+          unlinkedStylistByEmail.get(
+            normaliseEmail(
+              user.email
+            )
+          ) ||
+          null;
+
+        if (stylist?._id) {
+          attachedProfileIds.add(
+            String(
+              stylist._id
+            )
+          );
+        }
+
+        return serialiseAdminUser(
+          user,
+          stylist
+        );
+      }
+    );
+
+  const profileRows =
+    stylistProfiles
+      .filter(
+        (stylist) =>
+          !attachedProfileIds.has(
+            String(
+              stylist._id
+            )
+          ) &&
+          !(
+            stylist.userAccount &&
+            staffUserIds.has(
+              String(
+                stylist.userAccount
+              )
+            )
+          )
+      )
+      .map(
+        serialiseProfileOnlyEmployee
+      );
+
+  return {
+    accountRows,
+    profileRows,
+    roster: [
+      ...accountRows,
+      ...profileRows,
+    ],
+  };
+}
+
 async function stylistForUser(
   user
 ) {
@@ -797,49 +1057,33 @@ export async function listAdminUsers(
     const search = cleanText(
       req.query.search,
       120
-    );
+    ).toLowerCase();
 
     const role = cleanText(
       req.query.role,
-      30
+      40
     );
 
     /*
-     * Employee management is based on canonical staff User accounts.
-     * Stylist documents are attached public/booking profiles, not independent
-     * employee identities. Historical Stylist records must never inflate this
-     * roster or create anonymous fallback employees.
+     * A complete salon workforce can contain both login-backed User accounts
+     * and historical/operational Stylist profiles that have not yet been
+     * linked to a SalonAI account. Administrators must see both populations.
+     *
+     * Linked User accounts remain canonical for authentication/RBAC.
+     * Unlinked profiles are represented explicitly as profile-only staff and
+     * are never given fabricated credentials or permissions.
      */
-    const query = {
-      role: role
-        ? role
-        : {
+    const [
+      staffUsers,
+      stylistProfiles,
+    ] =
+      await Promise.all([
+        User.find({
+          role: {
             $ne:
               "customer",
           },
-    };
-
-    if (search) {
-      const escaped = search.replace(
-        /[.*+?^\${}()|[\]\\]/g,
-        "\\$&"
-      );
-      const expression =
-        new RegExp(escaped, "i");
-
-      query.$or = [
-        { name: expression },
-        { email: expression },
-        { phone: expression },
-      ];
-    }
-
-    const offset =
-      (page - 1) * limit;
-
-    const [staffUsers, total] =
-      await Promise.all([
-        User.find(query)
+        })
           .select(
             "name email role permissions rolePermissions phone profilePhoto isActive emailVerified createdAt updatedAt"
           )
@@ -847,98 +1091,101 @@ export async function listAdminUsers(
             name: 1,
             email: 1,
           })
-          .skip(offset)
-          .limit(limit)
           .lean(),
-        User.countDocuments(query),
+        Stylist.find()
+          .select(
+            "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+          )
+          .populate(
+            "services",
+            "name category active published bookable onlineBookable"
+          )
+          .lean(),
       ]);
 
-    const userIds =
-      staffUsers.map(
-        (user) => user._id
+    const {
+      accountRows,
+      profileRows,
+      roster: completeRoster,
+    } =
+      buildAdminWorkforceRoster(
+        staffUsers,
+        stylistProfiles
       );
 
-    const emails =
-      staffUsers
-        .map((user) =>
-          String(
-            user.email || ""
-          ).toLowerCase()
-        )
-        .filter(Boolean);
+    let roster = [
+      ...completeRoster,
+    ];
 
-    const profileQuery = [];
-
-    if (userIds.length) {
-      profileQuery.push({
-        userAccount: {
-          $in: userIds,
-        },
-      });
+    if (role) {
+      roster =
+        roster.filter(
+          (employee) =>
+            role ===
+            "profile_only"
+              ? employee.accountLinked ===
+                false
+              : employee.accountLinked !==
+                  false &&
+                employee.role ===
+                  role
+        );
     }
 
-    if (emails.length) {
-      profileQuery.push({
-        email: {
-          $in: emails,
-        },
-      });
+    if (search) {
+      roster =
+        roster.filter(
+          (employee) =>
+            [
+              employee.name,
+              employee.email,
+              employee.phone,
+              employee.role,
+              employee.roleLabel,
+              employee
+                .stylistProfile
+                ?.jobTitle,
+            ].some(
+              (value) =>
+                String(
+                  value || ""
+                )
+                  .toLowerCase()
+                  .includes(
+                    search
+                  )
+            )
+        );
     }
 
-    const stylistProfiles =
-      profileQuery.length
-        ? await Stylist.find({
-            $or: profileQuery,
-          })
-            .select(
-              "userAccount email firstName lastName jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services phone createdAt updatedAt"
-            )
-            .populate(
-              "services",
-              "name category active onlineBookable"
-            )
-            .lean()
-        : [];
-
-    const stylistByUserId =
-      new Map();
-    const stylistByEmail =
-      new Map();
-
-    for (const stylist of stylistProfiles) {
-      if (stylist.userAccount) {
-        stylistByUserId.set(
+    roster.sort(
+      (
+        left,
+        right
+      ) =>
+        String(
+          left.name || ""
+        ).localeCompare(
           String(
-            stylist.userAccount
+            right.name || ""
           ),
-          stylist
-        );
-      }
-
-      if (stylist.email) {
-        stylistByEmail.set(
-          String(
-            stylist.email
-          ).toLowerCase(),
-          stylist
-        );
-      }
-    }
-
-    const users =
-      staffUsers.map((user) =>
-        serialiseAdminUser(
-          user,
-          stylistByUserId.get(
-            String(user._id)
-          ) ||
-            stylistByEmail.get(
-              String(
-                user.email || ""
-              ).toLowerCase()
-            ) ||
-            null
+          "en",
+          {
+            sensitivity:
+              "base",
+          }
         )
+    );
+
+    const total =
+      roster.length;
+    const offset =
+      (page - 1) *
+      limit;
+    const users =
+      roster.slice(
+        offset,
+        offset + limit
       );
 
     return res.json({
@@ -948,8 +1195,15 @@ export async function listAdminUsers(
       total,
       pages: Math.max(
         1,
-        Math.ceil(total / limit)
+        Math.ceil(
+          total /
+          limit
+        )
       ),
+      accountTotal:
+        accountRows.length,
+      profileOnlyTotal:
+        profileRows.length,
       users,
     });
   } catch (error) {

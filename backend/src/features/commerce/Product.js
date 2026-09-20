@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+import {
+  MAX_CATALOGUE_IMAGES,
+  isSupportedCatalogueImage,
+} from "../../utils/catalogueMedia.js";
+
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -90,6 +95,35 @@ const productSchema = new mongoose.Schema(
     images: {
       type: [String],
       default: [],
+      validate: [
+        {
+          validator(images) {
+            return (
+              Array.isArray(
+                images
+              ) &&
+              images.length <=
+                MAX_CATALOGUE_IMAGES
+            );
+          },
+          message:
+            "A product can have at most six images.",
+        },
+        {
+          validator(images) {
+            return (
+              Array.isArray(
+                images
+              ) &&
+              images.every(
+                isSupportedCatalogueImage
+              )
+            );
+          },
+          message:
+            "Product images must be HTTPS URLs, app-relative paths, or supported JPEG, PNG or WebP uploads.",
+        },
+      ],
     },
     featured: {
       type: Boolean,

@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 
+import CatalogueImagePicker from "../components/catalogue/CatalogueImagePicker.jsx";
 import commerceService from "../Services/commerceService.js";
 import useAuth from "../hooks/useAuth.js";
 import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
@@ -1052,57 +1053,29 @@ export default function ProductManagementPage() {
                 />
               </label>
 
-              <label className="sm:col-span-2 text-sm font-semibold text-black">
-                Product images
-                <textarea
-                  rows="4"
-                  value={
-                    form.images
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "images",
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder={"https://.../front.jpg\nhttps://.../back.jpg"}
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-mono text-xs"
-                />
-                <small className="mt-1 block font-normal text-stone-600">
-                  Add one secure image URL per line. The first image is the primary Shop image.
-                </small>
-              </label>
-
-              {imageArray(
-                form.images
-              ).length ? (
-                <div className="sm:col-span-2 flex flex-wrap gap-3">
-                  {imageArray(
+              <CatalogueImagePicker
+                images={
+                  imageArray(
                     form.images
                   )
-                    .slice(0, 6)
-                    .map(
-                      (
-                        image,
-                        index
-                      ) => (
-                        <img
-                          key={
-                            image
-                          }
-                          src={
-                            image
-                          }
-                          alt={`Product preview ${index + 1}`}
-                          className="h-24 w-24 rounded-xl border border-stone-200 object-cover"
-                        />
-                      )
-                    )}
-                </div>
-              ) : null}
+                }
+                onChange={(
+                  images
+                ) =>
+                  update(
+                    "images",
+                    images.join(
+                      "\n"
+                    )
+                  )
+                }
+                multiple
+                label="Product images"
+                help="Use + Add image to upload one or more JPEG, PNG or WebP files. You can also add existing HTTPS/app image paths. The first image is the primary Shop image."
+                disabled={
+                  saving
+                }
+              />
 
               <label className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-stone-200 p-4 text-sm font-semibold text-black">
                 <input
