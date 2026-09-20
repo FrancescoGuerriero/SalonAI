@@ -108,7 +108,7 @@ test("Admin and Super Admin bypass menu hiding while other management roles rema
 
   const fullDashboardBlock =
     roles.match(
-      /FULL_DASHBOARD_ROLES\\s*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)/
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
     );
 
   assert.ok(fullDashboardBlock);
