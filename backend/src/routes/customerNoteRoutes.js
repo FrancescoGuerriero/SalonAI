@@ -24,10 +24,11 @@ import {
 } from "../controllers/customerFollowUpController.js";
 
 import {
-  adminOnly,
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -43,7 +44,6 @@ const router = express.Router();
 */
 
 router.use(protect);
-router.use(managementOnly);
 
 /*
 |--------------------------------------------------------------------------
@@ -56,16 +56,25 @@ router.use(managementOnly);
 */
 
 router.get(
+  requirePermissions(
+    "customer:read"
+  ),
   "/follow-ups/summary",
   getFollowUpSummary
 );
 
 router.get(
+  requirePermissions(
+    "customer:read"
+  ),
   "/follow-ups",
   listFollowUps
 );
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/follow-ups/:noteId/schedule",
   scheduleFollowUp
 );
@@ -80,6 +89,9 @@ router.patch(
 */
 
 router.get(
+  requirePermissions(
+    "customer:read"
+  ),
   "/tags/summary",
   getTagSummary
 );
@@ -91,16 +103,25 @@ router.get(
 */
 
 router.put(
+  requirePermissions(
+    "customer:update"
+  ),
   "/customers/:customerId/tags",
   replaceTags
 );
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/customers/:customerId/tags/add",
   addTags
 );
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/customers/:customerId/tags/remove",
   removeTags
 );
@@ -112,6 +133,9 @@ router.patch(
 */
 
 router.get(
+  requirePermissions(
+    "customer:read"
+  ),
   "/customers/:customerId/statistics",
   getNoteStatistics
 );
@@ -124,8 +148,18 @@ router.get(
 
 router
   .route("/customers/:customerId")
-  .get(listNotes)
-  .post(createNote);
+  .get(
+    requirePermissions(
+      "customer:read"
+    ),
+    listNotes
+  )
+  .post(
+    requirePermissions(
+      "customer:update"
+    ),
+    createNote
+  );
 
 /*
 |--------------------------------------------------------------------------
@@ -134,6 +168,9 @@ router
 */
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/:noteId/pinned",
   updatePinnedStatus
 );
@@ -145,11 +182,17 @@ router.patch(
 */
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/:noteId/follow-up/complete",
   completeFollowUp
 );
 
 router.patch(
+  requirePermissions(
+    "customer:update"
+  ),
   "/:noteId/follow-up/reopen",
   reopenFollowUp
 );
@@ -165,7 +208,9 @@ router.patch(
 
 router.patch(
   "/:noteId/restore",
-  adminOnly,
+  requirePermissions(
+    "customer:archive"
+  ),
   restoreNote
 );
 
@@ -177,8 +222,23 @@ router.patch(
 
 router
   .route("/:noteId")
-  .get(getNote)
-  .patch(updateNote)
-  .delete(deleteNote);
+  .get(
+    requirePermissions(
+      "customer:read"
+    ),
+    getNote
+  )
+  .patch(
+    requirePermissions(
+      "customer:update"
+    ),
+    updateNote
+  )
+  .delete(
+    requirePermissions(
+      "customer:delete"
+    ),
+    deleteNote
+  );
 
 export default router;
