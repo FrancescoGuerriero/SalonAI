@@ -716,10 +716,10 @@ async function checkAppointmentConflict(
 async function listAppointmentStylists() {
   return Stylist.find({
     isActive: true,
-    acceptsAppointments: true,
+    bookable: true,
   })
     .select(
-      "name firstName lastName title jobTitle image profilePublished isActive acceptsAppointments"
+      "name firstName lastName title jobTitle image profilePublished isActive bookable"
     )
     .sort({
       name: 1,
