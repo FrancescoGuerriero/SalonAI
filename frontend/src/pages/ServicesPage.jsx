@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 
+import CatalogueImagePicker from "../components/catalogue/CatalogueImagePicker.jsx";
 import serviceService from "../Services/serviceService.js";
 import useAuth from "../hooks/useAuth.js";
 import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
@@ -948,38 +949,29 @@ export default function ServicesPage() {
                 />
               </label>
 
-              <label className="sm:col-span-2 text-sm font-semibold text-black">
-                Image URL
-                <input
-                  type="url"
-                  value={
-                    form.image
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    update(
-                      "image",
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder="https://..."
-                  className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2.5"
-                />
-              </label>
-
-              {form.image ? (
-                <div className="sm:col-span-2">
-                  <img
-                    src={
-                      form.image
-                    }
-                    alt="Service preview"
-                    className="h-40 w-full rounded-xl border border-stone-200 object-cover"
-                  />
-                </div>
-              ) : null}
+              <CatalogueImagePicker
+                images={
+                  form.image
+                    ? [
+                        form.image,
+                      ]
+                    : []
+                }
+                onChange={(
+                  images
+                ) =>
+                  update(
+                    "image",
+                    images[0] ||
+                      ""
+                  )
+                }
+                label="Service image"
+                help="Use + Add image to upload a JPEG, PNG or WebP, or add an existing HTTPS/app image path. The preview below is the image customers will see."
+                disabled={
+                  saving
+                }
+              />
 
               <label className="text-sm font-semibold text-black">
                 Base price (£)
