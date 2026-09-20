@@ -3,14 +3,20 @@ import express from "express";
 import customerRetentionController from "../controllers/customerRetentionController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "customer:read"
+  )
+);
 
 // Complete retention analytics
 router.get(
