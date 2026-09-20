@@ -32,7 +32,7 @@ test(
 
     const management =
       routes.indexOf(
-        "router.use(managementOnly)"
+        '"whatsapp:manage"'
       );
 
     const resumeRoute =
@@ -41,8 +41,16 @@ test(
       );
 
     assert.ok(protect >= 0);
-    assert.ok(management > protect);
-    assert.ok(resumeRoute > management);
+    assert.ok(
+      management > protect
+    );
+    assert.ok(
+      resumeRoute > management
+    );
+    assert.match(
+      routes,
+      /requirePermissions/
+    );
 
     assert.match(
       routes,
