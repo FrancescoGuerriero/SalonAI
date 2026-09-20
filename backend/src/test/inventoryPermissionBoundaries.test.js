@@ -26,6 +26,10 @@ test("supplier and purchase-order routes separate inventory read and management 
     supplier,
     purchaseOrder,
   ]) {
+    assert.doesNotMatch(
+      routes,
+      /managementOnly/
+    );
     assert.match(
       routes,
       /requireAnyPermission\(\s*"inventory:read",\s*"inventory:manage"\s*\)/
@@ -64,6 +68,11 @@ test("reorder and supplier analytics require inventory read authority", async ()
     await source(
       "../features/inventoryPurchasing/routes/inventoryPurchasingRoutes.js"
     );
+
+  assert.doesNotMatch(
+    routes,
+    /managementOnly/
+  );
 
   assert.match(
     routes,
