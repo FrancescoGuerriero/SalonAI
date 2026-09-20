@@ -3,6 +3,8 @@ export const MAX_CATALOGUE_SOURCE_BYTES =
 export const MAX_CATALOGUE_DATA_URL_LENGTH =
   280_000;
 export const MAX_CATALOGUE_IMAGES = 6;
+export const MAX_CATALOGUE_IMAGE_URL_LENGTH =
+  2_000;
 
 export function normaliseCatalogueImageUrl(
   value
@@ -14,6 +16,15 @@ export function normaliseCatalogueImageUrl(
   if (!text) {
     throw new Error(
       "Enter an image URL or app-relative image path."
+    );
+  }
+
+  if (
+    text.length >
+    MAX_CATALOGUE_IMAGE_URL_LENGTH
+  ) {
+    throw new Error(
+      "Image URLs and app-relative paths must be 2000 characters or fewer."
     );
   }
 
