@@ -24,161 +24,154 @@ import {
 } from "../controllers/customerFollowUpController.js";
 
 import {
-  adminOnly,
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-/*
-|--------------------------------------------------------------------------
-| Authentication and authorisation
-|--------------------------------------------------------------------------
-|
-| Customer notes may contain sensitive consultation, allergy, complaint or
-| safeguarding information. Every route therefore requires an authenticated
-| salon-management account.
-|
-*/
+const readCustomers =
+  requirePermissions(
+    "customer:read"
+  );
+
+const updateCustomers =
+  requirePermissions(
+    "customer:update"
+  );
 
 router.use(protect);
-router.use(managementOnly);
 
 /*
 |--------------------------------------------------------------------------
 | Global follow-up queue
 |--------------------------------------------------------------------------
-|
-| These static routes must remain before dynamic note routes such as
-| /:noteId. Private notes are limited to administrators and their authors.
-|
 */
 
 router.get(
   "/follow-ups/summary",
+  readCustomers,
   getFollowUpSummary
 );
 
 router.get(
   "/follow-ups",
+  readCustomers,
   listFollowUps
 );
 
 router.patch(
   "/follow-ups/:noteId/schedule",
+  updateCustomers,
   scheduleFollowUp
 );
 
 /*
 |--------------------------------------------------------------------------
-| Customer tag summary
+| Customer tag summary and profile tags
 |--------------------------------------------------------------------------
-|
-| Static routes must remain before dynamic note routes such as /:noteId.
-|
 */
 
 router.get(
   "/tags/summary",
+  readCustomers,
   getTagSummary
 );
 
-/*
-|--------------------------------------------------------------------------
-| Customer profile tags
-|--------------------------------------------------------------------------
-*/
-
 router.put(
   "/customers/:customerId/tags",
+  updateCustomers,
   replaceTags
 );
 
 router.patch(
   "/customers/:customerId/tags/add",
+  updateCustomers,
   addTags
 );
 
 router.patch(
   "/customers/:customerId/tags/remove",
+  updateCustomers,
   removeTags
 );
 
 /*
 |--------------------------------------------------------------------------
-| Customer note statistics
+| Customer note statistics and collection
 |--------------------------------------------------------------------------
 */
 
 router.get(
   "/customers/:customerId/statistics",
+  readCustomers,
   getNoteStatistics
 );
 
-/*
-|--------------------------------------------------------------------------
-| Customer note collection
-|--------------------------------------------------------------------------
-*/
-
 router
-  .route("/customers/:customerId")
-  .get(listNotes)
-  .post(createNote);
+  .route(
+    "/customers/:customerId"
+  )
+  .get(
+    readCustomers,
+    listNotes
+  )
+  .post(
+    updateCustomers,
+    createNote
+  );
 
 /*
 |--------------------------------------------------------------------------
-| Note pinning
+| Note operations
 |--------------------------------------------------------------------------
 */
 
 router.patch(
   "/:noteId/pinned",
+  updateCustomers,
   updatePinnedStatus
 );
 
-/*
-|--------------------------------------------------------------------------
-| Note follow-up management
-|--------------------------------------------------------------------------
-*/
-
 router.patch(
   "/:noteId/follow-up/complete",
+  updateCustomers,
   completeFollowUp
 );
 
 router.patch(
   "/:noteId/follow-up/reopen",
+  updateCustomers,
   reopenFollowUp
 );
 
-/*
-|--------------------------------------------------------------------------
-| Deleted-note restoration
-|--------------------------------------------------------------------------
-|
-| Only administrators may restore a soft-deleted customer note.
-|
-*/
-
 router.patch(
   "/:noteId/restore",
-  adminOnly,
+  requirePermissions(
+    "customer:archive"
+  ),
   restoreNote
 );
 
-/*
-|--------------------------------------------------------------------------
-| Individual customer note
-|--------------------------------------------------------------------------
-*/
-
 router
-  .route("/:noteId")
-  .get(getNote)
-  .patch(updateNote)
-  .delete(deleteNote);
+  .route(
+    "/:noteId"
+  )
+  .get(
+    readCustomers,
+    getNote
+  )
+  .patch(
+    updateCustomers,
+    updateNote
+  )
+  .delete(
+    requirePermissions(
+      "customer:delete"
+    ),
+    deleteNote
+  );
 
 export default router;

@@ -39,6 +39,9 @@ import {
   managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 import { auditFutureWrites } from "./security/writeAudit.js";
 import { requireFeature } from "../services/featureControlService.js";
 
@@ -61,39 +64,181 @@ router.use(
   staffRoutes
 );
 
-router.use(managementOnly);
+/*
+ * Every dashboard workspace below is protected by the same permission used by
+ * its frontend navigation/route guard. The legacy role gate is retained only
+ * for the internal security router, which is not a delegated dashboard item.
+ */
+router.use(
+  "/templates",
+  requirePermissions("communications:read"),
+  requireFeature("communications"),
+  templateRoutes
+);
+router.use(
+  "/segments",
+  requirePermissions("customer:read"),
+  segmentRoutes
+);
+router.use(
+  "/campaigns",
+  requirePermissions("communications:read"),
+  requireFeature("communications"),
+  campaignRoutes
+);
+router.use(
+  "/scheduler",
+  requirePermissions("communications:read"),
+  requireFeature("communications"),
+  schedulerRoutes
+);
+router.use(
+  "/customer-profiles",
+  requirePermissions("customer:read"),
+  customerProfileRoutes
+);
+router.use(
+  "/retention-actions",
+  requirePermissions("customer:read"),
+  retentionActionRoutes
+);
+router.use(
+  "/calendar-connections",
+  requirePermissions("appointment:read"),
+  calendarConnectionRoutes
+);
+router.use(
+  "/waitlist",
+  requirePermissions("appointment:read"),
+  waitlistRoutes
+);
+router.use(
+  "/ai",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  aiRoutes
+);
+router.use(
+  "/reports",
+  requirePermissions("reports:read"),
+  reportRoutes
+);
+router.use(
+  "/revenue-forecast",
+  requirePermissions("reports:read"),
+  revenueForecastRoutes
+);
+router.use(
+  "/loyalty",
+  requirePermissions("loyalty:manage"),
+  requireFeature("loyalty"),
+  loyaltyRoutes
+);
+router.use(
+  "/staff-rota",
+  requirePermissions("employee:read"),
+  staffRotaRoutes
+);
 
-router.use("/templates", requireFeature("communications"), templateRoutes);
-router.use("/segments", segmentRoutes);
-router.use("/campaigns", requireFeature("communications"), campaignRoutes);
-router.use("/scheduler", requireFeature("communications"), schedulerRoutes);
-router.use("/customer-profiles", customerProfileRoutes);
-router.use("/retention-actions", retentionActionRoutes);
-router.use("/calendar-connections", calendarConnectionRoutes);
-router.use("/waitlist", waitlistRoutes);
-router.use("/ai", requireFeature("ai-tools"), aiRoutes);
-router.use("/reports", reportRoutes);
-router.use("/revenue-forecast", revenueForecastRoutes);
-router.use("/loyalty", requireFeature("loyalty"), loyaltyRoutes);
-router.use("/staff-rota", staffRotaRoutes);
-router.use("/security", securityRoutes);
+/*
+ * Security administration is not exposed as a delegated dashboard workspace.
+ * Keep the existing management-role boundary here until it has its own
+ * explicit security permission model.
+ */
+router.use(
+  "/security",
+  managementOnly,
+  securityRoutes
+);
 
-router.use("/staff-performance", staffPerformanceRoutes);
-router.use("/service-performance", servicePerformanceRoutes);
-router.use("/customer-value", customerValueRoutes);
-router.use("/booking-demand", bookingDemandRoutes);
-router.use("/booking-loss", bookingLossRoutes);
-router.use("/rebooking-opportunities", rebookingOpportunityRoutes);
-
-router.use("/rebooking-campaigns", requireFeature("communications"), rebookingCampaignRoutes);
-router.use("/marketing-attribution", requireFeature("ai-tools"), marketingAttributionRoutes);
-router.use("/smart-appointments", requireFeature("ai-tools"), smartAppointmentRoutes);
-router.use("/capacity-planning", requireFeature("ai-tools"), capacityPlanningRoutes);
-router.use("/dynamic-pricing", requireFeature("ai-tools"), dynamicPricingRoutes);
-router.use("/inventory", requireFeature("inventory-purchasing"), inventoryRoutes);
-router.use("/feedback-analytics", requireFeature("ai-tools"), feedbackAnalyticsRoutes);
-router.use("/management-copilot", requireFeature("ai-tools"), managementCopilotRoutes);
-router.use("/executive-command-centre", requireFeature("ai-tools"), executiveCommandRoutes);
-router.use("/data-export-audit", dataExportAuditRoutes);
+router.use(
+  "/staff-performance",
+  requirePermissions("reports:read"),
+  staffPerformanceRoutes
+);
+router.use(
+  "/service-performance",
+  requirePermissions("reports:read"),
+  servicePerformanceRoutes
+);
+router.use(
+  "/customer-value",
+  requirePermissions("customer:read"),
+  customerValueRoutes
+);
+router.use(
+  "/booking-demand",
+  requirePermissions("appointment:read"),
+  bookingDemandRoutes
+);
+router.use(
+  "/booking-loss",
+  requirePermissions("appointment:read"),
+  bookingLossRoutes
+);
+router.use(
+  "/rebooking-opportunities",
+  requirePermissions("customer:read"),
+  rebookingOpportunityRoutes
+);
+router.use(
+  "/rebooking-campaigns",
+  requirePermissions("communications:read"),
+  requireFeature("communications"),
+  rebookingCampaignRoutes
+);
+router.use(
+  "/marketing-attribution",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  marketingAttributionRoutes
+);
+router.use(
+  "/smart-appointments",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  smartAppointmentRoutes
+);
+router.use(
+  "/capacity-planning",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  capacityPlanningRoutes
+);
+router.use(
+  "/dynamic-pricing",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  dynamicPricingRoutes
+);
+router.use(
+  "/inventory",
+  requirePermissions("inventory:read"),
+  requireFeature("inventory-purchasing"),
+  inventoryRoutes
+);
+router.use(
+  "/feedback-analytics",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  feedbackAnalyticsRoutes
+);
+router.use(
+  "/management-copilot",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  managementCopilotRoutes
+);
+router.use(
+  "/executive-command-centre",
+  requirePermissions("ai:use"),
+  requireFeature("ai-tools"),
+  executiveCommandRoutes
+);
+router.use(
+  "/data-export-audit",
+  requirePermissions("reports:read"),
+  dataExportAuditRoutes
+);
 
 export default router;

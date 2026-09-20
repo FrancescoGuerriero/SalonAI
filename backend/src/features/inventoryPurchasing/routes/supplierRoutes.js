@@ -5,9 +5,6 @@ import {
   protect,
 } from "../../../middleware/authMiddleware.js";
 import {
-  managementOnly,
-} from "../../../middleware/roleMiddleware.js";
-import {
   requireAnyPermission,
   requirePermissions,
 } from "../../../middleware/permissionMiddleware.js";
@@ -35,7 +32,6 @@ const manageInventory =
   );
 
 router.use(protect);
-router.use(managementOnly);
 
 router
   .route("/")

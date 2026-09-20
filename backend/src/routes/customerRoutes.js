@@ -11,7 +11,6 @@ import {
 } from "../controllers/customerController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -21,7 +20,6 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
 
 router.get(
   "/",

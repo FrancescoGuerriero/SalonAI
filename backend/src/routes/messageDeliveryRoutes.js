@@ -17,7 +17,6 @@ import {
 } from "../controllers/messageDeliveryController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -69,7 +68,6 @@ router.post(
  * management account.
  */
 router.use(protect);
-router.use(managementOnly);
 
 /*
  * Configuration and provider checks.

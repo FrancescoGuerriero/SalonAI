@@ -81,7 +81,7 @@ test("employee onboarding validates service and schedule authority independently
   );
   assert.match(
     controller,
-    /Only the Super Admin can assign employee permissions during account creation/
+    /Only a Super Admin or Admin can assign employee permissions during account creation/
   );
 });
 

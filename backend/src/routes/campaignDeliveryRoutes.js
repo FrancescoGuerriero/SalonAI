@@ -8,9 +8,11 @@ import {
 } from "../controllers/campaignDeliveryController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -19,7 +21,11 @@ const router = express.Router();
  * to authenticated salon-management users.
  */
 router.use(protect);
-router.use(managementOnly);
+router.use(
+  requirePermissions(
+    "communications:manage"
+  )
+);
 
 /*
  * Scheduled campaign processing.

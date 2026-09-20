@@ -1451,13 +1451,17 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      req.user.role !==
-        "super_admin" &&
+      ![
+        "super_admin",
+        "admin",
+      ].includes(
+        req.user.role
+      ) &&
       permissions.length >
         0
     ) {
       throw httpError(
-        "Only the Super Admin can assign employee permissions during account creation.",
+        "Only a Super Admin or Admin can assign employee permissions during account creation.",
         403
       );
     }
@@ -1551,8 +1555,12 @@ export async function createStaffUserByAdmin(
           hashedPassword,
         role,
         permissions:
-          req.user.role ===
-          "super_admin"
+          [
+            "super_admin",
+            "admin",
+          ].includes(
+            req.user.role
+          )
             ? permissions
             : [],
         rolePermissions,
@@ -1934,17 +1942,31 @@ export async function updateEmployeeManagementSettings(
     if (
       req.user.role !==
         "super_admin" &&
-      (Object.prototype.hasOwnProperty.call(
+      Object.prototype.hasOwnProperty.call(
         update,
         "role"
-      ) ||
-        Object.prototype.hasOwnProperty.call(
-          update,
-          "permissions"
-        ))
+      )
     ) {
       throw httpError(
-        "Only the Super Admin can change employee roles or permissions.",
+        "Only the Super Admin can change employee access roles.",
+        403
+      );
+    }
+
+    if (
+      ![
+        "super_admin",
+        "admin",
+      ].includes(
+        req.user.role
+      ) &&
+      Object.prototype.hasOwnProperty.call(
+        update,
+        "permissions"
+      )
+    ) {
+      throw httpError(
+        "Only a Super Admin or Admin can change employee permissions.",
         403
       );
     }

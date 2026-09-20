@@ -5,9 +5,6 @@ import {
   protect,
 } from "../../../middleware/authMiddleware.js";
 import {
-  managementOnly,
-} from "../../../middleware/roleMiddleware.js";
-import {
   requireAnyPermission,
 } from "../../../middleware/permissionMiddleware.js";
 
@@ -26,7 +23,6 @@ const readInventory =
   );
 
 router.use(protect);
-router.use(managementOnly);
 
 router.get(
   "/reorder-recommendations",

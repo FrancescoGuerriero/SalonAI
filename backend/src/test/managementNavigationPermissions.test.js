@@ -78,7 +78,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 });
 
 
-test("core management roles bypass menu hiding while granular permissions remain on links", async () => {
+test("Super Admin and Admin bypass menu hiding while other staff remain permission-driven", async () => {
   const navigation =
     await readFile(
       new URL(
@@ -106,17 +106,26 @@ test("core management roles bypass menu hiding while granular permissions remain
     /fullDashboard \|\| hasPermission/
   );
 
-  for (const role of [
-    "super_admin",
-    "admin",
-    "manager",
-    "receptionist",
-  ]) {
-    assert.match(
-      roles,
-      new RegExp(`"${role}"`)
+  const fullDashboardBlock =
+    roles.match(
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
     );
-  }
+
+  assert.ok(
+    fullDashboardBlock
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"super_admin"/
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"admin"/
+  );
+  assert.doesNotMatch(
+    fullDashboardBlock[1],
+    /"manager"|"receptionist"|"stylist"/
+  );
 });
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
@@ -327,7 +336,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("core management roles retain full dashboard visibility", async () => {
+test("only Super Admin and Admin retain unconditional full dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -345,23 +354,17 @@ test("core management roles retain full dashboard visibility", async () => {
   assert.ok(
     fullDashboardBlock
   );
-  for (const role of [
-    "super_admin",
-    "admin",
-    "manager",
-    "receptionist",
-  ]) {
-    assert.match(
-      fullDashboardBlock[1],
-      new RegExp(
-        `"${role}"`
-      )
-    );
-  }
-
+  assert.match(
+    fullDashboardBlock[1],
+    /"super_admin"/
+  );
+  assert.match(
+    fullDashboardBlock[1],
+    /"admin"/
+  );
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"stylist"/
+    /"manager"|"receptionist"|"stylist"/
   );
 });
 
@@ -422,11 +425,20 @@ test("dashboard navigation contains no dead primary links", async () => {
 });
 
 
-test("legacy administrator pages are visible to Super Admin and Administrator only", async () => {
+test("Admin overview stays administrator-only while legacy operational routes follow delegated permissions", async () => {
   const adminRoute =
     await readFile(
       new URL(
         "../../../frontend/src/Routes/AdminRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
         import.meta.url
       ),
       "utf8"
@@ -445,18 +457,94 @@ test("legacy administrator pages are visible to Super Admin and Administrator on
     adminRoute,
     /isAdminRole/
   );
-  assert.doesNotMatch(
-    adminRoute,
-    /isSuperAdminRole/
+
+  const adminOverview =
+    app.match(
+      /<Route[\s\S]*?path="admin"[\s\S]*?\/>/
+    )?.[0] || "";
+
+  assert.match(
+    adminOverview,
+    /adminPage\(/
   );
+
+  for (const [
+    path,
+    permission,
+  ] of [
+    [
+      "admin/services",
+      "service:read",
+    ],
+    [
+      "admin/stylists",
+      "profile:all:read",
+    ],
+    [
+      "admin/appointments",
+      "appointment:read",
+    ],
+    [
+      "admin/customers",
+      "customer:read",
+    ],
+  ]) {
+    const routeBlock =
+      [
+        ...app.matchAll(
+          /<Route\b[\s\S]*?\/>/g
+        ),
+      ]
+        .map(
+          (match) =>
+            match[0]
+        )
+        .find(
+          (block) =>
+            block.includes(
+              `path="${path}"`
+            )
+        ) || "";
+
+    assert.match(
+      routeBlock,
+      new RegExp(
+        `permissionPage\\([\\s\\S]*?"${permission.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )}"\\s*\\)`
+      )
+    );
+  }
+
   assert.match(
     navigation,
-    /!link\.adminOnly \|\| isAdminRole\(user\?\.role\)/
+    /\["\/admin",[^\n]*true,\s*"dashboard:view"\]/
   );
-  assert.doesNotMatch(
-    navigation,
-    /!link\.adminOnly \|\| isSuperAdminRole\(user\?\.role\)/
-  );
+
+  for (const path of [
+    "/admin/services",
+    "/admin/stylists",
+    "/admin/appointments",
+    "/admin/customers",
+  ]) {
+    const index =
+      navigation.indexOf(
+        `["${path}"`
+      );
+
+    assert.ok(
+      index >= 0
+    );
+
+    assert.match(
+      navigation.slice(
+        index,
+        index + 220
+      ),
+      /false/
+    );
+  }
 });
 
 test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
@@ -481,4 +569,93 @@ test("feature-controlled dashboard entries remain visible when the feature is of
     navigation,
     /Currently off/
   );
+});
+
+
+test("every dashboard link declares a permission and matches its route guard", async () => {
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const links = [
+    ...navigation.matchAll(
+      /\["(\/[^"]+)",\s*"[^"]+",\s*"[^"]+",\s*[A-Za-z0-9_]+(?:,\s*(true|false))?,\s*"([^"]*)"/g
+    ),
+  ].map(
+    (match) => ({
+      path:
+        match[1].slice(1),
+      adminOnly:
+        match[2] === "true",
+      permission:
+        match[3],
+    })
+  );
+
+  assert.equal(
+    links.length,
+    72
+  );
+
+  for (const link of links) {
+    assert.ok(
+      link.permission,
+      `Missing permission for /${link.path}`
+    );
+
+    const routeBlock = [
+      ...app.matchAll(
+        /<Route\b[\s\S]*?\/>/g
+      ),
+    ]
+      .map(
+        (match) =>
+          match[0]
+      )
+      .find(
+        (block) =>
+          block.includes(
+            `path="${link.path}"`
+          )
+      );
+
+    assert.ok(
+      routeBlock,
+      `Missing route for /${link.path}`
+    );
+
+    if (
+      link.adminOnly
+    ) {
+      assert.match(
+        routeBlock,
+        /adminPage\(/
+      );
+    } else {
+      assert.match(
+        routeBlock,
+        new RegExp(
+          `permissionPage\\([\\s\\S]*?"${link.permission.replace(
+            /[-/\\^$*+?.()|[\]{}]/g,
+            "\\$&"
+          )}"\\s*\\)`
+        ),
+        `Route guard mismatch for /${link.path}`
+      );
+    }
+  }
 });
