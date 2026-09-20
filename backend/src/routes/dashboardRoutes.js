@@ -4,7 +4,6 @@ import dashboardController from "../controllers/dashboardController.js";
 import dashboardOperationsController from "../controllers/dashboardOperationsController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -14,7 +13,6 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
 router.use(
   requirePermissions(
     "dashboard:view"
