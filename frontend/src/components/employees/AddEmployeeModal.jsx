@@ -27,6 +27,7 @@ import {
   hasPermission,
 } from "../../utils/permissions.js";
 import {
+  isAdminRole,
   isSuperAdminRole,
 } from "../../utils/roles.js";
 
@@ -192,6 +193,11 @@ export default function AddEmployeeModal({
 
   const canManageRoles =
     isSuperAdminRole(
+      user?.role
+    );
+
+  const canManagePermissions =
+    isAdminRole(
       user?.role
     );
 
@@ -689,7 +695,7 @@ export default function AddEmployeeModal({
           form.profilePublished,
         acceptsAppointments:
           form.acceptsAppointments,
-        ...(canManageRoles
+        ...(canManagePermissions
           ? {
               permissions:
                 form.permissions,
@@ -1495,15 +1501,15 @@ export default function AddEmployeeModal({
             )}
           </section>
 
-          {canManageRoles ? (
+          {canManagePermissions ? (
             <details className="rounded-2xl border border-stone-200 p-5">
               <summary className="cursor-pointer font-bold text-black">
                 Initial access permissions
               </summary>
               <p className="mt-2 text-sm text-stone-600">
                 {customRoleSelected
-                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that only Super Admin can grant."
-                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can only be granted by Super Admin."}
+                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that Super Admin or Admin can grant."
+                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can be granted by Super Admin or Admin."}
               </p>
 
               {customRoleSelected && selectedRole?.permissions?.length ? (
