@@ -182,7 +182,7 @@ async function readRoster(
           fullName: 1,
           jobTitle: 1,
           isActive: 1,
-          acceptsAppointments: 1,
+          bookable: 1,
           profilePublished: 1,
           userAccount: 1,
         },
