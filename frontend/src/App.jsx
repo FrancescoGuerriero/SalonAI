@@ -1103,15 +1103,17 @@ function AppRoutes() {
 
         <Route
           path="admin/services"
-          element={adminPage(
-            AdminServices
+          element={permissionPage(
+            AdminServices,
+            "service:read"
           )}
         />
 
         <Route
           path="admin/stylists"
-          element={adminPage(
-            AdminStylists
+          element={permissionPage(
+            AdminStylists,
+            "profile:all:read"
           )}
         />
 
@@ -1149,15 +1151,17 @@ function AppRoutes() {
 
         <Route
           path="admin/appointments"
-          element={adminPage(
-            AdminAppointments
+          element={permissionPage(
+            AdminAppointments,
+            "appointment:read"
           )}
         />
 
         <Route
           path="admin/customers"
-          element={adminPage(
-            AdminCustomers
+          element={permissionPage(
+            AdminCustomers,
+            "customer:read"
           )}
         />
 
