@@ -30,7 +30,7 @@ test("Add Employee exposes the dashboard onboarding fields", async () => {
     "role",
     "isActive",
     "profilePublished",
-    "acceptsAppointments",
+    "bookable",
     "services",
     "workingHours",
     "permissions",
@@ -178,7 +178,7 @@ test("employee creation initialises professional profile and operational state",
     "services",
     "workingHours",
     "profilePublished",
-    "acceptsAppointments",
+    "bookable",
     "isActive",
   ]) {
     assert.ok(
