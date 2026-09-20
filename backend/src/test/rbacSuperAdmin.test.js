@@ -141,10 +141,8 @@ test("Admin retains management baseline while other staff require explicit manag
       ],
       [
         "dashboard:view",
-        "profile:own:read",
-        "schedule:own:read",
       ],
-      `${role} should only receive dashboard/self-service baseline access`
+      `${role} should only receive dashboard-entry baseline access`
     );
   }
 });
