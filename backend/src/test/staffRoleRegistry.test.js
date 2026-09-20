@@ -339,3 +339,42 @@ test("built-in role profiles are editable without exposing system identity mutat
     /Required/
   );
 });
+
+
+test("customer APIs rely on granular customer permissions without a blanket management role gate", async () => {
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/customerRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    routes,
+    /requirePermissions/
+  );
+  assert.doesNotMatch(
+    routes,
+    /managementOnly/
+  );
+
+  for (const permission of [
+    "customer:read",
+    "customer:create",
+    "customer:update",
+    "customer:archive",
+    "customer:delete",
+  ]) {
+    assert.match(
+      routes,
+      new RegExp(
+        permission.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )
+      )
+    );
+  }
+});
