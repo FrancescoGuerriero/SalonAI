@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  buildInactiveRetentionPreviewPipeline,
   normaliseRetentionConditions,
   normaliseRetentionJourneyPayload,
   normaliseRetentionSteps,
@@ -169,5 +170,126 @@ test("retention automation UI uses the dedicated management service", async () =
   assert.match(
     service,
     /retention-automation\/journeys/
+  );
+});
+
+
+test("inactive retention preview is a bounded read-only customer pipeline", () => {
+  const now =
+    new Date(
+      "2026-09-20T12:00:00.000Z"
+    );
+
+  const built =
+    buildInactiveRetentionPreviewPipeline({
+      conditions: {
+        inactiveDays: 90,
+        minimumVisits: 2,
+        minimumLifetimeValue: 150,
+        retentionRiskLevels: [
+          "high",
+        ],
+      },
+      now,
+      limit: 500,
+      aiPredictionCollection:
+        "aipredictions",
+    });
+
+  assert.equal(
+    built.limit,
+    100
+  );
+
+  assert.equal(
+    built.conditions
+      .inactiveDays,
+    90
+  );
+
+  const serialised =
+    JSON.stringify(
+      built.pipeline
+    );
+
+  assert.match(
+    serialised,
+    /customer_inactive|lastVisit|previewVisitCount/
+  );
+
+  assert.match(
+    serialised,
+    /aipredictions/
+  );
+
+  assert.match(
+    serialised,
+    /churn_risk/
+  );
+
+  assert.match(
+    serialised,
+    /high/
+  );
+
+  assert.equal(
+    /\$(out|merge)/.test(
+      serialised
+    ),
+    false
+  );
+});
+
+test("retention preview route and UI preserve zero-delivery dry-run semantics", async () => {
+  const service =
+    await readFile(
+      new URL(
+        "../features/premium/automation/retentionAutomationService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const routes =
+    await readFile(
+      new URL(
+        "../features/premium/automation/automationRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/RetentionAutomationPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    service,
+    /communicationQueued:\s*false/
+  );
+
+  assert.match(
+    routes,
+    /\/journeys\/:journeyId\/preview/
+  );
+
+  assert.match(
+    page,
+    /Audience dry-run/
+  );
+
+  assert.match(
+    page,
+    /Messages queued/
+  );
+
+  assert.match(
+    page,
+    /Preview audience/
   );
 });
