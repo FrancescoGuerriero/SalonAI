@@ -1,6 +1,7 @@
 import express from "express";
 
 import {
+  adminOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -99,15 +100,14 @@ router.get(
 router.post(
   "/",
   protect,
-  requirePermissions(
-    "staff-role:create"
-  ),
+  adminOnly,
   createStaffRole
 );
 
 router.patch(
   "/:id",
   protect,
+  adminOnly,
   requireStaffRoleChanges,
   updateStaffRole
 );
@@ -115,9 +115,7 @@ router.patch(
 router.delete(
   "/:id",
   protect,
-  requirePermissions(
-    "staff-role:delete"
-  ),
+  adminOnly,
   deleteStaffRole
 );
 
