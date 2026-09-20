@@ -18,6 +18,9 @@ import {
   paginationFromQuery,
   paginationResult,
 } from "../../shared/pagination.js";
+import {
+  normaliseCatalogueImages,
+} from "../../utils/catalogueMedia.js";
 import { escapedRegex } from "../../shared/modelHelpers.js";
 import CustomerExperienceProfile from "../customerExperience/CustomerExperienceProfile.js";
 import SalonOffer from "../customerExperience/SalonOffer.js";
@@ -149,9 +152,10 @@ function normaliseProductPayload(payload, { partial = false } = {}) {
   }
 
   if (payload.images !== undefined) {
-    output.images = Array.isArray(payload.images)
-      ? payload.images.map((image) => String(image).trim()).filter(Boolean)
-      : [];
+    output.images =
+      normaliseCatalogueImages(
+        payload.images
+      );
   }
 
   if (!partial && (!output.name || !output.sku || output.price === undefined)) {
