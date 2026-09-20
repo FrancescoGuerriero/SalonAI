@@ -24,6 +24,10 @@ test("dashboard APIs require dashboard:view", async () => {
       routes,
       /requirePermissions\(\s*"dashboard:view"\s*\)/
     );
+    assert.doesNotMatch(
+      routes,
+      /managementOnly/
+    );
   }
 });
 
@@ -41,6 +45,10 @@ test("campaign and template reads are separated from management actions", async 
     campaign,
     template,
   ]) {
+    assert.doesNotMatch(
+      routes,
+      /managementOnly/
+    );
     assert.match(
       routes,
       /requireAnyPermission\(\s*"communications:read",\s*"communications:manage"\s*\)/
@@ -78,6 +86,15 @@ test("scheduled communication and delivery mutation routes require management au
     await source(
       "../routes/messageDeliveryRoutes.js"
     );
+
+  assert.doesNotMatch(
+    scheduled,
+    /managementOnly/
+  );
+  assert.doesNotMatch(
+    delivery,
+    /managementOnly/
+  );
 
   assert.match(
     scheduled,
