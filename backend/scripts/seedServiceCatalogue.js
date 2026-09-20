@@ -69,7 +69,7 @@ function normaliseService(service, index) {
     priceOnConsultation: service?.priceOnConsultation === true,
     duration: number(service?.duration, `services[${index}].duration`, 1),
     durationEstimated: service?.durationEstimated === true,
-    onlineBookable: service?.onlineBookable !== false,
+    bookable: service?.bookable !== false,
     image: text(service?.image, 500),
     active: service?.active !== false,
   };
