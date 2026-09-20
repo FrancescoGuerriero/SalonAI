@@ -481,4 +481,9 @@ test("retention preview route and UI preserve zero-delivery dry-run semantics", 
     page,
     /Preview audience/
   );
+
+  assert.match(
+    page,
+    /Contact readiness/
+  );
 });
