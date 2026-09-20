@@ -8,9 +8,9 @@ This file is the canonical forward-looking issue register for SalonAI. It replac
 
 - Production release: `v8.15.4`
 - Production commit: `37c1e657a8eeada3f62b13f14cd01b86828e32ad`
-- Current main after dependency-maintenance integration: `f520ca55b978ebda8e36735a233977e7d6589e2e`
-- Current main is ahead of production by the maintenance work merged in PR #209.
-- Open pull requests after the maintenance closeout: none.
+- Dependency-maintenance baseline before this register: `f520ca55b978ebda8e36735a233977e7d6589e2e`
+- The repository baseline is ahead of production by the maintenance work merged in PR #209; deploy that maintenance only through a later immutable release.
+- At the completion of the PR closeout audit, no pre-existing pull requests remained open.
 - Developer 3 has no open PR. The latest workforce/profile/media recovery work was merged in PR #208 and released in `v8.15.4`.
 
 ## P0 — Production data-state and acceptance verification
