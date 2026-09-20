@@ -1,6 +1,6 @@
 const APPOINTMENT_ELIGIBLE_FILTER = Object.freeze({
   isActive: true,
-  acceptsAppointments: true,
+  bookable: true,
 });
 
 const CUSTOMER_VISIBLE_FILTER = Object.freeze({
@@ -19,7 +19,7 @@ export function isAppointmentEligibleStylist(stylist) {
   return Boolean(
     stylist &&
     stylist.isActive === true &&
-    stylist.acceptsAppointments === true
+    stylist.bookable === true
   );
 }
 
