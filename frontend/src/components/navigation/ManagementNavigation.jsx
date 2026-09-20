@@ -60,10 +60,10 @@ export const MANAGEMENT_SECTIONS = [
   ]},
   { id: "administration", label: "Administration", links: [
     ["/admin", "Admin overview", "Administrator control centre", Gauge, true, "dashboard:view"],
-    ["/admin/services", "Admin services", "Legacy service administration", Scissors, true, "service:read"],
-    ["/admin/stylists", "Admin stylists", "Legacy stylist administration", UsersRound, true, "employee:read"],
-    ["/admin/appointments", "Admin appointments", "Administrator appointment controls", CalendarDays, true, "appointment:read"],
-    ["/admin/customers", "Admin customers", "Administrator customer controls", ContactRound, true, "customer:read"],
+    ["/admin/services", "Admin services", "Legacy service administration", Scissors, false, "service:read"],
+    ["/admin/stylists", "Admin stylists", "Legacy stylist administration", UsersRound, false, "profile:all:read"],
+    ["/admin/appointments", "Admin appointments", "Administrator appointment controls", CalendarDays, false, "appointment:read"],
+    ["/admin/customers", "Admin customers", "Administrator customer controls", ContactRound, false, "customer:read"],
     ["/admin/staff-accounts", "Staff accounts", "Staff account administration", UsersRound, false, "employee:read"],
   ]},
   { id: "premium", label: "Premium features", links: [
