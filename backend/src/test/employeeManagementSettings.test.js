@@ -294,7 +294,15 @@ test("employee service assignment uses management catalogue and preserves unpubl
   );
   assert.match(
     page,
-    /service\.active === false \? "Unpublished" : "Published"/
+    /service\.active === false \? "Inactive" : "Active"/
+  );
+  assert.match(
+    page,
+    /service\.published === false \? "Unpublished" : "Published"/
+  );
+  assert.match(
+    page,
+    /service\.bookable === false \? "Not bookable" : "Bookable"/
   );
   assert.doesNotMatch(
     page,
