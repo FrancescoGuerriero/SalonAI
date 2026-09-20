@@ -3,7 +3,6 @@ import express from "express";
 import dashboardInsightsController from "../controllers/dashboardInsightsController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -13,7 +12,6 @@ import {
 const router = express.Router();
 
 router.use(protect);
-router.use(managementOnly);
 router.use(
   requirePermissions(
     "dashboard:view"
