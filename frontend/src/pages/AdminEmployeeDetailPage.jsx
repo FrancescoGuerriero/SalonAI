@@ -33,7 +33,7 @@ import {
   hasPermission,
 } from "../utils/permissions.js";
 import {
-  isSuperAdminRole,
+  isAdminRole,
 } from "../utils/roles.js";
 
 const DAYS = [
@@ -233,9 +233,15 @@ export default function AdminEmployeeDetailPage() {
       "appointment:read"
     );
   const canManagePermissions =
-    isSuperAdminRole(
+    isAdminRole(
       currentUser?.role
-    );
+    ) &&
+    hasPermission(
+      currentUser,
+      "employee:permissions:update"
+    ) &&
+    employee?.role !==
+      "super_admin";
 
   const load =
     useCallback(
@@ -1083,7 +1089,7 @@ export default function AdminEmployeeDetailPage() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-2"><ShieldCheck size={21} /><div><h2 className="text-lg font-bold text-black">Access & special permissions</h2><p className="text-sm text-slate-600">Role permissions are automatic. Super Admin can add employee-specific capabilities without changing the employee's professional profile.</p></div></div>
+        <div className="flex items-center gap-2"><ShieldCheck size={21} /><div><h2 className="text-lg font-bold text-black">Access & special permissions</h2><p className="text-sm text-slate-600">Role permissions are automatic. Super Admin and Admin can add employee-specific capabilities without changing the employee's professional profile.</p></div></div>
 
         {(employee.rolePermissions || []).length ? (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1100,7 +1106,7 @@ export default function AdminEmployeeDetailPage() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ASSIGNABLE_EMPLOYEE_PERMISSIONS.map((permission) => <label key={permission.value} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm text-black"><input type="checkbox" className="h-4 w-4 accent-amber-400" checked={(employee.permissions || []).includes(permission.value)} disabled={!canManagePermissions || Boolean(saving)} onChange={(event) => { const current = employee.permissions || []; const permissions = event.target.checked ? [...current, permission.value] : current.filter((item) => item !== permission.value); void updateSettings({ permissions }, "permissions"); }} /><span>{permission.label}</span></label>)}
         </div>
-        {!canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only the Super Admin can grant or remove employee-specific special permissions.</p> : null}
+        {!canManagePermissions ? <p className="mt-4 text-xs text-slate-500">Only Super Admin and Admin can grant or remove employee-specific special permissions. Super Admin accounts remain protected.</p> : null}
       </section>
     </main>
   );
