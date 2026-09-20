@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   buildInactiveRetentionPreviewPipeline,
+  evaluateRetentionContactReadiness,
   normaliseRetentionConditions,
   normaliseRetentionJourneyPayload,
   normaliseRetentionSteps,
@@ -31,6 +32,184 @@ test("retention journey conditions are bounded and risk levels are normalised", 
         "low",
       ],
     }
+  );
+});
+
+test("retention contact readiness enforces email and SMS consent", () => {
+  const readiness =
+    evaluateRetentionContactReadiness(
+      {
+        email:
+          "customer@example.com",
+        phone:
+          "+447700900123",
+        communicationPreferences: {
+          promotionalMessages:
+            true,
+          unsubscribed:
+            false,
+          emailUnsubscribed:
+            false,
+          smsUnsubscribed:
+            false,
+        },
+        marketing: {
+          emailConsent:
+            true,
+          emailSuppressed:
+            false,
+          smsConsent:
+            true,
+        },
+      },
+      {
+        requiredChannels: [
+          "email",
+          "sms",
+        ],
+      }
+    );
+
+  assert.equal(
+    readiness.fullyReady,
+    true
+  );
+  assert.deepEqual(
+    readiness.readyChannels,
+    [
+      "email",
+      "sms",
+    ]
+  );
+  assert.deepEqual(
+    readiness.blockedChannels,
+    []
+  );
+});
+
+test("retention contact readiness fails closed for suppression and missing consent", () => {
+  const readiness =
+    evaluateRetentionContactReadiness(
+      {
+        email:
+          "customer@example.com",
+        phone:
+          "+447700900123",
+        communicationPreferences: {
+          promotionalMessages:
+            true,
+        },
+        marketing: {
+          emailConsent:
+            true,
+          emailSuppressed:
+            true,
+          smsConsent:
+            false,
+        },
+      },
+      {
+        requiredChannels: [
+          "email",
+          "sms",
+        ],
+      }
+    );
+
+  assert.equal(
+    readiness.fullyReady,
+    false
+  );
+  assert.deepEqual(
+    readiness.blockedChannels,
+    [
+      "email",
+      "sms",
+    ]
+  );
+
+  const email =
+    readiness.channels.find(
+      (item) =>
+        item.channel ===
+        "email"
+    );
+  const sms =
+    readiness.channels.find(
+      (item) =>
+        item.channel ===
+        "sms"
+    );
+
+  assert.ok(
+    email.reasons.includes(
+      "provider_email_suppressed"
+    )
+  );
+  assert.ok(
+    sms.reasons.includes(
+      "sms_consent_missing"
+    )
+  );
+});
+
+test("retention contact readiness requires explicit WhatsApp consent evidence", () => {
+  const userAccount =
+    "507f1f77bcf86cd799439011";
+  const customer = {
+    phone:
+      "+447700900123",
+    userAccount,
+    communicationPreferences: {
+      promotionalMessages:
+        true,
+    },
+    marketing: {},
+  };
+
+  const blocked =
+    evaluateRetentionContactReadiness(
+      customer,
+      {
+        requiredChannels: [
+          "whatsapp",
+        ],
+      }
+    );
+
+  assert.equal(
+    blocked.fullyReady,
+    false
+  );
+  assert.ok(
+    blocked.channels[0].reasons.includes(
+      "whatsapp_consent_missing"
+    )
+  );
+
+  const allowed =
+    evaluateRetentionContactReadiness(
+      customer,
+      {
+        requiredChannels: [
+          "whatsapp",
+        ],
+        consentEvidence:
+          new Map([
+            [
+              `${userAccount}:whatsapp_marketing`,
+              {
+                granted:
+                  true,
+              },
+            ],
+          ]),
+      }
+    );
+
+  assert.equal(
+    allowed.fullyReady,
+    true
   );
 });
 
@@ -274,6 +453,11 @@ test("retention preview route and UI preserve zero-delivery dry-run semantics", 
   );
 
   assert.match(
+    service,
+    /executionAuthorised:\s*false/
+  );
+
+  assert.match(
     routes,
     /\/journeys\/:journeyId\/preview/
   );
@@ -296,5 +480,10 @@ test("retention preview route and UI preserve zero-delivery dry-run semantics", 
   assert.match(
     page,
     /Preview audience/
+  );
+
+  assert.match(
+    page,
+    /Contact readiness/
   );
 });
