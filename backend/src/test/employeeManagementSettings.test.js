@@ -242,9 +242,29 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
     /No login account/
   );
 
-  assert.doesNotMatch(
+  assert.match(
     controller,
-    /fabricated credentials/i
+    /permissions:\s*\[\]/
+  );
+
+  const rosterStart =
+    controller.indexOf(
+      "export async function listAdminUsers"
+    );
+  const rosterEnd =
+    controller.indexOf(
+      "async function employeeAndProfile",
+      rosterStart
+    );
+  const rosterSource =
+    controller.slice(
+      rosterStart,
+      rosterEnd
+    );
+
+  assert.doesNotMatch(
+    rosterSource,
+    /User\.create\(/
   );
 });
 
