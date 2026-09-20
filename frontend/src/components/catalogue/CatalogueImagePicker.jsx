@@ -10,6 +10,15 @@ import {
   useState,
 } from "react";
 
+import {
+  MAX_CATALOGUE_DATA_URL_LENGTH,
+  MAX_CATALOGUE_IMAGES,
+  MAX_CATALOGUE_SOURCE_BYTES,
+  makeCatalogueImagePrimary,
+  normaliseCatalogueImageUrl,
+  uniqueCatalogueImages,
+} from "../../utils/catalogueMedia.js";
+
 const ACCEPTED_IMAGE_TYPES =
   new Set([
     "image/jpeg",
@@ -17,12 +26,7 @@ const ACCEPTED_IMAGE_TYPES =
     "image/webp",
   ]);
 
-const MAX_SOURCE_BYTES =
-  5 * 1024 * 1024;
 const MAX_DIMENSION = 1080;
-const MAX_DATA_URL_LENGTH =
-  280_000;
-const DEFAULT_MAX_IMAGES = 6;
 
 function readFileAsDataUrl(file) {
   return new Promise(
@@ -86,7 +90,7 @@ function validateSourceFile(file) {
 
   if (
     file.size >
-    MAX_SOURCE_BYTES
+    MAX_CATALOGUE_SOURCE_BYTES
   ) {
     throw new Error(
       "Choose an image no larger than 5 MB."
@@ -199,7 +203,7 @@ async function optimiseImage(
 
     if (
       output.length <=
-      MAX_DATA_URL_LENGTH
+      MAX_CATALOGUE_DATA_URL_LENGTH
     ) {
       return output;
     }
@@ -210,64 +214,6 @@ async function optimiseImage(
   );
 }
 
-function normaliseUrl(
-  value
-) {
-  const text =
-    String(value || "")
-      .trim();
-
-  if (!text) {
-    throw new Error(
-      "Enter an image URL or app-relative image path."
-    );
-  }
-
-  if (
-    text.startsWith("/")
-  ) {
-    return text;
-  }
-
-  let url;
-
-  try {
-    url =
-      new URL(text);
-  } catch {
-    throw new Error(
-      "Enter a valid HTTPS image URL."
-    );
-  }
-
-  if (
-    url.protocol !==
-    "https:"
-  ) {
-    throw new Error(
-      "Remote image URLs must use HTTPS."
-    );
-  }
-
-  return url.toString();
-}
-
-function uniqueImages(
-  images
-) {
-  return [
-    ...new Set(
-      (images || [])
-        .map((image) =>
-          String(
-            image || ""
-          ).trim()
-        )
-        .filter(Boolean)
-    ),
-  ];
-}
-
 export default function CatalogueImagePicker({
   images = [],
   onChange,
@@ -275,7 +221,7 @@ export default function CatalogueImagePicker({
   disabled = false,
   label = "Images",
   maxImages =
-    DEFAULT_MAX_IMAGES,
+    MAX_CATALOGUE_IMAGES,
   help =
     "Upload JPEG, PNG or WebP images, or add an existing HTTPS/app image path.",
 }) {
@@ -298,7 +244,7 @@ export default function CatalogueImagePicker({
   ] = useState("");
 
   const current =
-    uniqueImages(
+    uniqueCatalogueImages(
       images
     );
 
@@ -306,7 +252,7 @@ export default function CatalogueImagePicker({
     nextImages
   ) {
     const unique =
-      uniqueImages(
+      uniqueCatalogueImages(
         nextImages
       );
 
@@ -412,7 +358,7 @@ export default function CatalogueImagePicker({
 
     try {
       const next =
-        normaliseUrl(
+        normaliseCatalogueImageUrl(
           urlValue
         );
 
@@ -466,27 +412,12 @@ export default function CatalogueImagePicker({
   function makePrimary(
     index
   ) {
-    if (
-      index <= 0 ||
-      index >=
-        current.length
-    ) {
-      return;
-    }
-
-    const next = [
-      current[index],
-      ...current.filter(
-        (
-          _,
-          itemIndex
-        ) =>
-          itemIndex !==
-          index
-      ),
-    ];
-
-    commit(next);
+    commit(
+      makeCatalogueImagePrimary(
+        current,
+        index
+      )
+    );
   }
 
   return (
