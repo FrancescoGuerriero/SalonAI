@@ -69,6 +69,7 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "inventory:manage",
 
   "reports:read",
+  "reports:manage",
   "ai:use",
 
   "feature-control:read",
@@ -138,6 +139,7 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
     "premium-analytics:read",
     "inventory:read",
     "reports:read",
+    "reports:manage",
     "ai:use",
     "feature-control:read",
     "feature-control:update",
