@@ -78,7 +78,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 });
 
 
-test("core management roles bypass menu hiding while granular permissions remain on links", async () => {
+test("Admin and Super Admin bypass menu hiding while other management roles remain permission-driven", async () => {
   const navigation =
     await readFile(
       new URL(
@@ -106,17 +106,27 @@ test("core management roles bypass menu hiding while granular permissions remain
     /fullDashboard \|\| hasPermission/
   );
 
+  const fullDashboardBlock =
+    roles.match(
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
+    );
+
+  assert.ok(fullDashboardBlock);
+
   for (const role of [
     "super_admin",
     "admin",
-    "manager",
-    "receptionist",
   ]) {
     assert.match(
-      roles,
+      fullDashboardBlock[1],
       new RegExp(`"${role}"`)
     );
   }
+
+  assert.doesNotMatch(
+    fullDashboardBlock[1],
+    /"manager"|"receptionist"|"stylist"/
+  );
 });
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
@@ -319,7 +329,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("core management roles retain full dashboard visibility", async () => {
+test("only Admin and Super Admin retain full restored dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -340,8 +350,6 @@ test("core management roles retain full dashboard visibility", async () => {
   for (const role of [
     "super_admin",
     "admin",
-    "manager",
-    "receptionist",
   ]) {
     assert.match(
       fullDashboardBlock[1],
@@ -353,7 +361,7 @@ test("core management roles retain full dashboard visibility", async () => {
 
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"stylist"/
+    /"manager"|"receptionist"|"stylist"/
   );
 });
 
@@ -410,5 +418,52 @@ test("dashboard navigation contains no dead primary links", async () => {
   assert.deepEqual(
     dead,
     []
+  );
+});
+
+
+test("restored administrator routes use Admin-or-Super-Admin visibility", async () => {
+  const adminRoute =
+    await readFile(
+      new URL(
+        "../../../frontend/src/Routes/AdminRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const systemRoutes =
+    await readFile(
+      new URL(
+        "../routes/systemAdministrationRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    adminRoute,
+    /isAdminRole/
+  );
+  assert.match(
+    navigation,
+    /!link\.adminOnly \|\| isAdminRole/
+  );
+  assert.match(
+    systemRoutes,
+    /router\.get\("\/features", adminOnly/
+  );
+  assert.match(
+    systemRoutes,
+    /router\.patch\([\s\S]*superAdminOnly/
   );
 });
