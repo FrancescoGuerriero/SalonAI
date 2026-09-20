@@ -170,6 +170,20 @@ function channelLabel(value) {
   );
 }
 
+function readinessReasonLabel(
+  value
+) {
+  return String(
+    value || ""
+  )
+    .replace(/_/g, " ")
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
+}
+
 function previewCustomerName(
   customer
 ) {
@@ -690,7 +704,7 @@ export default function RetentionAutomationPage() {
                 Execution engine pending
               </h2>
               <p className="mt-1 text-sm leading-6 text-amber-900">
-                This release manages validated journey definitions and pause/enable state only. It does not automatically send customer messages. The next CRM increment will connect eligible journeys to the consent-governed scheduled-communications engine with dry-run and audit evidence.
+                Journey definitions still cannot execute automatically. Audience preview now evaluates bounded contact, consent and provider-suppression readiness, but idempotency, stop-condition enforcement, scheduling and audit evidence remain mandatory before any customer message can be queued.
               </p>
             </div>
           </div>
@@ -744,7 +758,7 @@ export default function RetentionAutomationPage() {
               </button>
             </div>
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
               <div className="rounded-xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Candidates
@@ -790,12 +804,34 @@ export default function RetentionAutomationPage() {
                     : "None"}
                 </p>
               </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Contact ready
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  {preview.readiness
+                    ?.fullyContactReadyCount ||
+                    0}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Blocked
+                </p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">
+                  {preview.readiness
+                    ?.blockedCount ||
+                    0}
+                </p>
+              </div>
             </div>
 
             {preview.supported ? (
               <>
                 <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                  This is evidence only. Consent, provider suppression, contactability, idempotency and stop conditions are not treated as passed by this preview and will be enforced before controlled execution is introduced.
+                  Contactability, marketing consent and provider email suppression are evaluated for the returned preview customers only. This is still evidence, not execution authorisation: idempotency, stop conditions, scheduling and delivery controls have not been passed.
                 </div>
 
                 <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
@@ -820,6 +856,9 @@ export default function RetentionAutomationPage() {
                           </th>
                           <th className="px-4 py-3">
                             Retention risk
+                          </th>
+                          <th className="px-4 py-3">
+                            Contact readiness
                           </th>
                         </tr>
                       </thead>
@@ -889,6 +928,58 @@ export default function RetentionAutomationPage() {
                                   <span className="text-xs text-slate-400">
                                     No fresh prediction
                                   </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {customer
+                                  .readiness
+                                  ?.fullyReady ? (
+                                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                    Ready
+                                  </span>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700">
+                                      Blocked
+                                    </span>
+                                    {(customer
+                                      .readiness
+                                      ?.channels ||
+                                      [])
+                                      .filter(
+                                        (
+                                          channel
+                                        ) =>
+                                          !channel.ready
+                                      )
+                                      .map(
+                                        (
+                                          channel
+                                        ) => (
+                                          <p
+                                            key={
+                                              channel.channel
+                                            }
+                                            className="text-xs text-slate-500"
+                                          >
+                                            {channelLabel(
+                                              channel.channel
+                                            )}
+                                            :{" "}
+                                            {(
+                                              channel.reasons ||
+                                              []
+                                            )
+                                              .map(
+                                                readinessReasonLabel
+                                              )
+                                              .join(
+                                                ", "
+                                              )}
+                                          </p>
+                                        )
+                                      )}
+                                  </div>
                                 )}
                               </td>
                             </tr>
