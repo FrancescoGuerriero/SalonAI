@@ -12,7 +12,7 @@ async function source(relativePath) {
   );
 }
 
-test("customer appointment creation rejects services that are not online bookable", async () => {
+test("customer appointment creation rejects services that are not bookable", async () => {
   const controller =
     await source(
       "../controllers/appointmentController.js"
@@ -48,5 +48,50 @@ test("public service card does not offer standard booking for non-bookable servi
   assert.match(
     card,
     /!consultationOnly\s*&&\s*onlineBookingEnabled/
+  );
+});
+
+
+test("service model separates active published and bookable state", async () => {
+  const model =
+    await source(
+      "../models/service.js"
+    );
+
+  assert.match(
+    model,
+    /active:\s*\{/
+  );
+  assert.match(
+    model,
+    /published:\s*\{/
+  );
+  assert.match(
+    model,
+    /bookable:\s*\{/
+  );
+});
+
+test("public service queries require active and published while retaining legacy migration safety", async () => {
+  const controller =
+    await source(
+      "../controllers/serviceController.js"
+    );
+
+  assert.match(
+    controller,
+    /PUBLIC_SERVICE_FILTER/
+  );
+  assert.match(
+    controller,
+    /published:\s*true/
+  );
+  assert.match(
+    controller,
+    /\$exists:\s*false/
+  );
+  assert.match(
+    controller,
+    /serialiseService/
   );
 });
