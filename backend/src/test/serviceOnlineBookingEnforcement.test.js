@@ -29,7 +29,7 @@ test("customer appointment creation rejects services that are not bookable", asy
 
   assert.match(
     controller,
-    /The selected service is not available for online booking\./
+    /The selected service is not available for booking\./
   );
 });
 
@@ -98,4 +98,40 @@ test("public service queries require active and published while retaining legacy
     controller,
     /serialiseService/
   );
+});
+
+
+test("management and catalogue sources no longer write the legacy onlineBookable field", async () => {
+  const sources = await Promise.all([
+    source(
+      "../../../frontend/src/pages/ServicesPage.jsx"
+    ),
+    source(
+      "../../../frontend/src/pages/AdminServices.jsx"
+    ),
+    source(
+      "../../../frontend/src/components/customer/ServiceCard.jsx"
+    ),
+    source(
+      "../../scripts/seedServiceCatalogue.js"
+    ),
+    source(
+      "../../scripts/seedBookingCatalogue.js"
+    ),
+    source(
+      "../../data/3thirty-services.json"
+    ),
+    source(
+      "../../scripts/serviceCatalogue.francesco-p.json"
+    ),
+  ]);
+
+  for (const value of sources) {
+    assert.equal(
+      value.includes(
+        "onlineBookable"
+      ),
+      false
+    );
+  }
 });
