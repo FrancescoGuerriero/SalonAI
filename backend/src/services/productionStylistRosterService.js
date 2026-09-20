@@ -5,7 +5,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "employee-non-bookable",
     set: {
       isActive: true,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
       jobTitle: "Reception",
     },
@@ -16,7 +16,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "employee-non-bookable",
     set: {
       isActive: true,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
       jobTitle: "Reception",
     },
@@ -27,7 +27,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "historical-non-bookable",
     set: {
       isActive: false,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
     },
   },
@@ -37,7 +37,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "employee-non-bookable",
     set: {
       isActive: true,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
       jobTitle: "Office",
     },
@@ -48,7 +48,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "employee-non-bookable",
     set: {
       isActive: true,
-      acceptsAppointments: false,
+      bookable: false,
       profilePublished: false,
       jobTitle: "Assistant",
     },
@@ -59,7 +59,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "bookable",
     set: {
       isActive: true,
-      acceptsAppointments: true,
+      bookable: true,
       profilePublished: true,
     },
   },
@@ -69,7 +69,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "bookable",
     set: {
       isActive: true,
-      acceptsAppointments: true,
+      bookable: true,
       profilePublished: true,
     },
   },
@@ -79,7 +79,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "bookable",
     set: {
       isActive: true,
-      acceptsAppointments: true,
+      bookable: true,
       profilePublished: true,
     },
   },
@@ -89,7 +89,7 @@ const RAW_PRODUCTION_ROSTER = [
     classification: "bookable",
     set: {
       isActive: true,
-      acceptsAppointments: true,
+      bookable: true,
       profilePublished: true,
     },
   },
@@ -128,7 +128,7 @@ export const LEGACY_ROLLBACK_STYLIST_ROSTER =
         set: {
           ...entry.set,
           isActive:
-            entry.set.acceptsAppointments === true,
+            entry.set.bookable === true,
         },
       })
     )
@@ -204,7 +204,7 @@ export function assertRosterDefinition(
       typeof entry.set?.isActive !==
         "boolean" ||
       typeof entry.set
-        ?.acceptsAppointments !==
+        ?.bookable !==
         "boolean" ||
       typeof entry.set
         ?.profilePublished !==
@@ -378,12 +378,12 @@ export function selectRosterPhaseChanges(
   if (
     Object.prototype.hasOwnProperty.call(
       changes,
-      "acceptsAppointments"
+      "bookable"
     )
   ) {
     return {
-      acceptsAppointments:
-        changes.acceptsAppointments,
+      bookable:
+        changes.bookable,
     };
   }
 
