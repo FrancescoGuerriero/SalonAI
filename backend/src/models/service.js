@@ -41,18 +41,36 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    onlineBookable: {
+
+    // Global AI Business Platform service states.
+    active: {
       type: Boolean,
       default: true,
+      index: true,
     },
+    published: {
+      type: Boolean,
+      default: undefined,
+      index: true,
+    },
+    bookable: {
+      type: Boolean,
+      default: undefined,
+      index: true,
+    },
+
+    // Transitional persistence only. New API/UI code must use "bookable".
+    // This field is hidden and will be removed after the governed data migration.
+    onlineBookable: {
+      type: Boolean,
+      default: undefined,
+      select: false,
+    },
+
     image: {
       type: String,
       trim: true,
       default: "",
-    },
-    active: {
-      type: Boolean,
-      default: true,
     },
   },
   {
