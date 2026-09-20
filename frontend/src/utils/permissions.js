@@ -134,18 +134,12 @@ const ROLE_BASELINES = Object.freeze({
   ]),
   receptionist: Object.freeze([
     "dashboard:view",
-    "profile:own:read",
-    "schedule:own:read",
   ]),
   manager: Object.freeze([
     "dashboard:view",
-    "profile:own:read",
-    "schedule:own:read",
   ]),
   stylist: Object.freeze([
     "dashboard:view",
-    "profile:own:read",
-    "schedule:own:read",
   ]),
 });
 
