@@ -60,6 +60,10 @@ test("custom role permissions are limited to the canonical catalogue", () => {
   for (const reserved of [
     "employee:role:update",
     "employee:permissions:update",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+    "staff-role:delete",
   ]) {
     assert.throws(
       () =>
@@ -105,12 +109,7 @@ test("built-in staff roles retain their protected semantics", () => {
   );
   assert.deepEqual(
     stylist.permissions,
-    [
-      "appointment:read",
-      "appointment:create",
-      "staff-role:read",
-      "staff-role:create",
-    ]
+    []
   );
 });
 
@@ -259,7 +258,7 @@ test("staff role management is audited and synchronises assigned employees", asy
 });
 
 
-test("staff role routes delegate view create edit activation and delete separately", async () => {
+test("staff role routes allow delegated reading but reserve mutations for Admin roles", async () => {
   const routes =
     await readFile(
       new URL(
@@ -269,24 +268,18 @@ test("staff role routes delegate view create edit activation and delete separate
       "utf8"
     );
 
-  for (const permission of [
-    "staff-role:read",
-    "staff-role:create",
-    "staff-role:update",
-    "staff-role:activate",
-    "staff-role:delete",
-  ]) {
-    assert.match(
-      routes,
-      new RegExp(
-        permission.replace(
-          "-",
-          "\\-"
-        )
-      )
-    );
-  }
-
+  assert.match(
+    routes,
+    /"staff-role:read"/
+  );
+  assert.match(
+    routes,
+    /adminOnly/
+  );
+  assert.match(
+    routes,
+    /requireStaffRoleChanges/
+  );
   assert.doesNotMatch(
     routes,
     /superAdminOnly/
