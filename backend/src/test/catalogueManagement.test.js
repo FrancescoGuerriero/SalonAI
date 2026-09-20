@@ -36,7 +36,7 @@ test("service management separates edit and publication permissions", async () =
   );
   assert.match(
     controller,
-    /delete payload\.active/
+    /delete payload\.published/
   );
 });
 
@@ -48,11 +48,11 @@ test("new services start unpublished and public direct lookup requires publicati
 
   assert.match(
     controller,
-    /Service\.create\(\{[\s\S]*active:\s*false/
+    /payload\.published\s*=\s*false/
   );
   assert.match(
     controller,
-    /Service\.findOne\(\{[\s\S]*active:\s*true/
+    /published:\s*true/
   );
 });
 
@@ -185,5 +185,43 @@ test("service catalogue mutations write canonical audit history", async () => {
   assert.match(
     controller,
     /changedFields:\s*Object\.keys\(\s*payload\s*\)/
+  );
+});
+
+
+test("service availability uses independent active published and bookable states", async () => {
+  const model =
+    await source(
+      "../models/service.js"
+    );
+  const migration =
+    await source(
+      "../../scripts/migrateServiceAvailability.js"
+    );
+
+  for (const field of [
+    "active",
+    "published",
+    "bookable",
+  ]) {
+    assert.match(
+      model,
+      new RegExp(
+        `${field}:\\s*\\{`
+      )
+    );
+  }
+
+  assert.match(
+    migration,
+    /onlineBookable/
+  );
+  assert.match(
+    migration,
+    /\$unset/
+  );
+  assert.match(
+    migration,
+    /set\.bookable/
   );
 });
