@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+import {
+  isSupportedCatalogueImage,
+} from "../utils/catalogueMedia.js";
+
 const serviceSchema = new mongoose.Schema(
   {
     name: {
@@ -60,6 +64,15 @@ const serviceSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+      validate: {
+        validator(value) {
+          return isSupportedCatalogueImage(
+            value
+          );
+        },
+        message:
+          "Service image must be an HTTPS URL, app-relative path, or supported JPEG, PNG or WebP upload.",
+      },
     },
     active: {
       type: Boolean,
