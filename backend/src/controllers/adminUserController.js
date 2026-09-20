@@ -544,20 +544,6 @@ function serialiseAdminUser(
   };
 }
 
-function profileIdentityName(
-  stylist
-) {
-  return cleanText(
-    [
-      stylist?.firstName,
-      stylist?.lastName,
-    ]
-      .filter(Boolean)
-      .join(" "),
-    120
-  ).toLowerCase();
-}
-
 function profileIdentityEmail(
   stylist
 ) {
