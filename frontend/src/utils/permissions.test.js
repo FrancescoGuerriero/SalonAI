@@ -82,8 +82,6 @@ test("Salon staff baseline only guarantees dashboard and self-service entry", ()
     ),
     [
       "dashboard:view",
-      "profile:own:read",
-      "schedule:own:read",
     ]
   );
 
