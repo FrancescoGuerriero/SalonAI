@@ -168,7 +168,7 @@ jobs:
 
       - name: Build and push image
         id: build
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@v7.4.0
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
