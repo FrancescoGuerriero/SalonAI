@@ -787,7 +787,7 @@ export default function AdminEmployeeDetailPage() {
           </div>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
-            Active controls system access, Published controls public visibility, and Bookable controls customer appointment selection.
+            Active controls system access, Published controls public visibility, and Bookable controls appointment selection across every booking channel.
           </p>
         </article>
       </section>
