@@ -25,6 +25,9 @@ export async function listSubscriptions(req, res) {
         $ne: false,
       },
     })
+      .select(
+        "_id customer active lastUsedAt createdAt updatedAt"
+      )
       .sort({
         updatedAt: -1,
       })
