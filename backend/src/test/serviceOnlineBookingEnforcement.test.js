@@ -20,7 +20,11 @@ test("customer appointment creation rejects services that are not bookable", asy
 
   assert.match(
     controller,
-    /service\.onlineBookable\s*===\s*false/
+    /const serviceBookable/
+  );
+  assert.match(
+    controller,
+    /service\.bookable/
   );
 
   assert.match(
@@ -37,7 +41,7 @@ test("public service card does not offer standard booking for non-bookable servi
 
   assert.match(
     card,
-    /service\.onlineBookable\s*===\s*false/
+    /service\.bookable\s*===\s*false/
   );
 
   assert.match(
