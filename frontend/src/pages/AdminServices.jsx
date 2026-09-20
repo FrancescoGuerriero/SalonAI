@@ -12,7 +12,8 @@ const initialForm = {
   description: "",
   price: "",
   duration: "",
-  active: true
+  active: true,
+  bookable: true
 };
 
 function AdminServices() {
@@ -30,7 +31,7 @@ function AdminServices() {
       setError("");
 
       const data =
-        await serviceService.getServices();
+        await serviceService.getManagementServices();
 
       setServices(data);
     } catch (requestError) {
@@ -83,7 +84,8 @@ function AdminServices() {
       description: service.description ?? "",
       price: service.price ?? "",
       duration: service.duration ?? "",
-      active: service.active ?? true
+      active: service.active ?? true,
+      bookable: service.bookable ?? true
     });
 
     setError("");
@@ -114,7 +116,8 @@ function AdminServices() {
         form.description.trim(),
       price: Number(form.price),
       duration: Number(form.duration),
-      active: form.active
+      active: form.active,
+      bookable: form.bookable
     };
 
     try {
@@ -153,6 +156,34 @@ function AdminServices() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePublication(service) {
+    try {
+      setError("");
+      setMessage("");
+
+      const next =
+        service.published !== true;
+
+      await serviceService.setPublication(
+        service._id,
+        next
+      );
+
+      setMessage(
+        next
+          ? "Service published."
+          : "Service unpublished."
+      );
+
+      await loadServices();
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+          "Unable to change publication."
+      );
     }
   }
 
@@ -279,6 +310,17 @@ function AdminServices() {
           Active
         </label>
 
+        <label>
+          <input
+            name="bookable"
+            type="checkbox"
+            checked={form.bookable}
+            onChange={handleChange}
+          />
+
+          Bookable
+        </label>
+
         <div>
           <button
             type="submit"
@@ -318,7 +360,9 @@ function AdminServices() {
                 <th>Category</th>
                 <th>Price</th>
                 <th>Duration</th>
-                <th>Status</th>
+                <th>Active</th>
+                <th>Published</th>
+                <th>Bookable</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -351,6 +395,18 @@ function AdminServices() {
                   </td>
 
                   <td>
+                    {service.published
+                      ? "Published"
+                      : "Unpublished"}
+                  </td>
+
+                  <td>
+                    {service.bookable
+                      ? "Bookable"
+                      : "Not bookable"}
+                  </td>
+
+                  <td>
                     <button
                       type="button"
                       onClick={() =>
@@ -358,6 +414,19 @@ function AdminServices() {
                       }
                     >
                       Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handlePublication(
+                          service
+                        )
+                      }
+                    >
+                      {service.published
+                        ? "Unpublish"
+                        : "Publish"}
                     </button>
 
                     <button
