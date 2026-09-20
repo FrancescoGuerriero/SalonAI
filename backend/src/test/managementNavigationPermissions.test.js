@@ -78,7 +78,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 });
 
 
-test("core management roles bypass menu hiding while granular permissions remain on links", async () => {
+test("Admin and Super Admin bypass menu hiding while other management roles remain permission-driven", async () => {
   const navigation =
     await readFile(
       new URL(
@@ -106,17 +106,27 @@ test("core management roles bypass menu hiding while granular permissions remain
     /fullDashboard \|\| hasPermission/
   );
 
+  const fullDashboardBlock =
+    roles.match(
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
+    );
+
+  assert.ok(fullDashboardBlock);
+
   for (const role of [
     "super_admin",
     "admin",
-    "manager",
-    "receptionist",
   ]) {
     assert.match(
-      roles,
+      fullDashboardBlock[1],
       new RegExp(`"${role}"`)
     );
   }
+
+  assert.doesNotMatch(
+    fullDashboardBlock[1],
+    /"manager"|"receptionist"|"stylist"/
+  );
 });
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
@@ -327,7 +337,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("core management roles retain full dashboard visibility", async () => {
+test("only Admin and Super Admin retain full restored dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -345,11 +355,10 @@ test("core management roles retain full dashboard visibility", async () => {
   assert.ok(
     fullDashboardBlock
   );
+
   for (const role of [
     "super_admin",
     "admin",
-    "manager",
-    "receptionist",
   ]) {
     assert.match(
       fullDashboardBlock[1],
@@ -361,10 +370,9 @@ test("core management roles retain full dashboard visibility", async () => {
 
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"stylist"/
+    /"manager"|"receptionist"|"stylist"/
   );
 });
-
 
 test("dashboard navigation contains no dead primary links", async () => {
   const app =
@@ -481,4 +489,98 @@ test("feature-controlled dashboard entries remain visible when the feature is of
     navigation,
     /Currently off/
   );
+});
+
+
+test("ordinary staff management routes fail closed behind explicit permissions", async () => {
+  const route =
+    await readFile(
+      new URL(
+        "../../../frontend/src/Routes/ManagementRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    route,
+    /MANAGEMENT_PERMISSION_RULES/
+  );
+  assert.match(
+    route,
+    /isAdminRole/
+  );
+  assert.match(
+    route,
+    /required\.length > 0/
+  );
+  assert.match(
+    route,
+    /hasPermission/
+  );
+
+  for (const permission of [
+    "dashboard:view",
+    "customer:read",
+    "appointment:read",
+    "employee:read",
+    "reports:read",
+    "ai:use",
+    "communications:read",
+    "product:read",
+    "inventory:read",
+  ]) {
+    assert.match(
+      route,
+      new RegExp(
+        permission.replace(
+          /:/g,
+          "\\:"
+        )
+      )
+    );
+  }
+});
+
+test("premium management navigation also requires delegated business permissions", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  for (const [route, permission] of [
+    ["/loyalty", "customer:read"],
+    ["/gift-cards", "customer:read"],
+    ["/referrals", "customer:read"],
+    ["/notification-centre", "communications:read"],
+    ["/email-campaigns", "communications:read"],
+    ["/whatsapp-booking", "communications:read"],
+    ["/premium-analytics", "reports:read"],
+  ]) {
+    const index =
+      navigation.indexOf(
+        `"${route}"`
+      );
+
+    assert.ok(
+      index >= 0,
+      `Missing management link: ${route}`
+    );
+
+    assert.ok(
+      navigation
+        .slice(
+          index,
+          index + 280
+        )
+        .includes(
+          `"${permission}"`
+        ),
+      `${route} is missing ${permission}`
+    );
+  }
 });
