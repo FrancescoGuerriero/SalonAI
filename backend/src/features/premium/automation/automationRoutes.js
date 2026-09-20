@@ -40,6 +40,9 @@ router
 
 router.get(
   "/journeys/:journeyId/preview",
+  requirePermissions(
+    "customer:read"
+  ),
   asyncHandler(
     previewJourney
   )
