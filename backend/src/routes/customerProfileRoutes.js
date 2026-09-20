@@ -32,10 +32,25 @@ const router = express.Router();
 
 router.use(protect);
 
-router.get("/me", getMyProfile);
-router.patch("/me", updateMyProfile);
-router.patch("/me/consent", updateMyConsent);
+/*
+ * Customer self-service routes remain available to the authenticated customer.
+ */
+router.get(
+  "/me",
+  getMyProfile
+);
+router.patch(
+  "/me",
+  updateMyProfile
+);
+router.patch(
+  "/me/consent",
+  updateMyConsent
+);
 
+/*
+ * Staff customer-management routes use granular delegated permissions.
+ */
 router.get(
   "/statistics",
   requirePermissions(
@@ -60,42 +75,42 @@ router
   );
 
 router.patch(
+  "/:customerId/user-account",
   requirePermissions(
     "customer:update"
   ),
-  "/:customerId/user-account",
   linkUserAccount
 );
 
 router.delete(
+  "/:customerId/user-account",
   requirePermissions(
     "customer:update"
   ),
-  "/:customerId/user-account",
   unlinkUserAccount
 );
 
 router.patch(
+  "/:customerId/consent",
   requirePermissions(
     "customer:update"
   ),
-  "/:customerId/consent",
   updateConsent
 );
 
 router.patch(
+  "/:customerId/archive",
   requirePermissions(
     "customer:archive"
   ),
-  "/:customerId/archive",
   archiveProfile
 );
 
 router.patch(
+  "/:customerId/restore",
   requirePermissions(
     "customer:archive"
   ),
-  "/:customerId/restore",
   restoreProfile
 );
 
