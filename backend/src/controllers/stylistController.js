@@ -451,10 +451,26 @@ export async function getPublicStylists(
         .select(
           PUBLIC_STYLIST_FIELDS
         )
-        .populate(
-          "services",
-          "name category price duration active"
-        )
+        .populate({
+          path: "services",
+          match: {
+            active: {
+              $ne: false,
+            },
+            $or: [
+              {
+                published: true,
+              },
+              {
+                published: {
+                  $exists: false,
+                },
+              },
+            ],
+          },
+          select:
+            "name category price duration active published bookable",
+        })
         .sort({
           displayOrder: 1,
           firstName: 1,
@@ -489,10 +505,45 @@ export async function getBookingStylists(
         .select(
           BOOKING_STYLIST_FIELDS
         )
-        .populate(
-          "services",
-          "name category price duration active published bookable"
-        )
+        .populate({
+          path: "services",
+          match: {
+            active: {
+              $ne: false,
+            },
+            $and: [
+              {
+                $or: [
+                  {
+                    published: true,
+                  },
+                  {
+                    published: {
+                      $exists: false,
+                    },
+                  },
+                ],
+              },
+              {
+                $or: [
+                  {
+                    bookable: true,
+                  },
+                  {
+                    bookable: {
+                      $exists: false,
+                    },
+                    onlineBookable: {
+                      $ne: false,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          select:
+            "name category price duration active published bookable",
+        })
         .sort({
           displayOrder: 1,
           firstName: 1,
