@@ -36,6 +36,10 @@ test("service management separates edit and publication permissions", async () =
   );
   assert.match(
     controller,
+    /delete payload\.published/
+  );
+  assert.doesNotMatch(
+    controller,
     /delete payload\.active/
   );
 });
@@ -48,11 +52,19 @@ test("new services start unpublished and public direct lookup requires publicati
 
   assert.match(
     controller,
-    /Service\.create\(\{[\s\S]*active:\s*false/
+    /Service\.create\(\{[\s\S]*published:\s*false/
   );
   assert.match(
     controller,
-    /Service\.findOne\(\{[\s\S]*active:\s*true/
+    /PUBLIC_SERVICE_FILTER/
+  );
+  assert.match(
+    controller,
+    /active:\s*true/
+  );
+  assert.match(
+    controller,
+    /published:\s*true/
   );
 });
 
