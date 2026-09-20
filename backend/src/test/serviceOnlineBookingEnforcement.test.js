@@ -60,3 +60,21 @@ test("public service card applies bookable across enabled booking channels", asy
     /service\.onlineBookable/
   );
 });
+
+
+test("stylist availability does not expose slots for globally non-bookable services", async () => {
+  const controller =
+    await source(
+      "../controllers/stylistController.js"
+    );
+
+  assert.match(
+    controller,
+    /isServiceBookable/
+  );
+
+  assert.match(
+    controller,
+    /The selected service is not currently bookable\./
+  );
+});
