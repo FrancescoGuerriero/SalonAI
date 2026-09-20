@@ -1,4 +1,5 @@
 import AiPrediction from "../../ai/AiPrediction.js";
+import ConsentRecord from "../../../models/ConsentRecord.js";
 import Customer from "../../../models/customer.js";
 import RetentionJourney, {
   RETENTION_CHANNELS,
@@ -358,6 +359,397 @@ export async function updateRetentionJourney(
 }
 
 
+
+const CONSENT_PURPOSE_BY_RETENTION_CHANNEL =
+  Object.freeze({
+    whatsapp:
+      "whatsapp_marketing",
+    push:
+      "push_marketing",
+  });
+
+function isValidPreviewEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    text(value, 320)
+  );
+}
+
+function isValidPreviewPhone(value) {
+  return /^\+?[0-9]{7,15}$/.test(
+    text(value, 40)
+  );
+}
+
+function consentEvidenceKey(
+  userAccount,
+  purpose
+) {
+  return `${String(
+    userAccount || ""
+  )}:${purpose}`;
+}
+
+async function loadRetentionConsentEvidence(
+  items
+) {
+  const accountIds = [];
+  const seen = new Set();
+
+  for (const item of items || []) {
+    if (!item?.userAccount) {
+      continue;
+    }
+
+    const key = String(
+      item.userAccount
+    );
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      accountIds.push(
+        item.userAccount
+      );
+    }
+  }
+
+  if (!accountIds.length) {
+    return new Map();
+  }
+
+  const records =
+    await ConsentRecord.aggregate([
+      {
+        $match: {
+          customer: {
+            $in: accountIds,
+          },
+          purpose: {
+            $in: Object.values(
+              CONSENT_PURPOSE_BY_RETENTION_CHANNEL
+            ),
+          },
+        },
+      },
+      {
+        $sort: {
+          recordedAt: -1,
+          createdAt: -1,
+          _id: -1,
+        },
+      },
+      {
+        $group: {
+          _id: {
+            customer:
+              "$customer",
+            purpose:
+              "$purpose",
+          },
+          granted: {
+            $first:
+              "$granted",
+          },
+          recordedAt: {
+            $first:
+              "$recordedAt",
+          },
+        },
+      },
+    ]);
+
+  const evidence = new Map();
+
+  for (const record of records) {
+    evidence.set(
+      consentEvidenceKey(
+        record?._id?.customer,
+        record?._id?.purpose
+      ),
+      {
+        granted:
+          record?.granted ===
+          true,
+        recordedAt:
+          record?.recordedAt ||
+          null,
+      }
+    );
+  }
+
+  return evidence;
+}
+
+export function evaluateRetentionContactReadiness(
+  customer,
+  {
+    requiredChannels = [],
+    consentEvidence =
+      new Map(),
+  } = {}
+) {
+  const preferences =
+    customer?.communicationPreferences ||
+    {};
+  const marketing =
+    customer?.marketing ||
+    {};
+  const userAccount =
+    customer?.userAccount ||
+    null;
+
+  const channels = Array.from(
+    new Set(
+      (
+        Array.isArray(
+          requiredChannels
+        )
+          ? requiredChannels
+          : []
+      )
+        .map((channel) =>
+          text(
+            channel,
+            30
+          ).toLowerCase()
+        )
+        .filter((channel) =>
+          RETENTION_CHANNELS.includes(
+            channel
+          )
+        )
+    )
+  );
+
+  const results =
+    channels.map(
+      (channel) => {
+        const reasons = [];
+
+        if (
+          preferences
+            .unsubscribed ===
+          true
+        ) {
+          reasons.push(
+            "global_unsubscribed"
+          );
+        }
+
+        if (
+          preferences
+            .promotionalMessages ===
+          false
+        ) {
+          reasons.push(
+            "promotional_messages_disabled"
+          );
+        }
+
+        if (
+          channel === "email"
+        ) {
+          if (
+            !customer?.email
+          ) {
+            reasons.push(
+              "missing_email"
+            );
+          } else if (
+            !isValidPreviewEmail(
+              customer.email
+            )
+          ) {
+            reasons.push(
+              "invalid_email"
+            );
+          }
+
+          if (
+            preferences
+              .emailUnsubscribed ===
+            true
+          ) {
+            reasons.push(
+              "email_unsubscribed"
+            );
+          }
+
+          if (
+            marketing
+              .emailConsent !==
+            true
+          ) {
+            reasons.push(
+              "email_consent_missing"
+            );
+          }
+
+          if (
+            marketing
+              .emailSuppressed ===
+            true
+          ) {
+            reasons.push(
+              "provider_email_suppressed"
+            );
+          }
+        } else if (
+          channel === "sms"
+        ) {
+          if (
+            !customer?.phone
+          ) {
+            reasons.push(
+              "missing_phone"
+            );
+          } else if (
+            !isValidPreviewPhone(
+              customer.phone
+            )
+          ) {
+            reasons.push(
+              "invalid_phone"
+            );
+          }
+
+          if (
+            preferences
+              .smsUnsubscribed ===
+            true
+          ) {
+            reasons.push(
+              "sms_unsubscribed"
+            );
+          }
+
+          if (
+            marketing
+              .smsConsent !==
+            true
+          ) {
+            reasons.push(
+              "sms_consent_missing"
+            );
+          }
+        } else if (
+          channel === "whatsapp"
+        ) {
+          if (
+            !customer?.phone
+          ) {
+            reasons.push(
+              "missing_phone"
+            );
+          } else if (
+            !isValidPreviewPhone(
+              customer.phone
+            )
+          ) {
+            reasons.push(
+              "invalid_phone"
+            );
+          }
+
+          const evidence =
+            userAccount
+              ? consentEvidence.get(
+                  consentEvidenceKey(
+                    userAccount,
+                    CONSENT_PURPOSE_BY_RETENTION_CHANNEL
+                      .whatsapp
+                  )
+                )
+              : null;
+
+          if (
+            evidence?.granted !==
+            true
+          ) {
+            reasons.push(
+              "whatsapp_consent_missing"
+            );
+          }
+        } else if (
+          channel === "push"
+        ) {
+          if (!userAccount) {
+            reasons.push(
+              "app_account_missing"
+            );
+          }
+
+          const evidence =
+            userAccount
+              ? consentEvidence.get(
+                  consentEvidenceKey(
+                    userAccount,
+                    CONSENT_PURPOSE_BY_RETENTION_CHANNEL
+                      .push
+                  )
+                )
+              : null;
+
+          if (
+            evidence?.granted !==
+            true
+          ) {
+            reasons.push(
+              "push_consent_missing"
+            );
+          }
+        } else if (
+          channel === "in_app"
+        ) {
+          if (!userAccount) {
+            reasons.push(
+              "app_account_missing"
+            );
+          }
+        }
+
+        return {
+          channel,
+          ready:
+            reasons.length ===
+            0,
+          reasons,
+        };
+      }
+    );
+
+  const readyChannels =
+    results
+      .filter(
+        (result) =>
+          result.ready
+      )
+      .map(
+        (result) =>
+          result.channel
+      );
+  const blockedChannels =
+    results
+      .filter(
+        (result) =>
+          !result.ready
+      )
+      .map(
+        (result) =>
+          result.channel
+      );
+
+  return {
+    fullyReady:
+      results.length > 0 &&
+      blockedChannels.length ===
+        0,
+    readyChannels,
+    blockedChannels,
+    channels:
+      results,
+  };
+}
+
 function retentionPreviewError(
   message,
   statusCode
@@ -567,6 +959,9 @@ export function buildInactiveRetentionPreviewPipeline({
               preferredName: 1,
               email: 1,
               phone: 1,
+              userAccount: 1,
+              communicationPreferences: 1,
+              marketing: 1,
               lastVisit: 1,
               visits:
                 "$previewVisitCount",
@@ -690,12 +1085,53 @@ export async function previewRetentionJourney(
       built.pipeline
     );
 
-  const items =
+  const rawItems =
     Array.isArray(
       result?.items
     )
       ? result.items
       : [];
+
+  const consentEvidence =
+    await loadRetentionConsentEvidence(
+      rawItems
+    );
+
+  const items =
+    rawItems.map(
+      (item) => {
+        const readiness =
+          evaluateRetentionContactReadiness(
+            item,
+            {
+              requiredChannels,
+              consentEvidence,
+            }
+          );
+
+        const {
+          userAccount: _userAccount,
+          communicationPreferences:
+            _communicationPreferences,
+          marketing:
+            _marketing,
+          ...publicItem
+        } = item;
+
+        return {
+          ...publicItem,
+          readiness,
+        };
+      }
+    );
+
+  const fullyContactReadyCount =
+    items.filter(
+      (item) =>
+        item.readiness
+          ?.fullyReady ===
+        true
+    ).length;
 
   const candidateCount =
     Number(
@@ -717,7 +1153,23 @@ export async function previewRetentionJourney(
       candidateCount >
       items.length,
     items,
+    readiness: {
+      scope:
+        "returned_preview_items_only",
+      evaluatedCount:
+        items.length,
+      fullyContactReadyCount,
+      blockedCount:
+        items.length -
+        fullyContactReadyCount,
+      executionAuthorised:
+        false,
+      idempotencyChecked:
+        false,
+      stopConditionsChecked:
+        false,
+    },
     message:
-      "Dry-run preview only. Consent, suppression, idempotency and delivery checks remain mandatory before any future execution can queue communication.",
+      "Dry-run preview only. Contact, consent and provider suppression readiness is evaluated for returned candidates. Idempotency and stop-condition checks remain mandatory before any future execution can queue communication.",
   };
 }
