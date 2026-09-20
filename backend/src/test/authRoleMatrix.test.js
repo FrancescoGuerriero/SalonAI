@@ -124,11 +124,16 @@ test(
 );
 
 test(
-  "adminOnly permits only the admin role",
+  "adminOnly permits Admin and Super Admin",
   () => {
     assertAllowed(
       adminOnly,
       "admin"
+    );
+
+    assertAllowed(
+      adminOnly,
+      "super_admin"
     );
 
     const deniedRoles = [
