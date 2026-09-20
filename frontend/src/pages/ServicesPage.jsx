@@ -35,7 +35,8 @@ const EMPTY_SERVICE = {
   priceOnConsultation: false,
   duration: "60",
   durationEstimated: false,
-  onlineBookable: true,
+  active: true,
+  bookable: true,
 };
 
 function messageFrom(
@@ -75,9 +76,10 @@ function toForm(service = {}) {
     durationEstimated:
       service.durationEstimated ===
       true,
-    onlineBookable:
-      service.onlineBookable !==
-      false,
+    active:
+      service.active !== false,
+    bookable:
+      service.bookable !== false,
   };
 }
 
@@ -103,8 +105,10 @@ function servicePayload(form) {
       ),
     durationEstimated:
       form.durationEstimated,
-    onlineBookable:
-      form.onlineBookable,
+    active:
+      form.active,
+    bookable:
+      form.bookable,
   };
 }
 
@@ -121,25 +125,25 @@ function money(value) {
 }
 
 function PublicationBadge({
-  active,
+  published,
 }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${
-        active
+        published
           ? "border-amber-400 bg-amber-50 text-black"
           : "border-stone-300 bg-stone-100 text-stone-700"
       }`}
     >
-      {active ? (
+      {published ? (
         <Eye size={13} />
       ) : (
         <EyeOff
           size={13}
         />
       )}
-      {active
-        ? "Published"
+      {published
+          ? "Published"
         : "Unpublished"}
     </span>
   );
@@ -284,11 +288,11 @@ export default function ServicesPage() {
               "all" ||
             (publication ===
               "published" &&
-              service.active ===
+              service.published ===
                 true) ||
             (publication ===
               "unpublished" &&
-              service.active !==
+              service.published !==
                 true);
 
           return (
@@ -473,7 +477,7 @@ export default function ServicesPage() {
       setSuccess("");
 
       const next =
-        service.active !==
+        service.published !==
         true;
 
       await serviceService.setPublication(
@@ -732,14 +736,14 @@ export default function ServicesPage() {
                         {service.name}
                       </h3>
                       <PublicationBadge
-                        active={
-                          service.active ===
+                        published={
+                          service.published ===
                           true
                         }
                       />
-                      {service.onlineBookable ? (
+                      {service.bookable ? (
                         <span className="rounded-full border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-700">
-                          Online bookable
+                          Bookable
                         </span>
                       ) : null}
                     </div>
@@ -800,8 +804,8 @@ export default function ServicesPage() {
                           )
                         }
                       >
-                        {service.active
-                          ? "Unpublish"
+                        {service.published
+          ? "Unpublish"
                           : "Publish"}
                       </button>
                     ) : null}
@@ -1049,8 +1053,12 @@ export default function ServicesPage() {
                     "Duration is estimated",
                   ],
                   [
-                    "onlineBookable",
-                    "Available for online booking",
+                    "active",
+                    "Active service",
+                  ],
+                  [
+                    "bookable",
+                    "Bookable across enabled booking channels",
                   ],
                 ].map(
                   ([
