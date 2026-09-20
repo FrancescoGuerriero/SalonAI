@@ -356,7 +356,7 @@ export default function StylistForm({
                       htmlFor="acceptsAppointments"
                       className="form-check-label"
                     >
-                      Employee can be selected for online bookings
+                      Employee is globally bookable for appointments
                     </label>
                   </div>
                 </div>
