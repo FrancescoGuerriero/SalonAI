@@ -117,6 +117,15 @@ export function normaliseCatalogueImage(
     );
   }
 
+  if (
+    text.length >
+    maximumUrlLength
+  ) {
+    throw validationError(
+      "Catalogue image URLs are too long."
+    );
+  }
+
   const relative =
     normaliseAppRelativePath(
       text
@@ -131,15 +140,6 @@ export function normaliseCatalogueImage(
   ) {
     throw validationError(
       "Catalogue image paths must be app-relative or use an HTTPS URL."
-    );
-  }
-
-  if (
-    text.length >
-    maximumUrlLength
-  ) {
-    throw validationError(
-      "Catalogue image URLs are too long."
     );
   }
 
