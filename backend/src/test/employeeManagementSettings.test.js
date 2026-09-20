@@ -90,7 +90,7 @@ test("employee management rejects unsupported permissions", () => {
   );
 });
 
-test("employee special permissions exclude Super Admin-only authority", () => {
+test("employee special permissions exclude reserved authority controls", () => {
   for (const reserved of [
     "employee:role:update",
     "employee:permissions:update",
@@ -299,5 +299,34 @@ test("employee service assignment uses management catalogue and preserves unpubl
   assert.doesNotMatch(
     page,
     /services\.filter\([\s\S]*service\.active !==[\s\S]*false/
+  );
+});
+
+
+test("Admin permission governance is separate from Super Admin role elevation", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /permissionChangeRequested[\s\S]*?hasUserPermission\(\s*req\.user,\s*"employee:permissions:update"/s
+  );
+  assert.match(
+    controller,
+    /roleChangeRequested[\s\S]*?req\.user\.role !==[\s\S]*?"super_admin"/s
+  );
+  assert.match(
+    controller,
+    /user\.role ===[\s\S]*?"super_admin"[\s\S]*?Only a Super Admin can change a Super Admin account/s
+  );
+  assert.doesNotMatch(
+    controller,
+    /Only the Super Admin can change employee roles or permissions/
   );
 });
