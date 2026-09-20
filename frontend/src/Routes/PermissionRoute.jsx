@@ -7,6 +7,9 @@ import useAuth from "../hooks/useAuth.js";
 import {
   hasPermission,
 } from "../utils/permissions.js";
+import {
+  isAdminRole,
+} from "../utils/roles.js";
 
 export default function PermissionRoute({
   children,
@@ -32,6 +35,9 @@ export default function PermissionRoute({
   }
 
   if (
+    !isAdminRole(
+      user?.role
+    ) &&
     !hasPermission(
       user,
       permission
@@ -39,7 +45,7 @@ export default function PermissionRoute({
   ) {
     return (
       <Navigate
-        to="/dashboard"
+        to="/"
         replace
       />
     );
