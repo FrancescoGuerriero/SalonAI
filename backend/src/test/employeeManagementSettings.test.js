@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  buildAdminWorkforceRoster,
   normaliseEmployeeManagementUpdate,
   normaliseEmployeeSchedule,
 } from "../controllers/adminUserController.js";
@@ -196,6 +197,119 @@ test("employee schedule rejects breaks outside working hours", () => {
   );
 });
 
+
+test("employee workforce reconciliation respects explicit account links and uses email only for unlinked legacy profiles", () => {
+  const staffUsers = [
+    {
+      _id: "user-a",
+      name: "Account A",
+      email: "a@example.com",
+      role: "admin",
+      isActive: true,
+    },
+    {
+      _id: "user-b",
+      name: "Account B",
+      email: "b@example.com",
+      role: "stylist",
+      isActive: true,
+    },
+    {
+      _id: "user-c",
+      name: "Account C",
+      email: "c@example.com",
+      role: "stylist",
+      isActive: true,
+    },
+  ];
+
+  const stylistProfiles = [
+    {
+      _id: "profile-b",
+      userAccount: "user-b",
+      email: "a@example.com",
+      firstName: "Linked",
+      lastName: "B",
+      isActive: true,
+      profilePublished: true,
+      acceptsAppointments: true,
+    },
+    {
+      _id: "profile-c",
+      email: "c@example.com",
+      firstName: "Legacy",
+      lastName: "C",
+      isActive: true,
+      profilePublished: true,
+      acceptsAppointments: true,
+    },
+    {
+      _id: "profile-history",
+      email: "history@example.com",
+      firstName: "Historic",
+      lastName: "Stylist",
+      isActive: false,
+      profilePublished: false,
+      acceptsAppointments: false,
+    },
+  ];
+
+  const result =
+    buildAdminWorkforceRoster(
+      staffUsers,
+      stylistProfiles
+    );
+
+  const accountA =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-a"
+    );
+  const accountB =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-b"
+    );
+  const accountC =
+    result.accountRows.find(
+      (row) =>
+        row.id === "user-c"
+    );
+
+  assert.equal(
+    accountA.stylistProfile,
+    null
+  );
+  assert.equal(
+    accountB.stylistProfile.id,
+    "profile-b"
+  );
+  assert.equal(
+    accountC.stylistProfile.id,
+    "profile-c"
+  );
+
+  assert.equal(
+    result.profileRows.length,
+    1
+  );
+  assert.equal(
+    result.profileRows[0].id,
+    "profile:profile-history"
+  );
+  assert.equal(
+    result.profileRows[0].accountLinked,
+    false
+  );
+  assert.equal(
+    result.profileRows[0].isActive,
+    false
+  );
+  assert.deepEqual(
+    result.profileRows[0].permissions,
+    []
+  );
+});
 
 test("employee roster includes login accounts and unlinked salon staff profiles", async () => {
   const controller =
