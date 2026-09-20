@@ -78,7 +78,7 @@ const activeStylist = {
   lastName: "Thompson",
   services: ["service-legacy-test"],
   isActive: true,
-  acceptsAppointments: true,
+  bookable: true,
   profilePublished: true,
 };
 
