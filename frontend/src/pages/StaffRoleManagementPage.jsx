@@ -23,6 +23,9 @@ import {
   EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
+import {
+  isAdminRole,
+} from "../utils/roles.js";
 
 function errorMessage(error) {
   return (
@@ -87,22 +90,31 @@ export default function StaffRoleManagementPage() {
     user,
   } = useAuth();
 
+  const permissionAdministrator =
+    isAdminRole(
+      user?.role
+    );
+
   const canCreate =
+    permissionAdministrator &&
     hasPermission(
       user,
       "staff-role:create"
     );
   const canUpdate =
+    permissionAdministrator &&
     hasPermission(
       user,
       "staff-role:update"
     );
   const canActivate =
+    permissionAdministrator &&
     hasPermission(
       user,
       "staff-role:activate"
     );
   const canDelete =
+    permissionAdministrator &&
     hasPermission(
       user,
       "staff-role:delete"
