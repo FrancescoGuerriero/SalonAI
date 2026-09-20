@@ -22,7 +22,8 @@
     "ai:outcomes:no-show": "node scripts/reconcileNoShowInferenceOutcomes.js",
     "sendgrid:acceptance": "node scripts/testSendGridEmailAcceptance.js",
     "sendgrid:marketing-acceptance": "node scripts/testSendGridMarketingAcceptance.js",
-    "sendgrid:readiness": "node scripts/checkSendGridReadiness.js"
+    "sendgrid:readiness": "node scripts/checkSendGridReadiness.js",
+    "service:state-migrate": "node scripts/migrateServiceState.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

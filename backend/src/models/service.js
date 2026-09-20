@@ -41,9 +41,20 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    bookable: {
+      type: Boolean,
+      default: undefined,
+    },
+    published: {
+      type: Boolean,
+      default: undefined,
+    },
+    // Transitional read-only compatibility for records created before
+    // the platform-wide `bookable` field. New writes never use this field.
     onlineBookable: {
       type: Boolean,
-      default: true,
+      default: undefined,
+      select: false,
     },
     image: {
       type: String,

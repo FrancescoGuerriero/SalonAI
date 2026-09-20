@@ -100,6 +100,8 @@ function normaliseServices(services) {
       ),
       image: normaliseText(service?.image),
       active: service?.active !== false,
+      published: service?.published !== false,
+      bookable: service?.bookable !== false,
     };
   });
 }
