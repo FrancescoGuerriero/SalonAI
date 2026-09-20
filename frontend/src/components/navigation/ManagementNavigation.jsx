@@ -5,6 +5,7 @@ import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarCloc
 import useAuth from "../../hooks/useAuth.js";
 import {
   hasFullManagementDashboard,
+  isAdminRole,
   isSuperAdminRole,
 } from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
@@ -112,19 +113,23 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
               }
             : link
         )
+        .map((link) => ({
+          ...link,
+          featureDisabled:
+            Boolean(link.featureId) &&
+            !isSuperAdminRole(
+              user?.role
+            ) &&
+            !isFeatureEnabled(
+              link.featureId
+            ),
+        }))
         .filter((link) =>
-          (!link.adminOnly || isSuperAdminRole(user?.role)) &&
+          (!link.adminOnly || isAdminRole(user?.role)) &&
           (link.to !== "/staff/profile" ||
             canReadOwnProfile ||
             canReadAllProfiles) &&
           (!link.permission || fullDashboard || hasPermission(user, link.permission)) &&
-          (!link.featureId ||
-            isSuperAdminRole(
-              user?.role
-            ) ||
-            isFeatureEnabled(
-              link.featureId
-            )) &&
           (!term || `${link.label} ${link.description}`.toLowerCase().includes(term))
         ),
     })).filter((section) => section.links.length);
@@ -148,7 +153,69 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
           const isClosed = !query && closed.has(section.id);
           return <section key={section.id} className="management-section">
             {!collapsed && <button type="button" className="management-section-toggle" onClick={() => toggle(section.id)} aria-expanded={!isClosed}><span>{section.label}</span><ChevronDown size={15} className={isClosed ? "is-closed" : ""} /></button>}
-            {!isClosed && <div className="management-link-list">{section.links.map(({ to, label, description, icon: Icon }) => <NavLink key={to} to={to} onClick={onNavigate} title={collapsed ? label : undefined} className={({ isActive }) => `management-link${isActive ? " management-link-active" : ""}`}><span className="management-link-icon"><Icon size={18} /></span>{!collapsed && <span className="management-link-copy"><strong>{label}</strong><small>{description}</small></span>}</NavLink>)}</div>}
+            {!isClosed && (
+              <div className="management-link-list">
+                {section.links.map(
+                  ({
+                    to,
+                    label,
+                    description,
+                    icon: Icon,
+                    featureDisabled,
+                  }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      aria-disabled={
+                        featureDisabled
+                          ? "true"
+                          : undefined
+                      }
+                      onClick={(event) => {
+                        if (featureDisabled) {
+                          event.preventDefault();
+                          return;
+                        }
+
+                        onNavigate?.();
+                      }}
+                      title={
+                        collapsed
+                          ? label
+                          : featureDisabled
+                            ? `${label} — currently off`
+                            : undefined
+                      }
+                      style={
+                        featureDisabled
+                          ? {
+                              cursor: "not-allowed",
+                              opacity: 0.55,
+                            }
+                          : undefined
+                      }
+                      className={({ isActive }) =>
+                        `management-link${isActive ? " management-link-active" : ""}${featureDisabled ? " management-link-disabled" : ""}`
+                      }
+                    >
+                      <span className="management-link-icon">
+                        <Icon size={18} />
+                      </span>
+                      {!collapsed && (
+                        <span className="management-link-copy">
+                          <strong>{label}</strong>
+                          <small>
+                            {featureDisabled
+                              ? "Currently off"
+                              : description}
+                          </small>
+                        </span>
+                      )}
+                    </NavLink>
+                  )
+                )}
+              </div>
+            )}
           </section>;
         })}
         {!sections.length && !collapsed && <div className="app-empty-state compact"><Search size={22} /><strong>No tools found</strong><p>Try another search term.</p></div>}

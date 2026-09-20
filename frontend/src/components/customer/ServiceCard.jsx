@@ -40,7 +40,7 @@ export default function ServiceCard({
   const onlineBookingEnabled = isFeatureEnabled("online-booking");
   const whatsappBookingEnabled = isFeatureEnabled("whatsapp-booking");
   const consultationOnly =
-    service.onlineBookable === false ||
+    service.bookable === false ||
     service.priceOnConsultation === true;
 
   const showWhatsAppAction =

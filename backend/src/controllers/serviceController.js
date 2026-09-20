@@ -5,19 +5,73 @@ import {
   recordAuditEvent,
 } from "../services/auditService.js";
 
+function serialiseService(service) {
+  const value =
+    typeof service?.toObject ===
+    "function"
+      ? service.toObject()
+      : {
+          ...(service || {}),
+        };
+
+  const published =
+    typeof value.published ===
+    "boolean"
+      ? value.published
+      : value.active === true;
+
+  const bookable =
+    typeof value.bookable ===
+    "boolean"
+      ? value.bookable
+      : value.onlineBookable !==
+        false;
+
+  delete value.onlineBookable;
+
+  return {
+    ...value,
+    published,
+    bookable,
+  };
+}
+
+const PUBLIC_SERVICE_FILTER = {
+  active: true,
+  $or: [
+    {
+      published: true,
+    },
+    {
+      published: {
+        $exists: false,
+      },
+    },
+  ],
+};
+
 export async function getServices(
   req,
   res,
   next
 ) {
   try {
-    const services = await Service.find({
-      active: true
-    }).sort({
-      name: 1
-    });
+    const services =
+      await Service.find(
+        PUBLIC_SERVICE_FILTER
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .sort({
+          name: 1,
+        });
 
-    return res.json(services);
+    return res.json(
+      services.map(
+        serialiseService
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -29,14 +83,21 @@ export async function getManagementServices(
   next
 ) {
   try {
-    const services = await Service.find()
-      .sort({
-        name: 1,
-      });
+    const services =
+      await Service.find()
+        .select(
+          "+onlineBookable"
+        )
+        .sort({
+          name: 1,
+        });
 
     return res.json({
       success: true,
-      services,
+      services:
+        services.map(
+          serialiseService
+        ),
     });
   } catch (error) {
     return next(error);
@@ -49,10 +110,35 @@ export async function createService(
   next
 ) {
   try {
-    const service = await Service.create({
-      ...req.body,
-      active: false,
-    });
+    const body =
+      req.body &&
+      typeof req.body ===
+        "object"
+        ? req.body
+        : {};
+
+    const payload = {
+      ...body,
+    };
+
+    delete payload.onlineBookable;
+    delete payload.published;
+
+    const service =
+      await Service.create({
+        ...payload,
+        active:
+          typeof payload.active ===
+          "boolean"
+            ? payload.active
+            : true,
+        published: false,
+        bookable:
+          typeof payload.bookable ===
+          "boolean"
+            ? payload.bookable
+            : true,
+      });
 
     await recordAuditEvent({
       req,
@@ -64,12 +150,17 @@ export async function createService(
         service._id,
       before: null,
       after:
-        service.toObject(),
+        serialiseService(
+          service
+        ),
     });
 
     return res.status(201).json({
       message: "Service created successfully.",
-      service
+      service:
+        serialiseService(
+          service
+        )
     });
   } catch (error) {
     next(error);
@@ -93,11 +184,14 @@ export async function getServiceById(
       });
     }
 
-    const service = await Service.findOne({
-      _id:
-        req.params.id,
-      active: true,
-    });
+    const service =
+      await Service.findOne({
+        _id:
+          req.params.id,
+        ...PUBLIC_SERVICE_FILTER,
+      }).select(
+        "+onlineBookable"
+      );
 
     if (!service) {
       return res.status(404).json({
@@ -105,7 +199,11 @@ export async function getServiceById(
       });
     }
 
-    return res.json(service);
+    return res.json(
+      serialiseService(
+        service
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -133,7 +231,8 @@ export async function updateService(
     };
 
     // Publication is a separate privileged action.
-    delete payload.active;
+    delete payload.published;
+    delete payload.onlineBookable;
 
     const before =
       await Service.findById(
@@ -154,6 +253,8 @@ export async function updateService(
           new: true,
           runValidators: true
         }
+      ).select(
+        "+onlineBookable"
       );
 
     await recordAuditEvent({
@@ -166,7 +267,9 @@ export async function updateService(
         service._id,
       before,
       after:
-        service.toObject(),
+        serialiseService(
+          service
+        ),
       metadata: {
         changedFields:
           Object.keys(
@@ -177,7 +280,10 @@ export async function updateService(
 
     return res.json({
       message: "Service updated successfully.",
-      service
+      service:
+        serialiseService(
+          service
+        )
     });
   } catch (error) {
     next(error);
@@ -251,12 +357,12 @@ export async function updateServicePublication(
     }
 
     if (
-      typeof req.body.active !==
+      typeof req.body.published !==
       "boolean"
     ) {
       return res.status(400).json({
         message:
-          "active must be true or false.",
+          "published must be true or false.",
       });
     }
 
@@ -276,13 +382,15 @@ export async function updateServicePublication(
       await Service.findByIdAndUpdate(
         req.params.id,
         {
-          active:
-            req.body.active,
+          published:
+            req.body.published,
         },
         {
           new: true,
           runValidators: true,
         }
+      ).select(
+        "+onlineBookable"
       );
 
     await recordAuditEvent({
@@ -294,12 +402,15 @@ export async function updateServicePublication(
       resourceId:
         service._id,
       before: {
-        active:
-          before.active,
+        published:
+          typeof before.published ===
+          "boolean"
+            ? before.published
+            : before.active === true,
       },
       after: {
-        active:
-          service.active,
+        published:
+          service.published,
       },
       metadata: {
         name:
@@ -309,10 +420,13 @@ export async function updateServicePublication(
 
     return res.json({
       message:
-        service.active
+        service.published
           ? "Service published."
           : "Service unpublished.",
-      service,
+      service:
+        serialiseService(
+          service
+        ),
     });
   } catch (error) {
     return next(error);

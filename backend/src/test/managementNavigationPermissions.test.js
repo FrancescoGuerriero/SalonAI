@@ -311,7 +311,15 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
   assert.match(
     navigation,
-    /isSuperAdminRole\(\s*user\?\.role\s*\)\s*\|\|\s*isFeatureEnabled/
+    /featureDisabled/
+  );
+  assert.match(
+    navigation,
+    /aria-disabled/
+  );
+  assert.match(
+    navigation,
+    /Currently off/
   );
   assert.match(
     navbar,
@@ -410,5 +418,67 @@ test("dashboard navigation contains no dead primary links", async () => {
   assert.deepEqual(
     dead,
     []
+  );
+});
+
+
+test("legacy administrator pages are visible to Super Admin and Administrator only", async () => {
+  const adminRoute =
+    await readFile(
+      new URL(
+        "../../../frontend/src/Routes/AdminRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    adminRoute,
+    /isAdminRole/
+  );
+  assert.doesNotMatch(
+    adminRoute,
+    /isSuperAdminRole/
+  );
+  assert.match(
+    navigation,
+    /!link\.adminOnly \|\| isAdminRole\(user\?\.role\)/
+  );
+  assert.doesNotMatch(
+    navigation,
+    /!link\.adminOnly \|\| isSuperAdminRole\(user\?\.role\)/
+  );
+});
+
+test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    navigation,
+    /featureDisabled/
+  );
+  assert.match(
+    navigation,
+    /aria-disabled/
+  );
+  assert.match(
+    navigation,
+    /Currently off/
   );
 });

@@ -73,13 +73,13 @@ const serviceService = {
 
   async setPublication(
     serviceId,
-    active
+    published
   ) {
     const { data } =
       await API.patch(
         `/services/${serviceId}/publication`,
         {
-          active,
+          published,
         }
       );
 
