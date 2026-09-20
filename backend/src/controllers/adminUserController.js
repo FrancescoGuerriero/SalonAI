@@ -566,23 +566,6 @@ function profileIdentityEmail(
   );
 }
 
-function profileOnlyKey(
-  stylist
-) {
-  const email =
-    profileIdentityEmail(
-      stylist
-    );
-
-  if (email) {
-    return `email:${email}`;
-  }
-
-  return `name:${profileIdentityName(
-    stylist
-  )}`;
-}
-
 function preferCurrentProfile(
   current,
   candidate
@@ -1058,6 +1041,16 @@ export async function listAdminUsers(
     const attachedProfileIds =
       new Set();
 
+    const staffUserIds =
+      new Set(
+        staffUsers.map(
+          (user) =>
+            String(
+              user._id
+            )
+        )
+      );
+
     const accountRows =
       staffUsers.map(
         (user) => {
@@ -1087,67 +1080,33 @@ export async function listAdminUsers(
         }
       );
 
-    const profileOnlyByIdentity =
-      new Map();
-
-    for (
-      const stylist
-      of stylistProfiles
-    ) {
-      if (
-        attachedProfileIds.has(
-          String(
-            stylist._id
-          )
-        )
-      ) {
-        continue;
-      }
-
-      if (
-        stylist.userAccount &&
-        staffUsers.some(
-          (user) =>
-            String(
-              user._id
-            ) ===
-            String(
-              stylist.userAccount
+    /*
+     * Preserve every distinct unlinked staff profile. Historical/inactive
+     * records remain visible to administrators instead of being silently
+     * collapsed into a current employee. Their status makes the distinction
+     * explicit, and no login account is fabricated for them.
+     */
+    const profileRows =
+      stylistProfiles
+        .filter(
+          (stylist) =>
+            !attachedProfileIds.has(
+              String(
+                stylist._id
+              )
+            ) &&
+            !(
+              stylist.userAccount &&
+              staffUserIds.has(
+                String(
+                  stylist.userAccount
+                )
+              )
             )
         )
-      ) {
-        continue;
-      }
-
-      const key =
-        profileOnlyKey(
-          stylist
+        .map(
+          serialiseProfileOnlyEmployee
         );
-
-      if (
-        key ===
-        "name:"
-      ) {
-        continue;
-      }
-
-      profileOnlyByIdentity.set(
-        key,
-        preferCurrentProfile(
-          profileOnlyByIdentity.get(
-            key
-          ),
-          stylist
-        )
-      );
-    }
-
-    const profileRows =
-      [
-        ...profileOnlyByIdentity.values(),
-      ].map(
-        serialiseProfileOnlyEmployee
-      );
 
     let roster = [
       ...accountRows,
