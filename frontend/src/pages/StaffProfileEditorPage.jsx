@@ -610,7 +610,7 @@ export default function StaffProfileEditorPage() {
 
           <h1>
             {canReadAll
-              ? "Manage every salon staff profile from one place."
+              ? "Manage the professional profiles clients see."
               : "Maintain the professional profile clients see."}
           </h1>
 
