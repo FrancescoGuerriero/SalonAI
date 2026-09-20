@@ -41,9 +41,10 @@ const serviceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    onlineBookable: {
+    bookable: {
       type: Boolean,
       default: true,
+      index: true,
     },
     image: {
       type: String,
