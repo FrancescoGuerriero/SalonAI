@@ -5,19 +5,81 @@ import {
   recordAuditEvent,
 } from "../services/auditService.js";
 
+function canonicalService(service) {
+  if (!service) {
+    return service;
+  }
+
+  const value =
+    typeof service.toObject ===
+    "function"
+      ? service.toObject()
+      : { ...service };
+
+  const legacyBookable =
+    value.onlineBookable;
+
+  value.published =
+    typeof value.published ===
+    "boolean"
+      ? value.published
+      : value.active === true;
+
+  value.bookable =
+    typeof value.bookable ===
+    "boolean"
+      ? value.bookable
+      : legacyBookable !== false;
+
+  delete value.onlineBookable;
+
+  return value;
+}
+
+function publicServiceFilter(
+  extra = {}
+) {
+  return {
+    ...extra,
+    active: {
+      $ne: false,
+    },
+    $or: [
+      {
+        published: true,
+      },
+      {
+        published: {
+          $exists: false,
+        },
+        active: true,
+      },
+    ],
+  };
+}
+
 export async function getServices(
   req,
   res,
   next
 ) {
   try {
-    const services = await Service.find({
-      active: true
-    }).sort({
-      name: 1
-    });
+    const services =
+      await Service.find(
+        publicServiceFilter()
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .sort({
+          name: 1,
+        });
 
-    return res.json(services);
+    return res.json(
+      services.map(
+        canonicalService
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -29,14 +91,21 @@ export async function getManagementServices(
   next
 ) {
   try {
-    const services = await Service.find()
-      .sort({
-        name: 1,
-      });
+    const services =
+      await Service.find()
+        .select(
+          "+onlineBookable"
+        )
+        .sort({
+          name: 1,
+        });
 
     return res.json({
       success: true,
-      services,
+      services:
+        services.map(
+          canonicalService
+        ),
     });
   } catch (error) {
     return next(error);
@@ -49,10 +118,31 @@ export async function createService(
   next
 ) {
   try {
-    const service = await Service.create({
-      ...req.body,
-      active: false,
-    });
+    const payload = {
+      ...(req.body || {}),
+    };
+
+    delete payload.onlineBookable;
+    delete payload.published;
+
+    payload.active =
+      typeof payload.active ===
+      "boolean"
+        ? payload.active
+        : true;
+
+    payload.bookable =
+      typeof payload.bookable ===
+      "boolean"
+        ? payload.bookable
+        : true;
+
+    payload.published = false;
+
+    const service =
+      await Service.create(
+        payload
+      );
 
     await recordAuditEvent({
       req,
@@ -64,12 +154,18 @@ export async function createService(
         service._id,
       before: null,
       after:
-        service.toObject(),
+        canonicalService(
+          service
+        ),
     });
 
     return res.status(201).json({
-      message: "Service created successfully.",
-      service
+      message:
+        "Service created successfully.",
+      service:
+        canonicalService(
+          service
+        ),
     });
   } catch (error) {
     next(error);
@@ -89,23 +185,32 @@ export async function getServiceById(
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
 
-    const service = await Service.findOne({
-      _id:
-        req.params.id,
-      active: true,
-    });
+    const service =
+      await Service.findOne(
+        publicServiceFilter({
+          _id:
+            req.params.id,
+        })
+      ).select(
+        "+onlineBookable"
+      );
 
     if (!service) {
       return res.status(404).json({
-        message: "Service not found."
+        message:
+          "Service not found.",
       });
     }
 
-    return res.json(service);
+    return res.json(
+      canonicalService(
+        service
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -124,25 +229,31 @@ export async function updateService(
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
 
     const payload = {
-      ...req.body,
+      ...(req.body || {}),
     };
 
-    // Publication is a separate privileged action.
-    delete payload.active;
+    // Publication remains a separate privileged action.
+    delete payload.published;
+    delete payload.onlineBookable;
 
     const before =
       await Service.findById(
         req.params.id
-      ).lean();
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .lean();
 
     if (!before) {
       return res.status(404).json({
-        message: "Service not found."
+        message:
+          "Service not found.",
       });
     }
 
@@ -152,8 +263,10 @@ export async function updateService(
         payload,
         {
           new: true,
-          runValidators: true
+          runValidators: true,
         }
+      ).select(
+        "+onlineBookable"
       );
 
     await recordAuditEvent({
@@ -164,9 +277,14 @@ export async function updateService(
         "service",
       resourceId:
         service._id,
-      before,
+      before:
+        canonicalService(
+          before
+        ),
       after:
-        service.toObject(),
+        canonicalService(
+          service
+        ),
       metadata: {
         changedFields:
           Object.keys(
@@ -176,8 +294,12 @@ export async function updateService(
     });
 
     return res.json({
-      message: "Service updated successfully.",
-      service
+      message:
+        "Service updated successfully.",
+      service:
+        canonicalService(
+          service
+        ),
     });
   } catch (error) {
     next(error);
@@ -197,18 +319,21 @@ export async function deleteService(
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
 
     const service =
       await Service.findByIdAndDelete(
         req.params.id
+      ).select(
+        "+onlineBookable"
       );
 
     if (!service) {
       return res.status(404).json({
-        message: "Service not found."
+        message:
+          "Service not found.",
       });
     }
 
@@ -221,12 +346,15 @@ export async function deleteService(
       resourceId:
         service._id,
       before:
-        service.toObject(),
+        canonicalService(
+          service
+        ),
       after: null,
     });
 
     return res.json({
-      message: "Service deleted successfully."
+      message:
+        "Service deleted successfully.",
     });
   } catch (error) {
     next(error);
@@ -250,20 +378,34 @@ export async function updateServicePublication(
       });
     }
 
+    // req.body.active is accepted temporarily only for release compatibility.
+    const published =
+      typeof req.body.published ===
+      "boolean"
+        ? req.body.published
+        : typeof req.body.active ===
+            "boolean"
+          ? req.body.active
+          : null;
+
     if (
-      typeof req.body.active !==
+      typeof published !==
       "boolean"
     ) {
       return res.status(400).json({
         message:
-          "active must be true or false.",
+          "published must be true or false.",
       });
     }
 
     const before =
       await Service.findById(
         req.params.id
-      ).lean();
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .lean();
 
     if (!before) {
       return res.status(404).json({
@@ -276,13 +418,14 @@ export async function updateServicePublication(
       await Service.findByIdAndUpdate(
         req.params.id,
         {
-          active:
-            req.body.active,
+          published,
         },
         {
           new: true,
           runValidators: true,
         }
+      ).select(
+        "+onlineBookable"
       );
 
     await recordAuditEvent({
@@ -294,12 +437,16 @@ export async function updateServicePublication(
       resourceId:
         service._id,
       before: {
-        active:
-          before.active,
+        published:
+          canonicalService(
+            before
+          ).published,
       },
       after: {
-        active:
-          service.active,
+        published:
+          canonicalService(
+            service
+          ).published,
       },
       metadata: {
         name:
@@ -309,10 +456,13 @@ export async function updateServicePublication(
 
     return res.json({
       message:
-        service.active
+        published
           ? "Service published."
           : "Service unpublished.",
-      service,
+      service:
+        canonicalService(
+          service
+        ),
     });
   } catch (error) {
     return next(error);
