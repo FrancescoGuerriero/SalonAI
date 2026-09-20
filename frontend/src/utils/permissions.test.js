@@ -70,56 +70,40 @@ test("staff require an explicit permission outside role baseline", () => {
   );
 });
 
-test("Salon staff baseline includes role view/create plus appointment access", () => {
+test("Salon staff baseline only guarantees dashboard and self-service entry", () => {
   const stylist = {
     role: "stylist",
     permissions: [],
   };
-
-  for (const permission of [
-    "appointment:read",
-    "appointment:create",
-    "staff-role:read",
-    "staff-role:create",
-  ]) {
-    assert.equal(
-      hasPermission(
-        stylist,
-        permission
-      ),
-      true
-    );
-  }
-
-  for (const permission of [
-    "dashboard:view",
-    "profile:own:read",
-    "profile:own:update",
-    "schedule:own:read",
-    "schedule:own:update",
-    "leave:own:request",
-    "employee:update",
-  ]) {
-    assert.equal(
-      hasPermission(
-        stylist,
-        permission
-      ),
-      false
-    );
-  }
 
   assert.deepEqual(
     effectivePermissions(
       stylist
     ),
     [
-      "appointment:read",
-      "appointment:create",
-      "staff-role:read",
-      "staff-role:create",
+      "dashboard:view",
+      "profile:own:read",
+      "schedule:own:read",
     ]
   );
+
+  for (const permission of [
+    "appointment:read",
+    "appointment:create",
+    "customer:read",
+    "employee:read",
+    "staff-role:read",
+    "ai:use",
+  ]) {
+    assert.equal(
+      hasPermission(
+        stylist,
+        permission
+      ),
+      false,
+      `Stylist should require an explicit grant for ${permission}`
+    );
+  }
 });
 
 test("employee permission catalogue is unique", () => {
@@ -164,43 +148,52 @@ test("custom role templates and employee special permissions combine", () => {
 });
 
 
-test("Admin and Receptionist can manage roles except delete by default", () => {
+test("Admin can manage role definitions while Manager and Receptionist require delegation", () => {
+  for (const permission of [
+    "staff-role:read",
+    "staff-role:create",
+    "staff-role:update",
+    "staff-role:activate",
+  ]) {
+    assert.equal(
+      hasPermission(
+        {
+          role: "admin",
+          permissions: [],
+        },
+        permission
+      ),
+      true
+    );
+  }
+
   for (const role of [
-    "admin",
     "receptionist",
     "manager",
   ]) {
-    for (const permission of [
-      "staff-role:read",
-      "staff-role:create",
-      "staff-role:update",
-      "staff-role:activate",
-    ]) {
-      assert.equal(
-        hasPermission(
-          {
-            role,
-            permissions: [],
-          },
-          permission
-        ),
-        true
-      );
-    }
-
     assert.equal(
       hasPermission(
         {
           role,
           permissions: [],
         },
-        "staff-role:delete"
+        "staff-role:read"
       ),
       false
     );
   }
-});
 
+  assert.equal(
+    hasPermission(
+      {
+        role: "admin",
+        permissions: [],
+      },
+      "staff-role:delete"
+    ),
+    false
+  );
+});
 
 test("role and permission mutation authority is reserved from assignable grants", () => {
   const assignable =
