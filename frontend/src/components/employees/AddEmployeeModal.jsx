@@ -114,7 +114,7 @@ function emptyForm() {
     specialties: "",
     isActive: true,
     profilePublished: false,
-    acceptsAppointments: false,
+    bookable: false,
     permissions: [],
     configureServices: false,
     services: [],
@@ -697,8 +697,8 @@ export default function AddEmployeeModal({
             : true,
         profilePublished:
           form.profilePublished,
-        acceptsAppointments:
-          form.acceptsAppointments,
+        bookable:
+          form.bookable,
         ...(canManagePermissions
           ? {
               permissions:
@@ -1074,13 +1074,13 @@ export default function AddEmployeeModal({
                 <input
                   type="checkbox"
                   checked={
-                    form.acceptsAppointments
+                    form.bookable
                   }
                   onChange={(
                     event
                   ) =>
                     update(
-                      "acceptsAppointments",
+                      "bookable",
                       event.target
                         .checked
                     )
@@ -1091,7 +1091,7 @@ export default function AddEmployeeModal({
                   <strong className="block">
                     Bookable
                   </strong>
-                  Allow selection for online appointments when otherwise eligible.
+                  Allow selection for appointments through every booking channel when otherwise eligible.
                 </span>
               </label>
             </div>
