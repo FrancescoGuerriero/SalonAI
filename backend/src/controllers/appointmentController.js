@@ -472,6 +472,25 @@ async function resolveCustomerProfile(
   );
 }
 
+function isServicePublished(service) {
+  return (
+    typeof service?.published ===
+    "boolean"
+      ? service.published
+      : service?.active === true
+  );
+}
+
+function isServiceBookable(service) {
+  return (
+    typeof service?.bookable ===
+    "boolean"
+      ? service.bookable
+      : service?.onlineBookable !==
+        false
+  );
+}
+
 async function getBookingResources(
   serviceId,
   stylistId
@@ -492,6 +511,8 @@ async function getBookingResources(
   ] = await Promise.all([
     Service.findById(
       serviceId
+    ).select(
+      "+onlineBookable"
     ),
 
     Stylist.findById(
@@ -501,20 +522,24 @@ async function getBookingResources(
 
   if (
     !service ||
-    service.active === false
+    service.active === false ||
+    !isServicePublished(
+      service
+    )
   ) {
     throw createHttpError(
-      "The selected service was not found or is inactive.",
+      "The selected service was not found, is inactive or is unpublished.",
       404
     );
   }
 
   if (
-    service.onlineBookable ===
-    false
+    !isServiceBookable(
+      service
+    )
   ) {
     throw createHttpError(
-      "The selected service is not available for online booking.",
+      "The selected service is not currently bookable.",
       409,
       {
         field: "service",
@@ -562,7 +587,7 @@ async function populateAppointment(
     )
     .populate(
       "service",
-      "name category description price duration active"
+      "name category description price duration active published bookable"
     )
     .populate(
       "stylist",
