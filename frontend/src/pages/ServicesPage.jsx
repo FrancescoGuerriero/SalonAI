@@ -35,7 +35,7 @@ const EMPTY_SERVICE = {
   priceOnConsultation: false,
   duration: "60",
   durationEstimated: false,
-  onlineBookable: true,
+  bookable: true,
 };
 
 function messageFrom(
@@ -75,8 +75,8 @@ function toForm(service = {}) {
     durationEstimated:
       service.durationEstimated ===
       true,
-    onlineBookable:
-      service.onlineBookable !==
+    bookable:
+      service.bookable !==
       false,
   };
 }
@@ -103,8 +103,8 @@ function servicePayload(form) {
       ),
     durationEstimated:
       form.durationEstimated,
-    onlineBookable:
-      form.onlineBookable,
+    bookable:
+      form.bookable,
   };
 }
 
@@ -737,9 +737,9 @@ export default function ServicesPage() {
                           true
                         }
                       />
-                      {service.onlineBookable ? (
+                      {service.bookable ? (
                         <span className="rounded-full border border-stone-300 px-2 py-1 text-xs font-semibold text-stone-700">
-                          Online bookable
+                          Bookable
                         </span>
                       ) : null}
                     </div>
@@ -1049,8 +1049,8 @@ export default function ServicesPage() {
                     "Duration is estimated",
                   ],
                   [
-                    "onlineBookable",
-                    "Available for online booking",
+                    "bookable",
+                    "Bookable",
                   ],
                 ].map(
                   ([
