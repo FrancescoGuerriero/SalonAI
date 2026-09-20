@@ -222,7 +222,7 @@ const stylistSchema = new mongoose.Schema(
       max: 10000,
     },
 
-    acceptsAppointments: {
+    bookable: {
       type: Boolean,
       default: false,
       index: true,
@@ -267,7 +267,7 @@ stylistSchema.index(
 
 stylistSchema.index({
   isActive: 1,
-  acceptsAppointments: 1,
+  bookable: 1,
   profilePublished: 1,
   displayOrder: 1,
   firstName: 1,
