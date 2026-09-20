@@ -19,10 +19,10 @@ import {
 
 const router = express.Router();
 
-// Customers browse published salon services without signing in.
+// Customers browse active, published services without signing in.
 router.get("/", getServices);
 
-// Management catalogue includes published and unpublished records.
+// Management catalogue includes active/inactive, published/unpublished and bookable/non-bookable records.
 router.get(
   "/management",
   protect,
