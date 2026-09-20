@@ -279,6 +279,11 @@ test("retention preview route and UI preserve zero-delivery dry-run semantics", 
   );
 
   assert.match(
+    routes,
+    /\/journeys\/:journeyId\/preview[\s\S]*customer:read/
+  );
+
+  assert.match(
     page,
     /Audience dry-run/
   );
