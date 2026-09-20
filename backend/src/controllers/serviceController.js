@@ -268,7 +268,9 @@ export async function updateService(
         service._id,
       before,
       after:
-        service.toObject(),
+        serialiseService(
+          service
+        ),
       metadata: {
         changedFields:
           Object.keys(
@@ -279,7 +281,10 @@ export async function updateService(
 
     return res.json({
       message: "Service updated successfully.",
-      service
+      service:
+        serialiseService(
+          service
+        )
     });
   } catch (error) {
     next(error);
@@ -385,6 +390,8 @@ export async function updateServicePublication(
           new: true,
           runValidators: true,
         }
+      ).select(
+        "+onlineBookable"
       );
 
     await recordAuditEvent({
