@@ -425,11 +425,20 @@ test("dashboard navigation contains no dead primary links", async () => {
 });
 
 
-test("legacy administrator pages are visible to Super Admin and Administrator only", async () => {
+test("Admin overview stays administrator-only while legacy operational routes follow delegated permissions", async () => {
   const adminRoute =
     await readFile(
       new URL(
         "../../../frontend/src/Routes/AdminRoute.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
         import.meta.url
       ),
       "utf8"
@@ -448,18 +457,94 @@ test("legacy administrator pages are visible to Super Admin and Administrator on
     adminRoute,
     /isAdminRole/
   );
-  assert.doesNotMatch(
-    adminRoute,
-    /isSuperAdminRole/
+
+  const adminOverview =
+    app.match(
+      /<Route[\s\S]*?path="admin"[\s\S]*?\/>/
+    )?.[0] || "";
+
+  assert.match(
+    adminOverview,
+    /adminPage\(/
   );
+
+  for (const [
+    path,
+    permission,
+  ] of [
+    [
+      "admin/services",
+      "service:read",
+    ],
+    [
+      "admin/stylists",
+      "profile:all:read",
+    ],
+    [
+      "admin/appointments",
+      "appointment:read",
+    ],
+    [
+      "admin/customers",
+      "customer:read",
+    ],
+  ]) {
+    const routeBlock =
+      [
+        ...app.matchAll(
+          /<Route\b[\s\S]*?\/>/g
+        ),
+      ]
+        .map(
+          (match) =>
+            match[0]
+        )
+        .find(
+          (block) =>
+            block.includes(
+              `path="${path}"`
+            )
+        ) || "";
+
+    assert.match(
+      routeBlock,
+      new RegExp(
+        `permissionPage\\([\\s\\S]*?"${permission.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )}"\\s*\\)`
+      )
+    );
+  }
+
   assert.match(
     navigation,
-    /!link\.adminOnly \|\| isAdminRole\(user\?\.role\)/
+    /\["\/admin",[^\n]*true,\s*"dashboard:view"\]/
   );
-  assert.doesNotMatch(
-    navigation,
-    /!link\.adminOnly \|\| isSuperAdminRole\(user\?\.role\)/
-  );
+
+  for (const path of [
+    "/admin/services",
+    "/admin/stylists",
+    "/admin/appointments",
+    "/admin/customers",
+  ]) {
+    const index =
+      navigation.indexOf(
+        `["${path}"`
+      );
+
+    assert.ok(
+      index >= 0
+    );
+
+    assert.match(
+      navigation.slice(
+        index,
+        index + 220
+      ),
+      /false/
+    );
+  }
 });
 
 test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
