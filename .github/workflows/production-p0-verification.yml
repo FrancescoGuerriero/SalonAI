@@ -205,8 +205,8 @@ jobs:
               ]);
 
             const {
-              accountRows,
-              profileRows,
+              signInEnabledRows,
+              signInDisabledRows,
               roster,
             } =
               buildAdminWorkforceRoster(
@@ -216,14 +216,14 @@ jobs:
 
             const representedProfileIds =
               new Set([
-                ...accountRows
+                ...signInEnabledRows
                   .map(
                     (row) =>
                       row.stylistProfile?.id
                   )
                   .filter(Boolean)
                   .map(String),
-                ...profileRows
+                ...signInDisabledRows
                   .map(
                     (row) =>
                       row.stylistProfile?.id
@@ -242,7 +242,7 @@ jobs:
             }
 
             const profileAuthorityViolations =
-              profileRows.filter(
+              signInDisabledRows.filter(
                 (row) =>
                   row.accountLinked !==
                     false ||
@@ -259,7 +259,7 @@ jobs:
               0
             ) {
               throw new Error(
-                "Profile-only workforce rows contain fabricated login authority."
+                "Sign-in-disabled workforce rows contain fabricated login authority."
               );
             }
 
@@ -398,9 +398,9 @@ jobs:
                     total:
                       roster.length,
                     accountBacked:
-                      accountRows.length,
+                      signInEnabledRows.length,
                     profileOnly:
-                      profileRows.length,
+                      signInDisabledRows.length,
                     representedProfiles:
                       representedProfileIds.size,
                     roleCounts,
