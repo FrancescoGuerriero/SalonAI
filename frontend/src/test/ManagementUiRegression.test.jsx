@@ -43,6 +43,68 @@ describe(
       }
     );
 
+
+    it(
+      "keeps the Add Employee dialog inside the viewport with a fixed shell and internal scrolling",
+      () => {
+        const modal =
+          source(
+            "src/components/employees/AddEmployeeModal.jsx"
+          );
+
+        expect(
+          modal
+        ).toContain(
+          "createPortal"
+        );
+        expect(
+          modal
+        ).toContain(
+          "z-[400]"
+        );
+        expect(
+          modal
+        ).toContain(
+          "max-h-[calc(100dvh-1rem)]"
+        );
+        expect(
+          modal
+        ).toContain(
+          "flex-col overflow-hidden"
+        );
+        expect(
+          modal
+        ).toContain(
+          "overflow-x-hidden overflow-y-auto"
+        );
+        expect(
+          modal
+        ).toContain(
+          "shrink-0 flex items-start justify-between"
+        );
+        expect(
+          modal
+        ).toContain(
+          "shrink-0 flex flex-col-reverse"
+        );
+        expect(
+          modal
+        ).not.toContain(
+          "fixed inset-0 z-50 flex items-center justify-center"
+        );
+        expect(
+          modal
+        ).not.toContain(
+          "sticky top-0"
+        );
+        expect(
+          modal
+        ).not.toContain(
+          "sticky bottom-0"
+        );
+      }
+    );
+
     it(
       "renders the product editor at the application overlay layer with internal scrolling",
       () => {

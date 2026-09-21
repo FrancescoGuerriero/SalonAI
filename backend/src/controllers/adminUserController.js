@@ -84,6 +84,64 @@ function normaliseEmail(
   ).toLowerCase();
 }
 
+export function normaliseEmployeeSignInRequest(
+  body = {}
+) {
+  const email =
+    normaliseEmail(
+      body.email
+    );
+  const password =
+    String(
+      body.password ||
+        ""
+    );
+  const role =
+    cleanText(
+      body.role ||
+        "stylist",
+      40
+    ).toLowerCase();
+
+  if (
+    !email ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+      email
+    )
+  ) {
+    throw httpError(
+      "A valid employee email address is required.",
+      400
+    );
+  }
+
+  if (
+    password.length < 8
+  ) {
+    throw httpError(
+      "Temporary password must contain at least 8 characters.",
+      400
+    );
+  }
+
+  if (
+    !isPotentialStaffRole(
+      role
+    )
+  ) {
+    throw httpError(
+      "Select a valid staff role.",
+      400
+    );
+  }
+
+  return {
+    email,
+    password,
+    role,
+  };
+}
+
 
 function cleanList(
   value,
@@ -1365,6 +1423,265 @@ export async function getEmployeeWithoutSignInManagementDetail(
         ),
     });
   } catch (error) {
+    return next(error);
+  }
+}
+
+export async function enableEmployeeSignIn(
+  req,
+  res,
+  next
+) {
+  let createdUser =
+    null;
+  let stylistBefore =
+    null;
+
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      throw httpError(
+        "Employee record identifier is invalid.",
+        400
+      );
+    }
+
+    const {
+      email,
+      password,
+      role,
+    } =
+      normaliseEmployeeSignInRequest(
+        req.body
+      );
+
+    const roleDefinition =
+      await resolveStaffRole(
+        role
+      );
+
+    if (
+      !roleDefinition ||
+      roleDefinition.assignable ===
+        false
+    ) {
+      throw httpError(
+        "Select an active, assignable staff role.",
+        400
+      );
+    }
+
+    if (
+      roleDefinition.superAdminOnly ===
+        true &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only the Super Admin can assign this staff role.",
+        403
+      );
+    }
+
+    const stylist =
+      await Stylist.findById(
+        req.params.id
+      );
+
+    if (!stylist) {
+      throw httpError(
+        "Employee record not found.",
+        404
+      );
+    }
+
+    if (
+      stylist.userAccount
+    ) {
+      throw httpError(
+        "Sign-in is already enabled for this employee.",
+        409
+      );
+    }
+
+    const [
+      existingUser,
+      conflictingStylist,
+    ] =
+      await Promise.all([
+        User.findOne({
+          email,
+        })
+          .select(
+            "_id"
+          )
+          .lean(),
+        Stylist.findOne({
+          _id: {
+            $ne:
+              stylist._id,
+          },
+          email,
+        })
+          .select(
+            "_id"
+          )
+          .lean(),
+      ]);
+
+    if (existingUser) {
+      throw httpError(
+        "An account already exists for this email address.",
+        409
+      );
+    }
+
+    if (conflictingStylist) {
+      throw httpError(
+        "Another employee already uses this email address.",
+        409
+      );
+    }
+
+    const rolePermissions = [
+      ...(
+        roleDefinition.rolePermissions ||
+        (
+          roleDefinition.system ===
+          false
+            ? roleDefinition.permissions
+            : []
+        ) ||
+        []
+      ),
+    ];
+
+    const name =
+      cleanText(
+        [
+          stylist.firstName,
+          stylist.lastName,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        120
+      ) ||
+      "Salon employee";
+
+    const before =
+      serialiseEmployeeWithoutSignIn(
+        stylist.toObject()
+      );
+
+    stylistBefore =
+      stylist.toObject({
+        depopulate:
+          true,
+      });
+
+    createdUser =
+      await User.create({
+        name,
+        email,
+        password:
+          await bcrypt.hash(
+            password,
+            10
+          ),
+        role,
+        permissions: [],
+        rolePermissions,
+        phone:
+          stylist.phone ||
+          "",
+        profilePhoto:
+          stylist.profileImage ||
+          "",
+        isActive:
+          stylist.isActive !==
+          false,
+        createdBy:
+          req.user._id,
+      });
+
+    stylist.email =
+      email;
+    stylist.userAccount =
+      createdUser._id;
+
+    await stylist.save();
+    await stylist.populate(
+      "services",
+      "name category price duration active onlineBookable"
+    );
+
+    const after =
+      serialiseAdminUser(
+        createdUser,
+        stylist
+      );
+
+    await recordAuditEvent({
+      req,
+      action:
+        "employee.sign_in_enabled",
+      resourceType:
+        "employee",
+      resourceId:
+        createdUser._id,
+      before,
+      after,
+      metadata: {
+        staffRecordId:
+          stylist._id,
+        assignedRole:
+          role,
+      },
+    });
+
+    return res
+      .status(201)
+      .json({
+        success: true,
+        message:
+          "Employee sign-in enabled successfully.",
+        user:
+          after,
+      });
+  } catch (error) {
+    if (
+      createdUser?._id
+    ) {
+      try {
+        if (
+          stylistBefore?._id
+        ) {
+          await Stylist.replaceOne(
+            {
+              _id:
+                stylistBefore._id,
+            },
+            stylistBefore
+          );
+        }
+
+        await User.deleteOne({
+          _id:
+            createdUser._id,
+        });
+      } catch (
+        rollbackError
+      ) {
+        console.error(
+          "Unable to roll back failed employee sign-in enablement:",
+          rollbackError
+        );
+      }
+    }
+
     return next(error);
   }
 }
