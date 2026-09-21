@@ -77,6 +77,21 @@ describe(
         ).not.toContain(
           'import SalonAiAdviser from "./ai/SalonAiAdviser.jsx"'
         );
+        expect(
+          layout
+        ).toContain(
+          "const ManagementNavigation = lazy("
+        );
+        expect(
+          layout
+        ).toContain(
+          'from "./navigation/managementNavigationConfig.js"'
+        );
+        expect(
+          layout
+        ).not.toContain(
+          'import ManagementNavigation from "./navigation/ManagementNavigation.jsx"'
+        );
       }
     );
 
@@ -89,9 +104,11 @@ describe(
             "src/App.jsx"
           );
         const navigation =
-          source(
+          `${source(
             "src/components/navigation/ManagementNavigation.jsx"
-          );
+          )}\n${source(
+            "src/components/navigation/managementNavigationConfig.js"
+          )}`;
         const adminDashboard =
           source(
             "src/pages/AdminDashboard.jsx"

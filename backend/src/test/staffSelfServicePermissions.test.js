@@ -192,7 +192,7 @@ test("frontend exposes self-service only through delegated schedule permission",
     );
   const navigation =
     await source(
-      "../../../frontend/src/components/navigation/ManagementNavigation.jsx"
+      "../../../frontend/src/components/navigation/managementNavigationConfig.js"
     );
   const api =
     await source(
