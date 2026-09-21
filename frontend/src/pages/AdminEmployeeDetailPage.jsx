@@ -36,9 +36,6 @@ import {
   EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
-import {
-  isAdminRole,
-} from "../utils/roles.js";
 
 const DAYS = [
   "Monday",
@@ -249,8 +246,9 @@ export default function AdminEmployeeDetailPage() {
     );
   const canManagePermissions =
     !profileOnly &&
-    isAdminRole(
-      currentUser?.role
+    hasPermission(
+      currentUser,
+      "employee:permissions:update"
     );
 
   const load =
@@ -769,9 +767,13 @@ export default function AdminEmployeeDetailPage() {
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-amber-100 font-bold text-black">
-              {employee.profilePhoto ? (
+              {employeeDisplayPhoto(
+                employee
+              ) ? (
                 <img
-                  src={employee.profilePhoto}
+                  src={employeeDisplayPhoto(
+                    employee
+                  )}
                   alt=""
                   className="h-full w-full object-cover"
                 />
