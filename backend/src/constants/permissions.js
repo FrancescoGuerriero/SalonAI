@@ -120,6 +120,7 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
     "appointment:read",
     "customer:read",
     "employee:read",
+    "employee:permissions:update",
     "profile:own:read",
     "profile:all:read",
     "schedule:own:read",
