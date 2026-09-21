@@ -403,6 +403,16 @@ test("Employees and Staff Accounts keep all employees in one management model", 
 
   assert.match(
     page,
+    /accessFilter/
+  );
+
+  assert.match(
+    page,
+    /All sign-in states/
+  );
+
+  assert.doesNotMatch(
+    page,
     /sign_in_disabled/
   );
 
