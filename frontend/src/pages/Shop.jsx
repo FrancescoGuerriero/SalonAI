@@ -5,6 +5,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -73,6 +74,11 @@ export default function Shop() {
     setAddedId,
   ] = useState("");
 
+  const facetsLoadedRef =
+    useRef(
+      false
+    );
+
   useEffect(() => {
     if (
       !search
@@ -130,6 +136,11 @@ export default function Shop() {
                 undefined,
               sort,
               limit: 100,
+              facets:
+                facetsLoadedRef
+                  .current
+                  ? "false"
+                  : "true",
             },
             {
               signal:
@@ -141,18 +152,29 @@ export default function Shop() {
           result.items ||
             []
         );
-        setCategories(
-          result.categories ||
-            []
-        );
-        setBrands(
-          result.brands ||
-            []
-        );
-        setCollections(
-          result.collections ||
-            []
-        );
+        if (
+          Array.isArray(
+            result.categories
+          ) &&
+          Array.isArray(
+            result.brands
+          ) &&
+          Array.isArray(
+            result.collections
+          )
+        ) {
+          setCategories(
+            result.categories
+          );
+          setBrands(
+            result.brands
+          );
+          setCollections(
+            result.collections
+          );
+          facetsLoadedRef
+            .current = true;
+        }
       } catch (
         requestError
       ) {
