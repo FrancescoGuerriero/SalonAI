@@ -11,17 +11,30 @@ const stylistService = {
     return data;
   },
 
-  async getPublicTeam() {
+  async getPublicTeam(config = {}) {
     const { data } = await API.get(
-      `${ENDPOINT}/public`
+      `${ENDPOINT}/public`,
+      config
     );
 
     return data;
   },
 
-  async getBookingStylists() {
+  async getBookingStylists(
+    serviceId,
+    config = {}
+  ) {
     const { data } = await API.get(
-      `${ENDPOINT}/booking`
+      `${ENDPOINT}/booking`,
+      {
+        ...config,
+        params: {
+          ...config.params,
+          service:
+            serviceId ||
+            undefined,
+        },
+      }
     );
 
     return data;
