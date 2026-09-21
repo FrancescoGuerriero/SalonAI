@@ -86,6 +86,7 @@ function isManagementUser(user) {
 const PUBLIC_PRODUCT_LIST_FIELDS = [
   "name",
   "slug",
+  "sku",
   "brand",
   "description",
   "category",
