@@ -629,7 +629,7 @@ export async function assertAppointmentWithinStaffAvailability(
 
   if (timeOff) {
     throw createServiceError(
-      "The selected stylist is unavailable because approved time off overlaps this appointment.",
+      "The selected stylist is unavailable because an approved schedule block overlaps this appointment.",
       409,
       { timeOff }
     );
