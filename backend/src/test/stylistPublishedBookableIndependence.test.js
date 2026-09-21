@@ -136,7 +136,7 @@ test("dual-purpose stylist page chooses endpoint and feature by mode", async () 
   );
   assert.match(
     page,
-    /getPublicTeam\(\)/
+    /getPublicTeam\(\s*requestConfig\s*\)/
   );
   assert.match(
     page,
