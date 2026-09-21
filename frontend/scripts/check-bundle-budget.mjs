@@ -12,6 +12,9 @@ const BUDGETS = Object.freeze({
   entryJsGzip: 120 * 1024,
   sharedCssGzip: 40 * 1024,
   anyJsGzip: 130 * 1024,
+  calendarRouteJsGzip: 85 * 1024,
+  communicationCampaignsRouteJsGzip:
+    36 * 1024,
 });
 
 function kilobytes(bytes) {
@@ -64,6 +67,30 @@ function largest(
     )[0];
 }
 
+function routeAsset(
+  rows,
+  routePrefix
+) {
+  const matches =
+    rows.filter(
+      (row) =>
+        row.name.startsWith(
+          `${routePrefix}-`
+        ) &&
+        row.name.endsWith(
+          ".js"
+        )
+    );
+
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected exactly one ${routePrefix} route bundle, found ${matches.length}.`
+    );
+  }
+
+  return matches[0];
+}
+
 const rows =
   await assetRows();
 
@@ -92,6 +119,18 @@ const largestJs =
       row.name.endsWith(
         ".js"
       )
+  );
+
+const calendarRoute =
+  routeAsset(
+    rows,
+    "CalendarPage"
+  );
+
+const communicationCampaignsRoute =
+  routeAsset(
+    rows,
+    "CommunicationCampaignsPage"
   );
 
 if (
@@ -128,6 +167,22 @@ const checks = [
     budget:
       BUDGETS.anyJsGzip,
   },
+  {
+    label:
+      "Calendar route JavaScript",
+    asset:
+      calendarRoute,
+    budget:
+      BUDGETS.calendarRouteJsGzip,
+  },
+  {
+    label:
+      "Communication campaigns route JavaScript",
+    asset:
+      communicationCampaignsRoute,
+    budget:
+      BUDGETS.communicationCampaignsRouteJsGzip,
+  },
 ];
 
 let failed = false;
@@ -159,6 +214,12 @@ console.log(
 );
 console.log(
   `[INFO] Largest JS raw size: ${kilobytes(largestJs.bytes)}`
+);
+console.log(
+  `[INFO] Calendar route raw size: ${kilobytes(calendarRoute.bytes)}`
+);
+console.log(
+  `[INFO] Communication campaigns route raw size: ${kilobytes(communicationCampaignsRoute.bytes)}`
 );
 
 if (failed) {
