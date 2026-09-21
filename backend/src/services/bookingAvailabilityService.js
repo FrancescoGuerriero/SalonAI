@@ -415,43 +415,15 @@ export function buildAvailableSlots({
 }
 
 export function stylistOffersService(
-  stylist,
-  serviceId
+  _stylist,
+  _serviceId
 ) {
-  if (!serviceId) {
-    return true;
-  }
-
-  if (
-    !Array.isArray(
-      stylist?.services
-    ) ||
-    stylist.services.length ===
-      0
-  ) {
-    /*
-     * An empty assignment means the employee is not qualified for any
-     * customer-selectable service. Treating an empty list as unrestricted
-     * would bypass the dashboard's explicit service-assignment controls.
-     */
-    return false;
-  }
-
-  const requestedId =
-    String(serviceId);
-
-  return stylist.services.some(
-    (service) => {
-      const offeredId =
-        service?._id ||
-        service;
-
-      return (
-        String(offeredId) ===
-        requestedId
-      );
-    }
-  );
+  /*
+   * Current booking policy: every appointment-eligible stylist can perform
+   * every active/bookable service. Service-specific assignments can be
+   * enforced later when that dashboard workflow is enabled.
+   */
+  return true;
 }
 
 export default {
