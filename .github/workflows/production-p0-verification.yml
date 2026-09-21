@@ -21,7 +21,7 @@ jobs:
     name: Verify production P0 data state
     environment: production
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Validate expected release tag input
         shell: bash
@@ -124,7 +124,327 @@ jobs:
 
           {
             echo
-            echo "[PASS] Production P0 dry-run verification completed. No database writes were requested."
+            echo "=== Finalized production stylist roster ==="
+          } | tee -a "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             docker exec salonai-backend node scripts/classifyProductionStylistRoster.js --finalize --verify' \
+            | tee -a "$evidence"
+
+          {
+            echo
+            echo "=== Live workforce reconciliation ==="
+          } | tee -a "$evidence"
+
+          workforce_audit="$RUNNER_TEMP/p0-workforce-audit.mjs"
+          cat > "$workforce_audit" <<'NODE'
+          const mongoose =
+            (await import("mongoose")).default;
+          const {
+            default: User,
+          } =
+            await import(
+              "file:///app/src/models/user.js"
+            );
+          const {
+            default: Stylist,
+          } =
+            await import(
+              "file:///app/src/models/Stylist.js"
+            );
+          const {
+            default: Service,
+          } =
+            await import(
+              "file:///app/src/models/service.js"
+            );
+          const {
+            buildAdminWorkforceRoster,
+          } =
+            await import(
+              "file:///app/src/controllers/adminUserController.js"
+            );
+
+          await mongoose.connect(
+            process.env.MONGODB_URI
+          );
+
+          try {
+            const [
+              staffUsers,
+              stylistProfiles,
+              services,
+            ] =
+              await Promise.all([
+                User.find({
+                  role: {
+                    $ne:
+                      "customer",
+                  },
+                })
+                  .select(
+                    "name email role permissions rolePermissions phone profilePhoto isActive emailVerified createdAt updatedAt"
+                  )
+                  .lean(),
+                Stylist.find()
+                  .select(
+                    "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+                  )
+                  .lean(),
+                Service.collection
+                  .find({})
+                  .project({
+                    _id: 1,
+                    active: 1,
+                    published: 1,
+                    bookable: 1,
+                    onlineBookable: 1,
+                  })
+                  .toArray(),
+              ]);
+
+            const {
+              accountRows,
+              profileRows,
+              roster,
+            } =
+              buildAdminWorkforceRoster(
+                staffUsers,
+                stylistProfiles
+              );
+
+            const representedProfileIds =
+              new Set([
+                ...accountRows
+                  .map(
+                    (row) =>
+                      row.stylistProfile?.id
+                  )
+                  .filter(Boolean)
+                  .map(String),
+                ...profileRows
+                  .map(
+                    (row) =>
+                      row.stylistProfile?.id
+                  )
+                  .filter(Boolean)
+                  .map(String),
+              ]);
+
+            if (
+              representedProfileIds.size !==
+              stylistProfiles.length
+            ) {
+              throw new Error(
+                "Workforce reconciliation does not represent every stylist profile exactly once."
+              );
+            }
+
+            const profileAuthorityViolations =
+              profileRows.filter(
+                (row) =>
+                  row.accountLinked !==
+                    false ||
+                  (row.permissions || [])
+                    .length >
+                    0 ||
+                  (row.rolePermissions || [])
+                    .length >
+                    0
+              );
+
+            if (
+              profileAuthorityViolations.length >
+              0
+            ) {
+              throw new Error(
+                "Profile-only workforce rows contain fabricated login authority."
+              );
+            }
+
+            const legacyServices =
+              services.filter(
+                (service) =>
+                  typeof service.published !==
+                    "boolean" ||
+                  typeof service.bookable !==
+                    "boolean" ||
+                  Object.prototype.hasOwnProperty.call(
+                    service,
+                    "onlineBookable"
+                  )
+              );
+
+            if (
+              legacyServices.length >
+              0
+            ) {
+              throw new Error(
+                `Canonical service-state verification found ${legacyServices.length} legacy record(s).`
+              );
+            }
+
+            const roleCounts = {};
+            for (
+              const user
+              of staffUsers
+            ) {
+              roleCounts[user.role] =
+                (
+                  roleCounts[user.role] ||
+                  0
+                ) + 1;
+            }
+
+            const stylistState =
+              stylistProfiles.reduce(
+                (summary, stylist) => {
+                  if (
+                    stylist.isActive ===
+                    true
+                  ) {
+                    summary.active += 1;
+                  }
+
+                  if (
+                    stylist.isActive ===
+                      true &&
+                    stylist.acceptsAppointments ===
+                      true
+                  ) {
+                    summary.bookable += 1;
+                  }
+
+                  if (
+                    stylist.isActive ===
+                      true &&
+                    stylist.profilePublished ===
+                      true
+                  ) {
+                    summary.published += 1;
+                  }
+
+                  if (
+                    stylist.isActive ===
+                      true &&
+                    stylist.acceptsAppointments ===
+                      false
+                  ) {
+                    summary.activeNonBookable += 1;
+                  }
+
+                  if (
+                    stylist.isActive ===
+                      true &&
+                    stylist.profilePublished ===
+                      false
+                  ) {
+                    summary.activeUnpublished += 1;
+                  }
+
+                  return summary;
+                },
+                {
+                  total: stylistProfiles.length,
+                  active: 0,
+                  bookable: 0,
+                  published: 0,
+                  activeNonBookable: 0,
+                  activeUnpublished: 0,
+                }
+              );
+
+            const serviceState =
+              services.reduce(
+                (summary, service) => {
+                  summary.total += 1;
+
+                  if (
+                    service.active ===
+                    false
+                  ) {
+                    summary.inactive += 1;
+                  }
+
+                  if (
+                    service.published ===
+                    false
+                  ) {
+                    summary.unpublished += 1;
+                  }
+
+                  if (
+                    service.bookable ===
+                    false
+                  ) {
+                    summary.notBookable += 1;
+                  }
+
+                  return summary;
+                },
+                {
+                  total: 0,
+                  inactive: 0,
+                  unpublished: 0,
+                  notBookable: 0,
+                }
+              );
+
+            console.log(
+              JSON.stringify(
+                {
+                  workforce: {
+                    total:
+                      roster.length,
+                    accountBacked:
+                      accountRows.length,
+                    profileOnly:
+                      profileRows.length,
+                    representedProfiles:
+                      representedProfileIds.size,
+                    roleCounts,
+                  },
+                  stylistState,
+                  serviceState,
+                  legacyServiceRecords:
+                    legacyServices.length,
+                },
+                null,
+                2
+              )
+            );
+
+            console.log(
+              "[PASS] Live workforce reconciliation and canonical service-state audit completed."
+            );
+          } finally {
+            await mongoose.disconnect();
+          }
+          NODE
+
+          ssh "${ssh_options[@]}" "$target" \
+            'docker exec -i salonai-backend node --input-type=module' \
+            < "$workforce_audit" \
+            | tee -a "$evidence"
+
+          {
+            echo
+            echo "=== Deployed backend P0 regression tests ==="
+          } | tee -a "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             docker exec salonai-backend node --test \
+               src/test/rbacSuperAdmin.test.js \
+               src/test/productionStylistRoster.test.js \
+               src/test/whatsappStylistEligibility.test.js \
+               src/test/productionP0BookingEnforcement.test.js' \
+            | tee -a "$evidence"
+
+          {
+            echo
+            echo "[PASS] Production P0 verification completed. No database writes were requested."
           } | tee -a "$evidence"
 
       - name: Upload verification evidence
