@@ -65,3 +65,37 @@ export function employeeServiceNames(
     .filter(Boolean);
 }
 
+
+
+export function employeeDisplayPhoto(
+  employee
+) {
+  return (
+    employee?.profilePhoto ||
+    employee?.stylistProfile
+      ?.profileImage ||
+    ""
+  );
+}
+
+export function employeeManagementPath(
+  employee
+) {
+  if (
+    employee?.signInEnabled ===
+      false
+  ) {
+    const profileId =
+      employee?.stylistProfile
+        ?.id ||
+      employee?.profileId;
+
+    return profileId
+      ? `/admin/employees/record/${profileId}`
+      : "/admin/employees";
+  }
+
+  return employee?.id
+    ? `/admin/employees/${employee.id}`
+    : "/admin/employees";
+}
