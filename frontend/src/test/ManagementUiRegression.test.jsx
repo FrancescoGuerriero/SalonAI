@@ -393,6 +393,53 @@ describe(
 
 
     it(
+      "enforces route-specific bundle budgets for measured heavy management routes",
+      () => {
+        const budget =
+          source(
+            "scripts/check-bundle-budget.mjs"
+          );
+
+        expect(
+          budget
+        ).toContain(
+          "calendarRouteJsGzip: 85 * 1024"
+        );
+        expect(
+          budget
+        ).toContain(
+          "communicationCampaignsRouteJsGzip:"
+        );
+        expect(
+          budget
+        ).toContain(
+          "36 * 1024"
+        );
+        expect(
+          budget
+        ).toContain(
+          '"CalendarPage"'
+        );
+        expect(
+          budget
+        ).toContain(
+          '"CommunicationCampaignsPage"'
+        );
+        expect(
+          budget
+        ).toContain(
+          '"Calendar route JavaScript"'
+        );
+        expect(
+          budget
+        ).toContain(
+          '"Communication campaigns route JavaScript"'
+        );
+      }
+    );
+
+
+    it(
       "renders the product editor at the application overlay layer with internal scrolling",
       () => {
         const page =
