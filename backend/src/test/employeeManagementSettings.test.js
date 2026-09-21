@@ -7,6 +7,9 @@ import {
   normaliseEmployeeManagementUpdate,
   normaliseEmployeeSchedule,
 } from "../controllers/adminUserController.js";
+import {
+  permissionsForRole,
+} from "../constants/permissions.js";
 
 test("employee management accepts independent operational controls", () => {
   assert.deepEqual(
@@ -230,6 +233,8 @@ test("employee workforce reconciliation respects explicit account links and uses
       email: "a@example.com",
       firstName: "Linked",
       lastName: "B",
+      profileImage:
+        "/staff/profile-b.jpg",
       isActive: true,
       profilePublished: true,
       acceptsAppointments: true,
@@ -283,6 +288,10 @@ test("employee workforce reconciliation respects explicit account links and uses
   assert.equal(
     accountB.stylistProfile.id,
     "profile-b"
+  );
+  assert.equal(
+    accountB.profilePhoto,
+    "/staff/profile-b.jpg"
   );
   assert.equal(
     accountC.stylistProfile.id,
@@ -404,7 +413,12 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
 
   assert.match(
     page,
-    /Manage staff profile/
+    /Manage employee/
+  );
+
+  assert.match(
+    page,
+    /employeeManagementPath/
   );
 
   assert.match(
@@ -509,5 +523,94 @@ test("employee service assignment uses management catalogue and preserves unpubl
   assert.doesNotMatch(
     page,
     /services\.filter\([\s\S]*service\.active !==[\s\S]*false/
+  );
+});
+
+
+test("Administrator baseline can manage employee-specific permissions but not access roles", () => {
+  const permissions =
+    permissionsForRole(
+      "admin"
+    );
+
+  assert.equal(
+    permissions.includes(
+      "employee:permissions:update"
+    ),
+    true
+  );
+  assert.equal(
+    permissions.includes(
+      "employee:role:update"
+    ),
+    false
+  );
+});
+
+test("employee settings route uses field-sensitive permission guards", async () => {
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/authRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    routes,
+    /requireEmployeeSettingsChanges/
+  );
+  assert.match(
+    routes,
+    /"employee:permissions:update"/
+  );
+  assert.match(
+    routes,
+    /"employee:role:update"/
+  );
+  assert.match(
+    routes,
+    /"employee:update"/
+  );
+
+  const patchStart =
+    routes.indexOf(
+      'router.patch(\n  "/admin/staff/:id"'
+    );
+  const patchEnd =
+    routes.indexOf(
+      ");",
+      patchStart
+    );
+  const patchSource =
+    routes.slice(
+      patchStart,
+      patchEnd
+    );
+
+  assert.match(
+    patchSource,
+    /requireEmployeeSettingsChanges/
+  );
+  assert.doesNotMatch(
+    patchSource,
+    /requirePermissions\(/
+  );
+});
+
+test("Administrator cannot mutate a Super Admin account through employee settings", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /Only a Super Admin can modify a Super Admin account\./
   );
 });
