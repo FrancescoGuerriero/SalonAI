@@ -26,7 +26,11 @@ import {
   staffApi,
 } from "../Services/futureFeaturesApi.js";
 import serviceService from "../Services/serviceService.js";
+import stylistService from "../Services/stylistService.js";
 import useAuth from "../hooks/useAuth.js";
+import {
+  employeeDisplayPhoto,
+} from "../utils/employees.js";
 import {
   ASSIGNABLE_EMPLOYEE_PERMISSIONS,
   EMPLOYEE_PERMISSIONS,
@@ -149,6 +153,7 @@ function settingButtonClass(
 export default function AdminEmployeeDetailPage() {
   const {
     id,
+    profileId,
   } = useParams();
   const {
     user: currentUser,
@@ -196,6 +201,8 @@ export default function AdminEmployeeDetailPage() {
     setSuccess,
   ] = useState("");
 
+  const profileOnly =
+    Boolean(profileId);
   const profile =
     employee?.stylistProfile ||
     null;
@@ -204,7 +211,13 @@ export default function AdminEmployeeDetailPage() {
       currentUser,
       "employee:update"
     );
+  const canUpdateProfiles =
+    hasPermission(
+      currentUser,
+      "profile:all:update"
+    );
   const canDeactivate =
+    !profileOnly &&
     hasPermission(
       currentUser,
       "employee:deactivate"
@@ -220,9 +233,11 @@ export default function AdminEmployeeDetailPage() {
       "employee:services:update"
     );
   const canManageServices =
+    !profileOnly &&
     canReadServices &&
     canUpdateServices;
   const canUpdateSchedule =
+    !profileOnly &&
     hasPermission(
       currentUser,
       "employee:schedule:update"
@@ -233,6 +248,7 @@ export default function AdminEmployeeDetailPage() {
       "appointment:read"
     );
   const canManagePermissions =
+    !profileOnly &&
     isAdminRole(
       currentUser?.role
     );
@@ -249,9 +265,14 @@ export default function AdminEmployeeDetailPage() {
             serviceRows,
           ] =
             await Promise.all([
-              adminStaffService.get(
-                id
-              ),
+              profileOnly
+                ? adminStaffService.getProfile(
+                    profileId
+                  )
+                : adminStaffService.get(
+                    id
+                  ),
+              !profileOnly &&
               canReadServices
                 ? serviceService.getManagementServices()
                 : Promise.resolve([]),
@@ -266,7 +287,10 @@ export default function AdminEmployeeDetailPage() {
             nextEmployee
           );
           setServices(
-            serviceRows
+            profileOnly
+              ? nextProfile
+                  ?.services || []
+              : serviceRows
           );
           setSelectedServices(
             (nextProfile
@@ -354,6 +378,8 @@ export default function AdminEmployeeDetailPage() {
         canReadAppointments,
         canReadServices,
         id,
+        profileId,
+        profileOnly,
       ]
     );
 
@@ -370,6 +396,43 @@ export default function AdminEmployeeDetailPage() {
     setSuccess("");
 
     try {
+      if (profileOnly) {
+        const stylist =
+          await stylistService.updateStylist(
+            profile.id,
+            settings
+          );
+
+        setEmployee(
+          (current) => ({
+            ...current,
+            profilePhoto:
+              stylist.profileImage ||
+              current?.profilePhoto ||
+              "",
+            isActive:
+              stylist.isActive ===
+              true,
+            phone:
+              stylist.phone ||
+              current?.phone ||
+              "",
+            stylistProfile: {
+              ...current
+                ?.stylistProfile,
+              ...stylist,
+              id:
+                stylist._id ||
+                profile.id,
+            },
+          })
+        );
+        setSuccess(
+          `${employee.name} staff profile updated.`
+        );
+        return;
+      }
+
       const response =
         await adminStaffService.updateSettings(
           id,
@@ -405,6 +468,17 @@ export default function AdminEmployeeDetailPage() {
         `Deactivate ${employee.name}? They will no longer be able to sign in or receive bookings.`
       )
     ) {
+      return;
+    }
+
+    if (profileOnly) {
+      await updateSettings(
+        {
+          isActive:
+            nextActive,
+        },
+        "active"
+      );
       return;
     }
 
