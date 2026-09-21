@@ -182,6 +182,11 @@ export default function AdminStaffAccountsPage() {
   ] = useState("");
 
   const [
+    accessFilter,
+    setAccessFilter,
+  ] = useState("");
+
+  const [
     error,
     setError,
   ] = useState("");
@@ -259,14 +264,26 @@ export default function AdminStaffAccountsPage() {
         (user) => {
           if (
             roleFilter &&
-            (
-              roleFilter ===
-              "sign_in_disabled"
-                ? user.signInEnabled !==
-                  false
-                : user.role !==
-                  roleFilter
-            )
+            user.role !==
+              roleFilter
+          ) {
+            return false;
+          }
+
+          if (
+            accessFilter ===
+              "enabled" &&
+            user.signInEnabled ===
+              false
+          ) {
+            return false;
+          }
+
+          if (
+            accessFilter ===
+              "disabled" &&
+            user.signInEnabled !==
+              false
           ) {
             return false;
           }
@@ -293,6 +310,7 @@ export default function AdminStaffAccountsPage() {
       users,
       search,
       roleFilter,
+      accessFilter,
     ]);
 
   function openCreateForm() {
@@ -544,7 +562,7 @@ export default function AdminStaffAccountsPage() {
       ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem_14rem]">
           <input
             type="search"
             className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
@@ -577,9 +595,6 @@ export default function AdminStaffAccountsPage() {
             <option value="">
               All staff roles
             </option>
-            <option value="sign_in_disabled">
-              Sign-in not enabled
-            </option>
 
             {roles.map(
               (role) => (
@@ -598,6 +613,27 @@ export default function AdminStaffAccountsPage() {
                 </option>
               )
             )}
+          </select>
+
+          <select
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+            value={accessFilter}
+            onChange={(event) =>
+              setAccessFilter(
+                event.target.value
+              )
+            }
+            aria-label="Sign-in access filter"
+          >
+            <option value="">
+              All sign-in states
+            </option>
+            <option value="enabled">
+              Sign-in enabled
+            </option>
+            <option value="disabled">
+              Sign-in not enabled
+            </option>
           </select>
         </div>
       </section>
