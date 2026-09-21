@@ -2205,6 +2205,18 @@ export async function updateEmployeeManagementSettings(
       user
     );
 
+    if (
+      user.role ===
+        "super_admin" &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can modify a Super Admin account.",
+        403
+      );
+    }
+
     await protectFinalSuperAdmin(
       user,
       update,
