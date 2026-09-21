@@ -171,4 +171,12 @@ test("Public product listings use a lightweight card projection", async () => {
     )?.[0] || "",
     /officialDescription|costPrice|reorderLevel/
   );
+  assert.match(
+    serviceSource,
+    /query\.facets/
+  );
+  assert.match(
+    serviceSource,
+    /includeFacets[\s\S]*Product\.distinct/
+  );
 });
