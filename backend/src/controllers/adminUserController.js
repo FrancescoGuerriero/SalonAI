@@ -1371,52 +1371,156 @@ export async function getEmployeeManagementDetail(
   }
 }
 
+async function employeeRecordWithoutSignIn(
+  recordId
+) {
+  if (
+    !mongoose.isValidObjectId(
+      recordId
+    )
+  ) {
+    throw httpError(
+      "Staff profile identifier is invalid.",
+      400
+    );
+  }
+
+  const stylist =
+    await Stylist.findById(
+      recordId
+    )
+      .select(
+        "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+      )
+      .populate(
+        "services",
+        "name category active published bookable"
+      );
+
+  if (!stylist) {
+    throw httpError(
+      "Staff profile not found.",
+      404
+    );
+  }
+
+  const employeeEmail =
+    normaliseEmail(
+      stylist.email
+    );
+
+  const linkedAccount =
+    stylist.userAccount ||
+    (
+      employeeEmail
+        ? await User.exists({
+            email:
+              employeeEmail,
+            role: {
+              $ne:
+                "customer",
+            },
+          })
+        : null
+    );
+
+  if (linkedAccount) {
+    throw httpError(
+      "Sign-in is already enabled for this employee. Open the employee account instead.",
+      409
+    );
+  }
+
+  return stylist;
+}
+
 export async function getEmployeeWithoutSignInManagementDetail(
   req,
   res,
   next
 ) {
   try {
-    if (
-      !mongoose.isValidObjectId(
-        req.params.id
-      )
-    ) {
-      throw httpError(
-        "Staff profile identifier is invalid.",
-        400
-      );
-    }
-
     const stylist =
-      await Stylist.findById(
+      await employeeRecordWithoutSignIn(
         req.params.id
-      )
-        .select(
-          "userAccount email firstName lastName phone jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
-        )
-        .populate(
-          "services",
-          "name category active published bookable"
-        )
-        .lean();
-
-    if (!stylist) {
-      throw httpError(
-        "Staff profile not found.",
-        404
       );
-    }
-
-    if (stylist.userAccount) {
-      throw httpError(
-        "Sign-in is already enabled for this employee. Open the employee account instead.",
-        409
-      );
-    }
 
     return res.json({
       success: true,
+      user:
+        serialiseEmployeeWithoutSignIn(
+          stylist
+        ),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateEmployeeRecordServices(
+  req,
+  res,
+  next
+) {
+  try {
+    const serviceIds =
+      await normaliseServiceIds(
+        req.body.services
+      );
+
+    const stylist =
+      await employeeRecordWithoutSignIn(
+        req.params.id
+      );
+
+    stylist.services =
+      serviceIds;
+
+    await stylist.save();
+    await stylist.populate(
+      "services",
+      "name category active published bookable"
+    );
+
+    return res.json({
+      success: true,
+      message:
+        "Employee services updated.",
+      user:
+        serialiseEmployeeWithoutSignIn(
+          stylist
+        ),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateEmployeeRecordSchedule(
+  req,
+  res,
+  next
+) {
+  try {
+    const workingHours =
+      normaliseEmployeeSchedule(
+        req.body.workingHours
+      );
+
+    const stylist =
+      await employeeRecordWithoutSignIn(
+        req.params.id
+      );
+
+    stylist.workingHours =
+      workingHours;
+
+    await stylist.save();
+
+    return res.json({
+      success: true,
+      message:
+        "Employee schedule updated.",
       user:
         serialiseEmployeeWithoutSignIn(
           stylist
