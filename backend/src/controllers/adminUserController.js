@@ -481,12 +481,8 @@ function serialiseAdminUser(
   return {
     id:
       user._id,
-    accountLinked:
-      true,
     signInEnabled:
       true,
-    employeeType:
-      "employee",
     name:
       user.name,
     email:
@@ -633,12 +629,8 @@ function serialiseEmployeeWithoutSignIn(
       `profile:${stylist._id}`,
     profileId:
       stylist._id,
-    accountLinked:
-      false,
     signInEnabled:
       false,
-    employeeType:
-      "employee",
     name,
     email:
       stylist.email || "",
@@ -1137,12 +1129,8 @@ export async function listAdminUsers(
       roster =
         roster.filter(
           (employee) =>
-            [
-              "sign_in_disabled",
-              "profile_only",
-            ].includes(
-              role
-            )
+            role ===
+            "sign_in_disabled"
               ? employee.signInEnabled ===
                 false
               : employee.signInEnabled !==
