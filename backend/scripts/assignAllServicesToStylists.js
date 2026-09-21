@@ -120,51 +120,15 @@ async function run() {
           options.apply
             ? "apply"
             : "dry-run",
-        services:
-          services.map(
-            (service) => ({
-              id:
-                String(
-                  service._id
-                ),
-              name:
-                service.name,
-            })
-          ),
+        serviceCount:
+          serviceIds.length,
         stylistCount:
           stylists.length,
         alreadyAssigned:
           stylists.length -
           pending.length,
-        toUpdate:
-          pending.map(
-            (stylist) => ({
-              id:
-                String(
-                  stylist._id
-                ),
-              name:
-                [
-                  stylist.firstName,
-                  stylist.lastName,
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-              email:
-                stylist.email ||
-                "",
-              previousServiceCount:
-                Array.isArray(
-                  stylist.services
-                )
-                  ? stylist
-                      .services
-                      .length
-                  : 0,
-              newServiceCount:
-                serviceIds.length,
-            })
-          ),
+        toUpdateCount:
+          pending.length,
       },
       null,
       2
