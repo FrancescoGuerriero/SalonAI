@@ -562,8 +562,7 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
 
   assert.match(
     navigation,
-    /\["\/admin",[^
-]*true,\s*"dashboard:view"\]/
+    /\["\/admin",[^\n]*true,\s*"dashboard:view"\]/
   );
 });
 
