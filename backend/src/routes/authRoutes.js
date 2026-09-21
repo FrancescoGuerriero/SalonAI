@@ -23,6 +23,8 @@ import {
   createStaffUserByAdmin,
   getEmployeeManagementDetail,
   getEmployeeWithoutSignInManagementDetail,
+  updateEmployeeRecordServices,
+  updateEmployeeRecordSchedule,
   enableEmployeeSignIn,
   updateEmployeeManagementSettings,
   updateEmployeeSchedule,
@@ -244,6 +246,24 @@ router.post(
     "employee:create"
   ),
   enableEmployeeSignIn
+);
+
+router.patch(
+  "/admin/staff-record/:id/services",
+  protect,
+  requirePermissions(
+    "employee:services:update"
+  ),
+  updateEmployeeRecordServices
+);
+
+router.patch(
+  "/admin/staff-record/:id/schedule",
+  protect,
+  requirePermissions(
+    "employee:schedule:update"
+  ),
+  updateEmployeeRecordSchedule
 );
 
 router.get(
