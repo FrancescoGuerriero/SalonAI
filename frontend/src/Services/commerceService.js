@@ -19,8 +19,14 @@ export const commerceService = {
     ).then(data),
   listInventoryProducts: (params = {}) =>
     API.get("/commerce/inventory/products", { params }).then(data),
-  getProduct: (identifier) =>
-    API.get(`/commerce/products/${identifier}`).then(data),
+  getProduct: (
+    identifier,
+    config = {}
+  ) =>
+    API.get(
+      `/commerce/products/${identifier}`,
+      config
+    ).then(data),
   createProduct: (payload) =>
     API.post("/commerce/products", payload).then(data),
   updateProduct: (id, payload) =>
