@@ -613,7 +613,7 @@ function preferCurrentProfile(
     : current;
 }
 
-function serialiseProfileOnlyEmployee(
+function serialiseEmployeeWithoutSignIn(
   stylist
 ) {
   const name =
@@ -749,7 +749,7 @@ export function buildAdminWorkforceRoster(
       )
     );
 
-  const accountRows =
+  const signInEnabledRows =
     staffUsers.map(
       (user) => {
         const stylist =
@@ -778,7 +778,7 @@ export function buildAdminWorkforceRoster(
       }
     );
 
-  const profileRows =
+  const signInDisabledRows =
     stylistProfiles
       .filter(
         (stylist) =>
@@ -797,15 +797,15 @@ export function buildAdminWorkforceRoster(
           )
       )
       .map(
-        serialiseProfileOnlyEmployee
+        serialiseEmployeeWithoutSignIn
       );
 
   return {
-    accountRows,
-    profileRows,
+    signInEnabledRows,
+    signInDisabledRows,
     roster: [
-      ...accountRows,
-      ...profileRows,
+      ...signInEnabledRows,
+      ...signInDisabledRows,
     ],
   };
 }
@@ -1120,8 +1120,8 @@ export async function listAdminUsers(
       ]);
 
     const {
-      accountRows,
-      profileRows,
+      signInEnabledRows,
+      signInDisabledRows,
       roster: completeRoster,
     } =
       buildAdminWorkforceRoster(
@@ -1220,10 +1220,10 @@ export async function listAdminUsers(
           limit
         )
       ),
-      accountTotal:
-        accountRows.length,
-      profileOnlyTotal:
-        profileRows.length,
+      signInEnabledTotal:
+        signInEnabledRows.length,
+      signInDisabledTotal:
+        signInDisabledRows.length,
       users,
     });
   } catch (error) {
@@ -1329,7 +1329,7 @@ export async function getEmployeeManagementDetail(
   }
 }
 
-export async function getProfileOnlyEmployeeManagementDetail(
+export async function getEmployeeWithoutSignInManagementDetail(
   req,
   res,
   next
@@ -1376,7 +1376,7 @@ export async function getProfileOnlyEmployeeManagementDetail(
     return res.json({
       success: true,
       user:
-        serialiseProfileOnlyEmployee(
+        serialiseEmployeeWithoutSignIn(
           stylist
         ),
     });
