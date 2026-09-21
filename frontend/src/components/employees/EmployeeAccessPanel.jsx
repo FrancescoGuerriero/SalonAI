@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -216,7 +217,7 @@ export default function EmployeeAccessPanel({
       ]
     );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDraftRole(
       selectedEmployee?.role ||
         ""
