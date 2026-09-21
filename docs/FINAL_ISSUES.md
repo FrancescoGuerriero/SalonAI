@@ -6,58 +6,58 @@ This file is the canonical forward-looking issue register for SalonAI. It replac
 
 ## Current baselines
 
-- Production release: `v8.15.5`
-- Production commit: `a8123c0bbf84e33941a70b479b16d2be60fb31ae`
-- Production deployment run: `35530130097` (successful, including smoke test and deployment evidence).
-- Production P0 read-only verification run: `35583727762`; evidence artifact: `salonai-production-p0-verification-35583727762`.
-- Repository `main` contains the governed P0 verification workflow merged in PR #211 and is therefore ahead of the deployed application image until the next immutable release.
-- At the completion of the PR closeout audit, no pre-existing pull requests remained open.
-- Developer 3 has no open PR. The latest workforce/profile/media recovery work was merged in PR #208 and released in `v8.15.4`.
+- Production release: `v8.15.6`
+- Production application commit: `542e18b8f8f20234d942d9d25e5f01391500fe43`
+- Production deployment run: `35587833815` (successful).
+- Deployment evidence artifact: `salonai-production-deployment-v8.15.6-35587833815`.
+- Final clean production P0 verification run: `35589035281` (successful).
+- Final P0 evidence artifact: `salonai-production-p0-verification-35589035281`.
+- Repository `main` additionally contains the workflow-only serialization guardrail from PR #213 at `9b91280cec07bf03e102ae77387d777d497f5e50`; that change does not alter the deployed application image.
+- Developer 3 has no open PR. The latest workforce/profile/media recovery work was merged in PR #208 and released before the current production baseline.
 
-## P0 — Production data-state and acceptance verification
+## P0 — Production data-state and acceptance verification — COMPLETE
+
+The governed production acceptance sequence is complete for release `v8.15.6`.
+
+Final clean verification run `35589035281` executed after the successful production deployment and confirmed the intended application and data state through the protected production SSH trust path. No production database writes were required during this verification.
 
 ### 1. Governed Super Admin account verification — COMPLETE
 
-Production verification run `35583727762` executed the promotion tool in dry-run mode through the protected production SSH trust path.
-
-Evidence:
+Evidence from the final clean production run:
 
 - exactly two requested accounts were resolved: `Francesco` and `Francesco Guerriero`;
-- both accounts are active;
-- both already have role `super_admin`;
+- both are active `super_admin` accounts;
 - both reported `changeRequired: false`;
 - `selectedAccounts: 2`;
-- no database write was requested or required.
+- no unintended account promotion was requested;
+- no promotion write was necessary.
 
-Because production was already in the intended state, applying the promotion would have been an unnecessary write.
+### 2. Service state migration and global bookability — COMPLETE
 
-### 2. Service state migration and production verification — DATA STATE COMPLETE / ENFORCEMENT FIX IN PROGRESS
+Production verification confirmed:
 
-Production verification run `35583727762` executed the service-state migration in dry-run mode and returned `candidates: 0`. Production therefore has no remaining legacy service-state records requiring migration, so no migration write is needed.
+- service-state migration dry-run returned `candidates: 0`;
+- `legacyServiceRecords: 0`;
+- production contains canonical `active`, `published` and `bookable` service state;
+- the cross-channel global-bookability correction was released in `v8.15.6`;
+- deployed regression coverage proves canonical service bookability is enforced for customer booking, staff-managed booking and WhatsApp booking;
+- the production service inventory includes at least one `bookable=false` service without requiring deletion or legacy `onlineBookable` state.
 
-During the final cross-channel acceptance review on 21 September 2026, Developer 1 identified a separate enforcement defect: customer booking uses canonical `service.bookable`, but staff-managed booking did not yet reject `bookable=false`, and the WhatsApp bot still preferred legacy `onlineBookable`. This must be corrected and released before this item is fully closed.
+### 3. Production RBAC/workforce/stylist acceptance — COMPLETE
 
-Remaining completion evidence:
+Final production evidence confirmed:
 
-- release the canonical global-bookability enforcement fix;
-- rerun the governed production P0 verification against the repaired release;
-- verify the finalized roster and live workforce reconciliation;
-- verify `active=false`, `published=false` and `bookable=false` each have their intended independent effect;
-- verify `bookable=false` blocks standard booking, managed/staff booking and WhatsApp booking while not implicitly deleting or unpublishing the service.
+- the controlled production stylist roster contains nine records and requires no further classification changes;
+- the live management workforce union reconciles all stylist profiles without fabricating login authority for profile-only staff;
+- workforce reconciliation reported account-backed and profile-only rows successfully with every stylist profile represented;
+- employee booking/publication state remains independently represented through `isActive`, `acceptsAppointments` and `profilePublished`;
+- deployed RBAC regression tests passed for Super Admin, Administrator/delegated capability boundaries and permission middleware;
+- booking eligibility continues to fail closed when required stylist state is missing or false;
+- direct service/stylist booking enforcement is covered by the deployed backend P0 test set.
 
-### 3. Final production RBAC/workforce acceptance — IN PROGRESS
+The final deployed P0 test subset reported `35` tests, `35` passed and `0` failed.
 
-PR #211 added the governed production P0 verification path. The first run succeeded for release identity, Super Admin state and service migration state. The next verification revision adds finalized-roster verification, live workforce reconciliation and deployed-container RBAC/bookability regression checks.
-
-Verify in production:
-
-- Super Admin and Administrator can see the intended complete management areas;
-- Manager, Receptionist, Stylist/Salon Staff and custom roles see only delegated workspaces;
-- direct URLs and backend APIs enforce the same permissions as the navigation;
-- all genuine employees/staff profiles are visible to management, including profile-only records without fabricated login authority;
-- employee `isActive`, `acceptsAppointments` and `profilePublished` remain independent;
-- global Not Bookable behavior is enforced consistently;
-- employee/service management changes remain auditable.
+The production verification workflow was subsequently serialized with the production deployment concurrency lock in PR #213 so future P0 verification cannot overlap an active deployment.
 
 ## P0 — SendGrid transactional email production acceptance
 
