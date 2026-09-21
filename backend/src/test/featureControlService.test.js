@@ -316,12 +316,17 @@ test("public team frontend route is independent from online booking", async () =
 
   assert.match(
     stylistsPage,
-    /getPublicTeam\(\)/
+    /getPublicTeam\(\s*requestConfig\s*\)/
   );
 
   assert.match(
     stylistsPage,
-    /getBookingStylists\(\)/
+    /getBookingStylists\(\s*selectedServiceId,\s*requestConfig\s*\)/
+  );
+
+  assert.match(
+    stylistsPage,
+    /selectedService\s*\?\s*onlineBookingEnabled\s*:\s*publicTeamEnabled/
   );
 
   assert.match(

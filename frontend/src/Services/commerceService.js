@@ -6,12 +6,27 @@ function data(response) {
 
 export const commerceService = {
   getConfig: () => API.get("/commerce/config").then(data),
-  listProducts: (params = {}) =>
-    API.get("/commerce/products", { params }).then(data),
+  listProducts: (
+    params = {},
+    config = {}
+  ) =>
+    API.get(
+      "/commerce/products",
+      {
+        ...config,
+        params,
+      }
+    ).then(data),
   listInventoryProducts: (params = {}) =>
     API.get("/commerce/inventory/products", { params }).then(data),
-  getProduct: (identifier) =>
-    API.get(`/commerce/products/${identifier}`).then(data),
+  getProduct: (
+    identifier,
+    config = {}
+  ) =>
+    API.get(
+      `/commerce/products/${identifier}`,
+      config
+    ).then(data),
   createProduct: (payload) =>
     API.post("/commerce/products", payload).then(data),
   updateProduct: (id, payload) =>

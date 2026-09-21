@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import mongoose from "mongoose";
+import { readFile } from "node:fs/promises";
 
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
@@ -144,4 +145,38 @@ test("Console checkout provider creates a safe pending payment", async () => {
 
   if (previousMode === undefined) delete process.env.PAYMENT_PROVIDER_MODE;
   else process.env.PAYMENT_PROVIDER_MODE = previousMode;
+});
+
+test("Public product listings use a lightweight card projection", async () => {
+  const serviceSource =
+    await readFile(
+      new URL(
+        "../features/commerce/commerceService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    serviceSource,
+    /const PUBLIC_PRODUCT_LIST_FIELDS = \[/
+  );
+  assert.match(
+    serviceSource,
+    /itemQuery\.slice\(\s*"images",\s*1\s*\)/
+  );
+  assert.doesNotMatch(
+    serviceSource.match(
+      /const PUBLIC_PRODUCT_LIST_FIELDS = \[[\s\S]*?\]\.join\(" "\);/
+    )?.[0] || "",
+    /officialDescription|costPrice|reorderLevel/
+  );
+  assert.match(
+    serviceSource,
+    /query\.facets/
+  );
+  assert.match(
+    serviceSource,
+    /includeFacets[\s\S]*Product\.distinct/
+  );
 });

@@ -28,7 +28,6 @@ import {
   getStylistName,
   getStylistSpecialtyLabel,
 } from "../utils/stylists.js";
-import "../styles/customerExperience.css";
 
 function toDateInputValue(date) {
   const year = date.getFullYear();

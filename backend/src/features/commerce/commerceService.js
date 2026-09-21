@@ -83,6 +83,22 @@ function isManagementUser(user) {
   return MANAGEMENT_ROLES.has(String(user?.role || "").toLowerCase());
 }
 
+const PUBLIC_PRODUCT_LIST_FIELDS = [
+  "name",
+  "slug",
+  "sku",
+  "brand",
+  "description",
+  "category",
+  "collectionName",
+  "badge",
+  "size",
+  "price",
+  "stockQuantity",
+  "featured",
+  "images",
+].join(" ");
+
 function productFields(
   management,
   includeCost = false
@@ -235,30 +251,117 @@ export async function listProducts(
     name: { name: 1 },
   };
 
-  const [items, total, categories, brands, collections] = await Promise.all([
-    Product.find(match)
+  const includeFacets =
+    String(
+      query.facets ??
+        "true"
+    ).toLowerCase() !==
+    "false";
+
+  const itemQuery =
+    Product.find(
+      match
+    )
       .select(
-        productFields(
-          management,
-          includeCost
-        )
+        management
+          ? productFields(
+              management,
+              includeCost
+            )
+          : PUBLIC_PRODUCT_LIST_FIELDS
       )
-      .sort(sortMap[query.sort] || { featured: -1, name: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean({ virtuals: true }),
-    Product.countDocuments(match),
-    Product.distinct("category", { active: true }),
-    Product.distinct("brand", { active: true }),
-    Product.distinct("collectionName", { active: true }),
-  ]);
+      .sort(
+        sortMap[
+          query.sort
+        ] || {
+          featured: -1,
+          name: 1,
+        }
+      )
+      .skip(
+        skip
+      )
+      .limit(
+        limit
+      );
+
+  if (!management) {
+    itemQuery.slice(
+      "images",
+      1
+    );
+  }
+
+  const [
+    items,
+    total,
+    categories,
+    brands,
+    collections,
+  ] =
+    await Promise.all([
+      itemQuery.lean({
+        virtuals: true,
+      }),
+      Product.countDocuments(
+        match
+      ),
+      includeFacets
+        ? Product.distinct(
+            "category",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
+      includeFacets
+        ? Product.distinct(
+            "brand",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
+      includeFacets
+        ? Product.distinct(
+            "collectionName",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
+    ]);
 
   return {
     items,
-    categories: categories.filter(Boolean).sort(),
-    brands: brands.filter(Boolean).sort(),
-    collections: collections.filter(Boolean).sort(),
-    pagination: paginationResult(page, limit, total),
+    ...(includeFacets
+      ? {
+          categories:
+            categories
+              .filter(Boolean)
+              .sort(),
+          brands:
+            brands
+              .filter(Boolean)
+              .sort(),
+          collections:
+            collections
+              .filter(Boolean)
+              .sort(),
+        }
+      : {}),
+    pagination:
+      paginationResult(
+        page,
+        limit,
+        total
+      ),
   };
 }
 
