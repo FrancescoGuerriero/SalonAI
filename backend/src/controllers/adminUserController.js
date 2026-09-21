@@ -1352,7 +1352,7 @@ export async function getEmployeeWithoutSignInManagementDetail(
 
     if (stylist.userAccount) {
       throw httpError(
-        "This staff profile is linked to a login account. Open the linked employee account instead.",
+        "Sign-in is already enabled for this employee. Open the employee account instead.",
         409
       );
     }
