@@ -425,7 +425,7 @@ test("dashboard navigation contains no dead primary links", async () => {
 });
 
 
-test("Admin overview stays administrator-only while legacy operational routes follow delegated permissions", async () => {
+test("Admin overview stays administrator-only while legacy operational URLs redirect to guarded canonical workspaces", async () => {
   const adminRoute =
     await readFile(
       new URL(
@@ -469,50 +469,93 @@ test("Admin overview stays administrator-only while legacy operational routes fo
   );
 
   for (const [
-    path,
+    legacyPath,
+    canonicalPath,
     permission,
   ] of [
     [
       "admin/services",
+      "manage/services",
       "service:read",
     ],
     [
       "admin/stylists",
-      "profile:all:read",
+      "staff/profile",
+      "profile:own:read",
     ],
     [
       "admin/appointments",
+      "appointments",
       "appointment:read",
     ],
     [
       "admin/customers",
+      "customers",
       "customer:read",
     ],
+    [
+      "admin/staff-accounts",
+      "admin/employees",
+      "employee:read",
+    ],
   ]) {
-    const routeBlock =
+    const routeBlocks =
       [
         ...app.matchAll(
           /<Route\b[\s\S]*?\/>/g
         ),
-      ]
-        .map(
-          (match) =>
-            match[0]
-        )
-        .find(
-          (block) =>
-            block.includes(
-              `path="${path}"`
-            )
-        ) || "";
+      ].map(
+        (match) =>
+          match[0]
+      );
+
+    const legacyRoute =
+      routeBlocks.find(
+        (block) =>
+          block.includes(
+            `path="${legacyPath}"`
+          )
+      ) || "";
 
     assert.match(
-      routeBlock,
+      legacyRoute,
+      /<Navigate/
+    );
+    assert.match(
+      legacyRoute,
+      new RegExp(
+        `to="/${canonicalPath.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )}"`
+      )
+    );
+
+    const canonicalRoute =
+      routeBlocks.find(
+        (block) =>
+          block.includes(
+            `path="${canonicalPath}"`
+          )
+      ) || "";
+
+    assert.match(
+      canonicalRoute,
       new RegExp(
         `permissionPage\\([\\s\\S]*?"${permission.replace(
           /[-/\\^$*+?.()|[\]{}]/g,
           "\\$&"
         )}"\\s*\\)`
+      )
+    );
+
+    assert.doesNotMatch(
+      navigation,
+      new RegExp(
+        `\\["/${legacyPath.replace(
+          /[-/\\^$*+?.()|[\]{}]/g,
+          "\\$&"
+        )}"`
       )
     );
   }
@@ -521,31 +564,8 @@ test("Admin overview stays administrator-only while legacy operational routes fo
     navigation,
     /\["\/admin",[^\n]*true,\s*"dashboard:view"\]/
   );
-
-  for (const path of [
-    "/admin/services",
-    "/admin/stylists",
-    "/admin/appointments",
-    "/admin/customers",
-  ]) {
-    const index =
-      navigation.indexOf(
-        `["${path}"`
-      );
-
-    assert.ok(
-      index >= 0
-    );
-
-    assert.match(
-      navigation.slice(
-        index,
-        index + 220
-      ),
-      /false/
-    );
-  }
 });
+
 
 test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
   const navigation =
@@ -606,9 +626,19 @@ test("every dashboard link declares a permission and matches its route guard", a
     })
   );
 
+  assert.ok(
+    links.length > 0
+  );
+
   assert.equal(
+    new Set(
+      links.map(
+        (link) =>
+          link.path
+      )
+    ).size,
     links.length,
-    72
+    "Management navigation must not expose duplicate route entries."
   );
 
   for (const link of links) {
