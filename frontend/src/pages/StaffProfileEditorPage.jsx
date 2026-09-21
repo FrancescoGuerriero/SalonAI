@@ -656,7 +656,7 @@ export default function StaffProfileEditorPage() {
                 Select staff profile
               </h2>
               <p className="text-sm text-stone-600">
-                The list shows every current staff profile visible to management, including profile-only salon staff without login accounts.
+                The list shows every employee with a staff profile. Sign-in access is shown only as an account status and does not create a different employee type.
               </p>
             </div>
           </div>
@@ -687,8 +687,8 @@ export default function StaffProfileEditorPage() {
                       employee.id
                     }
                   >
-                    {employee.name} · {employee.accountLinked === false
-                      ? "no login account"
+                    {employee.name} · {employee.signInEnabled === false
+                      ? "sign-in not enabled"
                       : employee.role}
                   </option>
                 )
