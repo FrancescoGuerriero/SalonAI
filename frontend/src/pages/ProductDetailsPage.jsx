@@ -16,7 +16,6 @@ import {
 import Seo from "../components/Seo.jsx";
 import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
-import "../styles/productGallery.css";
 import { formatCurrency } from "../utils/currency.js";
 
 function ProductGallery({
