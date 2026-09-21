@@ -1,3 +1,9 @@
+# Historical development audit — superseded
+
+> **Superseded by:** [docs/MASTER_DEVELOPMENT_ROADMAP_v2.3.md](docs/MASTER_DEVELOPMENT_ROADMAP_v2.3.md) as of 21 September 2026.
+>
+> This file is retained only as historical August 2026 audit evidence. Do not use its old phase sequencing or branch recommendations as the current development plan.
+
 # SalonAI Development Audit, Milestones and Roadmap
 
 **Audit date:** 12 August 2026
