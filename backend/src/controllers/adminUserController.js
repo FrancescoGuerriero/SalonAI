@@ -1075,6 +1075,24 @@ export async function listAdminUsers(
      * Unlinked profiles are represented explicitly as profile-only staff and
      * are never given fabricated credentials or permissions.
      */
+    const accessView =
+      req.query.view ===
+      "access";
+
+    const stylistQuery =
+      Stylist.find().select(
+        accessView
+          ? "userAccount email firstName lastName phone jobTitle profileImage profilePublished acceptsAppointments isActive createdAt updatedAt"
+          : "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+      );
+
+    if (!accessView) {
+      stylistQuery.populate(
+        "services",
+        "name category active published bookable onlineBookable"
+      );
+    }
+
     const [
       staffUsers,
       stylistProfiles,
@@ -1094,15 +1112,7 @@ export async function listAdminUsers(
             email: 1,
           })
           .lean(),
-        Stylist.find()
-          .select(
-            "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
-          )
-          .populate(
-            "services",
-            "name category active published bookable onlineBookable"
-          )
-          .lean(),
+        stylistQuery.lean(),
       ]);
 
     const {
