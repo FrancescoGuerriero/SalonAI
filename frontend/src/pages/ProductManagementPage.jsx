@@ -16,6 +16,9 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  createPortal,
+} from "react-dom";
 
 import CatalogueImagePicker from "../components/catalogue/CatalogueImagePicker.jsx";
 import commerceService from "../Services/commerceService.js";
@@ -842,9 +845,10 @@ export default function ProductManagementPage() {
         )}
       </section>
 
-      {showForm ? (
+      {showForm
+        ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4"
+          className="fixed inset-0 z-[400] flex items-center justify-center overflow-hidden bg-black/50 p-2 sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="product-form-title"
@@ -859,12 +863,12 @@ export default function ProductManagementPage() {
         >
           <form
             ref={editorPanelRef}
-            className="max-h-[calc(100dvh-1rem)] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+            className="flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
             onSubmit={
               save
             }
           >
-            <header className="sticky top-0 z-10 flex items-start justify-between border-b border-stone-200 bg-white p-4 sm:p-5">
+            <header className="shrink-0 flex items-start justify-between border-b border-stone-200 bg-white p-4 sm:p-5">
               <div>
                 <h2
                   id="product-form-title"
@@ -891,7 +895,7 @@ export default function ProductManagementPage() {
               </button>
             </header>
 
-            <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain p-4 sm:grid-cols-2 sm:p-5">
               {[
                 [
                   "name",
@@ -1098,7 +1102,7 @@ export default function ProductManagementPage() {
               </label>
             </div>
 
-            <footer className="sticky bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
+            <footer className="shrink-0 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:justify-end sm:p-5">
               <button
                 type="button"
                 className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black"
@@ -1123,8 +1127,10 @@ export default function ProductManagementPage() {
               </button>
             </footer>
           </form>
-        </div>
-      ) : null}
+        </div>,
+        document.body
+      )
+        : null}
     </main>
   );
 }
