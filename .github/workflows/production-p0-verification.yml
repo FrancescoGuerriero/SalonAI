@@ -241,10 +241,10 @@ jobs:
               );
             }
 
-            const profileAuthorityViolations =
+            const signInAuthorityViolations =
               signInDisabledRows.filter(
                 (row) =>
-                  row.accountLinked !==
+                  row.signInEnabled !==
                     false ||
                   (row.permissions || [])
                     .length >
@@ -255,7 +255,7 @@ jobs:
               );
 
             if (
-              profileAuthorityViolations.length >
+              signInAuthorityViolations.length >
               0
             ) {
               throw new Error(
@@ -397,9 +397,9 @@ jobs:
                   workforce: {
                     total:
                       roster.length,
-                    accountBacked:
+                    signInEnabled:
                       signInEnabledRows.length,
-                    profileOnly:
+                    signInDisabled:
                       signInDisabledRows.length,
                     representedProfiles:
                       representedProfileIds.size,
