@@ -92,7 +92,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 });
 
 
-test("Super Admin and Admin bypass menu hiding while other staff remain permission-driven", async () => {
+test("only Super Admin bypasses menu permission hiding while Admin and other staff remain permission-driven", async () => {
   const navigation =
     await managementNavigationSource();
 
@@ -126,15 +126,69 @@ test("Super Admin and Admin bypass menu hiding while other staff remain permissi
     fullDashboardBlock[1],
     /"super_admin"/
   );
+  assert.doesNotMatch(
+    fullDashboardBlock[1],
+    /"admin"|"manager"|"receptionist"|"stylist"/
+  );
+});
+
+test("Admin navigation visibility follows effective permissions instead of role-name bypass", async () => {
+  const navigation =
+    await managementNavigationSource();
+
+  const roles =
+    await readFile(
+      new URL(
+        "../../../frontend/src/utils/roles.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const permissions =
+    await readFile(
+      new URL(
+        "../../../frontend/src/utils/permissions.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
   assert.match(
+    navigation,
+    /fullDashboard \|\| hasPermission\(user, link\.permission\)/
+  );
+
+  const fullDashboardBlock =
+    roles.match(
+      /FULL_DASHBOARD_ROLES\s*=\s*new Set\(\[([\s\S]*?)\]\)/
+    );
+
+  assert.ok(
+    fullDashboardBlock
+  );
+
+  assert.match(
+    fullDashboardBlock[1],
+    /"super_admin"/
+  );
+
+  assert.doesNotMatch(
     fullDashboardBlock[1],
     /"admin"/
   );
+
+  assert.match(
+    permissions,
+    /if \(role === "super_admin"\)/
+  );
+
   assert.doesNotMatch(
-    fullDashboardBlock[1],
-    /"manager"|"receptionist"|"stylist"/
+    permissions,
+    /if \(role === "admin"\)[\s\S]*?EMPLOYEE_PERMISSIONS/
   );
 });
+
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
   const navigation =
@@ -326,7 +380,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
   );
 });
 
-test("only Super Admin and Admin retain unconditional full dashboard visibility", async () => {
+test("only Super Admin retains unconditional full dashboard visibility", async () => {
   const roles =
     await readFile(
       new URL(
@@ -348,13 +402,9 @@ test("only Super Admin and Admin retain unconditional full dashboard visibility"
     fullDashboardBlock[1],
     /"super_admin"/
   );
-  assert.match(
-    fullDashboardBlock[1],
-    /"admin"/
-  );
   assert.doesNotMatch(
     fullDashboardBlock[1],
-    /"manager"|"receptionist"|"stylist"/
+    /"admin"|"manager"|"receptionist"|"stylist"/
   );
 });
 
