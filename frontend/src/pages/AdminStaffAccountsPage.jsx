@@ -26,6 +26,8 @@ import stylistService from "../Services/stylistService.js";
 import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
+  employeeDisplayPhoto,
+  employeeManagementPath,
   employeeScheduleForDate,
   employeeServiceNames,
 } from "../utils/employees.js";
@@ -180,6 +182,11 @@ export default function AdminStaffAccountsPage() {
   ] = useState("");
 
   const [
+    accessFilter,
+    setAccessFilter,
+  ] = useState("");
+
+  const [
     error,
     setError,
   ] = useState("");
@@ -257,14 +264,26 @@ export default function AdminStaffAccountsPage() {
         (user) => {
           if (
             roleFilter &&
-            (
-              roleFilter ===
-              "profile_only"
-                ? user.accountLinked !==
-                  false
-                : user.role !==
-                  roleFilter
-            )
+            user.role !==
+              roleFilter
+          ) {
+            return false;
+          }
+
+          if (
+            accessFilter ===
+              "enabled" &&
+            user.signInEnabled ===
+              false
+          ) {
+            return false;
+          }
+
+          if (
+            accessFilter ===
+              "disabled" &&
+            user.signInEnabled !==
+              false
           ) {
             return false;
           }
@@ -291,6 +310,7 @@ export default function AdminStaffAccountsPage() {
       users,
       search,
       roleFilter,
+      accessFilter,
     ]);
 
   function openCreateForm() {
@@ -304,8 +324,8 @@ export default function AdminStaffAccountsPage() {
     field,
     value
   ) {
-    const profileOnly =
-      user.accountLinked ===
+    const signInDisabled =
+      user.signInEnabled ===
       false;
 
     if (
@@ -313,8 +333,8 @@ export default function AdminStaffAccountsPage() {
         "isActive" &&
       value === false &&
       !window.confirm(
-        profileOnly
-          ? `Deactivate ${user.name}'s staff profile? They will no longer be available for salon operations or bookings.`
+        signInDisabled
+          ? `Deactivate ${user.name}? They will no longer be available for salon operations or bookings.`
           : `Deactivate ${user.name}? They will no longer be able to sign in or receive bookings.`
       )
     ) {
@@ -332,7 +352,7 @@ export default function AdminStaffAccountsPage() {
     setSuccess("");
 
     try {
-      if (profileOnly) {
+      if (signInDisabled) {
         const profileId =
           user
             ?.stylistProfile
@@ -340,7 +360,7 @@ export default function AdminStaffAccountsPage() {
 
         if (!profileId) {
           throw new Error(
-            "This workforce record does not have a staff profile."
+            "This employee record does not have a staff profile."
           );
         }
 
@@ -354,7 +374,7 @@ export default function AdminStaffAccountsPage() {
           )
         ) {
           throw new Error(
-            "Create or link a login account before changing account roles or permissions."
+            "Enable sign-in access before changing application roles or permissions."
           );
         }
 
@@ -468,7 +488,7 @@ export default function AdminStaffAccountsPage() {
           </h1>
 
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            View the complete salon workforce, including staff without login accounts, and manage account access, public visibility, global booking eligibility and today&apos;s schedule from one page.
+            View the complete salon workforce and manage employee sign-in access, public visibility, global booking eligibility and today&apos;s schedule from one page.
           </p>
         </div>
 
@@ -542,7 +562,7 @@ export default function AdminStaffAccountsPage() {
       ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem_14rem]">
           <input
             type="search"
             className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
@@ -575,9 +595,6 @@ export default function AdminStaffAccountsPage() {
             <option value="">
               All staff roles
             </option>
-            <option value="profile_only">
-              No login account
-            </option>
 
             {roles.map(
               (role) => (
@@ -596,6 +613,27 @@ export default function AdminStaffAccountsPage() {
                 </option>
               )
             )}
+          </select>
+
+          <select
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+            value={accessFilter}
+            onChange={(event) =>
+              setAccessFilter(
+                event.target.value
+              )
+            }
+            aria-label="Sign-in access filter"
+          >
+            <option value="">
+              All sign-in states
+            </option>
+            <option value="enabled">
+              Sign-in enabled
+            </option>
+            <option value="disabled">
+              Sign-in not enabled
+            </option>
           </select>
         </div>
       </section>
@@ -619,10 +657,14 @@ export default function AdminStaffAccountsPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-sm font-bold text-slate-600">
-                    {user.profilePhoto ? (
+                    {employeeDisplayPhoto(
+                      user
+                    ) ? (
                       <img
                         src={
-                          user.profilePhoto
+                          employeeDisplayPhoto(
+                            user
+                          )
                         }
                         alt=""
                         className="h-full w-full object-cover"
@@ -657,13 +699,13 @@ export default function AdminStaffAccountsPage() {
 
                     <p className="mt-1 break-all text-sm text-slate-600">
                       {user.email ||
-                        "No login account"}
+                        "No email address"}
                     </p>
 
-                    {user.accountLinked ===
+                    {user.signInEnabled ===
                     false ? (
                       <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900">
-                        Profile only · no login account
+                        Sign-in not enabled
                       </span>
                     ) : null}
 
@@ -676,10 +718,10 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      {user.accountLinked ===
+                      {user.signInEnabled ===
                       false ? (
                         <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-amber-800">
-                          No login account
+                          Sign-in not enabled
                         </span>
                       ) : canManageRoles ? (
                         <select
@@ -766,15 +808,15 @@ export default function AdminStaffAccountsPage() {
                       checked={user.isActive !== false}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canDeactivate)
                       }
                       label={
-                        user.accountLinked ===
+                        user.signInEnabled ===
                         false
-                          ? "Profile active"
+                          ? "Active"
                           : "Active"
                       }
                       onChange={(value) =>
@@ -790,7 +832,7 @@ export default function AdminStaffAccountsPage() {
                       checked={user.stylistProfile?.profilePublished === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canUpdate)
@@ -809,7 +851,7 @@ export default function AdminStaffAccountsPage() {
                       checked={user.stylistProfile?.acceptsAppointments === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canUpdate)
@@ -826,22 +868,16 @@ export default function AdminStaffAccountsPage() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {user.accountLinked ===
-                    false ? (
-                      <Link
-                        to={`/admin/stylists?edit=${user.stylistProfile?.id || ""}`}
-                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                      >
-                        Manage staff profile
-                      </Link>
-                    ) : (
-                      <Link
-                        to={`/admin/employees/${user.id}`}
-                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                      >
-                        Manage employee
-                      </Link>
-                    )}
+                    <Link
+                      to={
+                        employeeManagementPath(
+                          user
+                        )
+                      }
+                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                    >
+                      Manage employee
+                    </Link>
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (

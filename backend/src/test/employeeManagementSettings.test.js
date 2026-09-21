@@ -7,6 +7,9 @@ import {
   normaliseEmployeeManagementUpdate,
   normaliseEmployeeSchedule,
 } from "../controllers/adminUserController.js";
+import {
+  permissionsForRole,
+} from "../constants/permissions.js";
 
 test("employee management accepts independent operational controls", () => {
   assert.deepEqual(
@@ -230,6 +233,8 @@ test("employee workforce reconciliation respects explicit account links and uses
       email: "a@example.com",
       firstName: "Linked",
       lastName: "B",
+      profileImage:
+        "/staff/profile-b.jpg",
       isActive: true,
       profilePublished: true,
       acceptsAppointments: true,
@@ -261,17 +266,17 @@ test("employee workforce reconciliation respects explicit account links and uses
     );
 
   const accountA =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-a"
     );
   const accountB =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-b"
     );
   const accountC =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-c"
     );
@@ -285,28 +290,32 @@ test("employee workforce reconciliation respects explicit account links and uses
     "profile-b"
   );
   assert.equal(
+    accountB.profilePhoto,
+    "/staff/profile-b.jpg"
+  );
+  assert.equal(
     accountC.stylistProfile.id,
     "profile-c"
   );
 
   assert.equal(
-    result.profileRows.length,
+    result.signInDisabledRows.length,
     1
   );
   assert.equal(
-    result.profileRows[0].id,
+    result.signInDisabledRows[0].id,
     "profile:profile-history"
   );
   assert.equal(
-    result.profileRows[0].accountLinked,
+    result.signInDisabledRows[0].signInEnabled,
     false
   );
   assert.equal(
-    result.profileRows[0].isActive,
+    result.signInDisabledRows[0].isActive,
     false
   );
   assert.deepEqual(
-    result.profileRows[0].permissions,
+    result.signInDisabledRows[0].permissions,
     []
   );
 });
@@ -333,27 +342,22 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
 
   assert.match(
     controller,
-    /serialiseProfileOnlyEmployee/
+    /serialiseEmployeeWithoutSignIn/
   );
 
   assert.match(
     controller,
-    /employeeType:\s*"profile-only"/
+    /signInEnabled:\s*false/
   );
 
   assert.match(
     controller,
-    /accountLinked:\s*false/
+    /signInDisabledTotal:/
   );
 
   assert.match(
     controller,
-    /profileOnlyTotal:/
-  );
-
-  assert.match(
-    controller,
-    /No login account/
+    /Sign-in not enabled/
   );
 
   assert.match(
@@ -382,7 +386,7 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
   );
 });
 
-test("Employees and Staff Accounts expose profile-only workforce records safely", async () => {
+test("Employees and Staff Accounts keep all employees in one management model", async () => {
   const page =
     await readFile(
       new URL(
@@ -394,22 +398,37 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
 
   assert.match(
     page,
-    /Profile only · no login account/
+    /Sign-in not enabled/
   );
 
   assert.match(
     page,
-    /profile_only/
+    /accessFilter/
   );
 
   assert.match(
     page,
-    /Manage staff profile/
+    /All sign-in states/
+  );
+
+  assert.doesNotMatch(
+    page,
+    /sign_in_disabled/
   );
 
   assert.match(
     page,
-    /user\.accountLinked ===[\s\S]*?false/
+    /Manage employee/
+  );
+
+  assert.match(
+    page,
+    /employeeManagementPath/
+  );
+
+  assert.match(
+    page,
+    /user\.signInEnabled ===[\s\S]*?false/
   );
 
   assert.match(
@@ -418,7 +437,7 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
   );
 });
 
-test("management staff profile editor includes unlinked staff profiles", async () => {
+test("management staff profile editor keeps employees unified while showing sign-in state", async () => {
   const page =
     await readFile(
       new URL(
@@ -435,12 +454,12 @@ test("management staff profile editor includes unlinked staff profiles", async (
 
   assert.match(
     page,
-    /no login account/
+    /sign-in not enabled/
   );
 
   assert.match(
     page,
-    /every current staff profile visible to management/
+    /every employee with a staff profile/
   );
 });
 
@@ -509,5 +528,94 @@ test("employee service assignment uses management catalogue and preserves unpubl
   assert.doesNotMatch(
     page,
     /services\.filter\([\s\S]*service\.active !==[\s\S]*false/
+  );
+});
+
+
+test("Administrator baseline can manage employee-specific permissions but not access roles", () => {
+  const permissions =
+    permissionsForRole(
+      "admin"
+    );
+
+  assert.equal(
+    permissions.includes(
+      "employee:permissions:update"
+    ),
+    true
+  );
+  assert.equal(
+    permissions.includes(
+      "employee:role:update"
+    ),
+    false
+  );
+});
+
+test("employee settings route uses field-sensitive permission guards", async () => {
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/authRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    routes,
+    /requireEmployeeSettingsChanges/
+  );
+  assert.match(
+    routes,
+    /"employee:permissions:update"/
+  );
+  assert.match(
+    routes,
+    /"employee:role:update"/
+  );
+  assert.match(
+    routes,
+    /"employee:update"/
+  );
+
+  const patchStart =
+    routes.indexOf(
+      'router.patch(\n  "/admin/staff/:id"'
+    );
+  const patchEnd =
+    routes.indexOf(
+      ");",
+      patchStart
+    );
+  const patchSource =
+    routes.slice(
+      patchStart,
+      patchEnd
+    );
+
+  assert.match(
+    patchSource,
+    /requireEmployeeSettingsChanges/
+  );
+  assert.doesNotMatch(
+    patchSource,
+    /requirePermissions\(/
+  );
+});
+
+test("Administrator cannot mutate a Super Admin account through employee settings", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    controller,
+    /Only a Super Admin can modify a Super Admin account\./
   );
 });

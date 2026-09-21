@@ -481,10 +481,8 @@ function serialiseAdminUser(
   return {
     id:
       user._id,
-    accountLinked:
+    signInEnabled:
       true,
-    employeeType:
-      "account",
     name:
       user.name,
     email:
@@ -498,7 +496,9 @@ function serialiseAdminUser(
     phone:
       user.phone || "",
     profilePhoto:
-      user.profilePhoto || "",
+      user.profilePhoto ||
+      stylist?.profileImage ||
+      "",
     isActive:
       user.isActive !== false,
     emailVerified:
@@ -609,7 +609,7 @@ function preferCurrentProfile(
     : current;
 }
 
-function serialiseProfileOnlyEmployee(
+function serialiseEmployeeWithoutSignIn(
   stylist
 ) {
   const name =
@@ -629,17 +629,15 @@ function serialiseProfileOnlyEmployee(
       `profile:${stylist._id}`,
     profileId:
       stylist._id,
-    accountLinked:
+    signInEnabled:
       false,
-    employeeType:
-      "profile-only",
     name,
     email:
       stylist.email || "",
     role:
-      "profile_only",
+      "",
     roleLabel:
-      "No login account",
+      "Sign-in not enabled",
     permissions: [],
     rolePermissions: [],
     phone:
@@ -743,7 +741,7 @@ export function buildAdminWorkforceRoster(
       )
     );
 
-  const accountRows =
+  const signInEnabledRows =
     staffUsers.map(
       (user) => {
         const stylist =
@@ -772,7 +770,7 @@ export function buildAdminWorkforceRoster(
       }
     );
 
-  const profileRows =
+  const signInDisabledRows =
     stylistProfiles
       .filter(
         (stylist) =>
@@ -791,15 +789,15 @@ export function buildAdminWorkforceRoster(
           )
       )
       .map(
-        serialiseProfileOnlyEmployee
+        serialiseEmployeeWithoutSignIn
       );
 
   return {
-    accountRows,
-    profileRows,
+    signInEnabledRows,
+    signInDisabledRows,
     roster: [
-      ...accountRows,
-      ...profileRows,
+      ...signInEnabledRows,
+      ...signInDisabledRows,
     ],
   };
 }
@@ -1065,14 +1063,32 @@ export async function listAdminUsers(
     );
 
     /*
-     * A complete salon workforce can contain both login-backed User accounts
-     * and historical/operational Stylist profiles that have not yet been
-     * linked to a SalonAI account. Administrators must see both populations.
+     * A complete salon workforce can contain employees whose operational
+     * staff record exists before SalonAI sign-in has been enabled.
+     * Administrators must see the complete workforce as employees.
      *
-     * Linked User accounts remain canonical for authentication/RBAC.
-     * Unlinked profiles are represented explicitly as profile-only staff and
-     * are never given fabricated credentials or permissions.
+     * User accounts remain canonical for authentication/RBAC. Employees
+     * without sign-in access remain fully manageable operationally, but they
+     * are never given fabricated credentials, roles or application permissions.
      */
+    const accessView =
+      req.query.view ===
+      "access";
+
+    const stylistQuery =
+      Stylist.find().select(
+        accessView
+          ? "userAccount email firstName lastName phone jobTitle profileImage profilePublished acceptsAppointments isActive createdAt updatedAt"
+          : "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+      );
+
+    if (!accessView) {
+      stylistQuery.populate(
+        "services",
+        "name category active published bookable onlineBookable"
+      );
+    }
+
     const [
       staffUsers,
       stylistProfiles,
@@ -1092,20 +1108,12 @@ export async function listAdminUsers(
             email: 1,
           })
           .lean(),
-        Stylist.find()
-          .select(
-            "userAccount email firstName lastName phone jobTitle biography specialties profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
-          )
-          .populate(
-            "services",
-            "name category active published bookable onlineBookable"
-          )
-          .lean(),
+        stylistQuery.lean(),
       ]);
 
     const {
-      accountRows,
-      profileRows,
+      signInEnabledRows,
+      signInDisabledRows,
       roster: completeRoster,
     } =
       buildAdminWorkforceRoster(
@@ -1121,14 +1129,10 @@ export async function listAdminUsers(
       roster =
         roster.filter(
           (employee) =>
-            role ===
-            "profile_only"
-              ? employee.accountLinked ===
-                false
-              : employee.accountLinked !==
-                  false &&
-                employee.role ===
-                  role
+            employee.signInEnabled !==
+              false &&
+            employee.role ===
+              role
         );
     }
 
@@ -1200,10 +1204,10 @@ export async function listAdminUsers(
           limit
         )
       ),
-      accountTotal:
-        accountRows.length,
-      profileOnlyTotal:
-        profileRows.length,
+      signInEnabledTotal:
+        signInEnabledRows.length,
+      signInDisabledTotal:
+        signInDisabledRows.length,
       users,
     });
   } catch (error) {
@@ -1301,6 +1305,62 @@ export async function getEmployeeManagementDetail(
       user:
         serialiseAdminUser(
           user,
+          stylist
+        ),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getEmployeeWithoutSignInManagementDetail(
+  req,
+  res,
+  next
+) {
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      throw httpError(
+        "Staff profile identifier is invalid.",
+        400
+      );
+    }
+
+    const stylist =
+      await Stylist.findById(
+        req.params.id
+      )
+        .select(
+          "userAccount email firstName lastName phone jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+        )
+        .populate(
+          "services",
+          "name category active published bookable"
+        )
+        .lean();
+
+    if (!stylist) {
+      throw httpError(
+        "Staff profile not found.",
+        404
+      );
+    }
+
+    if (stylist.userAccount) {
+      throw httpError(
+        "Sign-in is already enabled for this employee. Open the employee account instead.",
+        409
+      );
+    }
+
+    return res.json({
+      success: true,
+      user:
+        serialiseEmployeeWithoutSignIn(
           stylist
         ),
     });
@@ -2146,6 +2206,18 @@ export async function updateEmployeeManagementSettings(
     assertStaffAccount(
       user
     );
+
+    if (
+      user.role ===
+        "super_admin" &&
+      req.user.role !==
+        "super_admin"
+    ) {
+      throw httpError(
+        "Only a Super Admin can modify a Super Admin account.",
+        403
+      );
+    }
 
     await protectFinalSuperAdmin(
       user,

@@ -35,6 +35,15 @@ const adminStaffService = {
     return data;
   },
 
+  async getEmployeeRecord(recordId) {
+    const { data } =
+      await API.get(
+        `/auth/admin/staff-record/${recordId}`
+      );
+
+    return data;
+  },
+
   async setStatus(
     id,
     isActive

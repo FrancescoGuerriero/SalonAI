@@ -26,15 +26,16 @@ import {
   staffApi,
 } from "../Services/futureFeaturesApi.js";
 import serviceService from "../Services/serviceService.js";
+import stylistService from "../Services/stylistService.js";
 import useAuth from "../hooks/useAuth.js";
+import {
+  employeeDisplayPhoto,
+} from "../utils/employees.js";
 import {
   ASSIGNABLE_EMPLOYEE_PERMISSIONS,
   EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
-import {
-  isAdminRole,
-} from "../utils/roles.js";
 
 const DAYS = [
   "Monday",
@@ -149,6 +150,7 @@ function settingButtonClass(
 export default function AdminEmployeeDetailPage() {
   const {
     id,
+    recordId,
   } = useParams();
   const {
     user: currentUser,
@@ -196,6 +198,8 @@ export default function AdminEmployeeDetailPage() {
     setSuccess,
   ] = useState("");
 
+  const signInDisabled =
+    Boolean(recordId);
   const profile =
     employee?.stylistProfile ||
     null;
@@ -204,7 +208,13 @@ export default function AdminEmployeeDetailPage() {
       currentUser,
       "employee:update"
     );
+  const canUpdateProfiles =
+    hasPermission(
+      currentUser,
+      "profile:all:update"
+    );
   const canDeactivate =
+    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:deactivate"
@@ -220,9 +230,11 @@ export default function AdminEmployeeDetailPage() {
       "employee:services:update"
     );
   const canManageServices =
+    !signInDisabled &&
     canReadServices &&
     canUpdateServices;
   const canUpdateSchedule =
+    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:schedule:update"
@@ -233,8 +245,10 @@ export default function AdminEmployeeDetailPage() {
       "appointment:read"
     );
   const canManagePermissions =
-    isAdminRole(
-      currentUser?.role
+    !signInDisabled &&
+    hasPermission(
+      currentUser,
+      "employee:permissions:update"
     );
 
   const load =
@@ -249,9 +263,14 @@ export default function AdminEmployeeDetailPage() {
             serviceRows,
           ] =
             await Promise.all([
-              adminStaffService.get(
-                id
-              ),
+              signInDisabled
+                ? adminStaffService.getEmployeeRecord(
+                    recordId
+                  )
+                : adminStaffService.get(
+                    id
+                  ),
+              !signInDisabled &&
               canReadServices
                 ? serviceService.getManagementServices()
                 : Promise.resolve([]),
@@ -266,7 +285,10 @@ export default function AdminEmployeeDetailPage() {
             nextEmployee
           );
           setServices(
-            serviceRows
+            signInDisabled
+              ? nextProfile
+                  ?.services || []
+              : serviceRows
           );
           setSelectedServices(
             (nextProfile
@@ -354,6 +376,8 @@ export default function AdminEmployeeDetailPage() {
         canReadAppointments,
         canReadServices,
         id,
+        recordId,
+        signInDisabled,
       ]
     );
 
@@ -370,6 +394,43 @@ export default function AdminEmployeeDetailPage() {
     setSuccess("");
 
     try {
+      if (signInDisabled) {
+        const stylist =
+          await stylistService.updateStylist(
+            profile.id,
+            settings
+          );
+
+        setEmployee(
+          (current) => ({
+            ...current,
+            profilePhoto:
+              stylist.profileImage ||
+              current?.profilePhoto ||
+              "",
+            isActive:
+              stylist.isActive ===
+              true,
+            phone:
+              stylist.phone ||
+              current?.phone ||
+              "",
+            stylistProfile: {
+              ...current
+                ?.stylistProfile,
+              ...stylist,
+              id:
+                stylist._id ||
+                profile.id,
+            },
+          })
+        );
+        setSuccess(
+          `${employee.name} staff profile updated.`
+        );
+        return;
+      }
+
       const response =
         await adminStaffService.updateSettings(
           id,
@@ -405,6 +466,17 @@ export default function AdminEmployeeDetailPage() {
         `Deactivate ${employee.name}? They will no longer be able to sign in or receive bookings.`
       )
     ) {
+      return;
+    }
+
+    if (signInDisabled) {
+      await updateSettings(
+        {
+          isActive:
+            nextActive,
+        },
+        "active"
+      );
       return;
     }
 
@@ -695,9 +767,13 @@ export default function AdminEmployeeDetailPage() {
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-amber-100 font-bold text-black">
-              {employee.profilePhoto ? (
+              {employeeDisplayPhoto(
+                employee
+              ) ? (
                 <img
-                  src={employee.profilePhoto}
+                  src={employeeDisplayPhoto(
+                    employee
+                  )}
                   alt=""
                   className="h-full w-full object-cover"
                 />
@@ -759,7 +835,7 @@ export default function AdminEmployeeDetailPage() {
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <div><dt className="text-xs font-bold uppercase text-slate-500">Job title</dt><dd className="mt-1 text-sm text-black">{profile?.jobTitle || "Hair professional"}</dd></div>
             <div><dt className="text-xs font-bold uppercase text-slate-500">Phone</dt><dd className="mt-1 text-sm text-black">{employee.phone || "Not provided"}</dd></div>
-            <div><dt className="text-xs font-bold uppercase text-slate-500">Profile</dt><dd className="mt-1 text-sm text-black">{profile ? "Linked" : "Not linked"}</dd></div>
+            <div><dt className="text-xs font-bold uppercase text-slate-500">Professional profile</dt><dd className="mt-1 text-sm text-black">{profile ? "Available" : "Not configured"}</dd></div>
             <div><dt className="text-xs font-bold uppercase text-slate-500">Services</dt><dd className="mt-1 text-sm text-black">{profile?.services?.length || 0} assigned</dd></div>
           </dl>
 
@@ -781,13 +857,15 @@ export default function AdminEmployeeDetailPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" disabled={!canDeactivate || Boolean(saving)} className={settingButtonClass(employee.isActive !== false)} onClick={updateActiveStatus}>Active</button>
-            <button type="button" disabled={!canUpdate || Boolean(saving)} className={settingButtonClass(profile?.profilePublished === true)} onClick={() => updateSettings({ profilePublished: !profile?.profilePublished }, "published")}>Published</button>
-            <button type="button" disabled={!canUpdate || Boolean(saving)} className={settingButtonClass(profile?.acceptsAppointments === true)} onClick={() => updateSettings({ acceptsAppointments: profile?.acceptsAppointments !== true }, "bookable")}>Bookable</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canDeactivate) || Boolean(saving)} className={settingButtonClass(employee.isActive !== false)} onClick={updateActiveStatus}>Active</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.profilePublished === true)} onClick={() => updateSettings({ profilePublished: !profile?.profilePublished }, "published")}>Published</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.acceptsAppointments === true)} onClick={() => updateSettings({ acceptsAppointments: profile?.acceptsAppointments !== true }, "bookable")}>Bookable</button>
           </div>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
-            Active controls system access, Published controls public visibility, and Bookable controls appointment selection across every booking channel.
+            {signInDisabled
+              ? "Active controls whether this profile participates in salon operations. Published controls public visibility, and Bookable controls appointment selection across every booking channel."
+              : "Active controls system access, Published controls public visibility, and Bookable controls appointment selection across every booking channel."}
           </p>
         </article>
       </section>
