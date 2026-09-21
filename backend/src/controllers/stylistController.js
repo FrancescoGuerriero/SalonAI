@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import Stylist from "../models/Stylist.js";
 import Service from "../models/service.js";
+import User from "../models/user.js";
 import {
   dayAvailability,
 } from "../features/staff/staffService.js";
@@ -902,6 +903,32 @@ export async function updateStylist(req, res) {
           message:
             "Stylist not found",
         });
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        payload,
+        "profileImage"
+      ) &&
+      stylist.userAccount
+    ) {
+      await User.updateOne(
+        {
+          _id:
+            stylist.userAccount,
+        },
+        {
+          $set: {
+            profilePhoto:
+              stylist.profileImage ||
+              "",
+          },
+        },
+        {
+          runValidators:
+            true,
+        }
+      );
     }
 
     return res.json(
