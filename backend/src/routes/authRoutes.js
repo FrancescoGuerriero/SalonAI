@@ -6,7 +6,6 @@ import {
   loginUser,
   logoutUser,
   refreshSession,
-  createUserByAdmin,
   getCurrentAccount,
   updateCurrentAccount,
 } from "../controllers/authController.js";
@@ -34,7 +33,6 @@ import {
 
 import {
   protect,
-  adminOnly,
 } from "../middleware/authMiddleware.js";
 import {
   hasUserPermission,
@@ -199,11 +197,20 @@ router
     updateCurrentAccount
   );
 
+/*
+ * Legacy compatibility alias.
+ * Staff account creation is governed by the same canonical employee
+ * creation implementation and employee:create permission as /admin/staff.
+ * Customer creation belongs to /api/customers and is intentionally not
+ * supported through this legacy privileged-user endpoint.
+ */
 router.post(
   "/admin/users",
   protect,
-  adminOnly,
-  createUserByAdmin
+  requirePermissions(
+    "employee:create"
+  ),
+  createStaffUserByAdmin
 );
 
 router
