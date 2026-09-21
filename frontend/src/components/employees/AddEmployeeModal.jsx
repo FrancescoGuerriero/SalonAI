@@ -15,6 +15,9 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  createPortal,
+} from "react-dom";
 
 import ProfilePhotoUploader from "../profile/ProfilePhotoUploader.jsx";
 import adminStaffService from "../../Services/adminStaffService.js";
@@ -769,9 +772,9 @@ export default function AddEmployeeModal({
     selectedRole?.system ===
     false;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4"
+      className="fixed inset-0 z-[400] flex items-center justify-center overflow-hidden bg-black/50 p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-employee-title"
@@ -789,12 +792,12 @@ export default function AddEmployeeModal({
     >
       <form
         ref={modalPanelRef}
-        className="max-h-[calc(100dvh-1rem)] w-full max-w-5xl overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+        className="flex max-h-[calc(100dvh-1rem)] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
         onSubmit={
           submit
         }
       >
-        <header className="sticky top-0 z-10 flex items-start justify-between border-b border-stone-200 bg-white p-5">
+        <header className="shrink-0 flex items-start justify-between border-b border-stone-200 bg-white p-4 sm:p-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
               Employee onboarding
@@ -823,7 +826,7 @@ export default function AddEmployeeModal({
           </button>
         </header>
 
-        <div className="space-y-6 p-5">
+        <div className="min-h-0 min-w-0 flex-1 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">
           {error ? (
             <div
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
@@ -1601,7 +1604,7 @@ export default function AddEmployeeModal({
           </section>
         </div>
 
-        <footer className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:justify-end sm:p-5">
+        <footer className="shrink-0 flex flex-col-reverse gap-2 border-t border-stone-200 bg-white p-4 sm:flex-row sm:flex-wrap sm:justify-end sm:p-5">
           <button
             type="button"
             className="rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-stone-50"
@@ -1629,6 +1632,7 @@ export default function AddEmployeeModal({
           </button>
         </footer>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
