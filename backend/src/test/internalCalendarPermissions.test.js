@@ -62,7 +62,11 @@ test("staff appointment creation uses management source and canonical conflict c
   );
   assert.match(
     source,
-    /bookingSource:\s*"management"/
+    /bookingSource =[\s\S]*?"management"/
+  );
+  assert.match(
+    source,
+    /bookingSource:[\s\S]*?normaliseText\([\s\S]*?bookingSource/
   );
   assert.match(
     source,
