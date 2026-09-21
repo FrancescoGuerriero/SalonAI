@@ -393,6 +393,93 @@ describe(
 
 
     it(
+      "keeps non-appointment staff blocks inside the canonical internal calendar",
+      () => {
+        const calendar =
+          source(
+            "src/components/calendar/AppointmentCalendar.jsx"
+          );
+        const dialog =
+          source(
+            "src/components/calendar/ScheduleBlockDialog.jsx"
+          );
+        const api =
+          source(
+            "src/Services/futureFeaturesApi.js"
+          );
+
+        expect(
+          calendar
+        ).toContain(
+          'kind:\n                  "schedule_block"'
+        );
+        expect(
+          calendar
+        ).toContain(
+          "staffApi.listCalendarBlocks"
+        );
+        expect(
+          calendar
+        ).toContain(
+          "const ScheduleBlockDialog =\n  lazy("
+        );
+        expect(
+          calendar
+        ).toContain(
+          '"employee:schedule:update"'
+        );
+        expect(
+          calendar
+        ).toContain(
+          "Add schedule block"
+        );
+
+        expect(
+          dialog
+        ).toContain(
+          "createPortal"
+        );
+        expect(
+          dialog
+        ).toContain(
+          "max-h-[calc(100dvh-1rem)]"
+        );
+        expect(
+          dialog
+        ).toContain(
+          "Reserve staff availability without creating a customer appointment."
+        );
+        expect(
+          dialog
+        ).toContain(
+          "staffApi.createCalendarBlock"
+        );
+        expect(
+          dialog
+        ).toContain(
+          "staffApi.cancelCalendarBlock"
+        );
+        expect(
+          dialog
+        ).not.toContain(
+          "appointmentManagementApi.create"
+        );
+
+        expect(
+          api
+        ).toContain(
+          "/staff/calendar-blocks"
+        );
+        expect(
+          api
+        ).toContain(
+          "/calendar-blocks"
+        );
+      }
+    );
+
+
+    it(
       "enforces route-specific bundle budgets for measured heavy management routes",
       () => {
         const budget =
