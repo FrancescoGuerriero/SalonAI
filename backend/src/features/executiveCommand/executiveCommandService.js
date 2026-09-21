@@ -18,26 +18,55 @@ async function generateExecutiveCommandCentre({ days = 90 } = {}) {
   const startDate = addDays(now, -selectedDays);
   const futureEnd = addDays(now, 30);
 
-  const [appointments, upcoming, campaigns, inventory, feedback] = await Promise.all([
+  const [
+    appointments,
+    upcomingCount,
+    campaigns,
+    inventory,
+    feedback,
+  ] = await Promise.all([
     Appointment.find({
       $or: [
         { startsAt: { $gte: startDate, $lte: now } },
         { appointmentDate: { $gte: startDate, $lte: now } },
       ],
     })
-      .populate("service", "name price")
-      .populate("customer", "name email")
+      .select(
+        "customer service status startsAt appointmentDate appointmentTime finalPrice totalPrice price"
+      )
+      .populate(
+        "service",
+        "name price"
+      )
       .lean(),
-    Appointment.find({
+    Appointment.countDocuments({
       status: { $in: ["pending", "confirmed", "checked_in", "in_progress"] },
       $or: [
         { startsAt: { $gt: now, $lte: futureEnd } },
         { appointmentDate: { $gt: now, $lte: futureEnd } },
       ],
-    }).lean(),
-    RebookingCampaign.find({ createdAt: { $gte: startDate } }).lean(),
-    InventoryItem.find({ active: true }).lean(),
-    CustomerFeedback.find({ createdAt: { $gte: startDate } }).lean(),
+    }),
+    RebookingCampaign.find({
+      createdAt: { $gte: startDate },
+    })
+      .select(
+        "status recipients"
+      )
+      .lean(),
+    InventoryItem.find({
+      active: true,
+    })
+      .select(
+        "quantityOnHand reorderPoint"
+      )
+      .lean(),
+    CustomerFeedback.find({
+      createdAt: { $gte: startDate },
+    })
+      .select(
+        "rating sentiment"
+      )
+      .lean(),
   ]);
 
   let completed = 0;
@@ -104,7 +133,7 @@ async function generateExecutiveCommandCentre({ days = 90 } = {}) {
     summary: {
       appointments: total,
       completedAppointments: completed,
-      upcomingAppointments: upcoming.length,
+      upcomingAppointments: upcomingCount,
       uniqueCustomers: customers.size,
       revenue: roundMoney(revenue),
       averageTicket: completed > 0 ? roundMoney(revenue / completed) : 0,
