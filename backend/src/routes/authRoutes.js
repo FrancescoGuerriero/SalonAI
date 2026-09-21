@@ -34,6 +34,7 @@ import {
   adminOnly,
 } from "../middleware/authMiddleware.js";
 import {
+  hasUserPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
 
@@ -49,6 +50,88 @@ import {
 
 const router =
   express.Router();
+
+function requireEmployeeSettingsChanges(
+  req,
+  res,
+  next
+) {
+  const body =
+    req.body || {};
+  const required =
+    new Set();
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      body,
+      "role"
+    )
+  ) {
+    required.add(
+      "employee:role:update"
+    );
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      body,
+      "permissions"
+    )
+  ) {
+    required.add(
+      "employee:permissions:update"
+    );
+  }
+
+  if (
+    [
+      "profilePublished",
+      "acceptsAppointments",
+    ].some((field) =>
+      Object.prototype.hasOwnProperty.call(
+        body,
+        field
+      )
+    )
+  ) {
+    required.add(
+      "employee:update"
+    );
+  }
+
+  if (required.size === 0) {
+    required.add(
+      "employee:update"
+    );
+  }
+
+  const missing =
+    [...required].filter(
+      (permission) =>
+        !hasUserPermission(
+          req.user,
+          permission
+        )
+    );
+
+  if (missing.length) {
+    return res
+      .status(403)
+      .json({
+        success: false,
+        code:
+          "INSUFFICIENT_PERMISSIONS",
+        message:
+          "You do not have permission to perform this action.",
+        missingPermissions:
+          missing,
+        requestId:
+          req.requestId,
+      });
+  }
+
+  return next();
+}
 
 router.use(
   "/social",
@@ -140,9 +223,7 @@ router
 router.patch(
   "/admin/staff/:id",
   protect,
-  requirePermissions(
-    "employee:update"
-  ),
+  requireEmployeeSettingsChanges,
   updateEmployeeManagementSettings
 );
 
