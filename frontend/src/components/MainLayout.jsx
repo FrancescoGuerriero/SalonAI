@@ -21,9 +21,9 @@ import {
 
 import Footer from "./Footer.jsx";
 import Navbar from "./Navbar.jsx";
-import ManagementNavigation, {
-  MANAGEMENT_LINKS,
-} from "./navigation/ManagementNavigation.jsx";
+import {
+  MANAGEMENT_ROUTE_PATHS,
+} from "./navigation/managementNavigationConfig.js";
 import Seo from "./Seo.jsx";
 
 const SalonChatbot = lazy(
@@ -39,6 +39,13 @@ const SalonAiAdviser = lazy(
       "./ai/SalonAiAdviser.jsx"
     )
 );
+
+const ManagementNavigation = lazy(
+  () =>
+    import(
+      "./navigation/ManagementNavigation.jsx"
+    )
+);
 import useFeatureControls from "../hooks/useFeatureControls.js";
 import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import useAuth from "../hooks/useAuth.js";
@@ -50,11 +57,7 @@ const KEY =
   "salonai-management-sidebar-collapsed";
 
 const ROUTES =
-  MANAGEMENT_LINKS.map(
-    ({
-      to,
-    }) => to
-  );
+  MANAGEMENT_ROUTE_PATHS;
 
 const isManagementRoute =
   (path) =>
@@ -229,11 +232,15 @@ export default function MainLayout() {
             </div>
 
             <div className="management-sidebar-scroll">
-              <ManagementNavigation
-                collapsed={
-                  collapsed
-                }
-              />
+              <Suspense
+                fallback={null}
+              >
+                <ManagementNavigation
+                  collapsed={
+                    collapsed
+                  }
+                />
+              </Suspense>
             </div>
 
             {!collapsed ? (
