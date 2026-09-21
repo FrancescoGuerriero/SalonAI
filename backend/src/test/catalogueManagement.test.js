@@ -143,7 +143,7 @@ test("public products and checkout remain publication-aware", async () => {
 test("management navigation exposes separate Products and Inventory workspaces", async () => {
   const navigation =
     await source(
-      "../../../frontend/src/components/navigation/ManagementNavigation.jsx"
+      "../../../frontend/src/components/navigation/managementNavigationConfig.js"
     );
   const app =
     await source(
