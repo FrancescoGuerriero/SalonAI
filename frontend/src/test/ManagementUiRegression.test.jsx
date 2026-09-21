@@ -177,6 +177,48 @@ describe(
 
 
     it(
+      "defers external calendar connection loading until requested",
+      () => {
+        const page =
+          source(
+            "src/pages/CalendarPage.jsx"
+          );
+
+        expect(
+          page
+        ).toContain(
+          "const StaffCalendarConnections = lazy"
+        );
+        expect(
+          page
+        ).toContain(
+          "Manage external calendars"
+        );
+        expect(
+          page
+        ).toContain(
+          "showConnections ?"
+        );
+        expect(
+          page
+        ).toContain(
+          'aria-controls="external-calendar-connections"'
+        );
+        expect(
+          page
+        ).toContain(
+          "<Suspense"
+        );
+        expect(
+          page
+        ).not.toContain(
+          'import StaffCalendarConnections from'
+        );
+      }
+    );
+
+
+    it(
       "progressively discloses dense management navigation without removing authorised routes",
       () => {
         const navigation =
