@@ -505,6 +505,7 @@ export default function AppointmentCalendar() {
       ) => {
         if (!canRead) {
           setAppointments([]);
+          setScheduleBlocks([]);
           setLoading(false);
           return;
         }
@@ -780,7 +781,7 @@ export default function AppointmentCalendar() {
               Appointment calendar
             </h2>
             <p className="mt-1 text-sm text-stone-600">
-              SalonAI is the source of truth. Select an appointment to view or manage it.
+              SalonAI is the source of truth. Select an appointment or schedule block to view or manage it.
               {canCreate
                 ? " Select an empty time slot to add a booking."
                 : ""}
@@ -861,7 +862,7 @@ export default function AppointmentCalendar() {
             role="status"
             className="mb-4 rounded-xl bg-stone-100 p-3 text-sm font-semibold text-stone-700"
           >
-            Loading appointments…
+            Loading calendar…
           </div>
         ) : null}
 
