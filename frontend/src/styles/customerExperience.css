@@ -360,6 +360,7 @@
 }
 
 .customer-card-kicker {
+  margin: 0 0 .45rem;
   color: #9a6b21;
   font-size: .72rem;
   font-weight: 850;
