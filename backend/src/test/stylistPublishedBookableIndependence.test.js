@@ -132,7 +132,7 @@ test("dual-purpose stylist page chooses endpoint and feature by mode", async () 
 
   assert.match(
     page,
-    /getBookingStylists\(\s*selectedService\s*\._id/
+    /getBookingStylists\(\s*selectedServiceId/
   );
   assert.match(
     page,
