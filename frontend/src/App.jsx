@@ -5,6 +5,7 @@ import {
 
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
 } from "react-router-dom";
@@ -448,20 +449,6 @@ const AdminDashboard = lazy(
     )
 );
 
-const AdminServices = lazy(
-  () =>
-    import(
-      "./pages/AdminServices.jsx"
-    )
-);
-
-const AdminStylists = lazy(
-  () =>
-    import(
-      "./pages/AdminStylists.jsx"
-    )
-);
-
 const AdminStaffAccountsPage = lazy(
   () =>
     import(
@@ -480,20 +467,6 @@ const StaffRoleManagementPage = lazy(
   () =>
     import(
       "./pages/StaffRoleManagementPage.jsx"
-    )
-);
-
-const AdminAppointments = lazy(
-  () =>
-    import(
-      "./pages/AdminAppointments.jsx"
-    )
-);
-
-const AdminCustomers = lazy(
-  () =>
-    import(
-      "./pages/AdminCustomers.jsx"
     )
 );
 
@@ -1103,18 +1076,22 @@ function AppRoutes() {
 
         <Route
           path="admin/services"
-          element={permissionPage(
-            AdminServices,
-            "service:read"
-          )}
+          element={
+            <Navigate
+              replace
+              to="/manage/services"
+            />
+          }
         />
 
         <Route
           path="admin/stylists"
-          element={permissionPage(
-            AdminStylists,
-            "profile:all:read"
-          )}
+          element={
+            <Navigate
+              replace
+              to="/staff/profile"
+            />
+          }
         />
 
         <Route
@@ -1143,10 +1120,12 @@ function AppRoutes() {
 
         <Route
           path="admin/staff-accounts"
-          element={permissionPage(
-            AdminStaffAccountsPage,
-            "employee:read"
-          )}
+          element={
+            <Navigate
+              replace
+              to="/admin/employees"
+            />
+          }
         />
 
         <Route
@@ -1159,18 +1138,22 @@ function AppRoutes() {
 
         <Route
           path="admin/appointments"
-          element={permissionPage(
-            AdminAppointments,
-            "appointment:read"
-          )}
+          element={
+            <Navigate
+              replace
+              to="/appointments"
+            />
+          }
         />
 
         <Route
           path="admin/customers"
-          element={permissionPage(
-            AdminCustomers,
-            "customer:read"
-          )}
+          element={
+            <Navigate
+              replace
+              to="/customers"
+            />
+          }
         />
 
         <Route

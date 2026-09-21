@@ -28,7 +28,7 @@ const cards = [
     description:
       "Manage salon services, pricing and availability.",
     link:
-      "/admin/services",
+      "/manage/services",
     icon:
       Wrench,
   },
@@ -64,7 +64,7 @@ const cards = [
     description:
       "Manage salon appointments and booking activity.",
     link:
-      "/admin/appointments",
+      "/appointments",
     icon:
       CalendarDays,
   },
@@ -73,7 +73,7 @@ const cards = [
     description:
       "Manage customer records and account information.",
     link:
-      "/admin/customers",
+      "/customers",
     icon:
       UsersRound,
   },
@@ -82,7 +82,7 @@ const cards = [
     description:
       "Review how staff profiles, photos and public professional details appear across SalonAI.",
     link:
-      "/admin/stylists",
+      "/staff/profile",
     icon:
       Scissors,
   },
