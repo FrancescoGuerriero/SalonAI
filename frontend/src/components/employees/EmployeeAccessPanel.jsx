@@ -231,8 +231,6 @@ export default function EmployeeAccessPanel({
           ]
         : []
     );
-    setError("");
-    setSuccess("");
   }, [selectedEmployee]);
 
   const inheritedPermissions =
@@ -491,11 +489,13 @@ export default function EmployeeAccessPanel({
               }
               onChange={(
                 event
-              ) =>
+              ) => {
+                setError("");
+                setSuccess("");
                 setSelectedId(
                   event.target
                     .value
-                )
+                );
               }
               className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
             >
