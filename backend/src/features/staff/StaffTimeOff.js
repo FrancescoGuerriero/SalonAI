@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+export const STAFF_SCHEDULE_BLOCK_TYPES =
+  Object.freeze([
+    "time_off",
+    "meeting",
+    "training",
+    "personal",
+    "other",
+  ]);
+
 const staffTimeOffSchema = new mongoose.Schema(
   {
     staff: {
@@ -17,6 +26,18 @@ const staffTimeOffSchema = new mongoose.Schema(
       type: Date,
       required: true,
       index: true,
+    },
+    blockType: {
+      type: String,
+      enum:
+        STAFF_SCHEDULE_BLOCK_TYPES,
+      default: "time_off",
+      index: true,
+    },
+    title: {
+      type: String,
+      maxlength: 120,
+      default: "",
     },
     reason: {
       type: String,
@@ -38,6 +59,13 @@ const staffTimeOffSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+staffTimeOffSchema.index({
+  staff: 1,
+  status: 1,
+  startsAt: 1,
+  endsAt: 1,
+});
 
 const StaffTimeOff =
   mongoose.models.StaffTimeOff ||
