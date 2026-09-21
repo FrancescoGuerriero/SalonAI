@@ -797,31 +797,35 @@ test.describe("SalonAI layout regressions", () => {
     await expect(dialog).toBeVisible();
     await expect(close).toBeFocused();
 
-    const dialogBox =
-      await dialog.boundingBox();
+    const panel =
+      dialog.locator(
+        "form"
+      );
+    const panelBox =
+      await panel.boundingBox();
     const viewport =
       page.viewportSize();
 
-    expect(dialogBox).not.toBeNull();
+    expect(panelBox).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(dialogBox.x).toBeGreaterThanOrEqual(0);
-    expect(dialogBox.y).toBeGreaterThanOrEqual(0);
+    expect(panelBox.x).toBeGreaterThanOrEqual(0);
+    expect(panelBox.y).toBeGreaterThanOrEqual(0);
     expect(
-      dialogBox.x +
-        dialogBox.width
+      panelBox.x +
+        panelBox.width
     ).toBeLessThanOrEqual(
       viewport.width
     );
     expect(
-      dialogBox.y +
-        dialogBox.height
+      panelBox.y +
+        panelBox.height
     ).toBeLessThanOrEqual(
       viewport.height
     );
 
     const scrollBody =
-      dialog.locator(
-        "form > div"
+      panel.locator(
+        ":scope > div"
       ).first();
 
     const scrollMetrics =
