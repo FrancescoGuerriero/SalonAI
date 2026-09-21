@@ -582,6 +582,7 @@ async function findConflict({
   start,
   end,
   excludeAppointmentId = null,
+  session = null,
 }) {
   assertValidObjectId(
     stylist,
@@ -657,8 +658,8 @@ async function findConflict({
     };
   }
 
-  const candidates =
-    await Appointment.find(match)
+  let candidateQuery =
+    Appointment.find(match)
       .select(
         "customer stylist service appointmentDate appointmentTime startsAt endsAt duration status"
       )
@@ -669,8 +670,17 @@ async function findConflict({
       .populate(
         "service",
         "name duration"
-      )
-      .lean();
+      );
+
+  if (session) {
+    candidateQuery =
+      candidateQuery.session(
+        session
+      );
+  }
+
+  const candidates =
+    await candidateQuery.lean();
 
   return (
     candidates.find((appointment) => {
@@ -707,22 +717,33 @@ function serviceIsGloballyBookable(
 }
 
 async function appointmentEligibleService(
-  serviceId
+  serviceId,
+  {
+    session = null,
+  } = {}
 ) {
   assertValidObjectId(
     serviceId,
     "service"
   );
 
+  let serviceQuery =
+    Service.findById(
+      serviceId
+    ).select(
+      "+onlineBookable"
+    );
+
+  if (session) {
+    serviceQuery =
+      serviceQuery.session(
+        session
+      );
+  }
+
   const service =
     assertFound(
-      await Service.findById(
-        serviceId
-      )
-        .select(
-          "+onlineBookable"
-        )
-        .lean(),
+      await serviceQuery.lean(),
       "Service not found."
     );
 
@@ -815,7 +836,10 @@ async function checkAppointmentConflict(
 }
 
 async function appointmentEligibleStylist(
-  stylistId
+  stylistId,
+  {
+    session = null,
+  } = {}
 ) {
   assertValidObjectId(
     stylistId,
@@ -829,12 +853,22 @@ async function appointmentEligibleStylist(
    * global bookability rule and provides a local trust boundary for every
    * caller of this helper.
    */
-  const stylist =
-    await Stylist.findById(
+  let stylistQuery =
+    Stylist.findById(
       stylistId
     ).where(
       appointmentEligibleStylistFilter()
     );
+
+  if (session) {
+    stylistQuery =
+      stylistQuery.session(
+        session
+      );
+  }
+
+  const stylist =
+    await stylistQuery;
 
   if (!stylist) {
     throw createServiceError(
@@ -933,6 +967,11 @@ async function createManagedAppointment(
   payload = {},
   {
     actor = null,
+    session = null,
+    bookingSource =
+      "management",
+    returnPopulated =
+      true,
   } = {}
 ) {
   const customerId =
@@ -951,16 +990,29 @@ async function createManagedAppointment(
       "service"
     );
 
+  let customerQuery =
+    Customer.findById(
+      customerId
+    );
+
+  if (session) {
+    customerQuery =
+      customerQuery.session(
+        session
+      );
+  }
+
   const [
     customer,
     service,
   ] =
     await Promise.all([
-      Customer.findById(
-        customerId
-      ),
+      customerQuery,
       appointmentEligibleService(
-        serviceId
+        serviceId,
+        {
+          session,
+        }
       ),
     ]);
 
@@ -968,8 +1020,12 @@ async function createManagedAppointment(
     customer,
     "Customer not found."
   );
+
   await appointmentEligibleStylist(
-    stylistId
+    stylistId,
+    {
+      session,
+    }
   );
 
   const window =
@@ -989,6 +1045,7 @@ async function createManagedAppointment(
       stylist: stylistId,
       start: window.start,
       end: window.end,
+      session,
     });
 
   if (conflict) {
@@ -1010,59 +1067,87 @@ async function createManagedAppointment(
         )
       : "pending";
 
-  const appointment =
-    await Appointment.create({
-      customer: customerId,
-      stylist: stylistId,
-      service: serviceId,
-      appointmentDate:
-        salonDateAnchor(
-          window.start
-        ),
-      appointmentTime:
-        formatTime(
-          window.start
-        ),
-      startsAt: window.start,
-      endsAt: window.end,
-      duration: window.duration,
-      totalPrice:
-        Math.max(
-          0,
-          Number(
-            payload.totalPrice ??
-              service.price ??
-              0
-          ) || 0
-        ),
-      discount:
-        Math.max(
-          0,
-          Number(
-            payload.discount
-          ) || 0
-        ),
-      tax:
-        Math.max(
-          0,
-          Number(
-            payload.tax
-          ) || 0
-        ),
-      status,
-      notes:
-        normaliseText(
-          payload.notes
-        ),
-      internalNotes:
-        normaliseText(
-          payload.internalNotes
-        ),
-      bookingSource:
-        "management",
-      createdBy: actorId,
-      updatedBy: actorId,
-    });
+  const appointmentPayload = {
+    customer: customerId,
+    stylist: stylistId,
+    service: serviceId,
+    appointmentDate:
+      salonDateAnchor(
+        window.start
+      ),
+    appointmentTime:
+      formatTime(
+        window.start
+      ),
+    startsAt:
+      window.start,
+    endsAt:
+      window.end,
+    duration:
+      window.duration,
+    totalPrice:
+      Math.max(
+        0,
+        Number(
+          payload.totalPrice ??
+            service.price ??
+            0
+        ) || 0
+      ),
+    discount:
+      Math.max(
+        0,
+        Number(
+          payload.discount
+        ) || 0
+      ),
+    tax:
+      Math.max(
+        0,
+        Number(
+          payload.tax
+        ) || 0
+      ),
+    status,
+    notes:
+      normaliseText(
+        payload.notes
+      ),
+    internalNotes:
+      normaliseText(
+        payload.internalNotes
+      ),
+    bookingSource:
+      normaliseText(
+        bookingSource
+      ) ||
+      "management",
+    createdBy:
+      actorId,
+    updatedBy:
+      actorId,
+  };
+
+  let appointment;
+
+  if (session) {
+    [
+      appointment,
+    ] =
+      await Appointment.create(
+        [
+          appointmentPayload,
+        ],
+        {
+          session,
+        }
+      );
+  } else {
+    appointment =
+      await Appointment.create(
+        appointmentPayload
+      );
+  }
 
   if (
     !customer.nextAppointment ||
@@ -1075,7 +1160,21 @@ async function createManagedAppointment(
       window.start;
     customer.updatedBy =
       actorId;
-    await customer.save();
+
+    await customer.save(
+      session
+        ? {
+            session,
+          }
+        : undefined
+    );
+  }
+
+  if (
+    returnPopulated ===
+    false
+  ) {
+    return appointment;
   }
 
   return getManagedAppointment(
