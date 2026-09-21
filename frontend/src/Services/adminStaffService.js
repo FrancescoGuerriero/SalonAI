@@ -35,6 +35,15 @@ const adminStaffService = {
     return data;
   },
 
+  async getProfile(profileId) {
+    const { data } =
+      await API.get(
+        `/auth/admin/staff-profile/${profileId}`
+      );
+
+    return data;
+  },
+
   async setStatus(
     id,
     isActive
