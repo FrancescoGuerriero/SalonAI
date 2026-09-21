@@ -1123,6 +1123,8 @@ textarea {
 .management-link-copy strong,.management-link-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .management-link-copy strong { font-size: .75rem; }
 .management-link-copy small { margin-top: 3px; color: #8a806f; font-size: .62rem; }
+.management-section-more { width: 100%; margin-top: .35rem; padding: .45rem .55rem; border: 1px dashed #dfd3bd; border-radius: 8px; background: #fcfaf5; color: #6f6557; font-size: .66rem; font-weight: 800; text-align: left; }
+.management-section-more:hover:not(:disabled) { border-color: #c89b45; background: #f8f1e2; color: #4a4034; transform: none; }
 .is-collapsed .management-sidebar-head { justify-content: center; padding-inline: .5rem; }
 .is-collapsed .management-sidebar-scroll { padding-inline: .55rem; }
 .is-collapsed .management-link { justify-content: center; padding: .45rem; }
