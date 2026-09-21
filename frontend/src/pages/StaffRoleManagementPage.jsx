@@ -16,6 +16,7 @@ import {
   Link,
 } from "react-router-dom";
 
+import EmployeeAccessPanel from "../components/employees/EmployeeAccessPanel.jsx";
 import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
@@ -506,6 +507,12 @@ export default function StaffRoleManagementPage() {
           />
           {success}
         </div>
+      ) : null}
+
+      {canReadEmployees ? (
+        <EmployeeAccessPanel
+          roles={roles}
+        />
       ) : null}
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
