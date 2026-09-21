@@ -105,7 +105,13 @@ async function generateMarketingAttribution({ months = 12 } = {}) {
         { appointmentDate: { $gte: startDate, $lt: endDate } },
       ],
     })
-      .populate("customer", "name email")
+      .select(
+        "customer service status startsAt appointmentDate appointmentTime finalPrice totalPrice price bookingSource utmSource marketingSource acquisitionSource source"
+      )
+      .populate(
+        "service",
+        "price"
+      )
       .lean(),
     RebookingCampaign.find({
       createdAt: { $gte: startDate, $lt: endDate },
