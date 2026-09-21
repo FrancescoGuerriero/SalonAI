@@ -15,6 +15,8 @@ import {
   MANAGEMENT_SECTIONS,
 } from "./managementNavigationConfig.js";
 
+const MANAGEMENT_SECTION_PREVIEW = 5;
+
 const MANAGEMENT_ICONS =
   Object.freeze({
     Award,
@@ -52,6 +54,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
   const { isFeatureEnabled } = useFeatureControls();
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState(new Set());
+  const [expanded, setExpanded] = useState(new Set());
   const sections = useMemo(() => {
     const term = query.trim().toLowerCase();
     const canReadAllProfiles =
@@ -119,7 +122,23 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
   ]);
 
   function toggle(id) {
-    setClosed((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setClosed((current) => {
+      const next = new Set(current);
+      next.has(id)
+        ? next.delete(id)
+        : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleExpanded(id) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      next.has(id)
+        ? next.delete(id)
+        : next.add(id);
+      return next;
+    });
   }
 
   return (
@@ -128,11 +147,30 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
       <div className="management-sections">
         {sections.map((section) => {
           const isClosed = !query && closed.has(section.id);
+          const showAll =
+            Boolean(query) ||
+            collapsed ||
+            expanded.has(section.id);
+          const visibleLinks =
+            showAll
+              ? section.links
+              : section.links.slice(
+                  0,
+                  MANAGEMENT_SECTION_PREVIEW
+                );
+          const hiddenCount =
+            Math.max(
+              0,
+              section.links.length -
+                visibleLinks.length
+            );
+
           return <section key={section.id} className="management-section">
             {!collapsed && <button type="button" className="management-section-toggle" onClick={() => toggle(section.id)} aria-expanded={!isClosed}><span>{section.label}</span><ChevronDown size={15} className={isClosed ? "is-closed" : ""} /></button>}
             {!isClosed && (
+              <>
               <div className="management-link-list">
-                {section.links.map(
+                {visibleLinks.map(
                   ({
                     to,
                     label,
@@ -192,6 +230,28 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
                   )
                 )}
               </div>
+              {!query &&
+                !collapsed &&
+                section.links.length >
+                  MANAGEMENT_SECTION_PREVIEW && (
+                  <button
+                    type="button"
+                    className="management-section-more"
+                    onClick={() =>
+                      toggleExpanded(
+                        section.id
+                      )
+                    }
+                    aria-expanded={
+                      showAll
+                    }
+                  >
+                    {showAll
+                      ? "Show fewer tools"
+                      : `Show ${hiddenCount} more tools`}
+                  </button>
+                )}
+              </>
             )}
           </section>;
         })}
