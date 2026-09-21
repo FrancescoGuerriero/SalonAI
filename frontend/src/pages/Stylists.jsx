@@ -79,6 +79,11 @@ export default function Stylists() {
     booking?.service ||
     null;
 
+  const selectedServiceId =
+    selectedService?._id ||
+    selectedService?.id ||
+    "";
+
   const {
     isFeatureEnabled,
   } =
@@ -126,8 +131,7 @@ export default function Stylists() {
         selectedService
           ? await stylistService
               .getBookingStylists(
-                selectedService
-                  ._id,
+                selectedServiceId,
                 requestConfig
               )
           : await stylistService
@@ -191,7 +195,7 @@ export default function Stylists() {
     };
   }, [
     activeModeEnabled,
-    selectedService?._id,
+    selectedServiceId,
   ]);
 
   const filteredStylists =
