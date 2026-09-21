@@ -117,16 +117,29 @@ jobs:
           set +e
           ssh "${ssh_options[@]}" "$target" \
             'set -o pipefail
-             docker exec salonai-backend npm run sendgrid:readiness' \
+             docker exec salonai-backend node scripts/checkSendGridReadiness.js' \
             | tee -a "$evidence"
           readiness_status=${PIPESTATUS[0]}
           set -e
 
           echo "READINESS_EXIT_CODE=$readiness_status" | tee -a "$evidence"
 
+          if ! grep -Eq '"readyForAcceptance"[[:space:]]*:' "$evidence"; then
+            echo "[ERROR] SendGrid readiness script did not produce a readiness report." | tee -a "$evidence"
+            exit 1
+          fi
+
           if grep -Eq '"readyForAcceptance"[[:space:]]*:[[:space:]]*true' "$evidence"; then
+            if [[ "$readiness_status" -ne 0 ]]; then
+              echo "[ERROR] Readiness report says ready but the script exited non-zero." | tee -a "$evidence"
+              exit 1
+            fi
             echo "[READY] SendGrid production configuration is ready for a controlled transactional acceptance send." | tee -a "$evidence"
           else
+            if [[ "$readiness_status" -eq 0 ]]; then
+              echo "[ERROR] Readiness report says blocked but the script exited zero." | tee -a "$evidence"
+              exit 1
+            fi
             echo "[BLOCKED] SendGrid production configuration still has readiness blockers. No email was sent." | tee -a "$evidence"
           fi
 
