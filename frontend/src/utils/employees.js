@@ -93,8 +93,8 @@ export function employeeManagementPath(
       employee?.profileId;
 
     return profileId
-      ? `/admin/employees/profile/${profileId}`
-      : "/admin/stylists";
+      ? `/admin/employees/record/${profileId}`
+      : "/admin/employees";
   }
 
   return employee?.id
