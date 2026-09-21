@@ -35,10 +35,10 @@ const adminStaffService = {
     return data;
   },
 
-  async getProfile(profileId) {
+  async getEmployeeRecord(recordId) {
     const { data } =
       await API.get(
-        `/auth/admin/staff-profile/${profileId}`
+        `/auth/admin/staff-record/${recordId}`
       );
 
     return data;
