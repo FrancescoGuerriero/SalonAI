@@ -74,7 +74,7 @@ describe(
         expect(
           page
         ).toContain(
-          "flex-1 gap-4 overflow-y-auto"
+          "overflow-x-hidden overflow-y-auto"
         );
         expect(
           page
