@@ -836,8 +836,18 @@ function AppRoutes() {
         />
 
         <Route
-          path="staff-management"
+          path="team-availability"
           element={permissionPage(StaffManagementPage, "employee:read")}
+        />
+
+        <Route
+          path="staff-management"
+          element={
+            <Navigate
+              replace
+              to="/team-availability"
+            />
+          }
         />
 
         <Route
