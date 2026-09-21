@@ -306,7 +306,7 @@ export default function AdminStaffAccountsPage() {
     field,
     value
   ) {
-    const profileOnly =
+    const signInDisabled =
       user.signInEnabled ===
       false;
 
@@ -315,8 +315,8 @@ export default function AdminStaffAccountsPage() {
         "isActive" &&
       value === false &&
       !window.confirm(
-        profileOnly
-          ? `Deactivate ${user.name}'s staff profile? They will no longer be available for salon operations or bookings.`
+        signInDisabled
+          ? `Deactivate ${user.name}? They will no longer be available for salon operations or bookings.`
           : `Deactivate ${user.name}? They will no longer be able to sign in or receive bookings.`
       )
     ) {
@@ -334,7 +334,7 @@ export default function AdminStaffAccountsPage() {
     setSuccess("");
 
     try {
-      if (profileOnly) {
+      if (signInDisabled) {
         const profileId =
           user
             ?.stylistProfile
@@ -342,7 +342,7 @@ export default function AdminStaffAccountsPage() {
 
         if (!profileId) {
           throw new Error(
-            "This workforce record does not have a staff profile."
+            "This employee record does not have a staff profile."
           );
         }
 
@@ -356,7 +356,7 @@ export default function AdminStaffAccountsPage() {
           )
         ) {
           throw new Error(
-            "Create or link a login account before changing account roles or permissions."
+            "Enable sign-in access before changing application roles or permissions."
           );
         }
 
@@ -772,15 +772,15 @@ export default function AdminStaffAccountsPage() {
                       checked={user.isActive !== false}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canDeactivate)
                       }
                       label={
-                        user.accountLinked ===
+                        user.signInEnabled ===
                         false
-                          ? "Profile active"
+                          ? "Active"
                           : "Active"
                       }
                       onChange={(value) =>
@@ -796,7 +796,7 @@ export default function AdminStaffAccountsPage() {
                       checked={user.stylistProfile?.profilePublished === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canUpdate)
@@ -815,7 +815,7 @@ export default function AdminStaffAccountsPage() {
                       checked={user.stylistProfile?.acceptsAppointments === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.accountLinked ===
+                        (user.signInEnabled ===
                         false
                           ? !canUpdateProfiles
                           : !canUpdate)
