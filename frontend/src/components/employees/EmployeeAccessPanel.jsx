@@ -245,9 +245,9 @@ export default function EmployeeAccessPanel({
       });
     }, [selectedEmployee]);
 
-  const isProfileOnly =
+  const signInDisabled =
     selectedEmployee
-      ?.accountLinked ===
+      ?.signInEnabled ===
     false;
   const isProtectedSuperAdmin =
     selectedEmployee?.role ===
@@ -257,12 +257,12 @@ export default function EmployeeAccessPanel({
 
   const mayChangePermissions =
     canManagePermissions &&
-    !isProfileOnly &&
+    !signInDisabled &&
     !isProtectedSuperAdmin;
 
   const mayChangeRole =
     canManageRoles &&
-    !isProfileOnly &&
+    !signInDisabled &&
     selectedEmployee?.role !==
       "super_admin";
 
@@ -282,7 +282,7 @@ export default function EmployeeAccessPanel({
   const hasChanges =
     Boolean(
       selectedEmployee &&
-      !isProfileOnly &&
+      !signInDisabled &&
       (
         (
           mayChangeRole &&
@@ -330,7 +330,7 @@ export default function EmployeeAccessPanel({
   async function saveEmployeeAccess() {
     if (
       !selectedEmployee ||
-      isProfileOnly
+      signInDisabled
     ) {
       return;
     }
@@ -511,9 +511,9 @@ export default function EmployeeAccessPanel({
                   >
                     {employee.name}
                     {" · "}
-                    {employee.accountLinked ===
+                    {employee.signInEnabled ===
                     false
-                      ? "no login account"
+                      ? "sign-in not enabled"
                       : roleLabel(
                           roles,
                           employee.role
@@ -537,7 +537,7 @@ export default function EmployeeAccessPanel({
                 </h3>
                 <p className="mt-1 break-all text-sm text-stone-600">
                   {selectedEmployee.email ||
-                    "No login account"}
+                    "No email address"}
                 </p>
 
                 <div className="mt-4">
@@ -545,8 +545,8 @@ export default function EmployeeAccessPanel({
                     Current role
                   </span>
                   <p className="mt-1 text-sm font-bold text-black">
-                    {isProfileOnly
-                      ? "No login account"
+                    {signInDisabled
+                      ? "Not assigned — sign-in not enabled"
                       : roleLabel(
                           roles,
                           selectedEmployee.role
@@ -565,13 +565,13 @@ export default function EmployeeAccessPanel({
               </aside>
 
               <div className="min-w-0">
-                {isProfileOnly ? (
+                {signInDisabled ? (
                   <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
                     <h3 className="font-bold text-black">
-                      No login account
+                      Sign-in not enabled
                     </h3>
                     <p className="mt-1 text-sm leading-6 text-stone-700">
-                      This staff member has a professional staff profile but no SalonAI login account. Profile, publication and booking settings can still be managed from the employee workspace, but access roles and application permissions cannot be assigned until an account is explicitly created and linked.
+                      This person is managed as an employee. Application roles and permissions become available only after sign-in access is enabled. Profile details, publication and booking settings remain available from the employee workspace.
                     </p>
                   </div>
                 ) : (
