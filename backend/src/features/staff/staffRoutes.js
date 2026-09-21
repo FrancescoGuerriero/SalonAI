@@ -17,6 +17,12 @@ const updateEmployeeSchedule =
     "employee:schedule:update"
   );
 
+const readCalendar =
+  requirePermissions(
+    "appointment:read"
+  );
+
+
 const readOwnSchedule =
   requirePermissions(
     "schedule:own:read"
@@ -91,6 +97,22 @@ router.patch(
 );
 
 router.get(
+  "/calendar-blocks",
+  readCalendar,
+  asyncHandler(
+    controller.listCalendarBlocks
+  )
+);
+
+router.patch(
+  "/calendar-blocks/:id/cancel",
+  updateEmployeeSchedule,
+  asyncHandler(
+    controller.cancelCalendarBlock
+  )
+);
+
+router.get(
   "/:staffId/availability",
   readEmployees,
   asyncHandler(
@@ -119,6 +141,14 @@ router.post(
   updateEmployeeSchedule,
   asyncHandler(
     controller.requestTimeOff
+  )
+);
+
+router.post(
+  "/:staffId/calendar-blocks",
+  updateEmployeeSchedule,
+  asyncHandler(
+    controller.createCalendarBlock
   )
 );
 
