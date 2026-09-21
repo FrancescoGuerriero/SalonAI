@@ -16,6 +16,7 @@ test("management navigation requires delegated permissions for core workspaces",
     ["/dashboard", "dashboard:view"],
     ["/appointments", "appointment:read"],
     ["/staff/self-service", "schedule:own:read"],
+    ["/team-availability", "employee:read"],
     ["/customers", "customer:read"],
     ["/manage/services", "service:read"],
     ["/manage/products", "product:read"],
@@ -566,6 +567,81 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
   );
 });
 
+
+test("team availability is canonical while legacy staff-management URL redirects", async () => {
+  const app =
+    await readFile(
+      new URL(
+        "../../../frontend/src/App.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const page =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/StaffManagementPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    navigation,
+    /\["\/team-availability",\s*"Team availability",\s*"Working hours and time off"/
+  );
+  assert.doesNotMatch(
+    navigation,
+    /\["\/staff-management"/
+  );
+
+  const teamRoute =
+    [...app.matchAll(/<Route\b[\s\S]*?\/>/g)]
+      .map((match) => match[0])
+      .find((block) =>
+        block.includes('path="team-availability"')
+      ) || "";
+
+  assert.match(
+    teamRoute,
+    /permissionPage\(StaffManagementPage,\s*"employee:read"\)/
+  );
+
+  const legacyRoute =
+    [...app.matchAll(/<Route\b[\s\S]*?\/>/g)]
+      .map((match) => match[0])
+      .find((block) =>
+        block.includes('path="staff-management"')
+      ) || "";
+
+  assert.match(
+    legacyRoute,
+    /<Navigate/
+  );
+  assert.match(
+    legacyRoute,
+    /to="\/team-availability"/
+  );
+
+  assert.match(
+    page,
+    />Team availability</
+  );
+  assert.doesNotMatch(
+    page,
+    />Staff management</
+  );
+});
 
 test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
   const navigation =
