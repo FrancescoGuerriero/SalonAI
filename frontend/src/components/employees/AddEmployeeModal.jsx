@@ -33,45 +33,10 @@ import {
   isAdminRole,
   isSuperAdminRole,
 } from "../../utils/roles.js";
-
-const DEFAULT_STAFF_ROLES = [
-  {
-    key: "stylist",
-    name: "Stylist",
-    system: true,
-    active: true,
-    assignable: true,
-    superAdminOnly: false,
-    permissions: [],
-  },
-  {
-    key: "receptionist",
-    name: "Receptionist",
-    system: true,
-    active: true,
-    assignable: true,
-    superAdminOnly: false,
-    permissions: [],
-  },
-  {
-    key: "manager",
-    name: "Manager",
-    system: true,
-    active: true,
-    assignable: true,
-    superAdminOnly: true,
-    permissions: [],
-  },
-  {
-    key: "admin",
-    name: "Administrator",
-    system: true,
-    active: true,
-    assignable: true,
-    superAdminOnly: true,
-    permissions: [],
-  },
-];
+import {
+  DEFAULT_ASSIGNABLE_STAFF_ROLES,
+  assignableRolesForUser,
+} from "../../utils/staffRoles.js";
 
 const DEFAULT_JOB_TITLES = {
   stylist: "Hair professional",
@@ -242,7 +207,7 @@ export default function AddEmployeeModal({
     roles,
     setRoles,
   ] = useState(
-    DEFAULT_STAFF_ROLES
+    DEFAULT_ASSIGNABLE_STAFF_ROLES
   );
 
   const [
@@ -289,13 +254,13 @@ export default function AddEmployeeModal({
           Array.isArray(rows) &&
           rows.length
             ? rows
-            : DEFAULT_STAFF_ROLES
+            : DEFAULT_ASSIGNABLE_STAFF_ROLES
         );
       })
       .catch(() => {
         if (active) {
           setRoles(
-            DEFAULT_STAFF_ROLES
+            DEFAULT_ASSIGNABLE_STAFF_ROLES
           );
         }
       });
@@ -749,16 +714,12 @@ export default function AddEmployeeModal({
   }
 
   const visibleRoles =
-    roles.filter(
-      (role) =>
-        role.assignable !==
-          false &&
-        role.active !==
-          false &&
-        (
-          !role.superAdminOnly ||
-          canManageRoles
-        )
+    assignableRolesForUser(
+      roles,
+      {
+        isSuperAdmin:
+          canManageRoles,
+      }
     );
 
   const selectedRole =
