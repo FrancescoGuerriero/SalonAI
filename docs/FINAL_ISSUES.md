@@ -1,51 +1,53 @@
 # SalonAI Final Issues Register
 
-_Last reviewed: 20 September 2026_
+_Last reviewed: 21 September 2026_
 
 This file is the canonical forward-looking issue register for SalonAI. It replaces the long-running GitHub issue threads #117, #118 and #133 as the active source of truth. Those issues remain historical evidence only after closure.
 
 ## Current baselines
 
-- Production release: `v8.15.4`
-- Production commit: `37c1e657a8eeada3f62b13f14cd01b86828e32ad`
-- Dependency-maintenance baseline before this register: `f520ca55b978ebda8e36735a233977e7d6589e2e`
-- The repository baseline is ahead of production by the maintenance work merged in PR #209; deploy that maintenance only through a later immutable release.
+- Production release: `v8.15.5`
+- Production commit: `a8123c0bbf84e33941a70b479b16d2be60fb31ae`
+- Production deployment run: `35530130097` (successful, including smoke test and deployment evidence).
+- Production P0 read-only verification run: `35583727762`; evidence artifact: `salonai-production-p0-verification-35583727762`.
+- Repository `main` contains the governed P0 verification workflow merged in PR #211 and is therefore ahead of the deployed application image until the next immutable release.
 - At the completion of the PR closeout audit, no pre-existing pull requests remained open.
 - Developer 3 has no open PR. The latest workforce/profile/media recovery work was merged in PR #208 and released in `v8.15.4`.
 
 ## P0 — Production data-state and acceptance verification
 
-### 1. Governed Super Admin account verification
+### 1. Governed Super Admin account verification — COMPLETE
 
-The application-side controls for governed multi-account Super Admin promotion are merged, but the production MongoDB result must not be assumed from CI.
+Production verification run `35583727762` executed the promotion tool in dry-run mode through the protected production SSH trust path.
 
-Required completion evidence:
+Evidence:
 
-- run the production promotion tool in dry-run mode against the two requested administrator accounts;
-- review the exact matched accounts before applying;
-- apply only with the explicit production confirmation required by the script;
-- run verification after apply;
-- confirm both intended accounts have the expected Super Admin authority;
-- confirm no unintended account was promoted.
+- exactly two requested accounts were resolved: `Francesco` and `Francesco Guerriero`;
+- both accounts are active;
+- both already have role `super_admin`;
+- both reported `changeRequired: false`;
+- `selectedAccounts: 2`;
+- no database write was requested or required.
 
-Do not mark this item complete from source code, CI, or deployment success alone.
+Because production was already in the intended state, applying the promotion would have been an unnecessary write.
 
-### 2. Service state migration and production verification
+### 2. Service state migration and production verification — DATA STATE COMPLETE / ENFORCEMENT FIX IN PROGRESS
 
-SalonAI now treats service `active`, `published` and `bookable` as separate concepts. Legacy compatibility exists, but the governed production data migration still requires explicit operational verification if it has not already been applied.
+Production verification run `35583727762` executed the service-state migration in dry-run mode and returned `candidates: 0`. Production therefore has no remaining legacy service-state records requiring migration, so no migration write is needed.
 
-Required completion evidence:
+During the final cross-channel acceptance review on 21 September 2026, Developer 1 identified a separate enforcement defect: customer booking uses canonical `service.bookable`, but staff-managed booking did not yet reject `bookable=false`, and the WhatsApp bot still preferred legacy `onlineBookable`. This must be corrected and released before this item is fully closed.
 
-- run the service-state migration in dry-run mode;
-- inspect the proposed legacy-to-canonical mapping;
-- apply only after the dry-run is accepted;
-- verify representative services after migration;
+Remaining completion evidence:
+
+- release the canonical global-bookability enforcement fix;
+- rerun the governed production P0 verification against the repaired release;
+- verify the finalized roster and live workforce reconciliation;
 - verify `active=false`, `published=false` and `bookable=false` each have their intended independent effect;
 - verify `bookable=false` blocks standard booking, managed/staff booking and WhatsApp booking while not implicitly deleting or unpublishing the service.
 
-### 3. Final production RBAC/workforce acceptance
+### 3. Final production RBAC/workforce acceptance — IN PROGRESS
 
-The code and automated gates are complete, but live role/state verification should remain explicit.
+PR #211 added the governed production P0 verification path. The first run succeeded for release identity, Super Admin state and service migration state. The next verification revision adds finalized-roster verification, live workforce reconciliation and deployed-container RBAC/bookability regression checks.
 
 Verify in production:
 
