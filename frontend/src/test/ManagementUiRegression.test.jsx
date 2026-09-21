@@ -177,6 +177,63 @@ describe(
 
 
     it(
+      "progressively discloses dense management navigation without removing authorised routes",
+      () => {
+        const navigation =
+          source(
+            "src/components/navigation/ManagementNavigation.jsx"
+          );
+        const registry =
+          source(
+            "src/components/navigation/managementNavigationConfig.js"
+          );
+
+        expect(
+          navigation
+        ).toContain(
+          "MANAGEMENT_SECTION_PREVIEW = 5"
+        );
+        expect(
+          navigation
+        ).toContain(
+          "Show fewer tools"
+        );
+        expect(
+          navigation
+        ).toContain(
+          "more tools"
+        );
+        expect(
+          navigation
+        ).toContain(
+          "Boolean(query)"
+        );
+        expect(
+          navigation
+        ).toContain(
+          "aria-expanded"
+        );
+
+        expect(
+          registry
+        ).toContain(
+          "/communication-campaigns"
+        );
+        expect(
+          registry
+        ).toContain(
+          "/management-copilot"
+        );
+        expect(
+          registry
+        ).toContain(
+          "/premium-analytics"
+        );
+      }
+    );
+
+
+    it(
       "keeps the Add Employee dialog inside the viewport with a fixed shell and internal scrolling",
       () => {
         const modal =
