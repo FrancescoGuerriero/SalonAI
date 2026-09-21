@@ -1,0 +1,154 @@
+name: SalonAI Production SendGrid Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live application release
+        required: true
+        default: v8.15.6
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    name: Audit production SendGrid readiness
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate expected release tag
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Audit live SendGrid readiness
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 readiness-evidence
+          evidence="readiness-evidence/sendgrid-readiness.txt"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo "SalonAI production SendGrid readiness audit"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: $EXPECTED_RELEASE_TAG"
+            echo
+            echo "=== Runtime identity ==="
+          } | tee "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          {
+            echo
+            echo "=== SendGrid application/provider readiness ==="
+          } | tee -a "$evidence"
+
+          set +e
+          ssh "${ssh_options[@]}" "$target" \
+            'set -o pipefail
+             docker exec salonai-backend npm run sendgrid:readiness' \
+            | tee -a "$evidence"
+          readiness_status=${PIPESTATUS[0]}
+          set -e
+
+          echo "READINESS_EXIT_CODE=$readiness_status" | tee -a "$evidence"
+
+          if grep -Eq '"readyForAcceptance"[[:space:]]*:[[:space:]]*true' "$evidence"; then
+            echo "[READY] SendGrid production configuration is ready for a controlled transactional acceptance send." | tee -a "$evidence"
+          else
+            echo "[BLOCKED] SendGrid production configuration still has readiness blockers. No email was sent." | tee -a "$evidence"
+          fi
+
+          echo "[PASS] Read-only SendGrid readiness audit completed. No provider send or database mutation was requested." | tee -a "$evidence"
+
+      - name: Upload readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-sendgrid-readiness-${{ github.run_id }}
+          path: readiness-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          if [[ -n "${SSH_PRIVATE_KEY_PATH:-}" ]]; then
+            rm -f -- "$SSH_PRIVATE_KEY_PATH"
+          fi
+          if [[ -n "${SSH_KNOWN_HOSTS_PATH:-}" ]]; then
+            rm -f -- "$SSH_KNOWN_HOSTS_PATH"
+          fi
