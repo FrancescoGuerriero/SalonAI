@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import Stylist from "../models/Stylist.js";
 import Service from "../models/service.js";
+import User from "../models/user.js";
 import {
   dayAvailability,
 } from "../features/staff/staffService.js";
@@ -243,6 +244,56 @@ export function normaliseStaffProfileUpdate(
     update.profilePublished =
       body.profilePublished !==
       false;
+  }
+
+  return update;
+}
+
+export function normaliseManagedStylistUpdate(
+  body = {}
+) {
+  const update =
+    normaliseStaffProfileUpdate(
+      body,
+      {
+        partial: true,
+        allowPublication: true,
+      }
+    );
+
+  for (const field of [
+    "isActive",
+    "acceptsAppointments",
+  ]) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        body,
+        field
+      )
+    ) {
+      if (
+        typeof body[field] !==
+        "boolean"
+      ) {
+        throw createHttpError(
+          `${field} must be a boolean.`,
+          400
+        );
+      }
+
+      update[field] =
+        body[field];
+    }
+  }
+
+  if (
+    Object.keys(update).length ===
+    0
+  ) {
+    throw createHttpError(
+      "No supported staff profile fields were provided.",
+      400
+    );
   }
 
   return update;
@@ -895,25 +946,32 @@ export async function createStylist(req, res) {
 */
 export async function updateStylist(req, res) {
   try {
-    const payload = {
-      ...req.body,
-    };
+    const payload =
+      normaliseManagedStylistUpdate(
+        req.body
+      );
 
-    if (
-      Object.prototype.hasOwnProperty.call(
-        payload,
-        "profileImage"
+    const existingStylist =
+      await Stylist.findById(
+        req.params.id
       )
-    ) {
-      payload.profileImage =
-        normaliseProfileImage(
-          payload.profileImage
-        );
+        .select(
+          "_id userAccount"
+        )
+        .lean();
+
+    if (!existingStylist) {
+      return res
+        .status(404)
+        .json({
+          message:
+            "Stylist not found",
+        });
     }
 
     const stylist =
       await Stylist.findByIdAndUpdate(
-        req.params.id,
+        existingStylist._id,
         payload,
         {
           new: true,
@@ -923,13 +981,29 @@ export async function updateStylist(req, res) {
         "services"
       );
 
-    if (!stylist) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Stylist not found",
-        });
+    if (
+      Object.prototype.hasOwnProperty.call(
+        payload,
+        "profileImage"
+      ) &&
+      mongoose.isValidObjectId(
+        existingStylist.userAccount
+      )
+    ) {
+      await User.findByIdAndUpdate(
+        existingStylist.userAccount,
+        {
+          $set: {
+            profilePhoto:
+              stylist.profileImage ||
+              "",
+          },
+        },
+        {
+          runValidators:
+            true,
+        }
+      );
     }
 
     return res.json(

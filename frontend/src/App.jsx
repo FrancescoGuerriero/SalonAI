@@ -1126,6 +1126,14 @@ function AppRoutes() {
         />
 
         <Route
+          path="admin/employees/record/:recordId"
+          element={permissionPage(
+            AdminEmployeeDetailPage,
+            "employee:read"
+          )}
+        />
+
+        <Route
           path="admin/employees/:id"
           element={permissionPage(
             AdminEmployeeDetailPage,
