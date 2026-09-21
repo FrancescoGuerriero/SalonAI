@@ -248,7 +248,7 @@ export default function StaffProfileEditorPage() {
             emptyProfile
           );
           setError(
-            "This staff account does not yet have a linked public profile. Open Manage employee first to create/link its operational profile."
+            "This employee does not yet have a professional profile. Open Manage employee first to create it."
           );
           return;
         }
@@ -508,7 +508,7 @@ export default function StaffProfileEditorPage() {
           !selectedProfileId
         ) {
           throw new Error(
-            "The selected staff account does not have a linked profile."
+            "The selected employee does not have a professional profile yet."
           );
         }
 
@@ -616,7 +616,7 @@ export default function StaffProfileEditorPage() {
 
           <p>
             {canReadAll
-              ? "The roster includes linked employee accounts and genuine staff profiles that do not yet have a login. Maintain photographs, titles, biographies, specialties and public links without hiding unlinked salon staff."
+              ? "The roster includes every employee with a professional profile. Maintain photographs, titles, biographies, specialties and public links in one place; sign-in access remains a separate security setting."
               : "Keep your photograph, title, biography, specialties and public links current. Private account information remains separate from the public profile."}
           </p>
         </div>
