@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 
 import { env } from "../config/env.js";
 import User from "../models/user.js";
+import Stylist from "../models/Stylist.js";
 import {
   normaliseProfileImage,
 } from "../utils/profileMedia.js";
@@ -964,6 +965,33 @@ export async function updateCurrentAccount(
           runValidators: true,
         }
       );
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        update,
+        "profilePhoto"
+      ) &&
+      user?.role !==
+        "customer"
+    ) {
+      await Stylist.updateOne(
+        {
+          userAccount:
+            user._id,
+        },
+        {
+          $set: {
+            profileImage:
+              user.profilePhoto ||
+              "",
+          },
+        },
+        {
+          runValidators:
+            true,
+        }
+      );
+    }
 
     return res
       .status(200)
