@@ -483,8 +483,10 @@ function serialiseAdminUser(
       user._id,
     accountLinked:
       true,
+    signInEnabled:
+      true,
     employeeType:
-      "account",
+      "employee",
     name:
       user.name,
     email:
@@ -633,15 +635,17 @@ function serialiseProfileOnlyEmployee(
       stylist._id,
     accountLinked:
       false,
+    signInEnabled:
+      false,
     employeeType:
-      "profile-only",
+      "employee",
     name,
     email:
       stylist.email || "",
     role:
-      "profile_only",
+      "",
     roleLabel:
-      "No login account",
+      "Sign-in not enabled",
     permissions: [],
     rolePermissions: [],
     phone:
@@ -1067,13 +1071,13 @@ export async function listAdminUsers(
     );
 
     /*
-     * A complete salon workforce can contain both login-backed User accounts
-     * and historical/operational Stylist profiles that have not yet been
-     * linked to a SalonAI account. Administrators must see both populations.
+     * A complete salon workforce can contain employees whose operational
+     * staff record exists before SalonAI sign-in has been enabled.
+     * Administrators must see the complete workforce as employees.
      *
-     * Linked User accounts remain canonical for authentication/RBAC.
-     * Unlinked profiles are represented explicitly as profile-only staff and
-     * are never given fabricated credentials or permissions.
+     * User accounts remain canonical for authentication/RBAC. Employees
+     * without sign-in access remain fully manageable operationally, but they
+     * are never given fabricated credentials, roles or application permissions.
      */
     const accessView =
       req.query.view ===
@@ -1133,11 +1137,15 @@ export async function listAdminUsers(
       roster =
         roster.filter(
           (employee) =>
-            role ===
-            "profile_only"
-              ? employee.accountLinked ===
+            [
+              "sign_in_disabled",
+              "profile_only",
+            ].includes(
+              role
+            )
+              ? employee.signInEnabled ===
                 false
-              : employee.accountLinked !==
+              : employee.signInEnabled !==
                   false &&
                 employee.role ===
                   role
