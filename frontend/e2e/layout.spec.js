@@ -699,6 +699,50 @@ test.describe("SalonAI layout regressions", () => {
     await expect(dialog).toBeVisible();
     await expect(close).toBeFocused();
 
+    const productPanel =
+      dialog.locator(
+        "form"
+      );
+    const productPanelBox =
+      await productPanel.boundingBox();
+    const productViewport =
+      page.viewportSize();
+
+    expect(
+      productPanelBox
+    ).not.toBeNull();
+    expect(
+      productViewport
+    ).not.toBeNull();
+    expect(
+      productPanelBox.x
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      productPanelBox.y
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      productPanelBox.x +
+        productPanelBox.width
+    ).toBeLessThanOrEqual(
+      productViewport.width
+    );
+    expect(
+      productPanelBox.y +
+        productPanelBox.height
+    ).toBeLessThanOrEqual(
+      productViewport.height
+    );
+
+    await expect(
+      dialog.getByRole(
+        "button",
+        {
+          name:
+            /create product/i,
+        }
+      )
+    ).toBeVisible();
+
     await page.keyboard.press("Escape");
 
     await expect(dialog).toBeHidden();
