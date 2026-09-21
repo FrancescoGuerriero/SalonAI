@@ -47,9 +47,29 @@ test(
       workflow,
       /\bprofileRows\b/
     );
-    assert.doesNotMatch(
+    for (const legacy of [
+      /Profile-only workforce rows/,
+      /\baccountBacked\b/,
+      /\bprofileOnly\b/,
+      /\baccountLinked\b/,
+    ]) {
+      assert.doesNotMatch(
+        workflow,
+        legacy
+      );
+    }
+
+    assert.match(
       workflow,
-      /Profile-only workforce rows/
+      /row\.signInEnabled\s*!==\s*false/
+    );
+    assert.match(
+      workflow,
+      /signInEnabled:\s*signInEnabledRows\.length/
+    );
+    assert.match(
+      workflow,
+      /signInDisabled:\s*signInDisabledRows\.length/
     );
   }
 );
