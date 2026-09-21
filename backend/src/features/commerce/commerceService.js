@@ -251,6 +251,13 @@ export async function listProducts(
     name: { name: 1 },
   };
 
+  const includeFacets =
+    String(
+      query.facets ??
+        "true"
+    ).toLowerCase() !==
+    "false";
+
   const itemQuery =
     Product.find(
       match
@@ -299,32 +306,62 @@ export async function listProducts(
       Product.countDocuments(
         match
       ),
-      Product.distinct(
-        "category",
-        {
-          active: true,
-        }
-      ),
-      Product.distinct(
-        "brand",
-        {
-          active: true,
-        }
-      ),
-      Product.distinct(
-        "collectionName",
-        {
-          active: true,
-        }
-      ),
+      includeFacets
+        ? Product.distinct(
+            "category",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
+      includeFacets
+        ? Product.distinct(
+            "brand",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
+      includeFacets
+        ? Product.distinct(
+            "collectionName",
+            {
+              active: true,
+            }
+          )
+        : Promise.resolve(
+            null
+          ),
     ]);
 
   return {
     items,
-    categories: categories.filter(Boolean).sort(),
-    brands: brands.filter(Boolean).sort(),
-    collections: collections.filter(Boolean).sort(),
-    pagination: paginationResult(page, limit, total),
+    ...(includeFacets
+      ? {
+          categories:
+            categories
+              .filter(Boolean)
+              .sort(),
+          brands:
+            brands
+              .filter(Boolean)
+              .sort(),
+          collections:
+            collections
+              .filter(Boolean)
+              .sort(),
+        }
+      : {}),
+    pagination:
+      paginationResult(
+        page,
+        limit,
+        total
+      ),
   };
 }
 
