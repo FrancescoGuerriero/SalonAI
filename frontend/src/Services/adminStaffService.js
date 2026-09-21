@@ -44,6 +44,19 @@ const adminStaffService = {
     return data;
   },
 
+  async enableSignIn(
+    recordId,
+    payload
+  ) {
+    const { data } =
+      await API.post(
+        `/auth/admin/staff-record/${recordId}/sign-in`,
+        payload
+      );
+
+    return data;
+  },
+
   async setStatus(
     id,
     isActive
