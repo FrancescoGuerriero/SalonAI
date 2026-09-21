@@ -842,12 +842,21 @@ function priceLabel(
 function serviceNeedsManualBooking(
   service
 ) {
+  if (!service) {
+    return false;
+  }
+
+  const bookable =
+    typeof service.bookable ===
+      "boolean"
+      ? service.bookable
+      : service.onlineBookable !==
+        false;
+
   return Boolean(
-    service &&
-    (
-      service.onlineBookable === false ||
-      service.priceOnConsultation === true
-    )
+    bookable === false ||
+    service.priceOnConsultation ===
+      true
   );
 }
 
