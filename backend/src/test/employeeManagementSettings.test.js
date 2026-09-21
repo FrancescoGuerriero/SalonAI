@@ -748,3 +748,96 @@ test("existing employee sign-in endpoint links the current record instead of cre
     /Stylist\.create\(/
   );
 });
+
+
+test("sign-in-disabled employees keep operational services and schedule management", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/authRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    routes,
+    /\/admin\/staff-record\/:id\/services/
+  );
+  assert.match(
+    routes,
+    /\/admin\/staff-record\/:id\/schedule/
+  );
+  assert.match(
+    routes,
+    /"employee:services:update"/
+  );
+  assert.match(
+    routes,
+    /"employee:schedule:update"/
+  );
+
+  const serviceStart =
+    controller.indexOf(
+      "export async function updateEmployeeRecordServices"
+    );
+  const serviceEnd =
+    controller.indexOf(
+      "export async function updateEmployeeRecordSchedule",
+      serviceStart
+    );
+  const serviceHandler =
+    controller.slice(
+      serviceStart,
+      serviceEnd
+    );
+
+  assert.match(
+    serviceHandler,
+    /normaliseServiceIds/
+  );
+  assert.match(
+    serviceHandler,
+    /employeeRecordWithoutSignIn/
+  );
+  assert.doesNotMatch(
+    serviceHandler,
+    /User\.create\(/
+  );
+
+  const scheduleStart =
+    controller.indexOf(
+      "export async function updateEmployeeRecordSchedule"
+    );
+  const scheduleEnd =
+    controller.indexOf(
+      "export async function enableEmployeeSignIn",
+      scheduleStart
+    );
+  const scheduleHandler =
+    controller.slice(
+      scheduleStart,
+      scheduleEnd
+    );
+
+  assert.match(
+    scheduleHandler,
+    /normaliseEmployeeSchedule/
+  );
+  assert.match(
+    scheduleHandler,
+    /employeeRecordWithoutSignIn/
+  );
+  assert.doesNotMatch(
+    scheduleHandler,
+    /User\.create\(/
+  );
+});
