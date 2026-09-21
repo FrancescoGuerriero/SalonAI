@@ -89,6 +89,38 @@ const APPOINTMENT_POPULATE_OPTIONS = [
   },
 ];
 
+const CALENDAR_APPOINTMENT_FIELDS = [
+  "customer",
+  "service",
+  "stylist",
+  "appointmentDate",
+  "appointmentTime",
+  "startsAt",
+  "endsAt",
+  "duration",
+  "status",
+  "notes",
+  "+internalNotes",
+].join(" ");
+
+const CALENDAR_POPULATE_OPTIONS = [
+  {
+    path: "customer",
+    select:
+      "firstName lastName fullName preferredName name email phone",
+  },
+  {
+    path: "service",
+    select:
+      "name duration",
+  },
+  {
+    path: "stylist",
+    select:
+      "name firstName lastName",
+  },
+];
+
 function normaliseText(value) {
   return String(value ?? "").trim();
 }
@@ -1221,9 +1253,11 @@ async function calendarAppointments(
   );
 
   return Appointment.find(match)
-    .select("+internalNotes")
+    .select(
+      CALENDAR_APPOINTMENT_FIELDS
+    )
     .populate(
-      APPOINTMENT_POPULATE_OPTIONS
+      CALENDAR_POPULATE_OPTIONS
     )
     .sort({
       startsAt: 1,
@@ -2124,6 +2158,8 @@ async function queueUpcomingReminders({
 
 export {
   APPOINTMENT_POPULATE_OPTIONS,
+  CALENDAR_APPOINTMENT_FIELDS,
+  CALENDAR_POPULATE_OPTIONS,
   SUPPORTED_CHANNELS,
   TERMINAL_STATUSES,
   appointmentWindow,
