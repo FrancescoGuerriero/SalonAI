@@ -1002,19 +1002,32 @@ async function createManagedAppointment(
       );
   }
 
-  const [
-    customer,
-    service,
-  ] =
-    await Promise.all([
-      customerQuery,
-      appointmentEligibleService(
+  let customer;
+  let service;
+
+  if (session) {
+    customer =
+      await customerQuery;
+
+    service =
+      await appointmentEligibleService(
         serviceId,
         {
           session,
         }
-      ),
-    ]);
+      );
+  } else {
+    [
+      customer,
+      service,
+    ] =
+      await Promise.all([
+        customerQuery,
+        appointmentEligibleService(
+          serviceId
+        ),
+      ]);
+  }
 
   assertFound(
     customer,
