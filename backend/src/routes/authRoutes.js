@@ -22,7 +22,7 @@ import {
   listAdminUsers,
   createStaffUserByAdmin,
   getEmployeeManagementDetail,
-  getProfileOnlyEmployeeManagementDetail,
+  getEmployeeWithoutSignInManagementDetail,
   updateEmployeeManagementSettings,
   updateEmployeeSchedule,
   updateEmployeeServices,
@@ -228,12 +228,12 @@ router.patch(
 );
 
 router.get(
-  "/admin/staff-profile/:id",
+  "/admin/staff-record/:id",
   protect,
   requirePermissions(
     "employee:read"
   ),
-  getProfileOnlyEmployeeManagementDetail
+  getEmployeeWithoutSignInManagementDetail
 );
 
 router.get(
