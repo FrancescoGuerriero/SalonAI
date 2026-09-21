@@ -41,7 +41,7 @@ function errorMessage(error) {
   return (
     error?.response?.data?.message ||
     error?.message ||
-    "The staff-management operation failed."
+    "The team-availability operation failed."
   );
 }
 
@@ -217,7 +217,7 @@ export default function StaffManagementPage() {
     setSuccess("");
 
     if (!selectedStaffId || !timeOffForm.startsAt || !timeOffForm.endsAt) {
-      setError("Select a stylist and provide both time-off dates.");
+      setError("Select an employee and provide both time-off dates.");
       return;
     }
 
@@ -254,7 +254,7 @@ export default function StaffManagementPage() {
   if (loading) {
     return (
       <div className="p-6 text-sm font-semibold text-slate-600">
-        Loading staff management…
+        Loading team availability…
       </div>
     );
   }
@@ -267,9 +267,9 @@ export default function StaffManagementPage() {
             <UsersRound size={20} />
             <span className="text-xs font-bold uppercase tracking-wider">Phase 3</span>
           </div>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">Staff management</h1>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Team availability</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Configure stylist working hours and manage time-off requests.
+            Configure team working hours and manage time-off requests.
           </p>
         </div>
 
@@ -445,7 +445,7 @@ export default function StaffManagementPage() {
           </div>
 
           {timeOff.length === 0 ? (
-            <p className="p-6 text-sm text-slate-500">No time-off requests for this stylist.</p>
+            <p className="p-6 text-sm text-slate-500">No time-off requests for this employee.</p>
           ) : (
             <div className="divide-y divide-slate-100">
               {timeOff.map((request) => (
