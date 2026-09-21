@@ -267,7 +267,7 @@
   font-size: 1.15rem;
 }
 
-.customer-card-content p {
+.customer-card-content p:not(.customer-card-kicker) {
   margin: .45rem 0 0;
   color: #717171;
   line-height: 1.55;
@@ -522,7 +522,7 @@
   .appointment-preview-details { grid-template-columns: 1fr; }
   .customer-cta { align-items: flex-start; flex-direction: column; }
   .customer-card-grid { grid-template-columns: 1fr; }
-  .stylist-card { height: auto; }
+  .customer-card { height: auto; }
   .customer-filter-bar { grid-template-columns: 1fr; }
   .customer-page-header, .customer-page-header-split { display: grid; }
   .selected-service-card { min-width: 0; }
