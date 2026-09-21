@@ -44,19 +44,34 @@ export function assignableRolesForUser(
     isSuperAdmin = false,
   } = {}
 ) {
-  return (
+  const filterRoles =
+    (rows) =>
+      rows.filter(
+        (role) =>
+          role?.assignable !==
+            false &&
+          role?.active !==
+            false &&
+          (
+            !role?.superAdminOnly ||
+            isSuperAdmin
+          )
+      );
+
+  const source =
     Array.isArray(roles) &&
     roles.length
       ? roles
-      : DEFAULT_ASSIGNABLE_STAFF_ROLES
-  ).filter(
-    (role) =>
-      role?.assignable !==
-        false &&
-      role?.active !== false &&
-      (
-        !role?.superAdminOnly ||
-        isSuperAdmin
-      )
-  );
+      : DEFAULT_ASSIGNABLE_STAFF_ROLES;
+
+  const filtered =
+    filterRoles(
+      source
+    );
+
+  return filtered.length
+    ? filtered
+    : filterRoles(
+        DEFAULT_ASSIGNABLE_STAFF_ROLES
+      );
 }
