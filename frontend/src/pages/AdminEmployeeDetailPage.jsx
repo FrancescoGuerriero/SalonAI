@@ -279,11 +279,9 @@ export default function AdminEmployeeDetailPage() {
       "employee:services:update"
     );
   const canManageServices =
-    !signInDisabled &&
     canReadServices &&
     canUpdateServices;
   const canUpdateSchedule =
-    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:schedule:update"
@@ -336,7 +334,6 @@ export default function AdminEmployeeDetailPage() {
                 : adminStaffService.get(
                     id
                   ),
-              !signInDisabled &&
               canReadServices
                 ? serviceService.getManagementServices()
                 : Promise.resolve([]),
@@ -403,10 +400,7 @@ export default function AdminEmployeeDetailPage() {
           });
 
           setServices(
-            signInDisabled
-              ? nextProfile
-                  ?.services || []
-              : serviceRows
+            serviceRows
           );
           setSelectedServices(
             (nextProfile
@@ -636,10 +630,15 @@ export default function AdminEmployeeDetailPage() {
 
     try {
       const response =
-        await adminStaffService.updateServices(
-          id,
-          selectedServices
-        );
+        signInDisabled
+          ? await adminStaffService.updateRecordServices(
+              recordId,
+              selectedServices
+            )
+          : await adminStaffService.updateServices(
+              id,
+              selectedServices
+            );
       setEmployee(
         response.user
       );
@@ -799,10 +798,15 @@ export default function AdminEmployeeDetailPage() {
           })
         );
       const response =
-        await adminStaffService.updateSchedule(
-          id,
-          workingHours
-        );
+        signInDisabled
+          ? await adminStaffService.updateRecordSchedule(
+              recordId,
+              workingHours
+            )
+          : await adminStaffService.updateSchedule(
+              id,
+              workingHours
+            );
       setEmployee(
         response.user
       );
