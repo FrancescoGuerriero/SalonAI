@@ -1,22 +1,14 @@
-const SOCIAL_AUTH_READINESS_PROVIDERS =
-  Object.freeze([
-    Object.freeze({
-      provider: "google",
-      label: "Google",
-    }),
-    Object.freeze({
-      provider: "facebook",
-      label: "Facebook",
-    }),
-    Object.freeze({
-      provider: "microsoft",
-      label: "Microsoft",
-    }),
-    Object.freeze({
-      provider: "yahoo",
-      label: "Yahoo",
-    }),
-  ]);
+import {
+  SOCIAL_AUTH_PROVIDERS,
+} from "../../models/SocialIdentity.js";
+
+const SOCIAL_AUTH_PROVIDER_LABELS =
+  Object.freeze({
+    google: "Google",
+    facebook: "Facebook",
+    microsoft: "Microsoft",
+    yahoo: "Yahoo",
+  });
 
 function text(value) {
   return String(
@@ -222,10 +214,17 @@ export function buildSocialAuthReadinessReport(
     "production";
 
   const providers =
-    SOCIAL_AUTH_READINESS_PROVIDERS.map(
-      (definition) =>
+    SOCIAL_AUTH_PROVIDERS.map(
+      (provider) =>
         providerReport(
-          definition,
+          {
+            provider,
+            label:
+              SOCIAL_AUTH_PROVIDER_LABELS[
+                provider
+              ] ||
+              provider,
+          },
           environment,
           isProduction
         )
