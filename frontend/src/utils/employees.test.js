@@ -95,11 +95,11 @@ test("employee photo prefers the account image and falls back to the staff profi
   );
 });
 
-test("employee management path is consistent for account-backed and profile-only staff", () => {
+test("employee management path stays unified regardless of sign-in state", () => {
   assert.equal(
     employeeManagementPath({
       id: "user-1",
-      accountLinked: true,
+      signInEnabled: true,
     }),
     "/admin/employees/user-1"
   );
@@ -109,12 +109,12 @@ test("employee management path is consistent for account-backed and profile-only
       id: "profile:profile-1",
       profileId:
         "profile-1",
-      accountLinked: false,
+      signInEnabled: false,
       stylistProfile: {
         id:
           "profile-1",
       },
     }),
-    "/admin/employees/profile/profile-1"
+    "/admin/employees/record/profile-1"
   );
 });
