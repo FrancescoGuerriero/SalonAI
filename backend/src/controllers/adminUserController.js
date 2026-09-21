@@ -498,7 +498,9 @@ function serialiseAdminUser(
     phone:
       user.phone || "",
     profilePhoto:
-      user.profilePhoto || "",
+      user.profilePhoto ||
+      stylist?.profileImage ||
+      "",
     isActive:
       user.isActive !== false,
     emailVerified:
@@ -1301,6 +1303,62 @@ export async function getEmployeeManagementDetail(
       user:
         serialiseAdminUser(
           user,
+          stylist
+        ),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getProfileOnlyEmployeeManagementDetail(
+  req,
+  res,
+  next
+) {
+  try {
+    if (
+      !mongoose.isValidObjectId(
+        req.params.id
+      )
+    ) {
+      throw httpError(
+        "Staff profile identifier is invalid.",
+        400
+      );
+    }
+
+    const stylist =
+      await Stylist.findById(
+        req.params.id
+      )
+        .select(
+          "userAccount email firstName lastName phone jobTitle profileImage profilePublished acceptsAppointments isActive workingHours services createdAt updatedAt"
+        )
+        .populate(
+          "services",
+          "name category active published bookable"
+        )
+        .lean();
+
+    if (!stylist) {
+      throw httpError(
+        "Staff profile not found.",
+        404
+      );
+    }
+
+    if (stylist.userAccount) {
+      throw httpError(
+        "This staff profile is linked to a login account. Open the linked employee account instead.",
+        409
+      );
+    }
+
+    return res.json({
+      success: true,
+      user:
+        serialiseProfileOnlyEmployee(
           stylist
         ),
     });
