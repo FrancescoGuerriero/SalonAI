@@ -146,6 +146,7 @@ export default function EmployeeAccessPanel({
           const response =
             await adminStaffService.list({
               limit: 500,
+              view: "access",
             });
           const rows =
             Array.isArray(
