@@ -198,7 +198,7 @@ export default function AdminEmployeeDetailPage() {
     setSuccess,
   ] = useState("");
 
-  const profileOnly =
+  const signInDisabled =
     Boolean(profileId);
   const profile =
     employee?.stylistProfile ||
@@ -214,7 +214,7 @@ export default function AdminEmployeeDetailPage() {
       "profile:all:update"
     );
   const canDeactivate =
-    !profileOnly &&
+    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:deactivate"
@@ -230,11 +230,11 @@ export default function AdminEmployeeDetailPage() {
       "employee:services:update"
     );
   const canManageServices =
-    !profileOnly &&
+    !signInDisabled &&
     canReadServices &&
     canUpdateServices;
   const canUpdateSchedule =
-    !profileOnly &&
+    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:schedule:update"
@@ -245,7 +245,7 @@ export default function AdminEmployeeDetailPage() {
       "appointment:read"
     );
   const canManagePermissions =
-    !profileOnly &&
+    !signInDisabled &&
     hasPermission(
       currentUser,
       "employee:permissions:update"
@@ -263,14 +263,14 @@ export default function AdminEmployeeDetailPage() {
             serviceRows,
           ] =
             await Promise.all([
-              profileOnly
+              signInDisabled
                 ? adminStaffService.getProfile(
                     profileId
                   )
                 : adminStaffService.get(
                     id
                   ),
-              !profileOnly &&
+              !signInDisabled &&
               canReadServices
                 ? serviceService.getManagementServices()
                 : Promise.resolve([]),
@@ -285,7 +285,7 @@ export default function AdminEmployeeDetailPage() {
             nextEmployee
           );
           setServices(
-            profileOnly
+            signInDisabled
               ? nextProfile
                   ?.services || []
               : serviceRows
@@ -377,7 +377,7 @@ export default function AdminEmployeeDetailPage() {
         canReadServices,
         id,
         profileId,
-        profileOnly,
+        signInDisabled,
       ]
     );
 
@@ -394,7 +394,7 @@ export default function AdminEmployeeDetailPage() {
     setSuccess("");
 
     try {
-      if (profileOnly) {
+      if (signInDisabled) {
         const stylist =
           await stylistService.updateStylist(
             profile.id,
@@ -469,7 +469,7 @@ export default function AdminEmployeeDetailPage() {
       return;
     }
 
-    if (profileOnly) {
+    if (signInDisabled) {
       await updateSettings(
         {
           isActive:
@@ -857,13 +857,13 @@ export default function AdminEmployeeDetailPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" disabled={(profileOnly ? !canUpdateProfiles : !canDeactivate) || Boolean(saving)} className={settingButtonClass(employee.isActive !== false)} onClick={updateActiveStatus}>Active</button>
-            <button type="button" disabled={(profileOnly ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.profilePublished === true)} onClick={() => updateSettings({ profilePublished: !profile?.profilePublished }, "published")}>Published</button>
-            <button type="button" disabled={(profileOnly ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.acceptsAppointments === true)} onClick={() => updateSettings({ acceptsAppointments: profile?.acceptsAppointments !== true }, "bookable")}>Bookable</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canDeactivate) || Boolean(saving)} className={settingButtonClass(employee.isActive !== false)} onClick={updateActiveStatus}>Active</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.profilePublished === true)} onClick={() => updateSettings({ profilePublished: !profile?.profilePublished }, "published")}>Published</button>
+            <button type="button" disabled={(signInDisabled ? !canUpdateProfiles : !canUpdate) || Boolean(saving)} className={settingButtonClass(profile?.acceptsAppointments === true)} onClick={() => updateSettings({ acceptsAppointments: profile?.acceptsAppointments !== true }, "bookable")}>Bookable</button>
           </div>
 
           <p className="mt-4 text-xs leading-5 text-slate-500">
-            {profileOnly
+            {signInDisabled
               ? "Active controls whether this profile participates in salon operations. Published controls public visibility, and Bookable controls appointment selection across every booking channel."
               : "Active controls system access, Published controls public visibility, and Bookable controls appointment selection across every booking channel."}
           </p>
