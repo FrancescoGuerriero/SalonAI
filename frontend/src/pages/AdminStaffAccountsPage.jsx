@@ -26,6 +26,8 @@ import stylistService from "../Services/stylistService.js";
 import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
+  employeeDisplayPhoto,
+  employeeManagementPath,
   employeeScheduleForDate,
   employeeServiceNames,
 } from "../utils/employees.js";
@@ -619,10 +621,14 @@ export default function AdminStaffAccountsPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-sm font-bold text-slate-600">
-                    {user.profilePhoto ? (
+                    {employeeDisplayPhoto(
+                      user
+                    ) ? (
                       <img
                         src={
-                          user.profilePhoto
+                          employeeDisplayPhoto(
+                            user
+                          )
                         }
                         alt=""
                         className="h-full w-full object-cover"
@@ -826,22 +832,16 @@ export default function AdminStaffAccountsPage() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {user.accountLinked ===
-                    false ? (
-                      <Link
-                        to={`/admin/stylists?edit=${user.stylistProfile?.id || ""}`}
-                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                      >
-                        Manage staff profile
-                      </Link>
-                    ) : (
-                      <Link
-                        to={`/admin/employees/${user.id}`}
-                        className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
-                      >
-                        Manage employee
-                      </Link>
-                    )}
+                    <Link
+                      to={
+                        employeeManagementPath(
+                          user
+                        )
+                      }
+                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                    >
+                      Manage employee
+                    </Link>
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (
