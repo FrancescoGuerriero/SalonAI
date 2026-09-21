@@ -1002,6 +1002,349 @@ test.describe("SalonAI layout regressions", () => {
     );
   });
 
+  test("existing employee sign-in creates login access without creating a second employee", async ({
+    page,
+  }) => {
+    const superAdmin = {
+      ...adminUser,
+      role: "super_admin",
+    };
+    let submittedPayload =
+      null;
+
+    await page.setViewportSize({
+      width: 390,
+      height: 720,
+    });
+
+    await page.addInitScript((user) => {
+      localStorage.setItem(
+        "salonai_token",
+        "qa-token"
+      );
+      localStorage.setItem(
+        "salonai_user",
+        JSON.stringify(user)
+      );
+    }, superAdmin);
+
+    await page.route(
+      "**/api/**",
+      async (route) => {
+        const url =
+          new URL(
+            route.request().url()
+          );
+
+        if (
+          url.pathname ===
+          "/api/auth/me"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              user:
+                superAdmin,
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+          "/api/app-configuration/features"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              features: {},
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+          "/api/staff-roles"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              roles: [
+                {
+                  key:
+                    "stylist",
+                  name:
+                    "Stylist",
+                  system: true,
+                  active: true,
+                  assignable: true,
+                  superAdminOnly:
+                    false,
+                  permissions: [],
+                },
+              ],
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+            "/api/auth/admin/staff-record/profile-existing" &&
+          route.request().method() ===
+            "GET"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              success: true,
+              user: {
+                id:
+                  "profile:profile-existing",
+                profileId:
+                  "profile-existing",
+                signInEnabled:
+                  false,
+                name:
+                  "Amara Okafor",
+                email:
+                  "amara.okafor@salonai.invalid",
+                role: "",
+                phone: "",
+                profilePhoto: "",
+                isActive: true,
+                permissions: [],
+                rolePermissions: [],
+                stylistProfile: {
+                  id:
+                    "profile-existing",
+                  firstName:
+                    "Amara",
+                  lastName:
+                    "Okafor",
+                  jobTitle:
+                    "Stylist",
+                  profilePublished:
+                    true,
+                  acceptsAppointments:
+                    true,
+                  isActive:
+                    true,
+                  workingHours: [],
+                  services: [],
+                },
+              },
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+            "/api/auth/admin/staff-record/profile-existing/sign-in" &&
+          route.request().method() ===
+            "POST"
+        ) {
+          submittedPayload =
+            route.request()
+              .postDataJSON();
+
+          await route.fulfill({
+            status: 201,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              success: true,
+              message:
+                "Employee sign-in enabled successfully.",
+              user: {
+                id:
+                  "employee-account-1",
+                signInEnabled:
+                  true,
+                name:
+                  "Amara Okafor",
+                email:
+                  "amara@example.test",
+                role:
+                  "stylist",
+                isActive:
+                  true,
+                permissions: [],
+                rolePermissions: [],
+                stylistProfile: {
+                  id:
+                    "profile-existing",
+                  profilePublished:
+                    true,
+                  acceptsAppointments:
+                    true,
+                  services: [],
+                  workingHours: [],
+                },
+              },
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+          "/api/auth/admin/staff/employee-account-1"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body: JSON.stringify({
+              success: true,
+              user: {
+                id:
+                  "employee-account-1",
+                signInEnabled:
+                  true,
+                name:
+                  "Amara Okafor",
+                email:
+                  "amara@example.test",
+                role:
+                  "stylist",
+                isActive:
+                  true,
+                permissions: [],
+                rolePermissions: [],
+                stylistProfile: {
+                  id:
+                    "profile-existing",
+                  profilePublished:
+                    true,
+                  acceptsAppointments:
+                    true,
+                  services: [],
+                  workingHours: [],
+                },
+              },
+            }),
+          });
+          return;
+        }
+
+        if (
+          url.pathname ===
+          "/api/services/management"
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType:
+              "application/json",
+            body:
+              JSON.stringify([]),
+          });
+          return;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType:
+            "application/json",
+          body:
+            JSON.stringify({
+              items: [],
+            }),
+        });
+      }
+    );
+
+    await page.goto(
+      "/admin/employees/record/profile-existing"
+    );
+
+    await expect(
+      page.getByRole(
+        "heading",
+        {
+          name:
+            "Sign-in access",
+        }
+      )
+    ).toBeVisible();
+
+    await expect(
+      page.getByText(
+        "Sign-in not enabled"
+      ).first()
+    ).toBeVisible();
+
+    await page
+      .getByLabel(
+        "Email address",
+        {
+          exact: true,
+        }
+      )
+      .fill(
+        "amara@example.test"
+      );
+
+    await page
+      .getByLabel(
+        "Temporary password",
+        {
+          exact: true,
+        }
+      )
+      .fill(
+        "Temporary-123"
+      );
+
+    await page
+      .getByLabel(
+        "Confirm temporary password",
+        {
+          exact: true,
+        }
+      )
+      .fill(
+        "Temporary-123"
+      );
+
+    await page
+      .getByRole(
+        "button",
+        {
+          name:
+            "Enable sign-in",
+        }
+      )
+      .click();
+
+    await expect(
+      page
+    ).toHaveURL(
+      /\/admin\/employees\/employee-account-1$/
+    );
+
+    expect(
+      submittedPayload
+    ).toEqual({
+      email:
+        "amara@example.test",
+      password:
+        "Temporary-123",
+      role:
+        "stylist",
+    });
+  });
+
   test("SalonAI Adviser dialog traps focus and restores its launcher", async ({
     page,
   }) => {
