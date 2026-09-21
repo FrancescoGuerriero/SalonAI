@@ -21,6 +21,7 @@ import "./styles/helpCentre.css";
 import "./styles/accessibilityExperience.css";
 import "./styles/resilienceExperience.css";
 import "./styles/customerSettings.css";
+import "./styles/customerExperience.css";
 import "./styles/customerExperienceSuite.css";
 import "./styles/manageAccount.css";
 import "./styles/profileMedia.css";
