@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: salonai-production-p0-verification
+  group: salonai-production-deployment
   cancel-in-progress: false
 
 jobs:
