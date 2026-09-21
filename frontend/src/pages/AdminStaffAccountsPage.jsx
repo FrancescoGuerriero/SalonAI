@@ -488,7 +488,7 @@ export default function AdminStaffAccountsPage() {
           </h1>
 
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            View the complete salon workforce, including staff without login accounts, and manage account access, public visibility, global booking eligibility and today&apos;s schedule from one page.
+            View the complete salon workforce and manage employee sign-in access, public visibility, global booking eligibility and today&apos;s schedule from one page.
           </p>
         </div>
 
