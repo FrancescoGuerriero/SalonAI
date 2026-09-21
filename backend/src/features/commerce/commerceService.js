@@ -83,6 +83,21 @@ function isManagementUser(user) {
   return MANAGEMENT_ROLES.has(String(user?.role || "").toLowerCase());
 }
 
+const PUBLIC_PRODUCT_LIST_FIELDS = [
+  "name",
+  "slug",
+  "brand",
+  "description",
+  "category",
+  "collectionName",
+  "badge",
+  "size",
+  "price",
+  "stockQuantity",
+  "featured",
+  "images",
+].join(" ");
+
 function productFields(
   management,
   includeCost = false
@@ -235,23 +250,73 @@ export async function listProducts(
     name: { name: 1 },
   };
 
-  const [items, total, categories, brands, collections] = await Promise.all([
-    Product.find(match)
+  const itemQuery =
+    Product.find(
+      match
+    )
       .select(
-        productFields(
-          management,
-          includeCost
-        )
+        management
+          ? productFields(
+              management,
+              includeCost
+            )
+          : PUBLIC_PRODUCT_LIST_FIELDS
       )
-      .sort(sortMap[query.sort] || { featured: -1, name: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean({ virtuals: true }),
-    Product.countDocuments(match),
-    Product.distinct("category", { active: true }),
-    Product.distinct("brand", { active: true }),
-    Product.distinct("collectionName", { active: true }),
-  ]);
+      .sort(
+        sortMap[
+          query.sort
+        ] || {
+          featured: -1,
+          name: 1,
+        }
+      )
+      .skip(
+        skip
+      )
+      .limit(
+        limit
+      );
+
+  if (!management) {
+    itemQuery.slice(
+      "images",
+      1
+    );
+  }
+
+  const [
+    items,
+    total,
+    categories,
+    brands,
+    collections,
+  ] =
+    await Promise.all([
+      itemQuery.lean({
+        virtuals: true,
+      }),
+      Product.countDocuments(
+        match
+      ),
+      Product.distinct(
+        "category",
+        {
+          active: true,
+        }
+      ),
+      Product.distinct(
+        "brand",
+        {
+          active: true,
+        }
+      ),
+      Product.distinct(
+        "collectionName",
+        {
+          active: true,
+        }
+      ),
+    ]);
 
   return {
     items,
