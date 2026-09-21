@@ -150,7 +150,7 @@ function settingButtonClass(
 export default function AdminEmployeeDetailPage() {
   const {
     id,
-    profileId,
+    recordId,
   } = useParams();
   const {
     user: currentUser,
@@ -199,7 +199,7 @@ export default function AdminEmployeeDetailPage() {
   ] = useState("");
 
   const signInDisabled =
-    Boolean(profileId);
+    Boolean(recordId);
   const profile =
     employee?.stylistProfile ||
     null;
@@ -264,8 +264,8 @@ export default function AdminEmployeeDetailPage() {
           ] =
             await Promise.all([
               signInDisabled
-                ? adminStaffService.getProfile(
-                    profileId
+                ? adminStaffService.getEmployeeRecord(
+                    recordId
                   )
                 : adminStaffService.get(
                     id
@@ -376,7 +376,7 @@ export default function AdminEmployeeDetailPage() {
         canReadAppointments,
         canReadServices,
         id,
-        profileId,
+        recordId,
         signInDisabled,
       ]
     );
