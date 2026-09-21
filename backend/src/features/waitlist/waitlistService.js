@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
-import Appointment from "../../models/Appointment.js";
+import {
+  createManagedAppointment,
+  getManagedAppointment,
+} from "../appointments/appointmentManagementService.js";
 import Customer from "../../models/customer.js";
 import Service from "../../models/service.js";
 import Stylist from "../../models/Stylist.js";
@@ -28,13 +31,6 @@ const CONVERTIBLE_WAITLIST_STATUSES = [
   "waiting",
   "notified",
   "accepted",
-];
-
-const ACTIVE_APPOINTMENT_STATUSES = [
-  "pending",
-  "confirmed",
-  "checked_in",
-  "in_progress",
 ];
 
 const ALLOWED_STATUS_TRANSITIONS = {
@@ -896,57 +892,6 @@ async function loadRelatedRecords({
     customer,
     ...resources,
   };
-}
-
-async function findAppointmentConflict({
-  stylistId,
-  startsAt,
-  endsAt,
-  session = null,
-}) {
-  const query =
-    Appointment.findOne({
-      stylist:
-        stylistId,
-
-      status: {
-        $in:
-          ACTIVE_APPOINTMENT_STATUSES,
-      },
-
-      startsAt: {
-        $lt:
-          endsAt,
-      },
-
-      endsAt: {
-        $gt:
-          startsAt,
-      },
-    })
-      .select(
-        "customer service stylist appointmentDate appointmentTime startsAt endsAt duration status"
-      )
-      .populate(
-        "customer",
-        "firstName lastName preferredName"
-      )
-      .populate(
-        "service",
-        "name duration"
-      )
-      .populate(
-        "stylist",
-        "name firstName lastName"
-      );
-
-  if (session) {
-    query.session(
-      session
-    );
-  }
-
-  return query.lean();
 }
 
 function assertTransition(
@@ -2249,9 +2194,7 @@ export async function convertToAppointment(
     payload.stylistId ||
     existingEntry.stylist;
 
-  if (
-    !stylistValue
-  ) {
+  if (!stylistValue) {
     throw serviceError(
       "A stylist must be selected before converting this waiting-list entry.",
       400
@@ -2264,20 +2207,6 @@ export async function convertToAppointment(
       "stylist"
     );
 
-  const {
-    customer,
-    service,
-    stylist,
-  } = await loadRelatedRecords({
-    customerId:
-      existingEntry.customer,
-
-    serviceId:
-      existingEntry.service,
-
-    stylistId,
-  });
-
   const appointmentTime =
     normaliseTime(
       timeValue,
@@ -2289,24 +2218,6 @@ export async function convertToAppointment(
     combineDateAndTime(
       dateValue,
       appointmentTime
-    );
-
-  const duration =
-    numberBetween(
-      payload.duration ??
-        service.duration,
-      1,
-      1440,
-      Number(
-        service.duration
-      ) || 60
-    );
-
-  const endsAt =
-    new Date(
-      startsAt.getTime() +
-        duration *
-          60000
     );
 
   if (
@@ -2325,10 +2236,8 @@ export async function convertToAppointment(
       {
         stylist:
           stylistId,
-
         date:
           startsAt,
-
         time:
           appointmentTime,
       }
@@ -2346,25 +2255,6 @@ export async function convertToAppointment(
       {
         reasons:
           slotEvaluation.reasons,
-      }
-    );
-  }
-
-  const conflict =
-    await findAppointmentConflict({
-      stylistId:
-        stylist._id,
-
-      startsAt,
-      endsAt,
-    });
-
-  if (conflict) {
-    throw serviceError(
-      "The selected stylist already has an overlapping appointment.",
-      409,
-      {
-        conflict,
       }
     );
   }
@@ -2424,100 +2314,42 @@ export async function convertToAppointment(
           );
         }
 
-        const transactionConflict =
-          await findAppointmentConflict({
-            stylistId:
-              stylist._id,
-
-            startsAt,
-            endsAt,
-            session,
-          });
-
-        if (
-          transactionConflict
-        ) {
-          throw serviceError(
-            "The selected stylist already has an overlapping appointment.",
-            409,
-            {
-              conflictId:
-                String(
-                  transactionConflict._id
-                ),
-            }
-          );
-        }
-
-        const [
-          appointment,
-        ] = await Appointment.create(
-          [
+        const appointment =
+          await createManagedAppointment(
             {
               customer:
-                customer._id,
-
+                entry.customer,
               service:
-                service._id,
-
+                entry.service,
               stylist:
-                stylist._id,
-
-              appointmentDate:
-                startsAt,
-
-              appointmentTime,
-
+                stylistId,
               startsAt,
-              endsAt,
-              duration,
-
+              duration:
+                payload.duration,
               totalPrice:
-                Math.max(
-                  0,
-                  Number(
-                    payload.totalPrice ??
-                      payload.price ??
-                      service.price ??
-                      0
-                  ) || 0
-                ),
-
+                payload.totalPrice ??
+                payload.price,
               discount:
-                Math.max(
-                  0,
-                  Number(
-                    payload.discount
-                  ) || 0
-                ),
-
+                payload.discount,
               tax:
-                Math.max(
-                  0,
-                  Number(
-                    payload.tax
-                  ) || 0
-                ),
-
+                payload.tax,
               status,
-
               notes:
                 text(
                   payload.notes ||
                     entry.notes
                 ),
-
-              createdBy:
-                actorId,
-
-              updatedBy:
-                actorId,
             },
-          ],
-          {
-            session,
-          }
-        );
+            {
+              actor:
+                user,
+              session,
+              bookingSource:
+                "management",
+              returnPopulated:
+                false,
+            }
+          );
 
         entry.convertedAppointment =
           appointment._id;
@@ -2527,7 +2359,6 @@ export async function convertToAppointment(
           {
             user:
               actorId,
-
             reason:
               text(
                 payload.reason ||
@@ -2555,30 +2386,17 @@ export async function convertToAppointment(
   const [
     entry,
     appointment,
-  ] = await Promise.all([
-    populateEntry(
-      WaitlistEntry.findById(
-        entryId
-      )
-    ).lean(),
-
-    Appointment.findById(
-      appointmentId
-    )
-      .populate(
-        "customer",
-        "firstName lastName preferredName email phone"
-      )
-      .populate(
-        "service",
-        "name category price duration"
-      )
-      .populate(
-        "stylist",
-        "name firstName lastName email phone"
-      )
-      .lean(),
-  ]);
+  ] =
+    await Promise.all([
+      populateEntry(
+        WaitlistEntry.findById(
+          entryId
+        )
+      ).lean(),
+      getManagedAppointment(
+        appointmentId
+      ),
+    ]);
 
   return {
     entry,
