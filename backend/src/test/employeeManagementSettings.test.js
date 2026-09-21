@@ -266,17 +266,17 @@ test("employee workforce reconciliation respects explicit account links and uses
     );
 
   const accountA =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-a"
     );
   const accountB =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-b"
     );
   const accountC =
-    result.accountRows.find(
+    result.signInEnabledRows.find(
       (row) =>
         row.id === "user-c"
     );
@@ -299,23 +299,23 @@ test("employee workforce reconciliation respects explicit account links and uses
   );
 
   assert.equal(
-    result.profileRows.length,
+    result.signInDisabledRows.length,
     1
   );
   assert.equal(
-    result.profileRows[0].id,
+    result.signInDisabledRows[0].id,
     "profile:profile-history"
   );
   assert.equal(
-    result.profileRows[0].accountLinked,
+    result.signInDisabledRows[0].accountLinked,
     false
   );
   assert.equal(
-    result.profileRows[0].isActive,
+    result.signInDisabledRows[0].isActive,
     false
   );
   assert.deepEqual(
-    result.profileRows[0].permissions,
+    result.signInDisabledRows[0].permissions,
     []
   );
 });
@@ -342,27 +342,27 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
 
   assert.match(
     controller,
-    /serialiseProfileOnlyEmployee/
+    /serialiseEmployeeWithoutSignIn/
   );
 
   assert.match(
     controller,
-    /employeeType:\s*"profile-only"/
+    /employeeType:\s*"employee"/
   );
 
   assert.match(
     controller,
-    /accountLinked:\s*false/
+    /signInEnabled:\s*false/
   );
 
   assert.match(
     controller,
-    /profileOnlyTotal:/
+    /signInDisabledTotal:/
   );
 
   assert.match(
     controller,
-    /No login account/
+    /Sign-in not enabled/
   );
 
   assert.match(
@@ -391,7 +391,7 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
   );
 });
 
-test("Employees and Staff Accounts expose profile-only workforce records safely", async () => {
+test("Employees and Staff Accounts keep all employees in one management model", async () => {
   const page =
     await readFile(
       new URL(
@@ -403,12 +403,12 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
 
   assert.match(
     page,
-    /Profile only · no login account/
+    /Sign-in not enabled/
   );
 
   assert.match(
     page,
-    /profile_only/
+    /sign_in_disabled/
   );
 
   assert.match(
@@ -423,7 +423,7 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
 
   assert.match(
     page,
-    /user\.accountLinked ===[\s\S]*?false/
+    /user\.signInEnabled ===[\s\S]*?false/
   );
 
   assert.match(
@@ -432,7 +432,7 @@ test("Employees and Staff Accounts expose profile-only workforce records safely"
   );
 });
 
-test("management staff profile editor includes unlinked staff profiles", async () => {
+test("management staff profile editor keeps employees unified while showing sign-in state", async () => {
   const page =
     await readFile(
       new URL(
@@ -449,12 +449,12 @@ test("management staff profile editor includes unlinked staff profiles", async (
 
   assert.match(
     page,
-    /no login account/
+    /sign-in not enabled/
   );
 
   assert.match(
     page,
-    /every current staff profile visible to management/
+    /every employee with a staff profile/
   );
 });
 
