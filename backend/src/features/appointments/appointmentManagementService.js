@@ -660,6 +660,72 @@ async function findConflict({
   );
 }
 
+function serviceIsGloballyBookable(
+  service
+) {
+  if (!service) {
+    return false;
+  }
+
+  return typeof service.bookable ===
+    "boolean"
+    ? service.bookable
+    : service.onlineBookable !==
+      false;
+}
+
+async function appointmentEligibleService(
+  serviceId
+) {
+  assertValidObjectId(
+    serviceId,
+    "service"
+  );
+
+  const service =
+    assertFound(
+      await Service.findById(
+        serviceId
+      )
+        .select(
+          "+onlineBookable"
+        )
+        .lean(),
+      "Service not found."
+    );
+
+  if (
+    service.active ===
+    false
+  ) {
+    throw createServiceError(
+      "The selected service is inactive.",
+      409,
+      {
+        field:
+          "service",
+      }
+    );
+  }
+
+  if (
+    !serviceIsGloballyBookable(
+      service
+    )
+  ) {
+    throw createServiceError(
+      "The selected service is not available for booking.",
+      409,
+      {
+        field:
+          "service",
+      }
+    );
+  }
+
+  return service;
+}
+
 async function checkAppointmentConflict(
   payload = {}
 ) {
@@ -678,14 +744,10 @@ async function checkAppointmentConflict(
       "service"
     );
 
-    service = await Service.findById(
-      payload.service
-    ).lean();
-
-    assertFound(
-      service,
-      "Service not found."
-    );
+    service =
+      await appointmentEligibleService(
+        payload.service
+      );
   }
 
   await appointmentEligibleStylist(
@@ -865,30 +927,15 @@ async function createManagedAppointment(
       Customer.findById(
         customerId
       ),
-      Service.findById(
+      appointmentEligibleService(
         serviceId
-      ).lean(),
+      ),
     ]);
 
   assertFound(
     customer,
     "Customer not found."
   );
-  assertFound(
-    service,
-    "Service not found."
-  );
-
-  if (service.active === false) {
-    throw createServiceError(
-      "The selected service is inactive.",
-      409,
-      {
-        field: "service",
-      }
-    );
-  }
-
   await appointmentEligibleStylist(
     stylistId
   );
@@ -1350,13 +1397,10 @@ async function rescheduleAppointment(
     "service"
   );
 
-  const service = assertFound(
-    await Service.findById(
+  const service =
+    await appointmentEligibleService(
       serviceId
-    ).lean(),
-
-    "Service not found."
-  );
+    );
 
   const windowPayload = {
     ...appointment.toObject(),
