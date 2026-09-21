@@ -45,6 +45,43 @@ describe(
 
 
     it(
+      "loads optional shell assistants on demand instead of the shared startup path",
+      () => {
+        const layout =
+          source(
+            "src/components/MainLayout.jsx"
+          );
+
+        expect(
+          layout
+        ).toContain(
+          "const SalonChatbot = lazy("
+        );
+        expect(
+          layout
+        ).toContain(
+          "const SalonAiAdviser = lazy("
+        );
+        expect(
+          layout
+        ).toContain(
+          "<Suspense fallback={null}>"
+        );
+        expect(
+          layout
+        ).not.toContain(
+          'import SalonChatbot from "./chatbot/SalonChatbot.jsx"'
+        );
+        expect(
+          layout
+        ).not.toContain(
+          'import SalonAiAdviser from "./ai/SalonAiAdviser.jsx"'
+        );
+      }
+    );
+
+
+    it(
       "keeps legacy admin URLs as redirects without duplicating management navigation",
       () => {
         const app =
