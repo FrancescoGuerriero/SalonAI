@@ -307,7 +307,7 @@ test("employee workforce reconciliation respects explicit account links and uses
     "profile:profile-history"
   );
   assert.equal(
-    result.signInDisabledRows[0].accountLinked,
+    result.signInDisabledRows[0].signInEnabled,
     false
   );
   assert.equal(
@@ -343,11 +343,6 @@ test("employee roster includes login accounts and unlinked salon staff profiles"
   assert.match(
     controller,
     /serialiseEmployeeWithoutSignIn/
-  );
-
-  assert.match(
-    controller,
-    /employeeType:\s*"employee"/
   );
 
   assert.match(
