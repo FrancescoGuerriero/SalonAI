@@ -29,11 +29,19 @@ test(
     );
     assert.match(
       workflow,
-      /npm run sendgrid:readiness/
+      /node scripts\/checkSendGridReadiness\.js/
     );
     assert.match(
       workflow,
       /No email was sent/
+    );
+    assert.doesNotMatch(
+      workflow,
+      /docker exec salonai-backend npm/
+    );
+    assert.match(
+      workflow,
+      /SendGrid readiness script did not produce a readiness report/
     );
     assert.doesNotMatch(
       workflow,
