@@ -212,3 +212,28 @@ test(
     );
   }
 );
+
+
+test(
+  "production P0 verification shares the production deployment concurrency lock",
+  async () => {
+    const workflow =
+      await readFile(
+        new URL(
+          "../../../.github/workflows/production-p0-verification.yml",
+          import.meta.url
+        ),
+        "utf8"
+      );
+
+    assert.match(
+      workflow,
+      /group:\s*salonai-production-deployment/
+    );
+
+    assert.match(
+      workflow,
+      /cancel-in-progress:\s*false/
+    );
+  }
+);
