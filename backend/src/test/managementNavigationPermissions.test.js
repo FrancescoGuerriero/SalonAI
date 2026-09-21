@@ -2,15 +2,34 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+async function managementNavigationSource() {
+  const [
+    component,
+    config,
+  ] =
+    await Promise.all([
+      readFile(
+        new URL(
+          "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+      readFile(
+        new URL(
+          "../../../frontend/src/components/navigation/managementNavigationConfig.js",
+          import.meta.url
+        ),
+        "utf8"
+      ),
+    ]);
+
+  return `${component}\n${config}`;
+}
+
 test("management navigation requires delegated permissions for core workspaces", async () => {
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const expected = [
     ["/dashboard", "dashboard:view"],
@@ -56,13 +75,7 @@ test("management navigation requires delegated permissions for core workspaces",
 
 test("staff-profile navigation requires own or all-profile read authority", async () => {
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   assert.match(
     navigation,
@@ -81,13 +94,7 @@ test("staff-profile navigation requires own or all-profile read authority", asyn
 
 test("Super Admin and Admin bypass menu hiding while other staff remain permission-driven", async () => {
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const roles =
     await readFile(
@@ -131,13 +138,7 @@ test("Super Admin and Admin bypass menu hiding while other staff remain permissi
 
 test("restored dashboard exposes planning marketing growth and performance routes", async () => {
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   for (const route of [
     "/calendar",
@@ -183,13 +184,7 @@ test("every primary management and admin route is represented in dashboard navig
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const navigationPaths =
     new Set(
@@ -294,13 +289,7 @@ test("Super Admin can inspect feature-disabled development pages", async () => {
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const navbar =
     await readFile(
@@ -381,13 +370,7 @@ test("dashboard navigation contains no dead primary links", async () => {
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const routePaths =
     new Set(
@@ -446,13 +429,7 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   assert.match(
     adminRoute,
@@ -579,13 +556,7 @@ test("team availability is canonical while legacy staff-management URL redirects
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const page =
     await readFile(
@@ -645,13 +616,7 @@ test("team availability is canonical while legacy staff-management URL redirects
 
 test("feature-controlled dashboard entries remain visible when the feature is off", async () => {
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   assert.match(
     navigation,
@@ -679,13 +644,7 @@ test("every dashboard link declares a permission and matches its route guard", a
     );
 
   const navigation =
-    await readFile(
-      new URL(
-        "../../../frontend/src/components/navigation/ManagementNavigation.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
+    await managementNavigationSource();
 
   const links = [
     ...navigation.matchAll(
