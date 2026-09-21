@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  KeyRound,
   Plus,
   Save,
   Scissors,
@@ -17,6 +18,7 @@ import {
 } from "react";
 import {
   Link,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 
@@ -26,6 +28,7 @@ import {
   staffApi,
 } from "../Services/futureFeaturesApi.js";
 import serviceService from "../Services/serviceService.js";
+import staffRoleService from "../Services/staffRoleService.js";
 import stylistService from "../Services/stylistService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
@@ -36,6 +39,13 @@ import {
   EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
+import {
+  isSuperAdminRole,
+} from "../utils/roles.js";
+import {
+  DEFAULT_ASSIGNABLE_STAFF_ROLES,
+  assignableRolesForUser,
+} from "../utils/staffRoles.js";
 
 const DAYS = [
   "Monday",
@@ -147,6 +157,28 @@ function settingButtonClass(
   }`;
 }
 
+function usableSignInEmail(
+  value
+) {
+  const email =
+    String(
+      value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    !email ||
+    email.endsWith(
+      ".invalid"
+    )
+  ) {
+    return "";
+  }
+
+  return email;
+}
+
 export default function AdminEmployeeDetailPage() {
   const {
     id,
@@ -155,6 +187,8 @@ export default function AdminEmployeeDetailPage() {
   const {
     user: currentUser,
   } = useAuth();
+  const navigate =
+    useNavigate();
   const [
     employee,
     setEmployee,
@@ -197,6 +231,21 @@ export default function AdminEmployeeDetailPage() {
     success,
     setSuccess,
   ] = useState("");
+  const [
+    signInRoles,
+    setSignInRoles,
+  ] = useState(
+    DEFAULT_ASSIGNABLE_STAFF_ROLES
+  );
+  const [
+    signInForm,
+    setSignInForm,
+  ] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "stylist",
+  });
 
   const signInDisabled =
     Boolean(recordId);
@@ -250,6 +299,22 @@ export default function AdminEmployeeDetailPage() {
       currentUser,
       "employee:permissions:update"
     );
+  const canEnableSignIn =
+    signInDisabled &&
+    hasPermission(
+      currentUser,
+      "employee:create"
+    );
+  const visibleSignInRoles =
+    assignableRolesForUser(
+      signInRoles,
+      {
+        isSuperAdmin:
+          isSuperAdminRole(
+            currentUser?.role
+          ),
+      }
+    );
 
   const load =
     useCallback(
@@ -261,6 +326,7 @@ export default function AdminEmployeeDetailPage() {
           const [
             employeeResponse,
             serviceRows,
+            roleRows,
           ] =
             await Promise.all([
               signInDisabled
@@ -274,6 +340,16 @@ export default function AdminEmployeeDetailPage() {
               canReadServices
                 ? serviceService.getManagementServices()
                 : Promise.resolve([]),
+              canEnableSignIn
+                ? staffRoleService
+                    .list()
+                    .catch(
+                      () =>
+                        DEFAULT_ASSIGNABLE_STAFF_ROLES
+                    )
+                : Promise.resolve(
+                    DEFAULT_ASSIGNABLE_STAFF_ROLES
+                  ),
             ]);
           const nextEmployee =
             employeeResponse.user;
@@ -284,6 +360,48 @@ export default function AdminEmployeeDetailPage() {
           setEmployee(
             nextEmployee
           );
+
+          const nextRoles =
+            Array.isArray(
+              roleRows
+            ) &&
+            roleRows.length
+              ? roleRows
+              : DEFAULT_ASSIGNABLE_STAFF_ROLES;
+          const availableRoles =
+            assignableRolesForUser(
+              nextRoles,
+              {
+                isSuperAdmin:
+                  isSuperAdminRole(
+                    currentUser?.role
+                  ),
+              }
+            );
+          const initialRole =
+            availableRoles.find(
+              (role) =>
+                role.key ===
+                "stylist"
+            )?.key ||
+            availableRoles[0]?.key ||
+            "stylist";
+
+          setSignInRoles(
+            nextRoles
+          );
+          setSignInForm({
+            email:
+              usableSignInEmail(
+                nextEmployee
+                  ?.email
+              ),
+            password: "",
+            confirmPassword: "",
+            role:
+              initialRole,
+          });
+
           setServices(
             signInDisabled
               ? nextProfile
@@ -373,8 +491,10 @@ export default function AdminEmployeeDetailPage() {
         }
       },
       [
+        canEnableSignIn,
         canReadAppointments,
         canReadServices,
+        currentUser?.role,
         id,
         recordId,
         signInDisabled,
@@ -702,6 +822,108 @@ export default function AdminEmployeeDetailPage() {
     }
   }
 
+  function updateSignInField(
+    field,
+    value
+  ) {
+    setSignInForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+      })
+    );
+  }
+
+  async function enableSignIn(
+    event
+  ) {
+    event.preventDefault();
+
+    if (
+      !canEnableSignIn
+    ) {
+      return;
+    }
+
+    const email =
+      signInForm.email
+        .trim()
+        .toLowerCase();
+
+    if (!email) {
+      setError(
+        "Enter the employee email address."
+      );
+      return;
+    }
+
+    if (
+      signInForm.password
+        .length < 8
+    ) {
+      setError(
+        "Temporary password must contain at least 8 characters."
+      );
+      return;
+    }
+
+    if (
+      signInForm.password !==
+      signInForm.confirmPassword
+    ) {
+      setError(
+        "Temporary password and confirmation do not match."
+      );
+      return;
+    }
+
+    setSaving(
+      "sign-in"
+    );
+    setError("");
+    setSuccess("");
+
+    try {
+      const response =
+        await adminStaffService.enableSignIn(
+          recordId,
+          {
+            email,
+            password:
+              signInForm.password,
+            role:
+              signInForm.role,
+          }
+        );
+
+      const accountId =
+        response?.user?.id;
+
+      if (!accountId) {
+        throw new Error(
+          "Sign-in was enabled but the employee account identifier was not returned."
+        );
+      }
+
+      navigate(
+        `/admin/employees/${accountId}`,
+        {
+          replace: true,
+        }
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        errorMessage(
+          requestError
+        )
+      );
+    } finally {
+      setSaving("");
+    }
+  }
+
   function toggleService(
     serviceId
   ) {
@@ -790,7 +1012,14 @@ export default function AdminEmployeeDetailPage() {
                 {employee.name}
               </h1>
               <p className="text-sm text-slate-600">
-                {employee.email} · {employee.role}
+                {usableSignInEmail(
+                  employee.email
+                ) ||
+                  "Email not configured"}{" "}
+                ·{" "}
+                {signInDisabled
+                  ? "Sign-in not enabled"
+                  : employee.role}
               </p>
             </div>
           </div>
@@ -868,6 +1097,195 @@ export default function AdminEmployeeDetailPage() {
               : "Active controls system access, Published controls public visibility, and Bookable controls appointment selection across every booking channel."}
           </p>
         </article>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <KeyRound
+            size={21}
+            className="mt-0.5 shrink-0"
+          />
+          <div>
+            <h2 className="text-lg font-bold text-black">
+              Sign-in access
+            </h2>
+            <p className="text-sm text-slate-600">
+              Manage this employee&apos;s SalonAI login without creating a second employee record.
+            </p>
+          </div>
+        </div>
+
+        {!signInDisabled ? (
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <span className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                Status
+              </span>
+              <p className="mt-1 font-bold text-emerald-900">
+                Sign-in enabled
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Email
+              </span>
+              <p className="mt-1 break-all text-sm font-semibold text-black">
+                {employee.email}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-4">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Access role
+              </span>
+              <p className="mt-1 text-sm font-semibold capitalize text-black">
+                {employee.role}
+              </p>
+            </div>
+          </div>
+        ) : canEnableSignIn ? (
+          <form
+            className="mt-5"
+            onSubmit={
+              enableSignIn
+            }
+          >
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-700">
+              This employee already exists. Enabling sign-in creates only the authentication account and links it to this employee. Profile, services, schedule, publication and booking settings are preserved.
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="text-sm font-semibold text-black">
+                Email address
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={
+                    signInForm.email
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSignInField(
+                      "email",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal text-black"
+                />
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Access role
+                <select
+                  required
+                  value={
+                    signInForm.role
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSignInField(
+                      "role",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal text-black"
+                >
+                  {visibleSignInRoles.map(
+                    (role) => (
+                      <option
+                        key={
+                          role.key
+                        }
+                        value={
+                          role.key
+                        }
+                      >
+                        {role.name}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Temporary password
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={
+                    signInForm.password
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSignInField(
+                      "password",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal text-black"
+                />
+              </label>
+
+              <label className="text-sm font-semibold text-black">
+                Confirm temporary password
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  value={
+                    signInForm.confirmPassword
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    updateSignInField(
+                      "confirmPassword",
+                      event.target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal text-black"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={
+                  saving ===
+                  "sign-in"
+                }
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
+              >
+                <KeyRound
+                  size={17}
+                />
+                {saving ===
+                "sign-in"
+                  ? "Enabling sign-in..."
+                  : "Enable sign-in"}
+              </button>
+
+              <span className="text-xs leading-5 text-slate-500">
+                The email must be unique. Existing employee information is not duplicated.
+              </span>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            Sign-in is not enabled for this employee. You need the Add employees permission to create and link login credentials.
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

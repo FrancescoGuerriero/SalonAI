@@ -6,6 +6,7 @@ import {
   buildAdminWorkforceRoster,
   normaliseEmployeeManagementUpdate,
   normaliseEmployeeSchedule,
+  normaliseEmployeeSignInRequest,
 } from "../controllers/adminUserController.js";
 import {
   permissionsForRole,
@@ -617,5 +618,133 @@ test("Administrator cannot mutate a Super Admin account through employee setting
   assert.match(
     controller,
     /Only a Super Admin can modify a Super Admin account\./
+  );
+});
+
+
+test("existing employee sign-in credentials are normalised without changing employee data", () => {
+  assert.deepEqual(
+    normaliseEmployeeSignInRequest({
+      email:
+        "  EMPLOYEE@Example.COM  ",
+      password:
+        "temporary-pass",
+      role:
+        "stylist",
+      profilePublished:
+        false,
+      services: [],
+    }),
+    {
+      email:
+        "employee@example.com",
+      password:
+        "temporary-pass",
+      role:
+        "stylist",
+    }
+  );
+});
+
+test("existing employee sign-in requires a valid email and an eight-character password", () => {
+  assert.throws(
+    () =>
+      normaliseEmployeeSignInRequest({
+        email:
+          "not-an-email",
+        password:
+          "temporary-pass",
+        role:
+          "stylist",
+      }),
+    (error) =>
+      error.statusCode ===
+      400
+  );
+
+  assert.throws(
+    () =>
+      normaliseEmployeeSignInRequest({
+        email:
+          "employee@example.com",
+        password:
+          "short",
+        role:
+          "stylist",
+      }),
+    (error) =>
+      error.statusCode ===
+      400
+  );
+});
+
+test("existing employee sign-in endpoint links the current record instead of creating another profile", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/adminUserController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const routes =
+    await readFile(
+      new URL(
+        "../routes/authRoutes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const start =
+    controller.indexOf(
+      "export async function enableEmployeeSignIn"
+    );
+  const end =
+    controller.indexOf(
+      "export async function updateEmployeeServices",
+      start
+    );
+  const handler =
+    controller.slice(
+      start,
+      end
+    );
+
+  assert.match(
+    routes,
+    /\/admin\/staff-record\/:id\/sign-in/
+  );
+  assert.match(
+    routes,
+    /"employee:create"/
+  );
+  assert.match(
+    handler,
+    /Stylist\.findById\(/
+  );
+  assert.match(
+    handler,
+    /stylist\.userAccount\s*=\s*createdUser\._id/
+  );
+  assert.match(
+    handler,
+    /stylist\.email\s*=\s*email/
+  );
+  assert.match(
+    handler,
+    /action:\s*"employee\.sign_in_enabled"/
+  );
+  assert.match(
+    handler,
+    /Stylist\.replaceOne\(/
+  );
+  assert.match(
+    handler,
+    /User\.deleteOne\(/
+  );
+  assert.doesNotMatch(
+    handler,
+    /Stylist\.create\(/
   );
 });
