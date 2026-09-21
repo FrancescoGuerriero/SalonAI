@@ -82,6 +82,8 @@ export function employeeManagementPath(
   employee
 ) {
   if (
+    employee?.signInEnabled ===
+      false ||
     employee?.accountLinked ===
       false
   ) {
