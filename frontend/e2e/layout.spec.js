@@ -608,6 +608,81 @@ test.describe("SalonAI layout regressions", () => {
     await expect(dialog).toBeVisible();
     await expect(close).toBeFocused();
 
+    const dialogBox =
+      await dialog.boundingBox();
+    const viewport =
+      page.viewportSize();
+
+    expect(dialogBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(dialogBox.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox.y).toBeGreaterThanOrEqual(0);
+    expect(
+      dialogBox.x +
+        dialogBox.width
+    ).toBeLessThanOrEqual(
+      viewport.width
+    );
+    expect(
+      dialogBox.y +
+        dialogBox.height
+    ).toBeLessThanOrEqual(
+      viewport.height
+    );
+
+    const scrollBody =
+      dialog.locator(
+        "form > div"
+      ).first();
+
+    const scrollMetrics =
+      await scrollBody.evaluate(
+        (element) => ({
+          clientHeight:
+            element.clientHeight,
+          scrollHeight:
+            element.scrollHeight,
+          overflowY:
+            getComputedStyle(
+              element
+            ).overflowY,
+        })
+      );
+
+    expect(
+      scrollMetrics.overflowY
+    ).toBe("auto");
+    expect(
+      scrollMetrics.scrollHeight
+    ).toBeGreaterThanOrEqual(
+      scrollMetrics.clientHeight
+    );
+
+    await expect(
+      dialog.getByRole(
+        "button",
+        {
+          name:
+            "Create employee",
+        }
+      )
+    ).toBeVisible();
+
+    const horizontalOverflow =
+      await page.evaluate(
+        () =>
+          document
+            .documentElement
+            .scrollWidth >
+          document
+            .documentElement
+            .clientWidth
+      );
+
+    expect(
+      horizontalOverflow
+    ).toBe(false);
+
     await page.keyboard.press("Shift+Tab");
     await expect(
       dialog.getByRole("button", {
