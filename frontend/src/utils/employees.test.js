@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  employeeDisplayPhoto,
+  employeeManagementPath,
   employeeScheduleForDate,
   employeeServiceNames,
 } from "./employees.js";
@@ -66,3 +68,53 @@ test("employee service names support populated services", () => {
   );
 });
 
+
+
+test("employee photo prefers the account image and falls back to the staff profile image", () => {
+  assert.equal(
+    employeeDisplayPhoto({
+      profilePhoto:
+        "/accounts/francesco.jpg",
+      stylistProfile: {
+        profileImage:
+          "/profiles/francesco.jpg",
+      },
+    }),
+    "/accounts/francesco.jpg"
+  );
+
+  assert.equal(
+    employeeDisplayPhoto({
+      profilePhoto: "",
+      stylistProfile: {
+        profileImage:
+          "/profiles/francesco.jpg",
+      },
+    }),
+    "/profiles/francesco.jpg"
+  );
+});
+
+test("employee management path is consistent for account-backed and profile-only staff", () => {
+  assert.equal(
+    employeeManagementPath({
+      id: "user-1",
+      accountLinked: true,
+    }),
+    "/admin/employees/user-1"
+  );
+
+  assert.equal(
+    employeeManagementPath({
+      id: "profile:profile-1",
+      profileId:
+        "profile-1",
+      accountLinked: false,
+      stylistProfile: {
+        id:
+          "profile-1",
+      },
+    }),
+    "/admin/employees/profile/profile-1"
+  );
+});
