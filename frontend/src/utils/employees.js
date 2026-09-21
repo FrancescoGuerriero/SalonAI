@@ -83,8 +83,6 @@ export function employeeManagementPath(
 ) {
   if (
     employee?.signInEnabled ===
-      false ||
-    employee?.accountLinked ===
       false
   ) {
     const profileId =
