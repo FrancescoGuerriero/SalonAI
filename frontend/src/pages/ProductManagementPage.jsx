@@ -863,7 +863,7 @@ export default function ProductManagementPage() {
         >
           <form
             ref={editorPanelRef}
-            className="flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
+            className="flex max-h-[calc(100dvh-1rem)] min-w-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)]"
             onSubmit={
               save
             }
@@ -895,7 +895,7 @@ export default function ProductManagementPage() {
               </button>
             </header>
 
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain p-4 sm:grid-cols-2 sm:p-5">
+            <div className="grid min-h-0 min-w-0 flex-1 gap-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:grid-cols-2 sm:p-5">
               {[
                 [
                   "name",
