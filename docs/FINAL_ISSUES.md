@@ -59,20 +59,49 @@ The final deployed P0 test subset reported `35` tests, `35` passed and `0` faile
 
 The production verification workflow was subsequently serialized with the production deployment concurrency lock in PR #213 so future P0 verification cannot overlap an active deployment.
 
-## P0 — SendGrid transactional email production acceptance
+## P0 — SendGrid transactional email production acceptance — BLOCKED ON PROVIDER/SECRET SETUP
 
-Application support, readiness tooling and domain authentication work are present, but signed production acceptance is not complete until the deferred provider setup is finished.
+The application-side SendGrid integration, signed Event Webhook verification, readiness tooling and acceptance sender are implemented. Production readiness was audited through the governed read-only workflow on 21 September 2026.
 
-Remaining work:
+Latest production evidence:
 
-- regain SendGrid account access;
-- configure the signed SendGrid Event Webhook for `/api/message-delivery/webhooks/sendgrid/events`;
-- install the public verification key and required production environment values;
-- keep `SENDGRID_EVENT_WEBHOOK_ENABLED` disabled until signature verification is configured;
-- run `npm run sendgrid:readiness`;
-- run one deliberate `npm run sendgrid:acceptance` transactional test;
-- verify the signed delivered-event is reconciled by SalonAI;
-- treat marketing-email activation as a separate acceptance step.
+- readiness workflow run: `35590746798`;
+- evidence artifact: `salonai-production-sendgrid-readiness-35590746798`;
+- live application release: `v8.15.6`;
+- `readyForAcceptance: false`;
+- `MESSAGE_DELIVERY_MODE` is already live;
+- email delivery is already enabled;
+- sender address is configured;
+- SMTP relay configuration is valid;
+- current provider remains `smtp`;
+- current SMTP host is IONOS, not SendGrid;
+- SendGrid API key is not configured;
+- signed SendGrid Event Webhook is not enabled;
+- SendGrid Event Webhook public verification key is not configured;
+- SendGrid sender verification is not yet recorded as complete;
+- SendGrid domain authentication is not yet recorded as complete.
+
+Current readiness blockers:
+
+1. `sendGridProvider`
+2. `apiKeyConfigured`
+3. `signedEventWebhook`
+4. `senderVerified`
+5. `domainAuthenticated`
+
+Required completion sequence:
+
+- complete SendGrid Sender Authentication/domain authentication for the production sending domain;
+- create a SendGrid API key with the minimum required Mail Send permission and install it as `SENDGRID_API_KEY`;
+- change production `EMAIL_PROVIDER` from `smtp` to `sendgrid` only after the SendGrid credentials and authenticated sender/domain are ready;
+- configure the SendGrid Event Webhook endpoint at `/api/message-delivery/webhooks/sendgrid/events`;
+- enable signed Event Webhook verification and install the SendGrid public verification key as `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY`;
+- set `SENDGRID_EVENT_WEBHOOK_ENABLED=true` only when the public verification key is present;
+- record provider completion with `SENDGRID_SENDER_VERIFIED=true` and `SENDGRID_DOMAIN_AUTHENTICATED=true`;
+- rerun the governed production SendGrid readiness audit and require `readyForAcceptance: true`;
+- only then run one deliberate transactional acceptance send with `SENDGRID_ACCEPTANCE_CONFIRM=RUN_SENDGRID_EMAIL_ACCEPTANCE`;
+- verify the signed delivered event reconciles the SalonAI `MessageDelivery` record;
+- keep marketing-email activation as a separate acceptance step.
 
 Existing Twilio SMS, WhatsApp, WhatsApp bot and WhatsApp booking behavior must not be redesigned as part of this work unless a real regression is found.
 
