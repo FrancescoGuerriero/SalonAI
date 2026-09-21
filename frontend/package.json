@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:a11y": "playwright test e2e/accessibility.spec.js",
-    "test:all": "npm run test:legacy && npm run test:component"
+    "test:all": "npm run test:legacy && npm run test:component",
+    "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "axios": "^1.18.1",
