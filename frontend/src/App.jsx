@@ -1126,7 +1126,7 @@ function AppRoutes() {
         />
 
         <Route
-          path="admin/employees/profile/:profileId"
+          path="admin/employees/record/:recordId"
           element={permissionPage(
             AdminEmployeeDetailPage,
             "employee:read"
