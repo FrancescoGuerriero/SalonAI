@@ -135,3 +135,100 @@ test("management and catalogue sources no longer write the legacy onlineBookable
     );
   }
 });
+
+
+test("staff-managed appointment operations enforce global service bookability", async () => {
+  const service =
+    await source(
+      "../features/appointments/appointmentManagementService.js"
+    );
+
+  assert.match(
+    service,
+    /function serviceIsGloballyBookable/
+  );
+  assert.match(
+    service,
+    /service\.bookable/
+  );
+  assert.match(
+    service,
+    /service\.onlineBookable/
+  );
+  assert.match(
+    service,
+    /async function appointmentEligibleService/
+  );
+
+  for (const operation of [
+    "checkAppointmentConflict",
+    "createManagedAppointment",
+    "rescheduleAppointment",
+  ]) {
+    const start =
+      service.indexOf(
+        `async function ${operation}`
+      );
+
+    assert.ok(
+      start >= 0,
+      `Missing managed booking operation: ${operation}`
+    );
+
+    const next =
+      service.indexOf(
+        "\nasync function ",
+        start + 20
+      );
+
+    const operationSource =
+      service.slice(
+        start,
+        next >= 0
+          ? next
+          : service.length
+      );
+
+    assert.match(
+      operationSource,
+      /appointmentEligibleService\(/
+    );
+  }
+});
+
+test("WhatsApp booking prefers canonical service bookable state with legacy fallback", async () => {
+  const orchestrator =
+    await source(
+      "../features/premium/whatsapp/whatsappBotOrchestrator.js"
+    );
+
+  const start =
+    orchestrator.indexOf(
+      "function serviceNeedsManualBooking"
+    );
+  const end =
+    orchestrator.indexOf(
+      "\nfunction ",
+      start + 20
+    );
+  const helper =
+    orchestrator.slice(
+      start,
+      end >= 0
+        ? end
+        : orchestrator.length
+    );
+
+  assert.match(
+    helper,
+    /service\.bookable/
+  );
+  assert.match(
+    helper,
+    /service\.onlineBookable/
+  );
+  assert.match(
+    helper,
+    /bookable === false/
+  );
+});
