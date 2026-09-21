@@ -148,6 +148,12 @@ describe(
         ).toHaveBeenCalledTimes(
           1
         );
+        expect(
+          adminStaffService.list
+        ).toHaveBeenCalledWith({
+          limit: 500,
+          view: "access",
+        });
 
         const appointmentPermission =
           screen.getByLabelText(
