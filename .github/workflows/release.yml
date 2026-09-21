@@ -88,6 +88,7 @@ jobs:
           set -euo pipefail
           npm ci --prefix frontend
           npm --prefix frontend run build
+          npm --prefix frontend run check:bundle
 
       - name: Enforce workflow security policy
         run: node scripts/ci/check-workflow-security.mjs
