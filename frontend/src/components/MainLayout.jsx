@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -19,12 +21,24 @@ import {
 
 import Footer from "./Footer.jsx";
 import Navbar from "./Navbar.jsx";
-import SalonChatbot from "./chatbot/SalonChatbot.jsx";
-import SalonAiAdviser from "./ai/SalonAiAdviser.jsx";
 import ManagementNavigation, {
   MANAGEMENT_LINKS,
 } from "./navigation/ManagementNavigation.jsx";
 import Seo from "./Seo.jsx";
+
+const SalonChatbot = lazy(
+  () =>
+    import(
+      "./chatbot/SalonChatbot.jsx"
+    )
+);
+
+const SalonAiAdviser = lazy(
+  () =>
+    import(
+      "./ai/SalonAiAdviser.jsx"
+    )
+);
 import useFeatureControls from "../hooks/useFeatureControls.js";
 import useModalFocusTrap from "../hooks/useModalFocusTrap.js";
 import useAuth from "../hooks/useAuth.js";
@@ -156,7 +170,11 @@ export default function MainLayout() {
             <Outlet />
           </main>
 
-          {isFeatureEnabled("salon-chatbot") ? <SalonChatbot /> : null}
+          {isFeatureEnabled("salon-chatbot") ? (
+            <Suspense fallback={null}>
+              <SalonChatbot />
+            </Suspense>
+          ) : null}
         </>
       ) : (
         <div className="management-shell">
@@ -268,11 +286,13 @@ export default function MainLayout() {
             user,
             "ai:use"
           ) ? (
-            <SalonAiAdviser
-              contextPath={
-                location.pathname
-              }
-            />
+            <Suspense fallback={null}>
+              <SalonAiAdviser
+                contextPath={
+                  location.pathname
+                }
+              />
+            </Suspense>
           ) : null}
 
           {mobileOpen ? (
