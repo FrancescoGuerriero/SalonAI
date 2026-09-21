@@ -328,6 +328,23 @@ export const staffApi = {
     api
       .patch(`/staff/time-off/${id}`, { status })
       .then(data),
+  listCalendarBlocks: (params) =>
+    api
+      .get("/staff/calendar-blocks", { params })
+      .then(data),
+  createCalendarBlock: (staffId, payload) =>
+    api
+      .post(
+        `/staff/${staffId}/calendar-blocks`,
+        payload
+      )
+      .then(data),
+  cancelCalendarBlock: (id) =>
+    api
+      .patch(
+        `/staff/calendar-blocks/${id}/cancel`
+      )
+      .then(data),
 };
 
 export const securityApi = {

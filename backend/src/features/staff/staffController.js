@@ -247,6 +247,76 @@ export async function listTimeOff(
   });
 }
 
+export async function listCalendarBlocks(
+  req,
+  res
+) {
+  res.json({
+    items:
+      await service.calendarScheduleBlocks(
+        req.query
+      ),
+  });
+}
+
+export async function createCalendarBlock(
+  req,
+  res
+) {
+  const request =
+    await service.createScheduleBlock(
+      req.params.staffId,
+      req.body,
+      req.user
+    );
+
+  await auditTimeOff(
+    req,
+    {
+      action:
+        "staff.schedule_block_created",
+      request,
+      scope:
+        "all-staff",
+    }
+  );
+
+  res
+    .status(201)
+    .json(request);
+}
+
+export async function cancelCalendarBlock(
+  req,
+  res
+) {
+  const before =
+    await service.getTimeOff(
+      req.params.id
+    );
+
+  const request =
+    await service.updateTimeOff(
+      req.params.id,
+      "cancelled",
+      req.user
+    );
+
+  await auditTimeOff(
+    req,
+    {
+      action:
+        "staff.schedule_block_cancelled",
+      request,
+      before,
+      scope:
+        "all-staff",
+    }
+  );
+
+  res.json(request);
+}
+
 export async function myWeek(
   req,
   res

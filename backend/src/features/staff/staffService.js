@@ -3,7 +3,9 @@ import mongoose from "mongoose";
 import Appointment from "../../models/Appointment.js";
 import Stylist from "../../models/Stylist.js";
 import StaffAvailability from "./StaffAvailability.js";
-import StaffTimeOff from "./StaffTimeOff.js";
+import StaffTimeOff, {
+  STAFF_SCHEDULE_BLOCK_TYPES,
+} from "./StaffTimeOff.js";
 import {
   assertFound,
   createServiceError,
@@ -40,6 +42,97 @@ function parseDate(value, fieldName) {
   }
 
   return date;
+}
+
+function normaliseScheduleBlockType(
+  value
+) {
+  const blockType =
+    String(
+      value || "other"
+    )
+      .trim()
+      .toLowerCase()
+      .replaceAll("-", "_");
+
+  if (
+    !STAFF_SCHEDULE_BLOCK_TYPES.includes(
+      blockType
+    )
+  ) {
+    throw createServiceError(
+      "Schedule block type is invalid.",
+      400,
+      {
+        field:
+          "blockType",
+      }
+    );
+  }
+
+  return blockType;
+}
+
+function scheduleBlockLabel(
+  block
+) {
+  const blockType =
+    block?.blockType ||
+    "time_off";
+
+  if (
+    [
+      "time_off",
+      "personal",
+    ].includes(
+      blockType
+    )
+  ) {
+    return "Unavailable";
+  }
+
+  const fallback = {
+    meeting: "Meeting",
+    training: "Training",
+    other: "Blocked time",
+  };
+
+  return (
+    String(
+      block?.title || ""
+    ).trim() ||
+    fallback[blockType] ||
+    "Blocked time"
+  );
+}
+
+function validateScheduleBlockWindow(
+  payload = {}
+) {
+  const startsAt =
+    parseDate(
+      payload.startsAt,
+      "startsAt"
+    );
+  const endsAt =
+    parseDate(
+      payload.endsAt,
+      "endsAt"
+    );
+
+  if (
+    endsAt <= startsAt
+  ) {
+    throw createServiceError(
+      "Schedule block end must be after its start.",
+      400
+    );
+  }
+
+  return {
+    startsAt,
+    endsAt,
+  };
 }
 
 function timeToMinutes(value, fieldName) {
@@ -536,7 +629,7 @@ export async function assertAppointmentWithinStaffAvailability(
 
   if (timeOff) {
     throw createServiceError(
-      "The selected stylist is unavailable because approved time off overlaps this appointment.",
+      "The selected stylist is unavailable because an approved schedule block overlaps this appointment.",
       409,
       { timeOff }
     );
@@ -574,23 +667,239 @@ export async function assertAppointmentWithinStaffAvailability(
 export async function requestTimeOff(staffId, payload = {}) {
   await requireStylist(staffId);
 
-  const startsAt = parseDate(payload.startsAt, "startsAt");
-  const endsAt = parseDate(payload.endsAt, "endsAt");
-
-  if (endsAt <= startsAt) {
-    throw createServiceError(
-      "Time-off end must be after its start.",
-      400
+  const {
+    startsAt,
+    endsAt,
+  } =
+    validateScheduleBlockWindow(
+      payload
     );
-  }
 
   return StaffTimeOff.create({
     staff: staffId,
     startsAt,
     endsAt,
+    blockType:
+      "time_off",
+    title: "",
     reason: String(payload.reason || "").trim(),
     status: "requested",
   });
+}
+
+export async function createScheduleBlock(
+  staffId,
+  payload = {},
+  user
+) {
+  await requireStylist(
+    staffId
+  );
+
+  const {
+    startsAt,
+    endsAt,
+  } =
+    validateScheduleBlockWindow(
+      payload
+    );
+
+  const blockType =
+    normaliseScheduleBlockType(
+      payload.blockType
+    );
+
+  const title =
+    String(
+      payload.title || ""
+    )
+      .trim()
+      .slice(0, 120);
+
+  const [
+    appointmentConflict,
+    blockConflict,
+  ] =
+    await Promise.all([
+      Appointment.findOne({
+        stylist:
+          staffId,
+        status: {
+          $nin: [
+            "cancelled",
+            "no_show",
+          ],
+        },
+        startsAt: {
+          $lt:
+            endsAt,
+        },
+        endsAt: {
+          $gt:
+            startsAt,
+        },
+      })
+        .select(
+          "_id startsAt endsAt status"
+        )
+        .lean(),
+      StaffTimeOff.findOne({
+        staff:
+          staffId,
+        status:
+          "approved",
+        startsAt: {
+          $lt:
+            endsAt,
+        },
+        endsAt: {
+          $gt:
+            startsAt,
+        },
+      })
+        .select(
+          "_id startsAt endsAt blockType"
+        )
+        .lean(),
+    ]);
+
+  if (
+    appointmentConflict
+  ) {
+    throw createServiceError(
+      "The schedule block overlaps an existing appointment.",
+      409,
+      {
+        appointmentId:
+          appointmentConflict._id,
+      }
+    );
+  }
+
+  if (blockConflict) {
+    throw createServiceError(
+      "The schedule block overlaps existing blocked time.",
+      409,
+      {
+        scheduleBlockId:
+          blockConflict._id,
+      }
+    );
+  }
+
+  return StaffTimeOff.create({
+    staff:
+      staffId,
+    startsAt,
+    endsAt,
+    blockType,
+    title,
+    reason:
+      String(
+        payload.reason || ""
+      )
+        .trim()
+        .slice(0, 500),
+    status:
+      "approved",
+    approvedBy:
+      userId(user),
+  });
+}
+
+export async function calendarScheduleBlocks(
+  query = {}
+) {
+  const startAnchor =
+    salonDateAnchor(
+      query.startDate ||
+        query.startsAt
+    );
+  const endAnchor =
+    salonDateAnchor(
+      query.endDate ||
+        query.endsAt
+    );
+  const {
+    start: startsAt,
+  } =
+    salonDayBounds(
+      startAnchor
+    );
+  const {
+    end: endsAt,
+  } =
+    salonDayBounds(
+      endAnchor
+    );
+
+  if (
+    endsAt < startsAt
+  ) {
+    throw createServiceError(
+      "Calendar block end date must not be before its start date.",
+      400
+    );
+  }
+
+  const match = {
+    status:
+      "approved",
+    startsAt: {
+      $lte:
+        endsAt,
+    },
+    endsAt: {
+      $gte:
+        startsAt,
+    },
+  };
+
+  if (query.staff) {
+    await requireStylist(
+      query.staff
+    );
+    match.staff =
+      query.staff;
+  }
+
+  const blocks =
+    await StaffTimeOff.find(
+      match
+    )
+      .select(
+        "staff startsAt endsAt blockType title status"
+      )
+      .populate(
+        "staff",
+        "firstName lastName isActive"
+      )
+      .sort({
+        startsAt: 1,
+      })
+      .lean();
+
+  return blocks.map(
+    (block) => ({
+      _id:
+        block._id,
+      staff:
+        block.staff,
+      startsAt:
+        block.startsAt,
+      endsAt:
+        block.endsAt,
+      blockType:
+        block.blockType ||
+        "time_off",
+      title:
+        scheduleBlockLabel(
+          block
+        ),
+      status:
+        block.status,
+    })
+  );
 }
 
 export async function getTimeOff(id) {
@@ -645,6 +954,44 @@ export async function listTimeOff(query = {}) {
 
   if (query.status) {
     match.status = query.status;
+  }
+
+  if (query.blockType) {
+    match.blockType =
+      normaliseScheduleBlockType(
+        query.blockType
+      );
+  }
+
+  if (
+    query.startDate ||
+    query.endDate
+  ) {
+    const rangeStart =
+      query.startDate
+        ? parseDate(
+            query.startDate,
+            "startDate"
+          )
+        : new Date(0);
+    const rangeEnd =
+      query.endDate
+        ? parseDate(
+            query.endDate,
+            "endDate"
+          )
+        : new Date(
+            "9999-12-31T23:59:59.999Z"
+          );
+
+    match.startsAt = {
+      $lte:
+        rangeEnd,
+    };
+    match.endsAt = {
+      $gte:
+        rangeStart,
+    };
   }
 
   return StaffTimeOff.find(match)
