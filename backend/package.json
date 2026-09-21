@@ -24,7 +24,8 @@
     "sendgrid:marketing-acceptance": "node scripts/testSendGridMarketingAcceptance.js",
     "sendgrid:readiness": "node scripts/checkSendGridReadiness.js",
     "service:state-migrate": "node scripts/migrateServiceState.js",
-    "stylists:assign-all-services": "node scripts/assignAllServicesToStylists.js"
+    "stylists:assign-all-services": "node scripts/assignAllServicesToStylists.js",
+    "social-auth:readiness": "node scripts/checkSocialAuthReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
