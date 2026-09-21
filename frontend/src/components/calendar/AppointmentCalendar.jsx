@@ -905,7 +905,7 @@ export default function AppointmentCalendar() {
                   backgroundColor:
                     event.kind ===
                     "schedule_block"
-                      ? "#475569"
+                      ? "#78716c"
                       : STATUS_COLOURS[
                           event
                             .resource
