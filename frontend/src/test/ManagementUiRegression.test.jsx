@@ -45,6 +45,84 @@ describe(
 
 
     it(
+      "keeps legacy admin URLs as redirects without duplicating management navigation",
+      () => {
+        const app =
+          source(
+            "src/App.jsx"
+          );
+        const navigation =
+          source(
+            "src/components/navigation/ManagementNavigation.jsx"
+          );
+        const adminDashboard =
+          source(
+            "src/pages/AdminDashboard.jsx"
+          );
+
+        for (const [legacy, canonical] of [
+          ["admin/services", "/manage/services"],
+          ["admin/stylists", "/staff/profile"],
+          ["admin/appointments", "/appointments"],
+          ["admin/customers", "/customers"],
+          ["admin/staff-accounts", "/admin/employees"],
+        ]) {
+          expect(
+            app
+          ).toContain(
+            `path="${legacy}"`
+          );
+          expect(
+            app
+          ).toContain(
+            `to="${canonical}"`
+          );
+        }
+
+        for (const legacyPath of [
+          "/admin/services",
+          "/admin/stylists",
+          "/admin/appointments",
+          "/admin/customers",
+          "/admin/staff-accounts",
+        ]) {
+          expect(
+            navigation
+          ).not.toContain(
+            `["${legacyPath}"`
+          );
+        }
+
+        expect(
+          navigation
+        ).toContain(
+          '["/admin/system", "On/Off Ideas"'
+        );
+        expect(
+          adminDashboard
+        ).toContain(
+          '"/manage/services"'
+        );
+        expect(
+          adminDashboard
+        ).toContain(
+          '"/appointments"'
+        );
+        expect(
+          adminDashboard
+        ).toContain(
+          '"/customers"'
+        );
+        expect(
+          adminDashboard
+        ).toContain(
+          '"/staff/profile"'
+        );
+      }
+    );
+
+
+    it(
       "keeps the Add Employee dialog inside the viewport with a fixed shell and internal scrolling",
       () => {
         const modal =
