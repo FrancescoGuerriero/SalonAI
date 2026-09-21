@@ -1129,14 +1129,10 @@ export async function listAdminUsers(
       roster =
         roster.filter(
           (employee) =>
-            role ===
-            "sign_in_disabled"
-              ? employee.signInEnabled ===
-                false
-              : employee.signInEnabled !==
-                  false &&
-                employee.role ===
-                  role
+            employee.signInEnabled !==
+              false &&
+            employee.role ===
+              role
         );
     }
 
