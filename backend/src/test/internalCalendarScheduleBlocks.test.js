@@ -146,7 +146,7 @@ test(
 
     assert.match(
       service,
-      /\["time_off",[\s\S]*?"personal"[\s\S]*?\][\s\S]*?return "Unavailable"/
+      /\[\s*"time_off",[\s\S]*?"personal"[\s\S]*?\]\.includes[\s\S]*?return "Unavailable"/
     );
 
     const start =
