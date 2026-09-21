@@ -21,20 +21,11 @@ const stylistService = {
   },
 
   async getBookingStylists(
-    serviceId,
     config = {}
   ) {
     const { data } = await API.get(
       `${ENDPOINT}/booking`,
-      {
-        ...config,
-        params: {
-          ...config.params,
-          service:
-            serviceId ||
-            undefined,
-        },
-      }
+      config
     );
 
     return data;
