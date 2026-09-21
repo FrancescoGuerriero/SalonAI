@@ -218,3 +218,76 @@ test("Employees page uses the canonical onboarding modal", async () => {
     /Temporary password[\s\S]*Create employee/
   );
 });
+
+
+test("existing employee workspace exposes sign-in enablement instead of a duplicate Add Employee flow", async () => {
+  const page =
+    await source(
+      "../../../frontend/src/pages/AdminEmployeeDetailPage.jsx"
+    );
+  const service =
+    await source(
+      "../../../frontend/src/Services/adminStaffService.js"
+    );
+
+  assert.match(
+    page,
+    /Sign-in access/
+  );
+  assert.match(
+    page,
+    /Enable sign-in/
+  );
+  assert.match(
+    page,
+    /Temporary password/
+  );
+  assert.match(
+    page,
+    /Confirm temporary password/
+  );
+  assert.match(
+    page,
+    /employee:create/
+  );
+  assert.match(
+    page,
+    /adminStaffService\.enableSignIn/
+  );
+  assert.match(
+    service,
+    /staff-record\/\$\{recordId\}\/sign-in/
+  );
+  assert.doesNotMatch(
+    page,
+    /<AddEmployeeModal/
+  );
+});
+
+test("shared staff role defaults are reused by onboarding and existing employee sign-in", async () => {
+  const onboarding =
+    await source(
+      "../../../frontend/src/components/employees/AddEmployeeModal.jsx"
+    );
+  const employeePage =
+    await source(
+      "../../../frontend/src/pages/AdminEmployeeDetailPage.jsx"
+    );
+
+  assert.match(
+    onboarding,
+    /DEFAULT_ASSIGNABLE_STAFF_ROLES/
+  );
+  assert.match(
+    employeePage,
+    /DEFAULT_ASSIGNABLE_STAFF_ROLES/
+  );
+  assert.match(
+    onboarding,
+    /assignableRolesForUser/
+  );
+  assert.match(
+    employeePage,
+    /assignableRolesForUser/
+  );
+});
