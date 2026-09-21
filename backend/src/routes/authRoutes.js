@@ -23,6 +23,7 @@ import {
   createStaffUserByAdmin,
   getEmployeeManagementDetail,
   getEmployeeWithoutSignInManagementDetail,
+  enableEmployeeSignIn,
   updateEmployeeManagementSettings,
   updateEmployeeSchedule,
   updateEmployeeServices,
@@ -234,6 +235,15 @@ router.get(
     "employee:read"
   ),
   getEmployeeWithoutSignInManagementDetail
+);
+
+router.post(
+  "/admin/staff-record/:id/sign-in",
+  protect,
+  requirePermissions(
+    "employee:create"
+  ),
+  enableEmployeeSignIn
 );
 
 router.get(
