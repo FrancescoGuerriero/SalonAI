@@ -261,8 +261,8 @@ export default function AdminStaffAccountsPage() {
             roleFilter &&
             (
               roleFilter ===
-              "profile_only"
-                ? user.accountLinked !==
+              "sign_in_disabled"
+                ? user.signInEnabled !==
                   false
                 : user.role !==
                   roleFilter
@@ -307,7 +307,7 @@ export default function AdminStaffAccountsPage() {
     value
   ) {
     const profileOnly =
-      user.accountLinked ===
+      user.signInEnabled ===
       false;
 
     if (
@@ -577,8 +577,8 @@ export default function AdminStaffAccountsPage() {
             <option value="">
               All staff roles
             </option>
-            <option value="profile_only">
-              No login account
+            <option value="sign_in_disabled">
+              Sign-in not enabled
             </option>
 
             {roles.map(
@@ -663,13 +663,13 @@ export default function AdminStaffAccountsPage() {
 
                     <p className="mt-1 break-all text-sm text-slate-600">
                       {user.email ||
-                        "No login account"}
+                        "No email address"}
                     </p>
 
-                    {user.accountLinked ===
+                    {user.signInEnabled ===
                     false ? (
                       <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900">
-                        Profile only · no login account
+                        Sign-in not enabled
                       </span>
                     ) : null}
 
@@ -682,10 +682,10 @@ export default function AdminStaffAccountsPage() {
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
 
-                      {user.accountLinked ===
+                      {user.signInEnabled ===
                       false ? (
                         <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-amber-800">
-                          No login account
+                          Sign-in not enabled
                         </span>
                       ) : canManageRoles ? (
                         <select
