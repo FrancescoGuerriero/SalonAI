@@ -27,9 +27,7 @@ import useFeatureControls from "../hooks/useFeatureControls.js";
 import {
   getStylistSearchText,
   isStylistActive,
-  stylistOffersService,
 } from "../utils/stylists.js";
-import "../styles/customerExperience.css";
 
 function normaliseStylists(data) {
   if (
@@ -81,6 +79,11 @@ export default function Stylists() {
     booking?.service ||
     null;
 
+  const selectedServiceId =
+    selectedService?._id ||
+    selectedService?.id ||
+    "";
+
   const {
     isFeatureEnabled,
   } =
@@ -101,7 +104,9 @@ export default function Stylists() {
       ? onlineBookingEnabled
       : publicTeamEnabled;
 
-  async function loadStylists() {
+  async function loadStylists({
+    signal,
+  } = {}) {
     try {
       setLoading(
         true
@@ -115,35 +120,49 @@ export default function Stylists() {
         return;
       }
 
+      const requestConfig =
+        signal
+          ? {
+              signal,
+            }
+          : {};
+
       const data =
         selectedService
           ? await stylistService
-              .getBookingStylists()
+              .getBookingStylists(
+                selectedServiceId,
+                requestConfig
+              )
           : await stylistService
-              .getPublicTeam();
+              .getPublicTeam(
+                requestConfig
+              );
 
       setStylists(
         normaliseStylists(
           data
         ).filter(
-          (stylist) =>
-            isStylistActive(
-              stylist
-            ) &&
-            stylistOffersService(
-              stylist,
-              selectedService
-                ?._id
-            )
+          isStylistActive
         )
       );
     } catch (
       requestError
     ) {
+      if (
+        requestError?.code ===
+          "ERR_CANCELED" ||
+        requestError?.name ===
+          "CanceledError"
+      ) {
+        return;
+      }
+
       console.error(
         "Unable to load stylists",
         requestError
       );
+
       setError(
         requestError
           .response
@@ -152,17 +171,31 @@ export default function Stylists() {
           "We could not load the stylists. Please try again."
       );
     } finally {
-      setLoading(
-        false
-      );
+      if (
+        !signal?.aborted
+      ) {
+        setLoading(
+          false
+        );
+      }
     }
   }
 
   useEffect(() => {
-    loadStylists();
+    const controller =
+      new AbortController();
+
+    void loadStylists({
+      signal:
+        controller.signal,
+    });
+
+    return () => {
+      controller.abort();
+    };
   }, [
     activeModeEnabled,
-    selectedService?._id,
+    selectedServiceId,
   ]);
 
   const filteredStylists =
@@ -342,8 +375,8 @@ export default function Stylists() {
             <button
               type="button"
               className="customer-inline-button"
-              onClick={
-                loadStylists
+              onClick={() =>
+                loadStylists()
               }
             >
               <RefreshCw
@@ -367,10 +400,18 @@ export default function Stylists() {
                   }
                 >
                   <Skeleton className="customer-skeleton-avatar" />
+
                   <div className="customer-card-body">
-                    <Skeleton className="customer-skeleton-title" />
-                    <Skeleton className="customer-skeleton-line" />
-                    <Skeleton className="customer-skeleton-line short" />
+                    <div className="customer-card-content">
+                      <Skeleton className="customer-skeleton-title" />
+                      <Skeleton className="customer-skeleton-line" />
+                      <Skeleton className="customer-skeleton-line short" />
+                    </div>
+
+                    <div className="customer-card-footer">
+                      <Skeleton className="customer-skeleton-facts" />
+                      <Skeleton className="customer-skeleton-action" />
+                    </div>
                   </div>
                 </article>
               )
@@ -468,7 +509,10 @@ export default function Stylists() {
           0 ? (
           <section className="customer-card-grid">
             {filteredStylists.map(
-              (stylist) => (
+              (
+                stylist,
+                index
+              ) => (
                 <StylistCard
                   key={
                     stylist._id
@@ -486,6 +530,9 @@ export default function Stylists() {
                     selectedService
                       ? "Select stylist"
                       : "Choose a service"
+                  }
+                  priority={
+                    index < 3
                   }
                 />
               )

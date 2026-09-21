@@ -31,7 +31,6 @@ import Alert from "../components/ui/Alert.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
 
-import "../styles/customerExperience.css";
 
 function normaliseServices(
   data
@@ -364,7 +363,7 @@ export default function Services() {
                 index
               ) => (
                 <article
-                  className="customer-card customer-card-skeleton"
+                  className="customer-card service-card customer-card-skeleton"
                   key={
                     index
                   }
@@ -372,9 +371,16 @@ export default function Services() {
                   <Skeleton className="customer-skeleton-media" />
 
                   <div className="customer-card-body">
-                    <Skeleton className="customer-skeleton-title" />
-                    <Skeleton className="customer-skeleton-line" />
-                    <Skeleton className="customer-skeleton-line short" />
+                    <div className="customer-card-content">
+                      <Skeleton className="customer-skeleton-title" />
+                      <Skeleton className="customer-skeleton-line" />
+                      <Skeleton className="customer-skeleton-line short" />
+                    </div>
+
+                    <div className="customer-card-footer">
+                      <Skeleton className="customer-skeleton-meta" />
+                      <Skeleton className="customer-skeleton-action" />
+                    </div>
                   </div>
                 </article>
               )
@@ -453,7 +459,10 @@ export default function Services() {
               aria-label="Published services and prices"
             >
               {filteredServices.map(
-                (service) => (
+                (
+                  service,
+                  index
+                ) => (
                   <ServiceCard
                     key={
                       service._id
@@ -466,6 +475,9 @@ export default function Services() {
                     }
                     onConsult={
                       handleConsult
+                    }
+                    priority={
+                      index < 3
                     }
                   />
                 )

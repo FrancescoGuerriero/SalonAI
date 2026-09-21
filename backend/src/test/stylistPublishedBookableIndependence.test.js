@@ -87,6 +87,18 @@ test("stylist controller uses separate public-team and booking handlers", async 
   );
   assert.match(
     controller,
+    /req\.query\?\.service/
+  );
+  assert.match(
+    controller,
+    /filter\.services\s*=/
+  );
+  assert.match(
+    controller,
+    /BOOKING_STYLIST_CARD_FIELDS/
+  );
+  assert.match(
+    controller,
     /customerVisibleStylistFilter\(\)/
   );
   assert.match(
@@ -120,11 +132,11 @@ test("dual-purpose stylist page chooses endpoint and feature by mode", async () 
 
   assert.match(
     page,
-    /getBookingStylists\(\)/
+    /getBookingStylists\(\s*selectedServiceId/
   );
   assert.match(
     page,
-    /getPublicTeam\(\)/
+    /getPublicTeam\(\s*requestConfig\s*\)/
   );
   assert.match(
     page,
@@ -142,5 +154,36 @@ test("dual-purpose stylist page chooses endpoint and feature by mode", async () 
   assert.doesNotMatch(
     app,
     /path="stylists"[\s\S]{0,180}featurePage/
+  );
+});
+
+test("public team catalogue avoids service population on the normal stylist page", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/stylistController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const publicFields =
+    controller.match(
+      /export const PUBLIC_STYLIST_FIELDS = \[[\s\S]*?\]\.join\(" "\);/
+    )?.[0] || "";
+
+  assert.doesNotMatch(
+    publicFields,
+    /"services"/
+  );
+
+  const publicHandler =
+    controller.match(
+      /export async function getPublicStylists[\s\S]*?export async function getBookingStylists/
+    )?.[0] || "";
+
+  assert.doesNotMatch(
+    publicHandler,
+    /\.populate\(/
   );
 });

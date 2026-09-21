@@ -127,6 +127,161 @@ test.describe("SalonAI layout regressions", () => {
     );
   });
 
+  test("service metadata and actions align across mixed description lengths", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== "chromium-desktop",
+      "Desktop row alignment is checked in the desktop project."
+    );
+
+    await page.setViewportSize({
+      width: 1280,
+      height: 900,
+    });
+
+    await mockFeatureControls(page);
+
+    await page.route("**/api/services*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            _id: "service-short",
+            name: "Cut and finish",
+            category: "Hair",
+            description: "Clean, polished finish.",
+            price: 68,
+            duration: 45,
+            active: true,
+            published: true,
+            bookable: true,
+          },
+          {
+            _id: "service-long",
+            name: "Colour transformation",
+            category: "Colour",
+            description:
+              "A deliberately longer service description that wraps over several lines so duration, price and the booking action must still sit on the same baseline as the shorter card beside it.",
+            price: 150,
+            durationEstimated: true,
+            active: true,
+            published: true,
+            bookable: true,
+          },
+          {
+            _id: "service-medium",
+            name: "Blow dry",
+            category: "Styling",
+            description:
+              "Professional styling for a smooth and manageable finish.",
+            price: 50,
+            durationEstimated: true,
+            active: true,
+            published: true,
+            bookable: true,
+          },
+        ]),
+      });
+    });
+
+    await page.goto("/services");
+
+    const cards =
+      page.locator(
+        ".service-card"
+      );
+
+    await expect(
+      cards
+    ).toHaveCount(
+      3
+    );
+
+    const metaBoxes =
+      await Promise.all(
+        [0, 1, 2].map(
+          (index) =>
+            cards
+              .nth(index)
+              .locator(
+                ".customer-card-meta"
+              )
+              .boundingBox()
+        )
+      );
+
+    const actionBoxes =
+      await Promise.all(
+        [0, 1, 2].map(
+          (index) =>
+            cards
+              .nth(index)
+              .locator(
+                ".customer-card-action"
+              )
+              .boundingBox()
+        )
+      );
+
+    for (
+      const box of [
+        ...metaBoxes,
+        ...actionBoxes,
+      ]
+    ) {
+      expect(
+        box
+      ).not.toBeNull();
+    }
+
+    expect(
+      Math.max(
+        ...metaBoxes.map(
+          (box) => box.y
+        )
+      ) -
+        Math.min(
+          ...metaBoxes.map(
+            (box) => box.y
+          )
+        )
+    ).toBeLessThanOrEqual(
+      2
+    );
+
+    expect(
+      Math.max(
+        ...actionBoxes.map(
+          (box) => box.y
+        )
+      ) -
+        Math.min(
+          ...actionBoxes.map(
+            (box) => box.y
+          )
+        )
+    ).toBeLessThanOrEqual(
+      2
+    );
+
+    const horizontalOverflow =
+      await page.evaluate(
+        () =>
+          document.documentElement
+            .scrollWidth >
+          document.documentElement
+            .clientWidth
+      );
+
+    expect(
+      horizontalOverflow
+    ).toBe(
+      false
+    );
+  });
+
   test("stylist actions align across a desktop row with mixed biography lengths", async ({
     page,
   }, testInfo) => {

@@ -14,9 +14,9 @@ import {
 } from "react-router-dom";
 
 import Seo from "../components/Seo.jsx";
+import Skeleton from "../components/ui/Skeleton.jsx";
 import useCart from "../hooks/useCart.js";
 import commerceService from "../Services/commerceService.js";
-import "../styles/productGallery.css";
 import { formatCurrency } from "../utils/currency.js";
 
 function ProductGallery({
@@ -111,6 +111,11 @@ function ProductGallery({
             selectedIndex + 1,
             availableImages.length
           )}`}
+          width="900"
+          height="900"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
           onError={() =>
             markFailed(
               selectedImage
@@ -153,7 +158,10 @@ function ProductGallery({
                 <img
                   src={image}
                   alt=""
+                  width="160"
+                  height="160"
                   loading="lazy"
+                  decoding="async"
                   onError={() =>
                     markFailed(
                       image
@@ -195,54 +203,85 @@ export default function ProductDetailsPage() {
   ] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    const controller =
+      new AbortController();
 
     async function load() {
       try {
-        setLoading(true);
+        setLoading(
+          true
+        );
         setError("");
 
         const result =
           await commerceService.getProduct(
-            identifier
+            identifier,
+            {
+              signal:
+                controller.signal,
+            }
           );
 
-        if (active) {
-          setProduct(
-            result
-          );
-        }
+        setProduct(
+          result
+        );
       } catch (
         requestError
       ) {
-        if (active) {
-          setError(
-            requestError
-              .response?.data
-              ?.message ||
-              "Product could not be loaded."
-          );
+        if (
+          requestError?.code ===
+            "ERR_CANCELED" ||
+          requestError?.name ===
+            "CanceledError"
+        ) {
+          return;
         }
+
+        setError(
+          requestError
+            .response?.data
+            ?.message ||
+            "Product could not be loaded."
+        );
       } finally {
-        if (active) {
-          setLoading(false);
+        if (
+          !controller.signal
+            .aborted
+        ) {
+          setLoading(
+            false
+          );
         }
       }
     }
 
-    load();
+    void load();
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, [identifier]);
+  }, [
+    identifier,
+  ]);
 
   if (loading) {
     return (
-      <main className="page">
-        <div className="loading-state">
-          Loading product…
-        </div>
+      <main className="page commerce-page">
+        <section
+          className="commerce-product-detail"
+          aria-label="Loading product"
+        >
+          <Skeleton className="commerce-product-detail-skeleton-image" />
+
+          <div className="commerce-product-detail-copy">
+            <Skeleton className="commerce-product-detail-skeleton-meta" />
+            <Skeleton className="commerce-product-detail-skeleton-title" />
+            <Skeleton className="commerce-product-detail-skeleton-line" />
+            <Skeleton className="commerce-product-detail-skeleton-line" />
+            <Skeleton className="commerce-product-detail-skeleton-line commerce-product-detail-skeleton-line-short" />
+            <Skeleton className="commerce-product-detail-skeleton-action" />
+          </div>
+        </section>
       </main>
     );
   }
