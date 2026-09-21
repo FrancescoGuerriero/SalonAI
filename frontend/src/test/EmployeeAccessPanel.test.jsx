@@ -72,7 +72,7 @@ const roles = [
 const employees = [
   {
     id: "user-1",
-    accountLinked: true,
+    signInEnabled: true,
     name: "Alice Stylist",
     email:
       "alice@example.com",
@@ -88,12 +88,11 @@ const employees = [
       "profile:profile-2",
     profileId:
       "profile-2",
-    accountLinked: false,
+    signInEnabled: false,
     name: "Amara Okafor",
     email:
       "amara.okafor@salonai.invalid",
-    role:
-      "profile_only",
+    role: "",
     permissions: [],
     rolePermissions: [],
     stylistProfile: {
@@ -195,7 +194,7 @@ describe(
     );
 
     it(
-      "keeps profile-only staff visible without exposing account permissions",
+      "keeps every employee visible while sign-in-disabled employees have no app permissions",
       async () => {
         render(
           <MemoryRouter>
@@ -225,7 +224,7 @@ describe(
             "heading",
             {
               name:
-                "No login account",
+                "Sign-in not enabled",
             }
           )
         ).toBeInTheDocument();
@@ -243,7 +242,7 @@ describe(
           link
         ).toHaveAttribute(
           "href",
-          "/admin/employees/profile/profile-2"
+          "/admin/employees/record/profile-2"
         );
 
         expect(
