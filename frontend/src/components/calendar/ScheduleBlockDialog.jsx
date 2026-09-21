@@ -475,6 +475,7 @@ export default function ScheduleBlockDialog({
         </header>
 
         <form
+          id="schedule-block-form"
           className="min-h-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto p-4 sm:p-5"
           onSubmit={submit}
         >
@@ -770,25 +771,11 @@ export default function ScheduleBlockDialog({
           ) : (
             <button
               type="submit"
-              form={undefined}
+              form="schedule-block-form"
               disabled={
                 saving ||
                 !canManage
               }
-              onClick={(
-                event
-              ) => {
-                const form =
-                  event.currentTarget
-                    .closest(
-                      "section"
-                    )
-                    ?.querySelector(
-                      "form"
-                    );
-
-                form?.requestSubmit();
-              }}
               className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300 disabled:opacity-50"
             >
               {saving
