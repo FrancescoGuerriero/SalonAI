@@ -1,14 +1,20 @@
 import express from "express";
 
 import {
-  adminOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(adminOnly);
+router.use(
+  requirePermissions(
+    "dashboard:view"
+  )
+);
 
 router.get("/dashboard", (request, response) => {
   response.status(200).json({
