@@ -648,7 +648,7 @@ test("every dashboard link declares a permission and matches its route guard", a
 
   const links = [
     ...navigation.matchAll(
-      /\["(\/[^"]+)",\s*"[^"]+",\s*"[^"]+",\s*[A-Za-z0-9_]+(?:,\s*(true|false))?,\s*"([^"]*)"/g
+      /\["(\/[^"]+)",\s*"[^"]+",\s*"[^"]+",\s*(?:"[A-Za-z0-9_]+"|[A-Za-z0-9_]+)(?:,\s*(true|false))?,\s*"([^"]*)"/g
     ),
   ].map(
     (match) => ({
