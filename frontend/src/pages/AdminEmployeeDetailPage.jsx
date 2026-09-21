@@ -835,7 +835,7 @@ export default function AdminEmployeeDetailPage() {
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <div><dt className="text-xs font-bold uppercase text-slate-500">Job title</dt><dd className="mt-1 text-sm text-black">{profile?.jobTitle || "Hair professional"}</dd></div>
             <div><dt className="text-xs font-bold uppercase text-slate-500">Phone</dt><dd className="mt-1 text-sm text-black">{employee.phone || "Not provided"}</dd></div>
-            <div><dt className="text-xs font-bold uppercase text-slate-500">Profile</dt><dd className="mt-1 text-sm text-black">{profile ? "Linked" : "Not linked"}</dd></div>
+            <div><dt className="text-xs font-bold uppercase text-slate-500">Professional profile</dt><dd className="mt-1 text-sm text-black">{profile ? "Available" : "Not configured"}</dd></div>
             <div><dt className="text-xs font-bold uppercase text-slate-500">Services</dt><dd className="mt-1 text-sm text-black">{profile?.services?.length || 0} assigned</dd></div>
           </dl>
 
