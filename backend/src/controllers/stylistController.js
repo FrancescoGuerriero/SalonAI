@@ -28,7 +28,6 @@ export const PUBLIC_STYLIST_FIELDS = [
   "profileImage",
   "yearsExperience",
   "specialties",
-  "services",
   "languages",
   "instagram",
   "facebook",
@@ -46,6 +45,17 @@ export const BOOKING_STYLIST_FIELDS = [
   "yearsExperience",
   "specialties",
   "services",
+  "rating",
+  "displayOrder",
+].join(" ");
+
+const BOOKING_STYLIST_CARD_FIELDS = [
+  "firstName",
+  "lastName",
+  "jobTitle",
+  "profileImage",
+  "yearsExperience",
+  "specialties",
   "rating",
   "displayOrder",
 ].join(" ");
@@ -451,26 +461,6 @@ export async function getPublicStylists(
         .select(
           PUBLIC_STYLIST_FIELDS
         )
-        .populate({
-          path: "services",
-          match: {
-            active: {
-              $ne: false,
-            },
-            $or: [
-              {
-                published: true,
-              },
-              {
-                published: {
-                  $exists: false,
-                },
-              },
-            ],
-          },
-          select:
-            "name category price duration active published bookable",
-        })
         .sort({
           displayOrder: 1,
           firstName: 1,
@@ -498,14 +488,48 @@ export async function getBookingStylists(
   next
 ) {
   try {
-    const stylists =
-      await Stylist.find(
-        appointmentEligibleStylistFilter()
-      )
-        .select(
-          BOOKING_STYLIST_FIELDS
+    const serviceId =
+      String(
+        req.query?.service ||
+          ""
+      ).trim();
+
+    const filter =
+      appointmentEligibleStylistFilter();
+
+    if (serviceId) {
+      if (
+        !mongoose.isValidObjectId(
+          serviceId
         )
-        .populate({
+      ) {
+        throw createHttpError(
+          "The service identifier is invalid.",
+          400,
+          {
+            field: "service",
+          }
+        );
+      }
+
+      filter.services =
+        new mongoose.Types.ObjectId(
+          serviceId
+        );
+    }
+
+    let stylistQuery =
+      Stylist.find(
+        filter
+      ).select(
+        serviceId
+          ? BOOKING_STYLIST_CARD_FIELDS
+          : BOOKING_STYLIST_FIELDS
+      );
+
+    if (!serviceId) {
+      stylistQuery =
+        stylistQuery.populate({
           path: "services",
           match: {
             active: {
@@ -543,7 +567,11 @@ export async function getBookingStylists(
           },
           select:
             "name category price duration active published bookable",
-        })
+        });
+    }
+
+    const stylists =
+      await stylistQuery
         .sort({
           displayOrder: 1,
           firstName: 1,
