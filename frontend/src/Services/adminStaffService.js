@@ -57,6 +57,36 @@ const adminStaffService = {
     return data;
   },
 
+  async updateRecordServices(
+    recordId,
+    services
+  ) {
+    const { data } =
+      await API.patch(
+        `/auth/admin/staff-record/${recordId}/services`,
+        {
+          services,
+        }
+      );
+
+    return data;
+  },
+
+  async updateRecordSchedule(
+    recordId,
+    workingHours
+  ) {
+    const { data } =
+      await API.patch(
+        `/auth/admin/staff-record/${recordId}/schedule`,
+        {
+          workingHours,
+        }
+      );
+
+    return data;
+  },
+
   async setStatus(
     id,
     isActive
