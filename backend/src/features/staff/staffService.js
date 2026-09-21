@@ -810,17 +810,27 @@ export async function createScheduleBlock(
 export async function calendarScheduleBlocks(
   query = {}
 ) {
-  const startsAt =
-    parseDate(
+  const startAnchor =
+    salonDateAnchor(
       query.startDate ||
-        query.startsAt,
-      "startDate"
+        query.startsAt
     );
-  const endsAt =
-    parseDate(
+  const endAnchor =
+    salonDateAnchor(
       query.endDate ||
-        query.endsAt,
-      "endDate"
+        query.endsAt
+    );
+  const {
+    start: startsAt,
+  } =
+    salonDayBounds(
+      startAnchor
+    );
+  const {
+    end: endsAt,
+  } =
+    salonDayBounds(
+      endAnchor
     );
 
   if (
