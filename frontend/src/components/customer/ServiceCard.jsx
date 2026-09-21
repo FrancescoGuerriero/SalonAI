@@ -9,22 +9,43 @@ import {
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 
 function formatPrice(value) {
-  const amount = Number(value || 0);
+  const amount = Number(
+    value || 0
+  );
 
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(amount);
+  return new Intl.NumberFormat(
+    "en-GB",
+    {
+      style: "currency",
+      currency: "GBP",
+    }
+  ).format(
+    amount
+  );
 }
 
 function servicePrice(service) {
-  if (service.priceLabel) return service.priceLabel;
-  if (service.priceOnConsultation) return "Price on consultation";
-  return formatPrice(service.price);
+  if (
+    service.priceLabel
+  ) {
+    return service.priceLabel;
+  }
+
+  if (
+    service.priceOnConsultation
+  ) {
+    return "Price on consultation";
+  }
+
+  return formatPrice(
+    service.price
+  );
 }
 
 function durationLabel(service) {
-  if (service.durationEstimated) {
+  if (
+    service.durationEstimated
+  ) {
     return "Duration confirmed when booking";
   }
 
@@ -35,76 +56,145 @@ export default function ServiceCard({
   service,
   onSelect,
   onConsult,
+  priority = false,
 }) {
-  const { isFeatureEnabled } = useFeatureControls();
-  const onlineBookingEnabled = isFeatureEnabled("online-booking");
-  const whatsappBookingEnabled = isFeatureEnabled("whatsapp-booking");
+  const {
+    isFeatureEnabled,
+  } =
+    useFeatureControls();
+
+  const onlineBookingEnabled =
+    isFeatureEnabled(
+      "online-booking"
+    );
+
+  const whatsappBookingEnabled =
+    isFeatureEnabled(
+      "whatsapp-booking"
+    );
+
   const consultationOnly =
     service.bookable === false ||
-    service.priceOnConsultation === true;
+    service.priceOnConsultation ===
+      true;
 
   const showWhatsAppAction =
-    consultationOnly && whatsappBookingEnabled;
+    consultationOnly &&
+    whatsappBookingEnabled;
+
   const showOnlineBookingAction =
-    !consultationOnly && onlineBookingEnabled;
+    !consultationOnly &&
+    onlineBookingEnabled;
 
   return (
     <article className="customer-card service-card">
       <div className="customer-card-media">
         {service.image ? (
-          <img src={service.image} alt="" loading="lazy" />
+          <img
+            src={service.image}
+            alt=""
+            width="640"
+            height="410"
+            loading={
+              priority
+                ? "eager"
+                : "lazy"
+            }
+            fetchPriority={
+              priority
+                ? "high"
+                : "auto"
+            }
+            decoding="async"
+          />
         ) : (
           <div className="customer-card-placeholder">
-            <ImageIcon size={30} />
-            <span>SalonAI service</span>
+            <ImageIcon
+              size={30}
+            />
+            <span>
+              SalonAI service
+            </span>
           </div>
         )}
 
         <span className="customer-card-category">
-          {service.category || "Hair service"}
+          {service.category ||
+            "Hair service"}
         </span>
       </div>
 
       <div className="customer-card-body">
-        <div>
-          <h2>{service.name}</h2>
+        <div className="customer-card-content">
+          <h2>
+            {service.name}
+          </h2>
           <p>
             {service.description ||
               "A personalised salon experience delivered by our professional team."}
           </p>
         </div>
 
-        <div className="customer-card-meta">
-          <span>
-            <Clock3 size={16} />
-            {durationLabel(service)}
-          </span>
-          <strong>{servicePrice(service)}</strong>
+        <div className="customer-card-footer">
+          <div className="customer-card-meta">
+            <span>
+              <Clock3
+                size={16}
+              />
+              {durationLabel(
+                service
+              )}
+            </span>
+
+            <strong>
+              {servicePrice(
+                service
+              )}
+            </strong>
+          </div>
+
+          <div className="customer-card-actions">
+            {showWhatsAppAction ? (
+              <button
+                type="button"
+                className="customer-card-action"
+                onClick={() =>
+                  onConsult(
+                    service
+                  )
+                }
+              >
+                <MessageCircle
+                  size={17}
+                />
+                Book on WhatsApp
+                <ArrowRight
+                  size={17}
+                />
+              </button>
+            ) : null}
+
+            {showOnlineBookingAction ? (
+              <button
+                type="button"
+                className="customer-card-action"
+                onClick={() =>
+                  onSelect(
+                    service
+                  )
+                }
+              >
+                <Sparkles
+                  size={17}
+                />
+                Choose service
+                <ArrowRight
+                  size={17}
+                />
+              </button>
+            ) : null}
+          </div>
         </div>
-
-        {showWhatsAppAction ? (
-          <button
-            type="button"
-            className="customer-card-action"
-            onClick={() => onConsult(service)}
-          >
-            <MessageCircle size={17} />
-            Book on WhatsApp
-            <ArrowRight size={17} />
-          </button>
-        ) : null}
-
-        {showOnlineBookingAction ? (
-          <button
-            type="button"
-            className="customer-card-action"
-            onClick={() => onSelect(service)}
-          >
-            <Sparkles size={17} />
-            Choose service
-            <ArrowRight size={17} />
-          </button>
-        ) : null}
       </div>
     </article>
   );
