@@ -488,90 +488,13 @@ export async function getBookingStylists(
   next
 ) {
   try {
-    const serviceId =
-      String(
-        req.query?.service ||
-          ""
-      ).trim();
-
-    const filter =
-      appointmentEligibleStylistFilter();
-
-    if (serviceId) {
-      if (
-        !mongoose.isValidObjectId(
-          serviceId
-        )
-      ) {
-        throw createHttpError(
-          "The service identifier is invalid.",
-          400,
-          {
-            field: "service",
-          }
-        );
-      }
-
-      filter.services =
-        new mongoose.Types.ObjectId(
-          serviceId
-        );
-    }
-
-    let stylistQuery =
-      Stylist.find(
-        filter
-      ).select(
-        serviceId
-          ? BOOKING_STYLIST_CARD_FIELDS
-          : BOOKING_STYLIST_FIELDS
-      );
-
-    if (!serviceId) {
-      stylistQuery =
-        stylistQuery.populate({
-          path: "services",
-          match: {
-            active: {
-              $ne: false,
-            },
-            $and: [
-              {
-                $or: [
-                  {
-                    published: true,
-                  },
-                  {
-                    published: {
-                      $exists: false,
-                    },
-                  },
-                ],
-              },
-              {
-                $or: [
-                  {
-                    bookable: true,
-                  },
-                  {
-                    bookable: {
-                      $exists: false,
-                    },
-                    onlineBookable: {
-                      $ne: false,
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-          select:
-            "name category price duration active published bookable",
-        });
-    }
-
     const stylists =
-      await stylistQuery
+      await Stylist.find(
+        appointmentEligibleStylistFilter()
+      )
+        .select(
+          BOOKING_STYLIST_CARD_FIELDS
+        )
         .sort({
           displayOrder: 1,
           firstName: 1,
