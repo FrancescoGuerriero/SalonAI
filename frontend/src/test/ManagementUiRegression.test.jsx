@@ -106,6 +106,62 @@ describe(
     );
 
     it(
+      "keeps services and schedule operational when employee sign-in is disabled",
+      () => {
+        const page =
+          source(
+            "src/pages/AdminEmployeeDetailPage.jsx"
+          );
+        const service =
+          source(
+            "src/Services/adminStaffService.js"
+          );
+
+        expect(
+          page
+        ).toContain(
+          "adminStaffService.updateRecordServices"
+        );
+        expect(
+          page
+        ).toContain(
+          "adminStaffService.updateRecordSchedule"
+        );
+        expect(
+          page
+        ).toContain(
+          "adminStaffService.updateServices"
+        );
+        expect(
+          page
+        ).toContain(
+          "adminStaffService.updateSchedule"
+        );
+        expect(
+          page
+        ).not.toContain(
+          "const canManageServices =\n    !signInDisabled"
+        );
+        expect(
+          page
+        ).not.toContain(
+          "const canUpdateSchedule =\n    !signInDisabled"
+        );
+        expect(
+          service
+        ).toContain(
+          "/auth/admin/staff-record/${recordId}/services"
+        );
+        expect(
+          service
+        ).toContain(
+          "/auth/admin/staff-record/${recordId}/schedule"
+        );
+      }
+    );
+
+
+    it(
       "renders the product editor at the application overlay layer with internal scrolling",
       () => {
         const page =
