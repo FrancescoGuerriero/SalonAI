@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -16,13 +18,25 @@ import {
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
+import adminStaffService from "../../Services/adminStaffService.js";
 import appointmentManagementApi from "../../Services/appointmentManagementApi.js";
+import {
+  staffApi,
+} from "../../Services/futureFeaturesApi.js";
 import serviceService from "../../Services/serviceService.js";
 import useAuth from "../../hooks/useAuth.js";
 import {
   hasPermission,
 } from "../../utils/permissions.js";
 import AppointmentEditorDialog from "./AppointmentEditorDialog.jsx";
+
+const ScheduleBlockDialog =
+  lazy(
+    () =>
+      import(
+        "./ScheduleBlockDialog.jsx"
+      )
+  );
 
 const localizer =
   momentLocalizer(moment);
@@ -286,10 +300,27 @@ export default function AppointmentCalendar() {
       user,
       "appointment:cancel"
     );
+  const canManageSchedule =
+    hasPermission(
+      user,
+      "employee:read"
+    ) &&
+    hasPermission(
+      user,
+      "employee:schedule:update"
+    );
 
   const [
     appointments,
     setAppointments,
+  ] = useState([]);
+  const [
+    scheduleBlocks,
+    setScheduleBlocks,
+  ] = useState([]);
+  const [
+    blockStaff,
+    setBlockStaff,
   ] = useState([]);
   const [
     services,
@@ -319,6 +350,14 @@ export default function AppointmentCalendar() {
   ] = useState({
     open: false,
     appointment: null,
+    initialStart: null,
+  });
+  const [
+    blockEditor,
+    setBlockEditor,
+  ] = useState({
+    open: false,
+    block: null,
     initialStart: null,
   });
 
@@ -367,6 +406,97 @@ export default function AppointmentCalendar() {
       []
     );
 
+  const loadBlockStaff =
+    useCallback(
+      async () => {
+        if (!canManageSchedule) {
+          setBlockStaff([]);
+          return;
+        }
+
+        try {
+          const result =
+            await adminStaffService.list({
+              limit: 500,
+            });
+          const workforce =
+            arrayFrom(
+              result,
+              [
+                "users",
+                "items",
+              ]
+            );
+          const byProfile =
+            new Map();
+
+          for (
+            const employee
+            of workforce
+          ) {
+            const profile =
+              employee?.stylistProfile;
+            const id =
+              String(
+                profile?.id ||
+                  profile?._id ||
+                  ""
+              );
+
+            if (!id) {
+              continue;
+            }
+
+            byProfile.set(
+              id,
+              {
+                id,
+                name:
+                  employee?.name ||
+                  personName(
+                    profile
+                  ) ||
+                  "Employee",
+              }
+            );
+          }
+
+          setBlockStaff(
+            [
+              ...byProfile.values(),
+            ].sort(
+              (
+                left,
+                right
+              ) =>
+                left.name.localeCompare(
+                  right.name,
+                  "en",
+                  {
+                    sensitivity:
+                      "base",
+                  }
+                )
+            )
+          );
+        } catch (
+          requestError
+        ) {
+          setError(
+            requestError
+              ?.response?.data
+              ?.message ||
+              requestError
+                ?.message ||
+              "Employee schedule resources could not be loaded."
+          );
+        }
+      },
+      [
+        canManageSchedule,
+      ]
+    );
+
   const loadAppointments =
     useCallback(
       async (
@@ -383,20 +513,31 @@ export default function AppointmentCalendar() {
           setLoading(true);
           setError("");
 
-          const result =
-            await appointmentManagementApi.getCalendar(
-              {
-                startDate:
-                  isoDay(
-                    selectedRange.start
-                  ),
-                endDate:
-                  isoDay(
-                    selectedRange.end
-                  ),
-                limit: 5000,
-              }
+          const startDate =
+            isoDay(
+              selectedRange.start
             );
+          const endDate =
+            isoDay(
+              selectedRange.end
+            );
+          const [
+            result,
+            blockResult,
+          ] =
+            await Promise.all([
+              appointmentManagementApi.getCalendar(
+                {
+                  startDate,
+                  endDate,
+                  limit: 5000,
+                }
+              ),
+              staffApi.listCalendarBlocks({
+                startDate,
+                endDate,
+              }),
+            ]);
 
           setAppointments(
             arrayFrom(
@@ -407,10 +548,20 @@ export default function AppointmentCalendar() {
               ]
             )
           );
+          setScheduleBlocks(
+            arrayFrom(
+              blockResult,
+              [
+                "items",
+                "blocks",
+              ]
+            )
+          );
         } catch (
           requestError
         ) {
           setAppointments([]);
+          setScheduleBlocks([]);
           setError(
             requestError
               ?.response?.data
@@ -451,10 +602,16 @@ export default function AppointmentCalendar() {
     range,
   ]);
 
+  useEffect(() => {
+    void loadBlockStaff();
+  }, [
+    loadBlockStaff,
+  ]);
+
   const events =
     useMemo(
-      () =>
-        appointments.flatMap(
+      () => [
+        ...appointments.flatMap(
           (appointment) => {
             const start =
               appointmentStart(
@@ -487,6 +644,8 @@ export default function AppointmentCalendar() {
               {
                 id:
                   appointment._id,
+                kind:
+                  "appointment",
                 title:
                   customer +
                   " — " +
@@ -499,7 +658,55 @@ export default function AppointmentCalendar() {
             ];
           }
         ),
-      [appointments]
+        ...scheduleBlocks.flatMap(
+          (block) => {
+            const start =
+              new Date(
+                block.startsAt
+              );
+            const end =
+              new Date(
+                block.endsAt
+              );
+
+            if (
+              Number.isNaN(
+                start.getTime()
+              ) ||
+              Number.isNaN(
+                end.getTime()
+              )
+            ) {
+              return [];
+            }
+
+            return [
+              {
+                id:
+                  `block:${block._id}`,
+                kind:
+                  "schedule_block",
+                title:
+                  (personName(
+                    block.staff
+                  ) ||
+                    "Employee") +
+                  " — " +
+                  (block.title ||
+                    "Unavailable"),
+                start,
+                end,
+                resource:
+                  block,
+              },
+            ];
+          }
+        ),
+      ],
+      [
+        appointments,
+        scheduleBlocks,
+      ]
     );
 
   function onRangeChange(
@@ -515,6 +722,19 @@ export default function AppointmentCalendar() {
   function openExisting(
     event
   ) {
+    if (
+      event.kind ===
+      "schedule_block"
+    ) {
+      setBlockEditor({
+        open: true,
+        block:
+          event.resource,
+        initialStart: null,
+      });
+      return;
+    }
+
     setEditor({
       open: true,
       appointment:
@@ -583,6 +803,26 @@ export default function AppointmentCalendar() {
               />
               Refresh
             </button>
+
+            {canManageSchedule ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setBlockEditor({
+                    open: true,
+                    block: null,
+                    initialStart:
+                      new Date(),
+                  })
+                }
+                className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-black hover:border-amber-400"
+              >
+                <Plus
+                  size={16}
+                />
+                Add schedule block
+              </button>
+            ) : null}
 
             {canCreate ? (
               <button
@@ -662,12 +902,15 @@ export default function AppointmentCalendar() {
               ) => ({
                 style: {
                   backgroundColor:
-                    STATUS_COLOURS[
-                      event
-                        .resource
-                        ?.status
-                    ] ||
-                    "#555552",
+                    event.kind ===
+                    "schedule_block"
+                      ? "#475569"
+                      : STATUS_COLOURS[
+                          event
+                            .resource
+                            ?.status
+                        ] ||
+                        "#555552",
                   border: "0",
                   borderRadius:
                     "7px",
@@ -680,6 +923,41 @@ export default function AppointmentCalendar() {
           </div>
         </div>
       </section>
+
+      {blockEditor.open ? (
+        <Suspense
+          fallback={null}
+        >
+          <ScheduleBlockDialog
+            open
+            block={
+              blockEditor.block
+            }
+            initialStart={
+              blockEditor.initialStart
+            }
+            staffOptions={
+              blockStaff
+            }
+            canManage={
+              canManageSchedule
+            }
+            onClose={() =>
+              setBlockEditor({
+                open: false,
+                block: null,
+                initialStart:
+                  null,
+              })
+            }
+            onSaved={() =>
+              loadAppointments(
+                range
+              )
+            }
+          />
+        </Suspense>
+      ) : null}
 
       <AppointmentEditorDialog
         open={editor.open}
