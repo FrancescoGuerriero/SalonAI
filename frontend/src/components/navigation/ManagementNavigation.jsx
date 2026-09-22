@@ -205,7 +205,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
 
   const isAdvancedMode =
     presentationMode === MANAGEMENT_PRESENTATION_MODES.ADVANCED;
-  const hasQuery = Boolean(query.trim());
+  const hasQuery = Boolean(query) && query.trim().length > 0;
 
   return (
     <nav
