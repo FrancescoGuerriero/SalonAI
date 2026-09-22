@@ -1,22 +1,42 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
-function pageTitle(pathname) {
-  if (pathname === "/") return "Home";
-  if (pathname.startsWith("/booking")) return "Booking";
-  if (pathname.startsWith("/services")) return "Services";
-  if (pathname.startsWith("/stylists")) return "Stylists";
-  if (pathname.startsWith("/shop")) return "Shop";
-  if (pathname.startsWith("/cart")) return "Cart";
-  if (pathname.startsWith("/checkout")) return "Checkout";
-  if (pathname.startsWith("/orders")) return "Orders";
-  if (pathname.startsWith("/account")) return "My account";
-  if (pathname.startsWith("/help")) return "Help Centre";
-  if (pathname.startsWith("/login")) return "Login";
-  if (pathname.startsWith("/register")) return "Register";
-  if (pathname.startsWith("/dashboard")) return "Dashboard";
-  if (pathname.startsWith("/management")) return "Management";
-  return "SalonAI";
+import {
+  seoForPath,
+} from "../../config/seoRoutes.js";
+
+function ensureMeta(name, content) {
+  let node = document.head.querySelector(
+    `meta[name="${name}"]`
+  );
+
+  if (!node) {
+    node = document.createElement("meta");
+    node.setAttribute("name", name);
+    document.head.appendChild(node);
+  }
+
+  node.setAttribute("content", content);
+}
+
+function ensureCanonical(href) {
+  let node = document.head.querySelector(
+    'link[rel="canonical"]'
+  );
+
+  if (!node) {
+    node = document.createElement("link");
+    node.setAttribute("rel", "canonical");
+    document.head.appendChild(node);
+  }
+
+  node.setAttribute("href", href);
+}
+
+function announcementTitle(seo) {
+  return String(seo.title || "SalonAI")
+    .split("|")[0]
+    .trim();
 }
 
 export default function RouteAnnouncer() {
@@ -24,8 +44,13 @@ export default function RouteAnnouncer() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const title = pageTitle(location.pathname);
-    document.title = `${title} | SalonAI`;
+    const seo = seoForPath(location.pathname);
+    const title = announcementTitle(seo);
+
+    document.title = seo.title;
+    ensureMeta("description", seo.description);
+    ensureMeta("robots", seo.robots);
+    ensureCanonical(seo.canonical);
     setMessage(`${title} page loaded`);
 
     const main = document.getElementById("main-content");
