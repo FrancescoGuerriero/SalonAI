@@ -4,6 +4,10 @@
   padding: 2rem 0 4rem;
 }
 
+.about-page .customer-eyebrow {
+  color: #7d5318;
+}
+
 .about-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
