@@ -17,6 +17,10 @@ import {
   summary,
 } from "./appointmentManagementController.js";
 import {
+  createWalkIn,
+  walkInQueue,
+} from "./walkInController.js";
+import {
   confirmDemoPayment,
   createCheckout,
 } from "./appointmentPaymentController.js";
@@ -88,6 +92,31 @@ router.post(
     "created"
   ),
   asyncHandler(create)
+);
+
+/*
+|--------------------------------------------------------------------------
+| Walk-in / front-desk foundation
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/walk-ins",
+  requirePermissions(
+    "appointment:read"
+  ),
+  asyncHandler(walkInQueue)
+);
+
+router.post(
+  "/walk-ins",
+  requirePermissions(
+    "appointment:create"
+  ),
+  appointmentLifecycleNotification(
+    "created"
+  ),
+  asyncHandler(createWalkIn)
 );
 
 /*
