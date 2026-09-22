@@ -1,26 +1,18 @@
-import {
-  readFileSync,
-} from "node:fs";
-import {
-  fileURLToPath,
-} from "node:url";
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   describe,
   expect,
   it,
 } from "vitest";
 
-const servicePath =
-  fileURLToPath(
-    new URL(
-      "../Services/appointmentManagementApi.js",
-      import.meta.url
-    )
-  );
-
 const serviceSource =
-  readFileSync(
-    servicePath,
+  fs.readFileSync(
+    path.resolve(
+      process.cwd(),
+      "src/Services/appointmentManagementApi.js"
+    ),
     "utf8"
   );
 
