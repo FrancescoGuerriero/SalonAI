@@ -35,6 +35,24 @@ export function searchAppointmentCustomers(
   ).then(responseData);
 }
 
+export function createWalkInAppointment(
+  payload
+) {
+  return API.post(
+    `${BASE_URL}/walk-ins`,
+    payload
+  ).then(responseData);
+}
+
+export function getWalkInQueue(
+  params = {}
+) {
+  return API.get(
+    `${BASE_URL}/walk-ins`,
+    { params }
+  ).then(responseData);
+}
+
 export function getAppointmentCalendar(
   params = {}
 ) {
@@ -166,6 +184,11 @@ const appointmentManagementApi = {
 
   searchCustomers:
     searchAppointmentCustomers,
+
+  createWalkIn:
+    createWalkInAppointment,
+
+  getWalkInQueue,
 
   getCalendar:
     getAppointmentCalendar,
