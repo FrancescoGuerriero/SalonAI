@@ -41,7 +41,6 @@ const servicePackageRedemptionSchema =
             .ObjectId,
         ref: "Appointment",
         required: true,
-        unique: true,
         index: true,
       },
       sessions: {
@@ -98,6 +97,18 @@ servicePackageRedemptionSchema.index({
   status: 1,
   redeemedAt: -1,
 });
+
+servicePackageRedemptionSchema.index(
+  {
+    appointment: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: "active",
+    },
+  }
+);
 
 const ServicePackageRedemption =
   mongoose.models
