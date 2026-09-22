@@ -9,6 +9,7 @@ import retentionActionRoutes from "./customerProfiles/retentionActionRoutes.js";
 import appointmentManagementRoutes from "./appointments/appointmentManagementRoutes.js";
 import calendarConnectionRoutes from "../integrations/calendar/calendarConnectionRoutes.js";
 import waitlistRoutes from "./waitlist/waitlistRoutes.js";
+import servicePackageRoutes from "./servicePackages/servicePackageRoutes.js";
 import aiRoutes from "./ai/aiRoutes.js";
 import reportRoutes from "./reports/reportRoutes.js";
 import revenueForecastRoutes from "./revenueForecasting/revenueForecastRoutes.js";
@@ -62,6 +63,10 @@ router.use(
 router.use(
   "/staff",
   staffRoutes
+);
+router.use(
+  "/service-packages",
+  servicePackageRoutes
 );
 
 /*
