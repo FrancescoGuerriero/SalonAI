@@ -118,7 +118,7 @@ describe("Stage 1B management presentation", () => {
     );
 
     expect(screen.getByText("Management copilot")).toBeInTheDocument();
-    expect(screen.getByText("Advanced")).toBeInTheDocument();
+    expect(screen.getAllByText("Advanced").length).toBeGreaterThan(1);
   });
 
   it("never uses Advanced mode to bypass delegated permissions", async () => {
@@ -135,7 +135,15 @@ describe("Stage 1B management presentation", () => {
       screen.getByRole("button", { name: "Advanced" })
     );
 
+    const search = screen.getByRole("searchbox", {
+      name: "Search management tasks and tools",
+    });
+
+    await user.type(search, "Booking demand");
     expect(screen.getByText("Booking demand")).toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "Haircare AI");
     expect(screen.queryByText("Haircare AI")).not.toBeInTheDocument();
     expect(screen.queryByText("Admin overview")).not.toBeInTheDocument();
   });
