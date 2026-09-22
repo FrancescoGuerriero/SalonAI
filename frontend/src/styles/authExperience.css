@@ -241,6 +241,19 @@
   font-size: 0.78rem;
 }
 
+.auth-label-row a {
+  color: var(--palette-gold-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.auth-label-row a:hover,
+.auth-label-row a:focus-visible {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
+}
+
 .auth-input {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
