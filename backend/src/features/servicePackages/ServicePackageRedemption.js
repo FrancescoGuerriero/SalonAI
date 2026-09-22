@@ -41,7 +41,6 @@ const servicePackageRedemptionSchema =
             .ObjectId,
         ref: "Appointment",
         required: true,
-        index: true,
       },
       sessions: {
         type: Number,
