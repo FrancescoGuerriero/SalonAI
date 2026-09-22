@@ -210,9 +210,6 @@ async function listWalkInQueue(
     await Appointment.find(
       match
     )
-      .select(
-        "+internalNotes"
-      )
       .populate(
         APPOINTMENT_POPULATE_OPTIONS
       )
