@@ -434,20 +434,40 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="legal-card">
-        <h2>7. Cookies, browser storage and tracking</h2>
+        <h2>7. Measurement, advertising, cookies and tracking</h2>
         <p>
-          The current compliance baseline permits security/session technologies
-          needed to provide the requested service and user-requested local
-          application preferences. Non-essential advertising or analytics
-          tracking is not authorised by default.
+          SalonAI is being designed to use a first-party marketing and
+          measurement module rather than relying on a Windsor.ai-style data
+          aggregation dependency. The planned browser measurement stack includes
+          Google Analytics for analytics, Google Ads plus Meta Pixel and
+          Microsoft Advertising UET for advertising/conversion attribution, and
+          Hotjar for experience analytics.
         </p>
         <p>
-          Future non-essential storage/access technologies must remain disabled
-          until the applicable notice and consent controls have been implemented
-          and production-tested.
+          These non-essential browser technologies are not authorised merely by
+          visiting SalonAI. They are mapped to granular consent categories and
+          default to denied. The application-level consent boundary prevents the
+          relevant provider script from loading until the matching category is
+          positively selected.
+        </p>
+        <p>
+          Google Search Console and Bing Webmaster Tools are also planned inputs
+          to the first-party measurement module for search visibility and
+          performance data. Site verification and server/API retrieval from
+          those products are treated separately from behavioural browser
+          tracking; if a future implementation introduces storage, profiling or
+          advertising tracking, the appropriate consent control must apply
+          before activation.
+        </p>
+        <p>
+          Measurement data may later be normalised into SalonAI's own Marketing
+          Data Core so the application can report acquisition, engagement,
+          conversions, attribution and campaign performance from a governed
+          internal model. External providers remain data sources/processors, not
+          the canonical authority for SalonAI customer records.
         </p>
         <Link to="/cookies">
-          Read the Cookie &amp; storage notice
+          Read the Cookie &amp; tracking notice
         </Link>
       </section>
 
@@ -485,7 +505,21 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="legal-card">
-        <h2>9. Automated and AI-assisted processing</h2>
+        <h2>9. Marketing measurement and profiling safeguards</h2>
+        <p>
+          Analytics and advertising data must not be silently combined with
+          sensitive consultation or service information for behavioural
+          advertising. Audience building, attribution and campaign optimisation
+          must use only the data and purposes authorised for the relevant
+          integration. Where provider-side enhanced conversions, customer lists
+          or similar uploads are introduced later, they require a separate
+          implementation review, documented data mapping and the appropriate
+          consent/lawful-basis controls before activation.
+        </p>
+      </section>
+
+      <section className="legal-card">
+        <h2>10. Automated and AI-assisted processing</h2>
         <p>
           SalonAI includes or may introduce AI-assisted business functions such
           as recommendations, forecasts, summaries and operational suggestions.
@@ -498,7 +532,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="legal-card">
-        <h2>10. Security</h2>
+        <h2>11. Security</h2>
         <p>
           SalonAI uses technical and organisational controls intended to protect
           personal information, including authenticated access, role-based
@@ -509,7 +543,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="legal-card">
-        <h2>11. Complaints and contact</h2>
+        <h2>12. Complaints and contact</h2>
         <p>
           Privacy questions and requests can be submitted using the contact
           details above or the authenticated privacy-rights area. People in the
@@ -520,7 +554,7 @@ export default function PrivacyPolicyPage() {
       </section>
 
       <section className="legal-card">
-        <h2>12. Version and changes</h2>
+        <h2>13. Version and changes</h2>
         <p>
           Privacy Notice version:{" "}
           <strong>
