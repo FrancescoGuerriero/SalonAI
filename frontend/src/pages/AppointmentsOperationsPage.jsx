@@ -26,6 +26,7 @@ import appointmentManagementApi from "../Services/appointmentManagementApi.js";
 import serviceService from "../Services/serviceService.js";
 import stylistService from "../Services/stylistService.js";
 import StaffAppointmentCommercePanel from "../components/appointments/StaffAppointmentCommercePanel.jsx";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 import GroupBookingPanel from "../components/appointments/GroupBookingPanel.jsx";
 import ServiceTrialPanel from "../components/appointments/ServiceTrialPanel.jsx";
 
@@ -413,6 +414,7 @@ function AppointmentModal({
 }
 
 export default function AppointmentsPage() {
+  const { isFeatureEnabled } = useFeatureControls();
   const [dates, setDates] = useState(initialDates);
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -654,18 +656,22 @@ export default function AppointmentsPage() {
         </div>
       </section>
 
-      <GroupBookingPanel
-        services={services}
-        stylists={stylists}
-        onChanged={loadPage}
-      />
+      {isFeatureEnabled("group-bookings") ? (
+        <GroupBookingPanel
+          services={services}
+          stylists={stylists}
+          onChanged={loadPage}
+        />
+      ) : null}
 
-      <ServiceTrialPanel
-        services={services}
-        stylists={stylists}
-        appointments={appointments}
-        onChanged={loadPage}
-      />
+      {isFeatureEnabled("service-trials") ? (
+        <ServiceTrialPanel
+          services={services}
+          stylists={stylists}
+          appointments={appointments}
+          onChanged={loadPage}
+        />
+      ) : null}
 
       {selectedIds.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 sm:flex-row sm:items-center sm:justify-between">
