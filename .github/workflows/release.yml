@@ -137,6 +137,15 @@ jobs:
               VITE_YOUTUBE_URL=${{ vars.VITE_YOUTUBE_URL }}
               VITE_APP_STORE_URL=${{ vars.VITE_APP_STORE_URL }}
               VITE_GOOGLE_PLAY_URL=${{ vars.VITE_GOOGLE_PLAY_URL }}
+              VITE_TRACKING_CONSENT_VERSION=${{ vars.VITE_TRACKING_CONSENT_VERSION }}
+              VITE_TRACKING_CONSENT_TTL_DAYS=${{ vars.VITE_TRACKING_CONSENT_TTL_DAYS }}
+              VITE_GOOGLE_ANALYTICS_ID=${{ vars.VITE_GOOGLE_ANALYTICS_ID }}
+              VITE_GOOGLE_ADS_ID=${{ vars.VITE_GOOGLE_ADS_ID }}
+              VITE_META_PIXEL_ID=${{ vars.VITE_META_PIXEL_ID }}
+              VITE_HOTJAR_SITE_ID=${{ vars.VITE_HOTJAR_SITE_ID }}
+              VITE_MICROSOFT_ADS_UET_TAG_ID=${{ vars.VITE_MICROSOFT_ADS_UET_TAG_ID }}
+              VITE_GOOGLE_SITE_VERIFICATION=${{ vars.VITE_GOOGLE_SITE_VERIFICATION }}
+              VITE_BING_SITE_VERIFICATION=${{ vars.VITE_BING_SITE_VERIFICATION }}
 
           - service: ai-service
             context: ai-service
