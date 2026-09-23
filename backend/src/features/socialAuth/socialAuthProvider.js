@@ -1,4 +1,9 @@
-import { randomUUID } from "node:crypto";
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from "node:crypto";
 import jwt from "jsonwebtoken";
 
 import { env } from "../../config/env.js";
@@ -44,6 +49,52 @@ const PROVIDERS = Object.freeze({
     scopes: ["openid", "email", "profile"],
   },
 });
+
+const SOCIAL_AUTH_TRANSACTION_TTL_MS =
+  10 * 60 * 1000;
+
+function socialAuthTransactionCookieName(
+  provider
+) {
+  if (!PROVIDERS[provider]) {
+    const error = new Error(
+      "Unsupported social sign-in provider."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return `salonai_social_auth_${provider}`;
+}
+
+export function socialAuthTransactionCookie(
+  provider
+) {
+  return {
+    name:
+      socialAuthTransactionCookieName(
+        provider
+      ),
+    options: {
+      httpOnly: true,
+      secure: env.isProduction,
+      sameSite: "lax",
+      path:
+        `/api/auth/social/${provider}/callback`,
+      maxAge:
+        SOCIAL_AUTH_TRANSACTION_TTL_MS,
+    },
+  };
+}
+
+function browserBindingHash(value) {
+  return createHash("sha256")
+    .update(
+      text(value),
+      "utf8"
+    )
+    .digest("base64url");
+}
 
 function text(value) {
   return String(value ?? "").trim();
@@ -178,6 +229,15 @@ export function createSocialAuthorization({
   const settings =
     requireProvider(provider);
 
+  const browserBinding =
+    randomBytes(32).toString(
+      "base64url"
+    );
+  const transaction =
+    socialAuthTransactionCookie(
+      provider
+    );
+
   const state = jwt.sign(
     {
       provider,
@@ -193,6 +253,10 @@ export function createSocialAuthorization({
           : "",
       tokenType:
         "social_auth_state",
+      browserBindingHash:
+        browserBindingHash(
+          browserBinding
+        ),
     },
     env.jwtSecret,
     {
@@ -240,7 +304,73 @@ export function createSocialAuthorization({
     provider,
     authorizationUrl:
       `${settings.authorizeUrl}?${params.toString()}`,
+    transaction: {
+      ...transaction,
+      value:
+        browserBinding,
+    },
   };
+}
+
+export function verifySocialStateBrowserBinding(
+  state,
+  browserBinding
+) {
+  const expectedHash =
+    text(
+      state?.browserBindingHash
+    );
+  const actualBinding =
+    text(
+      browserBinding
+    );
+
+  if (
+    !expectedHash ||
+    !actualBinding
+  ) {
+    const error = new Error(
+      "The social sign-in request is not bound to this browser or has already been used."
+    );
+    error.statusCode = 400;
+    error.code =
+      "SOCIAL_AUTH_BROWSER_BINDING_FAILED";
+    throw error;
+  }
+
+  const actualHash =
+    browserBindingHash(
+      actualBinding
+    );
+  const expectedBuffer =
+    Buffer.from(
+      expectedHash,
+      "utf8"
+    );
+  const actualBuffer =
+    Buffer.from(
+      actualHash,
+      "utf8"
+    );
+
+  if (
+    expectedBuffer.length !==
+      actualBuffer.length ||
+    !timingSafeEqual(
+      expectedBuffer,
+      actualBuffer
+    )
+  ) {
+    const error = new Error(
+      "The social sign-in request is not bound to this browser or has already been used."
+    );
+    error.statusCode = 400;
+    error.code =
+      "SOCIAL_AUTH_BROWSER_BINDING_FAILED";
+    throw error;
+  }
+
+  return true;
 }
 
 export function readSocialState(
@@ -284,6 +414,10 @@ export function readSocialState(
       userId:
         text(
           decoded.userId
+        ),
+      browserBindingHash:
+        text(
+          decoded.browserBindingHash
         ),
     };
   } catch {
