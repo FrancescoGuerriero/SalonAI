@@ -134,6 +134,7 @@ async function recordConsent({
   channel,
   granted,
   recordedAt,
+  request,
 }) {
   await ConsentRecord.create({
     customer: user?._id || customer.userAccount || null,
@@ -145,6 +146,16 @@ async function recordConsent({
     policyVersion:
       process.env.PRIVACY_POLICY_VERSION ||
       "marketing-v1",
+    ipAddress:
+      String(request?.ip || "").slice(0, 128),
+    userAgent:
+      String(request?.get?.("user-agent") || "").slice(0, 512),
+    requestId:
+      String(request?.requestId || "").slice(0, 128),
+    evidence: {
+      authenticated: true,
+      affirmativeAction: true,
+    },
     recordedAt,
   });
 }
@@ -284,6 +295,7 @@ export async function updateCommunicationPreferences(req, res) {
       channel: change.channel,
       granted: change.granted,
       recordedAt: consentUpdatedAt,
+      request: req,
     });
   }
 
