@@ -99,6 +99,30 @@ export const servicePackageService = {
         "Entitlement ID"
       )}/redemptions`
     ).then(data),
+
+  redeem: (
+    entitlementId,
+    payload
+  ) =>
+    API.post(
+      `/future/service-packages/entitlements/${encode(
+        entitlementId,
+        "Entitlement ID"
+      )}/redeem`,
+      payload
+    ).then(data),
+
+  reverse: (
+    redemptionId,
+    payload
+  ) =>
+    API.post(
+      `/future/service-packages/redemptions/${encode(
+        redemptionId,
+        "Redemption ID"
+      )}/reverse`,
+      payload
+    ).then(data),
 };
 
 export default servicePackageService;
