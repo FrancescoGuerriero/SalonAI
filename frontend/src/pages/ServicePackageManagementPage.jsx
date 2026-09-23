@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import servicePackageService from "../Services/servicePackageService.js";
+import ServicePackageRedemptionPanel from "./ServicePackageRedemptionPanel.jsx";
 import serviceService from "../Services/serviceService.js";
 import useAuth from "../hooks/useAuth.js";
 import { hasPermission } from "../utils/permissions.js";
@@ -178,6 +179,12 @@ export default function ServicePackageManagementPage() {
     hasPermission(
       user,
       "customer:update"
+    );
+  const canManageRedemptions =
+    canReadCustomers &&
+    hasPermission(
+      user,
+      "appointment:update"
     );
 
   const [
@@ -1318,6 +1325,25 @@ export default function ServicePackageManagementPage() {
           </div>
         </section>
       </section>
+
+      <ServicePackageRedemptionPanel
+        customerId={
+          selectedCustomerId
+        }
+        entitlements={
+          customerEntitlements
+        }
+        canManage={
+          canManageRedemptions
+        }
+        onChanged={(
+          statusMessage
+        ) =>
+          setMessage(
+            statusMessage
+          )
+        }
+      />
 
       <section className="package-section">
         <div className="package-section-heading">
