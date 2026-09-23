@@ -62,7 +62,7 @@ Stage 1D adds a provider-specific browser transaction:
 1. SalonAI generates 32 random bytes using Node's cryptographic RNG.
 2. Only the SHA-256 hash of that value is included in the signed, 10-minute OAuth state JWT.
 3. The raw random value is stored in an HttpOnly browser cookie.
-4. The cookie is provider-specific and scoped to that provider's callback path.
+4. The cookie name is provider- and transaction-specific, so concurrent same-provider flows in separate tabs do not overwrite each other; it is scoped to that provider's callback path.
 5. The cookie uses `SameSite=Lax`, allowing it on the top-level redirect back from the identity provider while reducing unrelated cross-site cookie delivery.
 6. Production cookies use `Secure`.
 7. The callback verifies the state signature, provider and browser-binding hash.
@@ -87,7 +87,7 @@ The cookie is:
 - `HttpOnly`;
 - `SameSite=Lax`;
 - `Secure` in production;
-- scoped to `/api/auth/social/{provider}/callback`;
+- named with both provider and signed transaction ID so concurrent flows remain isolated;\n- scoped to `/api/auth/social/{provider}/callback`;
 - limited to ten minutes.
 
 Both social start/link responses and callback responses use no-store/no-cache headers.
@@ -111,10 +111,10 @@ Stage 1D preserves the already-established security boundaries:
 `backend/src/test/socialAuth.test.js` now verifies:
 
 - all four supported customer providers remain present;
-- generated state contains a browser-binding hash;
+- generated state contains a browser-binding hash and a signed unique transaction ID;
 - the raw browser transaction value validates only against its matching state;
 - a missing or different browser value returns `SOCIAL_AUTH_BROWSER_BINDING_FAILED`;
-- the transaction cookie is HttpOnly, Lax, callback-scoped and ten minutes;
+- transaction cookies are HttpOnly, Lax, callback-scoped and ten minutes;\n- two concurrent same-provider authorizations receive different signed transaction IDs and different cookie names;
 - the start endpoint sets the transaction cookie and uses no-store;
 - the transaction secret is absent from the JSON response;
 - a valid cancellation callback consumes/clears the cookie;
