@@ -22,6 +22,8 @@ import {
 
 import servicePackageService from "../Services/servicePackageService.js";
 import serviceService from "../Services/serviceService.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 import {
   getCustomerDisplayName,
   listCustomerProfiles,
@@ -152,6 +154,32 @@ function remainingTotal(
 }
 
 export default function ServicePackageManagementPage() {
+  const {
+    user,
+  } = useAuth();
+
+  const canCreatePackage =
+    hasPermission(
+      user,
+      "service:create"
+    );
+  const canUpdatePackage =
+    hasPermission(
+      user,
+      "service:update"
+    );
+  const canReadCustomers =
+    hasPermission(
+      user,
+      "customer:read"
+    );
+  const canGrantPackage =
+    canReadCustomers &&
+    hasPermission(
+      user,
+      "customer:update"
+    );
+
   const [
     packages,
     setPackages,
@@ -217,10 +245,14 @@ export default function ServicePackageManagementPage() {
               .listManagement(),
             serviceService
               .getManagementServices(),
-            listCustomerProfiles({
-              page: 1,
-              limit: 100,
-            }),
+            canReadCustomers
+              ? listCustomerProfiles({
+                  page: 1,
+                  limit: 100,
+                })
+              : Promise.resolve({
+                  customers: [],
+                }),
           ]
         );
 
@@ -280,7 +312,9 @@ export default function ServicePackageManagementPage() {
       }
 
       setLoading(false);
-    }, []);
+    }, [
+      canReadCustomers,
+    ]);
 
   useEffect(() => {
     loadWorkspace();
@@ -293,6 +327,7 @@ export default function ServicePackageManagementPage() {
 
     async function loadEntitlements() {
       if (
+        !canReadCustomers ||
         !selectedCustomerId
       ) {
         setCustomerEntitlements(
@@ -328,6 +363,7 @@ export default function ServicePackageManagementPage() {
       active = false;
     };
   }, [
+    canReadCustomers,
     selectedCustomerId,
     message,
   ]);
@@ -464,6 +500,18 @@ export default function ServicePackageManagementPage() {
         );
 
     try {
+      if (
+        editingId
+          ? !canUpdatePackage
+          : !canCreatePackage
+      ) {
+        throw new Error(
+          editingId
+            ? "You do not have permission to update service packages."
+            : "You do not have permission to create service packages."
+        );
+      }
+
       const payload = {
         code:
           form.code.trim(),
@@ -526,6 +574,12 @@ export default function ServicePackageManagementPage() {
     setMessage("");
 
     try {
+      if (!canUpdatePackage) {
+        throw new Error(
+          "You do not have permission to publish or unpublish service packages."
+        );
+      }
+
       await servicePackageService
         .update(
           idOf(definition),
@@ -560,6 +614,12 @@ export default function ServicePackageManagementPage() {
     setMessage("");
 
     try {
+      if (!canGrantPackage) {
+        throw new Error(
+          "Customer read and update permissions are required to grant service packages."
+        );
+      }
+
       if (
         !selectedGrantPackageId ||
         !selectedCustomerId
@@ -1007,7 +1067,10 @@ export default function ServicePackageManagementPage() {
             className="app-button app-button-primary"
             type="submit"
             disabled={
-              saving
+              saving ||
+              (editingId
+                ? !canUpdatePackage
+                : !canCreatePackage)
             }
           >
             <Save
@@ -1037,6 +1100,11 @@ export default function ServicePackageManagementPage() {
                 without pretending a paid
                 order occurred.
               </p>
+              {!canGrantPackage ? (
+                <p className="package-permission-note">
+                  Customer read and update permissions are required for manual grants.
+                </p>
+              ) : null}
             </div>
             <UsersRound
               size={28}
@@ -1112,6 +1180,9 @@ export default function ServicePackageManagementPage() {
               Customer
               <select
                 required
+                disabled={
+                  !canReadCustomers
+                }
                 value={
                   selectedCustomerId
                 }
@@ -1180,7 +1251,8 @@ export default function ServicePackageManagementPage() {
               className="app-button app-button-primary"
               type="submit"
               disabled={
-                saving
+                saving ||
+                !canGrantPackage
               }
             >
               <Send
@@ -1387,6 +1459,9 @@ export default function ServicePackageManagementPage() {
                     <button
                       type="button"
                       className="app-button app-button-secondary"
+                      disabled={
+                        !canUpdatePackage
+                      }
                       onClick={() =>
                         editPackage(
                           definition
@@ -1401,6 +1476,9 @@ export default function ServicePackageManagementPage() {
                     <button
                       type="button"
                       className="app-button app-button-secondary"
+                      disabled={
+                        !canUpdatePackage
+                      }
                       onClick={() =>
                         togglePublication(
                           definition
