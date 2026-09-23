@@ -818,7 +818,7 @@ export default function GroupBookingPanel({
                         type="button"
                         disabled={busy === `add-${group._id}`}
                         onClick={() => void addParticipant(group)}
-                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                        className="min-h-11 rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
                       >
                         Add to existing group
                       </button>
