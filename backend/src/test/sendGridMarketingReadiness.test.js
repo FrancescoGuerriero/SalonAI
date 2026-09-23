@@ -18,6 +18,18 @@ function liveSendGridConfig(
 ) {
   const config = {
     mode: "live",
+    legalCompliance: {
+      ready: true,
+      blockers: [],
+      checks: {
+        businessName: true,
+        postalAddress: true,
+        privacyEmail: true,
+        privacyPolicyUrl: true,
+        preferenceCenterUrl: true,
+        preferenceTokenSecret: true,
+      },
+    },
     email: {
       enabled: true,
       provider: "sendgrid",
