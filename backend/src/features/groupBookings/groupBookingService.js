@@ -73,13 +73,15 @@ function actorId(actor) {
 }
 
 function objectId(value, field) {
-  if (!mongoose.isValidObjectId(value)) {
+  const normalized = String(value ?? "").trim();
+
+  if (!/^[0-9a-fA-F]{24}$/.test(normalized)) {
     throw createServiceError(`${field} must be a valid identifier.`, 400, {
       field,
     });
   }
 
-  return value;
+  return new mongoose.Types.ObjectId(normalized);
 }
 
 function participantPayloads(value) {
@@ -101,7 +103,8 @@ function participantPayloads(value) {
 }
 
 async function customerExists(customerId, session = null) {
-  let query = Customer.findById(customerId).select("_id status");
+  const safeCustomerId = objectId(customerId, "customer");
+  let query = Customer.findById(safeCustomerId).select("_id status");
   if (session) query = query.session(session);
 
   const customer = await query.lean();
@@ -143,10 +146,10 @@ const GROUP_POPULATE = [
 ];
 
 async function getGroupBooking(groupBookingId) {
-  objectId(groupBookingId, "groupBookingId");
+  const safeGroupBookingId = objectId(groupBookingId, "groupBookingId");
 
   return assertFound(
-    await GroupBooking.findById(groupBookingId)
+    await GroupBooking.findById(safeGroupBookingId)
       .populate(GROUP_POPULATE)
       .lean(),
     "Group booking not found."
@@ -247,16 +250,16 @@ export async function addGroupParticipant(
   payload = {},
   { actor = null } = {}
 ) {
-  objectId(groupBookingId, "groupBookingId");
+  const safeGroupBookingId = objectId(groupBookingId, "groupBookingId");
 
   const session = await mongoose.startSession();
-  let savedId = groupBookingId;
+  let savedId = safeGroupBookingId;
   let createdAppointmentId = null;
 
   try {
     await session.withTransaction(async () => {
       const group = assertFound(
-        await GroupBooking.findById(groupBookingId).session(session),
+        await GroupBooking.findById(safeGroupBookingId).session(session),
         "Group booking not found."
       );
 
@@ -310,14 +313,14 @@ export async function addGroupParticipant(
 }
 
 async function participantAppointment(groupBookingId, participantId) {
-  objectId(groupBookingId, "groupBookingId");
-  objectId(participantId, "participantId");
+  const safeGroupBookingId = objectId(groupBookingId, "groupBookingId");
+  const safeParticipantId = objectId(participantId, "participantId");
 
   const group = assertFound(
-    await GroupBooking.findById(groupBookingId),
+    await GroupBooking.findById(safeGroupBookingId),
     "Group booking not found."
   );
-  const participant = group.participants.id(participantId);
+  const participant = group.participants.id(safeParticipantId);
 
   if (!participant) {
     throw createServiceError("Group participant not found.", 404, {
