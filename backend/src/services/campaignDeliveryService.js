@@ -10,6 +10,10 @@ import {
 import {
   deliverAndRecordMessage,
 } from "./messageDeliveryRecordService.js";
+import {
+  buildMarketingOneClickUnsubscribeUrl,
+  buildMarketingPreferenceUrl,
+} from "./marketingPreferenceTokenService.js";
 
 const SUPPORTED_CAMPAIGN_CHANNELS = [
   "email",
@@ -605,10 +609,35 @@ function getCustomerTemplateValues(
       ),
 
     unsubscribeUrl:
+      (
+        isMarketingEmailCampaign(
+          campaign
+        ) &&
+        getCustomerEmail(
+          customer
+        )
+          ? buildMarketingPreferenceUrl(
+              customer
+            )
+          : ""
+      ) ||
       normaliseText(
         campaign
           ?.unsubscribeUrl
       ),
+
+    oneClickUnsubscribeUrl:
+      isMarketingEmailCampaign(
+        campaign
+      ) &&
+      getCustomerEmail(
+        customer
+      )
+        ? buildMarketingOneClickUnsubscribeUrl(
+            customer,
+            "email"
+          )
+        : "",
 
     customerId:
       String(
@@ -744,13 +773,21 @@ function getExplicitConsentValue(
     sendGridSuppressionGroupId = null,
   } = {}
 ) {
-  const marketingEmail =
-    channel ===
-      "email" &&
+  const normalisedCampaignType =
     normaliseLowercase(
       campaignType
-    ) !==
+    );
+
+  const directMarketing =
+    ["email", "sms", "whatsapp"].includes(
+      channel
+    ) &&
+    normalisedCampaignType !==
       "appointment_reminder";
+
+  const marketingEmail =
+    channel === "email" &&
+    directMarketing;
 
   const suppressionGroupId =
     Number(
@@ -782,38 +819,6 @@ function getExplicitConsentValue(
           )
       : [];
 
-  const channelPaths =
-    channel === "email"
-      ? [
-          "communicationPreferences.email",
-          "communicationPreferences.emailMarketing",
-          "preferences.email",
-          "preferences.emailMarketing",
-          "marketingConsent.email",
-          "consent.email",
-          "emailConsent",
-          "emailMarketingConsent",
-          "allowEmail",
-          "subscribedToEmail",
-          ...(marketingEmail
-            ? [
-                "marketing.emailConsent",
-              ]
-            : []),
-        ]
-      : [
-          "communicationPreferences.sms",
-          "communicationPreferences.smsMarketing",
-          "preferences.sms",
-          "preferences.smsMarketing",
-          "marketingConsent.sms",
-          "consent.sms",
-          "smsConsent",
-          "smsMarketingConsent",
-          "allowSms",
-          "subscribedToSms",
-        ];
-
   if (
     marketingEmail &&
     getValueByPath(
@@ -844,35 +849,77 @@ function getExplicitConsentValue(
     };
   }
 
-  if (
-    marketingEmail &&
-    getValueByPath(
-      customer,
-      "communicationPreferences.promotionalMessages"
-    ) === false
-  ) {
+  if (directMarketing) {
+    const preferencePath =
+      channel === "email"
+        ? "communicationPreferences.emailMarketing"
+        : channel === "sms"
+          ? "communicationPreferences.smsMarketing"
+          : "communicationPreferences.whatsappMarketing";
+
+    const consentPath =
+      channel === "email"
+        ? "marketing.emailConsent"
+        : channel === "sms"
+          ? "marketing.smsConsent"
+          : "marketing.whatsappConsent";
+
+    if (
+      getValueByPath(
+        customer,
+        preferencePath
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          preferencePath,
+      };
+    }
+
+    if (
+      getValueByPath(
+        customer,
+        consentPath
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          consentPath,
+      };
+    }
+
     return {
       found: true,
-      granted: false,
+      granted: true,
       source:
-        "communicationPreferences.promotionalMessages",
+        preferencePath,
     };
   }
 
-  if (
-    marketingEmail &&
-    getValueByPath(
-      customer,
-      "marketing.emailConsent"
-    ) === false
-  ) {
-    return {
-      found: true,
-      granted: false,
-      source:
-        "marketing.emailConsent",
-    };
-  }
+  const channelPaths =
+    channel === "email"
+      ? [
+          "communicationPreferences.email",
+          "preferences.email",
+          "marketingConsent.email",
+          "consent.email",
+          "emailConsent",
+          "allowEmail",
+          "subscribedToEmail",
+        ]
+      : [
+          "communicationPreferences.sms",
+          "preferences.sms",
+          "marketingConsent.sms",
+          "consent.sms",
+          "smsConsent",
+          "allowSms",
+          "subscribedToSms",
+        ];
 
   for (const path of channelPaths) {
     const value =
@@ -1931,6 +1978,24 @@ function createDeliveryRequest({
 
       templateValues:
         content.values,
+
+      messagePurpose:
+        channel === "email" &&
+        isMarketingEmailCampaign(
+          campaign
+        )
+          ? "marketing"
+          : "transactional",
+
+      unsubscribeUrl:
+        content.values
+          ?.unsubscribeUrl ||
+        "",
+
+      oneClickUnsubscribeUrl:
+        content.values
+          ?.oneClickUnsubscribeUrl ||
+        "",
     },
   };
 
@@ -3238,6 +3303,7 @@ export {
   resolveCampaignAudience,
   getExplicitConsentValue,
   isCustomerUnsubscribed,
+  resolveCustomerConsent,
 };
 
 export default processCampaignDelivery;

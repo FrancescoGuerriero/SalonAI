@@ -21,6 +21,7 @@ import {
 
 import Footer from "./Footer.jsx";
 import Navbar from "./Navbar.jsx";
+import TrackingConsentBanner from "./privacy/TrackingConsentBanner.jsx";
 import {
   MANAGEMENT_ROUTE_PATHS,
 } from "./navigation/managementNavigationConfig.js";
@@ -52,6 +53,9 @@ import useAuth from "../hooks/useAuth.js";
 import {
   hasPermission,
 } from "../utils/permissions.js";
+import {
+  trackVirtualPageView,
+} from "../privacy/trackingIntegrations.js";
 
 const KEY =
   "salonai-management-sidebar-collapsed";
@@ -125,6 +129,15 @@ export default function MainLayout() {
   );
 
   useEffect(() => {
+    trackVirtualPageView(
+      `${location.pathname}${location.search}`
+    );
+  }, [
+    location.pathname,
+    location.search,
+  ]);
+
+  useEffect(() => {
     try {
       localStorage.setItem(
         KEY,
@@ -166,6 +179,7 @@ export default function MainLayout() {
        * as workspace navigation rather than replacing the global header.
        */}
       <Navbar />
+      <TrackingConsentBanner />
 
       {!management ? (
         <>

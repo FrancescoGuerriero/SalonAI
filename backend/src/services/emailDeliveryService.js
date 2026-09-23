@@ -2,6 +2,10 @@ import {
   getMessageDeliveryConfig,
   validateMessageDeliveryConfig,
 } from "../config/messageDeliveryConfig.js";
+import {
+  getLegalComplianceConfig,
+  getMarketingComplianceReadiness,
+} from "../config/legalComplianceConfig.js";
 
 const EMAIL_ADDRESS_PATTERN =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -487,6 +491,122 @@ function normaliseEmailMessage({
   };
 }
 
+function isMarketingMessage(
+  message
+) {
+  return (
+    normaliseText(
+      message?.metadata
+        ?.messagePurpose
+    ).toLowerCase() ===
+    "marketing"
+  );
+}
+
+function buildMarketingFooter(
+  message
+) {
+  const readiness =
+    getMarketingComplianceReadiness();
+  const legal =
+    getLegalComplianceConfig();
+  const unsubscribeUrl =
+    normaliseText(
+      message?.metadata
+        ?.unsubscribeUrl
+    );
+
+  if (
+    !readiness.ready ||
+    !unsubscribeUrl
+  ) {
+    return null;
+  }
+
+  const textFooter = [
+    "",
+    "---",
+    `Manage marketing preferences: ${unsubscribeUrl}`,
+    `Privacy notice: ${legal.privacyPolicyUrl}`,
+    legal.businessName,
+    legal.postalAddress,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const htmlFooter =
+    `<hr /><p style="font-size:12px;line-height:1.5">Manage marketing preferences: <a href="${escapeHtml(unsubscribeUrl)}">unsubscribe or change preferences</a><br />Privacy notice: <a href="${escapeHtml(legal.privacyPolicyUrl)}">${escapeHtml(legal.privacyPolicyUrl)}</a><br />${escapeHtml(legal.businessName)}<br />${escapeHtml(legal.postalAddress)}</p>`;
+
+  return {
+    text: textFooter,
+    html: htmlFooter,
+    unsubscribeUrl,
+  };
+}
+
+function applyMarketingCompliance(
+  message,
+  deliveryConfig
+) {
+  if (!isMarketingMessage(message)) {
+    return message;
+  }
+
+  const readiness =
+    getMarketingComplianceReadiness();
+  const footer =
+    buildMarketingFooter(
+      message
+    );
+
+  if (
+    deliveryConfig.mode ===
+      "live" &&
+    (
+      !readiness.ready ||
+      !footer
+    )
+  ) {
+    throw createEmailDeliveryError(
+      "Live marketing email is blocked until legal sender identity, physical postal address, privacy contact, privacy URL and a signed preference link are configured.",
+      {
+        statusCode: 503,
+        code:
+          "EMAIL_MARKETING_COMPLIANCE_NOT_READY",
+      }
+    );
+  }
+
+  if (!footer) {
+    return message;
+  }
+
+  return {
+    ...message,
+    text:
+      `${message.text}${footer.text}`,
+    html:
+      `${message.html}${footer.html}`,
+    headers: {
+      ...message.headers,
+      "List-Unsubscribe":
+        `<${normaliseText(
+          message?.metadata
+            ?.oneClickUnsubscribeUrl
+        ) || footer.unsubscribeUrl}>`,
+      ...(normaliseText(
+        message?.metadata
+          ?.oneClickUnsubscribeUrl
+      )
+        ? {
+            "List-Unsubscribe-Post":
+              "List-Unsubscribe=One-Click",
+          }
+        : {}),
+    },
+  };
+}
+
 function buildSender(
   senderConfig
 ) {
@@ -756,9 +876,15 @@ async function sendEmail(
       config
     );
 
-  const message =
+  let message =
     normaliseEmailMessage(
       emailMessage
+    );
+
+  message =
+    applyMarketingCompliance(
+      message,
+      config
     );
 
   if (config.mode === "sandbox") {
@@ -967,6 +1093,7 @@ function closeEmailDeliveryConnection() {
 }
 
 export {
+  applyMarketingCompliance,
   buildProviderHeaders,
   buildSendGridSmtpApiHeader,
   closeEmailDeliveryConnection,

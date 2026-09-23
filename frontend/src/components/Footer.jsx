@@ -73,9 +73,19 @@ const supportLinks = [
     icon: HelpCircle,
   },
   {
-    to: "/experience/privacy",
-    label: "Privacy choices",
+    to: "/privacy",
+    label: "Privacy notice",
     icon: ShieldCheck,
+  },
+  {
+    to: "/cookies",
+    label: "Cookie & storage notice",
+    icon: ShieldCheck,
+  },
+  {
+    to: "/cookies#settings",
+    label: "Cookie settings",
+    icon: Settings,
   },
 ];
 
@@ -89,6 +99,11 @@ const accountLinks = [
     to: "/account/manage",
     label: "Manage My Account",
     icon: Settings,
+  },
+  {
+    to: "/account/privacy-rights",
+    label: "Privacy rights",
+    icon: ShieldCheck,
   },
 ];
 

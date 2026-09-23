@@ -17,7 +17,6 @@ export async function createCustomer(req, res) {
       hairProfile,
       preferredStylist,
       notes,
-      marketing,
       photo,
     } = req.body;
 
@@ -63,7 +62,6 @@ export async function createCustomer(req, res) {
       hairProfile,
       preferredStylist,
       notes,
-      marketing,
       photo,
       createdBy: req.user?.id,
       updatedBy: req.user?.id,
@@ -167,7 +165,60 @@ export async function updateCustomer(req, res) {
       });
     }
 
-    Object.assign(customer, req.body);
+    const update =
+      req.body &&
+      typeof req.body === "object"
+        ? { ...req.body }
+        : {};
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        update,
+        "marketing"
+      )
+    ) {
+      return res.status(422).json({
+        message:
+          "Marketing consent cannot be changed through the generic customer endpoint. Use the governed communication-preference workflow.",
+        code:
+          "MARKETING_CONSENT_GOVERNED",
+      });
+    }
+
+    if (
+      update.communicationPreferences &&
+      typeof update.communicationPreferences ===
+        "object"
+    ) {
+      const forbiddenMarketingFields = [
+        "promotionalMessages",
+        "emailMarketing",
+        "smsMarketing",
+        "whatsappMarketing",
+      ];
+
+      if (
+        forbiddenMarketingFields.some(
+          (field) =>
+            Object.prototype.hasOwnProperty.call(
+              update.communicationPreferences,
+              field
+            )
+        )
+      ) {
+        return res.status(422).json({
+          message:
+            "Marketing preferences cannot be changed through the generic customer endpoint. Use the governed communication-preference workflow.",
+          code:
+            "MARKETING_CONSENT_GOVERNED",
+        });
+      }
+    }
+
+    Object.assign(
+      customer,
+      update
+    );
 
     customer.updatedBy = req.user?.id;
 

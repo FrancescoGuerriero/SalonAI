@@ -6,6 +6,20 @@ import StructuredData from "./StructuredData.jsx";
 const SITE_ORIGIN = "https://salonai.francescopicardi.co.uk";
 const SITE_NAME = "SalonAI";
 
+const GOOGLE_SITE_VERIFICATION =
+  String(
+    import.meta.env
+      .VITE_GOOGLE_SITE_VERIFICATION ||
+      ""
+  ).trim();
+
+const BING_SITE_VERIFICATION =
+  String(
+    import.meta.env
+      .VITE_BING_SITE_VERIFICATION ||
+      ""
+  ).trim();
+
 const DEFAULT_TITLE =
   "SalonAI | Premium Hair Salon Booking & Haircare";
 
@@ -326,6 +340,24 @@ export default function Seo() {
       "twitter:description",
       seo.description
     );
+
+    if (
+      GOOGLE_SITE_VERIFICATION
+    ) {
+      upsertNamedMeta(
+        "google-site-verification",
+        GOOGLE_SITE_VERIFICATION
+      );
+    }
+
+    if (
+      BING_SITE_VERIFICATION
+    ) {
+      upsertNamedMeta(
+        "msvalidate.01",
+        BING_SITE_VERIFICATION
+      );
+    }
   }, [location.pathname]);
 
   return (

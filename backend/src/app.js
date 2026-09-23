@@ -41,6 +41,9 @@ import calendarOAuthCallbackRoutes from "./integrations/calendar/calendarOAuthCa
 import calendarWebhookRoutes from "./integrations/calendar/calendarWebhookRoutes.js";
 import sendGridEventWebhookRoutes from "./integrations/messaging/sendGridEventWebhookRoutes.js";
 import healthRoutes from "./routes/healthRoutes.js";
+import legalRoutes from "./routes/legalRoutes.js";
+import publicMarketingPreferenceRoutes from "./routes/publicMarketingPreferenceRoutes.js";
+import privacyRequestRoutes from "./routes/privacyRequestRoutes.js";
 import { requireFeature } from "./services/featureControlService.js";
 
 import supplierRoutes from "./features/inventoryPurchasing/routes/supplierRoutes.js";
@@ -251,6 +254,21 @@ app.use(
 app.use(
   "/api/auth",
   authRoutes
+);
+
+app.use(
+  "/api/legal",
+  legalRoutes
+);
+
+app.use(
+  "/api/marketing-preferences",
+  publicMarketingPreferenceRoutes
+);
+
+app.use(
+  "/api/privacy-requests",
+  privacyRequestRoutes
 );
 
 app.use(

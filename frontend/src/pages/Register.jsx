@@ -209,7 +209,11 @@ function Register() {
         </button>
 
         <p className="auth-terms">
-          By creating an account, you agree to use SalonAI services responsibly.
+          Before creating an account, read the{" "}
+          <Link to="/privacy">Privacy Notice</Link> and{" "}
+          <Link to="/cookies">Cookie &amp; storage notice</Link>. Creating an
+          account does not opt you in to marketing; marketing choices are
+          separate and off by default.
         </p>
       </form>
     </AuthShell>
