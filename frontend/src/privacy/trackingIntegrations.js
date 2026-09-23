@@ -493,7 +493,9 @@ export function trackVirtualPageView(
       ?.advertising === true &&
     trackingProviderConfig
       .metaPixelId &&
-    typeof window?.fbq ===
+    typeof window !==
+      "undefined" &&
+    typeof window.fbq ===
       "function"
   ) {
     window.fbq(
@@ -507,7 +509,9 @@ export function trackVirtualPageView(
       ?.experience === true &&
     trackingProviderConfig
       .hotjarSiteId &&
-    typeof window?.hj ===
+    typeof window !==
+      "undefined" &&
+    typeof window.hj ===
       "function"
   ) {
     window.hj(
