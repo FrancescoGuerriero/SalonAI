@@ -7,6 +7,7 @@ import {
 } from "../middleware/authMiddleware.js";
 import {
   createMyPrivacyRequest,
+  exportMyPrivacyData,
   listMyPrivacyRequests,
   listPrivacyRequests,
   updatePrivacyRequest,
@@ -21,6 +22,13 @@ router.get(
   "/me",
   asyncHandler(
     listMyPrivacyRequests
+  )
+);
+
+router.get(
+  "/me/export",
+  asyncHandler(
+    exportMyPrivacyData
   )
 );
 
