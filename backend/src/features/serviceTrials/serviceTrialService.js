@@ -308,7 +308,7 @@ export async function bookServiceTrial(payload = {}, { actor = null } = {}) {
           appointmentTime: payload.appointmentTime,
           duration: definition.trialDuration,
           totalPrice: definition.trialPrice,
-          status: payload.status || "pending",
+          status: "pending",
           notes: text(payload.notes),
           internalNotes: text(payload.internalNotes),
         },
