@@ -369,6 +369,46 @@ test(
 );
 
 test(
+  "package checkout does not require a customer profile when the cart has no package lines",
+  async () => {
+    const packageService =
+      await source(
+        "../features/servicePackages/servicePackageService.js"
+      );
+
+    const start =
+      packageService.indexOf(
+        "export async function buildPurchasableServicePackageOrderItems"
+      );
+    const end =
+      packageService.indexOf(
+        "export async function allocatePaidOrderServicePackages",
+        start
+      );
+    const builder =
+      packageService.slice(
+        start,
+        end
+      );
+
+    const emptyGuard =
+      builder.indexOf(
+        "if (!Array.isArray(items) || items.length === 0)"
+      );
+    const customerGuard =
+      builder.indexOf(
+        "customerProfileId(user);"
+      );
+
+    assert.ok(
+      emptyGuard >= 0 &&
+        customerGuard > emptyGuard,
+      "empty package carts must return before customer-profile enforcement"
+    );
+  }
+);
+
+test(
   "package checkout is server priced, snapshots credits, and settles through the canonical paid order path",
   async () => {
     const packageService =
