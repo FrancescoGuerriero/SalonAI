@@ -40,7 +40,28 @@ const consentRecordSchema = new mongoose.Schema(
       default: "",
     },
     policyVersion: String,
-    ipAddress: String,
+    ipAddress: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 128,
+    },
+    userAgent: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 512,
+    },
+    requestId: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 128,
+    },
+    evidence: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({}),
+    },
     recordedAt: {
       type: Date,
       default: Date.now,
