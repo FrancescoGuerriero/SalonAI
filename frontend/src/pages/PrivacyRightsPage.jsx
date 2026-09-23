@@ -10,6 +10,7 @@ import {
 import Alert from "../components/ui/Alert.jsx";
 import {
   createMyPrivacyRequest,
+  downloadMyPrivacyData,
   listMyPrivacyRequests,
 } from "../Services/privacyRequestService.js";
 import "../styles/legalCompliance.css";
@@ -74,6 +75,8 @@ export default function PrivacyRightsPage() {
     useState(true);
   const [saving, setSaving] =
     useState(false);
+  const [downloading, setDownloading] =
+    useState(false);
   const [error, setError] =
     useState("");
   const [message, setMessage] =
@@ -108,6 +111,28 @@ export default function PrivacyRightsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function downloadData() {
+    setDownloading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const result =
+        await downloadMyPrivacyData();
+      setMessage(
+        `Your data export has been prepared as ${result.filename}.`
+      );
+    } catch (requestError) {
+      setError(
+        requestError?.response?.data
+          ?.message ||
+          "We could not export your personal data."
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   async function submitRequest(
     event
@@ -162,6 +187,27 @@ export default function PrivacyRightsPage() {
           {message}
         </Alert>
       ) : null}
+
+      <section className="legal-card">
+        <h2>Download your data</h2>
+        <p>
+          You can download a structured JSON copy of the main personal data
+          associated with your authenticated SalonAI account, including account
+          and customer-profile information, appointments, orders, payment
+          records, consent evidence, communication delivery history and privacy
+          requests. Provider secrets and staff-only internal notes are excluded.
+        </p>
+        <button
+          type="button"
+          className="app-button app-button-secondary"
+          disabled={downloading}
+          onClick={downloadData}
+        >
+          {downloading
+            ? "Preparing export…"
+            : "Download my SalonAI data"}
+        </button>
+      </section>
 
       <section className="legal-card">
         <h2>Make a request</h2>
