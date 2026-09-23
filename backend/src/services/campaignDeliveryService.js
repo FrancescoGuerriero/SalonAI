@@ -10,6 +10,9 @@ import {
 import {
   deliverAndRecordMessage,
 } from "./messageDeliveryRecordService.js";
+import {
+  buildMarketingPreferenceUrl,
+} from "./marketingPreferenceTokenService.js";
 
 const SUPPORTED_CAMPAIGN_CHANNELS = [
   "email",
@@ -605,6 +608,18 @@ function getCustomerTemplateValues(
       ),
 
     unsubscribeUrl:
+      (
+        isMarketingEmailCampaign(
+          campaign
+        ) &&
+        getCustomerEmail(
+          customer
+        )
+          ? buildMarketingPreferenceUrl(
+              customer
+            )
+          : ""
+      ) ||
       normaliseText(
         campaign
           ?.unsubscribeUrl
@@ -1931,6 +1946,19 @@ function createDeliveryRequest({
 
       templateValues:
         content.values,
+
+      messagePurpose:
+        channel === "email" &&
+        isMarketingEmailCampaign(
+          campaign
+        )
+          ? "marketing"
+          : "transactional",
+
+      unsubscribeUrl:
+        content.values
+          ?.unsubscribeUrl ||
+        "",
     },
   };
 

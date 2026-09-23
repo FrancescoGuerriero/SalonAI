@@ -897,13 +897,25 @@ customerSchema
         ?.unsubscribed &&
       (
         (
+          this.communicationPreferences
+            ?.emailMarketing === true &&
           this.marketing
-            ?.emailConsent &&
+            ?.emailConsent === true &&
           !this.marketing
             ?.emailSuppressed
         ) ||
-        this.marketing
-          ?.smsConsent
+        (
+          this.communicationPreferences
+            ?.smsMarketing === true &&
+          this.marketing
+            ?.smsConsent === true
+        ) ||
+        (
+          this.communicationPreferences
+            ?.whatsappMarketing === true &&
+          this.marketing
+            ?.whatsappConsent === true
+        )
       )
     );
   });
