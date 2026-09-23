@@ -149,6 +149,58 @@ describe(
     );
 
     it(
+      "exposes transactional redemption and reversal through the existing management workflow",
+      () => {
+        const api =
+          source(
+            "src/Services/servicePackageService.js"
+          );
+        const management =
+          source(
+            "src/pages/ServicePackageManagementPage.jsx"
+          );
+        const redemption =
+          source(
+            "src/pages/ServicePackageRedemptionPanel.jsx"
+          );
+
+        expect(api).toContain(
+          "/redeem"
+        );
+        expect(api).toContain(
+          "/reverse"
+        );
+        expect(management).toContain(
+          "ServicePackageRedemptionPanel"
+        );
+        expect(management).toContain(
+          '"appointment:update"'
+        );
+        expect(redemption).toContain(
+          "appointmentManagementApi"
+        );
+        expect(redemption).toContain(
+          ".getCalendar("
+        );
+        expect(redemption).toContain(
+          "listRedemptions"
+        );
+        expect(redemption).toContain(
+          ".redeem("
+        );
+        expect(redemption).toContain(
+          ".reverse("
+        );
+        expect(redemption).not.toContain(
+          "createManagedAppointment"
+        );
+        expect(redemption).not.toContain(
+          "createPayment"
+        );
+      }
+    );
+
+    it(
       "keeps manual grants explicit and auditable",
       () => {
         const management =
