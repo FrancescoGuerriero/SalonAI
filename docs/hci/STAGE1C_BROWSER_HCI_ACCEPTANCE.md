@@ -98,7 +98,7 @@ No production credential, provider token or fixture password is added.
 
 The test users are synthetic `@salonai.test` identities and exist only in browser fixtures.
 
-## 5. Findings resolved during browser acceptance
+## 6. Findings resolved during browser acceptance
 
 The first Stage 1C browser run produced two useful failures rather than being waived:
 
@@ -107,7 +107,23 @@ The first Stage 1C browser run produced two useful failures rather than being wa
 
 These findings demonstrate why Stage 1C uses rendered-browser evidence in addition to component tests.
 
-## 5. Acceptance gate
+## 5. Task-completion evidence
+
+Stage 1C uses deterministic browser journeys as the automated baseline for selected management tasks. These are not presented as a substitute for moderated usability testing; they establish a repeatable minimum that DEV2 can compare with later human evidence.
+
+| Representative task | Expected operator interactions after workspace is open | Automated completion signal | Error / assistance baseline | Responsive-fit evidence |
+| --- | ---: | --- | --- | --- |
+| Open routine appointment work from Simple view | 1 navigation activation | Appointments is visible in the default task hierarchy | 0 validation errors; no mode change or help required | Desktop shell and existing mobile drawer regressions |
+| Find a specialist tool while remaining in Simple | 1 search entry + result activation when continuing | Management Copilot becomes discoverable and is labelled Advanced | 0 permission errors for an authorised actor; explanatory Advanced label is present | No document horizontal overflow |
+| Switch from Simple to Advanced | 1 control activation | `aria-pressed` changes and authorised specialist tools render | 0 errors; no technical configuration step | Keyboard focus is visible; mobile control remains within drawer |
+| Return to Advanced after reload | 0 additional configuration interactions | stored preference restores Advanced on reload | 0 errors; no assistance required | Desktop no-overflow assertion |
+| Receptionist searches an authorised advanced booking tool | 1 mode activation + 1 search entry | Booking demand is visible | 0 permission errors for authorised `appointment:read` capability | Desktop authenticated shell |
+| Receptionist searches an unauthorised AI tool | 1 search entry | no route is exposed; empty state appears | safe denial by omission, not an application error | Desktop authenticated shell |
+| Switch view in mobile management drawer | 1 drawer open + 1 mode activation | Advanced state becomes pressed | 0 errors; native button keyboard behaviour | controls >= 40px high / 44px wide, stay inside dialog, no horizontal overflow |
+
+For later moderated HCI sessions, record the same dimensions—task success, interaction/step count, completion time, observed errors, requests for assistance and subjective ease—so human findings can be compared with this automated baseline.
+
+## 7. Acceptance gate
 
 Stage 1C is complete only when all of the following pass on the Stage 1C PR head:
 
@@ -125,7 +141,7 @@ Stage 1C is complete only when all of the following pass on the Stage 1C PR head
 
 Any red gate is treated as an integration blocker until explained and corrected.
 
-## 7. Manual review remaining after automation
+## 8. Manual review remaining after automation
 
 Automation cannot fully establish usability or assistive-technology quality. DEV 2 should still perform:
 
@@ -139,6 +155,6 @@ DEV 3 should confirm delegated-role expectations against production RBAC definit
 
 DEV 4 should confirm the presentation preference remains tenant-neutral UX metadata and is not promoted into a SaaS entitlement or tenant authority claim.
 
-## 8. Boundary with Stage 1D
+## 9. Boundary with Stage 1D
 
 Stage 1C does not add or simulate external social-identity provider acceptance. Google/Facebook/Microsoft/Yahoo customer social login remains Stage 1D because provider-backed acceptance depends on provider configuration, redirect URIs and secrets that must be handled outside source control.
