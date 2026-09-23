@@ -98,3 +98,13 @@ test("group participant aggregate stores only the canonical appointment link and
   assert.match(add, /group\.participants\.push\(\{[\s\S]*?appointment: appointment\._id/);
   assert.doesNotMatch(add, /group\.participants\.push\(\{[\s\S]*?customer,/);
 });
+
+
+test("group booking database identifiers are normalized before Mongoose queries", async () => {
+  const service = await source("../features/groupBookings/groupBookingService.js");
+
+  assert.match(service, /return new mongoose\.Types\.ObjectId\(normalized\)/);
+  assert.match(service, /Customer\.findById\(safeCustomerId\)/);
+  assert.match(service, /GroupBooking\.findById\(safeGroupBookingId\)/);
+  assert.match(service, /group\.participants\.id\(safeParticipantId\)/);
+});
