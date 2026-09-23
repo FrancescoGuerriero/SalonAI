@@ -43,6 +43,7 @@ import sendGridEventWebhookRoutes from "./integrations/messaging/sendGridEventWe
 import healthRoutes from "./routes/healthRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import publicMarketingPreferenceRoutes from "./routes/publicMarketingPreferenceRoutes.js";
+import privacyRequestRoutes from "./routes/privacyRequestRoutes.js";
 import { requireFeature } from "./services/featureControlService.js";
 
 import supplierRoutes from "./features/inventoryPurchasing/routes/supplierRoutes.js";
@@ -263,6 +264,11 @@ app.use(
 app.use(
   "/api/marketing-preferences",
   publicMarketingPreferenceRoutes
+);
+
+app.use(
+  "/api/privacy-requests",
+  privacyRequestRoutes
 );
 
 app.use(
