@@ -61,3 +61,28 @@ test("trial routes reuse service and appointment permissions", async () => {
   assert.match(routes, /"appointment:update"/);
   assert.doesNotMatch(routes, /trial:[a-z]+/);
 });
+
+
+test("trial booking preserves canonical lifecycle notification behaviour after commit", async () => {
+  const service = await source("../features/serviceTrials/serviceTrialService.js");
+  const start = service.indexOf("export async function bookServiceTrial");
+  const end = service.indexOf("const BOOKING_POPULATE", start);
+  const booking = service.slice(start, end);
+
+  assert.match(booking, /notifyAppointmentConfirmed/);
+  assert.match(booking, /notifySafely/);
+  assert.match(booking, /source: "service_trial"/);
+  assert.ok(
+    booking.indexOf("await session.endSession") <
+      booking.indexOf("notifyAppointmentConfirmed")
+  );
+});
+
+test("future feature router mounts service trials behind its governed feature control", async () => {
+  const routes = await source("../features/futureFeatureRoutes.js");
+
+  assert.match(
+    routes,
+    /"\/service-trials"[\s\S]*?requireFeature\("service-trials"\)[\s\S]*?serviceTrialRoutes/
+  );
+});
