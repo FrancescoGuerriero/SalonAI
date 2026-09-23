@@ -93,7 +93,9 @@ export async function refundOrder(orderId, payload = {}, actor = {}) {
 
   if (hasAllocationAwareItems(order)) {
     throw createServiceError(
-      "Orders containing appointment payments or service packages require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order.",
+      hasAppointmentAllocations(order)
+        ? "Orders containing appointment payments require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order."
+        : "Orders containing service packages require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order.",
       409
     );
   }
