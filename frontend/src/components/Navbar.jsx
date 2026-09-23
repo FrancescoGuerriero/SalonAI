@@ -48,7 +48,6 @@ const PUBLIC_LINKS = [
   {
     to: "/packages",
     label: "Packages",
-    featureId: "online-shop",
   },
   {
     to: "/stylists",
