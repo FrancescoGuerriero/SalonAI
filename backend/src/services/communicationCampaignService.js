@@ -489,6 +489,18 @@ export function hasExplicitConsentFailure(
   campaignType = "",
   sendGridSuppressionGroupId = null
 ) {
+  const normalisedCampaignType =
+    normalizeText(
+      campaignType
+    ).toLowerCase();
+
+  const directMarketing =
+    ["email", "sms", "whatsapp"].includes(
+      channel
+    ) &&
+    normalisedCampaignType !==
+      "appointment_reminder";
+
   const suppressionGroupId =
     Number(
       sendGridSuppressionGroupId
@@ -515,41 +527,16 @@ export function hasExplicitConsentFailure(
           )
       : [];
 
-  const consent =
-    customer?.consent ||
-    customer?.consents ||
-    customer?.communicationConsent ||
-    {};
-
   if (
-    customer?.marketingConsent === false ||
-    consent?.marketing === false ||
-    consent?.communications === false ||
-    consent?.[channel] === false ||
+    channel === "email" &&
+    directMarketing &&
     (
-      channel ===
-        "email" &&
-      String(
-        campaignType || ""
-      )
-        .trim()
-        .toLowerCase() !==
-        "appointment_reminder" &&
+      customer?.marketing
+        ?.emailSuppressed === true ||
       (
-        customer?.communicationPreferences
-          ?.promotionalMessages ===
-          false ||
-        customer?.marketing
-          ?.emailConsent ===
-          false ||
-        customer?.marketing
-          ?.emailSuppressed ===
-          true ||
-        (
-          hasSuppressionGroupId &&
-          suppressedGroups.includes(
-            suppressionGroupId
-          )
+        hasSuppressionGroupId &&
+        suppressedGroups.includes(
+          suppressionGroupId
         )
       )
     )
@@ -557,7 +544,42 @@ export function hasExplicitConsentFailure(
     return true;
   }
 
-  return false;
+  if (directMarketing) {
+    const preferenceName =
+      channel === "email"
+        ? "emailMarketing"
+        : channel === "sms"
+          ? "smsMarketing"
+          : "whatsappMarketing";
+
+    const consentName =
+      channel === "email"
+        ? "emailConsent"
+        : channel === "sms"
+          ? "smsConsent"
+          : "whatsappConsent";
+
+    return (
+      customer
+        ?.communicationPreferences
+        ?.[preferenceName] !== true ||
+      customer
+        ?.marketing
+        ?.[consentName] !== true
+    );
+  }
+
+  const consent =
+    customer?.consent ||
+    customer?.consents ||
+    customer?.communicationConsent ||
+    {};
+
+  return (
+    customer?.marketingConsent === false ||
+    consent?.communications === false ||
+    consent?.[channel] === false
+  );
 }
 
 function isInactiveCustomer(customer) {
