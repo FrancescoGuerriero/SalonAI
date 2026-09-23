@@ -33,6 +33,111 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function trackingReceiptId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto
+      .randomUUID()
+      .replaceAll("-", "");
+  }
+
+  return `consent${Date.now()}${Math.random()
+    .toString(36)
+    .slice(2, 14)}`;
+}
+
+function clearCookie(name) {
+  if (
+    typeof document === "undefined"
+  ) {
+    return;
+  }
+
+  const hostname =
+    window.location.hostname;
+
+  for (const domain of [
+    "",
+    hostname,
+    `.${hostname}`,
+  ]) {
+    const domainPart =
+      domain
+        ? `; domain=${domain}`
+        : "";
+
+    document.cookie =
+      `${name}=; Max-Age=0; path=/${domainPart}; SameSite=Lax`;
+  }
+}
+
+function clearCookiesMatching(
+  pattern
+) {
+  if (
+    typeof document === "undefined"
+  ) {
+    return;
+  }
+
+  document.cookie
+    .split(";")
+    .map((entry) =>
+      entry.split("=")[0].trim()
+    )
+    .filter((name) =>
+      pattern.test(name)
+    )
+    .forEach(clearCookie);
+}
+
+function recordConsentReceipt(record) {
+  if (
+    typeof fetch !== "function"
+  ) {
+    return;
+  }
+
+  const apiBase =
+    text(
+      import.meta.env
+        .VITE_API_URL
+    ) ||
+    "/api";
+
+  const url =
+    `${apiBase.replace(/\/$/, "")}/legal/tracking-consent`;
+
+  void fetch(
+    url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+      credentials:
+        "same-origin",
+      body: JSON.stringify({
+        receiptId:
+          record.receiptId,
+        version:
+          record.version,
+        choices:
+          record.choices,
+        source:
+          record.source,
+        updatedAt:
+          record.updatedAt,
+      }),
+    }
+  ).catch(() => {
+    // Local consent remains effective if audit-receipt recording is unavailable.
+  });
+}
+
 function positiveInteger(
   value,
   fallback
@@ -280,7 +385,13 @@ export function writeTrackingConsent(
           1000
     );
 
+  const prior =
+    readTrackingConsent();
+
   const record = {
+    receiptId:
+      prior?.receiptId ||
+      trackingReceiptId(),
     version:
       TRACKING_CONSENT_VERSION,
     necessary: true,
@@ -308,6 +419,37 @@ export function writeTrackingConsent(
     // Consent still applies to the current page even if browser storage
     // is blocked. The visitor will be asked again on a later visit.
   }
+
+  if (
+    prior?.choices?.analytics === true &&
+    record.choices.analytics === false
+  ) {
+    clearCookiesMatching(
+      /^(_ga|_gid|_gat)/i
+    );
+  }
+
+  if (
+    prior?.choices?.advertising === true &&
+    record.choices.advertising === false
+  ) {
+    clearCookiesMatching(
+      /^(_fbp|_fbc|_gcl_|_uet|MUID)/i
+    );
+  }
+
+  if (
+    prior?.choices?.experience === true &&
+    record.choices.experience === false
+  ) {
+    clearCookiesMatching(
+      /^_hj/i
+    );
+  }
+
+  recordConsentReceipt(
+    record
+  );
 
   window.dispatchEvent(
     new CustomEvent(
