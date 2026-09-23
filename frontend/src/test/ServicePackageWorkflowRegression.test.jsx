@@ -174,6 +174,9 @@ describe(
           "ServicePackageRedemptionPanel"
         );
         expect(management).toContain(
+          '"appointment:read"'
+        );
+        expect(management).toContain(
           '"appointment:update"'
         );
         expect(redemption).toContain(
