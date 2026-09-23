@@ -70,6 +70,18 @@ export default function CheckoutSuccess() {
                 <strong>{formatCurrency(order.appointmentSubtotal, order.currency)}</strong>
               </div>
             ) : null}
+            {Number(order.servicePackageSubtotal || 0) > 0 ? (
+              <div className="commerce-success-summary">
+                <span>Service packages</span>
+                <strong>{formatCurrency(order.servicePackageSubtotal, order.currency)}</strong>
+              </div>
+            ) : null}
+            {order.status === "paid" && Number(order.servicePackageSubtotal || 0) > 0 ? (
+              <p>
+                Your purchased package credits are now available from the Service
+                packages page and can be redeemed against eligible appointments.
+              </p>
+            ) : null}
             {order.status === "pending_payment" && (
               <p>
                 Stripe confirmation can take a few seconds. Refresh the status after
@@ -83,6 +95,7 @@ export default function CheckoutSuccess() {
             <RefreshCw size={16} /> Refresh status
           </button>
           <Link className="commerce-link-button" to="/orders">View order history</Link>
+          <Link className="commerce-text-link" to="/packages">View service packages</Link>
           <Link className="commerce-text-link" to="/account">Back to account</Link>
         </div>
       </section>
