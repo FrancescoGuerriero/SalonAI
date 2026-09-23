@@ -10,6 +10,7 @@ import {
 import CustomerServicePackage from "./CustomerServicePackage.js";
 import ServicePackage from "./ServicePackage.js";
 import ServicePackageRedemption from "./ServicePackageRedemption.js";
+import { isFeatureEnabled } from "../../services/featureControlService.js";
 
 function actorId(actor) {
   return (
@@ -756,6 +757,25 @@ export async function buildPurchasableServicePackageOrderItems(
 
   if (!Array.isArray(items) || items.length === 0) {
     return [];
+  }
+
+  if (
+    !(await isFeatureEnabled(
+      "service-packages"
+    ))
+  ) {
+    const error =
+      createServiceError(
+        "New service-package purchases are currently disabled by the salon administrator.",
+        404,
+        {
+          featureId:
+            "service-packages",
+        }
+      );
+    error.code =
+      "FEATURE_DISABLED";
+    throw error;
   }
 
   const requestedIds = [];
