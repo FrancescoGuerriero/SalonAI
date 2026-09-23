@@ -33,6 +33,75 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function createReceiptId() {
+  if (
+    typeof crypto !==
+      "undefined" &&
+    typeof crypto.randomUUID ===
+      "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `consent_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 12)}`;
+}
+
+function trackingConsentReceiptUrl() {
+  const base =
+    text(
+      import.meta.env
+        .VITE_API_URL
+    ) ||
+    "/api";
+
+  return `${base.replace(/\/$/, "")}/legal/tracking-consent`;
+}
+
+async function syncTrackingConsentReceipt(
+  record
+) {
+  if (
+    typeof fetch !==
+      "function" ||
+    !record?.receiptId
+  ) {
+    return;
+  }
+
+  try {
+    await fetch(
+      trackingConsentReceiptUrl(),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        credentials:
+          "same-origin",
+        keepalive: true,
+        body:
+          JSON.stringify({
+            receiptId:
+              record.receiptId,
+            version:
+              record.version,
+            choices:
+              record.choices,
+            source:
+              record.source,
+            updatedAt:
+              record.updatedAt,
+          }),
+      }
+    );
+  } catch {
+    // The local choice remains authoritative if the audit receipt cannot sync.
+  }
+}
+
 function trackingReceiptId() {
   if (
     typeof crypto !== "undefined" &&
@@ -458,6 +527,10 @@ export function writeTrackingConsent(
         detail: record,
       }
     )
+  );
+
+  void syncTrackingConsentReceipt(
+    record
   );
 
   return record;
