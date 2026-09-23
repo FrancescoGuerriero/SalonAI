@@ -81,4 +81,21 @@ describe("Stage 2 booking extensions", () => {
     expect(group).not.toMatch(/group-booking:[a-z]+/);
     expect(trials).not.toMatch(/trial:[a-z]+/);
   });
+
+  it("keeps Stage 2 specialist UI aligned with the gold-neutral theme and 44px action targets", () => {
+    const page = source("src/pages/AppointmentsOperationsPage.jsx");
+    const group = source("src/components/appointments/GroupBookingPanel.jsx");
+    const trials = source("src/components/appointments/ServiceTrialPanel.jsx");
+
+    expect(page).toContain("Special booking workflows");
+    expect(page).toContain("bg-amber-400");
+    expect(page).not.toContain('specialWorkflow === "group"\n                      ? "min-h-11 rounded-xl bg-indigo');
+    expect(page).not.toContain('specialWorkflow === "trial"\n                      ? "min-h-11 rounded-xl bg-violet');
+    expect(group).not.toMatch(/(?:indigo|violet)-/);
+    expect(trials).not.toMatch(/(?:indigo|violet)-/);
+    expect(group).not.toContain("min-h-10");
+    expect(trials).not.toContain("min-h-10");
+    expect(group).toContain("min-h-11");
+    expect(trials).toContain("min-h-11");
+  });
 });
