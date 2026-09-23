@@ -439,7 +439,11 @@ jobs:
                src/test/rbacSuperAdmin.test.js \
                src/test/productionStylistRoster.test.js \
                src/test/whatsappStylistEligibility.test.js \
-               src/test/productionP0BookingEnforcement.test.js' \
+               src/test/productionP0BookingEnforcement.test.js \
+               src/test/featureControlService.test.js \
+               src/test/servicePackageFoundation.test.js \
+               src/test/stage2GroupBookings.test.js \
+               src/test/stage2ServiceTrials.test.js' \
             | tee -a "$evidence"
 
           {
