@@ -550,6 +550,325 @@ export async function listServicePackages(
     .lean();
 }
 
+export async function listPublishedServicePackages() {
+  return listServicePackages({
+    active: true,
+    published: true,
+  });
+}
+
+function customerProfileId(user) {
+  const value =
+    user?.customerProfile?._id ||
+    user?.customerProfile ||
+    null;
+
+  if (!value) {
+    throw createServiceError(
+      "A linked customer profile is required for service-package purchases.",
+      409,
+      {
+        code: "CUSTOMER_PROFILE_REQUIRED",
+      }
+    );
+  }
+
+  return objectId(
+    value,
+    "customer"
+  );
+}
+
+export async function listMyServicePackages(
+  user,
+  query = {}
+) {
+  return listCustomerPackages(
+    customerProfileId(user),
+    query
+  );
+}
+
+/*
+ * Build server-authoritative checkout lines. Client-supplied names, prices,
+ * validity and credits are deliberately ignored.
+ */
+export async function buildPurchasableServicePackageOrderItems(
+  items = [],
+  user = null
+) {
+  customerProfileId(user);
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  const requestedIds = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const packageId = objectId(
+      item?.servicePackage ||
+        item?.servicePackageId ||
+        item?.packageId,
+      "servicePackage"
+    );
+    const quantity = Number.parseInt(
+      item?.quantity ?? 1,
+      10
+    );
+
+    if (quantity !== 1) {
+      throw createServiceError(
+        "Each service package can be purchased once per checkout.",
+        400,
+        {
+          field: "quantity",
+          servicePackage: packageId,
+        }
+      );
+    }
+
+    if (seen.has(packageId)) {
+      throw createServiceError(
+        "A service package can appear only once in a checkout.",
+        409,
+        {
+          servicePackage: packageId,
+        }
+      );
+    }
+
+    seen.add(packageId);
+    requestedIds.push(packageId);
+  }
+
+  const definitions = await ServicePackage.find({
+    _id: {
+      $in: requestedIds,
+    },
+    active: true,
+    published: true,
+  }).lean();
+
+  if (definitions.length !== requestedIds.length) {
+    throw createServiceError(
+      "One or more selected service packages are unavailable for purchase.",
+      409
+    );
+  }
+
+  const byId = new Map(
+    definitions.map((definition) => [
+      String(definition._id),
+      definition,
+    ])
+  );
+
+  return requestedIds.map((packageId) => {
+    const definition = byId.get(packageId);
+    const includedServices = (
+      definition.includedServices || []
+    ).map((credit) => ({
+      service: credit.service,
+      sessions: positiveInteger(
+        credit.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+    }));
+
+    if (includedServices.length === 0) {
+      throw createServiceError(
+        `${definition.name} is not configured with redeemable service credits.`,
+        409
+      );
+    }
+
+    const price = money(
+      definition.price
+    );
+
+    return {
+      itemType: "service_package",
+      servicePackage: definition._id,
+      packageSnapshot: {
+        validityDays: positiveInteger(
+          definition.validityDays,
+          "validityDays"
+        ),
+        includedServices,
+      },
+      sku: `PACKAGE-${definition.code}`,
+      name: definition.name,
+      image: "",
+      quantity: 1,
+      unitPrice: price,
+      lineTotal: price,
+    };
+  });
+}
+
+/*
+ * Fulfil paid package lines idempotently. Each order/package pair is protected
+ * by the model's unique partial index, while $setOnInsert makes retries safe.
+ * Allocation uses the immutable order snapshot rather than the mutable
+ * catalogue definition.
+ */
+export async function allocatePaidOrderServicePackages(
+  order,
+  payment = null,
+  {
+    paidAt = new Date(),
+  } = {}
+) {
+  const packageItems = (
+    order?.items || []
+  ).filter(
+    (item) =>
+      String(item?.itemType || "") ===
+      "service_package"
+  );
+
+  if (packageItems.length === 0) {
+    return [];
+  }
+
+  const customerId = objectId(
+    order?.customer,
+    "customer"
+  );
+  const orderId = objectId(
+    order?._id,
+    "order"
+  );
+  const paymentId = payment?._id || payment || order?.payment || null;
+  const validFrom = new Date(paidAt);
+
+  if (Number.isNaN(validFrom.getTime())) {
+    throw createServiceError(
+      "Paid service-package allocation requires a valid settlement date.",
+      500
+    );
+  }
+
+  const entitlements = [];
+
+  for (const item of packageItems) {
+    const packageId = objectId(
+      item?.servicePackage,
+      "servicePackage"
+    );
+    const snapshot =
+      item?.packageSnapshot ||
+      {};
+    const validityDays = positiveInteger(
+      snapshot.validityDays,
+      "validityDays"
+    );
+    const credits = (
+      snapshot.includedServices || []
+    ).map((credit) => ({
+      service: objectId(
+        credit?.service,
+        "service"
+      ),
+      purchased: positiveInteger(
+        credit?.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+      remaining: positiveInteger(
+        credit?.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+    }));
+
+    if (credits.length === 0) {
+      throw createServiceError(
+        "A paid package order line has no entitlement credits.",
+        500
+      );
+    }
+
+    const expiresAt = new Date(
+      validFrom.getTime() +
+        validityDays *
+          24 *
+          60 *
+          60 *
+          1000
+    );
+
+    const filter = {
+      order: orderId,
+      servicePackage: packageId,
+      source: "order",
+    };
+
+    try {
+      const entitlement =
+        await CustomerServicePackage.findOneAndUpdate(
+          filter,
+          {
+            $setOnInsert: {
+              customer: customerId,
+              servicePackage: packageId,
+              credits,
+              validFrom,
+              expiresAt,
+              status: "active",
+              source: "order",
+              order: orderId,
+              payment: paymentId || null,
+              grantedPrice: money(
+                item?.lineTotal ??
+                  item?.unitPrice
+              ),
+              grantReason: "",
+              assignedBy: null,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+          }
+        );
+
+      entitlements.push(
+        entitlement
+      );
+    } catch (error) {
+      if (error?.code !== 11000) {
+        throw error;
+      }
+
+      /*
+       * A concurrent settlement attempt may win the unique-index race.
+       * Returning the existing entitlement is the correct idempotent result.
+       */
+      entitlements.push(
+        assertFound(
+          await CustomerServicePackage.findOne(
+            filter
+          ),
+          "Paid package entitlement could not be reconciled."
+        )
+      );
+    }
+  }
+
+  return entitlements;
+}
+
 export async function grantServicePackage(
   definitionId,
   payload = {},
