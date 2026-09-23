@@ -75,6 +75,7 @@ const RAW_MANAGEMENT_SECTIONS = [
     label: "Manage services, products and stock",
     links: [
       ["/manage/services", "Salon services", "Manage services and pricing", "Scissors", false, "service:read", "", SIMPLE],
+      ["/manage/service-packages", "Service packages", "Create bundles and manage package credits", "PackagePlus", false, "service:read", "", SIMPLE],
       ["/manage/products", "Products", "Manage the retail catalogue and publishing", "Package", false, "product:read", "", SIMPLE],
       ["/manage/inventory", "Inventory", "Review stock levels and adjustments", "Package", false, "inventory:read", "", SIMPLE],
       ["/manage/orders", "Order management", "Manage customer orders and fulfilment", "ClipboardList", false, "product:read", "", SIMPLE],

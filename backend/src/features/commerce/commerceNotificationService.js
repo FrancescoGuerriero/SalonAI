@@ -49,6 +49,103 @@ async function loadOrder(orderId) {
     .lean();
 }
 
+function hasOrderItemType(
+  order,
+  itemType
+) {
+  return (
+    Array.isArray(order?.items) &&
+    order.items.some(
+      (item) =>
+        String(
+          item?.itemType ||
+            "product"
+        ) === itemType
+    )
+  );
+}
+
+/*
+ * Paid orders can contain physical products, appointment balances and service
+ * packages in the same checkout. Keep customer messaging aligned with what was
+ * actually purchased instead of treating every non-delivery order as a salon
+ * collection.
+ */
+export function paidOrderFulfilmentCopy(
+  order = {}
+) {
+  const hasProducts =
+    hasOrderItemType(
+      order,
+      "product"
+    );
+  const hasAppointments =
+    hasOrderItemType(
+      order,
+      "appointment"
+    );
+  const hasPackages =
+    hasOrderItemType(
+      order,
+      "service_package"
+    );
+  const physicalFulfilment =
+    order.fulfilmentType ===
+    "delivery"
+      ? "delivery"
+      : "collection";
+
+  const sentences = [];
+  const templateParts = [];
+
+  if (hasProducts) {
+    sentences.push(
+      `Your product order is now being prepared for ${physicalFulfilment}.`
+    );
+    templateParts.push(
+      physicalFulfilment
+    );
+  }
+
+  if (hasPackages) {
+    sentences.push(
+      "Your service-package credits are now available in your account."
+    );
+    templateParts.push(
+      "digital service credit activation"
+    );
+  }
+
+  if (hasAppointments) {
+    sentences.push(
+      "Your appointment payment has been recorded."
+    );
+    templateParts.push(
+      "appointment payment confirmation"
+    );
+  }
+
+  if (
+    sentences.length === 0
+  ) {
+    sentences.push(
+      "Your payment has been recorded."
+    );
+    templateParts.push(
+      "payment confirmation"
+    );
+  }
+
+  return {
+    sentence:
+      sentences.join(" "),
+    templateFulfilment:
+      templateParts.join(
+        " and "
+      ),
+  };
+}
+
 export async function notifyOrderPaid(orderId) {
   const order = await loadOrder(orderId);
   if (!order) return { success: false, skipped: true, reason: "order_not_found" };
@@ -60,8 +157,11 @@ export async function notifyOrderPaid(orderId) {
 
   const name = customerName(order.customer, order.contact?.name);
   const amount = money(order.total).toFixed(2);
-  const fulfilment = order.fulfilmentType === "delivery" ? "delivery" : "collection";
-  const body = `Hi ${name}, payment of \u00A3${amount} for SalonAI order ${order.orderNumber} has been received. Your order is now being prepared for ${fulfilment}.`;
+  const fulfilment =
+    paidOrderFulfilmentCopy(
+      order
+    );
+  const body = `Hi ${name}, payment of \u00A3${amount} for SalonAI order ${order.orderNumber} has been received. ${fulfilment.sentence}`;
 
   return sendTransactionalNotification({
     event: "commerce.order_paid",
@@ -74,7 +174,7 @@ export async function notifyOrderPaid(orderId) {
     },
     subject: `Payment received - ${order.orderNumber}`,
     text: body,
-    html: `<p>Hi ${name},</p><p>Payment of <strong>\u00A3${amount}</strong> for order <strong>${order.orderNumber}</strong> has been received.</p><p>Your order is now being prepared for ${fulfilment}.</p>`,
+    html: `<p>Hi ${name},</p><p>Payment of <strong>\u00A3${amount}</strong> for order <strong>${order.orderNumber}</strong> has been received.</p><p>${fulfilment.sentence}</p>`,
     whatsapp: {
       body,
       template: resolveWhatsAppEventTemplate("order_paid"),
@@ -82,7 +182,8 @@ export async function notifyOrderPaid(orderId) {
         1: name,
         2: order.orderNumber,
         3: `\u00A3${amount}`,
-        4: fulfilment,
+        4:
+          fulfilment.templateFulfilment,
       },
     },
     customerId: order.customer?._id || null,

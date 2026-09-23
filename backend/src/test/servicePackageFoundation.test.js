@@ -341,3 +341,238 @@ test(
     );
   }
 );
+
+
+test(
+  "paid package entitlements enforce one order/package allocation while leaving manual grants unconstrained",
+  () => {
+    const indexes =
+      CustomerServicePackage.schema.indexes();
+
+    const paidOrderUnique =
+      indexes.find(
+        ([keys, options]) =>
+          keys.order === 1 &&
+          keys.servicePackage === 1 &&
+          options.unique === true
+      );
+
+    assert.ok(paidOrderUnique);
+    assert.deepEqual(
+      paidOrderUnique[1]
+        .partialFilterExpression,
+      {
+        source: "order",
+      }
+    );
+  }
+);
+
+test(
+  "package checkout does not require a customer profile when the cart has no package lines",
+  async () => {
+    const packageService =
+      await source(
+        "../features/servicePackages/servicePackageService.js"
+      );
+
+    const start =
+      packageService.indexOf(
+        "export async function buildPurchasableServicePackageOrderItems"
+      );
+    const end =
+      packageService.indexOf(
+        "export async function allocatePaidOrderServicePackages",
+        start
+      );
+    const builder =
+      packageService.slice(
+        start,
+        end
+      );
+
+    const emptyGuard =
+      builder.indexOf(
+        "if (!Array.isArray(items) || items.length === 0)"
+      );
+    const customerGuard =
+      builder.indexOf(
+        "customerProfileId(user);"
+      );
+
+    assert.ok(
+      emptyGuard >= 0 &&
+        customerGuard > emptyGuard,
+      "empty package carts must return before customer-profile enforcement"
+    );
+  }
+);
+
+test(
+  "package checkout is server priced, snapshots credits, and settles through the canonical paid order path",
+  async () => {
+    const packageService =
+      await source(
+        "../features/servicePackages/servicePackageService.js"
+      );
+    const commerceService =
+      await source(
+        "../features/commerce/commerceService.js"
+      );
+    const orderModel =
+      await source(
+        "../features/commerce/Order.js"
+      );
+
+    assert.match(
+      packageService,
+      /buildPurchasableServicePackageOrderItems/
+    );
+    assert.match(
+      packageService,
+      /active: true,[\s\S]*published: true/
+    );
+    assert.match(
+      packageService,
+      /unitPrice: price,[\s\S]*lineTotal: price/
+    );
+    assert.match(
+      packageService,
+      /packageSnapshot:[\s\S]*validityDays:[\s\S]*includedServices/
+    );
+    assert.match(
+      packageService,
+      /allocatePaidOrderServicePackages/
+    );
+    assert.match(
+      packageService,
+      /\$setOnInsert/
+    );
+    assert.match(
+      packageService,
+      /source: "order"/
+    );
+    assert.match(
+      commerceService,
+      /servicePackageRequests/
+    );
+    assert.match(
+      commerceService,
+      /servicePackageSubtotal/
+    );
+    assert.match(
+      commerceService,
+      /allocatePaidOrderServicePackages\([\s\S]*order\.status = "paid"/
+    );
+    assert.match(
+      orderModel,
+      /"service_package"/
+    );
+    assert.match(
+      orderModel,
+      /packageSnapshot/
+    );
+  }
+);
+
+test(
+  "customer service package endpoints expose only the published catalogue and authenticated user's own entitlements",
+  async () => {
+    const routes =
+      await source(
+        "../features/servicePackages/servicePackageCustomerRoutes.js"
+      );
+    const controller =
+      await source(
+        "../features/servicePackages/servicePackageController.js"
+      );
+    const app =
+      await source(
+        "../app.js"
+      );
+
+    assert.match(
+      routes,
+      /router\.get\(\s*"\/"[\s\S]*listPublishedDefinitions/
+    );
+    assert.match(
+      routes,
+      /"\/mine"[\s\S]*protect[\s\S]*myEntitlements/
+    );
+    assert.doesNotMatch(
+      routes,
+      /customers\/:customerId/
+    );
+    assert.match(
+      controller,
+      /listPublishedServicePackages/
+    );
+    assert.match(
+      controller,
+      /listMyServicePackages\(/
+    );
+    assert.match(
+      app,
+      /"\/api\/service-packages"[\s\S]*servicePackageCustomerRoutes/
+    );
+  }
+);
+
+test(
+  "generic refunds do not silently leave paid package credits usable after money is returned",
+  async () => {
+    const refundService =
+      await source(
+        "../features/commerce/orderRefundService.js"
+      );
+
+    assert.match(
+      refundService,
+      /hasServicePackageAllocations/
+    );
+    assert.match(
+      refundService,
+      /hasAllocationAwareItems/
+    );
+    assert.match(
+      refundService,
+      /Automatic refunds are disabled for this order/
+    );
+    assert.match(
+      refundService,
+      /service_package_allocation_present/
+    );
+  }
+);
+
+
+test(
+  "published and purchased service packages fail closed when an included service is no longer globally bookable",
+  async () => {
+    const packageService =
+      await source(
+        "../features/servicePackages/servicePackageService.js"
+      );
+
+    assert.match(
+      packageService,
+      /active:\s*true,[\s\S]*bookable:\s*true/
+    );
+    assert.match(
+      packageService,
+      /assertPurchasableIncludedServices\([\s\S]*definition\.includedServices/
+    );
+    assert.match(
+      packageService,
+      /listPublishedServicePackages[\s\S]*purchasableServiceIdSet/
+    );
+    assert.match(
+      packageService,
+      /buildPurchasableServicePackageOrderItems[\s\S]*assertPurchasableIncludedServices/
+    );
+    assert.match(
+      packageService,
+      /Every published or purchased package service must be active and globally bookable/
+    );
+  }
+);

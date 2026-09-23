@@ -1,5 +1,28 @@
 import * as service from "./servicePackageService.js";
 
+export async function listPublishedDefinitions(
+  request,
+  response
+) {
+  return response.json({
+    items:
+      await service.listPublishedServicePackages(),
+  });
+}
+
+export async function myEntitlements(
+  request,
+  response
+) {
+  return response.json({
+    items:
+      await service.listMyServicePackages(
+        request.user,
+        request.query || {}
+      ),
+  });
+}
+
 export async function listDefinitions(
   request,
   response
