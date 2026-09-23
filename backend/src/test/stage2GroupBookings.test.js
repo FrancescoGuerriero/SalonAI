@@ -53,3 +53,31 @@ test("group booking routes reuse appointment permissions and do not invent group
   assert.match(routes, /"appointment:cancel"/);
   assert.doesNotMatch(routes, /group-booking:[a-z]+/);
 });
+
+
+test("group booking lifecycle preserves canonical notification behaviour after booking mutations", async () => {
+  const service = await source("../features/groupBookings/groupBookingService.js");
+
+  assert.match(service, /notifyAppointmentConfirmed/);
+  assert.match(service, /notifyAppointmentRescheduled/);
+  assert.match(service, /notifyAppointmentCancelled/);
+  assert.match(service, /notifySafely/);
+  assert.match(service, /source: "group_booking"/);
+
+  const creationStart = service.indexOf("export async function createGroupBooking");
+  const creationEnd = service.indexOf("export async function addGroupParticipant", creationStart);
+  const creation = service.slice(creationStart, creationEnd);
+  const transactionEnd = creation.indexOf("await session.endSession");
+  const notification = creation.indexOf("notifyCreatedAppointment");
+
+  assert.ok(transactionEnd >= 0 && notification > transactionEnd);
+});
+
+test("future feature router mounts group bookings behind its governed feature control", async () => {
+  const routes = await source("../features/futureFeatureRoutes.js");
+
+  assert.match(
+    routes,
+    /"\/group-bookings"[\s\S]*?requireFeature\("group-bookings"\)[\s\S]*?groupBookingRoutes/
+  );
+});
