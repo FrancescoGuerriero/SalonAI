@@ -139,3 +139,151 @@ test("management navigation exposes the administrator privacy request queue", as
     /Privacy requests/
   );
 });
+
+
+test("tracking integrations remain behind the consent boundary", async () => {
+  const consent =
+    await readFile(
+      new URL(
+        "../../../frontend/src/privacy/trackingConsent.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const integrations =
+    await readFile(
+      new URL(
+        "../../../frontend/src/privacy/trackingIntegrations.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const layout =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/MainLayout.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    consent,
+    /VITE_GOOGLE_ANALYTICS_ID/
+  );
+  assert.match(
+    consent,
+    /VITE_GOOGLE_ADS_ID/
+  );
+  assert.match(
+    consent,
+    /VITE_META_PIXEL_ID/
+  );
+  assert.match(
+    consent,
+    /VITE_HOTJAR_SITE_ID/
+  );
+  assert.match(
+    consent,
+    /VITE_MICROSOFT_ADS_UET_TAG_ID/
+  );
+
+  for (const category of [
+    "analytics",
+    "advertising",
+    "experience",
+  ]) {
+    assert.match(
+      consent,
+      new RegExp(
+        `${category}:\\s*false`
+      )
+    );
+  }
+
+  assert.match(
+    integrations,
+    /setGoogleConsentDefaults/
+  );
+  assert.match(
+    integrations,
+    /analytics_storage:[\s\S]{0,80}"denied"/
+  );
+  assert.match(
+    integrations,
+    /ad_storage:[\s\S]{0,80}"denied"/
+  );
+  assert.match(
+    integrations,
+    /choices\.advertising/
+  );
+  assert.match(
+    integrations,
+    /choices\.experience/
+  );
+  assert.match(
+    layout,
+    /<TrackingConsentBanner \/>/
+  );
+});
+
+test("search verification is separated from behavioural tracking", async () => {
+  const seo =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/Seo.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    seo,
+    /VITE_GOOGLE_SITE_VERIFICATION/
+  );
+  assert.match(
+    seo,
+    /google-site-verification/
+  );
+  assert.match(
+    seo,
+    /VITE_BING_SITE_VERIFICATION/
+  );
+  assert.match(
+    seo,
+    /msvalidate\.01/
+  );
+});
+
+test("cookie notice names the planned first-party measurement providers", async () => {
+  const notice =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/CookiePolicyPage.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  for (const provider of [
+    "Google Analytics",
+    "Google Ads",
+    "Meta Pixel",
+    "Microsoft Advertising UET",
+    "Hotjar",
+    "Google Search Console",
+    "Bing Webmaster",
+  ]) {
+    assert.match(
+      notice,
+      new RegExp(provider)
+    );
+  }
+
+  assert.match(
+    notice,
+    /default to[\s\S]{0,40}denied/
+  );
+});
