@@ -24,6 +24,10 @@ describe("Stage 2 booking extensions", () => {
     expect(page).toContain("onChanged={loadPage}");
     expect(page).toContain('isFeatureEnabled("group-bookings")');
     expect(page).toContain('isFeatureEnabled("service-trials")');
+    expect(page).toContain('specialWorkflow === "group"');
+    expect(page).toContain('specialWorkflow === "trial"');
+    expect(page).toContain('aria-label="Special booking workflows"');
+    expect(page).toContain("aria-pressed");
     expect(page).not.toContain('path="/group-bookings"');
     expect(page).not.toContain('path="/service-trials"');
   });
