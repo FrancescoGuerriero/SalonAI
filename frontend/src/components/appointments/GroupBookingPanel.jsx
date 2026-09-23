@@ -657,7 +657,7 @@ export default function GroupBookingPanel({
                 {canUpdate || canCancel ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <select
-                      value={groupStatusDrafts[group._id] || "confirmed"}
+                      value={groupStatusDrafts[group._id] || (canUpdate ? "confirmed" : "cancelled")}
                       onChange={(event) =>
                         setGroupStatusDrafts((current) => ({
                           ...current,
@@ -699,7 +699,7 @@ export default function GroupBookingPanel({
                         <div>
                           <p className="text-sm font-bold text-slate-900">
                             {participant.label ? `${participant.label} · ` : ""}
-                            {entityName(participant.customer || appointment.customer)}
+                            {entityName(appointment.customer)}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
                             {entityName(appointment.service, "Service")} · {entityName(appointment.stylist, "Stylist")}
