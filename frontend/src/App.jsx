@@ -77,6 +77,14 @@ const ProductDetailsPage = lazy(
   () => import("./pages/ProductDetailsPage.jsx")
 );
 
+const ServicePackagesPage = lazy(
+  () => import("./pages/ServicePackagesPage.jsx")
+);
+
+const ServicePackageManagementPage = lazy(
+  () => import("./pages/ServicePackageManagementPage.jsx")
+);
+
 const Cart = lazy(
   () => import("./pages/Cart.jsx")
 );
@@ -652,6 +660,11 @@ function AppRoutes() {
         />
 
         <Route
+          path="packages"
+          element={featurePage(<ServicePackagesPage />, "online-shop")}
+        />
+
+        <Route
           path="experience"
           element={<CustomerExperienceSuitePage />}
         />
@@ -958,6 +971,14 @@ function AppRoutes() {
           path="manage/services"
           element={permissionPage(
             ServicesPage,
+            "service:read"
+          )}
+        />
+
+        <Route
+          path="manage/service-packages"
+          element={permissionPage(
+            ServicePackageManagementPage,
             "service:read"
           )}
         />
