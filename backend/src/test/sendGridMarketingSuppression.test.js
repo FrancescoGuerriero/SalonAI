@@ -1109,6 +1109,8 @@ test(
         status:
           "active",
         communicationPreferences: {
+          emailMarketing:
+            true,
           unsubscribed:
             false,
         },
