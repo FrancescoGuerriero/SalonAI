@@ -29,6 +29,10 @@ import {
   releaseAppointmentPaymentReservation,
   settleAppointmentPayment,
 } from "../appointments/appointmentPaymentService.js";
+import {
+  allocatePaidOrderServicePackages,
+  buildPurchasableServicePackageOrderItems,
+} from "../servicePackages/servicePackageService.js";
 
 const MANAGEMENT_ROLES = new Set(["admin", "manager", "stylist"]);
 
@@ -525,9 +529,33 @@ export async function inventorySummary({
 }
 
 function cartItemType(item = {}) {
-  return String(item.type || item.itemType || (item.appointment || item.appointmentId ? "appointment" : "product"))
+  const explicit = String(
+    item.type ||
+      item.itemType ||
+      ""
+  )
     .trim()
     .toLowerCase();
+
+  if (
+    explicit === "service_package" ||
+    explicit === "package" ||
+    item.servicePackage ||
+    item.servicePackageId ||
+    item.packageId
+  ) {
+    return "service_package";
+  }
+
+  if (
+    explicit === "appointment" ||
+    item.appointment ||
+    item.appointmentId
+  ) {
+    return "appointment";
+  }
+
+  return explicit || "product";
 }
 
 async function buildProductOrderItems(items = []) {
@@ -672,6 +700,7 @@ function checkoutUrls(order) {
 function providerCheckoutItems({
   productItems,
   appointmentItems,
+  servicePackageItems,
   productSubtotal,
   discountTotal,
   deliveryFee,
@@ -715,6 +744,16 @@ function providerCheckoutItems({
     }))
   );
 
+  providerItems.push(
+    ...servicePackageItems.map((item) => ({
+      name: item.name,
+      sku: item.sku,
+      quantity: 1,
+      unitPrice: item.unitPrice,
+      image: "",
+    }))
+  );
+
   if (deliveryFee > 0) {
     providerItems.push({
       name: "UK delivery",
@@ -736,12 +775,28 @@ export async function createCheckout(payload, user) {
 
   const productRequests = rawItems.filter((item) => cartItemType(item) === "product");
   const appointmentRequests = rawItems.filter((item) => cartItemType(item) === "appointment");
+  const servicePackageRequests = rawItems.filter(
+    (item) => cartItemType(item) === "service_package"
+  );
 
-  if (productRequests.length + appointmentRequests.length !== rawItems.length) {
-    throw createServiceError("Cart items must be products or appointment payments.", 400);
+  if (
+    productRequests.length +
+      appointmentRequests.length +
+      servicePackageRequests.length !==
+    rawItems.length
+  ) {
+    throw createServiceError(
+      "Cart items must be products, service packages or appointment payments.",
+      400
+    );
   }
 
   const productItems = await buildProductOrderItems(productRequests);
+  const servicePackageItems =
+    await buildPurchasableServicePackageOrderItems(
+      servicePackageRequests,
+      user
+    );
   let appointmentItems = [];
   let reservations = [];
   let order = null;
@@ -752,13 +807,24 @@ export async function createCheckout(payload, user) {
     appointmentItems = appointmentBuild.orderItems;
     reservations = appointmentBuild.reservations;
 
-    const items = [...appointmentItems, ...productItems];
+    const items = [
+      ...appointmentItems,
+      ...servicePackageItems,
+      ...productItems,
+    ];
     if (items.length === 0) {
       throw createServiceError("At least one valid checkout item is required.", 400);
     }
 
     const productSubtotal = money(productItems.reduce((sum, item) => sum + item.lineTotal, 0));
     const appointmentSubtotal = money(appointmentItems.reduce((sum, item) => sum + item.lineTotal, 0));
+    const servicePackageSubtotal = money(
+      servicePackageItems.reduce(
+        (sum, item) =>
+          sum + item.lineTotal,
+        0
+      )
+    );
 
     if (payload.offerCode && productItems.length === 0) {
       throw createServiceError("Saved offers apply to retail products, not appointment payments.", 409);
@@ -773,7 +839,13 @@ export async function createCheckout(payload, user) {
     const deliveryFee = fulfilmentType === "delivery"
       ? money(Number(process.env.DELIVERY_FEE_GBP || 4.95))
       : 0;
-    const total = money(productSubtotal - discountTotal + appointmentSubtotal + deliveryFee);
+    const total = money(
+      productSubtotal -
+        discountTotal +
+        appointmentSubtotal +
+        servicePackageSubtotal +
+        deliveryFee
+    );
 
     if (total <= 0) {
       throw createServiceError("Checkout total must be greater than zero.", 409);
@@ -803,6 +875,7 @@ export async function createCheckout(payload, user) {
       items,
       subtotal: productSubtotal,
       appointmentSubtotal,
+      servicePackageSubtotal,
       deliveryFee,
       discountTotal,
       offer: offer?._id || null,
@@ -828,11 +901,25 @@ export async function createCheckout(payload, user) {
       await payment.save();
     }
 
+    const checkoutKindCount = [
+      productItems.length,
+      appointmentItems.length,
+      servicePackageItems.length,
+    ].filter(
+      (count) => count > 0
+    ).length;
+
     parentPayment = await Payment.create({
       user: user._id,
       customer: user.customerProfile || undefined,
       order: order._id,
-      purpose: appointmentItems.length > 0 ? "mixed_order" : "product_order",
+      purpose:
+        appointmentItems.length > 0 ||
+        checkoutKindCount > 1
+          ? "mixed_order"
+          : servicePackageItems.length > 0
+            ? "service_package_order"
+            : "product_order",
       amount: total,
       currency: "GBP",
       provider: paymentProviderMode(),
@@ -841,6 +928,8 @@ export async function createCheckout(payload, user) {
         orderNumber: order.orderNumber,
         productItemCount: productItems.length,
         appointmentItemCount: appointmentItems.length,
+        servicePackageItemCount:
+          servicePackageItems.length,
       },
     });
 
@@ -853,6 +942,7 @@ export async function createCheckout(payload, user) {
       items: providerCheckoutItems({
         productItems,
         appointmentItems,
+        servicePackageItems,
         productSubtotal,
         discountTotal,
         deliveryFee,
@@ -999,7 +1089,20 @@ export async function settlePaidOrder(orderId, providerData = {}) {
   // If appointment settlement fails, the next webhook retry resumes safely.
   await commitInventory(order);
   await settleAppointmentAllocations(order, providerData);
-  const paidAt = new Date();
+
+  const paidAt =
+    order.paidAt ||
+    order.payment?.paidAt ||
+    new Date();
+
+  await allocatePaidOrderServicePackages(
+    order,
+    order.payment,
+    {
+      paidAt,
+    }
+  );
+
   order.status = "paid";
   order.paidAt = paidAt;
   await order.save();
