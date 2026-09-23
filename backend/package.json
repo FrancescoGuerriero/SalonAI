@@ -25,7 +25,8 @@
     "sendgrid:readiness": "node scripts/checkSendGridReadiness.js",
     "service:state-migrate": "node scripts/migrateServiceState.js",
     "stylists:assign-all-services": "node scripts/assignAllServicesToStylists.js",
-    "social-auth:readiness": "node scripts/checkSocialAuthReadiness.js"
+    "social-auth:readiness": "node scripts/checkSocialAuthReadiness.js",
+    "marketing:compliance-readiness": "node scripts/checkMarketingComplianceReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
