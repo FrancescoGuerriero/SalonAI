@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Playwright authentication state for Figma/reference captures
+playwright/.auth/
