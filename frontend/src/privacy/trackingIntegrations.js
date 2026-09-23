@@ -1,4 +1,5 @@
 import {
+  NONESSENTIAL_TRACKING_ENABLED,
   readTrackingConsent,
   trackingProviderConfig,
 } from "./trackingConsent.js";
@@ -454,6 +455,10 @@ function loadMicrosoftUet(
 export function trackVirtualPageView(
   pathname
 ) {
+  if (!NONESSENTIAL_TRACKING_ENABLED) {
+    return;
+  }
+
   const consent =
     readTrackingConsent();
 
@@ -529,6 +534,20 @@ export function initialiseTrackingConsentBoundary() {
 export function applyTrackingIntegrations(
   consent
 ) {
+  if (!NONESSENTIAL_TRACKING_ENABLED) {
+    updateGoogleConsent({
+      analytics: false,
+      advertising: false,
+      experience: false,
+    });
+    updateMicrosoftConsent({
+      analytics: false,
+      advertising: false,
+      experience: false,
+    });
+    return;
+  }
+
   const choices = {
     analytics:
       consent?.choices
