@@ -22,6 +22,8 @@ describe("Stage 2 booking extensions", () => {
     expect(page).toContain("ServiceTrialPanel");
     expect(page).toContain("appointments={appointments}");
     expect(page).toContain("onChanged={loadPage}");
+    expect(page).toContain('isFeatureEnabled("group-bookings")');
+    expect(page).toContain('isFeatureEnabled("service-trials")');
     expect(page).not.toContain('path="/group-bookings"');
     expect(page).not.toContain('path="/service-trials"');
   });
