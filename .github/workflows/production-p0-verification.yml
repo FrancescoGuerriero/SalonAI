@@ -440,10 +440,12 @@ jobs:
                src/test/productionStylistRoster.test.js \
                src/test/whatsappStylistEligibility.test.js \
                src/test/productionP0BookingEnforcement.test.js \
-               src/test/featureControlService.test.js \
                src/test/servicePackageFoundation.test.js \
                src/test/stage2GroupBookings.test.js \
-               src/test/stage2ServiceTrials.test.js' \
+               src/test/stage2ServiceTrials.test.js
+             docker exec salonai-backend node --test \
+               --test-name-pattern="feature controls|feature control publishes|administrator|feature updates|disabled feature middleware|stylist API|customer booking|system administration|system and future-feature audits|customer aggregate" \
+               src/test/featureControlService.test.js' \
             | tee -a "$evidence"
 
           {
