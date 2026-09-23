@@ -394,7 +394,9 @@ export async function changeGroupParticipantStatus(
     status,
     {
       reason: text(payload.reason),
-      requireReason: Boolean(payload.requireReason),
+      requireReason:
+        ["cancelled", "no_show"].includes(status) ||
+        Boolean(payload.requireReason),
     },
     { actor }
   );
@@ -439,7 +441,9 @@ export async function changeGroupStatus(
         status,
         {
           reason: text(payload.reason),
-          requireReason: Boolean(payload.requireReason),
+          requireReason:
+        ["cancelled", "no_show"].includes(status) ||
+        Boolean(payload.requireReason),
         },
         { actor }
       );
