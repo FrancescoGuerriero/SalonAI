@@ -26,6 +26,7 @@ export default function Checkout() {
     items,
     productItems,
     appointmentItems,
+    servicePackageItems,
     subtotal,
     clearCart,
   } = useCart();
@@ -72,19 +73,29 @@ export default function Checkout() {
       setSubmitting(true);
       setError("");
       const result = await commerceService.createCheckout({
-        items: items.map((item) =>
-          item.type === "appointment"
-            ? {
-                type: "appointment",
-                appointment: item.appointmentId,
-                purpose: item.paymentPurpose,
-              }
-            : {
-                type: "product",
-                product: item.productId,
-                quantity: item.quantity,
-              }
-        ),
+        items: items.map((item) => {
+          if (item.type === "appointment") {
+            return {
+              type: "appointment",
+              appointment: item.appointmentId,
+              purpose: item.paymentPurpose,
+            };
+          }
+
+          if (item.type === "service_package") {
+            return {
+              type: "service_package",
+              servicePackage: item.servicePackageId,
+              quantity: 1,
+            };
+          }
+
+          return {
+            type: "product",
+            product: item.productId,
+            quantity: item.quantity,
+          };
+        }),
         fulfilmentType: hasProducts ? fulfilmentType : "collection",
         contact,
         deliveryAddress:
@@ -139,7 +150,7 @@ export default function Checkout() {
           <h1>Confirm demo payment</h1>
           <p>
             Stripe is not enabled, so no card will be charged. Confirming simulates a
-            successful payment and commits product stock plus appointment balances.
+            successful payment and commits product stock, appointment balances and service-package credits.
           </p>
           {error && <div className="error-message">{error}</div>}
           <button type="button" disabled={submitting} onClick={confirmDemoPayment}>
@@ -156,7 +167,7 @@ export default function Checkout() {
         <div>
           <span className="commerce-eyebrow">Secure order</span>
           <h1>Checkout</h1>
-          <p>Appointment balances, product prices, stock and totals are verified by SalonAI before Stripe payment.</p>
+          <p>Appointment balances, service-package definitions, product prices, stock and totals are verified by SalonAI before Stripe payment.</p>
         </div>
         <LockKeyhole size={42} />
       </div>
@@ -184,7 +195,7 @@ export default function Checkout() {
             </section>
           ) : (
             <section className="commerce-form-section">
-              <h2>Appointment payment</h2>
+              <h2>Service checkout</h2>
               <p>No physical products are in this basket, so delivery details are not required.</p>
             </section>
           )}
@@ -216,6 +227,13 @@ export default function Checkout() {
           {appointmentItems.length ? <span className="commerce-eyebrow">Appointments</span> : null}
           {appointmentItems.map((item) => (
             <div key={item.cartKey}><span>{item.name}</span><strong>{formatCurrency(item.price)}</strong></div>
+          ))}
+          {servicePackageItems.length ? <span className="commerce-eyebrow">Service packages</span> : null}
+          {servicePackageItems.map((item) => (
+            <div key={item.cartKey}>
+              <span>{item.name}</span>
+              <strong>{formatCurrency(item.price)}</strong>
+            </div>
           ))}
           {productItems.length ? <span className="commerce-eyebrow">Products</span> : null}
           {productItems.map((item) => (
