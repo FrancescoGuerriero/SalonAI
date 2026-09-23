@@ -28,12 +28,15 @@ function actorId(actor) {
 }
 
 function objectId(value, field) {
-  if (!mongoose.isValidObjectId(value)) {
+  const normalized = String(value ?? "").trim();
+
+  if (!/^[0-9a-fA-F]{24}$/.test(normalized)) {
     throw createServiceError(`${field} must be a valid identifier.`, 400, {
       field,
     });
   }
-  return value;
+
+  return new mongoose.Types.ObjectId(normalized);
 }
 
 function number(value, fallback, { min = null, max = null } = {}) {
@@ -65,9 +68,9 @@ function serviceIsGloballyBookable(service) {
 }
 
 async function assertBookableService(serviceId, session = null) {
-  objectId(serviceId, "service");
+  const safeServiceId = objectId(serviceId, "service");
 
-  let query = Service.findById(serviceId).select("+onlineBookable");
+  let query = Service.findById(safeServiceId).select("+onlineBookable");
   if (session) query = query.session(session);
   const service = await query.lean();
 
@@ -169,9 +172,9 @@ export async function updateServiceTrial(
   payload = {},
   { actor = null } = {}
 ) {
-  objectId(trialId, "trialId");
+  const safeTrialId = objectId(trialId, "trialId");
   const definition = assertFound(
-    await ServiceTrial.findById(trialId),
+    await ServiceTrial.findById(safeTrialId),
     "Service trial not found."
   );
   const values = definitionValues(payload, definition);
@@ -189,9 +192,9 @@ export async function updateServiceTrial(
 }
 
 async function activeDefinition(trialId, session) {
-  objectId(trialId, "trial");
+  const safeTrialId = objectId(trialId, "trial");
 
-  let query = ServiceTrial.findById(trialId);
+  let query = ServiceTrial.findById(safeTrialId);
   if (session) query = query.session(session);
   const definition = assertFound(await query, "Service trial not found.");
 
@@ -220,9 +223,10 @@ async function activeDefinition(trialId, session) {
 
 async function claimEligibility(definition, customer, session) {
   const now = new Date();
+  const safeCustomerId = objectId(customer, "customer");
   const filter = {
     trial: definition._id,
-    customer,
+    customer: safeCustomerId,
     bookingsClaimed: { $lt: definition.maxUsesPerCustomer },
   };
 
@@ -244,7 +248,7 @@ async function claimEligibility(definition, customer, session) {
         $set: { lastBookedAt: now },
         $setOnInsert: {
           trial: definition._id,
-          customer,
+          customer: safeCustomerId,
         },
       },
       {
@@ -398,10 +402,10 @@ const BOOKING_POPULATE = [
 ];
 
 export async function getServiceTrialBooking(bookingId) {
-  objectId(bookingId, "bookingId");
+  const safeBookingId = objectId(bookingId, "bookingId");
 
   return assertFound(
-    await ServiceTrialBooking.findById(bookingId)
+    await ServiceTrialBooking.findById(safeBookingId)
       .populate(BOOKING_POPULATE)
       .lean(),
     "Service trial booking not found."
@@ -425,14 +429,14 @@ export async function recordServiceTrialConversion(
   payload = {},
   { actor = null } = {}
 ) {
-  objectId(bookingId, "bookingId");
+  const safeBookingId = objectId(bookingId, "bookingId");
   const convertedAppointmentId = objectId(
     payload.appointment || payload.convertedAppointment,
     "appointment"
   );
 
   const booking = assertFound(
-    await ServiceTrialBooking.findById(bookingId),
+    await ServiceTrialBooking.findById(safeBookingId),
     "Service trial booking not found."
   );
 
