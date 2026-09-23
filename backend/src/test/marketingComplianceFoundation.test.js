@@ -13,6 +13,10 @@ import {
 import {
   marketingConsentFromPreferences,
 } from "../features/customerExperience/customerCommunicationPreferencesController.js";
+import {
+  getExplicitConsentValue,
+  resolveCustomerConsent,
+} from "../services/campaignDeliveryService.js";
 
 test("new customer marketing consent fails closed by default", () => {
   const customer =
@@ -120,7 +124,7 @@ test("marketing compliance readiness requires public identity and address contro
   );
 });
 
-test("signed preference token round-trips and binds to customer identity", () => {
+test("signed preference token round-trips and remains bound to the canonical customer id", () => {
   const original =
     process.env
       .MARKETING_PREFERENCE_TOKEN_SECRET;
@@ -141,8 +145,6 @@ test("signed preference token round-trips and binds to customer identity", () =>
       createMarketingPreferenceToken({
         customerId:
           customer._id,
-        email:
-          customer.email,
       });
     const payload =
       verifyMarketingPreferenceToken(
@@ -163,7 +165,18 @@ test("signed preference token round-trips and binds to customer identity", () =>
         {
           ...customer,
           email:
-            "other@example.com",
+            "changed@example.com",
+        }
+      ),
+      true
+    );
+
+    assert.equal(
+      tokenMatchesCustomer(
+        payload,
+        {
+          _id:
+            "64f000000000000000000002",
         }
       ),
       false
@@ -181,14 +194,7 @@ test("signed preference token round-trips and binds to customer identity", () =>
 });
 
 
-test("legacy marketing fields do not grant the new channel opt-in", async () => {
-  const {
-    resolveCustomerConsent,
-  } =
-    await import(
-      "../services/campaignDeliveryService.js"
-    );
-
+test("legacy marketing fields do not grant the new channel opt-in", () => {
   const consent =
     resolveCustomerConsent(
       {
@@ -217,5 +223,36 @@ test("legacy marketing fields do not grant the new channel opt-in", async () => 
   assert.equal(
     consent.source,
     "communicationPreferences.emailMarketing"
+  );
+});
+
+
+test("provider suppression takes precedence over a local email opt-in", () => {
+  const consent =
+    getExplicitConsentValue(
+      {
+        communicationPreferences: {
+          emailMarketing: true,
+        },
+        marketing: {
+          emailConsent: true,
+          emailSuppressed: true,
+        },
+      },
+      "email",
+      {
+        campaignType:
+          "promotion",
+      }
+    );
+
+  assert.deepEqual(
+    consent,
+    {
+      found: true,
+      granted: false,
+      source:
+        "marketing.emailSuppressed",
+    }
   );
 });
