@@ -262,9 +262,28 @@ const communicationPreferencesSchema =
         default: true,
       },
 
+      /*
+       * Marketing is opt-in. Transactional/service communications are governed
+       * separately and must never imply marketing consent.
+       */
       promotionalMessages: {
         type: Boolean,
-        default: true,
+        default: false,
+      },
+
+      emailMarketing: {
+        type: Boolean,
+        default: false,
+      },
+
+      smsMarketing: {
+        type: Boolean,
+        default: false,
+      },
+
+      whatsappMarketing: {
+        type: Boolean,
+        default: false,
       },
 
       serviceUpdates: {
@@ -274,12 +293,12 @@ const communicationPreferencesSchema =
 
       birthdayMessages: {
         type: Boolean,
-        default: true,
+        default: false,
       },
 
       feedbackRequests: {
         type: Boolean,
-        default: true,
+        default: false,
       },
 
       emailUnsubscribed: {
@@ -288,6 +307,11 @@ const communicationPreferencesSchema =
       },
 
       smsUnsubscribed: {
+        type: Boolean,
+        default: false,
+      },
+
+      whatsappUnsubscribed: {
         type: Boolean,
         default: false,
       },
@@ -519,7 +543,7 @@ const customerSchema = new Schema(
     marketing: {
       emailConsent: {
         type: Boolean,
-        default: true,
+        default: false,
       },
 
       emailSuppressed: {
@@ -559,12 +583,22 @@ const customerSchema = new Schema(
         default: false,
       },
 
+      whatsappConsent: {
+        type: Boolean,
+        default: false,
+      },
+
       emailConsentUpdatedAt: {
         type: Date,
         default: null,
       },
 
       smsConsentUpdatedAt: {
+        type: Date,
+        default: null,
+      },
+
+      whatsappConsentUpdatedAt: {
         type: Date,
         default: null,
       },

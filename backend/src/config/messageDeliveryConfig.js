@@ -1,3 +1,4 @@
+import { getMarketingComplianceReadiness } from "./legalComplianceConfig.js";
 const DELIVERY_MODES = Object.freeze({
   SANDBOX: "sandbox",
   LIVE: "live",
@@ -460,13 +461,31 @@ function getSendGridMarketingReadiness(
           check
       );
 
+  const legalReadiness =
+    getMarketingComplianceReadiness();
+
+  for (const blocker of legalReadiness.blockers) {
+    blockers.push(
+      `legalCompliance.${blocker}`
+    );
+  }
+
   return {
     ready:
       blockers.length === 0,
     enabled:
       marketing.enabled === true,
-    checks,
-    blockers,
+    checks: {
+      ...checks,
+      legalCompliance:
+        legalReadiness.ready,
+    },
+    blockers:
+      Array.from(
+        new Set(blockers)
+      ),
+    legalCompliance:
+      legalReadiness,
   };
 }
 
