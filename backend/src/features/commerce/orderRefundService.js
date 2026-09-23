@@ -22,6 +22,21 @@ function hasAppointmentAllocations(order) {
   );
 }
 
+function hasServicePackageAllocations(order) {
+  return Array.isArray(order?.items) && order.items.some(
+    (item) =>
+      String(item?.itemType || "product") ===
+      "service_package"
+  );
+}
+
+function hasAllocationAwareItems(order) {
+  return (
+    hasAppointmentAllocations(order) ||
+    hasServicePackageAllocations(order)
+  );
+}
+
 function normaliseRefundStatus(value) {
   const status = String(value || "pending").toLowerCase();
 
@@ -76,9 +91,9 @@ export async function refundOrder(orderId, payload = {}, actor = {}) {
     "Order not found."
   );
 
-  if (hasAppointmentAllocations(order)) {
+  if (hasAllocationAwareItems(order)) {
     throw createServiceError(
-      "Orders containing appointment payments require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order.",
+      "Orders containing appointment payments or service packages require an allocation-aware manager refund workflow. Automatic refunds are disabled for this order.",
       409
     );
   }
@@ -242,12 +257,15 @@ export async function reconcileStripeRefund(refund = {}) {
   if (payment.order) {
     const order = await Order.findById(payment.order);
     if (order) {
-      if (hasAppointmentAllocations(order)) {
+      if (hasAllocationAwareItems(order)) {
         manualReconciliationRequired = true;
         payment.metadata = {
           ...(payment.metadata || {}),
           refundReconciliationRequired: true,
-          refundReconciliationReason: "appointment_allocation_present",
+          refundReconciliationReason:
+            hasAppointmentAllocations(order)
+              ? "appointment_allocation_present"
+              : "service_package_allocation_present",
           latestProviderRefundId: providerRefundId,
         };
         await payment.save();
