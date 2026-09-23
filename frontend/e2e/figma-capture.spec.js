@@ -8,7 +8,7 @@ const delayMs = Number.parseInt(process.env.FIGMA_CAPTURE_DELAY_MS || "1500", 10
 const width = Number.parseInt(process.env.FIGMA_CAPTURE_WIDTH || "1440", 10);
 const height = Number.parseInt(process.env.FIGMA_CAPTURE_HEIGHT || "1000", 10);
 const storageState = process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim();
-const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";
+const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";\nconst testTimeoutMs = Number.parseInt(\n  process.env.FIGMA_CAPTURE_TEST_TIMEOUT_MS || "300000",\n  10\n);
 
 if (storageState) {
   test.use({ storageState });
@@ -18,7 +18,7 @@ test.describe("Figma UX reference capture", () => {
   test.skip(!captureId, "Set FIGMA_CAPTURE_ID to run the Figma capture utility.");
 
   test("capture rendered SalonAI screen into the shared Figma file", async ({ page }) => {
-    test.setTimeout(120000);
+    test.setTimeout(\n      Number.isFinite(testTimeoutMs) && testTimeoutMs >= 120000\n        ? testTimeoutMs\n        : 300000\n    );
 
     await page.setViewportSize({ width, height });
 
