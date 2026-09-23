@@ -1,10 +1,47 @@
 import mongoose from "mongoose";
 
+const packageServiceSnapshotSchema = new mongoose.Schema(
+  {
+    service: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
+    },
+    sessions: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 100,
+    },
+  },
+  { _id: false }
+);
+
+const servicePackageSnapshotSchema = new mongoose.Schema(
+  {
+    validityDays: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 3650,
+    },
+    includedServices: {
+      type: [packageServiceSnapshotSchema],
+      required: true,
+      validate: {
+        validator: (items) => Array.isArray(items) && items.length > 0,
+        message: "A service-package purchase snapshot requires service credits.",
+      },
+    },
+  },
+  { _id: false }
+);
+
 const orderItemSchema = new mongoose.Schema(
   {
     itemType: {
       type: String,
-      enum: ["product", "appointment"],
+      enum: ["product", "appointment", "service_package"],
       default: "product",
       required: true,
     },
@@ -22,6 +59,21 @@ const orderItemSchema = new mongoose.Schema(
       default: undefined,
       required() {
         return this.itemType === "appointment";
+      },
+    },
+    servicePackage: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ServicePackage",
+      default: undefined,
+      required() {
+        return this.itemType === "service_package";
+      },
+    },
+    packageSnapshot: {
+      type: servicePackageSnapshotSchema,
+      default: undefined,
+      required() {
+        return this.itemType === "service_package";
       },
     },
     appointmentPayment: {
@@ -112,6 +164,7 @@ const orderSchema = new mongoose.Schema(
     },
     subtotal: { type: Number, min: 0, default: 0 },
     appointmentSubtotal: { type: Number, min: 0, default: 0 },
+    servicePackageSubtotal: { type: Number, min: 0, default: 0 },
     deliveryFee: { type: Number, min: 0, default: 0 },
     discountTotal: { type: Number, min: 0, default: 0 },
     offer: { type: mongoose.Schema.Types.ObjectId, ref: "SalonOffer", default: null },
