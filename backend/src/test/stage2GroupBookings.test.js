@@ -14,10 +14,11 @@ test("group booking aggregate links canonical appointments instead of duplicatin
   const model = await source("../features/groupBookings/GroupBooking.js");
 
   assert.match(model, /appointment:[\s\S]*?ref: "Appointment"/);
-  assert.match(model, /customer:[\s\S]*?ref: "Customer"/);
+  assert.match(model, /organiser:[\s\S]*?ref: "Customer"/);
   assert.doesNotMatch(model, /service:[\s\S]*?ref: "Service"/);
   assert.doesNotMatch(model, /stylist:[\s\S]*?ref: "Stylist"/);
   assert.doesNotMatch(model, /status:[\s\S]*?enum/);
+  assert.match(model, /\{ "participants\.appointment": 1 \}, \{ unique: true \}/);
 });
 
 test("group creation is atomic, sequential and delegates every participant to canonical appointment creation", async () => {
@@ -31,6 +32,9 @@ test("group creation is atomic, sequential and delegates every participant to ca
   assert.match(creation, /createManagedAppointment\(/);
   assert.match(creation, /bookingSource: "management"/);
   assert.match(creation, /returnPopulated: false/);
+  assert.match(creation, /status: "pending"/);
+  assert.doesNotMatch(creation, /participant\.duration/);
+  assert.doesNotMatch(creation, /participant\.endsAt/);
   assert.doesNotMatch(creation, /Promise\.all/);
   assert.doesNotMatch(creation, /Appointment\.create\(/);
 });
