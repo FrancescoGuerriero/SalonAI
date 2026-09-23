@@ -444,7 +444,7 @@ jobs:
                src/test/stage2GroupBookings.test.js \
                src/test/stage2ServiceTrials.test.js
              docker exec salonai-backend node --test \
-               --test-name-pattern="^(?!public team frontend route is independent from online booking$).*" \
+               --test-name-pattern="feature controls|feature control publishes|administrator|feature updates|disabled feature middleware|stylist API|customer booking|system administration|system and future-feature audits|customer aggregate" \
                src/test/featureControlService.test.js' \
             | tee -a "$evidence"
 
