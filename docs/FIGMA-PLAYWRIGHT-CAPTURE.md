@@ -91,7 +91,7 @@ The `playwright/.auth/` directory is ignored by Git.
 - `FIGMA_CAPTURE_DELAY_MS` — additional rendering wait; defaults to 1500 ms.
 - `FIGMA_CAPTURE_WIDTH` — viewport width; defaults to 1440.
 - `FIGMA_CAPTURE_HEIGHT` — viewport height; defaults to 1000.
-- `FIGMA_CAPTURE_STRIP_CSP=false` — disable the capture utility's CSP-header stripping.
+- `FIGMA_CAPTURE_STRIP_CSP=false` — disable the capture utility's CSP-header stripping.\n- `FIGMA_CAPTURE_TEST_TIMEOUT_MS` — maximum Playwright wait for Figma processing; defaults to 300000 ms (5 minutes). Large production pages can take more than two minutes to finish server-side.
 
 For a mobile reference, use:
 
