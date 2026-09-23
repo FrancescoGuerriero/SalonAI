@@ -82,6 +82,11 @@ const supportLinks = [
     label: "Cookie & storage notice",
     icon: ShieldCheck,
   },
+  {
+    to: "/cookies#settings",
+    label: "Cookie settings",
+    icon: Settings,
+  },
 ];
 
 const accountLinks = [
