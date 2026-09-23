@@ -46,6 +46,10 @@ const PUBLIC_LINKS = [
     label: "Services",
   },
   {
+    to: "/packages",
+    label: "Packages",
+  },
+  {
     to: "/stylists",
     label: "Stylists",
     featureId: "online-booking",

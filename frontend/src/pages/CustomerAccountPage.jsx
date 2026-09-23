@@ -7,6 +7,7 @@ import {
   CreditCard,
   Gift,
   PackageCheck,
+  PackagePlus,
   Scissors,
   ShoppingCart,
   Sparkles,
@@ -387,6 +388,14 @@ export default function CustomerAccountPage() {
               </span>
               <ChevronRight size={18} />
             </Link>
+            <Link to="/packages">
+              <PackagePlus size={20} />
+              <span>
+                <strong>Service packages</strong>
+                <small>View prepaid bundles and your remaining credits</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
             <Link to="/services">
               <Scissors size={20} />
               <span>
@@ -460,7 +469,7 @@ export default function CustomerAccountPage() {
         ) : (
           <EmptyState
             title="No orders yet"
-            description="Your product and appointment-payment purchases will appear here."
+            description="Your product, appointment-payment and service-package purchases will appear here."
             action={
               <Link to="/shop" className="app-button app-button-secondary">
                 Visit the shop
@@ -473,8 +482,9 @@ export default function CustomerAccountPage() {
       <footer className="account-note">
         <Clock3 size={18} />
         Appointment and order information is loaded from your authenticated
-        SalonAI account. Appointment payments are added to your cart so you can
-        combine them with retail products before one secure Stripe Checkout.
+        SalonAI account. Appointment payments and service packages use the same
+        cart and secure Stripe Checkout as retail products, while package credits
+        are created only after successful payment.
       </footer>
     </main>
   );

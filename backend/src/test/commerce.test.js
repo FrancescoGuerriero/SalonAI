@@ -75,6 +75,75 @@ test("Order validation accepts an appointment payment without a product", () => 
   assert.equal(order.items[0].product, undefined);
 });
 
+test("Order validation accepts an immutable service package purchase snapshot", () => {
+  const servicePackageId =
+    new mongoose.Types.ObjectId();
+  const serviceId =
+    new mongoose.Types.ObjectId();
+
+  const order = new Order({
+    user:
+      new mongoose.Types.ObjectId(),
+    customer:
+      new mongoose.Types.ObjectId(),
+    contact: {
+      name: "Package Customer",
+      email:
+        "package@example.com",
+    },
+    items: [
+      {
+        itemType:
+          "service_package",
+        servicePackage:
+          servicePackageId,
+        packageSnapshot: {
+          validityDays: 180,
+          includedServices: [
+            {
+              service:
+                serviceId,
+              sessions: 3,
+            },
+          ],
+        },
+        sku:
+          "PACKAGE-COLOUR-3",
+        name:
+          "Three colour visits",
+        quantity: 1,
+        unitPrice: 250,
+        lineTotal: 250,
+      },
+    ],
+    servicePackageSubtotal: 250,
+    total: 250,
+  });
+
+  assert.equal(
+    order.validateSync(),
+    undefined
+  );
+  assert.equal(
+    order.items[0].itemType,
+    "service_package"
+  );
+  assert.equal(
+    String(
+      order.items[0]
+        .servicePackage
+    ),
+    String(servicePackageId)
+  );
+  assert.equal(
+    order.items[0]
+      .packageSnapshot
+      .includedServices[0]
+      .sessions,
+    3
+  );
+});
+
 test("Payment validation accepts a mixed commerce order", () => {
   const payment = new Payment({
     user: new mongoose.Types.ObjectId(),
@@ -87,6 +156,28 @@ test("Payment validation accepts a mixed commerce order", () => {
   });
 
   assert.equal(payment.validateSync(), undefined);
+});
+
+test("Payment validation accepts a dedicated service package order purpose", () => {
+  const payment = new Payment({
+    user:
+      new mongoose.Types.ObjectId(),
+    customer:
+      new mongoose.Types.ObjectId(),
+    order:
+      new mongoose.Types.ObjectId(),
+    purpose:
+      "service_package_order",
+    amount: 250,
+    currency: "GBP",
+    provider: "stripe",
+    status: "pending",
+  });
+
+  assert.equal(
+    payment.validateSync(),
+    undefined
+  );
 });
 
 test("Commerce config exposes GBP settings without payment credentials", () => {

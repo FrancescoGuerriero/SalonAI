@@ -10,6 +10,7 @@ import {
 import CustomerServicePackage from "./CustomerServicePackage.js";
 import ServicePackage from "./ServicePackage.js";
 import ServicePackageRedemption from "./ServicePackageRedemption.js";
+import { isFeatureEnabled } from "../../services/featureControlService.js";
 
 function actorId(actor) {
   return (
@@ -229,6 +230,81 @@ async function normaliseIncludedServices(
   return normalised;
 }
 
+function includedServiceIds(
+  items = []
+) {
+  return [
+    ...new Set(
+      items
+        .map((item) =>
+          String(
+            item?.service?._id ||
+              item?.service ||
+              ""
+          ).trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+}
+
+async function purchasableServiceIdSet(
+  items = []
+) {
+  const serviceIds =
+    includedServiceIds(items);
+
+  if (
+    serviceIds.length === 0
+  ) {
+    return new Set();
+  }
+
+  const services =
+    await Service.find({
+      _id: {
+        $in: serviceIds,
+      },
+      active: true,
+      bookable: true,
+    })
+      .select("_id")
+      .lean();
+
+  return new Set(
+    services.map(
+      (service) =>
+        String(service._id)
+    )
+  );
+}
+
+async function assertPurchasableIncludedServices(
+  items = []
+) {
+  const serviceIds =
+    includedServiceIds(items);
+  const eligible =
+    await purchasableServiceIdSet(
+      items
+    );
+
+  if (
+    serviceIds.length === 0 ||
+    eligible.size !==
+      serviceIds.length
+  ) {
+    throw createServiceError(
+      "Every published or purchased package service must be active and globally bookable.",
+      409,
+      {
+        field:
+          "includedServices",
+      }
+    );
+  }
+}
+
 async function populateDefinition(
   definitionId
 ) {
@@ -344,6 +420,18 @@ export async function createServicePackage(
       payload.includedServices
     );
 
+  const published =
+    booleanValue(
+      payload.published,
+      false
+    );
+
+  if (published) {
+    await assertPurchasableIncludedServices(
+      includedServices
+    );
+  }
+
   const definition =
     await ServicePackage.create({
       code,
@@ -368,11 +456,7 @@ export async function createServicePackage(
           payload.active,
           true
         ),
-      published:
-        booleanValue(
-          payload.published,
-          false
-        ),
+      published,
       createdBy:
         actorId(actor),
       updatedBy:
@@ -502,6 +586,12 @@ export async function updateServicePackage(
       );
   }
 
+  if (definition.published) {
+    await assertPurchasableIncludedServices(
+      definition.includedServices
+    );
+  }
+
   definition.updatedBy =
     actorId(actor);
 
@@ -548,6 +638,423 @@ export async function listServicePackages(
       _id: 1,
     })
     .lean();
+}
+
+export async function listPublishedServicePackages() {
+  const definitions =
+    await ServicePackage.find({
+      active: true,
+      published: true,
+    })
+      .select(
+        "code name description includedServices price validityDays"
+      )
+      .populate(
+        "includedServices.service",
+        "name category price duration"
+      )
+      .sort({
+        name: 1,
+        _id: 1,
+      })
+      .lean();
+
+  const allCredits =
+    definitions.flatMap(
+      (definition) =>
+        definition.includedServices ||
+        []
+    );
+  const eligible =
+    await purchasableServiceIdSet(
+      allCredits
+    );
+
+  return definitions.filter(
+    (definition) =>
+      (
+        definition.includedServices ||
+        []
+      ).length > 0 &&
+      (
+        definition.includedServices ||
+        []
+      ).every((credit) =>
+        eligible.has(
+          String(
+            credit?.service?._id ||
+              credit?.service ||
+              ""
+          )
+        )
+      )
+  );
+}
+
+function customerProfileId(user) {
+  const value =
+    user?.customerProfile?._id ||
+    user?.customerProfile ||
+    null;
+
+  if (!value) {
+    throw createServiceError(
+      "A linked customer profile is required for service-package purchases.",
+      409,
+      {
+        code: "CUSTOMER_PROFILE_REQUIRED",
+      }
+    );
+  }
+
+  return objectId(
+    value,
+    "customer"
+  );
+}
+
+export async function listMyServicePackages(
+  user,
+  query = {}
+) {
+  const items =
+    await listCustomerPackages(
+      customerProfileId(user),
+      query
+    );
+
+  return items.map(
+    (item) => ({
+      _id: item._id,
+      servicePackage:
+        item.servicePackage,
+      credits: item.credits,
+      validFrom:
+        item.validFrom,
+      expiresAt:
+        item.expiresAt,
+      status: item.status,
+      source: item.source,
+      grantedPrice:
+        item.grantedPrice,
+      createdAt:
+        item.createdAt,
+      updatedAt:
+        item.updatedAt,
+    })
+  );
+}
+
+/*
+ * Build server-authoritative checkout lines. Client-supplied names, prices,
+ * validity and credits are deliberately ignored.
+ */
+export async function buildPurchasableServicePackageOrderItems(
+  items = [],
+  user = null
+) {
+  /*
+   * This builder is part of the shared checkout pipeline and is invoked even
+   * when the cart contains no package lines. Do not require a linked customer
+   * profile for unrelated product/appointment checkouts.
+   */
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+
+  customerProfileId(user);
+
+  if (
+    !(await isFeatureEnabled(
+      "service-packages"
+    ))
+  ) {
+    const error =
+      createServiceError(
+        "New service-package purchases are currently disabled by the salon administrator.",
+        404,
+        {
+          featureId:
+            "service-packages",
+        }
+      );
+    error.code =
+      "FEATURE_DISABLED";
+    throw error;
+  }
+
+  const requestedIds = [];
+  const seen = new Set();
+
+  for (const item of items) {
+    const packageId = objectId(
+      item?.servicePackage ||
+        item?.servicePackageId ||
+        item?.packageId,
+      "servicePackage"
+    );
+    const quantity = Number.parseInt(
+      item?.quantity ?? 1,
+      10
+    );
+
+    if (quantity !== 1) {
+      throw createServiceError(
+        "Each service package can be purchased once per checkout.",
+        400,
+        {
+          field: "quantity",
+          servicePackage: packageId,
+        }
+      );
+    }
+
+    if (seen.has(packageId)) {
+      throw createServiceError(
+        "A service package can appear only once in a checkout.",
+        409,
+        {
+          servicePackage: packageId,
+        }
+      );
+    }
+
+    seen.add(packageId);
+    requestedIds.push(packageId);
+  }
+
+  const definitions = await ServicePackage.find({
+    _id: {
+      $in: requestedIds,
+    },
+    active: true,
+    published: true,
+  }).lean();
+
+  if (definitions.length !== requestedIds.length) {
+    throw createServiceError(
+      "One or more selected service packages are unavailable for purchase.",
+      409
+    );
+  }
+
+  await assertPurchasableIncludedServices(
+    definitions.flatMap(
+      (definition) =>
+        definition.includedServices ||
+        []
+    )
+  );
+
+  const byId = new Map(
+    definitions.map((definition) => [
+      String(definition._id),
+      definition,
+    ])
+  );
+
+  return requestedIds.map((packageId) => {
+    const definition = byId.get(packageId);
+    const includedServices = (
+      definition.includedServices || []
+    ).map((credit) => ({
+      service: credit.service,
+      sessions: positiveInteger(
+        credit.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+    }));
+
+    if (includedServices.length === 0) {
+      throw createServiceError(
+        `${definition.name} is not configured with redeemable service credits.`,
+        409
+      );
+    }
+
+    const price = money(
+      definition.price
+    );
+
+    return {
+      itemType: "service_package",
+      servicePackage: definition._id,
+      packageSnapshot: {
+        validityDays: positiveInteger(
+          definition.validityDays,
+          "validityDays"
+        ),
+        includedServices,
+      },
+      sku: `PACKAGE-${definition.code}`,
+      name: definition.name,
+      image: "",
+      quantity: 1,
+      unitPrice: price,
+      lineTotal: price,
+    };
+  });
+}
+
+/*
+ * Fulfil paid package lines idempotently. Each order/package pair is protected
+ * by the model's unique partial index, while $setOnInsert makes retries safe.
+ * Allocation uses the immutable order snapshot rather than the mutable
+ * catalogue definition.
+ */
+export async function allocatePaidOrderServicePackages(
+  order,
+  payment = null,
+  {
+    paidAt = new Date(),
+  } = {}
+) {
+  const packageItems = (
+    order?.items || []
+  ).filter(
+    (item) =>
+      String(item?.itemType || "") ===
+      "service_package"
+  );
+
+  if (packageItems.length === 0) {
+    return [];
+  }
+
+  const customerId = objectId(
+    order?.customer,
+    "customer"
+  );
+  const orderId = objectId(
+    order?._id,
+    "order"
+  );
+  const paymentId = payment?._id || payment || order?.payment || null;
+  const validFrom = new Date(paidAt);
+
+  if (Number.isNaN(validFrom.getTime())) {
+    throw createServiceError(
+      "Paid service-package allocation requires a valid settlement date.",
+      500
+    );
+  }
+
+  const entitlements = [];
+
+  for (const item of packageItems) {
+    const packageId = objectId(
+      item?.servicePackage,
+      "servicePackage"
+    );
+    const snapshot =
+      item?.packageSnapshot ||
+      {};
+    const validityDays = positiveInteger(
+      snapshot.validityDays,
+      "validityDays"
+    );
+    const credits = (
+      snapshot.includedServices || []
+    ).map((credit) => ({
+      service: objectId(
+        credit?.service,
+        "service"
+      ),
+      purchased: positiveInteger(
+        credit?.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+      remaining: positiveInteger(
+        credit?.sessions,
+        "sessions",
+        {
+          maximum: 100,
+        }
+      ),
+    }));
+
+    if (credits.length === 0) {
+      throw createServiceError(
+        "A paid package order line has no entitlement credits.",
+        500
+      );
+    }
+
+    const expiresAt = new Date(
+      validFrom.getTime() +
+        validityDays *
+          24 *
+          60 *
+          60 *
+          1000
+    );
+
+    const filter = {
+      order: orderId,
+      servicePackage: packageId,
+      source: "order",
+    };
+
+    try {
+      const entitlement =
+        await CustomerServicePackage.findOneAndUpdate(
+          filter,
+          {
+            $setOnInsert: {
+              customer: customerId,
+              servicePackage: packageId,
+              credits,
+              validFrom,
+              expiresAt,
+              status: "active",
+              source: "order",
+              order: orderId,
+              payment: paymentId || null,
+              grantedPrice: money(
+                item?.lineTotal ??
+                  item?.unitPrice
+              ),
+              grantReason: "",
+              assignedBy: null,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+            setDefaultsOnInsert: true,
+          }
+        );
+
+      entitlements.push(
+        entitlement
+      );
+    } catch (error) {
+      if (error?.code !== 11000) {
+        throw error;
+      }
+
+      /*
+       * A concurrent settlement attempt may win the unique-index race.
+       * Returning the existing entitlement is the correct idempotent result.
+       */
+      entitlements.push(
+        assertFound(
+          await CustomerServicePackage.findOne(
+            filter
+          ),
+          "Paid package entitlement could not be reconciled."
+        )
+      );
+    }
+  }
+
+  return entitlements;
 }
 
 export async function grantServicePackage(

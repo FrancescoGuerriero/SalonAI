@@ -138,6 +138,23 @@ customerServicePackageSchema.index({
   expiresAt: 1,
 });
 
+/*
+ * A paid order can allocate a given package definition only once.
+ * Manual and migration entitlements remain outside this constraint.
+ */
+customerServicePackageSchema.index(
+  {
+    order: 1,
+    servicePackage: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      source: "order",
+    },
+  }
+);
+
 const CustomerServicePackage =
   mongoose.models
     .CustomerServicePackage ||

@@ -50,7 +50,7 @@ export default function OrderHistory() {
         <div>
           <span className="commerce-eyebrow">Your purchases</span>
           <h1>Order history</h1>
-          <p>Track collection, delivery and payment status.</p>
+          <p>Track product fulfilment, appointment payments and service-package purchases.</p>
         </div>
         <PackageCheck size={44} />
       </div>
@@ -64,7 +64,10 @@ export default function OrderHistory() {
           <ShoppingBag size={46} />
           <h2>No orders yet</h2>
           <p>Your completed checkouts will appear here.</p>
-          <Link className="commerce-link-button" to="/shop">Visit the shop</Link>
+          <div className="button-row">
+            <Link className="commerce-link-button" to="/packages">Browse service packages</Link>
+            <Link className="commerce-link-button" to="/shop">Visit the shop</Link>
+          </div>
         </div>
       )}
 
@@ -81,15 +84,29 @@ export default function OrderHistory() {
               </span>
             </header>
             <div className="commerce-order-items">
-              {order.items.map((item) => (
-                <div key={`${order._id}-${item.product}`}>
+              {order.items.map((item, index) => (
+                <div
+                  key={`${order._id}-${item.itemType || "product"}-${
+                    item.product ||
+                    item.appointment ||
+                    item.servicePackage ||
+                    item.sku ||
+                    index
+                  }`}
+                >
                   <span>{item.quantity} × {item.name}</span>
                   <strong>{formatCurrency(item.lineTotal)}</strong>
                 </div>
               ))}
             </div>
             <footer>
-              <span>{order.fulfilmentType === "delivery" ? "Delivery" : "Salon collection"}</span>
+              <span>
+                {order.items?.some((item) => (item.itemType || "product") === "product")
+                  ? order.fulfilmentType === "delivery"
+                    ? "Delivery"
+                    : "Salon collection"
+                  : "Digital/service allocation"}
+              </span>
               <strong>{formatCurrency(order.total, order.currency)}</strong>
               {order.status === "pending_payment" && (
                 <button type="button" className="danger-button" onClick={() => cancelOrder(order._id)}>

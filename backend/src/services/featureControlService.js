@@ -9,6 +9,7 @@ export const FEATURE_CONTROLS = Object.freeze([
   { id: "appointments", label: "Appointment self-service", category: "Bookings", description: "Allow customers to request appointment cancellations or rescheduling.", defaultEnabled: true },
   { id: "public-team", label: "Public team profiles", category: "Public website", description: "Show published, active and bookable employees on public team pages.", defaultEnabled: true },
   { id: "online-shop", label: "Online shop", category: "Commerce", description: "Expose the product catalogue, cart, checkout and customer orders.", defaultEnabled: true },
+  { id: "service-packages", label: "Service packages", category: "Commerce", description: "Allow customers to discover and purchase prepaid service bundles. Existing package credits remain retained and viewable when sales are disabled.", defaultEnabled: true },
   { id: "reviews", label: "Reviews and ratings", category: "Customer experience", description: "Allow verified customers to submit reviews for moderation.", defaultEnabled: true },
   { id: "favourites", label: "Customer favourites", category: "Customer experience", description: "Allow customers to save services, stylists and products.", defaultEnabled: true },
   { id: "offers", label: "Offers and promotions", category: "Customer experience", description: "Allow customers to discover and claim active salon offers.", defaultEnabled: true },
@@ -62,6 +63,11 @@ export const FEATURE_CONTROL_IMPACTS = Object.freeze({
     controlMode: "capability",
     impactScopes: ["Public website", "Checkout", "Customer orders", "API"],
     enforcement: "Public products, product detail, cart/checkout and customer online-order actions.",
+  },
+  "service-packages": {
+    controlMode: "capability",
+    impactScopes: ["Public website", "Package sales", "Checkout", "API"],
+    enforcement: "Published package discovery and new package purchases. Existing customer entitlements, redemption history and management records are retained and remain viewable.",
   },
   reviews: {
     controlMode: "capability",
