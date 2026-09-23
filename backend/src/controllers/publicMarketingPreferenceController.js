@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import Customer from "../models/customer.js";
 import ConsentRecord from "../models/ConsentRecord.js";
 import {
@@ -42,9 +44,35 @@ function preferenceState(customer) {
 
 async function resolveCustomer(token) {
   const payload =
-    verifyMarketingPreferenceToken(token);
+    verifyMarketingPreferenceToken(
+      token
+    );
+
+  if (
+    !mongoose
+      .isObjectIdOrHexString(
+        payload.c
+      )
+  ) {
+    const error =
+      new Error(
+        "The marketing preference link is invalid."
+      );
+    error.statusCode = 400;
+    error.code =
+      "MARKETING_PREFERENCE_TOKEN_INVALID";
+    throw error;
+  }
+
+  const customerId =
+    new mongoose.Types.ObjectId(
+      String(payload.c)
+    );
+
   const customer =
-    await Customer.findById(payload.c);
+    await Customer.findOne({
+      _id: customerId,
+    });
 
   if (
     !customer ||
@@ -69,7 +97,8 @@ async function resolveCustomer(token) {
 async function recordWithdrawal(
   customer,
   channel,
-  recordedAt
+  recordedAt,
+  request
 ) {
   const purpose =
     channel === "sms"
@@ -92,6 +121,25 @@ async function recordWithdrawal(
     policyVersion:
       process.env.PRIVACY_POLICY_VERSION ||
       "marketing-v1",
+    ipAddress:
+      String(request?.ip || "")
+        .slice(0, 128),
+    userAgent:
+      String(
+        request?.get?.(
+          "user-agent"
+        ) || ""
+      ).slice(0, 512),
+    requestId:
+      String(
+        request?.requestId || ""
+      ).slice(0, 128),
+    evidence: {
+      authenticated: false,
+      affirmativeAction: true,
+      publicSignedPreferenceLink:
+        true,
+    },
     recordedAt,
   });
 }
@@ -109,15 +157,19 @@ function withdrawChannel(
     {};
 
   if (channel === "email") {
-    preferences.emailMarketing = false;
-    marketing.emailConsent = false;
+    preferences.emailMarketing =
+      false;
+    marketing.emailConsent =
+      false;
     marketing.emailConsentUpdatedAt =
       recordedAt;
   }
 
   if (channel === "sms") {
-    preferences.smsMarketing = false;
-    marketing.smsConsent = false;
+    preferences.smsMarketing =
+      false;
+    marketing.smsConsent =
+      false;
     marketing.smsConsentUpdatedAt =
       recordedAt;
   }
@@ -135,7 +187,9 @@ function withdrawChannel(
     preferences.emailMarketing,
     preferences.smsMarketing,
     preferences.whatsappMarketing,
-  ].some((value) => value === true);
+  ].some((value) =>
+    value === true
+  );
 
   preferences.consentUpdatedAt =
     recordedAt;
@@ -183,7 +237,11 @@ export async function unsubscribePublicMarketing(
       .trim()
       .toLowerCase();
 
-  if (!CHANNELS.has(requestedChannel)) {
+  if (
+    !CHANNELS.has(
+      requestedChannel
+    )
+  ) {
     const error =
       new Error(
         "Channel must be email, sms, whatsapp or all."
@@ -201,7 +259,11 @@ export async function unsubscribePublicMarketing(
 
   const channels =
     requestedChannel === "all"
-      ? ["email", "sms", "whatsapp"]
+      ? [
+          "email",
+          "sms",
+          "whatsapp",
+        ]
       : [requestedChannel];
 
   const before =
@@ -209,7 +271,9 @@ export async function unsubscribePublicMarketing(
   const recordedAt =
     new Date();
 
-  for (const channel of channels) {
+  for (
+    const channel of channels
+  ) {
     withdrawChannel(
       customer,
       channel,
@@ -219,12 +283,17 @@ export async function unsubscribePublicMarketing(
 
   await customer.save();
 
-  for (const channel of channels) {
-    if (before[channel] === true) {
+  for (
+    const channel of channels
+  ) {
+    if (
+      before[channel] === true
+    ) {
       await recordWithdrawal(
         customer,
         channel,
-        recordedAt
+        recordedAt,
+        req
       );
     }
   }
