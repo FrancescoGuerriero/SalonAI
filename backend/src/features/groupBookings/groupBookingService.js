@@ -121,10 +121,6 @@ const GROUP_POPULATE = [
     select: "firstName lastName fullName preferredName name email phone status",
   },
   {
-    path: "participants.customer",
-    select: "firstName lastName fullName preferredName name email phone status",
-  },
-  {
     path: "participants.appointment",
     select:
       "customer service stylist appointmentDate appointmentTime startsAt endsAt duration status bookingSource totalPrice finalPrice paymentStatus",
@@ -200,9 +196,7 @@ export async function createGroupBooking(payload = {}, { actor = null } = {}) {
             startsAt: participant.startsAt,
             appointmentDate: participant.appointmentDate,
             appointmentTime: participant.appointmentTime,
-            duration: participant.duration,
-            endsAt: participant.endsAt,
-            status: participant.status || "pending",
+            status: "pending",
             notes: text(participant.notes),
             internalNotes: text(participant.internalNotes),
           },
@@ -215,7 +209,6 @@ export async function createGroupBooking(payload = {}, { actor = null } = {}) {
         );
 
         participantLinks.push({
-          customer,
           appointment: appointment._id,
           label: text(participant.label),
         });
@@ -284,9 +277,7 @@ export async function addGroupParticipant(
           startsAt: payload.startsAt,
           appointmentDate: payload.appointmentDate,
           appointmentTime: payload.appointmentTime,
-          duration: payload.duration,
-          endsAt: payload.endsAt,
-          status: payload.status || "pending",
+          status: "pending",
           notes: text(payload.notes),
           internalNotes: text(payload.internalNotes),
         },
