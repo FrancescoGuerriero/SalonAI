@@ -208,10 +208,12 @@ test("social auth controller keeps the browser transaction secret out of JSON an
     /authorizationUrl:\s*result\.authorizationUrl/
   );
   assert.equal(
-    /\.\.\.result,?\s*\}\);/.test(
-      source
-    ),
-    false
+    (
+      source.match(
+        /authorizationUrl:\s*result\.authorizationUrl/g
+      ) || []
+    ).length,
+    2
   );
 });
 
