@@ -661,7 +661,7 @@ function AppRoutes() {
 
         <Route
           path="packages"
-          element={featurePage(<ServicePackagesPage />, "online-shop")}
+          element={<ServicePackagesPage />}
         />
 
         <Route
