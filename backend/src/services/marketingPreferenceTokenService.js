@@ -1,5 +1,4 @@
 import {
-  createHash,
   createHmac,
   timingSafeEqual,
 } from "node:crypto";
@@ -12,15 +11,6 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function emailHash(email) {
-  return createHash("sha256")
-    .update(
-      text(email).toLowerCase(),
-      "utf8"
-    )
-    .digest("base64url");
-}
-
 function secret() {
   const value =
     getLegalComplianceConfig()
@@ -29,7 +19,7 @@ function secret() {
   if (value.length < 32) {
     const error =
       new Error(
-        "Marketing preference links are unavailable until MARKETING_PREFERENCE_TOKEN_SECRET or JWT_SECRET is configured with at least 32 characters."
+        "Marketing preference links are unavailable until MARKETING_PREFERENCE_TOKEN_SECRET is configured with at least 32 characters."
       );
     error.statusCode = 503;
     error.code =
@@ -54,14 +44,13 @@ function sign(encodedPayload) {
 
 export function createMarketingPreferenceToken({
   customerId,
-  email,
 } = {}) {
   const id = text(customerId);
 
-  if (!id) {
+  if (!/^[a-fA-F0-9]{24}$/.test(id)) {
     const error =
       new Error(
-        "A customer identifier is required for a marketing preference link."
+        "A valid customer identifier is required for a marketing preference link."
       );
     error.statusCode = 400;
     error.code =
@@ -70,9 +59,8 @@ export function createMarketingPreferenceToken({
   }
 
   const payload = {
-    v: 1,
-    c: id,
-    e: emailHash(email),
+    v: 2,
+    c: id.toLowerCase(),
   };
 
   const encoded =
@@ -160,9 +148,10 @@ export function verifyMarketingPreferenceToken(
   }
 
   if (
-    payload?.v !== 1 ||
-    !text(payload?.c) ||
-    !text(payload?.e)
+    payload?.v !== 2 ||
+    !/^[a-fA-F0-9]{24}$/.test(
+      text(payload?.c)
+    )
   ) {
     const error =
       new Error(
@@ -174,7 +163,10 @@ export function verifyMarketingPreferenceToken(
     throw error;
   }
 
-  return payload;
+  return {
+    v: 2,
+    c: text(payload.c).toLowerCase(),
+  };
 }
 
 export function tokenMatchesCustomer(
@@ -182,10 +174,8 @@ export function tokenMatchesCustomer(
   customer
 ) {
   return (
-    text(payload?.c) ===
-      text(customer?._id) &&
-    text(payload?.e) ===
-      emailHash(customer?.email)
+    text(payload?.c).toLowerCase() ===
+    text(customer?._id).toLowerCase()
   );
 }
 
@@ -198,14 +188,34 @@ export function buildMarketingPreferenceUrl(
     createMarketingPreferenceToken({
       customerId:
         customer?._id,
-      email:
-        customer?.email,
     });
 
   return `${config.preferenceCenterUrl}/${encodeURIComponent(token)}`;
 }
 
+export function buildMarketingOneClickUnsubscribeUrl(
+  customer,
+  channel = "email"
+) {
+  const config =
+    getLegalComplianceConfig();
+  const token =
+    createMarketingPreferenceToken({
+      customerId:
+        customer?._id,
+    });
+  const safeChannel =
+    ["email", "sms", "whatsapp"].includes(
+      String(channel || "").toLowerCase()
+    )
+      ? String(channel).toLowerCase()
+      : "email";
+
+  return `${config.publicApplicationUrl}/api/marketing-preferences/${encodeURIComponent(token)}/unsubscribe/${safeChannel}`;
+}
+
 export default {
+  buildMarketingOneClickUnsubscribeUrl,
   buildMarketingPreferenceUrl,
   createMarketingPreferenceToken,
   tokenMatchesCustomer,
