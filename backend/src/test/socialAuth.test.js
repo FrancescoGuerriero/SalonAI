@@ -13,6 +13,10 @@ import {
   socialProviderAvailability,
   verifySocialStateBrowserBinding,
 } from "../features/socialAuth/socialAuthProvider.js";
+import {
+  callback as socialAuthCallback,
+  start as startSocialAuth,
+} from "../features/socialAuth/socialAuthController.js";
 
 test("social authentication supports the four customer providers", () => {
   assert.deepEqual(
@@ -215,6 +219,224 @@ test("social auth controller keeps the browser transaction secret out of JSON an
     ).length,
     2
   );
+});
+
+
+
+test("social auth start hides the transaction secret and callback consumes the matching cookie", async () => {
+  const keys = [
+    "SOCIAL_GOOGLE_CLIENT_ID",
+    "SOCIAL_GOOGLE_CLIENT_SECRET",
+    "SOCIAL_GOOGLE_REDIRECT_URI",
+  ];
+  const previous =
+    Object.fromEntries(
+      keys.map((key) => [
+        key,
+        process.env[key],
+      ])
+    );
+
+  process.env.SOCIAL_GOOGLE_CLIENT_ID =
+    "stage1d-controller-client";
+  process.env.SOCIAL_GOOGLE_CLIENT_SECRET =
+    "stage1d-controller-secret";
+  process.env.SOCIAL_GOOGLE_REDIRECT_URI =
+    "http://localhost:5000/api/auth/social/google/callback";
+
+  function responseDouble() {
+    return {
+      headers: {},
+      cookies: [],
+      clearedCookies: [],
+      body: null,
+      redirectUrl: "",
+      cookie(name, value, options) {
+        this.cookies.push({
+          name,
+          value,
+          options,
+        });
+        return this;
+      },
+      clearCookie(name, options) {
+        this.clearedCookies.push({
+          name,
+          options,
+        });
+        return this;
+      },
+      set(name, value) {
+        this.headers[name] =
+          value;
+        return this;
+      },
+      json(payload) {
+        this.body =
+          payload;
+        return payload;
+      },
+      redirect(url) {
+        this.redirectUrl =
+          url;
+        return url;
+      },
+    };
+  }
+
+  try {
+    const startResponse =
+      responseDouble();
+
+    startSocialAuth(
+      {
+        params: {
+          provider: "google",
+        },
+        body: {
+          returnTo: "/account",
+        },
+      },
+      startResponse
+    );
+
+    assert.equal(
+      startResponse.body.success,
+      true
+    );
+    assert.equal(
+      startResponse.body.provider,
+      "google"
+    );
+    assert.equal(
+      typeof startResponse.body
+        .authorizationUrl,
+      "string"
+    );
+    assert.equal(
+      "transaction" in
+        startResponse.body,
+      false
+    );
+    assert.equal(
+      startResponse.cookies.length,
+      1
+    );
+    assert.equal(
+      startResponse.cookies[0]
+        .options.httpOnly,
+      true
+    );
+    assert.equal(
+      startResponse.headers[
+        "Cache-Control"
+      ],
+      "no-store"
+    );
+
+    const state =
+      new URL(
+        startResponse.body
+          .authorizationUrl
+      ).searchParams.get(
+        "state"
+      );
+    const transactionCookie =
+      startResponse.cookies[0];
+    const callbackResponse =
+      responseDouble();
+
+    await socialAuthCallback(
+      {
+        params: {
+          provider: "google",
+        },
+        query: {
+          state,
+          error:
+            "access_denied",
+        },
+        headers: {
+          cookie:
+            transactionCookie.name +
+            "=" +
+            transactionCookie.value,
+        },
+      },
+      callbackResponse,
+      () => {}
+    );
+
+    assert.equal(
+      callbackResponse
+        .clearedCookies.length,
+      1
+    );
+    assert.equal(
+      callbackResponse
+        .clearedCookies[0].name,
+      transactionCookie.name
+    );
+    assert.match(
+      callbackResponse.redirectUrl,
+      /social=cancelled/
+    );
+    assert.equal(
+      callbackResponse.headers[
+        "Cache-Control"
+      ],
+      "no-store"
+    );
+
+    const rejectedResponse =
+      responseDouble();
+
+    await socialAuthCallback(
+      {
+        params: {
+          provider: "google",
+        },
+        query: {
+          state,
+          error:
+            "access_denied",
+        },
+        headers: {
+          cookie:
+            transactionCookie.name +
+            "=different-browser",
+        },
+      },
+      rejectedResponse,
+      () => {}
+    );
+
+    assert.match(
+      rejectedResponse.redirectUrl,
+      /social=error/
+    );
+    assert.match(
+      rejectedResponse.redirectUrl,
+      /socialCode=SOCIAL_AUTH_BROWSER_BINDING_FAILED/
+    );
+    assert.equal(
+      rejectedResponse
+        .clearedCookies.length,
+      0
+    );
+  } finally {
+    for (const key of keys) {
+      if (
+        previous[key] ===
+        undefined
+      ) {
+        delete process.env[key];
+      } else {
+        process.env[key] =
+          previous[key];
+      }
+    }
+  }
 });
 
 test("provider-only customer accounts do not require a local password", () => {
