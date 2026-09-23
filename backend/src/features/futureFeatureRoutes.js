@@ -10,6 +10,8 @@ import appointmentManagementRoutes from "./appointments/appointmentManagementRou
 import calendarConnectionRoutes from "../integrations/calendar/calendarConnectionRoutes.js";
 import waitlistRoutes from "./waitlist/waitlistRoutes.js";
 import servicePackageRoutes from "./servicePackages/servicePackageRoutes.js";
+import groupBookingRoutes from "./groupBookings/groupBookingRoutes.js";
+import serviceTrialRoutes from "./serviceTrials/serviceTrialRoutes.js";
 import aiRoutes from "./ai/aiRoutes.js";
 import reportRoutes from "./reports/reportRoutes.js";
 import revenueForecastRoutes from "./revenueForecasting/revenueForecastRoutes.js";
@@ -67,6 +69,16 @@ router.use(
 router.use(
   "/service-packages",
   servicePackageRoutes
+);
+router.use(
+  "/group-bookings",
+  requireFeature("group-bookings"),
+  groupBookingRoutes
+);
+router.use(
+  "/service-trials",
+  requireFeature("service-trials"),
+  serviceTrialRoutes
 );
 
 /*

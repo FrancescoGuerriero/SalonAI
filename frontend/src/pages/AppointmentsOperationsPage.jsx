@@ -26,6 +26,9 @@ import appointmentManagementApi from "../Services/appointmentManagementApi.js";
 import serviceService from "../Services/serviceService.js";
 import stylistService from "../Services/stylistService.js";
 import StaffAppointmentCommercePanel from "../components/appointments/StaffAppointmentCommercePanel.jsx";
+import useFeatureControls from "../hooks/useFeatureControls.js";
+import GroupBookingPanel from "../components/appointments/GroupBookingPanel.jsx";
+import ServiceTrialPanel from "../components/appointments/ServiceTrialPanel.jsx";
 
 const STATUS_OPTIONS = [
   "pending",
@@ -411,6 +414,10 @@ function AppointmentModal({
 }
 
 export default function AppointmentsPage() {
+  const { isFeatureEnabled } = useFeatureControls();
+  const groupBookingsEnabled = isFeatureEnabled("group-bookings");
+  const serviceTrialsEnabled = isFeatureEnabled("service-trials");
+  const [specialWorkflow, setSpecialWorkflow] = useState("");
   const [dates, setDates] = useState(initialDates);
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -651,6 +658,85 @@ export default function AppointmentsPage() {
           </label>
         </div>
       </section>
+
+      {groupBookingsEnabled || serviceTrialsEnabled ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                Special booking workflows
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Open a specialist booking task only when you need it
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm text-slate-600">
+                Ordinary appointment operations stay visible and uncluttered. Group bookings
+                and service trials still use the same appointment, staff-availability and
+                conflict rules.
+              </p>
+            </div>
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label="Special booking workflows"
+            >
+              {groupBookingsEnabled ? (
+                <button
+                  type="button"
+                  aria-pressed={specialWorkflow === "group"}
+                  onClick={() =>
+                    setSpecialWorkflow((current) =>
+                      current === "group" ? "" : "group"
+                    )
+                  }
+                  className={
+                    specialWorkflow === "group"
+                      ? "min-h-11 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white"
+                      : "min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  }
+                >
+                  Group booking
+                </button>
+              ) : null}
+              {serviceTrialsEnabled ? (
+                <button
+                  type="button"
+                  aria-pressed={specialWorkflow === "trial"}
+                  onClick={() =>
+                    setSpecialWorkflow((current) =>
+                      current === "trial" ? "" : "trial"
+                    )
+                  }
+                  className={
+                    specialWorkflow === "trial"
+                      ? "min-h-11 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"
+                      : "min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                  }
+                >
+                  Service trial
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {specialWorkflow === "group" && groupBookingsEnabled ? (
+        <GroupBookingPanel
+          services={services}
+          stylists={stylists}
+          onChanged={loadPage}
+        />
+      ) : null}
+
+      {specialWorkflow === "trial" && serviceTrialsEnabled ? (
+        <ServiceTrialPanel
+          services={services}
+          stylists={stylists}
+          appointments={appointments}
+          onChanged={loadPage}
+        />
+      ) : null}
 
       {selectedIds.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 sm:flex-row sm:items-center sm:justify-between">
