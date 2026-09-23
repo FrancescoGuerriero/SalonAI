@@ -107,6 +107,10 @@ export default function SocialAccountLinks() {
     searchParams.get(
       "provider"
     );
+  const callbackCode =
+    searchParams.get(
+      "socialCode"
+    ) || "";
 
   const linkedMap =
     useMemo(
@@ -231,7 +235,10 @@ export default function SocialAccountLinks() {
           className="manage-account-social-error"
           role="alert"
         >
-          The provider could not be linked. Your existing SalonAI sign-in remains unchanged.
+          {callbackCode ===
+          "SOCIAL_AUTH_BROWSER_BINDING_FAILED"
+            ? "This connection request expired, was already used, or was opened in a different browser session. Start the connection again. Your existing SalonAI sign-in remains unchanged."
+            : "The provider could not be linked. Your existing SalonAI sign-in remains unchanged."}
         </div>
       ) : null}
 
