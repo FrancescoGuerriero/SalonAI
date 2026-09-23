@@ -590,7 +590,19 @@ function applyMarketingCompliance(
     headers: {
       ...message.headers,
       "List-Unsubscribe":
-        `<${footer.unsubscribeUrl}>`,
+        `<${normaliseText(
+          message?.metadata
+            ?.oneClickUnsubscribeUrl
+        ) || footer.unsubscribeUrl}>`,
+      ...(normaliseText(
+        message?.metadata
+          ?.oneClickUnsubscribeUrl
+      )
+        ? {
+            "List-Unsubscribe-Post":
+              "List-Unsubscribe=One-Click",
+          }
+        : {}),
     },
   };
 }
@@ -1081,6 +1093,7 @@ function closeEmailDeliveryConnection() {
 }
 
 export {
+  applyMarketingCompliance,
   buildProviderHeaders,
   buildSendGridSmtpApiHeader,
   closeEmailDeliveryConnection,
