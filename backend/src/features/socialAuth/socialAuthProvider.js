@@ -54,7 +54,8 @@ const SOCIAL_AUTH_TRANSACTION_TTL_MS =
   10 * 60 * 1000;
 
 function socialAuthTransactionCookieName(
-  provider
+  provider,
+  transactionId
 ) {
   if (!PROVIDERS[provider]) {
     const error = new Error(
@@ -64,16 +65,37 @@ function socialAuthTransactionCookieName(
     throw error;
   }
 
-  return `salonai_social_auth_${provider}`;
+  const id =
+    text(
+      transactionId
+    );
+
+  if (
+    !/^[A-Za-z0-9_-]{16,128}$/.test(
+      id
+    )
+  ) {
+    const error = new Error(
+      "Invalid social authentication transaction."
+    );
+    error.statusCode = 400;
+    error.code =
+      "INVALID_SOCIAL_AUTH_STATE";
+    throw error;
+  }
+
+  return `salonai_social_auth_${provider}_${id}`;
 }
 
 export function socialAuthTransactionCookie(
-  provider
+  provider,
+  transactionId
 ) {
   return {
     name:
       socialAuthTransactionCookieName(
-        provider
+        provider,
+        transactionId
       ),
     options: {
       httpOnly: true,
@@ -233,9 +255,12 @@ export function createSocialAuthorization({
     randomBytes(32).toString(
       "base64url"
     );
+  const transactionId =
+    randomUUID();
   const transaction =
     socialAuthTransactionCookie(
-      provider
+      provider,
+      transactionId
     );
 
   const state = jwt.sign(
@@ -264,7 +289,8 @@ export function createSocialAuthorization({
       audience:
         "salonai-social-auth",
       issuer: "salonai",
-      jwtid: randomUUID(),
+      jwtid:
+        transactionId,
     }
   );
 
@@ -418,6 +444,10 @@ export function readSocialState(
       browserBindingHash:
         text(
           decoded.browserBindingHash
+        ),
+      transactionId:
+        text(
+          decoded.jti
         ),
     };
   } catch {
