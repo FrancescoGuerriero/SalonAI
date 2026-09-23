@@ -239,6 +239,8 @@ function getMessageDeliveryConfig() {
 
   return {
     mode,
+    legalCompliance:
+      getMarketingComplianceReadiness(),
     sandbox: mode === DELIVERY_MODES.SANDBOX,
     live: mode === DELIVERY_MODES.LIVE,
 
@@ -462,6 +464,7 @@ function getSendGridMarketingReadiness(
       );
 
   const legalReadiness =
+    config.legalCompliance ||
     getMarketingComplianceReadiness();
 
   for (const blocker of legalReadiness.blockers) {
