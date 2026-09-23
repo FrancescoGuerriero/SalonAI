@@ -164,7 +164,7 @@ function ParticipantFields({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:border-red-300 hover:text-red-700"
+            className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:border-red-300 hover:text-red-700"
           >
             Remove
           </button>
@@ -486,7 +486,7 @@ export default function GroupBookingPanel({
     <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
             Stage 2 · Group bookings
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-900">
@@ -543,7 +543,7 @@ export default function GroupBookingPanel({
             <button
               type="button"
               onClick={() => void searchCustomers()}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
             >
               Search
             </button>
@@ -552,7 +552,7 @@ export default function GroupBookingPanel({
       ) : null}
 
       {canCreate ? (
-        <div className="space-y-4 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+        <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-xs font-bold text-slate-700">
               Group title
@@ -625,7 +625,7 @@ export default function GroupBookingPanel({
               type="button"
               disabled={busy === "create"}
               onClick={() => void createGroup()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-bold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
             >
               <UsersRound size={16} />
               {busy === "create" ? "Creating…" : "Create group booking"}
@@ -674,7 +674,7 @@ export default function GroupBookingPanel({
                       type="button"
                       disabled={busy === `group-status-${group._id}`}
                       onClick={() => void updateWholeGroup(group)}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
+                      className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
                     >
                       Apply to group
                     </button>
@@ -756,7 +756,7 @@ export default function GroupBookingPanel({
                             type="button"
                             disabled={busy === `reschedule-${participant._id}`}
                             onClick={() => void reschedule(group, participant)}
-                            className="self-end rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                            className="min-h-11 self-end rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
                           >
                             <CalendarClock size={14} className="mr-1 inline" />
                             Reschedule
@@ -785,7 +785,7 @@ export default function GroupBookingPanel({
                             type="button"
                             disabled={busy === `status-${participant._id}`}
                             onClick={() => void updateStatus(group, participant)}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 disabled:opacity-50"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 disabled:opacity-50"
                           >
                             <CheckCircle2 size={14} />
                             Update status
@@ -830,7 +830,7 @@ export default function GroupBookingPanel({
                         setAddGroupId(group._id);
                         setAddDraft(blankParticipant());
                       }}
-                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700"
                     >
                       <Plus size={15} />
                       Add participant
