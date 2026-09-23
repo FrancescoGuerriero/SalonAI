@@ -504,3 +504,35 @@ test(
     );
   }
 );
+
+
+test(
+  "published and purchased service packages fail closed when an included service is no longer globally bookable",
+  async () => {
+    const packageService =
+      await source(
+        "../features/servicePackages/servicePackageService.js"
+      );
+
+    assert.match(
+      packageService,
+      /active:\s*true,[\s\S]*bookable:\s*true/
+    );
+    assert.match(
+      packageService,
+      /assertPurchasableIncludedServices\([\s\S]*definition\.includedServices/
+    );
+    assert.match(
+      packageService,
+      /listPublishedServicePackages[\s\S]*purchasableServiceIdSet/
+    );
+    assert.match(
+      packageService,
+      /buildPurchasableServicePackageOrderItems[\s\S]*assertPurchasableIncludedServices/
+    );
+    assert.match(
+      packageService,
+      /Every published or purchased package service must be active and globally bookable/
+    );
+  }
+);
