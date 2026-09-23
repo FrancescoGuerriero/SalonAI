@@ -4,6 +4,7 @@ export const FEATURE_DEFINITIONS = [
   ["appointments", "Appointment self-service", "Bookings"],
   ["public-team", "Public team profiles", "Public website"],
   ["online-shop", "Online shop", "Commerce"],
+  ["service-packages", "Service packages", "Commerce"],
   ["reviews", "Reviews and ratings", "Customer experience"],
   ["favourites", "Customer favourites", "Customer experience"],
   ["offers", "Offers and promotions", "Customer experience"],
