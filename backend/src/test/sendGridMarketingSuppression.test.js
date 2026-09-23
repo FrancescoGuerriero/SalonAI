@@ -36,6 +36,9 @@ function customerFixture(
         true,
       promotionalMessages:
         true,
+
+      emailMarketing:
+        true,
       serviceUpdates:
         true,
       birthdayMessages:
@@ -411,6 +414,9 @@ test(
           appointmentReminders:
             true,
           promotionalMessages:
+            true,
+
+          emailMarketing:
             true,
           serviceUpdates:
             true,
@@ -959,6 +965,9 @@ test(
           communicationPreferences: {
             promotionalMessages:
               true,
+
+            emailMarketing:
+              true,
             emailUnsubscribed:
               false,
           },
@@ -994,6 +1003,9 @@ test(
         {
           communicationPreferences: {
             promotionalMessages:
+              true,
+
+            emailMarketing:
               true,
           },
           marketing: {
@@ -1042,6 +1054,9 @@ test(
       emailMarketingConsentFromPreferences({
         promotionalMessages:
           true,
+
+        emailMarketing:
+          true,
         emailUnsubscribed:
           false,
         unsubscribed:
@@ -1052,7 +1067,7 @@ test(
 
     assert.equal(
       emailMarketingConsentFromPreferences({
-        promotionalMessages:
+        emailMarketing:
           false,
         emailUnsubscribed:
           false,
@@ -1065,6 +1080,9 @@ test(
     assert.equal(
       emailMarketingConsentFromPreferences({
         promotionalMessages:
+          true,
+
+        emailMarketing:
           true,
         emailUnsubscribed:
           true,
@@ -1091,6 +1109,8 @@ test(
         status:
           "active",
         communicationPreferences: {
+          emailMarketing:
+            true,
           unsubscribed:
             false,
         },

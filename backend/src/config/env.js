@@ -309,6 +309,34 @@ function validateMessageDeliveryConfiguration(isProduction) {
   }
 }
 
+function validateTrackingConfiguration(
+  isProduction
+) {
+  const nonEssentialTrackingEnabled =
+    readBoolean(
+      process.env
+        .NONESSENTIAL_TRACKING_ENABLED,
+      false
+    );
+
+  const consentFrameworkEnabled =
+    readBoolean(
+      process.env
+        .TRACKING_CONSENT_FRAMEWORK_ENABLED,
+      false
+    );
+
+  if (
+    isProduction &&
+    nonEssentialTrackingEnabled &&
+    !consentFrameworkEnabled
+  ) {
+    throw new Error(
+      "NONESSENTIAL_TRACKING_ENABLED=true requires TRACKING_CONSENT_FRAMEWORK_ENABLED=true. Non-essential tracking must remain disabled until consent controls are implemented and production-tested."
+    );
+  }
+}
+
 export function validateEnvironment() {
   const isProduction = process.env.NODE_ENV === "production";
   const missing = isProduction
@@ -376,6 +404,7 @@ export function validateEnvironment() {
   validateStripeConfiguration(isProduction);
   validateMessageDeliveryConfiguration(isProduction);
   validateWhatsAppConfiguration(isProduction);
+  validateTrackingConfiguration(isProduction);
 }
 
 validateEnvironment();

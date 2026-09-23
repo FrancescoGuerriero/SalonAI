@@ -31,11 +31,33 @@ async function withEnvironment(
   const previousValues =
     new Map();
 
+  const effectiveOverrides = {
+    LEGAL_BUSINESS_NAME:
+      "SalonAI Test Operator",
+    LEGAL_TRADING_NAME:
+      "SalonAI",
+    LEGAL_POSTAL_ADDRESS:
+      "1 Test Street, London, TEST 1AA",
+    PRIVACY_CONTACT_EMAIL:
+      "privacy@example.com",
+    PRIVACY_POLICY_URL:
+      "https://salonai.example/privacy",
+    COOKIE_POLICY_URL:
+      "https://salonai.example/cookies",
+    DATA_RIGHTS_URL:
+      "https://salonai.example/account/privacy-rights",
+    MARKETING_PREFERENCE_URL:
+      "https://salonai.example/communication-preferences",
+    MARKETING_PREFERENCE_TOKEN_SECRET:
+      "test-marketing-preference-secret-0123456789",
+    ...overrides,
+  };
+
   for (
     const [
       key,
       value,
-    ] of Object.entries(overrides)
+    ] of Object.entries(effectiveOverrides)
   ) {
     previousValues.set(
       key,
@@ -99,6 +121,33 @@ function productionEnvironment(
 
     FRONTEND_URL:
       "https://salonai.example",
+
+    LEGAL_BUSINESS_NAME:
+      "SalonAI Test Operator",
+
+    LEGAL_TRADING_NAME:
+      "SalonAI",
+
+    LEGAL_POSTAL_ADDRESS:
+      "1 Test Street, London, TEST 1AA",
+
+    PRIVACY_CONTACT_EMAIL:
+      "privacy@example.com",
+
+    PRIVACY_POLICY_URL:
+      "https://salonai.example/privacy",
+
+    COOKIE_POLICY_URL:
+      "https://salonai.example/cookies",
+
+    DATA_RIGHTS_URL:
+      "https://salonai.example/account/privacy-rights",
+
+    MARKETING_PREFERENCE_URL:
+      "https://salonai.example/communication-preferences",
+
+    MARKETING_PREFERENCE_TOKEN_SECRET:
+      "test-marketing-preference-secret-0123456789",
 
     PAYMENT_PROVIDER_MODE:
       "console",

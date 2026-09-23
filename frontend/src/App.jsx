@@ -40,6 +40,11 @@ const SearchLandingPage = lazy(
 const StaffProfileEditorPage = lazy(() => import("./pages/StaffProfileEditorPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
+const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage.jsx"));
+const MarketingPreferencesPage = lazy(() => import("./pages/MarketingPreferencesPage.jsx"));
+const PrivacyRightsPage = lazy(() => import("./pages/PrivacyRightsPage.jsx"));
+const AdminPrivacyRequestsPage = lazy(() => import("./pages/AdminPrivacyRequestsPage.jsx"));
 const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienceSuitePage.jsx"));
 const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperienceFeaturePage.jsx"));
 const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
@@ -680,6 +685,26 @@ function AppRoutes() {
         />
 
         <Route
+          path="privacy"
+          element={<PrivacyPolicyPage />}
+        />
+
+        <Route
+          path="cookies"
+          element={<CookiePolicyPage />}
+        />
+
+        <Route
+          path="communication-preferences"
+          element={<MarketingPreferencesPage />}
+        />
+
+        <Route
+          path="communication-preferences/:token"
+          element={<MarketingPreferencesPage />}
+        />
+
+        <Route
           path="cart"
           element={featurePage(<Cart />, "online-shop")}
         />
@@ -724,6 +749,13 @@ function AppRoutes() {
           path="account/manage"
           element={protectedPage(
             ManageAccountPage
+          )}
+        />
+
+        <Route
+          path="account/privacy-rights"
+          element={protectedPage(
+            PrivacyRightsPage
           )}
         />
 
@@ -1102,6 +1134,13 @@ function AppRoutes() {
           path="admin"
           element={adminPage(
             AdminDashboard
+          )}
+        />
+
+        <Route
+          path="admin/privacy-requests"
+          element={adminPage(
+            AdminPrivacyRequestsPage
           )}
         />
 

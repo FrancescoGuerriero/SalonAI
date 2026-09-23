@@ -1,0 +1,281 @@
+.legal-page {
+  width: min(100% - 2rem, 980px);
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+
+.legal-hero,
+.legal-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 1rem;
+  background: var(--surface, #ffffff);
+  padding: 1.5rem;
+}
+
+.legal-hero {
+  margin-bottom: 1rem;
+}
+
+.legal-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.legal-card {
+  margin-top: 1rem;
+}
+
+.legal-card h2 {
+  margin-top: 0;
+}
+
+.legal-card li + li {
+  margin-top: 0.4rem;
+}
+
+.legal-warning {
+  border: 1px solid currentColor;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.marketing-preference-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.marketing-preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+  padding: 0.9rem 1rem;
+}
+
+.marketing-preference-row div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.marketing-preference-row span {
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+
+.settings-compliance-note {
+  border-left: 3px solid currentColor;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 640px) {
+  .legal-page {
+    width: min(100% - 1rem, 980px);
+    padding-top: 1rem;
+  }
+
+  .legal-hero,
+  .legal-card {
+    padding: 1rem;
+  }
+
+  .marketing-preference-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .marketing-preference-row .app-button {
+    min-height: 44px;
+    width: 100%;
+  }
+}
+
+
+.legal-quick-links,
+.legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.legal-quick-links {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+}
+
+.legal-quick-links a,
+.legal-card a {
+  text-underline-offset: 0.18em;
+}
+
+.legal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.legal-grid article {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.legal-grid h3 {
+  margin-top: 0;
+}
+
+.legal-definition-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.legal-definition-list div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.35fr) 1fr;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  padding-bottom: 0.75rem;
+}
+
+.legal-definition-list dt {
+  font-weight: 700;
+}
+
+.legal-definition-list dd {
+  margin: 0;
+}
+
+.legal-table-wrap,
+.privacy-admin-table-wrap {
+  overflow-x: auto;
+}
+
+.legal-table,
+.privacy-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.legal-table th,
+.legal-table td,
+.privacy-admin-table th,
+.privacy-admin-table td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-table th,
+.privacy-admin-table th {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.legal-note {
+  border-left: 3px solid currentColor;
+  padding-left: 1rem;
+}
+
+.legal-actions {
+  margin-top: 1rem;
+}
+
+.legal-actions .app-button,
+.privacy-request-form .app-button,
+.privacy-admin-table select {
+  min-height: 44px;
+}
+
+.privacy-request-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.privacy-request-form label {
+  font-weight: 700;
+}
+
+.privacy-request-form select,
+.privacy-request-form textarea,
+.privacy-admin-table select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 0.65rem;
+  background: inherit;
+  color: inherit;
+  padding: 0.75rem;
+  font: inherit;
+}
+
+.privacy-request-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.privacy-request-item {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.privacy-request-item > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.privacy-request-item dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.privacy-request-item dt {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.privacy-request-item dd {
+  margin: 0.2rem 0 0;
+}
+
+.privacy-admin-table td:first-child {
+  min-width: 14rem;
+}
+
+.privacy-admin-table td:first-child span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+
+@media (max-width: 720px) {
+  .legal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .legal-definition-list div,
+  .privacy-request-item dl {
+    grid-template-columns: 1fr;
+  }
+
+  .privacy-request-item > div:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
