@@ -37,6 +37,7 @@ test("group creation is atomic, sequential and delegates every participant to ca
   assert.doesNotMatch(creation, /participant\.endsAt/);
   assert.doesNotMatch(creation, /Promise\.all/);
   assert.doesNotMatch(creation, /Appointment\.create\(/);
+  assert.doesNotMatch(creation, /participantLinks\.push\(\{[\s\S]*?customer,/);
 });
 
 test("group participant changes reuse canonical reschedule and status workflows", async () => {
@@ -84,4 +85,15 @@ test("future feature router mounts group bookings behind its governed feature co
     routes,
     /"\/group-bookings"[\s\S]*?requireFeature\("group-bookings"\)[\s\S]*?groupBookingRoutes/
   );
+});
+
+
+test("group participant aggregate stores only the canonical appointment link and presentation label", async () => {
+  const service = await source("../features/groupBookings/groupBookingService.js");
+  const addStart = service.indexOf("export async function addGroupParticipant");
+  const addEnd = service.indexOf("async function participantAppointment", addStart);
+  const add = service.slice(addStart, addEnd);
+
+  assert.match(add, /group\.participants\.push\(\{[\s\S]*?appointment: appointment\._id/);
+  assert.doesNotMatch(add, /group\.participants\.push\(\{[\s\S]*?customer,/);
 });
