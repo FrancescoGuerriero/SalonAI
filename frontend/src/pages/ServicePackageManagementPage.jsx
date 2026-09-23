@@ -184,6 +184,10 @@ export default function ServicePackageManagementPage() {
     canReadCustomers &&
     hasPermission(
       user,
+      "appointment:read"
+    ) &&
+    hasPermission(
+      user,
       "appointment:update"
     );
 
