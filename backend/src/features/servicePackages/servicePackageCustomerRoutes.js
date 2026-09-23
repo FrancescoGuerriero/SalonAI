@@ -4,6 +4,7 @@ import {
   protect,
 } from "../../middleware/authMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
+import { requireFeature } from "../../services/featureControlService.js";
 import * as controller from "./servicePackageController.js";
 
 const router = express.Router();
@@ -15,6 +16,7 @@ const router = express.Router();
  */
 router.get(
   "/",
+  requireFeature("service-packages"),
   asyncHandler(
     controller.listPublishedDefinitions
   )
