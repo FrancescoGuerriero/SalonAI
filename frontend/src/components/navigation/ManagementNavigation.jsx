@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, CalendarOff, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, Package, PackagePlus, Scissors, Search, Send, Share2, Sparkles, ToggleLeft, Upload, UsersRound, Workflow } from "lucide-react";
+import { Award, BadgePoundSterling, BarChart3, BellRing, Building2, CalendarClock, CalendarDays, CalendarOff, ChevronDown, ClipboardList, ContactRound, FileText, Gauge, Gift, HeartHandshake, Mail, Megaphone, MessageCircle, MessageSquareText, Package, PackagePlus, Scissors, Search, Send, Share2, ShieldCheck, Sparkles, ToggleLeft, Upload, UsersRound, Workflow } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth.js";
 import {
@@ -47,6 +47,7 @@ const MANAGEMENT_ICONS = Object.freeze({
   Scissors,
   Send,
   Share2,
+  ShieldCheck,
   Sparkles,
   ToggleLeft,
   Upload,
