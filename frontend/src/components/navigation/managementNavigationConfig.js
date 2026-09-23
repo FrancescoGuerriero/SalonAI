@@ -1,65 +1,144 @@
 /*
- * Lightweight management navigation registry.
+ * Canonical management navigation registry.
  *
- * Keep route/label/permission/feature metadata here so MainLayout can
- * determine whether a route uses the management shell without importing
- * the rendered navigation component or the Lucide icon catalogue.
+ * Route/label/permission/feature/presentation metadata lives here so the
+ * management shell, route detection and tests consume one source of truth.
+ * Presentation metadata is UX-only: it must never be used as an authority
+ * check. Server-side RBAC and feature controls remain authoritative.
  */
 
+export const MANAGEMENT_PRESENTATION_MODES = Object.freeze({
+  SIMPLE: "simple",
+  ADVANCED: "advanced",
+});
+
+const SIMPLE = MANAGEMENT_PRESENTATION_MODES.SIMPLE;
+const ADVANCED = MANAGEMENT_PRESENTATION_MODES.ADVANCED;
+
+/*
+ * Sections are deliberately phrased as user tasks rather than database or
+ * service boundaries. Advanced links remain in the same canonical registry;
+ * Advanced mode only changes which already-authorised links are presented.
+ *
+ * Link tuple:
+ * [to, label, description, icon, adminOnly, permission, featureId, presentation]
+ */
 const RAW_MANAGEMENT_SECTIONS = [
-  { id: "operations", label: "Salon operations", links: [
-    ["/dashboard", "Dashboard", "Performance overview", "Gauge", false, "dashboard:view"], ["/appointments", "Appointments", "Bookings and schedules", "CalendarDays", false, "appointment:read"], ["/staff/self-service", "My availability", "Availability and leave requests", "CalendarOff", false, "schedule:own:read"], ["/team-availability", "Team availability", "Working hours and time off", "UsersRound", false, "employee:read"], ["/customers", "Customers", "Profiles and activity", "ContactRound", false, "customer:read"], ["/admin/employees", "Employees", "Roles, booking and visibility", "UsersRound", false, "employee:read"], ["/admin/staff-roles", "Staff roles", "Custom roles and permissions", "UsersRound", false, "staff-role:read"], ["/staff/profile", "My public profile", "Photo, bio and specialties", "ContactRound", false, "profile:own:read"], ["/customer-segments", "Customer segments", "Audience groups", "UsersRound", false, "customer:read"], ["/retention-actions", "Retention actions", "Re-engagement work", "HeartHandshake", false, "customer:read"], ["/manage/services", "Salon services", "Services and pricing", "Scissors", false, "service:read"], ["/manage/products", "Products", "Retail catalogue and publishing", "Package", false, "product:read"], ["/data-imports", "Data imports", "Customers and products", "Upload", false, "data-import:manage"], 
-  ]},
-  { id: "communications", label: "Communications", links: [
-    ["/communications", "Communications", "Contact history", "Mail", false, "communications:read", "communications"], ["/communication-templates", "Message templates", "Reusable content", "MessageSquareText", false, "communications:read", "communications"], ["/communication-campaigns", "Campaign composer", "Create campaigns", "Megaphone", false, "communications:read", "communications"], ["/scheduled-communications", "Scheduled messages", "Future delivery", "CalendarClock", false, "communications:read", "communications"], ["/message-delivery", "Message delivery", "Monitor and retry", "Send", false, "communications:read", "communications"],
-  ]},
-  { id: "booking-planning", label: "Booking and planning", links: [
-    ["/calendar", "Calendar", "Daily and weekly schedule", "CalendarDays", false, "appointment:read"],
-    ["/waitlist", "Waitlist", "Customers waiting for space", "ClipboardList", false, "appointment:read"],
-    ["/booking-demand", "Booking demand", "Demand and capacity signals", "BarChart3", false, "appointment:read"],
-    ["/booking-loss", "Booking loss", "Lost booking opportunities", "BadgePoundSterling", false, "appointment:read"],
-    ["/smart-appointments", "Smart appointments", "AI-assisted appointment planning", "Sparkles", false, "ai:use", "ai-tools"],
-    ["/capacity-planning", "Capacity planning", "Staff and chair capacity", "CalendarClock", false, "ai:use", "ai-tools"],
-    ["/dynamic-pricing", "Dynamic pricing", "Pricing opportunities", "BadgePoundSterling", false, "ai:use", "ai-tools"],
-  ]},
-  { id: "marketing-growth", label: "Marketing and growth", links: [
-    ["/customer-follow-ups", "Customer follow-ups", "Follow-up opportunities", "ContactRound", false, "customer:read"],
-    ["/customer-value", "Customer value", "Customer value analysis", "BadgePoundSterling", false, "customer:read"],
-    ["/retention-predictions", "Retention predictions", "Customers at risk", "HeartHandshake", false, "customer:read"],
-    ["/rebooking-opportunities", "Rebooking opportunities", "Customers ready to rebook", "CalendarClock", false, "customer:read"],
-    ["/rebooking-campaigns", "Rebooking campaigns", "Targeted rebooking activity", "Megaphone", false, "communications:read", "communications"],
-    ["/marketing-attribution", "Marketing attribution", "Campaign and channel impact", "BarChart3", false, "ai:use", "ai-tools"],
-  ]},
-  { id: "performance", label: "Performance and reporting", links: [
-    ["/revenue-forecast", "Revenue forecast", "Revenue outlook", "BadgePoundSterling", false, "reports:read"],
-    ["/reports", "Reports", "Business reporting centre", "FileText", false, "reports:read"],
-    ["/daily-close", "Daily close", "End-of-day controls", "ClipboardList", false, "reports:read"],
-    ["/staff-rota", "Staff rota", "Team rota planning", "CalendarDays", false, "employee:read"],
-    ["/staff-performance", "Staff performance", "Team performance", "BarChart3", false, "reports:read"],
-    ["/service-performance", "Service performance", "Service results", "Scissors", false, "reports:read"],
-    ["/feedback-analytics", "Feedback analytics", "Customer feedback trends", "BarChart3", false, "ai:use", "ai-tools"],
-    ["/executive-command-centre", "Executive command centre", "Business-wide overview", "Gauge", false, "ai:use", "ai-tools"],
-    ["/data-export-audit", "Data export audit", "Export activity and governance", "FileText", false, "reports:read"],
-  ]},
-  { id: "inventory", label: "Inventory and purchasing", links: [
-    ["/manage/inventory", "Inventory", "Stock levels and adjustments", "Package", false, "inventory:read"],
-    ["/manage/orders", "Order management", "Customer orders and fulfilment", "ClipboardList", false, "product:read"],
-    ["/suppliers", "Suppliers", "Accounts and terms", "Building2", false, "inventory:read", "inventory-purchasing"],
-    ["/purchase-orders", "Purchase orders", "Approve and receive", "ClipboardList", false, "inventory:read", "inventory-purchasing"],
-    ["/reorder-recommendations", "Reorder recommendations", "Low-stock needs", "PackagePlus", false, "inventory:read", "inventory-purchasing"],
-    ["/inventory-forecasting", "Inventory forecasting", "Stock demand forecasting", "BarChart3", false, "inventory:read", "inventory-purchasing"],
-  ]},
-  { id: "ai", label: "SalonAI tools", links: [
-    ["/ai/haircare", "Haircare AI", "Recommendations", "Sparkles", false, "ai:use", "ai-tools"], ["/ai/customer-summaries", "Customer AI summaries", "History summaries", "FileText", false, "ai:use", "ai-tools"], ["/ai/customer-segmentation", "AI segmentation", "Behaviour analysis", "UsersRound", false, "ai:use", "ai-tools"], ["/ai/demand-forecasting", "Demand forecasting", "Bookings and capacity", "BarChart3", false, "ai:use", "ai-tools"], ["/ai/marketing-insights", "Marketing insights", "Campaign analysis", "Megaphone", false, "ai:use", "ai-tools"], ["/ai/no-show-predictions", "No-show prediction", "Booking risk", "CalendarClock", false, "ai:use", "ai-tools"], ["/ai/sales-forecasting", "Sales forecasting", "Revenue outlook", "BadgePoundSterling", false, "ai:use", "ai-tools"], ["/management-copilot", "Management copilot", "Prioritised actions", "Sparkles", false, "ai:use", "ai-tools"],
-  ]},
-  { id: "administration", label: "Administration", links: [
-    ["/admin", "Admin overview", "Administrator control centre", "Gauge", true, "dashboard:view"],
-    ["/admin/system", "On/Off Ideas", "Administrator feature controls", "ToggleLeft", false, "feature-control:read"],
-  ]},
-  { id: "premium", label: "Premium features", links: [
-    ["/customer-experience-management", "Experience desk", "Reviews and requests", "ClipboardList", false, "customer:read"],
-    ["/loyalty", "Loyalty programme", "Points and tiers", "Award", false, "loyalty:manage", "loyalty"], ["/gift-cards", "Gift cards", "Issue and redeem", "Gift", false, "gift-card:manage", "wallet"], ["/referrals", "Referral system", "Rewards and tracking", "Share2", false, "referral:manage", "referrals"], ["/notification-centre", "Notification centre", "Delivery status", "BellRing", false, "notification:manage", "notifications"], ["/push-notifications", "Push notifications", "Browser delivery", "BellRing", false, "push:manage", "notifications"], ["/email-campaigns", "Email campaigns", "Targeted emails", "Mail", false, "email-campaign:manage", "communications"], ["/sms-reminders", "SMS reminders", "Reminder rules", "MessageSquareText", false, "sms-reminder:manage", "communications"], ["/whatsapp-booking", "WhatsApp booking", "Conversations", "MessageCircle", false, "whatsapp:manage", "whatsapp-booking"], ["/retention-automation", "Retention automation", "Customer journeys", "Workflow", false, "retention-automation:manage", "retention-automation"], ["/premium-analytics", "Premium analytics", "Feature performance", "BarChart3", false, "premium-analytics:read", "premium-analytics"],
-  ]},
+  {
+    id: "run-salon",
+    label: "Run the salon",
+    links: [
+      ["/dashboard", "Dashboard", "See today's business at a glance", "Gauge", false, "dashboard:view", "", SIMPLE],
+      ["/appointments", "Appointments", "Manage bookings and schedules", "CalendarDays", false, "appointment:read", "", SIMPLE],
+      ["/calendar", "Calendar", "Work from the daily and weekly schedule", "CalendarDays", false, "appointment:read", "", SIMPLE],
+      ["/waitlist", "Waitlist", "Fill availability from waiting customers", "ClipboardList", false, "appointment:read", "", SIMPLE],
+      ["/daily-close", "Daily close", "Complete end-of-day controls", "ClipboardList", false, "reports:read", "", SIMPLE],
+      ["/booking-demand", "Booking demand", "Review demand and capacity signals", "BarChart3", false, "appointment:read", "", ADVANCED],
+      ["/booking-loss", "Booking loss", "Review lost booking opportunities", "BadgePoundSterling", false, "appointment:read", "", ADVANCED],
+      ["/smart-appointments", "Smart appointments", "Use AI-assisted appointment planning", "Sparkles", false, "ai:use", "ai-tools", ADVANCED],
+      ["/capacity-planning", "Capacity planning", "Analyse staff and chair capacity", "CalendarClock", false, "ai:use", "ai-tools", ADVANCED],
+      ["/dynamic-pricing", "Dynamic pricing", "Review pricing opportunities", "BadgePoundSterling", false, "ai:use", "ai-tools", ADVANCED],
+    ],
+  },
+  {
+    id: "customers",
+    label: "Serve and retain customers",
+    links: [
+      ["/customers", "Customers", "Find profiles, history and activity", "ContactRound", false, "customer:read", "", SIMPLE],
+      ["/customer-follow-ups", "Customer follow-ups", "Act on follow-up opportunities", "ContactRound", false, "customer:read", "", SIMPLE],
+      ["/retention-actions", "Retention actions", "Manage re-engagement work", "HeartHandshake", false, "customer:read", "", SIMPLE],
+      ["/customer-segments", "Customer segments", "Build and review audience groups", "UsersRound", false, "customer:read", "", ADVANCED],
+      ["/customer-value", "Customer value", "Analyse customer value", "BadgePoundSterling", false, "customer:read", "", ADVANCED],
+      ["/retention-predictions", "Retention predictions", "Identify customers at risk", "HeartHandshake", false, "customer:read", "", ADVANCED],
+      ["/rebooking-opportunities", "Rebooking opportunities", "Find customers ready to rebook", "CalendarClock", false, "customer:read", "", ADVANCED],
+      ["/customer-experience-management", "Experience desk", "Manage reviews and customer requests", "ClipboardList", false, "customer:read", "", ADVANCED],
+      ["/loyalty", "Loyalty programme", "Manage points and tiers", "Award", false, "loyalty:manage", "loyalty", ADVANCED],
+      ["/gift-cards", "Gift cards", "Issue and redeem gift cards", "Gift", false, "gift-card:manage", "wallet", ADVANCED],
+      ["/referrals", "Referral system", "Manage rewards and referral tracking", "Share2", false, "referral:manage", "referrals", ADVANCED],
+    ],
+  },
+  {
+    id: "team",
+    label: "Manage the team",
+    links: [
+      ["/staff/self-service", "My availability", "Manage your availability and leave requests", "CalendarOff", false, "schedule:own:read", "", SIMPLE],
+      ["/team-availability", "Team availability", "Review working hours and time off", "UsersRound", false, "employee:read", "", SIMPLE],
+      ["/admin/employees", "Employees", "Manage staff, booking and visibility", "UsersRound", false, "employee:read", "", SIMPLE],
+      ["/staff/profile", "My public profile", "Manage photo, bio and specialties", "ContactRound", false, "profile:own:read", "", SIMPLE],
+      ["/staff-rota", "Staff rota", "Plan the team rota", "CalendarDays", false, "employee:read", "", SIMPLE],
+      ["/admin/staff-roles", "Staff roles", "Configure roles and delegated permissions", "UsersRound", false, "staff-role:read", "", ADVANCED],
+      ["/staff-performance", "Staff performance", "Analyse team performance", "BarChart3", false, "reports:read", "", ADVANCED],
+    ],
+  },
+  {
+    id: "catalogue-stock",
+    label: "Manage services, products and stock",
+    links: [
+      ["/manage/services", "Salon services", "Manage services and pricing", "Scissors", false, "service:read", "", SIMPLE],
+      ["/manage/products", "Products", "Manage the retail catalogue and publishing", "Package", false, "product:read", "", SIMPLE],
+      ["/manage/inventory", "Inventory", "Review stock levels and adjustments", "Package", false, "inventory:read", "", SIMPLE],
+      ["/manage/orders", "Order management", "Manage customer orders and fulfilment", "ClipboardList", false, "product:read", "", SIMPLE],
+      ["/suppliers", "Suppliers", "Manage supplier accounts and terms", "Building2", false, "inventory:read", "inventory-purchasing", SIMPLE],
+      ["/purchase-orders", "Purchase orders", "Approve and receive purchasing", "ClipboardList", false, "inventory:read", "inventory-purchasing", SIMPLE],
+      ["/reorder-recommendations", "Reorder recommendations", "Review low-stock needs", "PackagePlus", false, "inventory:read", "inventory-purchasing", ADVANCED],
+      ["/inventory-forecasting", "Inventory forecasting", "Forecast stock demand", "BarChart3", false, "inventory:read", "inventory-purchasing", ADVANCED],
+      ["/service-performance", "Service performance", "Analyse service results", "Scissors", false, "reports:read", "", ADVANCED],
+      ["/data-imports", "Data imports", "Import customer and product data", "Upload", false, "data-import:manage", "", ADVANCED],
+    ],
+  },
+  {
+    id: "communications-growth",
+    label: "Communicate and grow",
+    links: [
+      ["/communications", "Communications", "Review customer contact history", "Mail", false, "communications:read", "communications", SIMPLE],
+      ["/communication-templates", "Message templates", "Manage reusable message content", "MessageSquareText", false, "communications:read", "communications", SIMPLE],
+      ["/scheduled-communications", "Scheduled messages", "Review future message delivery", "CalendarClock", false, "communications:read", "communications", SIMPLE],
+      ["/communication-campaigns", "Campaign composer", "Create targeted campaigns", "Megaphone", false, "communications:read", "communications", ADVANCED],
+      ["/message-delivery", "Message delivery", "Monitor delivery and retry failures", "Send", false, "communications:read", "communications", ADVANCED],
+      ["/rebooking-campaigns", "Rebooking campaigns", "Run targeted rebooking activity", "Megaphone", false, "communications:read", "communications", ADVANCED],
+      ["/marketing-attribution", "Marketing attribution", "Analyse campaign and channel impact", "BarChart3", false, "ai:use", "ai-tools", ADVANCED],
+      ["/notification-centre", "Notification centre", "Review notification delivery status", "BellRing", false, "notification:manage", "notifications", ADVANCED],
+      ["/push-notifications", "Push notifications", "Manage browser delivery", "BellRing", false, "push:manage", "notifications", ADVANCED],
+      ["/email-campaigns", "Email campaigns", "Manage targeted email campaigns", "Mail", false, "email-campaign:manage", "communications", ADVANCED],
+      ["/sms-reminders", "SMS reminders", "Configure reminder rules", "MessageSquareText", false, "sms-reminder:manage", "communications", ADVANCED],
+      ["/whatsapp-booking", "WhatsApp booking", "Manage booking conversations", "MessageCircle", false, "whatsapp:manage", "whatsapp-booking", ADVANCED],
+      ["/retention-automation", "Retention automation", "Configure customer journeys", "Workflow", false, "retention-automation:manage", "retention-automation", ADVANCED],
+    ],
+  },
+  {
+    id: "performance",
+    label: "Review performance and plan",
+    links: [
+      ["/reports", "Reports", "Open the business reporting centre", "FileText", false, "reports:read", "", SIMPLE],
+      ["/revenue-forecast", "Revenue forecast", "Review the revenue outlook", "BadgePoundSterling", false, "reports:read", "", ADVANCED],
+      ["/feedback-analytics", "Feedback analytics", "Analyse customer feedback trends", "BarChart3", false, "ai:use", "ai-tools", ADVANCED],
+      ["/executive-command-centre", "Executive command centre", "Review a business-wide overview", "Gauge", false, "ai:use", "ai-tools", ADVANCED],
+      ["/data-export-audit", "Data export audit", "Review export activity and governance", "FileText", false, "reports:read", "", ADVANCED],
+      ["/premium-analytics", "Premium analytics", "Analyse premium feature performance", "BarChart3", false, "premium-analytics:read", "premium-analytics", ADVANCED],
+    ],
+  },
+  {
+    id: "ai-automation",
+    label: "Use AI and automation",
+    links: [
+      ["/ai/haircare", "Haircare AI", "Create haircare recommendations", "Sparkles", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/customer-summaries", "Customer AI summaries", "Summarise customer history", "FileText", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/customer-segmentation", "AI segmentation", "Analyse customer behaviour", "UsersRound", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/demand-forecasting", "Demand forecasting", "Forecast bookings and capacity", "BarChart3", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/marketing-insights", "Marketing insights", "Analyse campaign performance", "Megaphone", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/no-show-predictions", "No-show prediction", "Review booking risk", "CalendarClock", false, "ai:use", "ai-tools", ADVANCED],
+      ["/ai/sales-forecasting", "Sales forecasting", "Forecast the revenue outlook", "BadgePoundSterling", false, "ai:use", "ai-tools", ADVANCED],
+      ["/management-copilot", "Management copilot", "Review prioritised management actions", "Sparkles", false, "ai:use", "ai-tools", ADVANCED],
+    ],
+  },
+  {
+    id: "administration",
+    label: "Configure the business",
+    links: [
+      ["/admin", "Admin overview", "Open the administrator control centre", "Gauge", true, "dashboard:view", "", ADVANCED],
+      ["/admin/system", "On/Off Ideas", "Manage administrator feature controls", "ToggleLeft", false, "feature-control:read", "", ADVANCED],
+    ],
+  },
 ].map((section) => ({
   ...section,
   links: section.links.map(
@@ -71,34 +150,48 @@ const RAW_MANAGEMENT_SECTIONS = [
       adminOnly,
       permission,
       featureId,
+      presentation,
     ]) => ({
       to,
       label,
       description,
       icon,
-      adminOnly:
-        Boolean(adminOnly),
-      permission:
-        permission || "",
-      featureId:
-        featureId || "",
+      adminOnly: Boolean(adminOnly),
+      permission: permission || "",
+      featureId: featureId || "",
+      presentation:
+        presentation === ADVANCED
+          ? ADVANCED
+          : SIMPLE,
     })
   ),
 }));
 
-export const MANAGEMENT_SECTIONS =
-  RAW_MANAGEMENT_SECTIONS;
+export const MANAGEMENT_SECTIONS = RAW_MANAGEMENT_SECTIONS;
 
-export const MANAGEMENT_LINKS =
-  MANAGEMENT_SECTIONS.flatMap(
-    (section) =>
-      section.links
-  );
+export const MANAGEMENT_LINKS = MANAGEMENT_SECTIONS.flatMap(
+  (section) => section.links
+);
 
-export const MANAGEMENT_ROUTE_PATHS =
-  Object.freeze(
-    MANAGEMENT_LINKS.map(
-      (link) =>
-        link.to
-    )
+export const MANAGEMENT_ROUTE_PATHS = Object.freeze(
+  MANAGEMENT_LINKS.map((link) => link.to)
+);
+
+export function isAdvancedManagementLink(link) {
+  return link?.presentation === MANAGEMENT_PRESENTATION_MODES.ADVANCED;
+}
+
+export function isManagementLinkVisibleForPresentation(
+  link,
+  presentationMode,
+  hasSearchQuery = false
+) {
+  if (hasSearchQuery) {
+    return true;
+  }
+
+  return (
+    presentationMode === MANAGEMENT_PRESENTATION_MODES.ADVANCED ||
+    !isAdvancedManagementLink(link)
   );
+}
