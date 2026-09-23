@@ -3333,6 +3333,7 @@ export {
   resolveCampaignAudience,
   getExplicitConsentValue,
   isCustomerUnsubscribed,
+  resolveCustomerConsent,
 };
 
 export default processCampaignDelivery;

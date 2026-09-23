@@ -16,7 +16,14 @@ router.get(
 );
 
 router.post(
-  "/:token/unsubscribe/:channel?",
+  "/:token/unsubscribe",
+  asyncHandler(
+    unsubscribePublicMarketing
+  )
+);
+
+router.post(
+  "/:token/unsubscribe/:channel",
   asyncHandler(
     unsubscribePublicMarketing
   )
