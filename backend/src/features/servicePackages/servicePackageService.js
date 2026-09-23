@@ -753,11 +753,16 @@ export async function buildPurchasableServicePackageOrderItems(
   items = [],
   user = null
 ) {
-  customerProfileId(user);
-
+  /*
+   * This builder is part of the shared checkout pipeline and is invoked even
+   * when the cart contains no package lines. Do not require a linked customer
+   * profile for unrelated product/appointment checkouts.
+   */
   if (!Array.isArray(items) || items.length === 0) {
     return [];
   }
+
+  customerProfileId(user);
 
   if (
     !(await isFeatureEnabled(
