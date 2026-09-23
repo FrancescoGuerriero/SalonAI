@@ -18,6 +18,7 @@ import {
 
 import useAuth from "../hooks/useAuth.js";
 import useCart from "../hooks/useCart.js";
+import useFeatureControls from "../hooks/useFeatureControls.js";
 import servicePackageService from "../Services/servicePackageService.js";
 import { formatCurrency } from "../utils/currency.js";
 import "./ServicePackages.css";
@@ -135,6 +136,19 @@ export default function ServicePackagesPage() {
   const {
     addServicePackage,
   } = useCart();
+  const {
+    isFeatureEnabled,
+    loading:
+      featureControlsLoading,
+  } = useFeatureControls();
+
+  const packageSalesEnabled =
+    isFeatureEnabled(
+      "service-packages"
+    ) &&
+    isFeatureEnabled(
+      "online-shop"
+    );
 
   const [
     packages,
@@ -160,23 +174,31 @@ export default function ServicePackagesPage() {
       setLoading(true);
       setError("");
 
-      const requests = [
-        servicePackageService
-          .listCatalogue(),
-      ];
+      const catalogueRequest =
+        packageSalesEnabled
+          ? servicePackageService
+              .listCatalogue()
+          : Promise.resolve({
+              items: [],
+            });
 
-      if (
+      const entitlementRequest =
         isAuthenticated
-      ) {
-        requests.push(
-          servicePackageService
-            .listMine()
-        );
-      }
+          ? servicePackageService
+              .listMine()
+          : Promise.resolve({
+              items: [],
+            });
 
-      const results =
+      const [
+        catalogueResult,
+        entitlementResult,
+      ] =
         await Promise.allSettled(
-          requests
+          [
+            catalogueRequest,
+            entitlementRequest,
+          ]
         );
 
       if (!active) {
@@ -184,17 +206,17 @@ export default function ServicePackagesPage() {
       }
 
       if (
-        results[0]?.status ===
+        catalogueResult.status ===
         "fulfilled"
       ) {
         setPackages(
           listFrom(
-            results[0].value
+            catalogueResult.value
           )
         );
       } else {
         setError(
-          results[0]?.reason
+          catalogueResult.reason
             ?.response?.data
             ?.message ||
             "Service packages could not be loaded."
@@ -202,13 +224,12 @@ export default function ServicePackagesPage() {
       }
 
       if (
-        isAuthenticated &&
-        results[1]?.status ===
-          "fulfilled"
+        entitlementResult.status ===
+        "fulfilled"
       ) {
         setEntitlements(
           listFrom(
-            results[1].value
+            entitlementResult.value
           )
         );
       }
@@ -223,6 +244,7 @@ export default function ServicePackagesPage() {
     };
   }, [
     isAuthenticated,
+    packageSalesEnabled,
   ]);
 
   const activeEntitlements =
@@ -248,6 +270,12 @@ export default function ServicePackagesPage() {
   function addPackage(
     definition
   ) {
+    if (
+      !packageSalesEnabled
+    ) {
+      return;
+    }
+
     addServicePackage(
       definition
     );
@@ -467,7 +495,20 @@ export default function ServicePackagesPage() {
           </div>
         </div>
 
-        {loading ? (
+        {!featureControlsLoading &&
+        !packageSalesEnabled ? (
+          <div
+            className="package-empty"
+            role="status"
+          >
+            New service-package sales are
+            currently disabled. Existing
+            package credits above remain
+            available to signed-in
+            customers.
+          </div>
+        ) : loading ||
+          featureControlsLoading ? (
           <div className="package-empty">
             Loading packages…
           </div>
@@ -583,6 +624,9 @@ export default function ServicePackagesPage() {
                       <button
                         type="button"
                         className="app-button app-button-primary"
+                        disabled={
+                          !packageSalesEnabled
+                        }
                         onClick={() =>
                           addPackage(
                             definition
