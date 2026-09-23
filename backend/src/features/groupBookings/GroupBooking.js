@@ -4,11 +4,6 @@ const { Schema } = mongoose;
 
 const participantSchema = new Schema(
   {
-    customer: {
-      type: Schema.Types.ObjectId,
-      ref: "Customer",
-      required: true,
-    },
     appointment: {
       type: Schema.Types.ObjectId,
       ref: "Appointment",
@@ -86,7 +81,7 @@ groupBookingSchema.pre("validate", function preventDuplicateAppointments() {
 });
 
 groupBookingSchema.index({ organiser: 1, createdAt: -1 });
-groupBookingSchema.index({ "participants.appointment": 1 });
+groupBookingSchema.index({ "participants.appointment": 1 }, { unique: true });
 
 const GroupBooking =
   mongoose.models.GroupBooking ||
