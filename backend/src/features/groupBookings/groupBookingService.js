@@ -8,11 +8,60 @@ import {
   rescheduleAppointment,
 } from "../appointments/appointmentManagementService.js";
 import {
+  notifyAppointmentCancelled,
+  notifyAppointmentConfirmed,
+  notifyAppointmentRescheduled,
+  notifySafely,
+} from "../appointments/appointmentNotificationService.js";
+import {
   assertFound,
   createServiceError,
 } from "../../shared/serviceError.js";
 
 const MAX_GROUP_PARTICIPANTS = 25;
+
+async function notifyCreatedAppointment(appointmentId, actor) {
+  await notifySafely(
+    () =>
+      notifyAppointmentConfirmed(appointmentId, {
+        actorId: actorId(actor),
+      }),
+    {
+      event: "appointment.created",
+      appointmentId: String(appointmentId),
+      source: "group_booking",
+    }
+  );
+}
+
+async function notifyGroupStatusAppointment(appointment, status, actor) {
+  const appointmentId = appointment?._id || appointment?.id || appointment;
+  const options = { actorId: actorId(actor) };
+
+  if (status === "cancelled") {
+    return notifySafely(
+      () => notifyAppointmentCancelled(appointmentId, options),
+      {
+        event: "appointment.cancelled",
+        appointmentId: String(appointmentId),
+        source: "group_booking",
+      }
+    );
+  }
+
+  if (status === "confirmed") {
+    return notifySafely(
+      () => notifyAppointmentConfirmed(appointmentId, options),
+      {
+        event: "appointment.confirmed",
+        appointmentId: String(appointmentId),
+        source: "group_booking",
+      }
+    );
+  }
+
+  return null;
+}
 
 function text(value) {
   return String(value ?? "").trim();
@@ -129,6 +178,7 @@ export async function createGroupBooking(payload = {}, { actor = null } = {}) {
   const participants = participantPayloads(payload.participants);
   const session = await mongoose.startSession();
   let groupBookingId = null;
+  const createdAppointmentIds = [];
 
   try {
     await session.withTransaction(async () => {
@@ -169,6 +219,7 @@ export async function createGroupBooking(payload = {}, { actor = null } = {}) {
           appointment: appointment._id,
           label: text(participant.label),
         });
+        createdAppointmentIds.push(appointment._id);
       }
 
       const [groupBooking] = await GroupBooking.create(
@@ -191,6 +242,10 @@ export async function createGroupBooking(payload = {}, { actor = null } = {}) {
     await session.endSession();
   }
 
+  for (const appointmentId of createdAppointmentIds) {
+    await notifyCreatedAppointment(appointmentId, actor);
+  }
+
   return getGroupBooking(groupBookingId);
 }
 
@@ -203,6 +258,7 @@ export async function addGroupParticipant(
 
   const session = await mongoose.startSession();
   let savedId = groupBookingId;
+  let createdAppointmentId = null;
 
   try {
     await session.withTransaction(async () => {
@@ -247,12 +303,17 @@ export async function addGroupParticipant(
         appointment: appointment._id,
         label: text(payload.label),
       });
+      createdAppointmentId = appointment._id;
       group.updatedBy = actorId(actor);
       await group.save({ session });
       savedId = group._id;
     });
   } finally {
     await session.endSession();
+  }
+
+  if (createdAppointmentId) {
+    await notifyCreatedAppointment(createdAppointmentId, actor);
   }
 
   return getGroupBooking(savedId);
@@ -298,6 +359,18 @@ export async function rescheduleGroupParticipant(
     { actor }
   );
 
+  await notifySafely(
+    () =>
+      notifyAppointmentRescheduled(appointmentId, {
+        actorId: actorId(actor),
+      }),
+    {
+      event: "appointment.rescheduled",
+      appointmentId: String(appointmentId),
+      source: "group_booking",
+    }
+  );
+
   group.updatedBy = actorId(actor);
   await group.save();
 
@@ -335,6 +408,8 @@ export async function changeGroupParticipantStatus(
     },
     { actor }
   );
+
+  await notifyGroupStatusAppointment(appointment, status, actor);
 
   group.updatedBy = actorId(actor);
   await group.save();
@@ -378,6 +453,8 @@ export async function changeGroupStatus(
         },
         { actor }
       );
+
+      await notifyGroupStatusAppointment(appointment, status, actor);
 
       results.push({
         participantId: participant._id,
