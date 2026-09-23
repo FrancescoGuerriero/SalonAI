@@ -84,9 +84,14 @@ test("social authorization state is bound to the initiating browser transaction"
           "state"
         )
       );
+    assert.ok(
+      state.transactionId
+    );
+
     const cookie =
       socialAuthTransactionCookie(
-        "google"
+        "google",
+        state.transactionId
       );
 
     assert.equal(
@@ -140,6 +145,40 @@ test("social authorization state is bound to the initiating browser transaction"
         state,
         authorization.transaction
           .value
+      ),
+      true
+    );
+
+    const concurrentAuthorization =
+      createSocialAuthorization({
+        provider: "google",
+        returnTo: "/account",
+      });
+    const concurrentState =
+      readSocialState(
+        new URL(
+          concurrentAuthorization
+            .authorizationUrl
+        ).searchParams.get(
+          "state"
+        )
+      );
+
+    assert.notEqual(
+      concurrentState.transactionId,
+      state.transactionId
+    );
+    assert.notEqual(
+      concurrentAuthorization
+        .transaction.name,
+      authorization.transaction
+        .name
+    );
+    assert.equal(
+      verifySocialStateBrowserBinding(
+        concurrentState,
+        concurrentAuthorization
+          .transaction.value
       ),
       true
     );
