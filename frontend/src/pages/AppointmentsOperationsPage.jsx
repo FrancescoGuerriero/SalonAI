@@ -663,7 +663,7 @@ export default function AppointmentsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
                 Special booking workflows
               </p>
               <h2 className="mt-1 text-lg font-bold text-slate-900">
@@ -691,7 +691,7 @@ export default function AppointmentsPage() {
                   }
                   className={
                     specialWorkflow === "group"
-                      ? "min-h-11 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white"
+                      ? "min-h-11 rounded-xl bg-amber-400 px-4 text-sm font-bold text-slate-950 hover:bg-amber-300"
                       : "min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
                   }
                 >
@@ -709,7 +709,7 @@ export default function AppointmentsPage() {
                   }
                   className={
                     specialWorkflow === "trial"
-                      ? "min-h-11 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"
+                      ? "min-h-11 rounded-xl bg-amber-400 px-4 text-sm font-bold text-slate-950 hover:bg-amber-300"
                       : "min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
                   }
                 >

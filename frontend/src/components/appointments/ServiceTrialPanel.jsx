@@ -362,7 +362,7 @@ export default function ServiceTrialPanel({
     <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-violet-600">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-700">
             Stage 2 · Service trials
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-900">
@@ -397,9 +397,9 @@ export default function ServiceTrialPanel({
       ) : null}
 
       {canManage ? (
-        <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
           <div className="flex items-center gap-2">
-            <FlaskConical size={17} className="text-violet-700" />
+            <FlaskConical size={17} className="text-amber-700" />
             <h3 className="font-bold text-slate-900">
               {definitionForm.id ? "Edit trial definition" : "Create trial definition"}
             </h3>
@@ -540,7 +540,7 @@ export default function ServiceTrialPanel({
               type="button"
               disabled={busy === "definition"}
               onClick={() => void saveDefinition()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-amber-400 px-4 text-sm font-bold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
             >
               <BadgePoundSterling size={16} />
               {definitionForm.id ? "Save trial" : "Create trial"}
@@ -563,7 +563,7 @@ export default function ServiceTrialPanel({
                   type="button"
                   key={definition._id}
                   onClick={() => editDefinition(definition)}
-                  className="rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-violet-300"
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-amber-400"
                 >
                   <span className="text-sm font-bold text-slate-900">{definition.name}</span>
                   <span className="mt-1 block text-xs text-slate-600">
@@ -603,7 +603,7 @@ export default function ServiceTrialPanel({
             <button
               type="button"
               onClick={() => void searchCustomers()}
-              className="min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+              className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
             >
               Search
             </button>
@@ -775,7 +775,7 @@ export default function ServiceTrialPanel({
                         !conversionDrafts[booking._id]
                       }
                       onClick={() => void recordConversion(booking)}
-                      className="min-h-10 rounded-lg border border-emerald-300 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 disabled:opacity-50"
+                      className="min-h-11 rounded-lg border border-emerald-300 bg-emerald-50 px-4 text-sm font-bold text-emerald-700 disabled:opacity-50"
                     >
                       Record conversion
                     </button>
