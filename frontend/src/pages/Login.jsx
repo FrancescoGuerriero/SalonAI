@@ -222,6 +222,8 @@ export default function Login() {
         "This identity matches a SalonAI staff account. Sign in to the staff account first before linking an external identity.",
       SOCIAL_EMAIL_REQUIRED:
         "SalonAI needs the provider to share an email address. Allow email access or use email registration.",
+      SOCIAL_AUTH_BROWSER_BINDING_FAILED:
+        "This connected-account sign-in request expired, was already used, or was opened in a different browser session. Start the sign-in again from SalonAI.",
     };
 
     setError(
