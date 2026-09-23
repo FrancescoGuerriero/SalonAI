@@ -551,10 +551,22 @@ export async function listServicePackages(
 }
 
 export async function listPublishedServicePackages() {
-  return listServicePackages({
+  return ServicePackage.find({
     active: true,
     published: true,
-  });
+  })
+    .select(
+      "code name description includedServices price validityDays"
+    )
+    .populate(
+      "includedServices.service",
+      "name category price duration"
+    )
+    .sort({
+      name: 1,
+      _id: 1,
+    })
+    .lean();
 }
 
 function customerProfileId(user) {
@@ -583,9 +595,31 @@ export async function listMyServicePackages(
   user,
   query = {}
 ) {
-  return listCustomerPackages(
-    customerProfileId(user),
-    query
+  const items =
+    await listCustomerPackages(
+      customerProfileId(user),
+      query
+    );
+
+  return items.map(
+    (item) => ({
+      _id: item._id,
+      servicePackage:
+        item.servicePackage,
+      credits: item.credits,
+      validFrom:
+        item.validFrom,
+      expiresAt:
+        item.expiresAt,
+      status: item.status,
+      source: item.source,
+      grantedPrice:
+        item.grantedPrice,
+      createdAt:
+        item.createdAt,
+      updatedAt:
+        item.updatedAt,
+    })
   );
 }
 
