@@ -40,6 +40,8 @@ const SearchLandingPage = lazy(
 const StaffProfileEditorPage = lazy(() => import("./pages/StaffProfileEditorPage.jsx"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.jsx"));
 const CustomerSettingsPage = lazy(() => import("./pages/CustomerSettingsPage.jsx"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage.jsx"));
+const MarketingPreferencesPage = lazy(() => import("./pages/MarketingPreferencesPage.jsx"));
 const CustomerExperienceSuitePage = lazy(() => import("./pages/CustomerExperienceSuitePage.jsx"));
 const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperienceFeaturePage.jsx"));
 const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
@@ -677,6 +679,21 @@ function AppRoutes() {
         <Route
           path="help"
           element={<HelpCentrePage />}
+        />
+
+        <Route
+          path="privacy"
+          element={<PrivacyPolicyPage />}
+        />
+
+        <Route
+          path="communication-preferences"
+          element={<MarketingPreferencesPage />}
+        />
+
+        <Route
+          path="communication-preferences/:token"
+          element={<MarketingPreferencesPage />}
         />
 
         <Route

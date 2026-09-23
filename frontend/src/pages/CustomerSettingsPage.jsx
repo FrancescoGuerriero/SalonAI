@@ -33,12 +33,16 @@ const defaultDisplayPreferences = {
 const defaultCommunicationPreferences = {
   preferredChannel: "email",
   appointmentReminders: true,
-  promotionalMessages: true,
+  promotionalMessages: false,
+  emailMarketing: false,
+  smsMarketing: false,
+  whatsappMarketing: false,
   serviceUpdates: true,
-  birthdayMessages: true,
-  feedbackRequests: true,
+  birthdayMessages: false,
+  feedbackRequests: false,
   emailUnsubscribed: false,
   smsUnsubscribed: false,
+  whatsappUnsubscribed: false,
   unsubscribed: false,
 };
 
@@ -305,13 +309,38 @@ export default function CustomerSettingsPage() {
             }
           />
 
+          <div className="settings-compliance-note">
+            Marketing is optional and separate from booking, payment and service
+            communications. Each marketing channel requires its own opt-in.
+          </div>
+
           <PreferenceToggle
-            id="promotionalMessages"
-            label="Offers and promotional messages"
-            description="Receive optional marketing and promotional communications."
-            checked={communicationPreferences.promotionalMessages}
+            id="emailMarketing"
+            label="Marketing by email"
+            description="Receive optional offers, news and promotions by email."
+            checked={communicationPreferences.emailMarketing}
             onChange={(value) =>
-              updateCommunicationPreference("promotionalMessages", value)
+              updateCommunicationPreference("emailMarketing", value)
+            }
+          />
+
+          <PreferenceToggle
+            id="smsMarketing"
+            label="Marketing by SMS"
+            description="Receive optional offers and promotions by SMS."
+            checked={communicationPreferences.smsMarketing}
+            onChange={(value) =>
+              updateCommunicationPreference("smsMarketing", value)
+            }
+          />
+
+          <PreferenceToggle
+            id="whatsappMarketing"
+            label="Marketing by WhatsApp"
+            description="Receive optional offers and promotions by WhatsApp."
+            checked={communicationPreferences.whatsappMarketing}
+            onChange={(value) =>
+              updateCommunicationPreference("whatsappMarketing", value)
             }
           />
 

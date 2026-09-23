@@ -73,8 +73,8 @@ const supportLinks = [
     icon: HelpCircle,
   },
   {
-    to: "/experience/privacy",
-    label: "Privacy choices",
+    to: "/privacy",
+    label: "Privacy notice",
     icon: ShieldCheck,
   },
 ];
