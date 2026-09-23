@@ -72,10 +72,12 @@ router.use(
 );
 router.use(
   "/group-bookings",
+  requireFeature("group-bookings"),
   groupBookingRoutes
 );
 router.use(
   "/service-trials",
+  requireFeature("service-trials"),
   serviceTrialRoutes
 );
 
