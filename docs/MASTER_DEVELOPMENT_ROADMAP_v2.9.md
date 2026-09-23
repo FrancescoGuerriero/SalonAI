@@ -57,6 +57,9 @@ Every stage follows:
 4. **INTEGRATE** — DEV1 resolves conflicts and checks current CI/security/tests.
 5. **RELEASE** — DEV1 controls immutable release, deployment and production verification.
 6. **REVIEW** — fold findings into roadmap/issues and re-check duplicate functions and UX complexity.
+7. **CLOSE** — a feature/stage is complete only after its production release is live, the deployed version is verified, relevant production smoke/P0 checks pass, rollback evidence exists, and DEV2/DEV3 monitoring findings are either closed or explicitly owned.
+
+**Sequential delivery rule:** do not begin implementation of the next roadmap feature/stage while the current feature/stage still has an open production, security, HCI/accessibility, staff/RBAC or rollback acceptance item. DEV2 monitors user-facing HCI/accessibility/error quality; DEV3 monitors staff/dashboard/RBAC impacts; DEV1 integrates and releases rather than absorbing those ownership lanes.
 
 ## 3. Permanent architectural rules
 
@@ -265,7 +268,12 @@ Before closing a stage:
 - record HCI evidence proportionate to user-facing change;
 - document migrations, rollback/fallback and production acceptance where relevant;
 - ensure no feature silently bypasses RBAC, consent, audit, tenant or provider boundaries;
-- update issue/roadmap status so completed work is not rediscovered and rebuilt later.
+- obtain DEV2 and DEV3 monitoring/review evidence when their ownership areas are affected;
+- publish an immutable release and deploy it through the protected production workflow;
+- verify the deployed runtime version and run the applicable production P0/smoke checks;
+- retain rollback/deployment evidence;
+- update issue/roadmap status so completed work is not rediscovered and rebuilt later;
+- do not start the next feature/stage until all applicable checks above are complete.
 
 ## 10. Current reconciliation at v2.9 activation
 
@@ -283,7 +291,7 @@ Open work is preserved by authority rather than copied into new issues:
 
 ## 11. Definition of roadmap compliance
 
-A feature is not complete merely because code exists. Completion requires the relevant combination of:
+A feature is not complete merely because code exists or has been merged. Completion requires the relevant combination of:
 
 - canonical architecture and no competing source of truth;
 - tests and security gates;
