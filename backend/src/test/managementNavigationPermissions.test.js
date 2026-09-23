@@ -111,7 +111,7 @@ test("only Super Admin bypasses menu permission hiding while Admin and other sta
   );
   assert.match(
     navigation,
-    /fullDashboard \|\| hasPermission/
+    /fullDashboard\s*\|\|\s*hasPermission/
   );
 
   const fullDashboardBlock =
@@ -156,7 +156,7 @@ test("Admin navigation visibility follows effective permissions instead of role-
 
   assert.match(
     navigation,
-    /fullDashboard \|\| hasPermission\(user, link\.permission\)/
+    /fullDashboard\s*\|\|\s*hasPermission\(user,\s*link\.permission\)/
   );
 
   const fullDashboardBlock =
@@ -590,7 +590,7 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
 
   assert.match(
     navigation,
-    /\["\/admin",[^\n]*true,\s*"dashboard:view"\]/
+    /\["\/admin",[^\n]*true,\s*"dashboard:view"[^\n]*ADVANCED\]/
   );
 });
 
@@ -619,7 +619,7 @@ test("team availability is canonical while legacy staff-management URL redirects
 
   assert.match(
     navigation,
-    /\["\/team-availability",\s*"Team availability",\s*"Working hours and time off"/
+    /\["\/team-availability",\s*"Team availability",[^\n]*"employee:read"/
   );
   assert.doesNotMatch(
     navigation,
