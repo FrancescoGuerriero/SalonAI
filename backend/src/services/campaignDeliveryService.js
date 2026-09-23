@@ -11,6 +11,7 @@ import {
   deliverAndRecordMessage,
 } from "./messageDeliveryRecordService.js";
 import {
+  buildMarketingOneClickUnsubscribeUrl,
   buildMarketingPreferenceUrl,
 } from "./marketingPreferenceTokenService.js";
 
@@ -625,6 +626,19 @@ function getCustomerTemplateValues(
           ?.unsubscribeUrl
       ),
 
+    oneClickUnsubscribeUrl:
+      isMarketingEmailCampaign(
+        campaign
+      ) &&
+      getCustomerEmail(
+        customer
+      )
+        ? buildMarketingOneClickUnsubscribeUrl(
+            customer,
+            "email"
+          )
+        : "",
+
     customerId:
       String(
         getDocumentId(
@@ -759,13 +773,21 @@ function getExplicitConsentValue(
     sendGridSuppressionGroupId = null,
   } = {}
 ) {
-  const marketingEmail =
-    channel ===
-      "email" &&
+  const normalisedCampaignType =
     normaliseLowercase(
       campaignType
-    ) !==
+    );
+
+  const directMarketing =
+    ["email", "sms", "whatsapp"].includes(
+      channel
+    ) &&
+    normalisedCampaignType !==
       "appointment_reminder";
+
+  const marketingEmail =
+    channel === "email" &&
+    directMarketing;
 
   const suppressionGroupId =
     Number(
@@ -797,105 +819,6 @@ function getExplicitConsentValue(
           )
       : [];
 
-  /*
-   * Direct marketing requires the new explicit per-channel preference.
-   * Legacy consent-shaped fields are never sufficient to grandfather a
-   * customer into marketing.
-   */
-  if (marketingEmail) {
-    const explicitEmailOptIn =
-      getValueByPath(
-        customer,
-        "communicationPreferences.emailMarketing"
-      );
-
-    if (explicitEmailOptIn !== true) {
-      return {
-        found: true,
-        granted: false,
-        source:
-          "communicationPreferences.emailMarketing",
-      };
-    }
-
-    if (
-      getValueByPath(
-        customer,
-        "marketing.emailConsent"
-      ) !== true
-    ) {
-      return {
-        found: true,
-        granted: false,
-        source:
-          "marketing.emailConsent",
-      };
-    }
-  }
-
-  if (
-    channel === "sms" &&
-    normaliseLowercase(
-      campaignType
-    ) !==
-      "appointment_reminder"
-  ) {
-    const explicitSmsOptIn =
-      getValueByPath(
-        customer,
-        "communicationPreferences.smsMarketing"
-      );
-
-    if (
-      explicitSmsOptIn !== true ||
-      getValueByPath(
-        customer,
-        "marketing.smsConsent"
-      ) !== true
-    ) {
-      return {
-        found: true,
-        granted: false,
-        source:
-          explicitSmsOptIn !== true
-            ? "communicationPreferences.smsMarketing"
-            : "marketing.smsConsent",
-      };
-    }
-  }
-
-  const channelPaths =
-    channel === "email"
-      ? [
-          "communicationPreferences.email",
-          "communicationPreferences.emailMarketing",
-          "preferences.email",
-          "preferences.emailMarketing",
-          "marketingConsent.email",
-          "consent.email",
-          "emailConsent",
-          "emailMarketingConsent",
-          "allowEmail",
-          "subscribedToEmail",
-          ...(marketingEmail
-            ? [
-                "marketing.emailConsent",
-              ]
-            : []),
-        ]
-      : [
-          "communicationPreferences.sms",
-          "communicationPreferences.smsMarketing",
-          "preferences.sms",
-          "preferences.smsMarketing",
-          "marketingConsent.sms",
-          "consent.sms",
-          "smsConsent",
-          "smsMarketingConsent",
-          "allowSms",
-          "subscribedToSms",
-        ];
-
   if (
     marketingEmail &&
     getValueByPath(
@@ -926,35 +849,77 @@ function getExplicitConsentValue(
     };
   }
 
-  if (
-    marketingEmail &&
-    getValueByPath(
-      customer,
-      "communicationPreferences.promotionalMessages"
-    ) === false
-  ) {
+  if (directMarketing) {
+    const preferencePath =
+      channel === "email"
+        ? "communicationPreferences.emailMarketing"
+        : channel === "sms"
+          ? "communicationPreferences.smsMarketing"
+          : "communicationPreferences.whatsappMarketing";
+
+    const consentPath =
+      channel === "email"
+        ? "marketing.emailConsent"
+        : channel === "sms"
+          ? "marketing.smsConsent"
+          : "marketing.whatsappConsent";
+
+    if (
+      getValueByPath(
+        customer,
+        preferencePath
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          preferencePath,
+      };
+    }
+
+    if (
+      getValueByPath(
+        customer,
+        consentPath
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          consentPath,
+      };
+    }
+
     return {
       found: true,
-      granted: false,
+      granted: true,
       source:
-        "communicationPreferences.promotionalMessages",
+        preferencePath,
     };
   }
 
-  if (
-    marketingEmail &&
-    getValueByPath(
-      customer,
-      "marketing.emailConsent"
-    ) === false
-  ) {
-    return {
-      found: true,
-      granted: false,
-      source:
-        "marketing.emailConsent",
-    };
-  }
+  const channelPaths =
+    channel === "email"
+      ? [
+          "communicationPreferences.email",
+          "preferences.email",
+          "marketingConsent.email",
+          "consent.email",
+          "emailConsent",
+          "allowEmail",
+          "subscribedToEmail",
+        ]
+      : [
+          "communicationPreferences.sms",
+          "preferences.sms",
+          "marketingConsent.sms",
+          "consent.sms",
+          "smsConsent",
+          "allowSms",
+          "subscribedToSms",
+        ];
 
   for (const path of channelPaths) {
     const value =
@@ -2025,6 +1990,11 @@ function createDeliveryRequest({
       unsubscribeUrl:
         content.values
           ?.unsubscribeUrl ||
+        "",
+
+      oneClickUnsubscribeUrl:
+        content.values
+          ?.oneClickUnsubscribeUrl ||
         "",
     },
   };
