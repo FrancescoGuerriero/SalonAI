@@ -48,6 +48,32 @@ function appointmentDeposit(appointment, percentage = 25) {
 function normaliseStoredItem(item) {
   if (!item || typeof item !== "object") return null;
 
+  if (
+    item.type === "service_package" ||
+    item.servicePackageId
+  ) {
+    const servicePackageId =
+      String(
+        item.servicePackageId ||
+          ""
+      ).trim();
+
+    if (!servicePackageId) {
+      return null;
+    }
+
+    return {
+      ...item,
+      type: "service_package",
+      cartKey:
+        item.cartKey ||
+        `service-package:${servicePackageId}`,
+      servicePackageId,
+      quantity: 1,
+      stockQuantity: 1,
+    };
+  }
+
   if (item.type === "appointment" || item.appointmentId) {
     const appointmentId = String(item.appointmentId || "").trim();
     if (!appointmentId) return null;
@@ -183,6 +209,72 @@ export function CartProvider({ children }) {
     });
   }, [appointmentDepositPercentage]);
 
+  const addServicePackage =
+    useCallback(
+      (definition) => {
+        setItems(
+          (current) => {
+            const servicePackageId =
+              String(
+                definition?._id ||
+                  definition?.id ||
+                  ""
+              ).trim();
+
+            if (!servicePackageId) {
+              return current;
+            }
+
+            const withoutExisting =
+              current.filter(
+                (item) =>
+                  !(
+                    item.type ===
+                      "service_package" &&
+                    item.servicePackageId ===
+                      servicePackageId
+                  )
+              );
+
+            return [
+              ...withoutExisting,
+              {
+                type:
+                  "service_package",
+                cartKey:
+                  `service-package:${servicePackageId}`,
+                servicePackageId,
+                name:
+                  definition?.name ||
+                  "Service package",
+                sku:
+                  `PACKAGE-${String(
+                    definition?.code ||
+                      servicePackageId.slice(
+                        -8
+                      )
+                  ).toUpperCase()}`,
+                price: Number(
+                  definition?.price ||
+                    0
+                ),
+                image: "",
+                stockQuantity: 1,
+                quantity: 1,
+                validityDays:
+                  Number(
+                    definition
+                      ?.validityDays ||
+                      0
+                  ),
+              },
+            ];
+          }
+        );
+      },
+      []
+    );
+
   const updateQuantity = useCallback((identifier, quantity) => {
     setItems((current) =>
       current
@@ -201,7 +293,12 @@ export function CartProvider({ children }) {
             ),
           };
         })
-        .filter((item) => item.type === "appointment" || item.quantity > 0)
+        .filter(
+          (item) =>
+            item.type === "appointment" ||
+            item.type === "service_package" ||
+            item.quantity > 0
+        )
     );
   }, []);
 
@@ -211,7 +308,8 @@ export function CartProvider({ children }) {
         (item) =>
           item.cartKey !== identifier &&
           item.productId !== identifier &&
-          item.appointmentId !== identifier
+          item.appointmentId !== identifier &&
+          item.servicePackageId !== identifier
       )
     );
   }, []);
@@ -220,7 +318,14 @@ export function CartProvider({ children }) {
 
   const value = useMemo(() => {
     const itemCount = items.reduce(
-      (sum, item) => sum + (item.type === "appointment" ? 1 : item.quantity),
+      (sum, item) =>
+        sum +
+        ([
+          "appointment",
+          "service_package",
+        ].includes(item.type)
+          ? 1
+          : item.quantity),
       0
     );
     const subtotal = items.reduce(
@@ -229,20 +334,33 @@ export function CartProvider({ children }) {
     );
     const productItems = items.filter((item) => item.type === "product");
     const appointmentItems = items.filter((item) => item.type === "appointment");
+    const servicePackageItems = items.filter(
+      (item) => item.type === "service_package"
+    );
 
     return {
       items,
       productItems,
       appointmentItems,
+      servicePackageItems,
       itemCount,
       subtotal,
       addItem,
       addAppointment,
+      addServicePackage,
       updateQuantity,
       removeItem,
       clearCart,
     };
-  }, [items, addItem, addAppointment, updateQuantity, removeItem, clearCart]);
+  }, [
+    items,
+    addItem,
+    addAppointment,
+    addServicePackage,
+    updateQuantity,
+    removeItem,
+    clearCart,
+  ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
