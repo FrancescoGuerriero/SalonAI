@@ -102,21 +102,6 @@ async function syncTrackingConsentReceipt(
   }
 }
 
-function trackingReceiptId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto
-      .randomUUID()
-      .replaceAll("-", "");
-  }
-
-  return `consent${Date.now()}${Math.random()
-    .toString(36)
-    .slice(2, 14)}`;
-}
-
 function clearCookie(name) {
   if (
     typeof document === "undefined"
@@ -160,51 +145,6 @@ function clearCookiesMatching(
       pattern.test(name)
     )
     .forEach(clearCookie);
-}
-
-function recordConsentReceipt(record) {
-  if (
-    typeof fetch !== "function"
-  ) {
-    return;
-  }
-
-  const apiBase =
-    text(
-      import.meta.env
-        .VITE_API_URL
-    ) ||
-    "/api";
-
-  const url =
-    `${apiBase.replace(/\/$/, "")}/legal/tracking-consent`;
-
-  void fetch(
-    url,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-      credentials:
-        "same-origin",
-      body: JSON.stringify({
-        receiptId:
-          record.receiptId,
-        version:
-          record.version,
-        choices:
-          record.choices,
-        source:
-          record.source,
-        updatedAt:
-          record.updatedAt,
-      }),
-    }
-  ).catch(() => {
-    // Local consent remains effective if audit-receipt recording is unavailable.
-  });
 }
 
 function positiveInteger(
@@ -460,7 +400,7 @@ export function writeTrackingConsent(
   const record = {
     receiptId:
       prior?.receiptId ||
-      trackingReceiptId(),
+      createReceiptId(),
     version:
       TRACKING_CONSENT_VERSION,
     necessary: true,
@@ -516,9 +456,6 @@ export function writeTrackingConsent(
     );
   }
 
-  recordConsentReceipt(
-    record
-  );
 
   window.dispatchEvent(
     new CustomEvent(
