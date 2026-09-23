@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CalendarDays, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { CalendarDays, Minus, PackagePlus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 
 import CheckoutProgress from "../components/commerce/CheckoutProgress.jsx";
 import CommerceTrustBar from "../components/commerce/CommerceTrustBar.jsx";
@@ -35,9 +35,10 @@ export default function Cart() {
       <main className="page page-center">
         <ShoppingCart size={58} aria-hidden="true" />
         <h1>Your cart is empty</h1>
-        <p>Add an appointment payment or professional haircare products before checkout.</p>
+        <p>Add an appointment payment, service package or professional haircare product before checkout.</p>
         <div className="button-row">
           <Link className="commerce-link-button" to="/account">View appointments</Link>
+          <Link className="commerce-link-button" to="/packages">Browse packages</Link>
           <Link className="commerce-link-button" to="/shop">Browse products</Link>
         </div>
       </main>
@@ -50,7 +51,7 @@ export default function Cart() {
         <div>
           <span className="commerce-eyebrow">Your selection</span>
           <h1>Shopping cart</h1>
-          <p>Combine salon appointment payments and retail products in one secure checkout.</p>
+          <p>Combine salon appointment payments, prepaid service packages and retail products in one secure checkout.</p>
         </div>
       </div>
 
@@ -64,13 +65,22 @@ export default function Cart() {
       <div className="commerce-two-column">
         <section className="commerce-cart-list">
           {items.map((item) => {
-            const key = item.cartKey || item.productId || item.appointmentId;
-            const isAppointment = item.type === "appointment";
+            const key =
+              item.cartKey ||
+              item.productId ||
+              item.appointmentId ||
+              item.servicePackageId;
+            const isAppointment =
+              item.type === "appointment";
+            const isPackage =
+              item.type === "service_package";
 
             return (
               <article className="commerce-cart-item" key={key}>
                 {isAppointment ? (
                   <div className="commerce-cart-placeholder"><CalendarDays /></div>
+                ) : isPackage ? (
+                  <div className="commerce-cart-placeholder"><PackagePlus /></div>
                 ) : item.image ? (
                   <img src={item.image} alt="" />
                 ) : (
@@ -79,14 +89,18 @@ export default function Cart() {
 
                 <div className="commerce-cart-details">
                   <span className="commerce-eyebrow">
-                    {isAppointment ? "Salon appointment" : "Haircare product"}
+                    {isAppointment
+                      ? "Salon appointment"
+                      : isPackage
+                        ? "Service package"
+                        : "Haircare product"}
                   </span>
                   <h2>{item.name}</h2>
                   <p>{item.sku}</p>
                   <strong>{formatCurrency(item.price)}</strong>
                 </div>
 
-                {isAppointment ? (
+                {isAppointment || isPackage ? (
                   <div className="commerce-quantity" aria-label={`Quantity for ${item.name}`}>
                     <span>1</span>
                   </div>
@@ -131,10 +145,11 @@ export default function Cart() {
           <div><span>Subtotal</span><strong>{formatCurrency(subtotal)}</strong></div>
           <div><span>Collection</span><strong>Free</strong></div>
           <div className="commerce-summary-total"><span>Total</span><strong>{formatCurrency(subtotal)}</strong></div>
-          <p>Appointment balances, current product prices and stock are verified again by SalonAI at checkout.</p>
+          <p>Appointment balances, package definitions, product prices and stock are verified again by SalonAI at checkout.</p>
           <Link className="commerce-link-button" to={isAuthenticated ? "/checkout" : "/login"}>
             {isAuthenticated ? "Continue to checkout" : "Sign in to checkout"}
           </Link>
+          <Link className="commerce-text-link" to="/packages">Browse service packages</Link>
           <Link className="commerce-text-link" to="/shop">Continue shopping</Link>
           <Link className="commerce-text-link" to="/account">View appointments</Link>
         </aside>
