@@ -130,3 +130,19 @@
     transition: none !important;
   }
 }
+
+
+/*
+ * Stage 1C WCAG 1.4.3 correction.
+ * The legacy shell colours measured 4.22:1 for task headings and 3.85:1
+ * for compact descriptions against the sidebar surface. These scoped
+ * overrides preserve the visual hierarchy while clearing normal-text
+ * contrast requirements.
+ */
+.management-section-toggle {
+  color: #5f574c;
+}
+
+.management-link-copy small {
+  color: var(--color-text-muted);
+}
