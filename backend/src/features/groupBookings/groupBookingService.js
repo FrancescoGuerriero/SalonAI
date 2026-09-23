@@ -290,7 +290,6 @@ export async function addGroupParticipant(
       );
 
       group.participants.push({
-        customer,
         appointment: appointment._id,
         label: text(payload.label),
       });
