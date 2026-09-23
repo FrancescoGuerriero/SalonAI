@@ -1,0 +1,132 @@
+.management-presentation {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0.65rem 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-small);
+}
+
+.management-presentation-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.management-presentation-heading strong {
+  color: var(--color-text);
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.management-presentation-heading span,
+.management-presentation-status,
+.management-search-hint {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.management-presentation-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--palette-grey-100);
+}
+
+.management-presentation-button {
+  min-width: 0;
+  min-height: 2.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  padding: 0.45rem 0.55rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.management-presentation-button:hover {
+  color: var(--color-text);
+  background: var(--palette-white);
+}
+
+.management-presentation-button[aria-pressed="true"] {
+  border-color: var(--palette-sand-300);
+  color: var(--palette-black);
+  background: var(--palette-white);
+  box-shadow: var(--shadow-small);
+}
+
+.management-presentation-button:focus-visible,
+.management-section-toggle:focus-visible,
+.management-section-more:focus-visible,
+.management-link:focus-visible,
+.management-search input:focus-visible {
+  outline: 2px solid var(--palette-gold-dark);
+  outline-offset: 2px;
+}
+
+.management-presentation-status {
+  min-height: 0.95rem;
+}
+
+.management-search-hint {
+  margin: -0.35rem 0.8rem 0.65rem;
+}
+
+.management-link-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.management-link-title-row strong {
+  min-width: 0;
+}
+
+.management-advanced-badge {
+  flex: 0 0 auto;
+  border: 1px solid var(--palette-sand-300);
+  border-radius: 999px;
+  padding: 0.08rem 0.32rem;
+  color: var(--palette-grey-700);
+  background: var(--palette-sand-100);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.management-link-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 720px) {
+  .management-presentation {
+    margin-inline: 0.5rem;
+  }
+
+  .management-presentation-button {
+    min-height: 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .management-presentation-button,
+  .management-section-toggle,
+  .management-section-more,
+  .management-link {
+    transition: none !important;
+  }
+}
