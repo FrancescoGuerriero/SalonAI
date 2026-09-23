@@ -1,4 +1,5 @@
 import {
+  readTrackingConsent,
   trackingProviderConfig,
 } from "./trackingConsent.js";
 
@@ -189,7 +190,7 @@ function loadGoogle(
           analyticsId,
           {
             send_page_view:
-              true,
+              false,
           }
         );
       }
@@ -450,6 +451,72 @@ function loadMicrosoftUet(
   );
 }
 
+export function trackVirtualPageView(
+  pathname
+) {
+  const consent =
+    readTrackingConsent();
+
+  if (!consent) {
+    return;
+  }
+
+  const path =
+    String(pathname || "/");
+
+  if (
+    consent.choices
+      ?.analytics === true &&
+    trackingProviderConfig
+      .googleAnalyticsMeasurementId
+  ) {
+    const gtag =
+      ensureGoogleQueue();
+
+    gtag?.(
+      "event",
+      "page_view",
+      {
+        page_path:
+          path,
+        page_location:
+          typeof window !==
+          "undefined"
+            ? window.location.href
+            : "",
+      }
+    );
+  }
+
+  if (
+    consent.choices
+      ?.advertising === true &&
+    trackingProviderConfig
+      .metaPixelId &&
+    typeof window?.fbq ===
+      "function"
+  ) {
+    window.fbq(
+      "track",
+      "PageView"
+    );
+  }
+
+  if (
+    consent.choices
+      ?.experience === true &&
+    trackingProviderConfig
+      .hotjarSiteId &&
+    typeof window?.hj ===
+      "function"
+  ) {
+    window.hj(
+      "stateChange",
+      path
+    );
+  }
+}
+
 export function initialiseTrackingConsentBoundary() {
   setGoogleConsentDefaults();
   setMicrosoftConsentDefaults();
@@ -496,4 +563,5 @@ export default {
   initialiseTrackingConsentBoundary,
   setGoogleConsentDefaults,
   setMicrosoftConsentDefaults,
+  trackVirtualPageView,
 };
