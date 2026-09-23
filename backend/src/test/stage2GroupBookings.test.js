@@ -47,6 +47,7 @@ test("group participant changes reuse canonical reschedule and status workflows"
   assert.match(service, /changeGroupParticipantStatus[\s\S]*?changeAppointmentStatus\(/);
   assert.match(service, /changeGroupStatus[\s\S]*?for \(const participant of group\.participants\)/);
   assert.match(service, /partial-safe/);
+  assert.ok((service.match(/\["cancelled", "no_show"\]\.includes\(status\)/g) || []).length >= 2);
 });
 
 test("group booking routes reuse appointment permissions and do not invent group permission vocabulary", async () => {
