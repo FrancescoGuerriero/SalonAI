@@ -229,6 +229,81 @@ async function normaliseIncludedServices(
   return normalised;
 }
 
+function includedServiceIds(
+  items = []
+) {
+  return [
+    ...new Set(
+      items
+        .map((item) =>
+          String(
+            item?.service?._id ||
+              item?.service ||
+              ""
+          ).trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+}
+
+async function purchasableServiceIdSet(
+  items = []
+) {
+  const serviceIds =
+    includedServiceIds(items);
+
+  if (
+    serviceIds.length === 0
+  ) {
+    return new Set();
+  }
+
+  const services =
+    await Service.find({
+      _id: {
+        $in: serviceIds,
+      },
+      active: true,
+      bookable: true,
+    })
+      .select("_id")
+      .lean();
+
+  return new Set(
+    services.map(
+      (service) =>
+        String(service._id)
+    )
+  );
+}
+
+async function assertPurchasableIncludedServices(
+  items = []
+) {
+  const serviceIds =
+    includedServiceIds(items);
+  const eligible =
+    await purchasableServiceIdSet(
+      items
+    );
+
+  if (
+    serviceIds.length === 0 ||
+    eligible.size !==
+      serviceIds.length
+  ) {
+    throw createServiceError(
+      "Every published or purchased package service must be active and globally bookable.",
+      409,
+      {
+        field:
+          "includedServices",
+      }
+    );
+  }
+}
+
 async function populateDefinition(
   definitionId
 ) {
@@ -344,6 +419,18 @@ export async function createServicePackage(
       payload.includedServices
     );
 
+  const published =
+    booleanValue(
+      payload.published,
+      false
+    );
+
+  if (published) {
+    await assertPurchasableIncludedServices(
+      includedServices
+    );
+  }
+
   const definition =
     await ServicePackage.create({
       code,
@@ -368,11 +455,7 @@ export async function createServicePackage(
           payload.active,
           true
         ),
-      published:
-        booleanValue(
-          payload.published,
-          false
-        ),
+      published,
       createdBy:
         actorId(actor),
       updatedBy:
@@ -502,6 +585,12 @@ export async function updateServicePackage(
       );
   }
 
+  if (definition.published) {
+    await assertPurchasableIncludedServices(
+      definition.includedServices
+    );
+  }
+
   definition.updatedBy =
     actorId(actor);
 
@@ -551,22 +640,54 @@ export async function listServicePackages(
 }
 
 export async function listPublishedServicePackages() {
-  return ServicePackage.find({
-    active: true,
-    published: true,
-  })
-    .select(
-      "code name description includedServices price validityDays"
-    )
-    .populate(
-      "includedServices.service",
-      "name category price duration"
-    )
-    .sort({
-      name: 1,
-      _id: 1,
+  const definitions =
+    await ServicePackage.find({
+      active: true,
+      published: true,
     })
-    .lean();
+      .select(
+        "code name description includedServices price validityDays"
+      )
+      .populate(
+        "includedServices.service",
+        "name category price duration"
+      )
+      .sort({
+        name: 1,
+        _id: 1,
+      })
+      .lean();
+
+  const allCredits =
+    definitions.flatMap(
+      (definition) =>
+        definition.includedServices ||
+        []
+    );
+  const eligible =
+    await purchasableServiceIdSet(
+      allCredits
+    );
+
+  return definitions.filter(
+    (definition) =>
+      (
+        definition.includedServices ||
+        []
+      ).length > 0 &&
+      (
+        definition.includedServices ||
+        []
+      ).every((credit) =>
+        eligible.has(
+          String(
+            credit?.service?._id ||
+              credit?.service ||
+              ""
+          )
+        )
+      )
+  );
 }
 
 function customerProfileId(user) {
@@ -691,6 +812,14 @@ export async function buildPurchasableServicePackageOrderItems(
       409
     );
   }
+
+  await assertPurchasableIncludedServices(
+    definitions.flatMap(
+      (definition) =>
+        definition.includedServices ||
+        []
+    )
+  );
 
   const byId = new Map(
     definitions.map((definition) => [
