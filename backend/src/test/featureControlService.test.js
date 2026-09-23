@@ -18,6 +18,9 @@ test("feature controls provide unique boolean code defaults", () => {
   assert.ok(FEATURE_CONTROLS.length >= 25);
   assert.equal(new Set(FEATURE_CONTROLS.map(({ id }) => id)).size, FEATURE_CONTROLS.length);
 
+  assert.equal(FEATURE_CONTROLS.find(({ id }) => id === "group-bookings")?.defaultEnabled, true);
+  assert.equal(FEATURE_CONTROLS.find(({ id }) => id === "service-trials")?.defaultEnabled, true);
+
   for (const definition of FEATURE_CONTROLS) {
     assert.equal(typeof definition.defaultEnabled, "boolean");
     assert.ok(definition.label);
