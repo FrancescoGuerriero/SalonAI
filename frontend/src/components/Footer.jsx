@@ -77,6 +77,11 @@ const supportLinks = [
     label: "Privacy notice",
     icon: ShieldCheck,
   },
+  {
+    to: "/cookies",
+    label: "Cookie & storage notice",
+    icon: ShieldCheck,
+  },
 ];
 
 const accountLinks = [
@@ -89,6 +94,11 @@ const accountLinks = [
     to: "/account/manage",
     label: "Manage My Account",
     icon: Settings,
+  },
+  {
+    to: "/account/privacy-rights",
+    label: "Privacy rights",
+    icon: ShieldCheck,
   },
 ];
 
