@@ -564,6 +564,10 @@ test("customer login and registration expose all provider choices", async () => 
     login,
     /user\?\.role === "customer"[\s\S]*?"\/account"/
   );
+  assert.match(
+    login,
+    /SOCIAL_AUTH_BROWSER_BINDING_FAILED/
+  );
 });
 
 test("account settings expose explicit provider linking with lockout protection", async () => {
@@ -616,5 +620,9 @@ test("account settings expose explicit provider linking with lockout protection"
   assert.match(
     settings,
     /Unlink/
+  );
+  assert.match(
+    settings,
+    /SOCIAL_AUTH_BROWSER_BINDING_FAILED/
   );
 });
