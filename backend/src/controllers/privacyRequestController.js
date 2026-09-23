@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 
+import Appointment from "../models/Appointment.js";
+import ConsentRecord from "../models/ConsentRecord.js";
 import Customer from "../models/customer.js";
+import MessageDelivery from "../models/MessageDelivery.js";
+import User from "../models/user.js";
+import Order from "../features/commerce/Order.js";
+import Payment from "../features/commerce/Payment.js";
 import PrivacyRequest, {
   PRIVACY_REQUEST_STATUSES,
   PRIVACY_REQUEST_TYPES,
@@ -96,6 +102,190 @@ function serialiseCustomerRequest(
     updatedAt:
       request.updatedAt,
   };
+}
+
+export async function exportMyPrivacyData(
+  req,
+  res
+) {
+  const user =
+    await User.findById(
+      req.user._id
+    )
+      .select(
+        "-password -emailVerificationTokenHash -emailVerificationExpiresAt"
+      )
+      .lean();
+
+  if (!user) {
+    throw httpError(
+      "Account not found.",
+      404,
+      "PRIVACY_EXPORT_ACCOUNT_NOT_FOUND"
+    );
+  }
+
+  const customer =
+    await customerForUser(
+      req.user
+    );
+
+  const customerId =
+    customer?._id ||
+    null;
+
+  const [
+    appointments,
+    orders,
+    payments,
+    consentRecords,
+    deliveries,
+    privacyRequests,
+  ] =
+    await Promise.all([
+      customerId
+        ? Appointment.find({
+            customer:
+              customerId,
+          })
+            .select(
+              "-internalNotes"
+            )
+            .sort({
+              createdAt: -1,
+            })
+            .lean()
+        : [],
+      Order.find({
+        $or: [
+          {
+            user:
+              req.user._id,
+          },
+          ...(customerId
+            ? [
+                {
+                  customer:
+                    customerId,
+                },
+              ]
+            : []),
+        ],
+      })
+        .sort({
+          createdAt: -1,
+        })
+        .lean(),
+      Payment.find({
+        $or: [
+          {
+            user:
+              req.user._id,
+          },
+          ...(customerId
+            ? [
+                {
+                  customer:
+                    customerId,
+                },
+              ]
+            : []),
+        ],
+      })
+        .select(
+          "-clientSecret -metadata"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean(),
+      ConsentRecord.find({
+        $or: [
+          {
+            customer:
+              req.user._id,
+          },
+          ...(customerId
+            ? [
+                {
+                  customerProfile:
+                    customerId,
+                },
+              ]
+            : []),
+        ],
+      })
+        .sort({
+          recordedAt: -1,
+        })
+        .lean(),
+      MessageDelivery.find({
+        $or: [
+          {
+            customer:
+              req.user._id,
+          },
+          {
+            "recipient.email":
+              String(
+                req.user.email ||
+                ""
+              )
+                .trim()
+                .toLowerCase(),
+          },
+        ],
+      })
+        .select(
+          "-providerResponse -deliveryResponse -attempts"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .limit(1000)
+        .lean(),
+      PrivacyRequest.find({
+        requester:
+          req.user._id,
+      })
+        .select(
+          "-internalNotes"
+        )
+        .sort({
+          createdAt: -1,
+        })
+        .lean(),
+    ]);
+
+  const generatedAt =
+    new Date();
+
+  res.set(
+    "Content-Disposition",
+    `attachment; filename="salonai-personal-data-${generatedAt.toISOString().slice(0, 10)}.json"`
+  );
+
+  return res.json({
+    exportVersion:
+      "salonai-personal-data-v1",
+    generatedAt:
+      generatedAt.toISOString(),
+    account:
+      user,
+    customerProfile:
+      customer
+        ? customer.toObject({
+            virtuals: true,
+          })
+        : null,
+    appointments,
+    orders,
+    payments,
+    consentRecords,
+    messageDeliveryHistory:
+      deliveries,
+    privacyRequests,
+  });
 }
 
 export async function createMyPrivacyRequest(
@@ -355,6 +545,7 @@ export async function updatePrivacyRequest(
 }
 
 export default {
+  exportMyPrivacyData,
   createMyPrivacyRequest,
   listMyPrivacyRequests,
   listPrivacyRequests,
