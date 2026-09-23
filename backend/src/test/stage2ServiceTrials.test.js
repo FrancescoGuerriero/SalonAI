@@ -88,3 +88,14 @@ test("future feature router mounts service trials behind its governed feature co
     /"\/service-trials"[\s\S]*?requireFeature\("service-trials"\)[\s\S]*?serviceTrialRoutes/
   );
 });
+
+
+test("service trial database identifiers are normalized before Mongoose queries", async () => {
+  const service = await source("../features/serviceTrials/serviceTrialService.js");
+
+  assert.match(service, /return new mongoose\.Types\.ObjectId\(normalized\)/);
+  assert.match(service, /Service\.findById\(safeServiceId\)/);
+  assert.match(service, /ServiceTrial\.findById\(safeTrialId\)/);
+  assert.match(service, /ServiceTrialBooking\.findById\(safeBookingId\)/);
+  assert.match(service, /customer: safeCustomerId/);
+});
