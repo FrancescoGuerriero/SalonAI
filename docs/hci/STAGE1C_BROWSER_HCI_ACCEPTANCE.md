@@ -98,6 +98,15 @@ No production credential, provider token or fixture password is added.
 
 The test users are synthetic `@salonai.test` identities and exist only in browser fixtures.
 
+## 5. Findings resolved during browser acceptance
+
+The first Stage 1C browser run produced two useful failures rather than being waived:
+
+- the test fixture removed the saved presentation preference on every page load, making a true reload-persistence assertion impossible. The fixture now resets the preference only once per browser test session and leaves subsequent reloads untouched;
+- authenticated Axe scanning exposed legacy sidebar text colours below WCAG 2 AA normal-text contrast: task-group headings measured **4.22:1** and compact link descriptions **3.85:1** against the sidebar surface. The management-navigation stylesheet now uses darker scoped text colours for those elements instead of suppressing the Axe rule.
+
+These findings demonstrate why Stage 1C uses rendered-browser evidence in addition to component tests.
+
 ## 5. Acceptance gate
 
 Stage 1C is complete only when all of the following pass on the Stage 1C PR head:
@@ -116,7 +125,7 @@ Stage 1C is complete only when all of the following pass on the Stage 1C PR head
 
 Any red gate is treated as an integration blocker until explained and corrected.
 
-## 6. Manual review remaining after automation
+## 7. Manual review remaining after automation
 
 Automation cannot fully establish usability or assistive-technology quality. DEV 2 should still perform:
 
@@ -130,6 +139,6 @@ DEV 3 should confirm delegated-role expectations against production RBAC definit
 
 DEV 4 should confirm the presentation preference remains tenant-neutral UX metadata and is not promoted into a SaaS entitlement or tenant authority claim.
 
-## 7. Boundary with Stage 1D
+## 8. Boundary with Stage 1D
 
 Stage 1C does not add or simulate external social-identity provider acceptance. Google/Facebook/Microsoft/Yahoo customer social login remains Stage 1D because provider-backed acceptance depends on provider configuration, redirect URIs and secrets that must be handled outside source control.
