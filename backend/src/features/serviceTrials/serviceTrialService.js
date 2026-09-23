@@ -7,6 +7,10 @@ import {
   createManagedAppointment,
 } from "../appointments/appointmentManagementService.js";
 import {
+  notifyAppointmentConfirmed,
+  notifySafely,
+} from "../appointments/appointmentNotificationService.js";
+import {
   assertFound,
   createServiceError,
 } from "../../shared/serviceError.js";
@@ -277,6 +281,7 @@ export async function bookServiceTrial(payload = {}, { actor = null } = {}) {
   const trialId = objectId(payload.trial, "trial");
   const session = await mongoose.startSession();
   let bookingId = null;
+  let appointmentId = null;
 
   try {
     await session.withTransaction(async () => {
@@ -315,6 +320,8 @@ export async function bookServiceTrial(payload = {}, { actor = null } = {}) {
         }
       );
 
+      appointmentId = appointment._id;
+
       const [booking] = await ServiceTrialBooking.create(
         [
           {
@@ -336,6 +343,20 @@ export async function bookServiceTrial(payload = {}, { actor = null } = {}) {
     });
   } finally {
     await session.endSession();
+  }
+
+  if (appointmentId) {
+    await notifySafely(
+      () =>
+        notifyAppointmentConfirmed(appointmentId, {
+          actorId: actorId(actor),
+        }),
+      {
+        event: "appointment.created",
+        appointmentId: String(appointmentId),
+        source: "service_trial",
+      }
+    );
   }
 
   return getServiceTrialBooking(bookingId);
