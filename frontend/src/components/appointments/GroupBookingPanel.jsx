@@ -223,6 +223,14 @@ export default function GroupBookingPanel({
     [stylists]
   );
 
+  const availableStatusOptions = useMemo(
+    () =>
+      STATUS_OPTIONS.filter((item) =>
+        item === "cancelled" ? canCancel : canUpdate
+      ),
+    [canCancel, canUpdate]
+  );
+
   const loadGroups = useCallback(async () => {
     if (!canRead) {
       setGroups([]);
@@ -378,7 +386,8 @@ export default function GroupBookingPanel({
   async function updateStatus(group, participant) {
     const appointment = participant.appointment || {};
     const status =
-      statusDrafts[participant._id] || appointment.status || "pending";
+      statusDrafts[participant._id] ||
+      (canUpdate ? appointment.status || "pending" : "cancelled");
     let reason = "Group booking participant status update";
 
     if (["cancelled", "no_show"].includes(status)) {
@@ -410,7 +419,8 @@ export default function GroupBookingPanel({
   }
 
   async function updateWholeGroup(group) {
-    const status = groupStatusDrafts[group._id] || "confirmed";
+    const status =
+      groupStatusDrafts[group._id] || (canUpdate ? "confirmed" : "cancelled");
     let reason = "Group booking status update";
 
     if (["cancelled", "no_show"].includes(status)) {
@@ -656,9 +666,7 @@ export default function GroupBookingPanel({
                       }
                       className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     >
-                      {STATUS_OPTIONS.filter(
-                        (item) => item !== "cancelled" || canCancel
-                      ).map((item) => (
+                      {availableStatusOptions.map((item) => (
                         <option key={item} value={item}>{statusLabel(item)}</option>
                       ))}
                     </select>
@@ -679,7 +687,8 @@ export default function GroupBookingPanel({
                   const appointment = participant.appointment || {};
                   const draft = participantDraft(participant);
                   const statusValue =
-                    statusDrafts[participant._id] || appointment.status || "pending";
+                    statusDrafts[participant._id] ||
+                    (canUpdate ? appointment.status || "pending" : "cancelled");
 
                   return (
                     <div
@@ -768,9 +777,7 @@ export default function GroupBookingPanel({
                             }
                             className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm"
                           >
-                            {STATUS_OPTIONS.filter(
-                              (item) => item !== "cancelled" || canCancel
-                            ).map((item) => (
+                            {availableStatusOptions.map((item) => (
                               <option key={item} value={item}>{statusLabel(item)}</option>
                             ))}
                           </select>
