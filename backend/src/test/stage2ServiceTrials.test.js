@@ -19,6 +19,8 @@ test("service trials preserve permanent catalogue pricing and create canonical a
   assert.match(booking, /session\.withTransaction/);
   assert.match(booking, /createManagedAppointment\(/);
   assert.match(booking, /duration: definition\.trialDuration/);
+  assert.match(booking, /status: "pending"/);
+  assert.doesNotMatch(booking, /payload\.status/);
   assert.match(booking, /totalPrice: definition\.trialPrice/);
   assert.match(booking, /priceSnapshot: definition\.trialPrice/);
   assert.match(booking, /durationSnapshot: definition\.trialDuration/);
