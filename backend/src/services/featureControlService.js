@@ -10,6 +10,8 @@ export const FEATURE_CONTROLS = Object.freeze([
   { id: "public-team", label: "Public team profiles", category: "Public website", description: "Show published, active and bookable employees on public team pages.", defaultEnabled: true },
   { id: "online-shop", label: "Online shop", category: "Commerce", description: "Expose the product catalogue, cart, checkout and customer orders.", defaultEnabled: true },
   { id: "service-packages", label: "Service packages", category: "Commerce", description: "Allow customers to discover and purchase prepaid service bundles. Existing package credits remain retained and viewable when sales are disabled.", defaultEnabled: true },
+  { id: "group-bookings", label: "Group bookings", category: "Bookings", description: "Enable organiser-led multi-participant bookings while each participant remains a canonical appointment.", defaultEnabled: true },
+  { id: "service-trials", label: "Service trials", category: "Bookings", description: "Enable governed trial offers, eligibility controls and trial-to-standard-service conversion tracking.", defaultEnabled: true },
   { id: "reviews", label: "Reviews and ratings", category: "Customer experience", description: "Allow verified customers to submit reviews for moderation.", defaultEnabled: true },
   { id: "favourites", label: "Customer favourites", category: "Customer experience", description: "Allow customers to save services, stylists and products.", defaultEnabled: true },
   { id: "offers", label: "Offers and promotions", category: "Customer experience", description: "Allow customers to discover and claim active salon offers.", defaultEnabled: true },
@@ -68,6 +70,16 @@ export const FEATURE_CONTROL_IMPACTS = Object.freeze({
     controlMode: "capability",
     impactScopes: ["Public website", "Package sales", "Checkout", "API"],
     enforcement: "Published package discovery and new package purchases. Existing customer entitlements, redemption history and management records are retained and remain viewable.",
+  },
+  "group-bookings": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Appointment API"],
+    enforcement: "New group creation and participant orchestration. Existing canonical participant appointments remain retained and manageable through ordinary appointment workflows.",
+  },
+  "service-trials": {
+    controlMode: "capability",
+    impactScopes: ["Management workspace", "Appointment API"],
+    enforcement: "Trial-definition management, new trial bookings and conversion tracking. Existing canonical appointments and retained trial audit records remain available through ordinary appointment history.",
   },
   reviews: {
     controlMode: "capability",
