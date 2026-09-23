@@ -170,6 +170,11 @@ export default function TrackingConsentBanner() {
 
     const revoked =
       (
+        previous.analytics &&
+        !next.choices
+          .analytics
+      ) ||
+      (
         previous.experience &&
         !next.choices
           .experience
