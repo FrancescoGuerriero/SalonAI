@@ -46,8 +46,7 @@ export function getLegalComplianceConfig(
       text(environment.MARKETING_PREFERENCE_URL) ||
       `${baseUrl}/communication-preferences`,
     marketingPreferenceTokenSecret:
-      text(environment.MARKETING_PREFERENCE_TOKEN_SECRET) ||
-      text(environment.JWT_SECRET),
+      text(environment.MARKETING_PREFERENCE_TOKEN_SECRET),
   };
 }
 

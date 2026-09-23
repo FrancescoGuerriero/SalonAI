@@ -797,6 +797,73 @@ function getExplicitConsentValue(
           )
       : [];
 
+  /*
+   * Direct marketing requires the new explicit per-channel preference.
+   * Legacy consent-shaped fields are never sufficient to grandfather a
+   * customer into marketing.
+   */
+  if (marketingEmail) {
+    const explicitEmailOptIn =
+      getValueByPath(
+        customer,
+        "communicationPreferences.emailMarketing"
+      );
+
+    if (explicitEmailOptIn !== true) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          "communicationPreferences.emailMarketing",
+      };
+    }
+
+    if (
+      getValueByPath(
+        customer,
+        "marketing.emailConsent"
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          "marketing.emailConsent",
+      };
+    }
+  }
+
+  if (
+    channel === "sms" &&
+    normaliseLowercase(
+      campaignType
+    ) !==
+      "appointment_reminder"
+  ) {
+    const explicitSmsOptIn =
+      getValueByPath(
+        customer,
+        "communicationPreferences.smsMarketing"
+      );
+
+    if (
+      explicitSmsOptIn !== true ||
+      getValueByPath(
+        customer,
+        "marketing.smsConsent"
+      ) !== true
+    ) {
+      return {
+        found: true,
+        granted: false,
+        source:
+          explicitSmsOptIn !== true
+            ? "communicationPreferences.smsMarketing"
+            : "marketing.smsConsent",
+      };
+    }
+  }
+
   const channelPaths =
     channel === "email"
       ? [

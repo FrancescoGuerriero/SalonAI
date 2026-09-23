@@ -179,3 +179,43 @@ test("signed preference token round-trips and binds to customer identity", () =>
     }
   }
 });
+
+
+test("legacy marketing fields do not grant the new channel opt-in", async () => {
+  const {
+    resolveCustomerConsent,
+  } =
+    await import(
+      "../services/campaignDeliveryService.js"
+    );
+
+  const consent =
+    resolveCustomerConsent(
+      {
+        communicationPreferences: {
+          promotionalMessages: true,
+          emailUnsubscribed: false,
+          unsubscribed: false,
+        },
+        marketing: {
+          emailConsent: true,
+          emailSuppressed: false,
+        },
+      },
+      "email",
+      {
+        consentRequired: true,
+        excludeUnsubscribed: true,
+        campaignType: "general",
+      }
+    );
+
+  assert.equal(
+    consent.granted,
+    false
+  );
+  assert.equal(
+    consent.source,
+    "communicationPreferences.emailMarketing"
+  );
+});
