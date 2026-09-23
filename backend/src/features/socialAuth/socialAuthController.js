@@ -2,6 +2,7 @@ import User from "../../models/user.js";
 
 import {
   createRefreshToken,
+  readCookie,
   setNoStoreHeaders,
   setRefreshCookie,
 } from "../../controllers/authController.js";
@@ -12,6 +13,8 @@ import {
   socialFrontendRedirect,
   socialLinkFrontendRedirect,
   socialProviderAvailability,
+  socialAuthTransactionCookie,
+  verifySocialStateBrowserBinding,
 } from "./socialAuthProvider.js";
 import {
   linkSocialIdentity,
@@ -59,7 +62,10 @@ export function start(
   request,
   response
 ) {
-  const result =
+  const {
+    transaction,
+    ...result
+  } =
     createSocialAuthorization({
       provider:
         provider(
@@ -69,9 +75,21 @@ export function start(
         request.body?.returnTo,
     });
 
+  response.cookie(
+    transaction.name,
+    transaction.value,
+    transaction.options
+  );
+  setNoStoreHeaders(
+    response
+  );
+
   return response.json({
     success: true,
-    ...result,
+    provider:
+      result.provider,
+    authorizationUrl:
+      result.authorizationUrl,
   });
 }
 
@@ -105,7 +123,10 @@ export function startLink(
     throw error;
   }
 
-  const result =
+  const {
+    transaction,
+    ...result
+  } =
     createSocialAuthorization({
       provider:
         provider(
@@ -119,9 +140,21 @@ export function startLink(
         request.user._id,
     });
 
+  response.cookie(
+    transaction.name,
+    transaction.value,
+    transaction.options
+  );
+  setNoStoreHeaders(
+    response
+  );
+
   return response.json({
     success: true,
-    ...result,
+    provider:
+      result.provider,
+    authorizationUrl:
+      result.authorizationUrl,
   });
 }
 
@@ -174,6 +207,33 @@ export async function callback(
       mismatch.statusCode = 400;
       throw mismatch;
     }
+
+    const transaction =
+      socialAuthTransactionCookie(
+        selectedProvider,
+        state.transactionId
+      );
+
+    verifySocialStateBrowserBinding(
+      state,
+      readCookie(
+        request,
+        transaction.name
+      )
+    );
+
+    const {
+      maxAge,
+      ...clearCookieOptions
+    } = transaction.options;
+
+    response.clearCookie(
+      transaction.name,
+      clearCookieOptions
+    );
+    setNoStoreHeaders(
+      response
+    );
 
     if (
       request.query.error
@@ -280,6 +340,10 @@ export async function callback(
       })
     );
   } catch (error) {
+    setNoStoreHeaders(
+      response
+    );
+
     const returnTo =
       state?.returnTo ||
       "";
