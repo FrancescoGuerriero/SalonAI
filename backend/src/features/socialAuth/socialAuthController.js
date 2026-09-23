@@ -210,7 +210,8 @@ export async function callback(
 
     const transaction =
       socialAuthTransactionCookie(
-        selectedProvider
+        selectedProvider,
+        state.transactionId
       );
 
     verifySocialStateBrowserBinding(
