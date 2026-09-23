@@ -1,11 +1,23 @@
 import express from "express";
 
+import asyncHandler from "../middleware/asyncHandler.js";
+import {
+  recordTrackingConsent,
+} from "../controllers/trackingConsentController.js";
+
 import {
   getMarketingComplianceReadiness,
   getPublicLegalIdentity,
 } from "../config/legalComplianceConfig.js";
 
 const router = express.Router();
+
+router.post(
+  "/tracking-consent",
+  asyncHandler(
+    recordTrackingConsent
+  )
+);
 
 router.get(
   "/public",
