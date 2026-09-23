@@ -12,6 +12,7 @@ import commerceWebhookRoutes from "./features/commerce/commerceWebhookRoutes.js"
 import chatbotRoutes from "./features/chatbot/chatbotRoutes.js";
 import customerExperienceRoutes from "./features/customerExperience/customerExperienceRoutes.js";
 import dataImportRoutes from "./features/dataImport/dataImportRoutes.js";
+import servicePackageCustomerRoutes from "./features/servicePackages/servicePackageCustomerRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
@@ -265,6 +266,11 @@ app.use(
 app.use(
   "/api/stylists",
   stylistRoutes
+);
+
+app.use(
+  "/api/service-packages",
+  servicePackageCustomerRoutes
 );
 
 app.use(
