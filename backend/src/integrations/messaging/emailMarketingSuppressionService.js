@@ -499,6 +499,10 @@ export async function applySendGridMarketingSuppression({
     false;
   customer
     .communicationPreferences
+    .emailMarketing =
+    false;
+  customer
+    .communicationPreferences
     .consentUpdatedAt =
     effectiveAt;
   customer
