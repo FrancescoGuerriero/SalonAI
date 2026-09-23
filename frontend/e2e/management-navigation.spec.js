@@ -27,9 +27,20 @@ async function mockManagementSession(page, user) {
   await page.addInitScript((sessionUser) => {
     localStorage.setItem("salonai_token", "qa-token");
     localStorage.setItem("salonai_user", JSON.stringify(sessionUser));
-    localStorage.removeItem(
-      "salonai.managementNavigation.presentation.v1"
-    );
+    if (
+      !sessionStorage.getItem(
+        "salonai.stage1c.management-session-initialised"
+      )
+    ) {
+      localStorage.removeItem(
+        "salonai.managementNavigation.presentation.v1"
+      );
+      sessionStorage.setItem(
+        "salonai.stage1c.management-session-initialised",
+        "true"
+      );
+    }
+
     localStorage.removeItem(
       "salonai-management-sidebar-collapsed"
     );
