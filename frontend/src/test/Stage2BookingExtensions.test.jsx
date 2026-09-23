@@ -71,6 +71,8 @@ describe("Stage 2 booking extensions", () => {
     }
 
     expect(group).toContain("appointment:cancel");
+    expect(group).toContain("availableStatusOptions");
+    expect(group).toContain('item === "cancelled" ? canCancel : canUpdate');
     expect(trials).toContain("service:update");
     expect(group).not.toMatch(/group-booking:[a-z]+/);
     expect(trials).not.toMatch(/trial:[a-z]+/);
