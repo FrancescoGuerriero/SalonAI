@@ -68,6 +68,47 @@ jobs:
             echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
           } >> "$GITHUB_ENV"
 
+      - name: Verify public privacy and consent routes
+        shell: bash
+        env:
+          PUBLIC_BASE_URL: https://salonai.francescopicardi.co.uk
+        run: |
+          set -euo pipefail
+
+          for path in /privacy /cookies /communication-preferences; do
+            response_file="$RUNNER_TEMP$(echo "$path" | tr '/' '-')-response.html"
+            status="$(
+              curl                 --silent                 --show-error                 --location                 --retry 3                 --retry-delay 2                 --max-time 20                 --output "$response_file"                 --write-out '%{http_code}'                 "$PUBLIC_BASE_URL$path"
+            )"
+
+            if [[ "$status" != "200" ]]; then
+              echo "Public route $path returned HTTP $status" >&2
+              exit 1
+            fi
+
+            grep -q '<div id="root"></div>' "$response_file"
+            echo "[PASS] $PUBLIC_BASE_URL$path -> HTTP 200 SPA shell"
+          done
+
+          legal_status="$(
+            curl               --silent               --show-error               --location               --retry 3               --retry-delay 2               --max-time 20               --output "$RUNNER_TEMP/legal-public.json"               --write-out '%{http_code}'               "$PUBLIC_BASE_URL/api/legal/public"
+          )"
+
+          if [[ "$legal_status" != "200" ]]; then
+            echo "Public legal API returned HTTP $legal_status" >&2
+            exit 1
+          fi
+
+          node -e '
+            const fs = require("fs");
+            const path = process.env.RUNNER_TEMP + "/legal-public.json";
+            const body = JSON.parse(fs.readFileSync(path, "utf8"));
+            if (body?.success !== true || !body?.legal) {
+              throw new Error("Public legal API did not return the expected contract.");
+            }
+            console.log("[PASS] Public legal API contract is reachable.");
+          '
+
       - name: Verify production runtime and run dry-runs
         shell: bash
         env:
