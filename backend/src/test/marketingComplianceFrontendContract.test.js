@@ -21,6 +21,21 @@ test("privacy and marketing preference routes are public", async () => {
     app,
     /path="communication-preferences\/:token"[\s\S]{0,180}element=\{<MarketingPreferencesPage \/>\}/
   );
+
+  assert.match(
+    app,
+    /path="cookies"[\s\S]{0,160}element=\{<CookiePolicyPage \/>\}/
+  );
+
+  assert.match(
+    app,
+    /path="account\/privacy-rights"[\s\S]{0,220}PrivacyRightsPage/
+  );
+
+  assert.match(
+    app,
+    /path="admin\/privacy-requests"[\s\S]{0,220}AdminPrivacyRequestsPage/
+  );
 });
 
 test("customer settings use separate opt-in marketing channels", async () => {
@@ -66,8 +81,61 @@ test("footer exposes the public privacy notice", async () => {
     footer,
     /to: "\/privacy"/
   );
+  assert.match(
+    footer,
+    /to: "\/cookies"/
+  );
+  assert.match(
+    footer,
+    /to: "\/account\/privacy-rights"/
+  );
   assert.doesNotMatch(
     footer,
     /to: "\/experience\/privacy"/
+  );
+});
+
+
+test("registration presents just-in-time privacy information without marketing opt-in", async () => {
+  const registration =
+    await readFile(
+      new URL(
+        "../../../frontend/src/pages/Register.jsx",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    registration,
+    /Privacy Notice/
+  );
+  assert.match(
+    registration,
+    /Cookie &amp; storage notice/
+  );
+  assert.match(
+    registration,
+    /does not opt you in to marketing/
+  );
+});
+
+test("management navigation exposes the administrator privacy request queue", async () => {
+  const navigation =
+    await readFile(
+      new URL(
+        "../../../frontend/src/components/navigation/managementNavigationConfig.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    navigation,
+    /\/admin\/privacy-requests/
+  );
+  assert.match(
+    navigation,
+    /Privacy requests/
   );
 });
