@@ -177,6 +177,13 @@ export const TRACKING_CONSENT_TTL_DAYS =
     180
   );
 
+export const NONESSENTIAL_TRACKING_ENABLED =
+  text(
+    import.meta.env
+      .VITE_NONESSENTIAL_TRACKING_ENABLED
+  ).toLowerCase() ===
+  "true";
+
 export const trackingProviderConfig =
   Object.freeze({
     googleAnalyticsMeasurementId:
@@ -223,6 +230,7 @@ export const trackingProviders =
       name: "Google Analytics",
       category: "analytics",
       configured:
+        NONESSENTIAL_TRACKING_ENABLED &&
         Boolean(
           trackingProviderConfig
             .googleAnalyticsMeasurementId
@@ -233,6 +241,7 @@ export const trackingProviders =
       name: "Google Ads",
       category: "advertising",
       configured:
+        NONESSENTIAL_TRACKING_ENABLED &&
         Boolean(
           trackingProviderConfig
             .googleAdsId
@@ -243,6 +252,7 @@ export const trackingProviders =
       name: "Meta Pixel",
       category: "advertising",
       configured:
+        NONESSENTIAL_TRACKING_ENABLED &&
         Boolean(
           trackingProviderConfig
             .metaPixelId
@@ -253,6 +263,7 @@ export const trackingProviders =
       name: "Microsoft Advertising UET",
       category: "advertising",
       configured:
+        NONESSENTIAL_TRACKING_ENABLED &&
         Boolean(
           trackingProviderConfig
             .microsoftAdsUetTagId
@@ -263,6 +274,7 @@ export const trackingProviders =
       name: "Hotjar",
       category: "experience",
       configured:
+        NONESSENTIAL_TRACKING_ENABLED &&
         Boolean(
           trackingProviderConfig
             .hotjarSiteId
@@ -527,6 +539,7 @@ export function openTrackingConsentSettings() {
 }
 
 export default {
+  NONESSENTIAL_TRACKING_ENABLED,
   TRACKING_CATEGORIES,
   TRACKING_CONSENT_OPEN_EVENT,
   TRACKING_CONSENT_STORAGE_KEY,
