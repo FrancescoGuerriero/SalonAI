@@ -9,8 +9,12 @@ const width = Number.parseInt(process.env.FIGMA_CAPTURE_WIDTH || "1440", 10);
 const height = Number.parseInt(process.env.FIGMA_CAPTURE_HEIGHT || "1000", 10);
 const storageState = process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim();
 const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";
+const submissionTimeoutMs = Number.parseInt(
+  process.env.FIGMA_CAPTURE_SUBMISSION_TIMEOUT_MS || "360000",
+  10
+);
 const testTimeoutMs = Number.parseInt(
-  process.env.FIGMA_CAPTURE_TEST_TIMEOUT_MS || "300000",
+  process.env.FIGMA_CAPTURE_TEST_TIMEOUT_MS || "420000",
   10
 );
 
@@ -25,7 +29,7 @@ test.describe("Figma UX reference capture", () => {
     test.setTimeout(
       Number.isFinite(testTimeoutMs) && testTimeoutMs >= 120000
         ? testTimeoutMs
-        : 300000
+        : 420000
     );
 
     await page.setViewportSize({ width, height });
@@ -77,13 +81,31 @@ test.describe("Figma UX reference capture", () => {
     const endpoint =
       `https://mcp.figma.com/mcp/capture/${captureId}/submit?bindVariables=true`;
 
-    const captureResult = await page.evaluate(
-      async ({ id, endpointUrl, captureSelector }) => {
-        return window.figma.captureForDesign({
-          captureId: id,
-          endpoint: endpointUrl,
-          selector: captureSelector,
+    const submissionResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().startsWith(endpoint),
+      {
+        timeout:
+          Number.isFinite(submissionTimeoutMs) && submissionTimeoutMs >= 60000
+            ? submissionTimeoutMs
+            : 360000,
+      }
+    );
+
+    const launchResult = await page.evaluate(
+      ({ id, endpointUrl, captureSelector }) => {
+        Promise.resolve(
+          window.figma.captureForDesign({
+            captureId: id,
+            endpoint: endpointUrl,
+            selector: captureSelector,
+          })
+        ).catch((error) => {
+          console.error("Figma capture promise rejected", error);
         });
+
+        return { started: true };
       },
       {
         id: captureId,
@@ -92,6 +114,13 @@ test.describe("Figma UX reference capture", () => {
       }
     );
 
+    const submissionResponse = await submissionResponsePromise;
+
+    expect(
+      submissionResponse.ok(),
+      `Figma submission endpoint should accept the capture (HTTP ${submissionResponse.status()}).`
+    ).toBeTruthy();
+
     console.log(
       JSON.stringify(
         {
@@ -99,7 +128,11 @@ test.describe("Figma UX reference capture", () => {
           source: targetUrl || capturePath,
           selector,
           viewport: { width, height },
-          captureResult,
+          launchResult,
+          submission: {
+            status: submissionResponse.status(),
+            url: submissionResponse.url(),
+          },
         },
         null,
         2
