@@ -73,10 +73,50 @@ function buildOrder({
   id = "order-1",
   updatedAt = "2026-07-27T15:00:00.000Z",
   subtotal = 50,
+  appointmentSubtotal = 0,
+  servicePackageSubtotal = 0,
+  deliveryFee = 0,
   discountTotal = 5,
   total = 45,
   status = "completed",
+  items = null,
 } = {}) {
+  const defaultItems = [
+    {
+      itemType: "product",
+
+      product: {
+        _id: "product-1",
+        name: "Repair Shampoo",
+        category: "Shampoo",
+        price: 20,
+        costPrice: 8,
+      },
+
+      name: "Repair Shampoo",
+      quantity: 2,
+      unitPrice: 20,
+      lineTotal: 40,
+    },
+
+    {
+      itemType: "product",
+
+      product: {
+        _id: "product-2",
+        name: "Hair Oil",
+        category: "Treatment",
+        price: 10,
+        costPrice: 3,
+      },
+
+      name: "Hair Oil",
+      quantity: 1,
+      unitPrice: 10,
+      lineTotal: 10,
+    },
+  ];
+
   return {
     _id: id,
     updatedAt: new Date(
@@ -86,41 +126,16 @@ function buildOrder({
       updatedAt
     ),
     subtotal,
+    appointmentSubtotal,
+    servicePackageSubtotal,
+    deliveryFee,
     discountTotal,
     total,
     status,
 
-    items: [
-      {
-        product: {
-          _id: "product-1",
-          name: "Repair Shampoo",
-          category: "Shampoo",
-          price: 20,
-          costPrice: 8,
-        },
-
-        name: "Repair Shampoo",
-        quantity: 2,
-        unitPrice: 20,
-        lineTotal: 40,
-      },
-
-      {
-        product: {
-          _id: "product-2",
-          name: "Hair Oil",
-          category: "Treatment",
-          price: 10,
-          costPrice: 3,
-        },
-
-        name: "Hair Oil",
-        quantity: 1,
-        unitPrice: 10,
-        lineTotal: 10,
-      },
-    ],
+    items:
+      items ||
+      defaultItems,
   };
 }
 
@@ -131,6 +146,7 @@ function buildPayment({
   purpose = "other",
   amount = 30,
   status = "paid",
+  refundedAmount = 0,
   appointment = null,
   order = null,
   metadata = {},
@@ -150,6 +166,7 @@ function buildPayment({
     amount,
     currency: "GBP",
     status,
+    refundedAmount,
     appointment,
     order,
     metadata,
@@ -391,6 +408,310 @@ test(
         .categories
         .length,
       2
+    );
+  }
+);
+
+
+test(
+  "delivery fees do not inflate retail net sales",
+  () => {
+    const order =
+      buildOrder({
+        deliveryFee:
+          4.95,
+
+        total:
+          49.95,
+      });
+
+    const payment =
+      buildPayment({
+        order:
+          objectId(
+            "order-1"
+          ),
+
+        amount:
+          49.95,
+      });
+
+    const payload =
+      buildSalesForecastPayload({
+        asOfDate:
+          AS_OF_DATE,
+
+        lookbackDays:
+          90,
+
+        orders: [
+          order,
+        ],
+
+        payments: [
+          payment,
+        ],
+      });
+
+    const observation =
+      findObservation(
+        payload,
+        "2026-07-27"
+      );
+
+    assert.equal(
+      observation.gross_sales,
+      50
+    );
+
+    assert.equal(
+      observation.discounts,
+      5
+    );
+
+    assert.equal(
+      observation.refunds,
+      0
+    );
+
+    assert.equal(
+      observation.net_sales,
+      45
+    );
+
+    assert.equal(
+      observation.collected_sales,
+      45
+    );
+
+    assert.equal(
+      observation.retail_sales,
+      45
+    );
+
+    for (
+      const record
+      of [
+        ...observation.channels,
+        ...observation.categories,
+      ]
+    ) {
+      assert.equal(
+        record.net_sales,
+        Number(
+          (
+            record.gross_sales -
+            record.discounts -
+            record.refunds
+          ).toFixed(2)
+        )
+      );
+    }
+  }
+);
+
+
+test(
+  "mixed checkout totals are isolated from the retail forecast component",
+  () => {
+    const products =
+      buildOrder()
+        .items;
+
+    const order =
+      buildOrder({
+        appointmentSubtotal:
+          30,
+
+        servicePackageSubtotal:
+          60,
+
+        deliveryFee:
+          4.95,
+
+        total:
+          139.95,
+
+        items: [
+          ...products,
+
+          {
+            itemType:
+              "appointment",
+
+            appointment:
+              objectId(
+                "appointment-2"
+              ),
+
+            name:
+              "Appointment balance",
+
+            quantity:
+              1,
+
+            unitPrice:
+              30,
+
+            lineTotal:
+              30,
+          },
+
+          {
+            itemType:
+              "service_package",
+
+            servicePackage:
+              objectId(
+                "package-1"
+              ),
+
+            name:
+              "Colour Care Package",
+
+            quantity:
+              1,
+
+            unitPrice:
+              60,
+
+            lineTotal:
+              60,
+          },
+        ],
+      });
+
+    const payment =
+      buildPayment({
+        order:
+          objectId(
+            "order-1"
+          ),
+
+        amount:
+          139.95,
+      });
+
+    const payload =
+      buildSalesForecastPayload({
+        asOfDate:
+          AS_OF_DATE,
+
+        lookbackDays:
+          90,
+
+        orders: [
+          order,
+        ],
+
+        payments: [
+          payment,
+        ],
+      });
+
+    const observation =
+      findObservation(
+        payload,
+        "2026-07-27"
+      );
+
+    assert.equal(
+      observation.gross_sales,
+      50
+    );
+
+    assert.equal(
+      observation.discounts,
+      5
+    );
+
+    assert.equal(
+      observation.net_sales,
+      45
+    );
+
+    assert.equal(
+      observation.retail_sales,
+      45
+    );
+
+    assert.equal(
+      observation.categories.length,
+      2
+    );
+
+    assert.equal(
+      observation.transactions,
+      1
+    );
+  }
+);
+
+
+test(
+  "top-level partially refunded payment state reduces retail net sales",
+  () => {
+    const order =
+      buildOrder();
+
+    const payment =
+      buildPayment({
+        order:
+          objectId(
+            "order-1"
+          ),
+
+        amount:
+          45,
+
+        status:
+          "partially_refunded",
+
+        refundedAmount:
+          10,
+      });
+
+    const payload =
+      buildSalesForecastPayload({
+        asOfDate:
+          AS_OF_DATE,
+
+        lookbackDays:
+          90,
+
+        orders: [
+          order,
+        ],
+
+        payments: [
+          payment,
+        ],
+      });
+
+    const observation =
+      findObservation(
+        payload,
+        "2026-07-27"
+      );
+
+    assert.equal(
+      observation.refunds,
+      10
+    );
+
+    assert.equal(
+      observation.net_sales,
+      35
+    );
+
+    assert.equal(
+      observation.collected_sales,
+      35
+    );
+
+    assert.equal(
+      observation.retail_sales,
+      35
     );
   }
 );
