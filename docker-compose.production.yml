@@ -9,6 +9,7 @@ services:
       - ./.env.production
     environment:
       APP_VERSION: ${APP_VERSION:?APP_VERSION is required}
+      PROVIDER_MODE: ${PROVIDER_MODE:?PROVIDER_MODE is required}
       TRACING_ENABLED: ${TRACING_ENABLED:-true}
       TRACE_EXPORT_TIMEOUT_MS: ${TRACE_EXPORT_TIMEOUT_MS:-5000}
       OTEL_SERVICE_NAME: salonai-ai-service
