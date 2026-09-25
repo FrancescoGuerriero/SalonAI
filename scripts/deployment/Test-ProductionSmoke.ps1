@@ -22,7 +22,8 @@ $Checks = @(
     @{ Name = "edge"; Path = "/healthz" },
     @{ Name = "backend"; Path = "/api/health/ready" },
     @{ Name = "ai-service"; Path = "/ai/health" },
-    @{ Name = "frontend"; Path = "/" }
+    @{ Name = "frontend"; Path = "/" },
+    @{ Name = "frontend-ai-route"; Path = "/ai/haircare"; ContentTypePrefix = "text/html" }
 )
 
 $Results = @()
@@ -45,8 +46,25 @@ foreach ($Check in $Checks) {
             $StatusCode = [int]$Response.StatusCode
 
             if ($StatusCode -ge 200 -and $StatusCode -lt 400) {
-                $Passed = $true
-                break
+                $ExpectedContentType = ""
+
+                if ($Check.ContainsKey("ContentTypePrefix")) {
+                    $ExpectedContentType = [string]$Check["ContentTypePrefix"]
+                }
+
+                if ([string]::IsNullOrWhiteSpace($ExpectedContentType)) {
+                    $Passed = $true
+                    break
+                }
+
+                $ActualContentType = [string]$Response.Headers["Content-Type"]
+
+                if ($ActualContentType.StartsWith($ExpectedContentType, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $Passed = $true
+                    break
+                }
+
+                $LastError = "Expected Content-Type '$ExpectedContentType*' but received '$ActualContentType'."
             }
         }
         catch {
