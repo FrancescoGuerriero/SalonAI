@@ -37,6 +37,16 @@ npm run figma:capture
 
 Use a fully-qualified URL when the exact deployed screen is required.
 
+### Privacy requirement
+
+Production-reference captures of `salonai.francescopicardi.co.uk` automatically enable PII redaction before anything is submitted to Figma. This cannot be disabled for the production hostname.
+
+The redaction pass masks discovered customer names, email addresses, UK mobile numbers, customer-profile links and elements explicitly marked with `data-figma-pii`. On the AI Customer Summaries route it also discovers customer identity values from the customer chooser and removes those values wherever they appear in the rendered page.
+
+If any discovered sensitive value remains after redaction, the Playwright test fails **before** the single-use Figma capture ID is submitted.
+
+Real customer data must never be exported intentionally to Figma, screenshots, design-review documents or other UX artifacts. Authentication and authorization must remain unchanged; masking happens only in the temporary browser DOM used for the design capture.
+
 ### PowerShell
 
 ```powershell
@@ -92,7 +102,12 @@ The `playwright/.auth/` directory is ignored by Git.
 - `FIGMA_CAPTURE_DELAY_MS` — additional rendering wait; defaults to 1500 ms.
 - `FIGMA_CAPTURE_WIDTH` — viewport width; defaults to 1440.
 - `FIGMA_CAPTURE_HEIGHT` — viewport height; defaults to 1000.
-- `FIGMA_CAPTURE_STRIP_CSP=false` — disable the capture utility's CSP-header stripping.\n- `FIGMA_CAPTURE_SUBMISSION_TIMEOUT_MS` — maximum wait for the Figma capture POST to complete; defaults to 360000 ms (6 minutes).\n- `FIGMA_CAPTURE_TEST_TIMEOUT_MS` — overall Playwright test timeout; defaults to 420000 ms (7 minutes).\n\nThe runner now treats the Figma submission HTTP response as the completion signal instead of waiting for `captureForDesign()` itself to resolve. This avoids false Playwright failures when Figma has already accepted the capture but the browser-side promise remains pending.
+- `FIGMA_CAPTURE_STRIP_CSP=false` — disable the capture utility's CSP-header stripping.
+- `FIGMA_CAPTURE_REDACT_PII=true` — enable the same DOM-level PII masking for local/staging captures. Production captures enable redaction automatically regardless of this setting.
+- `FIGMA_CAPTURE_SUBMISSION_TIMEOUT_MS` — maximum wait for the Figma capture POST to complete; defaults to 360000 ms (6 minutes).
+- `FIGMA_CAPTURE_TEST_TIMEOUT_MS` — overall Playwright test timeout; defaults to 420000 ms (7 minutes).
+
+The runner treats the Figma submission HTTP response as the completion signal instead of waiting for `captureForDesign()` itself to resolve. This avoids false Playwright failures when Figma has already accepted the capture but the browser-side promise remains pending.
 
 For a mobile reference, use:
 
