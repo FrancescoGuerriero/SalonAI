@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildSendGridOperationalReadinessReport,
   buildSendGridReadinessReport,
 } from "../integrations/messaging/sendGridReadinessService.js";
 
@@ -182,6 +183,173 @@ test(
       report.email
         .apiKeyConfigured,
       true
+    );
+  }
+);
+
+
+test(
+  "operational SendGrid readiness requires a successful provider connection probe",
+  async () => {
+    const report =
+      await buildSendGridOperationalReadinessReport({
+        suppliedConfig:
+          config(),
+        verifyConnection:
+          async () => ({
+            success: true,
+            provider:
+              "sendgrid",
+            host:
+              "smtp.sendgrid.net",
+            port: 587,
+            verifiedAt:
+              "2026-09-25T19:30:00.000Z",
+          }),
+      });
+
+    assert.equal(
+      report.readyForAcceptance,
+      true
+    );
+    assert.equal(
+      report.checks
+        .providerConnection,
+      true
+    );
+    assert.equal(
+      report.providerProbe
+        .attempted,
+      true
+    );
+    assert.equal(
+      report.providerProbe
+        .success,
+      true
+    );
+    assert.deepEqual(
+      report.blockers,
+      []
+    );
+  }
+);
+
+test(
+  "operational SendGrid readiness blocks safely when the provider rejects SMTP verification",
+  async () => {
+    const providerError =
+      new Error(
+        "451 Authentication failed: Maximum credits exceeded"
+      );
+
+    providerError.code =
+      "SMTP_VERIFICATION_FAILED";
+
+    providerError
+      .providerResponse = {
+        responseCode: 451,
+        response:
+          "451 Authentication failed: Maximum credits exceeded",
+      };
+
+    const report =
+      await buildSendGridOperationalReadinessReport({
+        suppliedConfig:
+          config(),
+        verifyConnection:
+          async () => {
+            throw providerError;
+          },
+      });
+
+    assert.equal(
+      report.readyForAcceptance,
+      false
+    );
+    assert.equal(
+      report.checks
+        .providerConnection,
+      false
+    );
+    assert.ok(
+      report.blockers.includes(
+        "providerConnection"
+      )
+    );
+    assert.ok(
+      report.providerBlockers.includes(
+        "providerConnection"
+      )
+    );
+    assert.deepEqual(
+      report.providerProbe,
+      {
+        attempted: true,
+        success: false,
+        errorCode:
+          "SMTP_VERIFICATION_FAILED",
+        responseCode: 451,
+      }
+    );
+
+    const serialised =
+      JSON.stringify(
+        report
+      );
+
+    assert.equal(
+      serialised.includes(
+        "Maximum credits exceeded"
+      ),
+      false
+    );
+  }
+);
+
+test(
+  "operational SendGrid readiness does not contact the provider while static configuration is blocked",
+  async () => {
+    let verificationCalls = 0;
+
+    const report =
+      await buildSendGridOperationalReadinessReport({
+        suppliedConfig:
+          config({
+            email: {
+              sendgrid: {
+                marketing: {
+                  senderVerified:
+                    false,
+                },
+              },
+            },
+          }),
+        verifyConnection:
+          async () => {
+            verificationCalls += 1;
+            return {
+              success: true,
+            };
+          },
+      });
+
+    assert.equal(
+      report.readyForAcceptance,
+      false
+    );
+    assert.equal(
+      report.providerProbe
+        .attempted,
+      false
+    );
+    assert.equal(
+      verificationCalls,
+      0
+    );
+    assert.ok(
+      report.blockers.includes(
+        "senderVerified"
+      )
     );
   }
 );
