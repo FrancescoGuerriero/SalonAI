@@ -4,6 +4,9 @@
 - [ ] Backend tests passed
 - [ ] Frontend production build passed
 - [ ] AI-service tests passed
+- [ ] React /ai/* management routes resolve to HTML, not the Python AI service
+- [ ] /api/ai/* remains the application AI API namespace
+- [ ] Exact /ai/health production health endpoint verified
 - [ ] Authentication tested
 - [ ] Permissions tested
 - [ ] Appointment conflict prevention tested

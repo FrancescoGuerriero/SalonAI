@@ -128,7 +128,7 @@ jobs:
             dockerfile: frontend/Dockerfile.production
             build_args: |
               VITE_API_URL=/api
-              VITE_AI_API_URL=/ai
+              VITE_AI_API_URL=/api/ai
               VITE_WHATSAPP_NUMBER=${{ vars.VITE_WHATSAPP_NUMBER }}
               VITE_WHATSAPP_MESSAGE=${{ vars.VITE_WHATSAPP_MESSAGE }}
               VITE_INSTAGRAM_URL=${{ vars.VITE_INSTAGRAM_URL }}
