@@ -88,7 +88,7 @@ The `playwright/.auth/` directory is ignored by Git.
 ## Optional controls
 
 - `FIGMA_CAPTURE_SELECTOR` — CSS selector to capture; defaults to `body`.
-- `FIGMA_CAPTURE_EXPECT_ROUTE` — required route path to verify before submission (for example `/dashboard`). If authentication redirects to `/login`, the test fails before consuming the Figma capture ID.
+- `FIGMA_CAPTURE_EXPECT_ROUTE` — required route to verify before submission (for example `dashboard`, without a leading slash). The runner normalizes it to `/dashboard` internally. If authentication redirects to `/login`, the test fails before consuming the Figma capture ID.
 - `FIGMA_CAPTURE_DELAY_MS` — additional rendering wait; defaults to 1500 ms.
 - `FIGMA_CAPTURE_WIDTH` — viewport width; defaults to 1440.
 - `FIGMA_CAPTURE_HEIGHT` — viewport height; defaults to 1000.
@@ -122,4 +122,4 @@ Each Figma capture ID is single-use and must correspond to one page/view.
 
 ### Git Bash note
 
-Use `FIGMA_CAPTURE_EXPECT_ROUTE`, not a variable name ending in `PATH`. Git Bash/MSYS can rewrite Unix-looking values such as `/booking` into Windows filesystem paths when the environment variable name ends in `PATH`.
+With Git Bash/MSYS, pass `FIGMA_CAPTURE_EXPECT_ROUTE` without a leading slash, for example `booking` rather than `/booking`. MSYS can rewrite Unix-looking environment values passed to Windows executables into filesystem paths such as `C:/Program Files/Git/booking`. The runner normalizes the route internally.
