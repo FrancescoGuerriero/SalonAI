@@ -943,13 +943,20 @@ function paymentRefundAmount(
   return Math.min(
     amount,
 
-    positive(
-      metadata
-        .refundedAmount ??
+    Math.max(
+      positive(
+        payment
+          ?.refundedAmount
+      ),
+
+      positive(
         metadata
-          .refundAmount ??
-        metadata
-          .refunded_amount
+          .refundedAmount ??
+          metadata
+            .refundAmount ??
+          metadata
+            .refunded_amount
+      )
     )
   );
 }
@@ -1669,12 +1676,31 @@ function orderEntries(
     return [];
   }
 
-  const items =
+  const allItems =
     Array.isArray(
       order?.items
     )
       ? order.items
       : [];
+
+  /*
+   * Sales forecasting recognises order-backed retail revenue here.
+   * Appointment revenue is recognised from completed Appointment records,
+   * so appointment checkout items must not be counted again. Service-package
+   * items and delivery fees are also outside the retail channel and must not
+   * inflate product net sales.
+   */
+  const items =
+    allItems.filter(
+      (item) =>
+        String(
+          item?.itemType ||
+            "product"
+        )
+          .trim()
+          .toLowerCase() ===
+        "product"
+    );
 
   if (
     items.length === 0
@@ -1682,9 +1708,30 @@ function orderEntries(
     return [];
   }
 
+  const itemSubtotal =
+    money(
+      items.reduce(
+        (
+          sum,
+          item
+        ) =>
+          sum +
+          positive(
+            item?.lineTotal
+          ),
+        0
+      )
+    );
+
   const subtotal =
     money(
-      order?.subtotal
+      Number.isFinite(
+        Number(
+          order?.subtotal
+        )
+      )
+        ? order.subtotal
+        : itemSubtotal
     );
 
   const discountTotal =
@@ -1696,14 +1743,13 @@ function orderEntries(
       )
     );
 
-  const expectedNet =
-    money(
-      order?.total ??
-        Math.max(
-          0,
-          subtotal -
-            discountTotal
-        )
+  const retailBeforeRefund =
+    Math.max(
+      0,
+      money(
+        subtotal -
+          discountTotal
+      )
     );
 
   const reference =
@@ -1711,13 +1757,52 @@ function orderEntries(
       entityId(order)
     ) || null;
 
-  const refundTotal =
+  const declaredOrderTotal =
+    money(
+      order?.total
+    );
+
+  const componentFallbackTotal =
+    money(
+      retailBeforeRefund +
+        positive(
+          order
+            ?.appointmentSubtotal
+        ) +
+        positive(
+          order
+            ?.servicePackageSubtotal
+        ) +
+        positive(
+          order
+            ?.deliveryFee
+        )
+    );
+
+  const financialTotal =
+    declaredOrderTotal > 0
+      ? declaredOrderTotal
+      : componentFallbackTotal >
+          0
+        ? componentFallbackTotal
+        : retailBeforeRefund;
+
+  const retailShare =
+    financialTotal > 0
+      ? Math.min(
+          1,
+          retailBeforeRefund /
+            financialTotal
+        )
+      : 1;
+
+  const orderRefunded =
     Math.min(
-      expectedNet,
+      financialTotal,
 
       status ===
       "refunded"
-        ? expectedNet
+        ? financialTotal
         : reference
           ? money(
               reference
@@ -1726,11 +1811,29 @@ function orderEntries(
           : 0
     );
 
+  /*
+   * A parent order payment can cover products, appointments, packages and a
+   * delivery fee. Prorate payment/refund totals to the retail component so
+   * every emitted channel/category preserves:
+   *
+   *   net_sales = gross_sales - discounts - refunds
+   */
+  const refundTotal =
+    Math.min(
+      retailBeforeRefund,
+      money(
+        orderRefunded *
+          retailShare
+      )
+    );
+
   const netTotal =
     Math.max(
       0,
-      expectedNet -
-        refundTotal
+      money(
+        retailBeforeRefund -
+          refundTotal
+      )
     );
 
   const collectedTotal =
@@ -1740,7 +1843,8 @@ function orderEntries(
       reference
         ? money(
             reference
-              .collected
+              .collected *
+              retailShare
           )
         : [
             "paid",
@@ -1781,15 +1885,36 @@ function orderEntries(
     );
 
   const netAllocations =
-    allocate(
-      netTotal,
-      weights
+    grossAllocations.map(
+      (
+        gross,
+        index
+      ) =>
+        money(
+          gross -
+            (
+              discountAllocations[
+                index
+              ] || 0
+            ) -
+            (
+              refundAllocations[
+                index
+              ] || 0
+            )
+        )
     );
 
   const collectedAllocations =
     allocate(
       collectedTotal,
-      weights
+      netAllocations.map(
+        (value) =>
+          Math.max(
+            0,
+            value
+          )
+      )
     );
 
   return items.map(
@@ -2631,6 +2756,9 @@ export async function loadSalesForecastSourceData({
         [
           "items",
           "subtotal",
+          "appointmentSubtotal",
+          "servicePackageSubtotal",
+          "deliveryFee",
           "discountTotal",
           "total",
           "status",
@@ -2695,6 +2823,7 @@ export async function loadSalesForecastSourceData({
           "currency",
           "status",
           "paidAt",
+          "refundedAmount",
           "metadata",
           "createdAt",
           "updatedAt",
