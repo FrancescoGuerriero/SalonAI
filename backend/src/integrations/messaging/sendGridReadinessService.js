@@ -205,6 +205,183 @@ export function buildSendGridReadinessReport(
   };
 }
 
+function safeProviderProbeFailure(
+  error
+) {
+  const responseCode =
+    Number(
+      error
+        ?.providerResponse
+        ?.responseCode ??
+      error
+        ?.responseCode
+    );
+
+  return {
+    errorCode:
+      text(
+        error?.code
+      ) ||
+      "SENDGRID_PROVIDER_CONNECTION_FAILED",
+    responseCode:
+      Number.isFinite(
+        responseCode
+      )
+        ? responseCode
+        : null,
+  };
+}
+
+export async function buildSendGridOperationalReadinessReport({
+  suppliedConfig =
+    getMessageDeliveryConfig(),
+  verifyConnection,
+} = {}) {
+  const report =
+    buildSendGridReadinessReport(
+      suppliedConfig
+    );
+
+  if (
+    report.readyForAcceptance !==
+    true
+  ) {
+    return {
+      ...report,
+      providerProbe: {
+        attempted: false,
+        success: false,
+        reason:
+          "configuration-readiness-blocked",
+      },
+    };
+  }
+
+  if (
+    typeof verifyConnection !==
+    "function"
+  ) {
+    throw new TypeError(
+      "verifyConnection must be provided for SendGrid operational readiness."
+    );
+  }
+
+  try {
+    const verification =
+      await verifyConnection();
+
+    if (
+      verification?.success !==
+      true
+    ) {
+      const blockers = [
+        ...report.blockers,
+        "providerConnection",
+      ];
+
+      return {
+        ...report,
+        readyForAcceptance:
+          false,
+        checks: {
+          ...report.checks,
+          providerConnection:
+            false,
+        },
+        blockers,
+        providerBlockers: [
+          ...report.providerBlockers,
+          "providerConnection",
+        ],
+        providerProbe: {
+          attempted: true,
+          success: false,
+          errorCode:
+            "SENDGRID_PROVIDER_CONNECTION_NOT_VERIFIED",
+          responseCode:
+            null,
+        },
+        nextSteps: [
+          ...report.nextSteps.filter(
+            (step) =>
+              !step.startsWith(
+                "Run npm run sendgrid:acceptance"
+              )
+          ),
+          "Resolve the SendGrid account, plan, credit or SMTP-authentication blocker and rerun production readiness before any acceptance send.",
+        ],
+      };
+    }
+
+    return {
+      ...report,
+      checks: {
+        ...report.checks,
+        providerConnection:
+          true,
+      },
+      providerProbe: {
+        attempted: true,
+        success: true,
+        provider:
+          text(
+            verification.provider
+          ) ||
+          "sendgrid",
+        host:
+          text(
+            verification.host
+          ),
+        port:
+          verification.port ||
+          null,
+        verifiedAt:
+          verification.verifiedAt ||
+          null,
+      },
+    };
+  } catch (error) {
+    const failure =
+      safeProviderProbeFailure(
+        error
+      );
+
+    return {
+      ...report,
+      readyForAcceptance:
+        false,
+      checks: {
+        ...report.checks,
+        providerConnection:
+          false,
+      },
+      blockers: [
+        ...report.blockers,
+        "providerConnection",
+      ],
+      providerBlockers: [
+        ...report.providerBlockers,
+        "providerConnection",
+      ],
+      providerProbe: {
+        attempted: true,
+        success: false,
+        ...failure,
+      },
+      nextSteps: [
+        ...report.nextSteps.filter(
+          (step) =>
+            !step.startsWith(
+              "Run npm run sendgrid:acceptance"
+            )
+        ),
+        "Resolve the SendGrid account, plan, credit or SMTP-authentication blocker and rerun production readiness before any acceptance send.",
+      ],
+    };
+  }
+}
+
 export default {
   buildSendGridReadinessReport,
+  buildSendGridOperationalReadinessReport,
 };
