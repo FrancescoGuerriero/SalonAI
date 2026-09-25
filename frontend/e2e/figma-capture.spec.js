@@ -10,7 +10,7 @@ const height = Number.parseInt(process.env.FIGMA_CAPTURE_HEIGHT || "1000", 10);
 const storageState = process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim();
 const expectedRouteRaw = process.env.FIGMA_CAPTURE_EXPECT_ROUTE?.trim();
 const expectedRoute = expectedRouteRaw
-  ? `/${expectedRouteRaw.replace(/^\\/+|\\/+$/g, "")}`
+  ? "/" + expectedRouteRaw.split("/").filter(Boolean).join("/")
   : undefined;
 const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";
 const submissionTimeoutMs = Number.parseInt(
