@@ -95,6 +95,10 @@ test.describe("Figma UX reference capture", () => {
       ).toBe(expectedRoute);
     }
 
+    if (Number.isFinite(delayMs) && delayMs > 0) {
+      await page.waitForTimeout(delayMs);
+    }
+
     let redactionReport = {
       enabled: false,
     };
@@ -150,10 +154,6 @@ test.describe("Figma UX reference capture", () => {
       undefined,
       { timeout: 15000 }
     );
-
-    if (Number.isFinite(delayMs) && delayMs > 0) {
-      await page.waitForTimeout(delayMs);
-    }
 
     const endpoint =
       `https://mcp.figma.com/mcp/capture/${captureId}/submit?bindVariables=true`;
