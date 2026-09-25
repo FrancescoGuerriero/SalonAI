@@ -1,12 +1,23 @@
+import fs from "node:fs";
+
 import { expect, test } from "@playwright/test";
 
 const storageState =
   process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim() ||
   "playwright/.auth/salonai-production.json";
 
-test.use({ storageState });
+const hasStorageState =
+  fs.existsSync(storageState);
+
+if (hasStorageState) {
+  test.use({ storageState });
+}
 
 test("saved SalonAI authentication state reaches the dashboard", async ({ page }) => {
+  test.skip(
+    !hasStorageState,
+    "Authenticated production storage state is local-only and is not available in CI."
+  );
   await page.goto("https://salonai.francescopicardi.co.uk/dashboard", {
     waitUntil: "domcontentloaded",
     timeout: 60000,
