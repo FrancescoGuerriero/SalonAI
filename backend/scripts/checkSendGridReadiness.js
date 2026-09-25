@@ -1,11 +1,20 @@
 import "dotenv/config";
 
 import {
-  buildSendGridReadinessReport,
+  buildSendGridOperationalReadinessReport,
 } from "../src/integrations/messaging/sendGridReadinessService.js";
+import {
+  closeEmailDeliveryConnection,
+  verifyEmailDeliveryConnection,
+} from "../src/services/emailDeliveryService.js";
 
 const report =
-  buildSendGridReadinessReport();
+  await buildSendGridOperationalReadinessReport({
+    verifyConnection:
+      verifyEmailDeliveryConnection,
+  });
+
+closeEmailDeliveryConnection();
 
 console.log(
   JSON.stringify(
