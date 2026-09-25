@@ -143,6 +143,133 @@ def _standard_deviation(
     return pstdev(cleaned)
 
 
+def _classify_peak_and_quiet_days(
+    raw_forecasts: list[dict],
+) -> bool:
+    """
+    Apply mutually exclusive peak/quiet classifications.
+
+    Returns True when deterministic fallback ranking was needed
+    because the forecast had no meaningful sales variation.
+    """
+
+    business_items = [
+        item
+        for item in raw_forecasts
+        if (
+            item["is_business_day"]
+            and item["predicted_net_sales"] > 0
+        )
+    ]
+
+    for item in raw_forecasts:
+        item["is_peak_day"] = False
+        item["is_quiet_day"] = False
+
+    if not business_items:
+        return False
+
+    values = [
+        item["predicted_net_sales"]
+        for item in business_items
+    ]
+
+    forecast_average = _average(values)
+    forecast_deviation = _standard_deviation(values)
+    unique_values = {
+        round(value, 2)
+        for value in values
+    }
+
+    fallback_used = (
+        forecast_deviation <= 0
+        or len(unique_values) <= 1
+    )
+
+    if fallback_used:
+        peak_candidate = max(
+            business_items,
+            key=lambda item:
+                item["predicted_net_sales"],
+        )
+        peak_candidate["is_peak_day"] = True
+
+        quiet_candidates = [
+            item
+            for item in business_items
+            if item is not peak_candidate
+        ]
+
+        if quiet_candidates:
+            quiet_candidate = min(
+                quiet_candidates,
+                key=lambda item:
+                    item["predicted_net_sales"],
+            )
+            quiet_candidate["is_quiet_day"] = True
+
+        return True
+
+    peak_threshold = (
+        forecast_average
+        + (
+            forecast_deviation
+            * 0.60
+        )
+    )
+
+    quiet_threshold = max(
+        0.0,
+        forecast_average
+        - (
+            forecast_deviation
+            * 0.60
+        ),
+    )
+
+    for item in business_items:
+        value = item[
+            "predicted_net_sales"
+        ]
+
+        if value >= peak_threshold:
+            item["is_peak_day"] = True
+        elif value <= quiet_threshold:
+            item["is_quiet_day"] = True
+
+    if not any(
+        item["is_peak_day"]
+        for item in business_items
+    ):
+        peak_candidate = max(
+            business_items,
+            key=lambda item:
+                item["predicted_net_sales"],
+        )
+        peak_candidate["is_peak_day"] = True
+        peak_candidate["is_quiet_day"] = False
+
+    if not any(
+        item["is_quiet_day"]
+        for item in business_items
+    ):
+        quiet_candidates = [
+            item
+            for item in business_items
+            if not item["is_peak_day"]
+        ]
+
+        if quiet_candidates:
+            quiet_candidate = min(
+                quiet_candidates,
+                key=lambda item:
+                    item["predicted_net_sales"],
+            )
+            quiet_candidate["is_quiet_day"] = True
+
+    return False
+
+
 def _growth_rate(
     recent: float,
     baseline: float,
@@ -1113,6 +1240,8 @@ def _data_quality_warnings(
         str,
         float,
     ],
+    *,
+    peak_quiet_fallback_used: bool = False,
 ) -> list[str]:
     warnings: list[str] = []
 
@@ -1175,6 +1304,15 @@ def _data_quality_warnings(
             (
                 "Transaction counts are unavailable, "
                 "so transaction-volume estimates are limited."
+            )
+        )
+
+    if peak_quiet_fallback_used:
+        warnings.append(
+            (
+                "Forecast sales have insufficient variation for "
+                "threshold-based peak/quiet separation, so distinct "
+                "days are selected using deterministic fallback ranking."
             )
         )
 
@@ -1681,143 +1819,11 @@ def build_sales_forecast(
             "explanation": explanation,
         })
 
-    business_forecast_values = [
-        item["predicted_net_sales"]
-        for item in raw_forecasts
-        if item["is_business_day"]
-    ]
-
-    forecast_average = _average(
-        business_forecast_values
-    )
-
-    forecast_deviation = _standard_deviation(
-        business_forecast_values
-    )
-
-    peak_threshold = (
-        forecast_average
-        + (
-            forecast_deviation
-            * 0.60
+    peak_quiet_fallback_used = (
+        _classify_peak_and_quiet_days(
+            raw_forecasts
         )
     )
-
-    quiet_threshold = max(
-        0.0,
-        forecast_average
-        - (
-            forecast_deviation
-            * 0.60
-        ),
-    )
-
-    if (
-        forecast_deviation <= 0
-        and business_forecast_values
-    ):
-        peak_threshold = max(
-            business_forecast_values
-        )
-
-        quiet_threshold = min(
-            business_forecast_values
-        )
-
-    for item in raw_forecasts:
-        if not item[
-            "is_business_day"
-        ]:
-            continue
-
-        item["is_peak_day"] = (
-            item[
-                "predicted_net_sales"
-            ]
-            >= peak_threshold
-            and item[
-                "predicted_net_sales"
-            ] > 0
-        )
-
-        item["is_quiet_day"] = (
-            item[
-                "predicted_net_sales"
-            ]
-            <= quiet_threshold
-            and item[
-                "predicted_net_sales"
-            ] > 0
-        )
-
-    business_items = [
-        item
-        for item in raw_forecasts
-        if (
-            item["is_business_day"]
-            and item["predicted_net_sales"] > 0
-        )
-    ]
-
-    if business_items:
-        has_peak_day = any(
-            item["is_peak_day"]
-            for item in business_items
-        )
-
-        if not has_peak_day:
-            highest_sales = max(
-                item["predicted_net_sales"]
-                for item in business_items
-            )
-
-            peak_candidate = next(
-                item
-                for item in business_items
-                if (
-                    item["predicted_net_sales"]
-                    == highest_sales
-                )
-            )
-
-            peak_candidate["is_peak_day"] = True
-
-        has_quiet_day = any(
-            item["is_quiet_day"]
-            for item in business_items
-        )
-
-        if not has_quiet_day:
-            lowest_sales = min(
-                item["predicted_net_sales"]
-                for item in business_items
-            )
-
-            quiet_candidates = [
-                item
-                for item in business_items
-                if (
-                    item["predicted_net_sales"]
-                    == lowest_sales
-                    and not item["is_peak_day"]
-                )
-            ]
-
-            if not quiet_candidates:
-                quiet_candidates = [
-                    item
-                    for item in reversed(
-                        business_items
-                    )
-                    if not item["is_peak_day"]
-                ]
-
-            if not quiet_candidates:
-                quiet_candidates = [
-                    business_items[-1]
-                ]
-
-            quiet_candidates[0]["is_quiet_day"] = True
 
     forecasts = [
         DailySalesForecast(
@@ -2032,6 +2038,8 @@ def build_sales_forecast(
             all_business,
             category_metrics,
             financial_rates,
+            peak_quiet_fallback_used=
+                peak_quiet_fallback_used,
         ),
     )
 

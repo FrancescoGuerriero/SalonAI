@@ -644,6 +644,132 @@ def test_monthly_forecasts_match_daily_totals():
     ) >= 2
 
 
+def test_peak_and_quiet_flags_are_mutually_exclusive():
+    forecast = create_forecast(
+        horizon_days=30
+    )
+
+    for item in forecast.forecasts:
+        assert not (
+            item.is_peak_day
+            and item.is_quiet_day
+        )
+
+    assert set(
+        forecast.summary.peak_dates
+    ).isdisjoint(
+        set(
+            forecast.summary.quiet_dates
+        )
+    )
+
+
+def test_degenerate_forecast_uses_distinct_peak_quiet_fallback():
+    as_of_date = date(
+        2026,
+        7,
+        28,
+    )
+
+    first_date = (
+        as_of_date
+        - timedelta(days=83)
+    )
+
+    observations = []
+
+    for index in range(84):
+        business_date = (
+            first_date
+            + timedelta(days=index)
+        )
+
+        if business_date.weekday() == 6:
+            observations.append(
+                build_observation(
+                    business_date,
+                    service_sales=0,
+                    retail_sales=0,
+                    discounts=0,
+                    refunds=0,
+                    collected_rate=0,
+                    cost_of_goods=0,
+                    transactions=0,
+                    completed_appointments=0,
+                    paid_orders=0,
+                    units_sold=0,
+                )
+            )
+            continue
+
+        observations.append(
+            build_observation(
+                business_date,
+                service_sales=70,
+                retail_sales=25,
+                discounts=5,
+                refunds=0,
+                collected_rate=1,
+                cost_of_goods=12,
+                transactions=4,
+                completed_appointments=3,
+                paid_orders=1,
+                units_sold=2,
+            )
+        )
+
+    forecast = create_forecast(
+        as_of_date=as_of_date,
+        observations=observations,
+        horizon_days=14,
+    )
+
+    business_forecasts = [
+        item
+        for item in forecast.forecasts
+        if (
+            item.is_business_day
+            and item.predicted_net_sales > 0
+        )
+    ]
+
+    assert len(
+        business_forecasts
+    ) >= 2
+
+    assert all(
+        not (
+            item.is_peak_day
+            and item.is_quiet_day
+        )
+        for item in business_forecasts
+    )
+
+    peak_dates = set(
+        forecast.summary.peak_dates
+    )
+    quiet_dates = set(
+        forecast.summary.quiet_dates
+    )
+
+    assert peak_dates
+    assert quiet_dates
+    assert peak_dates.isdisjoint(
+        quiet_dates
+    )
+
+    assert any(
+        (
+            "insufficient variation"
+            in warning.lower()
+            and "fallback ranking"
+            in warning.lower()
+        )
+        for warning
+        in forecast.summary.data_quality_warnings
+    )
+
+
 def test_forecast_metadata_is_explainable():
     forecast = create_forecast()
 
