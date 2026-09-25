@@ -88,6 +88,7 @@ The `playwright/.auth/` directory is ignored by Git.
 ## Optional controls
 
 - `FIGMA_CAPTURE_SELECTOR` — CSS selector to capture; defaults to `body`.
+- `FIGMA_CAPTURE_EXPECT_PATH` — required route path to verify before submission (for example `/dashboard`). If authentication redirects to `/login`, the test fails before consuming the Figma capture ID.
 - `FIGMA_CAPTURE_DELAY_MS` — additional rendering wait; defaults to 1500 ms.
 - `FIGMA_CAPTURE_WIDTH` — viewport width; defaults to 1440.
 - `FIGMA_CAPTURE_HEIGHT` — viewport height; defaults to 1000.
