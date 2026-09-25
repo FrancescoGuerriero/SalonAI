@@ -8,7 +8,7 @@ const delayMs = Number.parseInt(process.env.FIGMA_CAPTURE_DELAY_MS || "1500", 10
 const width = Number.parseInt(process.env.FIGMA_CAPTURE_WIDTH || "1440", 10);
 const height = Number.parseInt(process.env.FIGMA_CAPTURE_HEIGHT || "1000", 10);
 const storageState = process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim();
-const expectedPath = process.env.FIGMA_CAPTURE_EXPECT_PATH?.trim();
+const expectedRoute = process.env.FIGMA_CAPTURE_EXPECT_ROUTE?.trim();
 const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";
 const submissionTimeoutMs = Number.parseInt(
   process.env.FIGMA_CAPTURE_SUBMISSION_TIMEOUT_MS || "360000",
@@ -52,12 +52,12 @@ test.describe("Figma UX reference capture", () => {
 
     await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
 
-    if (expectedPath) {
+    if (expectedRoute) {
       const actualPath = new URL(page.url()).pathname;
       expect(
         actualPath,
-        `Expected capture route ${expectedPath}, but browser ended on ${actualPath}. This usually means the authenticated storage state is missing or expired. The Figma capture ID has NOT been submitted and can still be retried while valid.`
-      ).toBe(expectedPath);
+        `Expected capture route ${expectedRoute}, but browser ended on ${actualPath}. This usually means the authenticated storage state is missing or expired. The Figma capture ID has NOT been submitted and can still be retried while valid.`
+      ).toBe(expectedRoute);
     }
 
     const captureScriptResponse = await page.context().request.get(
