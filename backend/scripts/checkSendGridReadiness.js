@@ -4,6 +4,7 @@ import {
   buildSendGridOperationalReadinessReport,
 } from "../src/integrations/messaging/sendGridReadinessService.js";
 import {
+  closeEmailDeliveryConnection,
   verifyEmailDeliveryConnection,
 } from "../src/services/emailDeliveryService.js";
 
@@ -12,6 +13,8 @@ const report =
     verifyConnection:
       verifyEmailDeliveryConnection,
   });
+
+closeEmailDeliveryConnection();
 
 console.log(
   JSON.stringify(
