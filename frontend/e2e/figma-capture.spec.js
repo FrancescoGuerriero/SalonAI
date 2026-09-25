@@ -116,6 +116,12 @@ test.describe("Figma UX reference capture", () => {
 
     const submissionResponse = await submissionResponsePromise;
 
+    if (submissionResponse.status() === 410) {
+      throw new Error(
+        "Figma capture ID has expired. Generate a fresh single-use capture ID and rerun the same command."
+      );
+    }
+
     expect(
       submissionResponse.ok(),
       `Figma submission endpoint should accept the capture (HTTP ${submissionResponse.status()}).`
