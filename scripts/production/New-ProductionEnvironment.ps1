@@ -141,6 +141,7 @@ $Lines = @(
     "AI_SERVICE_KEY=$AiServiceKey",
     "SERVICE_KEY=$AiServiceKey",
     "ENVIRONMENT=production",
+    "PROVIDER_MODE=local",
     "",
     "TLS_CERT_DIR=$TlsDirectory",
     "EDGE_HTTP_PORT=80",

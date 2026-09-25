@@ -60,6 +60,7 @@ $Required = @(
     "AI_SERVICE_KEY",
     "SERVICE_KEY",
     "ENVIRONMENT",
+    "PROVIDER_MODE",
     "TLS_CERT_DIR",
     "GRAFANA_ADMIN_USER",
     "GRAFANA_ADMIN_PASSWORD"
@@ -160,6 +161,10 @@ if ($Values["AI_SERVICE_KEY"] -cne $Values["SERVICE_KEY"]) {
 
 if ($Values["ENVIRONMENT"] -cne "production") {
     throw "ENVIRONMENT must be production."
+}
+
+if ($Values["PROVIDER_MODE"] -cne "local") {
+    throw "PROVIDER_MODE must be local in production until an external AI provider adapter is explicitly implemented and approved."
 }
 
 if ($Values["GRAFANA_ADMIN_PASSWORD"].Length -lt 24) {
