@@ -20,7 +20,8 @@
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "figma:capture": "playwright test e2e/figma-capture.spec.js --project=chromium-desktop --workers=1",
     "figma:capture:headed": "playwright test e2e/figma-capture.spec.js --project=chromium-desktop --workers=1 --headed",
-    "figma:auth-check": "playwright test e2e/figma-auth-check.spec.js --project=chromium-desktop --workers=1"
+    "figma:auth-check": "playwright test e2e/figma-auth-check.spec.js --project=chromium-desktop --workers=1",
+    "ai:production-diagnostic": "playwright test e2e/ai-production-diagnostic.spec.js --project=chromium-desktop --workers=1"
   },
   "dependencies": {
     "axios": "^1.18.1",
