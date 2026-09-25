@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import {
+  redactCapturePii,
+} from "./helpers/figmaCaptureRedaction.js";
+
 const captureId = process.env.FIGMA_CAPTURE_ID?.trim();
 const capturePath = process.env.FIGMA_CAPTURE_PATH?.trim() || "/";
 const targetUrl = process.env.FIGMA_CAPTURE_TARGET_URL?.trim();
@@ -8,11 +12,35 @@ const delayMs = Number.parseInt(process.env.FIGMA_CAPTURE_DELAY_MS || "1500", 10
 const width = Number.parseInt(process.env.FIGMA_CAPTURE_WIDTH || "1440", 10);
 const height = Number.parseInt(process.env.FIGMA_CAPTURE_HEIGHT || "1000", 10);
 const storageState = process.env.FIGMA_CAPTURE_STORAGE_STATE?.trim();
+const piiRedactionRaw =
+  process.env.FIGMA_CAPTURE_REDACT_PII?.trim().toLowerCase();
 const expectedRouteRaw = process.env.FIGMA_CAPTURE_EXPECT_ROUTE?.trim();
 const expectedRoute = expectedRouteRaw
   ? "/" + expectedRouteRaw.split("/").filter(Boolean).join("/")
   : undefined;
 const stripCsp = process.env.FIGMA_CAPTURE_STRIP_CSP !== "false";
+
+function isProductionCaptureUrl(value) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    return (
+      new URL(value).hostname ===
+      "salonai.francescopicardi.co.uk"
+    );
+  } catch {
+    return false;
+  }
+}
+
+const productionCapture =
+  isProductionCaptureUrl(targetUrl);
+
+const redactPii =
+  productionCapture ||
+  piiRedactionRaw === "true";
 const submissionTimeoutMs = Number.parseInt(
   process.env.FIGMA_CAPTURE_SUBMISSION_TIMEOUT_MS || "360000",
   10
@@ -55,12 +83,49 @@ test.describe("Figma UX reference capture", () => {
 
     await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
 
+    const actualPath =
+      new URL(
+        page.url()
+      ).pathname;
+
     if (expectedRoute) {
-      const actualPath = new URL(page.url()).pathname;
       expect(
         actualPath,
         `Expected capture route ${expectedRoute}, but browser ended on ${actualPath}. This usually means the authenticated storage state is missing or expired. The Figma capture ID has NOT been submitted and can still be retried while valid.`
       ).toBe(expectedRoute);
+    }
+
+    let redactionReport = {
+      enabled: false,
+    };
+
+    if (redactPii) {
+      redactionReport =
+        await redactCapturePii(
+          page,
+          {
+            routePath:
+              actualPath,
+          }
+        );
+
+      expect(
+        redactionReport
+          .remainingSensitiveValues,
+        "Figma capture redaction must remove every discovered customer identity value before submission."
+      ).toBe(0);
+
+      expect(
+        redactionReport
+          .remainingEmails,
+        "Figma capture redaction must not leave customer email addresses in visible content."
+      ).toBe(0);
+
+      expect(
+        redactionReport
+          .remainingUkMobiles,
+        "Figma capture redaction must not leave UK mobile numbers in visible content."
+      ).toBe(0);
     }
 
     const captureScriptResponse = await page.context().request.get(
@@ -147,6 +212,10 @@ test.describe("Figma UX reference capture", () => {
           selector,
           viewport: { width, height },
           launchResult,
+          privacy: {
+            productionCapture,
+            redaction: redactionReport,
+          },
           submission: {
             status: submissionResponse.status(),
             url: submissionResponse.url(),
