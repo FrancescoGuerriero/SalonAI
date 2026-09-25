@@ -7,7 +7,10 @@ export async function redactCapturePii(
   } = {}
 ) {
   return page.evaluate(
-    ({ currentRoute }) => {
+    ({
+      currentRoute,
+      customerSummaryRoute,
+    }) => {
       const replacements = new Map();
       const originals = new Set();
       let redactionCount = 0;
@@ -51,7 +54,7 @@ export async function redactCapturePii(
 
       if (
         currentRoute ===
-        CUSTOMER_SUMMARY_ROUTE
+        customerSummaryRoute
       ) {
         const chooser = [
           ...document.querySelectorAll(
@@ -399,6 +402,8 @@ export async function redactCapturePii(
         new URL(
           page.url()
         ).pathname,
+      customerSummaryRoute:
+        CUSTOMER_SUMMARY_ROUTE,
     }
   );
 }
