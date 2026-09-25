@@ -42,9 +42,21 @@ class Settings(BaseSettings):
         return normalised
 
     @model_validator(mode="after")
-    def reject_development_secret_in_production(self) -> "Settings":
-        if self.environment == "production" and self.service_key.startswith("development-"):
+    def validate_production_runtime(self) -> "Settings":
+        if self.environment != "production":
+            return self
+
+        if self.service_key.startswith("development-"):
             raise ValueError("A production AI service must use a non-development SERVICE_KEY.")
+
+        if self.provider_mode != "local":
+            raise ValueError(
+                "Production AI currently requires PROVIDER_MODE=local because "
+                "the deployed SalonAI forecasting and recommendation engines "
+                "run deterministically in-process. Mock mode is not a production "
+                "provider, and external provider adapters are not yet active."
+            )
+
         return self
 
 
