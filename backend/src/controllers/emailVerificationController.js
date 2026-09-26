@@ -144,6 +144,10 @@ async function issueVerification(user) {
 }
 
 export async function registerVerifiedCustomer(req, res, next) {
+  setNoStoreHeaders(
+    res
+  );
+
   try {
     const name = String(req.body?.name || "").trim();
     const email = normaliseEmail(req.body?.email);
@@ -237,6 +241,10 @@ export async function registerVerifiedCustomer(req, res, next) {
 }
 
 export async function verifyEmail(req, res, next) {
+  setNoStoreHeaders(
+    res
+  );
+
   try {
     const token = String(req.body?.token || req.query?.token || "").trim();
 
