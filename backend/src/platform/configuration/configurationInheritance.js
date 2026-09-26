@@ -46,7 +46,11 @@ function ruleCoversPath(rule, path) {
 
 function findLock(path, lockOwners) {
   const matches = Object.entries(lockOwners)
-    .filter(([lockedPath]) => ruleCoversPath(lockedPath, path))
+    .filter(
+      ([lockedPath]) =>
+        ruleCoversPath(lockedPath, path) ||
+        ruleCoversPath(path, lockedPath)
+    )
     .sort(([left], [right]) => right.length - left.length);
 
   if (!matches.length) {
