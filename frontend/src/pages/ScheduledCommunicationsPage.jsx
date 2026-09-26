@@ -217,8 +217,9 @@ export default function ScheduledCommunicationsPage() {
                       {[
                         "queued",
                         "processing",
-                      ].includes(job.status) ? (
-                        {canManageCommunications && (<button
+                      ].includes(job.status) &&
+                      canManageCommunications ? (
+                        <button
                           type="button"
                           onClick={() => cancel(job)}
                           disabled={
@@ -228,7 +229,7 @@ export default function ScheduledCommunicationsPage() {
                         >
                           <Ban size={15} />
                           Cancel
-                        </button>)}
+                        </button>
                       ) : null}
                     </td>
                   </tr>
