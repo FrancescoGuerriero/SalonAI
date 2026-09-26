@@ -459,16 +459,7 @@ test("dashboard navigation contains no dead primary links", async () => {
 });
 
 
-test("Admin overview stays administrator-only while legacy operational URLs redirect to guarded canonical workspaces", async () => {
-  const adminRoute =
-    await readFile(
-      new URL(
-        "../../../frontend/src/Routes/AdminRoute.jsx",
-        import.meta.url
-      ),
-      "utf8"
-    );
-
+test("Admin overview uses canonical dashboard authority while legacy operational URLs redirect to guarded canonical workspaces", async () => {
   const app =
     await readFile(
       new URL(
@@ -481,11 +472,6 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
   const navigation =
     await managementNavigationSource();
 
-  assert.match(
-    adminRoute,
-    /isAdminRole/
-  );
-
   const adminOverview =
     app.match(
       /<Route[\s\S]*?path="admin"[\s\S]*?\/>/
@@ -493,7 +479,7 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
 
   assert.match(
     adminOverview,
-    /adminPage\(/
+    /permissionPage\([\s\S]*?AdminDashboard,[\s\S]*?"dashboard:view"\s*\)/
   );
 
   for (const [
@@ -590,7 +576,7 @@ test("Admin overview stays administrator-only while legacy operational URLs redi
 
   assert.match(
     navigation,
-    /\["\/admin",[^\n]*true,\s*"dashboard:view"[^\n]*ADVANCED\]/
+    /\["\/admin",[^\n]*false,\s*"dashboard:view"[^\n]*ADVANCED\]/
   );
 });
 
