@@ -79,6 +79,7 @@ test.describe("SalonAI public application", () => {
                 "facebook",
                 "microsoft",
                 "yahoo",
+                "linkedin",
               ].map(
                 (provider) => ({
                   provider,
