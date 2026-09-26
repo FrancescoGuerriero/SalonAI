@@ -7,6 +7,13 @@ import {
   emailDeliveryStatus,
   sendEmail,
 } from "../providers/emailProvider.js";
+import {
+  createAccessToken,
+  createRefreshToken,
+  serialiseUser,
+  setNoStoreHeaders,
+  setRefreshCookie,
+} from "./authController.js";
 
 const VERIFICATION_TOKEN_BYTES = 32;
 const VERIFICATION_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -52,15 +59,45 @@ function hashToken(token) {
 
 function publicUser(user) {
   return {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    permissions:
-      user.permissions || [],
-    emailVerified: Boolean(user.emailVerified),
-    emailVerificationRequired: Boolean(user.emailVerificationRequired),
+    ...serialiseUser(
+      user
+    ),
+    emailVerified:
+      Boolean(
+        user.emailVerified
+      ),
+    emailVerificationRequired:
+      Boolean(
+        user.emailVerificationRequired
+      ),
   };
+}
+
+async function establishCustomerSession(
+  user,
+  response
+) {
+  user.recordLogin();
+  await user.save();
+
+  const token =
+    createAccessToken(
+      user
+    );
+  const refreshToken =
+    createRefreshToken(
+      user
+    );
+
+  setRefreshCookie(
+    response,
+    refreshToken
+  );
+  setNoStoreHeaders(
+    response
+  );
+
+  return token;
 }
 
 function verificationUrl(token) {
@@ -156,11 +193,19 @@ export async function registerVerifiedCustomer(req, res, next) {
     });
 
     if (!verificationRequired) {
+      const token =
+        await establishCustomerSession(
+          user,
+          res
+        );
+
       return res.status(201).json({
         success: true,
         verificationRequired: false,
+        authenticated: true,
+        token,
         message:
-          "Account created. You can sign in now. Email activation will become mandatory when the production mail provider is enabled.",
+          "Account created. You are signed in and ready to continue.",
         user: publicUser(user),
       });
     }
@@ -223,10 +268,23 @@ export async function verifyEmail(req, res, next) {
 
     await user.save();
 
+    const accessToken =
+      await establishCustomerSession(
+        user,
+        res
+      );
+
     return res.status(200).json({
       success: true,
-      message: "Your email has been verified. You can now sign in.",
-      user: publicUser(user),
+      authenticated: true,
+      token:
+        accessToken,
+      message:
+        "Your email has been verified. You are signed in and ready to continue.",
+      user:
+        publicUser(
+          user
+        ),
     });
   } catch (error) {
     return next(error);
