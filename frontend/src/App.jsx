@@ -13,8 +13,6 @@ import {
 import MainLayout from "./components/MainLayout.jsx";
 import PageLoader from "./components/ui/PageLoader.jsx";
 
-import AdminRoute from "./Routes/AdminRoute.jsx";
-import ManagementRoute from "./Routes/ManagementRoute.jsx";
 import PermissionRoute from "./Routes/PermissionRoute.jsx";
 import ProtectedRoute from "./Routes/ProtectedRoute.jsx";
 import FeatureRoute from "./Routes/FeatureRoute.jsx";
@@ -535,27 +533,6 @@ function protectedPage(
   );
 }
 
-
-function managementPage(
-  PageComponent
-) {
-  return (
-    <ManagementRoute>
-      <PageComponent />
-    </ManagementRoute>
-  );
-}
-
-
-function adminPage(
-  PageComponent
-) {
-  return (
-    <AdminRoute>
-      <PageComponent />
-    </AdminRoute>
-  );
-}
 
 function permissionPage(
   PageComponent,
@@ -1132,8 +1109,9 @@ function AppRoutes() {
 
         <Route
           path="admin"
-          element={adminPage(
-            AdminDashboard
+          element={permissionPage(
+            AdminDashboard,
+            "dashboard:view"
           )}
         />
 
