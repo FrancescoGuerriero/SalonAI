@@ -160,6 +160,22 @@ export function trustedTenantContext({
     });
   }
 
+  const locationAccessMode =
+    membership.locationAccessMode === "all"
+      ? "all"
+      : "selected";
+
+  const allowedLocationIds =
+    locationAccessMode === "all"
+      ? null
+      : Object.freeze(
+          [...new Set(
+            (Array.isArray(membership.locations) ? membership.locations : [])
+              .map((value) => String(value || "").trim())
+              .filter((value) => mongoose.Types.ObjectId.isValid(value))
+          )]
+        );
+
   return Object.freeze({
     userId: normaliseObjectId(userId, "user"),
     businessId: normaliseTenantId(businessId),
@@ -167,6 +183,8 @@ export function trustedTenantContext({
       ? normaliseObjectId(location, "location")
       : null,
     roleKey: String(membership.roleKey || "").trim().toLowerCase(),
+    locationAccessMode,
+    allowedLocationIds,
   });
 }
 
