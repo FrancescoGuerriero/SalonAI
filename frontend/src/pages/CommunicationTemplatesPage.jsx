@@ -30,6 +30,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
+
 import CommunicationTemplateModal from "../components/communications/CommunicationTemplateModal.jsx";
 import CommunicationTemplatePreviewModal from "../components/communications/CommunicationTemplatePreviewModal.jsx";
 
@@ -797,6 +800,8 @@ function LoadingCards() {
 
 export default function CommunicationTemplatesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManageCommunications = hasPermission(user, "communications:manage");
 
   const [templates, setTemplates] =
     useState([]);
@@ -1140,12 +1145,14 @@ export default function CommunicationTemplatesPage() {
   }
 
   function openCreateModal() {
+    if (!canManageCommunications) return;
     setEditingTemplate(null);
     setModalOpen(true);
     setSuccessMessage("");
   }
 
   function openEditModal(template) {
+    if (!canManageCommunications) return;
     setPreviewTemplate(null);
     setEditingTemplate(template);
     setModalOpen(true);
@@ -1186,6 +1193,8 @@ export default function CommunicationTemplatesPage() {
     request,
     message,
   }) {
+    if (!canManageCommunications) return null;
+
     try {
       setBusyAction(template, action);
       setError("");
@@ -1349,6 +1358,8 @@ export default function CommunicationTemplatesPage() {
   function handleCreateCampaign(
     template
   ) {
+    if (!canManageCommunications) return;
+
     const templatePayload = {
       ...template,
       _id: getTemplateId(template),
@@ -1404,6 +1415,7 @@ export default function CommunicationTemplatesPage() {
           <button
             type="button"
             onClick={openCreateModal}
+              disabled={!canManageCommunications}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             <Plus size={18} />
@@ -1700,6 +1712,7 @@ export default function CommunicationTemplatesPage() {
             <button
               type="button"
               onClick={openCreateModal}
+              disabled={!canManageCommunications}
               className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
             >
               <Plus size={17} />

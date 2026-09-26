@@ -13,6 +13,8 @@ import StatusBadge from "../components/features/StatusBadge.jsx";
 import {
   schedulerApi,
 } from "../Services/futureFeaturesApi.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 function customerName(customer = {}) {
   return (
@@ -26,6 +28,9 @@ function customerName(customer = {}) {
 }
 
 export default function ScheduledCommunicationsPage() {
+  const { user } = useAuth();
+  const canManageCommunications = hasPermission(user, "communications:manage");
+
   const [jobs, setJobs] = useState([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -106,6 +111,7 @@ export default function ScheduledCommunicationsPage() {
             <RefreshCcw size={18} />
             Refresh
           </button>
+          {canManageCommunications && (
           <button
             type="button"
             onClick={processNow}
@@ -115,6 +121,7 @@ export default function ScheduledCommunicationsPage() {
             <Play size={18} />
             Process now
           </button>
+          )}
         </>
       }
     >
@@ -210,7 +217,8 @@ export default function ScheduledCommunicationsPage() {
                       {[
                         "queued",
                         "processing",
-                      ].includes(job.status) ? (
+                      ].includes(job.status) &&
+                      canManageCommunications ? (
                         <button
                           type="button"
                           onClick={() => cancel(job)}
