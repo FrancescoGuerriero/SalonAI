@@ -119,6 +119,60 @@ test("scheduled communication and delivery mutation routes require management au
   );
 });
 
+test("message delivery scheduler uses communications capabilities instead of legacy blanket management roles", async () => {
+  const scheduler =
+    await source(
+      "../routes/messageDeliverySchedulerRoutes.js"
+    );
+
+  assert.doesNotMatch(
+    scheduler,
+    /managementOnly/
+  );
+  assert.match(
+    scheduler,
+    /requireAnyPermission\(\s*"communications:read",\s*"communications:manage"\s*\)/
+  );
+  assert.match(
+    scheduler,
+    /requirePermissions\(\s*"communications:manage"\s*\)/
+  );
+  assert.match(
+    scheduler,
+    /router\.get\(\s*"\/status",\s*readCommunications,\s*getSchedulerStatus/s
+  );
+
+  for (const [
+    route,
+    handler,
+  ] of [
+    [
+      "run",
+      "runSchedulerNow",
+    ],
+    [
+      "start",
+      "startScheduler",
+    ],
+    [
+      "stop",
+      "stopScheduler",
+    ],
+    [
+      "restart",
+      "restartScheduler",
+    ],
+  ]) {
+    assert.match(
+      scheduler,
+      new RegExp(
+        `router\\.post\\(\\s*"\\/${route}",\\s*manageCommunications,\\s*${handler}`,
+        "s"
+      )
+    );
+  }
+});
+
 test("Twilio delivery status webhook remains outside staff JWT permission gates", async () => {
   const delivery =
     await source(
