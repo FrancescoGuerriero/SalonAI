@@ -10,6 +10,7 @@ import {
 } from "../middleware/effectiveAuthorityMiddleware.js";
 import {
   canUsePermissionAtCurrentScope,
+  hasLocationAuthority,
   resolveEffectiveAuthority,
 } from "../services/effectiveAuthorityService.js";
 import {
@@ -191,6 +192,81 @@ test(
         "employee:permissions:update"
       ),
       false
+    );
+  }
+);
+
+test(
+  "selected memberships expose only their trusted allowed locations while all-mode remains business-bounded",
+  async () => {
+    const selected =
+      await resolveEffectiveAuthority({
+        user:
+          user({
+            role:
+              "manager",
+          }),
+        tenantContext:
+          tenantContext({
+            roleKey:
+              "manager",
+            locationId:
+              "507f1f77bcf86cd799439013",
+            allowed: [
+              "507f1f77bcf86cd799439013",
+              "507f1f77bcf86cd799439014",
+            ],
+          }),
+      });
+
+    assert.equal(
+      hasLocationAuthority(
+        selected,
+        "507f1f77bcf86cd799439013"
+      ),
+      true
+    );
+    assert.equal(
+      hasLocationAuthority(
+        selected,
+        "507f1f77bcf86cd799439014"
+      ),
+      true
+    );
+    assert.equal(
+      hasLocationAuthority(
+        selected,
+        "507f1f77bcf86cd799439099"
+      ),
+      false
+    );
+
+    const allMode =
+      await resolveEffectiveAuthority({
+        user:
+          user({
+            role:
+              "manager",
+          }),
+        tenantContext:
+          tenantContext({
+            roleKey:
+              "manager",
+            mode:
+              "all",
+          }),
+      });
+
+    assert.equal(
+      allMode.allowedLocationIds,
+      null
+    );
+    assert.equal(
+      hasLocationAuthority(
+        allMode,
+        "507f1f77bcf86cd799439099"
+      ),
+      true
     );
   }
 );
