@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 
 import {
   cancelCampaign,
@@ -14,12 +15,12 @@ import {
 const router = Router();
 
 router.get("/", listCampaigns);
-router.post("/", createCampaign);
+router.post("/", requirePermissions("communications:manage"), createCampaign);
 router.get("/:campaignId", getCampaign);
-router.patch("/:campaignId", updateCampaign);
-router.post("/:campaignId/schedule", scheduleCampaign);
-router.post("/:campaignId/send", sendCampaign);
-router.post("/:campaignId/cancel", cancelCampaign);
+router.patch("/:campaignId", requirePermissions("communications:manage"), updateCampaign);
+router.post("/:campaignId/schedule", requirePermissions("communications:manage"), scheduleCampaign);
+router.post("/:campaignId/send", requirePermissions("communications:manage"), sendCampaign);
+router.post("/:campaignId/cancel", requirePermissions("communications:manage"), cancelCampaign);
 router.get("/:campaignId/results", getCampaignResults);
 
 export default router;

@@ -11,6 +11,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
+
 import {
   Activity,
   AlertTriangle,
@@ -453,6 +456,8 @@ export default function CommunicationCampaignsPage({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManageCommunications = hasPermission(user, "communications:manage");
 
   const consumedTemplateRef =
     useRef("");
@@ -866,6 +871,7 @@ export default function CommunicationCampaignsPage({
   }
 
   function openCreateComposer() {
+    if (!canManageCommunications) return;
     setEditingCampaign(null);
 
     setComposerTemplate(null);
@@ -878,6 +884,7 @@ export default function CommunicationCampaignsPage({
   function openEditComposer(
     campaign
   ) {
+    if (!canManageCommunications) return;
     setPreviewCampaign(null);
 
     setEditingCampaign(campaign);
@@ -937,6 +944,8 @@ export default function CommunicationCampaignsPage({
     successMessage: message,
     targetPage = pagination.page,
   }) {
+    if (!canManageCommunications) return null;
+
     const campaignId =
       getCampaignId(campaign);
 
@@ -1229,16 +1238,16 @@ export default function CommunicationCampaignsPage({
             </div>
           </div>
 
+          {canManageCommunications && (
           <button
             type="button"
-            onClick={
-              openCreateComposer
-            }
+            onClick={openCreateComposer}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             <Plus size={18} />
             Create Campaign
           </button>
+          )}
         </div>
       </header>
 
@@ -1586,16 +1595,16 @@ export default function CommunicationCampaignsPage({
               current filters.
             </p>
 
-            <button
-              type="button"
-              onClick={
-                openCreateComposer
-              }
+            {canManageCommunications && (
+          <button
+            type="button"
+            onClick={openCreateComposer}
               className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
             >
-              <Plus size={17} />
-              Create Campaign
-            </button>
+            <Plus size={18} />
+            Create Campaign
+          </button>
+          )}
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
