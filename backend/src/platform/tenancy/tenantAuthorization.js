@@ -187,6 +187,28 @@ export function permissionsForTenantContext(
       tenantContext
     );
 
+  const authenticatedUserId =
+    normaliseObjectId(
+      user?._id || user?.id,
+      "authenticated user",
+      {
+        code:
+          "TENANT_CONTEXT_USER_MISMATCH",
+        statusCode: 403,
+      }
+    );
+
+  if (
+    authenticatedUserId !==
+    context.userId
+  ) {
+    throw authorityError(
+      "The trusted tenant context does not belong to the authenticated user.",
+      "TENANT_CONTEXT_USER_MISMATCH",
+      403
+    );
+  }
+
   const legacyRole =
     String(user?.role || "")
       .trim()
@@ -327,8 +349,9 @@ function assertLocationContext(
 function resourceBusinessId(
   resource
 ) {
-  return normaliseTenantId(
-    resource?.business
+  return normaliseObjectId(
+    resource?.business,
+    "resource business"
   );
 }
 
