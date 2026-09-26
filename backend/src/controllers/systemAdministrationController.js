@@ -8,6 +8,9 @@ import {
   normaliseFeatureControlUpdate,
   requireKnownFeature,
 } from "../services/featureControlService.js";
+import {
+  buildSocialAuthReadinessReport,
+} from "../features/socialAuth/socialAuthReadinessService.js";
 
 export async function listSettings(req, res) {
   const settings = await SystemSetting.find()
@@ -156,4 +159,18 @@ export async function listDeadLetters(req, res) {
     .lean();
 
   res.json({ success: true, records });
+}
+
+
+export async function getSocialAuthReadiness(
+  req,
+  res
+) {
+  const report =
+    buildSocialAuthReadinessReport();
+
+  res.json({
+    success: true,
+    socialAuth: report,
+  });
 }
