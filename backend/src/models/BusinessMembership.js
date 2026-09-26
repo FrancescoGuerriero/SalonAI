@@ -118,6 +118,20 @@ businessMembershipSchema.index(
   }
 );
 
+businessMembershipSchema.index(
+  {
+    user: 1,
+    isDefault: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      isDefault: true,
+      status: "active",
+    },
+  }
+);
+
 businessMembershipSchema.index({
   business: 1,
   status: 1,
