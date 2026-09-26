@@ -36,6 +36,10 @@ export default function SocialSignInOptions({
     working,
     setWorking,
   ] = useState("");
+  const [
+    providerStatusLoaded,
+    setProviderStatusLoaded,
+  ] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -78,10 +82,18 @@ export default function SocialSignInOptions({
             })
           )
         );
+        setProviderStatusLoaded(
+          true
+        );
       })
       .catch(() => {
         // Keep choices visible but unavailable
-        // until server configuration is known.
+        // when server configuration cannot be read.
+        if (active) {
+          setProviderStatusLoaded(
+            true
+          );
+        }
       });
 
     return () => {
@@ -159,7 +171,7 @@ export default function SocialSignInOptions({
               }
               title={
                 item.configured
-                  ? "Continue with " +
+                  ? actionVerb +
                     item.label
                   : item.label +
                     " sign-in is not configured yet"
@@ -193,15 +205,17 @@ export default function SocialSignInOptions({
         )}
       </div>
 
-      {configuredCount === 0 ? (
+      {providerStatusLoaded &&
+      configuredCount === 0 ? (
         <p
           className="auth-social-status"
           role="status"
         >
           Social sign-in is not active on this environment yet. You can use email while provider setup is completed.
         </p>
-      ) : configuredCount <
-        providers.length ? (
+      ) : providerStatusLoaded &&
+        configuredCount <
+          providers.length ? (
         <p
           className="auth-social-status"
           role="status"
