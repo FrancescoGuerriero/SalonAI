@@ -1030,7 +1030,7 @@ function AppRoutes() {
 
         <Route
           path="purchase-orders/new"
-          element={featurePage(permissionPage(CreatePurchaseOrderPage, "inventory:read"), "inventory-purchasing")}
+          element={featurePage(permissionPage(CreatePurchaseOrderPage, "inventory:manage"), "inventory-purchasing")}
         />
 
         <Route
