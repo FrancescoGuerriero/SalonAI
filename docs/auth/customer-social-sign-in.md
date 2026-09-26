@@ -1,11 +1,12 @@
 # Customer Social Sign-In
 
-SalonAI customer authentication supports five entry methods:
+SalonAI customer authentication supports six entry methods:
 
 - Google
 - Facebook
 - Microsoft
 - Yahoo
+- LinkedIn
 - SalonAI email + password
 
 ## Identity model
@@ -53,7 +54,7 @@ This policy prevents a customer OAuth callback from becoming a privilege-escalat
 
 ## Explicit linking and unlinking
 
-Authenticated customer account settings list all four providers and the currently linked identities.
+Authenticated customer account settings list all five providers and the currently linked identities.
 
 Linking starts a fresh provider authorization flow bound to the already-authenticated SalonAI customer ID in signed state. It does not rely on email equality.
 
@@ -70,6 +71,8 @@ Google uses OpenID Connect identity scopes.
 Microsoft uses OpenID Connect plus delegated `User.Read` to resolve the signed-in profile.
 
 Yahoo uses OpenID Connect.
+
+LinkedIn uses OpenID Connect with identity-only `openid profile email` scopes.
 
 Facebook uses Facebook Login with email and public-profile identity information. `FACEBOOK_GRAPH_VERSION` must be explicitly configured rather than silently pinned in source.
 

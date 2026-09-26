@@ -4,7 +4,7 @@
 **Reference vertical:** SalonAI  
 **Issue:** #253  
 **Implementation owner:** Developer 1  
-**Providers:** Google, Facebook, Microsoft, Yahoo  
+**Providers:** Google, Facebook, Microsoft, Yahoo, LinkedIn  
 **Depends on:** Stage 1A identity boundary and Stage 1C HCI/browser acceptance
 
 ## 1. Scope
@@ -110,7 +110,7 @@ Stage 1D preserves the already-established security boundaries:
 
 `backend/src/test/socialAuth.test.js` now verifies:
 
-- all four supported customer providers remain present;
+- all five supported customer providers remain present;
 - generated state contains a browser-binding hash and a signed unique transaction ID;
 - the raw browser transaction value validates only against its matching state;
 - a missing or different browser value returns `SOCIAL_AUTH_BROWSER_BINDING_FAILED`;
@@ -157,6 +157,7 @@ For the current SalonAI production domain, register these exact web-server callb
 - Facebook: `https://salonai.francescopicardi.co.uk/api/auth/social/facebook/callback`
 - Microsoft: `https://salonai.francescopicardi.co.uk/api/auth/social/microsoft/callback`
 - Yahoo: `https://salonai.francescopicardi.co.uk/api/auth/social/yahoo/callback`
+- LinkedIn: `https://salonai.francescopicardi.co.uk/api/auth/social/linkedin/callback`
 
 The production backend reads the following environment variables from the protected server environment:
 
@@ -173,6 +174,9 @@ The production backend reads the following environment variables from the protec
 - `SOCIAL_YAHOO_CLIENT_ID`
 - `SOCIAL_YAHOO_CLIENT_SECRET`
 - `SOCIAL_YAHOO_REDIRECT_URI`
+- `SOCIAL_LINKEDIN_CLIENT_ID`
+- `SOCIAL_LINKEDIN_CLIENT_SECRET`
+- `SOCIAL_LINKEDIN_REDIRECT_URI`
 
 Do not place client secrets in source control, GitHub issues, chat messages, screenshots or browser-delivered configuration. Store them only in the protected production environment used by the backend.
 
@@ -182,28 +186,28 @@ After configuration, restart/redeploy the backend and verify **System Administra
 
 A provider is **Accepted** only after the configured production environment has passed all applicable rows below using controlled test accounts.
 
-| Acceptance | Google | Facebook | Microsoft | Yahoo |
-| --- | --- | --- | --- | --- |
-| Readiness checker reports configured and valid | Required | Required | Required | Required |
-| Start endpoint sets browser-bound transaction cookie | Required | Required | Required | Required |
-| Provider authorization screen opens using intended identity scopes | Required | Required | Required | Required |
-| Cancel returns safely and consumes transaction | Required | Required | Required | Required |
-| New customer social registration succeeds | Required | Required | Required | Required |
-| Existing linked customer login succeeds | Required | Required | Required | Required |
-| Explicit account link succeeds from authenticated customer settings | Required | Required | Required | Required |
-| Link cannot attach provider identity to another SalonAI user | Required | Required | Required | Required |
-| Unlink succeeds when another sign-in method remains | Required | Required | Required | Required |
-| Final usable sign-in method cannot be removed | Required | Required | Required | Required |
-| Cross-browser/replayed callback is rejected | Required | Required | Required | Required |
-| Staff-email collision does not become customer sign-in | Required | Required | Required | Required |
-| Callback/refresh tokens are absent from browser URL/local storage | Required | Required | Required | Required |
-| Login/link error and cancellation recovery are understandable | Required | Required | Required | Required |
+| Acceptance | Google | Facebook | Microsoft | Yahoo | LinkedIn |
+| --- | --- | --- | --- | --- | --- |
+| Readiness checker reports configured and valid | Required | Required | Required | Required | Required |
+| Start endpoint sets browser-bound transaction cookie | Required | Required | Required | Required | Required |
+| Provider authorization screen opens using intended identity scopes | Required | Required | Required | Required | Required |
+| Cancel returns safely and consumes transaction | Required | Required | Required | Required | Required |
+| New customer social registration succeeds | Required | Required | Required | Required | Required |
+| Existing linked customer login succeeds | Required | Required | Required | Required | Required |
+| Explicit account link succeeds from authenticated customer settings | Required | Required | Required | Required | Required |
+| Link cannot attach provider identity to another SalonAI user | Required | Required | Required | Required | Required |
+| Unlink succeeds when another sign-in method remains | Required | Required | Required | Required | Required |
+| Final usable sign-in method cannot be removed | Required | Required | Required | Required | Required |
+| Cross-browser/replayed callback is rejected | Required | Required | Required | Required | Required |
+| Staff-email collision does not become customer sign-in | Required | Required | Required | Required | Required |
+| Callback/refresh tokens are absent from browser URL/local storage | Required | Required | Required | Required | Required |
+| Login/link error and cancellation recovery are understandable | Required | Required | Required | Required | Required |
 
 Evidence should record provider, release tag, UTC timestamp, test case, result and sanitized diagnostic code. It must not record provider access tokens, authorization codes, client secrets, passwords or raw browser-binding cookies.
 
 ## 10. PKCE position
 
-PKCE is not being enabled indiscriminately across all four providers in this change.
+PKCE is not being enabled indiscriminately across all five providers in this change.
 
 RFC 9700 recommends PKCE for confidential clients; Microsoft and Yahoo explicitly document it. Provider support and registration behaviour must be verified per provider before changing the production exchange contract. The browser-bound state implemented here is provider-neutral and immediately closes the CSRF/session-binding gap without assuming undocumented provider behaviour.
 
@@ -233,4 +237,4 @@ Source implementation is complete when CI, security, CodeQL and production-smoke
 
 Provider-backed production acceptance remains an **external configuration gate** until the production credentials/redirect registrations and controlled provider test accounts are available. The repository must not mark a provider Accepted solely because configuration variables exist.
 
-After all four provider rows have evidence, DEV1 can close Stage 1D and proceed through the Stage 1 final integration gate.
+After all five provider rows have evidence, DEV1 can close Stage 1D and proceed through the Stage 1 final integration gate.
