@@ -362,11 +362,20 @@ export default function SystemAdministrationPage() {
                     </div>
                     <div>
                       <dt className="font-semibold text-stone-700">
-                        Production redirect
+                        Callback to register
+                      </dt>
+                      <dd className="mt-1 break-all font-mono text-xs text-stone-600">
+                        {window.location.origin}
+                        {provider.redirect?.expectedPath}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-stone-700">
+                        Backend redirect status
                       </dt>
                       <dd className="mt-1 text-stone-600">
                         {provider.redirect?.configured
-                          ? `${provider.redirect.protocol}//…${provider.redirect.path}`
+                          ? "Configured"
                           : "Not configured"}
                       </dd>
                     </div>
