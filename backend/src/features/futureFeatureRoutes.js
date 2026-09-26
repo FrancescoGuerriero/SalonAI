@@ -81,9 +81,9 @@ router.use(
 );
 
 /*
- * Every dashboard workspace below is protected by the same permission used by
- * its frontend navigation/route guard. The legacy role gate is retained only
- * for the internal security router, which is not a delegated dashboard item.
+ * Every workspace below uses granular permissions from the canonical
+ * StaffRole/permission registry. Nested routers may add stricter operation-
+ * specific checks, but no blanket built-in role gate should replace them.
  */
 router.use(
   "/templates",
