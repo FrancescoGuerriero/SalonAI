@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 
 import API from "../api/axios.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 import {
   WAITLIST_CONTACT_CHANNELS,
@@ -391,6 +393,12 @@ function SummaryCard({
 }
 
 export default function WaitlistPage() {
+  const { user } = useAuth();
+  const canCreateAppointments = hasPermission(user, "appointment:create");
+  const canUpdateAppointments = hasPermission(user, "appointment:update");
+  const canCancelAppointments = hasPermission(user, "appointment:cancel");
+  const canConvertWaitlist = canCreateAppointments && canUpdateAppointments;
+
   const [
     entries,
     setEntries,
@@ -808,6 +816,7 @@ export default function WaitlistPage() {
     event
   ) {
     event.preventDefault();
+    if (!canCreateAppointments) return;
 
     setActionLoading(
       true
@@ -857,6 +866,9 @@ export default function WaitlistPage() {
     entry,
     status
   ) {
+    const required = status === "cancelled" ? canCancelAppointments : canUpdateAppointments;
+    if (!required) return;
+
     const reason =
       status ===
       "notified"
@@ -914,6 +926,8 @@ export default function WaitlistPage() {
   function openConversion(
     entry
   ) {
+    if (!canConvertWaitlist) return;
+
     const serviceDuration =
       Number(
         entry.service
@@ -960,6 +974,7 @@ export default function WaitlistPage() {
     event
   ) {
     event.preventDefault();
+    if (!canConvertWaitlist) return;
 
     if (
       !convertEntry
@@ -1008,6 +1023,8 @@ export default function WaitlistPage() {
   async function handleDelete(
     entry
   ) {
+    if (!canCancelAppointments) return;
+
     const confirmed =
       window.confirm(
         `Delete the waiting-list entry for ${getCustomerName(
@@ -1049,6 +1066,8 @@ export default function WaitlistPage() {
   }
 
   async function handleExpire() {
+    if (!canUpdateAppointments) return;
+
     setActionLoading(
       true
     );
@@ -1155,6 +1174,7 @@ export default function WaitlistPage() {
               Match open slot
             </button>
 
+            {canCreateAppointments && (
             <button
               type="button"
               onClick={() =>
@@ -1167,6 +1187,7 @@ export default function WaitlistPage() {
               <Plus size={17} />
               Add to waiting list
             </button>
+            )}
           </div>
         </div>
 
@@ -1403,6 +1424,7 @@ export default function WaitlistPage() {
                   Refresh
                 </button>
 
+                {canUpdateAppointments && (
                 <button
                   type="button"
                   onClick={
@@ -1418,6 +1440,7 @@ export default function WaitlistPage() {
                     size={17}
                   />
                 </button>
+                )}
               </div>
             </div>
           </div>
@@ -1577,7 +1600,7 @@ export default function WaitlistPage() {
 
                         <td className="px-5 py-4">
                           <div className="flex min-w-48 flex-wrap gap-2">
-                            {entry.status ===
+                            {canUpdateAppointments && entry.status ===
                               "waiting" && (
                               <button
                                 type="button"
@@ -1596,7 +1619,7 @@ export default function WaitlistPage() {
                               </button>
                             )}
 
-                            {entry.status ===
+                            {canUpdateAppointments && entry.status ===
                               "notified" && (
                               <>
                                 <button
@@ -1633,7 +1656,7 @@ export default function WaitlistPage() {
                               </>
                             )}
 
-                            {[
+                            {canConvertWaitlist && [
                               "waiting",
                               "notified",
                               "accepted",
@@ -1656,7 +1679,7 @@ export default function WaitlistPage() {
                               </button>
                             )}
 
-                            {entry.status !==
+                            {canCancelAppointments && entry.status !==
                               "booked" && (
                               <button
                                 type="button"
@@ -1766,7 +1789,7 @@ export default function WaitlistPage() {
         </div>
       </div>
 
-      {createOpen && (
+      {createOpen && canCreateAppointments && (
         <Modal
           title="Add customer to waiting list"
           description="Record the customer’s preferred service, stylist, dates and contact method."
@@ -2307,7 +2330,7 @@ export default function WaitlistPage() {
         </Modal>
       )}
 
-      {convertEntry && (
+      {convertEntry && canConvertWaitlist && (
         <Modal
           title="Convert to appointment"
           description={`Create an appointment for ${getCustomerName(
