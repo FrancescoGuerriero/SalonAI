@@ -1,6 +1,9 @@
 import {
   permissionsForRole,
 } from "../constants/permissions.js";
+import {
+  canUsePermissionAtCurrentScope,
+} from "../services/effectiveAuthorityService.js";
 
 export function hasUserPermission(user, permission) {
   if (!user || !permission) {
@@ -32,14 +35,9 @@ export function hasRequestPermission(request, permission) {
       "effectiveAuthority"
     )
   ) {
-    return Boolean(
-      request.effectiveAuthority &&
-      Array.isArray(
-        request.effectiveAuthority.permissions
-      ) &&
-      request.effectiveAuthority.permissions.includes(
-        permission
-      )
+    return canUsePermissionAtCurrentScope(
+      request.effectiveAuthority,
+      permission
     );
   }
 
