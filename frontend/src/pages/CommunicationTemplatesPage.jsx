@@ -31,6 +31,8 @@ import {
 } from "react-router-dom";
 
 import CommunicationTemplateModal from "../components/communications/CommunicationTemplateModal.jsx";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 import CommunicationTemplatePreviewModal from "../components/communications/CommunicationTemplatePreviewModal.jsx";
 
 import {
@@ -434,6 +436,7 @@ function TemplateCard({
   onToggleStatus,
   onDelete,
   onCreateCampaign,
+  canManage = false,
 }) {
   const [menuOpen, setMenuOpen] =
     useState(false);
@@ -507,7 +510,7 @@ function TemplateCard({
                   !currentValue
               )
             }
-            disabled={isBusy}
+            disabled={isBusy || !canManage}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={`Open actions for ${getTemplateName(
               template
@@ -549,7 +552,8 @@ function TemplateCard({
                   onClick={() =>
                     runAction(onEdit)
                   }
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  disabled={!canManage}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   <Edit3 size={16} />
                   Edit template
@@ -560,7 +564,8 @@ function TemplateCard({
                   onClick={() =>
                     runAction(onDuplicate)
                   }
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  disabled={!canManage}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   <Copy size={16} />
                   Duplicate template
@@ -573,7 +578,8 @@ function TemplateCard({
                       onToggleStatus
                     )
                   }
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  disabled={!canManage}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                 >
                   {active ? (
                     <Archive size={16} />
@@ -595,7 +601,8 @@ function TemplateCard({
                   onClick={() =>
                     runAction(onDelete)
                   }
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                  disabled={!canManage}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                 >
                   <Trash2 size={16} />
                   Delete template
@@ -748,7 +755,7 @@ function TemplateCard({
             onClick={() =>
               onCreateCampaign?.(template)
             }
-            disabled={isBusy || !active}
+            disabled={!canManage || isBusy || !active}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send size={16} />
@@ -796,6 +803,8 @@ function LoadingCards() {
 }
 
 export default function CommunicationTemplatesPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "communications:manage");
   const navigate = useNavigate();
 
   const [templates, setTemplates] =
@@ -1140,12 +1149,16 @@ export default function CommunicationTemplatesPage() {
   }
 
   function openCreateModal() {
+    if (!canManage) return;
+
     setEditingTemplate(null);
     setModalOpen(true);
     setSuccessMessage("");
   }
 
   function openEditModal(template) {
+    if (!canManage) return;
+
     setPreviewTemplate(null);
     setEditingTemplate(template);
     setModalOpen(true);
@@ -1186,6 +1199,8 @@ export default function CommunicationTemplatesPage() {
     request,
     message,
   }) {
+    if (!canManage) return null;
+
     try {
       setBusyAction(template, action);
       setError("");
@@ -1401,6 +1416,7 @@ export default function CommunicationTemplatesPage() {
             </div>
           </div>
 
+          {canManage ? (
           <button
             type="button"
             onClick={openCreateModal}
@@ -1409,6 +1425,7 @@ export default function CommunicationTemplatesPage() {
             <Plus size={18} />
             Create Template
           </button>
+          ) : null}
         </div>
       </header>
 
@@ -1717,6 +1734,7 @@ export default function CommunicationTemplatesPage() {
                   <TemplateCard
                     key={templateId}
                     template={template}
+                    canManage={canManage}
                     busyAction={
                       busyActions[
                         templateId
@@ -1819,9 +1837,9 @@ export default function CommunicationTemplatesPage() {
         onClose={() =>
           setPreviewTemplate(null)
         }
-        onEdit={openEditModal}
+        onEdit={canManage ? openEditModal : undefined}
         onCreateCampaign={
-          handleCreateCampaign
+          canManage ? handleCreateCampaign : undefined
         }
       />
     </main>
