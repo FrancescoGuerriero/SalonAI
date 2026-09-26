@@ -1,13 +1,13 @@
 import express from "express";
 
 import {
-  authorize,
-} from "../../middleware/authMiddleware.js";
+  requirePermissions,
+} from "../../middleware/permissionMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import * as controller from "./staffRotaController.js";
 
 const router = express.Router();
-const rotaManagers = authorize("admin", "manager");
+const manageRota = requirePermissions("employee:schedule:update");
 
 router.get(
   "/week",
@@ -16,43 +16,43 @@ router.get(
 
 router.post(
   "/shifts",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.createShift)
 );
 
 router.patch(
   "/shifts/:shiftId",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.updateShift)
 );
 
 router.delete(
   "/shifts/:shiftId",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.deleteShift)
 );
 
 router.post(
   "/weeks/publish",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.publishWeek)
 );
 
 router.post(
   "/shifts/:shiftId/clock-in",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.clockIn)
 );
 
 router.post(
   "/shifts/:shiftId/clock-out",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.clockOut)
 );
 
 router.patch(
   "/shifts/:shiftId/attendance",
-  rotaManagers,
+  manageRota,
   asyncHandler(controller.updateAttendance)
 );
 
