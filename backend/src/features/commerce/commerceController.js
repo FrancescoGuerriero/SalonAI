@@ -42,8 +42,8 @@ export async function listInventoryProducts(req, res) {
       {
         management: true,
         includeCost:
-          hasUserPermission(
-            req.user,
+          hasRequestPermission(
+            req,
             "product:cost:read"
           ),
       }
@@ -65,8 +65,8 @@ export async function updateProduct(req, res) {
   delete payload.stockQuantity;
 
   if (
-    !hasUserPermission(
-      req.user,
+    !hasRequestPermission(
+      req,
       "product:inventory:update"
     )
   ) {
