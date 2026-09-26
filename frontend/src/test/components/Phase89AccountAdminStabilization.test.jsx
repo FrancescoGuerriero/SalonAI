@@ -30,6 +30,22 @@ describe("Phase 8.9 and 8.10 account/admin stabilization", () => {
     expect(consultation).toContain("addConsultation");
   });
 
+  it("separates customer social sign-in links from staff calendar connections", () => {
+    const account = source("src/pages/ManageAccountPage.jsx");
+    const socialLinks = source("src/components/auth/SocialAccountLinks.jsx");
+    const calendarLinks = source(
+      "src/components/calendar/StaffCalendarConnections.jsx"
+    );
+
+    expect(account).toContain('user?.role === "customer"');
+    expect(account).toContain("<SocialAccountLinks />");
+    expect(account).toContain("<StaffCalendarConnections />");
+    expect(socialLinks).toContain(
+      "These connections do not grant calendar, mail or contact access."
+    );
+    expect(calendarLinks).toContain("External calendar connections");
+  });
+
   it("supports ten thousand row customer and product CSV uploads", () => {
     const dataImport = source("src/pages/DataImportPage.jsx");
 
