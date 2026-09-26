@@ -18,7 +18,7 @@ import {
   getRuntimePlatformConfiguration,
 } from "../platform/platformConfigurationService.js";
 
-test("AI Business Platform registers the four current vertical products", () => {
+test("AI Intelligent Business Platform registers the four current vertical products", () => {
   assert.equal(DEFAULT_VERTICAL_ID, "salon");
 
   const expectedVerticals = [
@@ -165,7 +165,7 @@ test("public platform configuration exposes product metadata without tenant data
     AI_BUSINESS_PLATFORM_VERTICAL: "spa",
   });
 
-  assert.equal(configuration.platform, "AI Business Platform");
+  assert.equal(configuration.platform, "AI Intelligent Business Platform");
   assert.equal(configuration.referenceApplication, "Salon AI");
   assert.deepEqual(configuration.availableProducts, [
     { id: "salon", label: "Salon AI" },
@@ -185,7 +185,7 @@ test("legacy SalonAI business-type configuration remains compatible", () => {
     SALONAI_BUSINESS_TYPE: "fitness",
   });
 
-  assert.equal(configuration.platform, "AI Business Platform");
+  assert.equal(configuration.platform, "AI Intelligent Business Platform");
   assert.equal(configuration.businessType, "fitness");
   assert.equal(configuration.verticalLabel, "Fitness AI");
 });
