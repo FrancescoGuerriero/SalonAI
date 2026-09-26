@@ -149,7 +149,36 @@ The readiness contract verifies, without printing secrets:
 
 This workflow is deliberately read-only. It does not mutate accounts and does not pretend that configuration readiness proves provider authentication.
 
-## 8. Provider-backed acceptance matrix
+## 8. SalonAI production activation values
+
+For the current SalonAI production domain, register these exact web-server callback URIs with the identity providers:
+
+- Google: `https://salonai.francescopicardi.co.uk/api/auth/social/google/callback`
+- Facebook: `https://salonai.francescopicardi.co.uk/api/auth/social/facebook/callback`
+- Microsoft: `https://salonai.francescopicardi.co.uk/api/auth/social/microsoft/callback`
+- Yahoo: `https://salonai.francescopicardi.co.uk/api/auth/social/yahoo/callback`
+
+The production backend reads the following environment variables from the protected server environment:
+
+- `SOCIAL_GOOGLE_CLIENT_ID`
+- `SOCIAL_GOOGLE_CLIENT_SECRET`
+- `SOCIAL_GOOGLE_REDIRECT_URI`
+- `SOCIAL_FACEBOOK_CLIENT_ID`
+- `SOCIAL_FACEBOOK_CLIENT_SECRET`
+- `SOCIAL_FACEBOOK_REDIRECT_URI`
+- `FACEBOOK_GRAPH_VERSION`
+- `SOCIAL_MICROSOFT_CLIENT_ID`
+- `SOCIAL_MICROSOFT_CLIENT_SECRET`
+- `SOCIAL_MICROSOFT_REDIRECT_URI`
+- `SOCIAL_YAHOO_CLIENT_ID`
+- `SOCIAL_YAHOO_CLIENT_SECRET`
+- `SOCIAL_YAHOO_REDIRECT_URI`
+
+Do not place client secrets in source control, GitHub issues, chat messages, screenshots or browser-delivered configuration. Store them only in the protected production environment used by the backend.
+
+After configuration, restart/redeploy the backend and verify **System Administration → Sign-in providers**. The Login and Create Account pages automatically enable each provider reported as configured; no frontend code switch is required.
+
+## 9. Provider-backed acceptance matrix
 
 A provider is **Accepted** only after the configured production environment has passed all applicable rows below using controlled test accounts.
 
@@ -172,7 +201,7 @@ A provider is **Accepted** only after the configured production environment has 
 
 Evidence should record provider, release tag, UTC timestamp, test case, result and sanitized diagnostic code. It must not record provider access tokens, authorization codes, client secrets, passwords or raw browser-binding cookies.
 
-## 9. PKCE position
+## 10. PKCE position
 
 PKCE is not being enabled indiscriminately across all four providers in this change.
 
