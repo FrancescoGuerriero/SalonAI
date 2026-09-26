@@ -514,7 +514,7 @@ function Register() {
           <Link to="/cookies">
             Cookie &amp; storage notice
           </Link>
-          . Marketing remains optional and off by default.
+          . Creating an account does not opt you in to marketing; marketing remains optional and off by default.
         </p>
       </form>
     </AuthShell>
