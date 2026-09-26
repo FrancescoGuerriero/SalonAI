@@ -15,7 +15,7 @@ import {
   ASSIGNABLE_EMPLOYEE_PERMISSION_SET,
 } from "../constants/permissions.js";
 import {
-  hasUserPermission,
+  hasRequestPermission,
 } from "../middleware/permissionMiddleware.js";
 import {
   BUILT_IN_STAFF_ROLE_KEYS,
@@ -1581,11 +1581,13 @@ export async function enableEmployeeSignIn(
     if (
       roleDefinition.superAdminOnly ===
         true &&
-      req.user.role !==
-        "super_admin"
+      !hasRequestPermission(
+        req,
+        "employee:role:update"
+      )
     ) {
       throw httpError(
-        "Only the Super Admin can assign this staff role.",
+        "You do not have permission to assign this staff role.",
         403
       );
     }
@@ -2186,17 +2188,15 @@ export async function createStaffUserByAdmin(
     }
 
     if (
-      ![
-        "super_admin",
-        "admin",
-      ].includes(
-        req.user.role
-      ) &&
       permissions.length >
-        0
+        0 &&
+      !hasRequestPermission(
+        req,
+        "employee:permissions:update"
+      )
     ) {
       throw httpError(
-        "Only a Super Admin or Admin can assign employee permissions during account creation.",
+        "You do not have permission to assign employee permissions during account creation.",
         403
       );
     }
@@ -2204,8 +2204,8 @@ export async function createStaffUserByAdmin(
 
     if (
       hasServices &&
-      !hasUserPermission(
-        req.user,
+      !hasRequestPermission(
+        req,
         "employee:services:update"
       )
     ) {
@@ -2217,8 +2217,8 @@ export async function createStaffUserByAdmin(
 
     if (
       hasWorkingHours &&
-      !hasUserPermission(
-        req.user,
+      !hasRequestPermission(
+        req,
         "employee:schedule:update"
       )
     ) {
@@ -2231,8 +2231,8 @@ export async function createStaffUserByAdmin(
     if (
       isActive ===
         false &&
-      !hasUserPermission(
-        req.user,
+      !hasRequestPermission(
+        req,
         "employee:deactivate"
       )
     ) {
