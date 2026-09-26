@@ -114,7 +114,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/revenue-forecast", "Revenue forecast", "Review the revenue outlook", "BadgePoundSterling", false, "reports:read", "", ADVANCED],
       ["/feedback-analytics", "Feedback analytics", "Analyse customer feedback trends", "BarChart3", false, "ai:use", "ai-tools", ADVANCED],
       ["/executive-command-centre", "Executive command centre", "Review a business-wide overview", "Gauge", false, "ai:use", "ai-tools", ADVANCED],
-      ["/data-export-audit", "Data export audit", "Review export activity and governance", "FileText", false, "reports:read", "", ADVANCED],
+      ["/data-export-audit", "Data export audit", "Review export activity and governance", "FileText", false, "data-export:manage", "", ADVANCED],
       ["/premium-analytics", "Premium analytics", "Analyse premium feature performance", "BarChart3", false, "premium-analytics:read", "premium-analytics", ADVANCED],
     ],
   },

@@ -149,6 +149,7 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
     "feature-control:read",
     "feature-control:update",
     "data-import:manage",
+    "data-export:manage",
     "staff-role:read",
     "staff-role:create",
     "staff-role:update",
