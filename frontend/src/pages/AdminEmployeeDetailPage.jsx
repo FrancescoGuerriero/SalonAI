@@ -40,9 +40,6 @@ import {
   hasPermission,
 } from "../utils/permissions.js";
 import {
-  isSuperAdminRole,
-} from "../utils/roles.js";
-import {
   DEFAULT_ASSIGNABLE_STAFF_ROLES,
   assignableRolesForUser,
 } from "../utils/staffRoles.js";
@@ -297,6 +294,11 @@ export default function AdminEmployeeDetailPage() {
       currentUser,
       "employee:permissions:update"
     );
+  const canManageRoles =
+    hasPermission(
+      currentUser,
+      "employee:role:update"
+    );
   const canEnableSignIn =
     signInDisabled &&
     hasPermission(
@@ -308,9 +310,7 @@ export default function AdminEmployeeDetailPage() {
       signInRoles,
       {
         isSuperAdmin:
-          isSuperAdminRole(
-            currentUser?.role
-          ),
+          canManageRoles,
       }
     );
 
@@ -370,9 +370,7 @@ export default function AdminEmployeeDetailPage() {
               nextRoles,
               {
                 isSuperAdmin:
-                  isSuperAdminRole(
-                    currentUser?.role
-                  ),
+                  canManageRoles,
               }
             );
           const initialRole =
