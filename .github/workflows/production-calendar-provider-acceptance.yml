@@ -1,0 +1,331 @@
+name: SalonAI Production Calendar Provider Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live application release
+        required: true
+        default: v8.15.18
+        type: string
+      provider:
+        description: Calendar provider to acceptance-test
+        required: true
+        default: google
+        type: choice
+        options:
+          - google
+          - outlook
+      require_webhook:
+        description: Require an observed provider webhook during acceptance
+        required: true
+        default: false
+        type: boolean
+      confirm_acceptance:
+        description: Type RUN_CALENDAR_PROVIDER_ACCEPTANCE to allow a temporary real provider event lifecycle
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: Run controlled production calendar acceptance
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+
+    steps:
+      - name: Validate acceptance request
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          PROVIDER: ${{ inputs.provider }}
+          CONFIRM_ACCEPTANCE: ${{ inputs.confirm_acceptance }}
+        run: |
+          set -euo pipefail
+
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$PROVIDER" == "google" || "$PROVIDER" == "outlook" ]]
+
+          if [[ "$CONFIRM_ACCEPTANCE" != "RUN_CALENDAR_PROVIDER_ACCEPTANCE" ]]; then
+            echo "Refusing calendar mutation: explicit acceptance confirmation is missing." >&2
+            exit 1
+          fi
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify live release and readiness
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          runtime_version="$(
+            ssh "${ssh_options[@]}" "$target" \
+              'set -euo pipefail
+               test "$(id -un)" = "salonai-deploy"
+               test -d /opt/salonai
+               docker inspect salonai-backend >/dev/null
+               docker exec salonai-backend node -e "process.stdout.write(String(process.env.APP_VERSION || \"\"))"'
+          )"
+
+          if [[ "$runtime_version" != "$EXPECTED_RELEASE_TAG" ]]; then
+            echo "Production release mismatch. Expected $EXPECTED_RELEASE_TAG." >&2
+            exit 1
+          fi
+
+          echo "APP_VERSION=$runtime_version"
+          echo "Re-running read-only readiness before provider mutation."
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             docker exec salonai-backend node scripts/checkCalendarReadiness.js'
+
+      - name: Select exactly one eligible provider connection
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PROVIDER: ${{ inputs.provider }}
+        run: |
+          set -euo pipefail
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          connection_id="$(
+            ssh "${ssh_options[@]}" "$target" \
+              "docker exec -e CALENDAR_ACCEPTANCE_PROVIDER=$PROVIDER salonai-backend node --input-type=module -e '
+import mongoose from \"mongoose\";
+import ExternalCalendarConnection from \"./src/models/ExternalCalendarConnection.js\";
+
+await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 15000,
+});
+
+const matches = await ExternalCalendarConnection.find({
+  provider: process.env.CALENDAR_ACCEPTANCE_PROVIDER,
+  status: \"connected\",
+  syncEnabled: true,
+})
+  .select(\"_id\")
+  .limit(2)
+  .lean();
+
+if (matches.length !== 1) {
+  console.error(
+    matches.length === 0
+      ? \"No connected, sync-enabled acceptance candidate exists for this provider.\"
+      : \"More than one connected, sync-enabled candidate exists; acceptance requires an unambiguous dedicated test/staff calendar.\"
+  );
+  await mongoose.disconnect();
+  process.exit(2);
+}
+
+process.stdout.write(String(matches[0]._id));
+await mongoose.disconnect();
+'"
+          )"
+
+          if [[ ! "$connection_id" =~ ^[a-fA-F0-9]{24}$ ]]; then
+            echo "Acceptance candidate selection returned an invalid connection identifier." >&2
+            exit 1
+          fi
+
+          echo "A single eligible $PROVIDER connection was selected without exposing account or calendar identifiers."
+
+          {
+            echo "CALENDAR_ACCEPTANCE_CONNECTION_ID=$connection_id"
+          } >> "$GITHUB_ENV"
+
+      - name: Run controlled provider lifecycle
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PROVIDER: ${{ inputs.provider }}
+          REQUIRE_WEBHOOK: ${{ inputs.require_webhook }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 acceptance-evidence
+          raw_file="$RUNNER_TEMP/calendar-provider-acceptance-raw.txt"
+          safe_file="acceptance-evidence/calendar-provider-acceptance.json"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          set +e
+          ssh "${ssh_options[@]}" "$target" \
+            "docker exec \
+              -e CALENDAR_ACCEPTANCE_CONFIRM=RUN_CALENDAR_PROVIDER_ACCEPTANCE \
+              -e CALENDAR_ACCEPTANCE_PROVIDER=$PROVIDER \
+              -e CALENDAR_ACCEPTANCE_CONNECTION_ID=$CALENDAR_ACCEPTANCE_CONNECTION_ID \
+              -e CALENDAR_ACCEPTANCE_REQUIRE_WEBHOOK=$REQUIRE_WEBHOOK \
+              salonai-backend \
+              node scripts/testCalendarProviderAcceptance.js" \
+            > "$raw_file" 2>&1
+          acceptance_status=$?
+          set -e
+
+          python3 - "$raw_file" "$safe_file" "$acceptance_status" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+raw_path = Path(sys.argv[1])
+safe_path = Path(sys.argv[2])
+exit_code = int(sys.argv[3])
+raw = raw_path.read_text(encoding="utf-8", errors="replace")
+
+payload = {}
+try:
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start >= 0 and end >= start:
+        payload = json.loads(raw[start:end + 1])
+except Exception:
+    payload = {}
+
+lifecycle = payload.get("lifecycle") or {}
+webhook = payload.get("webhook") or {}
+
+safe = {
+    "success": payload.get("success") is True and exit_code == 0,
+    "provider": payload.get("provider"),
+    "lifecycle": {
+        "success": lifecycle.get("success"),
+        "steps": lifecycle.get("steps") if isinstance(lifecycle.get("steps"), list) else [],
+    },
+    "webhook": {
+        "required": webhook.get("required"),
+        "enabled": webhook.get("enabled"),
+        "subscriptionMaintained": webhook.get("subscriptionMaintained"),
+        "observedAt": webhook.get("observedAt"),
+    },
+}
+
+if not safe["success"]:
+    safe["code"] = payload.get("code") or "CALENDAR_ACCEPTANCE_FAILED"
+    safe["message"] = payload.get("message") or (
+        "Calendar provider acceptance failed. Raw provider/account identifiers were withheld from workflow output."
+    )
+
+safe_path.write_text(
+    json.dumps(safe, indent=2) + "\n",
+    encoding="utf-8",
+)
+PY
+
+          rm -f -- "$raw_file"
+
+          cat "$safe_file"
+
+          if [[ "$acceptance_status" -ne 0 ]]; then
+            echo "Calendar provider acceptance failed." >&2
+            exit "$acceptance_status"
+          fi
+
+          if ! grep -Eq '"success"[[:space:]]*:[[:space:]]*true' "$safe_file"; then
+            echo "Acceptance command exited zero but sanitized evidence did not report success." >&2
+            exit 1
+          fi
+
+          echo "[PASS] Controlled provider create/read/update/read/delete/verify-deleted lifecycle completed."
+
+      - name: Upload sanitized acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-calendar-acceptance-${{ inputs.provider }}-${{ github.run_id }}
+          path: acceptance-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient credentials and identifiers
+        if: always()
+        shell: bash
+        run: |
+          set -u
+
+          if [[ -n "${SSH_PRIVATE_KEY_PATH:-}" ]]; then
+            rm -f -- "$SSH_PRIVATE_KEY_PATH"
+          fi
+
+          if [[ -n "${SSH_KNOWN_HOSTS_PATH:-}" ]]; then
+            rm -f -- "$SSH_KNOWN_HOSTS_PATH"
+          fi
+
+          rm -f -- "$RUNNER_TEMP/calendar-provider-acceptance-raw.txt"
