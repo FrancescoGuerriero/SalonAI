@@ -1120,7 +1120,7 @@ function AppRoutes() {
 
         <Route
           path="data-export-audit"
-          element={permissionPage(DataExportAuditPage, "reports:read")}
+          element={permissionPage(DataExportAuditPage, "data-export:manage")}
         />
 
 
