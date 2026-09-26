@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "roadmapIssue": 279,
+  "baselineMainCommit": "b14f56e801ee4337cef765f1b40cb0e555ed7217",
+  "generatedAt": "2026-09-26",
+  "migrationPolicy": {
+    "automaticStartupMigration": false,
+    "requiredBeforeProductionWrite": [
+      "dry-run",
+      "backup",
+      "tenant-count reconciliation",
+      "cross-tenant isolation tests",
+      "rollback plan",
+      "DEV1 integration approval"
+    ]
+  },
+  "controlPlane": [
+    {
+      "path": "backend/src/models/Business.js",
+      "scope": "platform-tenant-root",
+      "status": "existing-main"
+    },
+    {
+      "path": "backend/src/models/BusinessMembership.js",
+      "scope": "user-business-authority",
+      "status": "dev4-control-plane"
+    },
+    {
+      "path": "backend/src/models/Location.js",
+      "scope": "business-location",
+      "status": "dev4-control-plane"
+    }
+  ],
+  "migrationOrder": [
+    {
+      "order": 1,
+      "domain": "services-catalogue",
+      "targetScope": ["business", "location-optional"],
+      "models": [
+        "backend/src/models/service.js"
+      ],
+      "notes": "First production-domain candidate after canonical Salon AI tenant/location bootstrap."
+    },
+    {
+      "order": 2,
+      "domain": "workforce-schedules-rbac",
+      "targetScope": ["business", "location-aware"],
+      "models": [
+        "backend/src/models/Stylist.js",
+        "backend/src/models/StaffRole.js",
+        "backend/src/models/ExternalCalendarConnection.js",
+        "backend/src/models/ExternalCalendarEventLink.js",
+        "backend/src/models/CalendarSyncTask.js"
+      ],
+      "notes": "Coordinate location-aware authority with DEV3; DEV4 supplies tenancy/location contracts only."
+    },
+    {
+      "order": 3,
+      "domain": "customers-profiles-privacy",
+      "targetScope": ["business", "location-optional"],
+      "models": [
+        "backend/src/models/customer.js",
+        "backend/src/models/CustomerNote.js",
+        "backend/src/models/customerContactLog.js",
+        "backend/src/models/ConsentRecord.js",
+        "backend/src/models/PrivacyRequest.js",
+        "backend/src/models/DataSubjectRequest.js",
+        "backend/src/models/TrackingConsentReceipt.js"
+      ],
+      "notes": "Customer identity may be platform-global while business-specific CRM/profile state remains tenant-owned; decide before enforcing unique indexes."
+    },
+    {
+      "order": 4,
+      "domain": "appointments-operations",
+      "targetScope": ["business", "location-required-for-operational-bookings"],
+      "models": [
+        "backend/src/models/Appointment.js",
+        "backend/src/models/DailyClose.js"
+      ],
+      "notes": "Location semantics must be stable before migration."
+    },
+    {
+      "order": 5,
+      "domain": "communications",
+      "targetScope": ["business", "location-optional"],
+      "models": [
+        "backend/src/models/CommunicationCampaign.js",
+        "backend/src/models/CommunicationCampaignRecipient.js",
+        "backend/src/models/CommunicationTemplate.js",
+        "backend/src/models/MessageDelivery.js",
+        "backend/src/models/TransactionalNotificationEvent.js",
+        "backend/src/models/DeadLetterRecord.js"
+      ],
+      "notes": "Provider credentials, templates, send policies and audit evidence must remain tenant isolated."
+    },
+    {
+      "order": 6,
+      "domain": "commerce-inventory-stored-value",
+      "targetScope": ["business", "location-aware"],
+      "models": [
+        "backend/src/features/inventoryPurchasing/models/PurchaseOrder.js",
+        "backend/src/features/inventoryPurchasing/models/Supplier.js",
+        "backend/src/features/inventoryPurchasing/models/SupplierProduct.js"
+      ],
+      "notes": "Gift cards, memberships, packages, loyalty/stored value and commerce feature-local schemas require the dedicated cross-location liability epic after Location contracts are accepted."
+    },
+    {
+      "order": 7,
+      "domain": "audit-settings-analytics-ai",
+      "targetScope": ["business", "location-optional", "platform-global-where-explicit"],
+      "models": [
+        "backend/src/models/AuditLog.js",
+        "backend/src/models/SystemSetting.js"
+      ],
+      "notes": "Audit, analytics and AI evidence must carry tenant provenance; platform-global records require explicit classification rather than implicit sharing."
+    }
+  ],
+  "platformGlobalCandidates": [
+    "backend/src/models/user.js",
+    "backend/src/models/SocialIdentity.js",
+    "backend/src/models/passwordResetToken.js"
+  ],
+  "requiresClassificationBeforeMigration": [
+    "backend/src/models/AuditLog.js",
+    "backend/src/models/SystemSetting.js",
+    "backend/src/models/TransactionalNotificationEvent.js"
+  ],
+  "repositoryFollowUp": [
+    "Inventory feature-local or inline Mongoose schemas not discoverable by model-file naming.",
+    "Map commerce, gift-card, membership, package, loyalty and AI-governance collections to the canonical tenant/location contract before migration.",
+    "Record current document counts and uniqueness constraints during the dry-run migration phase."
+  ]
+}
