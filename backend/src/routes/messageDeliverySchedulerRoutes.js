@@ -9,9 +9,12 @@ import {
 } from "../controllers/messageDeliverySchedulerController.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
@@ -41,6 +44,7 @@ router.use(managementOnly);
 
 router.get(
   "/status",
+  readCommunications,
   getSchedulerStatus
 );
 
@@ -56,6 +60,7 @@ router.get(
 
 router.post(
   "/run",
+  manageCommunications,
   runSchedulerNow
 );
 
@@ -67,16 +72,19 @@ router.post(
 
 router.post(
   "/start",
+  manageCommunications,
   startScheduler
 );
 
 router.post(
   "/stop",
+  manageCommunications,
   stopScheduler
 );
 
 router.post(
   "/restart",
+  manageCommunications,
   restartScheduler
 );
 
