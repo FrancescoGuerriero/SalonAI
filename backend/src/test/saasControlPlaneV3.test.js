@@ -31,7 +31,7 @@ test("BusinessMembership enforces one active default membership contract", () =>
   );
 });
 
-test("BusinessMembership all-location access clears selected location ids", () => {
+test("BusinessMembership all-location access clears selected location ids", async () => {
   const membership = new BusinessMembership({
     user: new mongoose.Types.ObjectId(),
     business: new mongoose.Types.ObjectId(),
@@ -43,7 +43,7 @@ test("BusinessMembership all-location access clears selected location ids", () =
     ],
   });
 
-  assert.equal(membership.validateSync(), undefined);
+  await membership.validate();
   assert.equal(membership.locations.length, 0);
 });
 
