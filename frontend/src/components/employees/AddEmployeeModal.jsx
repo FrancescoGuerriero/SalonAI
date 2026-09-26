@@ -30,10 +30,6 @@ import {
   hasPermission,
 } from "../../utils/permissions.js";
 import {
-  isAdminRole,
-  isSuperAdminRole,
-} from "../../utils/roles.js";
-import {
   DEFAULT_ASSIGNABLE_STAFF_ROLES,
   assignableRolesForUser,
 } from "../../utils/staffRoles.js";
@@ -160,13 +156,15 @@ export default function AddEmployeeModal({
     useRef(null);
 
   const canManageRoles =
-    isSuperAdminRole(
-      user?.role
+    hasPermission(
+      user,
+      "employee:role:update"
     );
 
   const canManagePermissions =
-    isAdminRole(
-      user?.role
+    hasPermission(
+      user,
+      "employee:permissions:update"
     );
 
   const canAssignServices =
