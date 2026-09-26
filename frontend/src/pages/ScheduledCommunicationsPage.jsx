@@ -13,6 +13,8 @@ import StatusBadge from "../components/features/StatusBadge.jsx";
 import {
   schedulerApi,
 } from "../Services/futureFeaturesApi.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 function customerName(customer = {}) {
   return (
@@ -26,6 +28,9 @@ function customerName(customer = {}) {
 }
 
 export default function ScheduledCommunicationsPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "communications:manage");
+
   const [jobs, setJobs] = useState([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -55,6 +60,8 @@ export default function ScheduledCommunicationsPage() {
   }, [status]);
 
   async function processNow() {
+    if (!canManage) return;
+
     try {
       setWorkingId("process");
       const response =
@@ -76,6 +83,8 @@ export default function ScheduledCommunicationsPage() {
   }
 
   async function cancel(job) {
+    if (!canManage) return;
+
     try {
       setWorkingId(job._id);
       await schedulerApi.cancel(job._id);
@@ -106,6 +115,7 @@ export default function ScheduledCommunicationsPage() {
             <RefreshCcw size={18} />
             Refresh
           </button>
+{canManage ? (
           <button
             type="button"
             onClick={processNow}
@@ -115,6 +125,7 @@ export default function ScheduledCommunicationsPage() {
             <Play size={18} />
             Process now
           </button>
+          ) : null}
         </>
       }
     >
@@ -207,7 +218,7 @@ export default function ScheduledCommunicationsPage() {
                       {job.attempts || 0}
                     </td>
                     <td className="px-4 py-4">
-                      {[
+                      {canManage && [
                         "queued",
                         "processing",
                       ].includes(job.status) ? (
