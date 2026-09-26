@@ -132,21 +132,8 @@ jobs:
           echo "APP_VERSION=$runtime_version"
 
           worker_json="$(
-            ssh "${ssh_options[@]}" "$target"               'docker exec salonai-backend node --input-type=module -e '\'' 
-                const response = await fetch("http://127.0.0.1:5000/api/health/ready");
-                const payload = await response.json();
-                const calendar = payload?.checks?.scheduler?.calendarSync || {};
-                process.stdout.write(JSON.stringify({
-                  httpOk: response.ok,
-                  ready: payload?.ready === true,
-                  enabled: calendar.enabled === true,
-                  started: calendar.started === true,
-                  required: calendar.required === true,
-                  workerReady: calendar.ready === true,
-                  lastFailedCycleAt: calendar.lastFailedCycleAt || null,
-                  lastError: calendar.lastError || ""
-                }));
-              '\'''
+            ssh "${ssh_options[@]}" "$target" \
+              'docker exec salonai-backend wget -qO- http://127.0.0.1:5000/api/health/ready'
           )"
 
           python3 - "$worker_json" <<'PY'
