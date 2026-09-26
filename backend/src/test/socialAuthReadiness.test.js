@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -218,6 +219,50 @@ test(
     assert.equal(
       report.databaseWritesRequested,
       false
+    );
+  }
+);
+
+
+test(
+  "system administration exposes only the sanitized social-auth readiness report behind feature-control read access",
+  async () => {
+    const controller =
+      await readFile(
+        new URL(
+          "../controllers/systemAdministrationController.js",
+          import.meta.url
+        ),
+        "utf8"
+      );
+    const routes =
+      await readFile(
+        new URL(
+          "../routes/systemAdministrationRoutes.js",
+          import.meta.url
+        ),
+        "utf8"
+      );
+
+    assert.match(
+      controller,
+      /buildSocialAuthReadinessReport/
+    );
+    assert.match(
+      controller,
+      /socialAuth:\s*report/
+    );
+    assert.match(
+      routes,
+      /"\/social-auth-readiness"/
+    );
+    assert.match(
+      routes,
+      /"feature-control:read"/
+    );
+    assert.doesNotMatch(
+      controller,
+      /CLIENT_SECRET/
     );
   }
 );
