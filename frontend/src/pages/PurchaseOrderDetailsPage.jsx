@@ -11,6 +11,9 @@ import {
   X,
 } from "lucide-react";
 
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
+
 import {
   approvePurchaseOrder,
   cancelPurchaseOrder,
@@ -33,6 +36,9 @@ const money = (value) =>
 
 
 export default function PurchaseOrderDetailsPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "inventory:manage");
+
   const purchaseOrderId =
     window.location.pathname
       .split("/")
@@ -164,6 +170,7 @@ export default function PurchaseOrderDetailsPage() {
               "draft" ? (
                 <button
                   type="button"
+                  disabled={!canManage}
                   onClick={() =>
                     action(() =>
                       submitPurchaseOrder(
@@ -186,6 +193,7 @@ export default function PurchaseOrderDetailsPage() {
               ) ? (
                 <button
                   type="button"
+                  disabled={!canManage}
                   onClick={() =>
                     action(() =>
                       approvePurchaseOrder(
@@ -208,6 +216,7 @@ export default function PurchaseOrderDetailsPage() {
               ) ? (
                 <button
                   type="button"
+                  disabled={!canManage}
                   onClick={receiveAll}
                   className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white"
                 >
@@ -224,6 +233,7 @@ export default function PurchaseOrderDetailsPage() {
               ) ? (
                 <button
                   type="button"
+                  disabled={!canManage}
                   onClick={() =>
                     action(() =>
                       cancelPurchaseOrder(
@@ -241,6 +251,12 @@ export default function PurchaseOrderDetailsPage() {
             </div>
           </div>
         </section>
+
+        {!canManage ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            Read-only access. Inventory management permission is required to change this purchase order.
+          </section>
+        ) : null}
 
         {error ? (
           <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
