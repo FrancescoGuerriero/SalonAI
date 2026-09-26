@@ -342,6 +342,21 @@
   line-height: 1.5;
 }
 
+.auth-feedback-with-icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.auth-feedback-with-icon > svg {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.auth-feedback-with-icon p {
+  margin: 4px 0 0;
+}
+
 .auth-feedback-error {
   background: var(--palette-grey-200);
   color: var(--palette-grey-800);

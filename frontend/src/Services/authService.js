@@ -114,6 +114,35 @@ class AuthService {
     };
   }
 
+  storeSessionFromResponse(
+    data
+  ) {
+    const token =
+      data?.token ||
+      data?.accessToken ||
+      data?.jwt ||
+      "";
+    const user =
+      data?.user ||
+      data?.account ||
+      data?.profile ||
+      null;
+
+    if (
+      token &&
+      user
+    ) {
+      this.storeAccessToken(
+        token
+      );
+      this.storeUser(
+        user
+      );
+    }
+
+    return data;
+  }
+
   async register(
     userData
   ) {
@@ -127,7 +156,9 @@ class AuthService {
         }
       );
 
-    return response.data;
+    return this.storeSessionFromResponse(
+      response.data
+    );
   }
 
   async verifyEmail(token) {
@@ -141,7 +172,9 @@ class AuthService {
         }
       );
 
-    return response.data;
+    return this.storeSessionFromResponse(
+      response.data
+    );
   }
 
   async resendVerification(email) {
