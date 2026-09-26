@@ -2,7 +2,6 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
-  managementOnly,
   protect,
 } from "../../middleware/authMiddleware.js";
 import {
@@ -90,19 +89,19 @@ router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, asyncH
 router.get(
   "/orders",
   protect,
-  managementOnly,
+  requirePermissions("order:read"),
   asyncHandler(controller.listOrders)
 );
 router.patch(
   "/orders/:id/status",
   protect,
-  managementOnly,
+  requirePermissions("order:update"),
   asyncHandler(controller.updateOrderStatus)
 );
 router.post(
   "/orders/:id/refunds",
   protect,
-  managementOnly,
+  requirePermissions("order:refund"),
   asyncHandler(controller.refundOrderPayment)
 );
 
