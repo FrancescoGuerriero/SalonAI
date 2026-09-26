@@ -20,6 +20,7 @@ const PROVIDERS = Object.freeze({
   facebook: "Facebook",
   microsoft: "Microsoft",
   yahoo: "Yahoo",
+  linkedin: "LinkedIn",
 });
 
 function message(error) {
@@ -210,7 +211,7 @@ export default function SocialAccountLinks() {
             Connected sign-in accounts
           </h2>
           <p>
-            Add Google, Facebook, Microsoft or Yahoo as secure ways to sign in. These connections do not grant calendar, mail or contact access.
+            Add Google, Facebook, Microsoft, Yahoo or LinkedIn as secure ways to sign in. These connections do not grant calendar, mail or contact access.
           </p>
         </div>
       </header>
