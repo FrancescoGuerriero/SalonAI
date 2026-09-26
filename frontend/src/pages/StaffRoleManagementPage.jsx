@@ -83,6 +83,42 @@ function permissionLabel(value) {
   );
 }
 
+function PermissionLabel({
+  permission,
+  permissionScopes,
+  required = false,
+}) {
+  const scope =
+    permissionScopes?.[
+      permission.value
+    ];
+
+  return (
+    <span className="min-w-0">
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span>
+          {permission.label}
+        </span>
+        {required ? (
+          <small className="font-semibold text-stone-500">
+            Required
+          </small>
+        ) : null}
+        {scope ? (
+          <small
+            className="rounded-full border border-stone-300 bg-stone-100 px-2 py-0.5 text-[0.68rem] font-bold text-stone-700"
+            title={
+              scope.description
+            }
+          >
+            {scope.label}
+          </small>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
 export default function StaffRoleManagementPage() {
   const {
     user,
@@ -117,6 +153,14 @@ export default function StaffRoleManagementPage() {
   const [
     roles,
     setRoles,
+  ] = useState([]);
+  const [
+    permissionScopes,
+    setPermissionScopes,
+  ] = useState({});
+  const [
+    scopeLegend,
+    setScopeLegend,
   ] = useState([]);
   const [
     form,
@@ -154,8 +198,17 @@ export default function StaffRoleManagementPage() {
         setError("");
 
         try {
+          const result =
+            await staffRoleService.listWithMetadata();
+
           setRoles(
-            await staffRoleService.list()
+            result.roles
+          );
+          setPermissionScopes(
+            result.permissionScopes
+          );
+          setScopeLegend(
+            result.scopeLegend
           );
         } catch (
           requestError
@@ -515,6 +568,45 @@ export default function StaffRoleManagementPage() {
         />
       ) : null}
 
+      {scopeLegend.length ? (
+        <details className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <summary className="cursor-pointer text-sm font-bold text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">
+            Permission scope guide
+          </summary>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-stone-600">
+            Scope describes where a permission may be used once multi-location enforcement is active. It does not grant access by itself; the employee still needs the permission and trusted business/location authority.
+          </p>
+          <div
+            className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+            role="list"
+          >
+            {scopeLegend.map(
+              (scope) => (
+                <div
+                  key={
+                    scope.code
+                  }
+                  role="listitem"
+                  className="rounded-xl border border-stone-200 bg-stone-50 p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border border-stone-300 bg-white px-2 py-0.5 text-xs font-black text-stone-700">
+                      {scope.code}
+                    </span>
+                    <strong className="text-sm text-black">
+                      {scope.label}
+                    </strong>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-stone-600">
+                    {scope.description}
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        </details>
+      ) : null}
+
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold text-black">
           Built-in roles
@@ -635,16 +727,17 @@ export default function StaffRoleManagementPage() {
                                           }
                                           className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
                                         />
-                                        <span>
-                                          {
-                                            permission.label
+                                        <PermissionLabel
+                                          permission={
+                                            permission
                                           }
-                                          {required ? (
-                                            <small className="ml-1 font-semibold text-stone-500">
-                                              Required
-                                            </small>
-                                          ) : null}
-                                        </span>
+                                          permissionScopes={
+                                            permissionScopes
+                                          }
+                                          required={
+                                            required
+                                          }
+                                        />
                                       </label>
                                     );
                                   }
@@ -811,11 +904,14 @@ export default function StaffRoleManagementPage() {
         }
         className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
         />
-        <span>
-        {
-        permission.label
+        <PermissionLabel
+        permission={
+        permission
         }
-        </span>
+        permissionScopes={
+        permissionScopes
+        }
+        />
         </label>
         )
         )}
@@ -994,11 +1090,14 @@ export default function StaffRoleManagementPage() {
                                   }
                                   className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
                                 />
-                                <span>
-                                  {
-                                    permission.label
+                                <PermissionLabel
+                                  permission={
+                                    permission
                                   }
-                                </span>
+                                  permissionScopes={
+                                    permissionScopes
+                                  }
+                                />
                               </label>
                             )
                           )}
