@@ -69,19 +69,19 @@ test("employee onboarding validates service and schedule authority independently
 
   assert.match(
     controller,
-    /hasServices[\s\S]*?hasUserPermission\(\s*req\.user,\s*"employee:services:update"/s
+    /hasServices[\s\S]*?hasRequestPermission\(\s*req,\s*"employee:services:update"/s
   );
   assert.match(
     controller,
-    /hasWorkingHours[\s\S]*?hasUserPermission\(\s*req\.user,\s*"employee:schedule:update"/s
+    /hasWorkingHours[\s\S]*?hasRequestPermission\(\s*req,\s*"employee:schedule:update"/s
   );
   assert.match(
     controller,
-    /isActive ===[\s\S]*?hasUserPermission\(\s*req\.user,\s*"employee:deactivate"/s
+    /isActive ===[\s\S]*?hasRequestPermission\(\s*req,\s*"employee:deactivate"/s
   );
   assert.match(
     controller,
-    /Only a Super Admin or Admin can assign employee permissions during account creation/
+    /You do not have permission to assign employee permissions during account creation/
   );
 });
 
