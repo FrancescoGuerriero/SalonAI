@@ -28,6 +28,8 @@ import {
 import * as messageDeliveryService from "../Services/messageDeliveryService.js";
 
 import * as scheduledCommunicationService from "../Services/scheduledCommunicationService.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 const STATUS_OPTIONS = [
   {
@@ -545,6 +547,9 @@ function SummaryCard({
 }
 
 export default function MessageDeliveryPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "communications:manage");
+
   const [
     records,
     setRecords,
@@ -883,6 +888,8 @@ export default function MessageDeliveryPage() {
     args = [],
     success,
   }) {
+    if (!canManage) return;
+
     try {
       setBusyAction(
         action
@@ -1009,6 +1016,8 @@ export default function MessageDeliveryPage() {
   async function handleRetry(
     record
   ) {
+    if (!canManage) return;
+
     const recordId =
       getRecordId(record);
 
@@ -1055,6 +1064,8 @@ export default function MessageDeliveryPage() {
   async function handleCancel(
     record
   ) {
+    if (!canManage) return;
+
     const recordId =
       getRecordId(record);
 
@@ -1156,7 +1167,7 @@ export default function MessageDeliveryPage() {
               Refresh
             </button>
 
-            {hasServiceFunction(
+            {canManage && hasServiceFunction(
               DELIVERY_FUNCTIONS.runCycle
             ) && (
               <button
@@ -1364,7 +1375,7 @@ export default function MessageDeliveryPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {!schedulerRunning &&
+            {canManage && !schedulerRunning &&
               hasServiceFunction(
                 DELIVERY_FUNCTIONS.startScheduler
               ) && (
@@ -1385,7 +1396,7 @@ export default function MessageDeliveryPage() {
                 </button>
               )}
 
-            {schedulerRunning &&
+            {canManage && schedulerRunning &&
               hasServiceFunction(
                 DELIVERY_FUNCTIONS.stopScheduler
               ) && (
@@ -1408,7 +1419,7 @@ export default function MessageDeliveryPage() {
                 </button>
               )}
 
-            {hasServiceFunction(
+            {canManage && hasServiceFunction(
               DELIVERY_FUNCTIONS.restartScheduler
             ) && (
               <button
@@ -1783,7 +1794,8 @@ export default function MessageDeliveryPage() {
                               Details
                             </button>
 
-                            {status ===
+                            {canManage &&
+                              status ===
                               "failed" &&
                               hasServiceFunction(
                                 DELIVERY_FUNCTIONS.retry
@@ -1818,6 +1830,7 @@ export default function MessageDeliveryPage() {
                             ].includes(
                               status
                             ) &&
+                              canManage &&
                               hasServiceFunction(
                                 DELIVERY_FUNCTIONS.cancel
                               ) && (
