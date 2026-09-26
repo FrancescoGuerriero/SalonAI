@@ -30,10 +30,6 @@ import {
   hasPermission,
 } from "../../utils/permissions.js";
 import {
-  isAdminRole,
-  isSuperAdminRole,
-} from "../../utils/roles.js";
-import {
   DEFAULT_ASSIGNABLE_STAFF_ROLES,
   assignableRolesForUser,
 } from "../../utils/staffRoles.js";
@@ -160,13 +156,15 @@ export default function AddEmployeeModal({
     useRef(null);
 
   const canManageRoles =
-    isSuperAdminRole(
-      user?.role
+    hasPermission(
+      user,
+      "employee:role:update"
     );
 
   const canManagePermissions =
-    isAdminRole(
-      user?.role
+    hasPermission(
+      user,
+      "employee:permissions:update"
     );
 
   const canAssignServices =
@@ -1472,8 +1470,8 @@ export default function AddEmployeeModal({
               </summary>
               <p className="mt-2 text-sm text-stone-600">
                 {customRoleSelected
-                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that Super Admin or Admin can grant."
-                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can be granted by Super Admin or Admin."}
+                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that authorised permission managers can grant."
+                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can be granted by accounts with employee permission-management authority."}
               </p>
 
               {customRoleSelected && selectedRole?.permissions?.length ? (
