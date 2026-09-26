@@ -575,7 +575,7 @@ function AppRoutes() {
 <Route path="whatsapp-booking" element={featurePage(permissionPage(WhatsAppBookingPage, "whatsapp:manage"), "whatsapp-booking")} />
 <Route path="retention-automation" element={featurePage(permissionPage(RetentionAutomationPage, "retention-automation:manage"), "retention-automation")} />
 <Route path="premium-analytics" element={featurePage(permissionPage(PremiumAnalyticsPage, "premium-analytics:read"), "premium-analytics")} />
-<Route path="customer-experience-management" element={permissionPage(CustomerExperienceManagementPage, "customer:read")} />
+<Route path="customer-experience-management" element={permissionPage(CustomerExperienceManagementPage, "customer-experience:read")} />
         <Route
           index
           element={<Home />}
