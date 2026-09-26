@@ -45,6 +45,66 @@ describe(
 
 
     it(
+      "shows permission scope metadata in Staff Roles without an extra API request",
+      () => {
+        const page =
+          source(
+            "src/pages/StaffRoleManagementPage.jsx"
+          );
+        const service =
+          source(
+            "src/Services/staffRoleService.js"
+          );
+
+        expect(
+          page
+        ).toContain(
+          "Permission scope guide"
+        );
+        expect(
+          page
+        ).toContain(
+          "PermissionLabel"
+        );
+        expect(
+          page
+        ).toContain(
+          "permissionScopes"
+        );
+        expect(
+          page
+        ).toContain(
+          "scopeLegend"
+        );
+        expect(
+          page
+        ).toContain(
+          "does not grant access by itself"
+        );
+        expect(
+          service
+        ).toContain(
+          "listWithMetadata"
+        );
+        expect(
+          service
+        ).toContain(
+          "loadStaffRoles"
+        );
+        expect(
+          (
+            service.match(
+              /API\.get\(/g
+            ) || []
+          ).length
+        ).toBe(
+          1
+        );
+      }
+    );
+
+
+    it(
       "loads optional shell assistants on demand instead of the shared startup path",
       () => {
         const layout =

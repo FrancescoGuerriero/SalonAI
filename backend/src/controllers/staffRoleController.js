@@ -6,6 +6,10 @@ import {
   recordAuditEvent,
 } from "../services/auditService.js";
 import {
+  permissionScopeLegend,
+  permissionScopeMap,
+} from "../services/permissionScopeService.js";
+import {
   assertCustomRoleKey,
   builtInRoleDefinition,
   isBuiltInStaffRoleKey,
@@ -107,6 +111,10 @@ export async function listStaffRoles(
         roles.map(
           serialiseRole
         ),
+      permissionScopes:
+        permissionScopeMap(),
+      scopeLegend:
+        permissionScopeLegend(),
     });
   } catch (error) {
     return next(error);
