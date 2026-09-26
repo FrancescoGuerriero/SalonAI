@@ -591,6 +591,75 @@ describe(
 
 
     it(
+      "keeps customer registration in one continuous authenticated flow",
+      () => {
+        const register =
+          source(
+            "src/pages/Register.jsx"
+          );
+        const login =
+          source(
+            "src/pages/Login.jsx"
+          );
+        const context =
+          source(
+            "src/context/AuthContext.jsx"
+          );
+        const authService =
+          source(
+            "src/Services/authService.js"
+          );
+
+        expect(
+          register
+        ).toContain(
+          "Create account and continue"
+        );
+        expect(
+          register
+        ).toContain(
+          "Check your email"
+        );
+        expect(
+          register
+        ).toContain(
+          "Verify your email once and SalonAI will sign you in automatically."
+        );
+        expect(
+          register
+        ).not.toContain(
+          "registerConfirmPassword"
+        );
+        expect(
+          register
+        ).not.toContain(
+          "confirmPassword"
+        );
+        expect(
+          login
+        ).toContain(
+          "verifyEmail("
+        );
+        expect(
+          login
+        ).toContain(
+          "verificationComplete"
+        );
+        expect(
+          context
+        ).toContain(
+          "const verifyEmail ="
+        );
+        expect(
+          authService
+        ).toContain(
+          "storeSessionFromResponse"
+        );
+      }
+    );
+
+
+    it(
       "renders the product editor at the application overlay layer with internal scrolling",
       () => {
         const page =
