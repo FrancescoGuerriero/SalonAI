@@ -51,6 +51,10 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "product:cost:read", label: "View product cost prices", group: "Products" },
   { value: "product:delete", label: "Delete products", group: "Products" },
 
+  { value: "order:read", label: "View customer orders", group: "Orders" },
+  { value: "order:manage", label: "Manage order fulfilment and status", group: "Orders" },
+  { value: "order:refund", label: "Refund customer orders", group: "Orders" },
+
   { value: "communications:read", label: "View communications", group: "Communications" },
   { value: "communications:manage", label: "Manage communications", group: "Communications" },
   { value: "email-campaign:manage", label: "Manage email campaigns", group: "Communications" },
@@ -113,6 +117,9 @@ const ROLE_BASELINES = Object.freeze({
     "schedule:own:read",
     "service:read",
     "product:read",
+    "order:read",
+    "order:manage",
+    "order:refund",
     "communications:read",
     "communications:manage",
     "loyalty:manage",
