@@ -3,6 +3,7 @@ import {
   Activity,
   Code2,
   History,
+  KeyRound,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
@@ -16,6 +17,7 @@ const TABS = [
   ["features", "On/Off Ideas", SlidersHorizontal],
   ["settings", "Stored settings", Code2],
   ["health", "System health", Activity],
+  ["social-auth", "Sign-in providers", KeyRound],
 ];
 
 function Toggle({ checked, disabled, label, onChange }) {
@@ -45,6 +47,7 @@ export default function SystemAdministrationPage() {
   const [health, setHealth] = useState(null);
   const [settings, setSettings] = useState([]);
   const [features, setFeatures] = useState([]);
+  const [socialAuth, setSocialAuth] = useState(null);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -54,15 +57,24 @@ export default function SystemAdministrationPage() {
     setError("");
 
     try {
-      const [healthResponse, settingsResponse, featuresResponse] = await Promise.all([
+      const [
+        healthResponse,
+        settingsResponse,
+        featuresResponse,
+        socialAuthResponse,
+      ] = await Promise.all([
         API.get("/health/dependencies"),
         API.get("/system-administration/settings"),
         API.get("/system-administration/features"),
+        API.get("/system-administration/social-auth-readiness"),
       ]);
 
       setHealth(healthResponse.data);
       setSettings(settingsResponse.data.settings || []);
       setFeatures(featuresResponse.data.features || []);
+      setSocialAuth(
+        socialAuthResponse.data.socialAuth || null
+      );
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError.message);
     }
@@ -284,6 +296,103 @@ export default function SystemAdministrationPage() {
             <Activity className="text-amber-600" />
             <h2 className="mt-4 font-semibold text-black">Dependency health</h2>
             <pre className="mt-3 overflow-auto rounded-xl bg-black p-4 text-xs text-white">{JSON.stringify(health, null, 2)}</pre>
+          </section>
+        ) : null}
+
+        {tab === "social-auth" ? (
+          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <KeyRound className="text-amber-600" size={20} />
+                  <h2 className="font-semibold text-black">
+                    Customer social sign-in
+                  </h2>
+                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
+                  These checks expose configuration status only. Client secrets are never returned to the browser. A provider becomes available on Login and Create Account automatically when its production OAuth configuration is complete.
+                </p>
+              </div>
+
+              <span className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                socialAuth?.readyForAcceptance
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : "border-amber-300 bg-amber-50 text-black"
+              }`}>
+                {socialAuth?.readyForAcceptance
+                  ? "Ready for provider acceptance"
+                  : "Provider setup required"}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {(socialAuth?.providers || []).map((provider) => (
+                <article
+                  key={provider.provider}
+                  className="rounded-xl border border-black/10 bg-stone-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-bold text-black">
+                      {provider.label}
+                    </h3>
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+                      provider.ready
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                        : "border-amber-300 bg-amber-50 text-black"
+                    }`}>
+                      {provider.ready ? "Configured" : "Setup required"}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <div>
+                      <dt className="font-semibold text-stone-700">
+                        Callback path
+                      </dt>
+                      <dd className="mt-1 break-all font-mono text-xs text-stone-600">
+                        {provider.redirect?.expectedPath}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-stone-700">
+                        Production redirect
+                      </dt>
+                      <dd className="mt-1 text-stone-600">
+                        {provider.redirect?.configured
+                          ? `${provider.redirect.protocol}//…${provider.redirect.path}`
+                          : "Not configured"}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  {!provider.ready && provider.blockers?.length ? (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-stone-600">
+                        Blocking checks
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-stone-700">
+                        {provider.blockers.map((blocker) => (
+                          <li key={blocker}>
+                            • {blocker}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+
+            {socialAuth?.nextSteps?.length ? (
+              <div className="mt-5 rounded-xl border border-black/10 bg-white p-4">
+                <h3 className="font-semibold text-black">Next steps</h3>
+                <ol className="mt-2 space-y-2 text-sm leading-6 text-stone-600">
+                  {socialAuth.nextSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
           </section>
         ) : null}
       </div>
