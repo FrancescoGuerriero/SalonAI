@@ -51,6 +51,10 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "product:cost:read",
   "product:delete",
 
+  "order:read",
+  "order:update",
+  "order:refund",
+
   "communications:read",
   "communications:manage",
 
@@ -128,6 +132,9 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
     "schedule:own:read",
     "service:read",
     "product:read",
+    "order:read",
+    "order:update",
+    "order:refund",
     "communications:read",
     "communications:manage",
     "loyalty:manage",
