@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import BusinessMembership from "../../models/BusinessMembership.js";
+import Location from "../../models/Location.js";
 import {
   normaliseTenantId,
 } from "./tenantScope.js";
@@ -28,6 +30,43 @@ function normaliseObjectId(value, label) {
   }
 
   return text;
+}
+
+function optionalObjectId(value, label) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return null;
+  }
+
+  return normaliseObjectId(value, label);
+}
+
+async function findActiveMembership({
+  userId,
+  businessId,
+}) {
+  const filter = {
+    user: userId,
+    status: "active",
+  };
+
+  if (businessId) {
+    filter.business = businessId;
+  } else {
+    filter.isDefault = true;
+  }
+
+  return BusinessMembership.findOne(filter);
+}
+
+async function findActiveLocation({
+  locationId,
+  businessId,
+}) {
+  return Location.findOne({
+    _id: locationId,
+    business: businessId,
+    status: "active",
+  });
 }
 
 export function assertMembershipGrantsBusiness({
@@ -128,6 +167,86 @@ export function trustedTenantContext({
       ? normaliseObjectId(location, "location")
       : null,
     roleKey: String(membership.roleKey || "").trim().toLowerCase(),
+  });
+}
+
+/*
+ * Resolve tenant context from an authenticated user and persisted membership.
+ *
+ * requestedBusinessId/requestedLocationId are selectors only. They never grant
+ * authority: the selected business must have an active BusinessMembership for
+ * the authenticated user, and a selected location must belong to that business
+ * and be granted by the membership. When no business selector is supplied, an
+ * active membership explicitly marked isDefault is required.
+ *
+ * Repository functions are injectable for deterministic isolation testing.
+ */
+export async function resolveTrustedTenantContext({
+  authenticatedUser,
+  requestedBusinessId = null,
+  requestedLocationId = null,
+  findMembership = findActiveMembership,
+  findLocation = findActiveLocation,
+}) {
+  if (typeof findMembership !== "function" || typeof findLocation !== "function") {
+    throw contextError(
+      "Trusted tenant repositories are not configured.",
+      "INVALID_TRUSTED_CONTEXT",
+      500
+    );
+  }
+
+  const userId = normaliseObjectId(authenticatedUser, "user");
+  const selectedBusinessId = requestedBusinessId
+    ? normaliseTenantId(requestedBusinessId)
+    : null;
+
+  const membership = await findMembership({
+    userId,
+    businessId: selectedBusinessId,
+  });
+
+  if (!membership) {
+    throw contextError(
+      selectedBusinessId
+        ? "No active business membership grants access to the selected tenant."
+        : "No active default business membership is available.",
+      "TENANT_MEMBERSHIP_NOT_FOUND"
+    );
+  }
+
+  const businessId = normaliseTenantId(membership.business);
+
+  assertMembershipGrantsBusiness({
+    membership,
+    userId,
+    businessId,
+  });
+
+  const selectedLocationId = optionalObjectId(
+    requestedLocationId,
+    "location"
+  );
+
+  let location = null;
+
+  if (selectedLocationId) {
+    location = await findLocation({
+      locationId: selectedLocationId,
+      businessId,
+    });
+
+    assertMembershipGrantsLocation({
+      membership,
+      location,
+    });
+  }
+
+  return trustedTenantContext({
+    membership,
+    userId,
+    businessId,
+    location,
   });
 }
 
