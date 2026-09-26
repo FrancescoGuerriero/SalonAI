@@ -1,3 +1,7 @@
+import {
+  normaliseTenantHost,
+} from "./tenantHost.js";
+
 export const CANONICAL_SALON_BUSINESS_TYPE = "salon";
 
 function bootstrapError(message, code = "INVALID_CANONICAL_TENANT_BOOTSTRAP") {
@@ -41,6 +45,36 @@ function currency(value) {
   return text;
 }
 
+function canonicalDomains(environment) {
+  const domains = [
+    Object.freeze({
+      host: normaliseTenantHost(
+        environment.SALONAI_CANONICAL_PRIMARY_DOMAIN ||
+          "francescopicardi.co.uk"
+      ),
+      role: "primary",
+      redirectToPrimary: false,
+    }),
+    Object.freeze({
+      host: normaliseTenantHost(
+        environment.SALONAI_CANONICAL_APP_DOMAIN ||
+          "salonai.francescopicardi.co.uk"
+      ),
+      role: "app-subdomain",
+      redirectToPrimary: false,
+    }),
+  ];
+
+  if (domains[0].host === domains[1].host) {
+    throw bootstrapError(
+      "Canonical primary and app domains must be different.",
+      "CANONICAL_DOMAIN_CONFLICT"
+    );
+  }
+
+  return Object.freeze(domains);
+}
+
 export function getCanonicalSalonTenantConfiguration(
   environment = process.env
 ) {
@@ -48,10 +82,10 @@ export function getCanonicalSalonTenantConfiguration(
     business: Object.freeze({
       name: clean(
         environment.SALONAI_CANONICAL_BUSINESS_NAME,
-        "Salon AI"
+        "Francesco Picardi"
       ),
       slug: slug(
-        environment.SALONAI_CANONICAL_BUSINESS_SLUG || "salon-ai",
+        environment.SALONAI_CANONICAL_BUSINESS_SLUG || "francesco-picardi",
         "Canonical business slug"
       ),
       businessType: CANONICAL_SALON_BUSINESS_TYPE,
@@ -79,6 +113,7 @@ export function getCanonicalSalonTenantConfiguration(
         "Canonical location slug"
       ),
     }),
+    domains: canonicalDomains(environment),
   });
 }
 
@@ -151,12 +186,55 @@ export function assertCanonicalLocationCompatible({
   return location;
 }
 
+export function assertCanonicalDomainCompatible({
+  domain,
+  business,
+  expected,
+}) {
+  if (!domain) {
+    return null;
+  }
+
+  if (!business) {
+    throw bootstrapError(
+      `Canonical domain ${expected.host} already exists before the canonical Business is resolved.`,
+      "CANONICAL_DOMAIN_CONFLICT"
+    );
+  }
+
+  if (
+    String(domain.business || "") !== String(business._id || "")
+  ) {
+    throw bootstrapError(
+      `Canonical domain ${expected.host} belongs to another Business.`,
+      "CANONICAL_DOMAIN_CONFLICT"
+    );
+  }
+
+  if (
+    normaliseTenantHost(domain.host) !== expected.host ||
+    String(domain.role || "") !== expected.role
+  ) {
+    throw bootstrapError(
+      `Canonical domain ${expected.host} has incompatible ownership metadata.`,
+      "CANONICAL_DOMAIN_CONFLICT"
+    );
+  }
+
+  return domain;
+}
+
 export function buildCanonicalTenantBootstrapPlan({
   business = null,
   location = null,
+  domains = [],
   configuration,
 }) {
-  if (!configuration?.business || !configuration?.location) {
+  if (
+    !configuration?.business ||
+    !configuration?.location ||
+    !Array.isArray(configuration?.domains)
+  ) {
     throw bootstrapError(
       "Canonical tenant bootstrap configuration is required."
     );
@@ -175,6 +253,44 @@ export function buildCanonicalTenantBootstrapPlan({
     });
   }
 
+  const existingDomains =
+    new Map(
+      (Array.isArray(domains) ? domains : [])
+        .map((domain) => [
+          normaliseTenantHost(domain.host),
+          domain,
+        ])
+    );
+
+  const domainPlans =
+    configuration.domains.map(
+      (expected) => {
+        const domain =
+          existingDomains.get(
+            expected.host
+          ) || null;
+
+        if (domain) {
+          assertCanonicalDomainCompatible({
+            domain,
+            business,
+            expected,
+          });
+        }
+
+        return Object.freeze({
+          host: expected.host,
+          role: expected.role,
+          action: domain
+            ? "reuse"
+            : "create",
+          id: domain
+            ? String(domain._id)
+            : null,
+        });
+      }
+    );
+
   return Object.freeze({
     business: Object.freeze({
       action: business ? "reuse" : "create",
@@ -187,6 +303,13 @@ export function buildCanonicalTenantBootstrapPlan({
       id: location ? String(location._id) : null,
       slug: configuration.location.slug,
     }),
-    writesRequired: !business || !location,
+    domains: Object.freeze(domainPlans),
+    writesRequired:
+      !business ||
+      !location ||
+      domainPlans.some(
+        (domain) =>
+          domain.action === "create"
+      ),
   });
 }
