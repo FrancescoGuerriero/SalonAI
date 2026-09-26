@@ -2289,15 +2289,7 @@ export async function createStaffUserByAdmin(
         password:
           hashedPassword,
         role,
-        permissions:
-          [
-            "super_admin",
-            "admin",
-          ].includes(
-            req.user.role
-          )
-            ? permissions
-            : [],
+        permissions,
         rolePermissions,
         phone,
         profilePhoto,
