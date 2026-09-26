@@ -34,9 +34,6 @@ import {
 import {
   hasPermission,
 } from "../utils/permissions.js";
-import {
-  isSuperAdminRole,
-} from "../utils/roles.js";
 
 function errorMessage(error) {
   return (
@@ -131,8 +128,9 @@ export default function AdminStaffAccountsPage() {
     );
 
   const canManageRoles =
-    isSuperAdminRole(
-      currentUser?.role
+    hasPermission(
+      currentUser,
+      "employee:role:update"
     );
 
   const canViewStaffRoles =
