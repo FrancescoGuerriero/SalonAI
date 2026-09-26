@@ -106,6 +106,7 @@ export default function Login() {
     user: currentUser,
     login,
     completeSocialLogin,
+    verifyEmail,
     loading: authLoading,
     isAuthenticated,
   } = useAuth();
@@ -254,14 +255,40 @@ export default function Login() {
     setError("");
     setNotice("");
 
-    authService
-      .verifyEmail(verificationToken)
+    verifyEmail(
+      verificationToken
+    )
       .then((result) => {
+        setVerificationRequired(
+          false
+        );
+
+        if (
+          result?.token &&
+          result?.user
+        ) {
+          navigate(
+            destinationForUser(
+              result.user
+            ),
+            {
+              replace: true,
+              state: {
+                verificationComplete:
+                  true,
+                verificationMessage:
+                  result?.message ||
+                  "Your email has been verified.",
+              },
+            }
+          );
+          return;
+        }
+
         setNotice(
           result?.message ||
-            "Your email has been verified. You can now sign in."
+            "Your email has been verified. Sign in to continue."
         );
-        setVerificationRequired(false);
       })
       .catch((requestError) => {
         setError(
@@ -274,7 +301,12 @@ export default function Login() {
       .finally(() => {
         setVerifying(false);
       });
-  }, [verificationMode, verificationToken]);
+  }, [
+    navigate,
+    verificationMode,
+    verificationToken,
+    verifyEmail,
+  ]);
 
   useEffect(() => {
     if (
@@ -463,7 +495,20 @@ export default function Login() {
           </p>
         ) : (
           <p>
-            No account yet? <Link to="/register">Create one</Link>
+            No account yet?{" "}
+            <Link
+              to="/register"
+              state={
+                requestedRedirect
+                  ? {
+                      redirectTo:
+                        requestedRedirect,
+                    }
+                  : undefined
+              }
+            >
+              Create one
+            </Link>
           </p>
         )
       }

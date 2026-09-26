@@ -212,9 +212,51 @@ export function AuthProvider({
       async (
         payload
       ) => {
-        return authService.register(
-          payload
-        );
+        const response =
+          await authService.register(
+            payload
+          );
+
+        if (
+          response?.token &&
+          response?.user
+        ) {
+          setToken(
+            response.token
+          );
+          setUser(
+            response.user
+          );
+        }
+
+        return response;
+      },
+      []
+    );
+
+  const verifyEmail =
+    useCallback(
+      async (
+        verificationToken
+      ) => {
+        const response =
+          await authService.verifyEmail(
+            verificationToken
+          );
+
+        if (
+          response?.token &&
+          response?.user
+        ) {
+          setToken(
+            response.token
+          );
+          setUser(
+            response.user
+          );
+        }
+
+        return response;
       },
       []
     );
@@ -283,6 +325,7 @@ export function AuthProvider({
         login,
         completeSocialLogin,
         register,
+        verifyEmail,
         logout,
         refreshAccount,
         updateAccount,
@@ -296,6 +339,7 @@ export function AuthProvider({
         login,
         completeSocialLogin,
         register,
+        verifyEmail,
         logout,
         refreshAccount,
         updateAccount,
