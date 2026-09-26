@@ -2044,8 +2044,10 @@ export async function createStaffUserByAdmin(
     if (
       roleDefinition.superAdminOnly ===
         true &&
-      req.user.role !==
-        "super_admin"
+      !hasRequestPermission(
+        req,
+        "employee:role:update"
+      )
     ) {
       throw httpError(
         "Only the Super Admin can assign this staff role.",
@@ -2623,8 +2625,10 @@ export async function updateEmployeeManagementSettings(
     if (
       user.role ===
         "super_admin" &&
-      req.user.role !==
-        "super_admin"
+      !hasRequestPermission(
+        req,
+        "employee:role:update"
+      )
     ) {
       throw httpError(
         "Only a Super Admin can modify a Super Admin account.",
@@ -2679,11 +2683,13 @@ export async function updateEmployeeManagementSettings(
     }
 
     if (
-      req.user.role !==
-        "super_admin" &&
       Object.prototype.hasOwnProperty.call(
         update,
         "role"
+      ) &&
+      !hasRequestPermission(
+        req,
+        "employee:role:update"
       )
     ) {
       throw httpError(
@@ -2693,15 +2699,13 @@ export async function updateEmployeeManagementSettings(
     }
 
     if (
-      ![
-        "super_admin",
-        "admin",
-      ].includes(
-        req.user.role
-      ) &&
       Object.prototype.hasOwnProperty.call(
         update,
         "permissions"
+      ) &&
+      !hasRequestPermission(
+        req,
+        "employee:permissions:update"
       )
     ) {
       throw httpError(
@@ -2871,7 +2875,10 @@ export async function updateAdminUserStatus(
 
     if (
       user.role === "super_admin" &&
-      req.user.role !== "super_admin"
+      !hasRequestPermission(
+        req,
+        "employee:role:update"
+      )
     ) {
       throw httpError(
         "Only a Super Admin can change a Super Admin account.",
