@@ -501,3 +501,42 @@ test("trusted tenant middleware fails closed before authentication", async () =>
     "TRUSTED_TENANT_CONTEXT_REQUIRED"
   );
 });
+
+
+test("configuration locks cannot be bypassed by replacing a locked descendant parent", () => {
+  const result = resolveEffectiveConfiguration([
+    {
+      scope: "platform",
+      values: {
+        payments: {
+          rawCardStorage: false,
+          captureMode: "provider",
+        },
+      },
+      locks: [
+        "payments.rawCardStorage",
+      ],
+    },
+    {
+      scope: "business",
+      values: {
+        payments: false,
+      },
+    },
+  ]);
+
+  assert.deepEqual(result.value.payments, {
+    rawCardStorage: false,
+    captureMode: "provider",
+  });
+
+  assert.ok(
+    result.blockedOverrides.some(
+      (item) =>
+        item.path === "payments" &&
+        item.reason === "locked" &&
+        item.lockedPath === "payments.rawCardStorage" &&
+        item.lockedBy === "platform"
+    )
+  );
+});
