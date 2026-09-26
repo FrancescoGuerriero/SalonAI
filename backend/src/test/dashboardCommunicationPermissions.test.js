@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import {
+  requireAnyPermission,
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
+
 async function source(relativePath) {
   return readFile(
     new URL(
@@ -116,6 +121,124 @@ test("scheduled communication and delivery mutation routes require management au
   assert.match(
     delivery,
     /"\/deliveries\/:identifier\/retry",\s*manageCommunications/s
+  );
+});
+
+function executePermissionGuard(
+  guard,
+  user
+) {
+  const request = {
+    user,
+    requestId:
+      "scheduler-permission-test",
+  };
+  const result = {
+    nextCalled: false,
+    statusCode: null,
+    body: null,
+  };
+  const response = {
+    status(statusCode) {
+      result.statusCode =
+        statusCode;
+      return this;
+    },
+    json(body) {
+      result.body =
+        body;
+      return body;
+    },
+  };
+
+  guard(
+    request,
+    response,
+    () => {
+      result.nextCalled =
+        true;
+    }
+  );
+
+  return result;
+}
+
+test("scheduler capability guards do not inherit blanket access from management role names", () => {
+  const readGuard =
+    requireAnyPermission(
+      "communications:read",
+      "communications:manage"
+    );
+  const manageGuard =
+    requirePermissions(
+      "communications:manage"
+    );
+
+  for (const role of [
+    "stylist",
+    "receptionist",
+    "manager",
+  ]) {
+    const read =
+      executePermissionGuard(
+        readGuard,
+        {
+          role,
+          permissions: [],
+          rolePermissions: [],
+        }
+      );
+    const manage =
+      executePermissionGuard(
+        manageGuard,
+        {
+          role,
+          permissions: [],
+          rolePermissions: [],
+        }
+      );
+
+    assert.equal(
+      read.nextCalled,
+      false,
+      role
+    );
+    assert.equal(
+      read.statusCode,
+      403,
+      role
+    );
+    assert.equal(
+      manage.nextCalled,
+      false,
+      role
+    );
+    assert.equal(
+      manage.statusCode,
+      403,
+      role
+    );
+  }
+
+  const delegated =
+    executePermissionGuard(
+      manageGuard,
+      {
+        role: "manager",
+        permissions: [
+          "communications:manage",
+        ],
+        rolePermissions: [],
+      }
+    );
+
+  assert.equal(
+    delegated.nextCalled,
+    true
+  );
+  assert.equal(
+    delegated.statusCode,
+    null
   );
 });
 
