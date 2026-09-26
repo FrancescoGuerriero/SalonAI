@@ -252,7 +252,7 @@ router.use(
 );
 router.use(
   "/data-export-audit",
-  requirePermissions("reports:read"),
+  requirePermissions("data-export:manage"),
   dataExportAuditRoutes
 );
 
