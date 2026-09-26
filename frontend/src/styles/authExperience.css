@@ -193,6 +193,18 @@
   font-weight: 900;
 }
 
+.auth-social-status {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--palette-grey-200);
+  border-radius: 12px;
+  background: var(--palette-cream);
+  color: var(--palette-grey-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
