@@ -219,7 +219,7 @@ A future provider-specific PKCE change must include:
 
 This is a security-hardening follow-up, not a substitute for the Stage 1D browser-binding requirement.
 
-## 10. User recovery behaviour
+## 11. User recovery behaviour
 
 If the callback is stale, already consumed or opened in a different browser session:
 
@@ -227,7 +227,7 @@ If the callback is stale, already consumed or opened in a different browser sess
 - account linking shows a specific message and confirms the existing SalonAI sign-in remains unchanged;
 - the failure does not create, link, unlink or authenticate an account.
 
-## 11. Stage 1D completion rule
+## 12. Stage 1D completion rule
 
 Source implementation is complete when CI, security, CodeQL and production-smoke gates pass.
 
