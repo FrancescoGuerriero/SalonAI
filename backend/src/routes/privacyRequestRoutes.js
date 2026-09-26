@@ -2,9 +2,11 @@ import express from "express";
 
 import asyncHandler from "../middleware/asyncHandler.js";
 import {
-  adminOnly,
   protect,
 } from "../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../middleware/permissionMiddleware.js";
 import {
   createMyPrivacyRequest,
   exportMyPrivacyData,
@@ -41,7 +43,9 @@ router.post(
 
 router.get(
   "/management",
-  adminOnly,
+  requirePermissions(
+    "privacy-request:manage"
+  ),
   asyncHandler(
     listPrivacyRequests
   )
@@ -49,7 +53,9 @@ router.get(
 
 router.patch(
   "/management/:id",
-  adminOnly,
+  requirePermissions(
+    "privacy-request:manage"
+  ),
   asyncHandler(
     updatePrivacyRequest
   )
