@@ -121,6 +121,7 @@ function Register() {
       ) : null}
 
       <SocialSignInOptions
+        mode="register"
         returnTo="/account"
         onError={setError}
       />

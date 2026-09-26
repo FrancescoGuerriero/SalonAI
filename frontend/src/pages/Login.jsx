@@ -599,6 +599,7 @@ export default function Login() {
       ) : (
         <>
           <SocialSignInOptions
+            mode="login"
             returnTo={
               requestedRedirect
             }
