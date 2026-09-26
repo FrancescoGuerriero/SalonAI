@@ -4,7 +4,7 @@ import {
   listVerticalDefinitions,
 } from "./verticals/verticalRegistry.js";
 
-export const PLATFORM_NAME = "AI Business Platform";
+export const PLATFORM_NAME = "AI Intelligent Business Platform";
 export const REFERENCE_APPLICATION = "Salon AI";
 
 export function getRuntimePlatformConfiguration(environment = process.env) {
