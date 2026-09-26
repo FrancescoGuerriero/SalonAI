@@ -13,6 +13,8 @@ import {
 import {
   getPurchaseOrders,
 } from "../Services/inventoryPurchasingService.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 
 const money = (value) =>
@@ -28,6 +30,9 @@ const money = (value) =>
 
 
 export default function PurchaseOrdersPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "inventory:manage");
+
   const [orders, setOrders] =
     useState([]);
 
@@ -87,6 +92,7 @@ export default function PurchaseOrdersPage() {
             </div>
 
             <div className="flex gap-3">
+              {canManage ? (
               <a
                 href="/purchase-orders/new"
                 className="inline-flex items-center gap-2 rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white"
@@ -94,6 +100,7 @@ export default function PurchaseOrdersPage() {
                 <Plus size={18} />
                 New order
               </a>
+              ) : null}
 
               <button
                 type="button"
