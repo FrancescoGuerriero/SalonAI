@@ -225,3 +225,79 @@ test(
     );
   }
 );
+
+
+test(
+  "location-scoped effective permission fails closed without trusted selected location",
+  () => {
+    const request = {
+      user: {
+        role: "manager",
+      },
+      effectiveAuthority: {
+        roleKey: "manager",
+        locationId: null,
+        permissions: [
+          "appointment:read",
+        ],
+      },
+    };
+
+    assert.equal(
+      hasRequestPermission(
+        request,
+        "appointment:read"
+      ),
+      false
+    );
+
+    const response =
+      responseRecorder();
+    let nextCalled = false;
+
+    requirePermissions(
+      "appointment:read"
+    )(
+      request,
+      response,
+      () => {
+        nextCalled = true;
+      }
+    );
+
+    assert.equal(
+      nextCalled,
+      false
+    );
+    assert.equal(
+      response.statusCode,
+      403
+    );
+  }
+);
+
+test(
+  "aggregate effective permission remains valid without an active selected location",
+  () => {
+    const request = {
+      user: {
+        role: "manager",
+      },
+      effectiveAuthority: {
+        roleKey: "manager",
+        locationId: null,
+        permissions: [
+          "reports:read",
+        ],
+      },
+    };
+
+    assert.equal(
+      hasRequestPermission(
+        request,
+        "reports:read"
+      ),
+      true
+    );
+  }
+);
