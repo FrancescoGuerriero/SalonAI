@@ -13,6 +13,52 @@ export const PERMISSION_SCOPE_CLASSES =
     CROSS_LOCATION: "X",
   });
 
+export const PERMISSION_SCOPE_DEFINITIONS =
+  Object.freeze({
+    P: Object.freeze({
+      code: "P",
+      label: "Platform",
+      description:
+        "Platform-level authority outside an individual tenant.",
+    }),
+    B: Object.freeze({
+      code: "B",
+      label: "Business",
+      description:
+        "Business-wide authority inside the active trusted tenant.",
+    }),
+    L: Object.freeze({
+      code: "L",
+      label: "Location",
+      description:
+        "Requires a trusted selected operating location.",
+    }),
+    A: Object.freeze({
+      code: "A",
+      label: "Allowed locations",
+      description:
+        "May aggregate only across locations granted by the active membership.",
+    }),
+    H: Object.freeze({
+      code: "H",
+      label: "Business + location",
+      description:
+        "Business-owned definition with location-specific operational state or overrides.",
+    }),
+    S: Object.freeze({
+      code: "S",
+      label: "Self",
+      description:
+        "Restricted to the authenticated employee's own resource.",
+    }),
+    X: Object.freeze({
+      code: "X",
+      label: "Cross-location",
+      description:
+        "Business-controlled cross-location or stored-value authority.",
+    }),
+  });
+
 export const PERMISSION_SCOPE_BY_KEY =
   Object.freeze({
     "dashboard:view": "A",
@@ -102,6 +148,44 @@ export function permissionScope(
     PERMISSION_SCOPE_BY_KEY[
       String(permission || "").trim()
     ] || null
+  );
+}
+
+export function permissionScopeMetadata(
+  permission
+) {
+  const code =
+    permissionScope(
+      permission
+    );
+
+  return code
+    ? PERMISSION_SCOPE_DEFINITIONS[
+        code
+      ] || null
+    : null;
+}
+
+export function permissionScopeMap() {
+  return Object.freeze(
+    Object.fromEntries(
+      EMPLOYEE_PERMISSIONS.map(
+        (permission) => [
+          permission,
+          permissionScopeMetadata(
+            permission
+          ),
+        ]
+      )
+    )
+  );
+}
+
+export function permissionScopeLegend() {
+  return Object.freeze(
+    Object.values(
+      PERMISSION_SCOPE_DEFINITIONS
+    )
   );
 }
 
