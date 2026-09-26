@@ -95,6 +95,7 @@ test("canonical tenant bootstrap plan is idempotent", () => {
 
   const existingBusiness = {
     _id: businessId,
+    name: "Salon AI",
     slug: "salon-ai",
     businessType: "salon",
   };
@@ -102,6 +103,7 @@ test("canonical tenant bootstrap plan is idempotent", () => {
   const existingLocation = {
     _id: locationId,
     business: businessId,
+    name: "Primary Location",
     slug: "primary-location",
   };
 
@@ -164,6 +166,8 @@ test("canonical tenant bootstrap refuses a cross-business location", () => {
         business: {
           _id:
             businessId,
+          name:
+            "Salon AI",
           slug:
             "salon-ai",
           businessType:
@@ -174,6 +178,8 @@ test("canonical tenant bootstrap refuses a cross-business location", () => {
             new mongoose.Types.ObjectId(),
           business:
             new mongoose.Types.ObjectId(),
+          name:
+            "Primary Location",
           slug:
             "primary-location",
         },
