@@ -134,6 +134,7 @@ const ROLE_BASELINES = Object.freeze({
     "feature-control:read",
     "feature-control:update",
     "data-import:manage",
+    "data-export:manage",
     "staff-role:read",
     "staff-role:create",
     "staff-role:update",
