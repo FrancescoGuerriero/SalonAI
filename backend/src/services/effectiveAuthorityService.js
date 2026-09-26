@@ -47,6 +47,28 @@ function idText(value) {
   ).trim();
 }
 
+function normalisedIds(
+  values
+) {
+  return [
+    ...new Set(
+      (
+        Array.isArray(
+          values
+        )
+          ? values
+          : []
+      )
+        .map(
+          idText
+        )
+        .filter(
+          Boolean
+        )
+    ),
+  ];
+}
+
 function normalisedPermissions(
   values
 ) {
@@ -241,26 +263,9 @@ export async function resolveEffectiveAuthority({
         null
           ? null
           : Object.freeze(
-              normalisedPermissions(
-                []
-              ) &&
-              [
-                ...new Set(
-                  (
-                    Array.isArray(
-                      tenantContext.allowedLocationIds
-                    )
-                      ? tenantContext.allowedLocationIds
-                      : []
-                  )
-                    .map(
-                      idText
-                    )
-                    .filter(
-                      Boolean
-                    )
-                ),
-              ]
+              normalisedIds(
+                tenantContext.allowedLocationIds
+              )
             ),
       permissions:
         Object.freeze(
@@ -290,6 +295,39 @@ export function hasEffectivePermission(
     ) &&
     authority.permissions.includes(
       permission
+    )
+  );
+}
+
+export function hasLocationAuthority(
+  authority,
+  locationId
+) {
+  const targetLocationId =
+    idText(
+      locationId
+    );
+
+  if (
+    !authority ||
+    !targetLocationId
+  ) {
+    return false;
+  }
+
+  if (
+    authority.locationAccessMode ===
+    "all"
+  ) {
+    return true;
+  }
+
+  return Boolean(
+    Array.isArray(
+      authority.allowedLocationIds
+    ) &&
+    authority.allowedLocationIds.includes(
+      targetLocationId
     )
   );
 }
@@ -377,5 +415,6 @@ export default {
   assertEffectivePermission,
   canUsePermissionAtCurrentScope,
   hasEffectivePermission,
+  hasLocationAuthority,
   resolveEffectiveAuthority,
 };
