@@ -134,7 +134,7 @@ jobs:
               exit 1
             fi
 
-            echo "[READY] Google, Facebook, Microsoft and Yahoo are configured for controlled production browser acceptance." | tee -a "$evidence"
+            echo "[READY] Google, Facebook, Microsoft, Yahoo and LinkedIn are configured for controlled production browser acceptance." | tee -a "$evidence"
             echo "[PASS] Read-only social-auth readiness audit completed. No provider request or database mutation was requested." | tee -a "$evidence"
           else
             if [[ "$readiness_status" -eq 0 ]]; then

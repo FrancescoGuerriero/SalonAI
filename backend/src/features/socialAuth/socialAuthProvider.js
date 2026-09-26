@@ -48,6 +48,16 @@ const PROVIDERS = Object.freeze({
       "https://api.login.yahoo.com/openid/v1/userinfo",
     scopes: ["openid", "email", "profile"],
   },
+  linkedin: {
+    label: "LinkedIn",
+    authorizeUrl:
+      "https://www.linkedin.com/oauth/v2/authorization",
+    tokenUrl:
+      "https://www.linkedin.com/oauth/v2/accessToken",
+    profileUrl:
+      "https://api.linkedin.com/v2/userinfo",
+    scopes: ["openid", "profile", "email"],
+  },
 });
 
 const SOCIAL_AUTH_TRANSACTION_TTL_MS =
