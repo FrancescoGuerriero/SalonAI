@@ -29,7 +29,8 @@
     "marketing:compliance-readiness": "node scripts/checkMarketingComplianceReadiness.js",
     "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js",
     "tenant:migration-readiness": "node scripts/checkTenantMigrationReadiness.js",
-    "calendar:readiness": "node scripts/checkCalendarReadiness.js"
+    "calendar:readiness": "node scripts/checkCalendarReadiness.js",
+    "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
