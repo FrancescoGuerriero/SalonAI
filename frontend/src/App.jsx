@@ -1139,8 +1139,9 @@ function AppRoutes() {
 
         <Route
           path="admin/privacy-requests"
-          element={adminPage(
-            AdminPrivacyRequestsPage
+          element={permissionPage(
+            AdminPrivacyRequestsPage,
+            "privacy-request:manage"
           )}
         />
 
