@@ -12,6 +12,8 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "customer:update", label: "Update customers", group: "Customers" },
   { value: "customer:archive", label: "Archive or restore customers", group: "Customers" },
   { value: "customer:delete", label: "Permanently delete customers", group: "Customers" },
+  { value: "customer-experience:read", label: "View customer experience desk", group: "Customer experience" },
+  { value: "customer-experience:manage", label: "Manage customer experience actions", group: "Customer experience" },
 
   { value: "employee:read", label: "View employees", group: "Employees" },
   { value: "employee:create", label: "Add employees", group: "Employees" },
@@ -110,6 +112,8 @@ const ROLE_BASELINES = Object.freeze({
     "dashboard:view",
     "appointment:read",
     "customer:read",
+    "customer-experience:read",
+    "customer-experience:manage",
     "employee:read",
     "employee:permissions:update",
     "profile:own:read",
