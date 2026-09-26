@@ -18,12 +18,14 @@ import {
   start as startSocialAuth,
 } from "../features/socialAuth/socialAuthController.js";
 
-test("social authentication supports the four customer providers", () => {
+test("social authentication supports the five customer providers", () => {
   assert.deepEqual(
     [...SOCIAL_AUTH_PROVIDERS].sort(),
     [
       "facebook",
       "google",
+      "linkedin",
+      "linkedin",
       "microsoft",
       "yahoo",
     ]
@@ -567,6 +569,7 @@ test("customer login and registration expose all provider choices", async () => 
     "Facebook",
     "Microsoft",
     "Yahoo",
+    "LinkedIn",
   ]) {
     assert.match(
       source,
@@ -655,6 +658,10 @@ test("account settings expose explicit provider linking with lockout protection"
   assert.match(
     settings,
     /Yahoo/
+  );
+  assert.match(
+    settings,
+    /LinkedIn/
   );
   assert.match(
     settings,
