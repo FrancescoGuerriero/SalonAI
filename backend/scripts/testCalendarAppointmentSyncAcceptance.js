@@ -1004,6 +1004,8 @@ async function runAcceptance() {
 
     const customer =
       await Customer.create({
+        userAccount:
+          new mongoose.Types.ObjectId(),
         firstName:
           "Calendar",
         lastName:
