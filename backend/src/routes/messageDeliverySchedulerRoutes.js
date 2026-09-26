@@ -16,7 +16,19 @@ import {
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
 
-const router = express.Router();
+const router =
+  express.Router();
+
+const readCommunications =
+  requireAnyPermission(
+    "communications:read",
+    "communications:manage"
+  );
+
+const manageCommunications =
+  requirePermissions(
+    "communications:manage"
+  );
 
 /*
 |--------------------------------------------------------------------------
@@ -24,22 +36,20 @@ const router = express.Router();
 |--------------------------------------------------------------------------
 |
 | Scheduler operations can start background processing and trigger real
-| outbound communications. Only authenticated management users may access
-| these endpoints.
+| outbound communications. Access is capability-based:
+| - status requires communications read or manage;
+| - run/start/stop/restart require communications:manage.
 |
 */
 
-router.use(protect);
-router.use(managementOnly);
+router.use(
+  protect
+);
 
 /*
 |--------------------------------------------------------------------------
 | Scheduler status
 |--------------------------------------------------------------------------
-|
-| Returns runtime state, interval configuration, cycle counters, the most
-| recent cycle result and the latest scheduler error.
-|
 */
 
 router.get(
@@ -52,10 +62,6 @@ router.get(
 |--------------------------------------------------------------------------
 | Manual scheduler cycle
 |--------------------------------------------------------------------------
-|
-| Processes due campaigns and deferred message retries immediately without
-| requiring the recurring scheduler to be enabled.
-|
 */
 
 router.post(
