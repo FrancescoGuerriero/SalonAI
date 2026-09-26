@@ -675,35 +675,21 @@ test("trusted tenant context normalization keeps selected allow-list fail closed
     locationA,
   } = ids();
 
-  const context =
-    assertTenantAuthorityContext({
-      userId,
-      businessId,
-      locationId:
-        locationA,
-      roleKey: "manager",
-      locationAccessMode:
-        "selected",
-      allowedLocationIds: [],
-    });
-
   assert.throws(
     () =>
-      assertTenantResourceScope(
-        context,
-        {
-          business:
-            businessId,
-          location:
-            locationA,
-        },
-        {
-          scope:
-            "location",
-        }
-      ),
+      assertTenantAuthorityContext({
+        userId,
+        businessId,
+        locationId:
+          locationA,
+        roleKey: "manager",
+        locationAccessMode:
+          "selected",
+        allowedLocationIds: [],
+      }),
     (error) =>
       error.code ===
-      "TENANT_LOCATION_NOT_FOUND"
+        "TENANT_LOCATION_NOT_FOUND" &&
+      error.statusCode === 404
   );
 });
