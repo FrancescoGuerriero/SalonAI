@@ -527,6 +527,70 @@ describe(
 
 
     it(
+      "shows operational social-auth status instead of placeholder controls",
+      () => {
+        const socialOptions =
+          source(
+            "src/components/auth/SocialSignInOptions.jsx"
+          );
+        const login =
+          source(
+            "src/pages/Login.jsx"
+          );
+        const register =
+          source(
+            "src/pages/Register.jsx"
+          );
+        const administration =
+          source(
+            "src/pages/SystemAdministrationPage.jsx"
+          );
+
+        expect(
+          socialOptions
+        ).toContain(
+          "setup required"
+        );
+        expect(
+          socialOptions
+        ).toContain(
+          "Social sign-in is not active on this environment yet"
+        );
+        expect(
+          socialOptions
+        ).toContain(
+          'mode === "register"'
+        );
+        expect(
+          login
+        ).toContain(
+          'mode="login"'
+        );
+        expect(
+          register
+        ).toContain(
+          'mode="register"'
+        );
+        expect(
+          administration
+        ).toContain(
+          "Sign-in providers"
+        );
+        expect(
+          administration
+        ).toContain(
+          "/system-administration/social-auth-readiness"
+        );
+        expect(
+          administration
+        ).toContain(
+          "Client secrets are never returned to the browser"
+        );
+      }
+    );
+
+
+    it(
       "renders the product editor at the application overlay layer with internal scrolling",
       () => {
         const page =

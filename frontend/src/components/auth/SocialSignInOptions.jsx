@@ -15,6 +15,7 @@ const LABELS = Object.freeze({
 export default function SocialSignInOptions({
   returnTo = "",
   onError,
+  mode = "login",
 }) {
   const [
     providers,
@@ -35,6 +36,10 @@ export default function SocialSignInOptions({
     working,
     setWorking,
   ] = useState("");
+  const [
+    providerStatusLoaded,
+    setProviderStatusLoaded,
+  ] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -77,16 +82,35 @@ export default function SocialSignInOptions({
             })
           )
         );
+        setProviderStatusLoaded(
+          true
+        );
       })
       .catch(() => {
         // Keep choices visible but unavailable
-        // until server configuration is known.
+        // when server configuration cannot be read.
+        if (active) {
+          setProviderStatusLoaded(
+            true
+          );
+        }
       });
 
     return () => {
       active = false;
     };
   }, []);
+
+  const configuredCount =
+    providers.filter(
+      (item) =>
+        item.configured
+    ).length;
+
+  const actionVerb =
+    mode === "register"
+      ? "Create account with "
+      : "Sign in with ";
 
   async function begin(
     provider
@@ -147,7 +171,7 @@ export default function SocialSignInOptions({
               }
               title={
                 item.configured
-                  ? "Continue with " +
+                  ? actionVerb +
                     item.label
                   : item.label +
                     " sign-in is not configured yet"
@@ -170,13 +194,35 @@ export default function SocialSignInOptions({
                   ? "Opening " +
                     item.label +
                     "…"
-                  : "Continue with " +
-                    item.label}
+                  : item.configured
+                    ? actionVerb +
+                      item.label
+                    : item.label +
+                      " — setup required"}
               </span>
             </button>
           )
         )}
       </div>
+
+      {providerStatusLoaded &&
+      configuredCount === 0 ? (
+        <p
+          className="auth-social-status"
+          role="status"
+        >
+          Social sign-in is not active on this environment yet. You can use email while provider setup is completed.
+        </p>
+      ) : providerStatusLoaded &&
+        configuredCount <
+          providers.length ? (
+        <p
+          className="auth-social-status"
+          role="status"
+        >
+          Available providers are active. Providers marked setup required are waiting for production OAuth configuration.
+        </p>
+      ) : null}
 
       <div
         className="auth-divider"

@@ -9,6 +9,7 @@ import {
   listDeadLetters,
   listFeatureControls,
   listSettings,
+  getSocialAuthReadiness,
   resetFeatureControl,
   updateFeatureControl,
   updateSetting,
@@ -51,6 +52,15 @@ router.get(
   ),
   asyncHandler(
     listSettings
+  )
+);
+router.get(
+  "/social-auth-readiness",
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getSocialAuthReadiness
   )
 );
 router.patch(
