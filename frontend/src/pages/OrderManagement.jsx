@@ -2,11 +2,16 @@ import { ClipboardList } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import commerceService from "../Services/commerceService.js";
+import useAuth from "../hooks/useAuth.js";
 import { formatCurrency } from "../utils/currency.js";
+import { hasPermission } from "../utils/permissions.js";
 
 const statuses = ["paid", "processing", "ready", "completed", "cancelled", "refunded"];
 
 export default function OrderManagement() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "order:manage");
+
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -30,6 +35,10 @@ export default function OrderManagement() {
   }, [load]);
 
   async function changeStatus(orderId, nextStatus) {
+    if (!canManage) {
+      return;
+    }
+
     try {
       await commerceService.updateOrderStatus(orderId, nextStatus);
       await load();
@@ -65,7 +74,12 @@ export default function OrderManagement() {
                 <td>{formatCurrency(order.total)}</td>
                 <td><span className={`commerce-order-status status-${order.status}`}>{order.status.replaceAll("_", " ")}</span></td>
                 <td>
-                  <select value={order.status} onChange={(event) => changeStatus(order._id, event.target.value)}>
+                  <select
+                    value={order.status}
+                    disabled={!canManage}
+                    aria-label={`Update status for ${order.orderNumber}`}
+                    onChange={(event) => changeStatus(order._id, event.target.value)}
+                  >
                     {order.status === "pending_payment" && <option value="pending_payment">pending payment</option>}
                     {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
                   </select>
