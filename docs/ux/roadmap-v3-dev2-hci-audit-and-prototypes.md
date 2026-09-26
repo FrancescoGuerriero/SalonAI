@@ -5,6 +5,19 @@ Baseline: `main@b14f56e801ee4337cef765f1b40cb0e555ed7217`
 Lane: DEV2 — UI / HCI / accessibility / error quality  
 Status: audit/prototype only; no business-rule implementation
 
+Figma prototype file: https://www.figma.com/design/iNumviutWfqBibpl43cKSC
+
+Current Figma frames:
+- 01 — Organisation & Location Switcher
+- 02 — Location-aware Dashboard
+- 03 — Effective Configuration Preview
+- 04 — Capability & Entitlement Visibility
+- 05 — AI Proposal Review
+- 06 — Connector & Integration Health
+- 07 — Mobile Location Switcher
+- 08 — Mobile AI Proposal Review
+
+
 ## 1. Current-state baseline
 
 The management information architecture already has a useful progressive-disclosure foundation:
