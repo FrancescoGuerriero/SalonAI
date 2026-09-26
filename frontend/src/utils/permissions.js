@@ -71,6 +71,7 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "reports:read", label: "View reports", group: "Reports & AI" },
   { value: "reports:manage", label: "Manage operational reports and daily close", group: "Reports & AI" },
   { value: "security:audit:read", label: "View security audit logs", group: "Roles & access" },
+  { value: "privacy-request:manage", label: "Manage privacy-rights requests", group: "Roles & access" },
   { value: "ai:use", label: "Use SalonAI management tools", group: "Reports & AI" },
 
   { value: "feature-control:read", label: "View feature controls", group: "System" },
@@ -128,6 +129,7 @@ const ROLE_BASELINES = Object.freeze({
     "reports:read",
     "reports:manage",
     "security:audit:read",
+    "privacy-request:manage",
     "ai:use",
     "feature-control:read",
     "feature-control:update",
