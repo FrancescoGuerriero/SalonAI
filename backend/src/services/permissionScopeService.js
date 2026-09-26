@@ -132,6 +132,7 @@ export const PERMISSION_SCOPE_BY_KEY =
 
     "reports:read": "A",
     "reports:manage": "A",
+    "security:audit:read": "B",
     "ai:use": "A",
 
     "feature-control:read": "B",

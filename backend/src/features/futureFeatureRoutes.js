@@ -39,7 +39,6 @@ import executiveCommandRoutes from "./executiveCommand/executiveCommandRoutes.js
 import dataExportAuditRoutes from "./dataExportAudit/dataExportAuditRoutes.js";
 
 import {
-  managementOnly,
   protect,
 } from "../middleware/authMiddleware.js";
 import {
@@ -82,9 +81,9 @@ router.use(
 );
 
 /*
- * Every dashboard workspace below is protected by the same permission used by
- * its frontend navigation/route guard. The legacy role gate is retained only
- * for the internal security router, which is not a delegated dashboard item.
+ * Every workspace below uses granular permissions from the canonical
+ * StaffRole/permission registry. Nested routers may add stricter operation-
+ * specific checks, but no blanket built-in role gate should replace them.
  */
 router.use(
   "/templates",
@@ -158,13 +157,12 @@ router.use(
 );
 
 /*
- * Security administration is not exposed as a delegated dashboard workspace.
- * Keep the existing management-role boundary here until it has its own
- * explicit security permission model.
+ * Security endpoints enforce their own canonical permissions.
+ * Do not add a role-only parent gate here: custom roles and delegated
+ * permissions must use the same StaffRole/permission registry.
  */
 router.use(
   "/security",
-  managementOnly,
   securityRoutes
 );
 

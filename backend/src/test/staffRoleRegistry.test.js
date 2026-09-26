@@ -195,6 +195,10 @@ test("dashboard workspaces use granular backend permissions instead of blanket m
 
   assert.match(
     futureRoutes,
+    /"\/security",[\s\S]*securityRoutes/
+  );
+  assert.doesNotMatch(
+    futureRoutes,
     /"\/security",[\s\S]*managementOnly/
   );
 });
