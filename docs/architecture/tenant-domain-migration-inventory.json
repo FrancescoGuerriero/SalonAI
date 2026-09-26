@@ -1,17 +1,19 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "roadmapIssue": 279,
-  "baselineMainCommit": "b14f56e801ee4337cef765f1b40cb0e555ed7217",
+  "baselineMainCommit": "319a9351ad03c8a3de1f3709a24d49cd46cefa9a",
   "generatedAt": "2026-09-26",
   "migrationPolicy": {
     "automaticStartupMigration": false,
+    "clientTenantIdentifierGrantsAuthority": false,
     "requiredBeforeProductionWrite": [
+      "canonical-business-and-location-bootstrap",
       "dry-run",
       "backup",
-      "tenant-count reconciliation",
-      "cross-tenant isolation tests",
-      "rollback plan",
-      "DEV1 integration approval"
+      "document-count-and-index-reconciliation",
+      "second-tenant-and-second-location-isolation-tests",
+      "rollback-plan",
+      "DEV1-integration-approval"
     ]
   },
   "controlPlane": [
@@ -35,29 +37,40 @@
     {
       "order": 1,
       "domain": "services-catalogue",
-      "targetScope": ["business", "location-optional"],
-      "models": [
-        "backend/src/models/service.js"
+      "targetScope": [
+        "business",
+        "location-optional"
       ],
-      "notes": "First production-domain candidate after canonical Salon AI tenant/location bootstrap."
+      "models": [
+        "backend/src/models/service.js",
+        "backend/src/features/servicePackages/ServicePackage.js"
+      ],
+      "notes": "Business catalogue first. Location offerings/pricing remain a later hybrid layer rather than cloning services per branch."
     },
     {
       "order": 2,
       "domain": "workforce-schedules-rbac",
-      "targetScope": ["business", "location-aware"],
+      "targetScope": [
+        "business",
+        "location-aware"
+      ],
       "models": [
         "backend/src/models/Stylist.js",
         "backend/src/models/StaffRole.js",
+        "backend/src/features/staff/StaffAvailability.js",
         "backend/src/models/ExternalCalendarConnection.js",
         "backend/src/models/ExternalCalendarEventLink.js",
         "backend/src/models/CalendarSyncTask.js"
       ],
-      "notes": "Coordinate location-aware authority with DEV3; DEV4 supplies tenancy/location contracts only."
+      "notes": "Coordinate effective authority with DEV3. StaffRole remains the permission-role registry; BusinessMembership supplies trusted tenant/location scope."
     },
     {
       "order": 3,
       "domain": "customers-profiles-privacy",
-      "targetScope": ["business", "location-optional"],
+      "targetScope": [
+        "business",
+        "location-optional"
+      ],
       "models": [
         "backend/src/models/customer.js",
         "backend/src/models/CustomerNote.js",
@@ -65,69 +78,145 @@
         "backend/src/models/ConsentRecord.js",
         "backend/src/models/PrivacyRequest.js",
         "backend/src/models/DataSubjectRequest.js",
-        "backend/src/models/TrackingConsentReceipt.js"
+        "backend/src/models/TrackingConsentReceipt.js",
+        "backend/src/features/feedbackAnalytics/CustomerFeedback.js"
       ],
-      "notes": "Customer identity may be platform-global while business-specific CRM/profile state remains tenant-owned; decide before enforcing unique indexes."
+      "notes": "Separate platform identity from tenant-owned CRM/customer state before changing uniqueness rules."
     },
     {
       "order": 4,
-      "domain": "appointments-operations",
-      "targetScope": ["business", "location-required-for-operational-bookings"],
+      "domain": "appointments-capacity-customer-journey",
+      "targetScope": [
+        "business",
+        "location-required-for-operational-records"
+      ],
       "models": [
         "backend/src/models/Appointment.js",
-        "backend/src/models/DailyClose.js"
+        "backend/src/models/DailyClose.js",
+        "backend/src/features/waitlist/WaitlistEntry.js",
+        "backend/src/features/servicePackages/CustomerServicePackage.js",
+        "backend/src/features/servicePackages/ServicePackageRedemption.js"
       ],
-      "notes": "Location semantics must be stable before migration."
+      "notes": "Operational bookings/redemptions need stable Location semantics and resource-ownership checks."
     },
     {
       "order": 5,
-      "domain": "communications",
-      "targetScope": ["business", "location-optional"],
+      "domain": "communications-marketing-retention",
+      "targetScope": [
+        "business",
+        "location-optional"
+      ],
       "models": [
         "backend/src/models/CommunicationCampaign.js",
         "backend/src/models/CommunicationCampaignRecipient.js",
         "backend/src/models/CommunicationTemplate.js",
         "backend/src/models/MessageDelivery.js",
         "backend/src/models/TransactionalNotificationEvent.js",
-        "backend/src/models/DeadLetterRecord.js"
+        "backend/src/models/DeadLetterRecord.js",
+        "backend/src/features/campaigns/Campaign.js",
+        "backend/src/features/rebookingCampaigns/RebookingCampaign.js",
+        "backend/src/features/emailCampaigns/EmailCampaign.js"
       ],
-      "notes": "Provider credentials, templates, send policies and audit evidence must remain tenant isolated."
+      "notes": "Templates/rules may be business-wide; audiences, source events and analytics must retain location provenance."
     },
     {
       "order": 6,
       "domain": "commerce-inventory-stored-value",
-      "targetScope": ["business", "location-aware"],
+      "targetScope": [
+        "business",
+        "location-aware",
+        "cross-location-financial"
+      ],
       "models": [
+        "backend/src/features/commerce/Product.js",
+        "backend/src/features/commerce/Order.js",
+        "backend/src/features/commerce/Payment.js",
+        "backend/src/features/commerce/InventoryAdjustment.js",
+        "backend/src/features/commerce/StripeWebhookEvent.js",
+        "backend/src/features/inventory/InventoryItem.js",
         "backend/src/features/inventoryPurchasing/models/PurchaseOrder.js",
         "backend/src/features/inventoryPurchasing/models/Supplier.js",
-        "backend/src/features/inventoryPurchasing/models/SupplierProduct.js"
+        "backend/src/features/inventoryPurchasing/models/SupplierProduct.js",
+        "backend/src/features/giftCards/GiftCard.js",
+        "backend/src/features/loyalty/LoyaltyAccount.js"
       ],
-      "notes": "Gift cards, memberships, packages, loyalty/stored value and commerce feature-local schemas require the dedicated cross-location liability epic after Location contracts are accepted."
+      "notes": "Gift cards, memberships, packages, loyalty and stored value require the dedicated liability/settlement epic before cross-location rollout."
     },
     {
       "order": 7,
-      "domain": "audit-settings-analytics-ai",
-      "targetScope": ["business", "location-optional", "platform-global-where-explicit"],
+      "domain": "analytics-ai-governance-import-audit",
+      "targetScope": [
+        "business",
+        "location-optional",
+        "platform-global-where-explicit"
+      ],
       "models": [
         "backend/src/models/AuditLog.js",
-        "backend/src/models/SystemSetting.js"
+        "backend/src/models/SystemSetting.js",
+        "backend/src/features/ai/AiPrediction.js",
+        "backend/src/features/ai/ForecastSnapshot.js",
+        "backend/src/features/aiPlatform/AiActionProposal.js",
+        "backend/src/features/aiPlatform/AiFeatureSnapshot.js",
+        "backend/src/features/aiPlatform/AiInferenceLog.js",
+        "backend/src/features/aiPlatform/AiKnowledgeDocument.js",
+        "backend/src/features/aiPlatform/AiModelVersion.js",
+        "backend/src/features/aiPlatform/AiTrainingDataset.js",
+        "backend/src/features/dataImport/DataImportJob.js",
+        "backend/src/features/staffPerformance/RetailSaleAttribution.js"
       ],
-      "notes": "Audit, analytics and AI evidence must carry tenant provenance; platform-global records require explicit classification rather than implicit sharing."
+      "notes": "AI/analytics records must carry tenant and applicable location provenance. Model versions may be platform/vertical scoped, while tenant knowledge, inference, action and evidence records must remain isolated."
     }
   ],
   "platformGlobalCandidates": [
     "backend/src/models/user.js",
     "backend/src/models/SocialIdentity.js",
-    "backend/src/models/passwordResetToken.js"
+    "backend/src/models/passwordResetToken.js",
+    "backend/src/features/aiPlatform/AiModelVersion.js"
+  ],
+  "duplicateOrLegacyCandidates": [
+    {
+      "canonicalReviewGroup": "gift-card",
+      "paths": [
+        "backend/src/features/giftCards/GiftCard.js",
+        "backend/src/features/premium/giftCards/GiftCard.js",
+        "backend/src/features/capacityPlanning/giftCards/GiftCard.js"
+      ],
+      "action": "Map imports/routes/collections before tenant migration; do not migrate three independent truths."
+    },
+    {
+      "canonicalReviewGroup": "loyalty",
+      "paths": [
+        "backend/src/features/loyalty/LoyaltyAccount.js",
+        "backend/src/features/premium/loyalty/LoyaltyAccount.js",
+        "backend/src/features/capacityPlanning/loyalty/LoyaltyAccount.js",
+        "backend/src/features/capacityPlanning/loyalty/Membership.js"
+      ],
+      "action": "Identify canonical current model and legacy aliases before stored-value redesign."
+    },
+    {
+      "canonicalReviewGroup": "email-campaign",
+      "paths": [
+        "backend/src/features/emailCampaigns/EmailCampaign.js",
+        "backend/src/features/premium/emailCampaigns/EmailCampaign.js",
+        "backend/src/features/capacityPlanning/emailCampaigns/EmailCampaign.js"
+      ],
+      "action": "Map route ownership and collection names before applying business/location fields."
+    }
   ],
   "requiresClassificationBeforeMigration": [
     "backend/src/models/AuditLog.js",
     "backend/src/models/SystemSetting.js",
-    "backend/src/models/TransactionalNotificationEvent.js"
+    "backend/src/models/TransactionalNotificationEvent.js",
+    "backend/src/features/aiPlatform/AiModelVersion.js",
+    "backend/src/features/aiPlatform/AiTrainingDataset.js",
+    "backend/src/features/commerce/StripeWebhookEvent.js"
   ],
-  "repositoryFollowUp": [
-    "Inventory feature-local or inline Mongoose schemas not discoverable by model-file naming.",
-    "Map commerce, gift-card, membership, package, loyalty and AI-governance collections to the canonical tenant/location contract before migration.",
-    "Record current document counts and uniqueness constraints during the dry-run migration phase."
+  "followUpChecks": [
+    "Inspect actual MongoDB collection names for aliases or duplicate Mongoose models.",
+    "Record current indexes, unique constraints and document counts before any backfill.",
+    "Identify inline schemas outside conventional model files.",
+    "Map commerce, gift-card, membership, package, loyalty and AI-governance collections to canonical tenant/location ownership.",
+    "Confirm whether customer identity is platform-global with tenant-owned CRM state or tenant-local before changing email/customer uniqueness.",
+    "Classify each background job, webhook and scheduled task by required Business/Location context."
   ]
 }
