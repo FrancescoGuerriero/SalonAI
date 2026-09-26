@@ -2,7 +2,7 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
-  hasUserPermission,
+  hasRequestPermission,
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import {
@@ -28,7 +28,7 @@ function requireStatusPermission(request, response, next) {
       ? "appointment:cancel"
       : "appointment:update";
 
-  if (hasUserPermission(request.user, permission)) {
+  if (hasRequestPermission(request, permission)) {
     return next();
   }
 
