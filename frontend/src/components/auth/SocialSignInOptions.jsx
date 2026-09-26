@@ -10,6 +10,7 @@ const LABELS = Object.freeze({
   facebook: "Facebook",
   microsoft: "Microsoft",
   yahoo: "Yahoo",
+  linkedin: "LinkedIn",
 });
 
 export default function SocialSignInOptions({
