@@ -1,5 +1,6 @@
 import express from "express";
 import asyncHandler from "../../shared/asyncHandler.js";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./segmentController.js";
 
 const router = express.Router();
@@ -7,7 +8,10 @@ const router = express.Router();
 router
   .route("/")
   .get(asyncHandler(controller.list))
-  .post(asyncHandler(controller.create));
+  .post(
+    requirePermissions("customer:update"),
+    asyncHandler(controller.create)
+  );
 
 router.get(
   "/:id/preview",
@@ -17,7 +21,13 @@ router.get(
 router
   .route("/:id")
   .get(asyncHandler(controller.get))
-  .patch(asyncHandler(controller.update))
-  .delete(asyncHandler(controller.remove));
+  .patch(
+    requirePermissions("customer:update"),
+    asyncHandler(controller.update)
+  )
+  .delete(
+    requirePermissions("customer:update"),
+    asyncHandler(controller.remove)
+  );
 
 export default router;
