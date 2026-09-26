@@ -129,6 +129,7 @@ function Register() {
           message:
             result?.message ||
             "Account created. Check your email to continue.",
+          emailSent: true,
         });
         return;
       }
@@ -196,6 +197,7 @@ function Register() {
           message:
             response?.message ||
             "Your account was created, but the verification email could not be sent.",
+          emailSent: false,
         });
         return;
       }
@@ -228,6 +230,12 @@ function Register() {
           pendingVerification.email
         );
 
+      setPendingVerification(
+        (current) => ({
+          ...current,
+          emailSent: true,
+        })
+      );
       setNotice(
         result?.message ||
           "A new verification email has been sent."
@@ -272,7 +280,7 @@ function Register() {
         }
       >
         <div
-          className="auth-feedback auth-feedback-success"
+          className="auth-feedback auth-feedback-success auth-feedback-with-icon"
           role="status"
         >
           <CheckCircle2
@@ -287,7 +295,9 @@ function Register() {
               {pendingVerification.message}
             </p>
             <p>
-              We sent the verification link to{" "}
+              {pendingVerification.emailSent
+                ? "Verification link sent to "
+                : "Use resend to send the verification link to "}
               <strong>
                 {pendingVerification.email}
               </strong>
