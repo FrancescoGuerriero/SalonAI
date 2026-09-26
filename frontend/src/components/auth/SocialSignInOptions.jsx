@@ -15,6 +15,7 @@ const LABELS = Object.freeze({
 export default function SocialSignInOptions({
   returnTo = "",
   onError,
+  mode = "login",
 }) {
   const [
     providers,
@@ -87,6 +88,17 @@ export default function SocialSignInOptions({
       active = false;
     };
   }, []);
+
+  const configuredCount =
+    providers.filter(
+      (item) =>
+        item.configured
+    ).length;
+
+  const actionVerb =
+    mode === "register"
+      ? "Create account with "
+      : "Sign in with ";
 
   async function begin(
     provider
@@ -170,13 +182,33 @@ export default function SocialSignInOptions({
                   ? "Opening " +
                     item.label +
                     "…"
-                  : "Continue with " +
-                    item.label}
+                  : item.configured
+                    ? actionVerb +
+                      item.label
+                    : item.label +
+                      " — setup required"}
               </span>
             </button>
           )
         )}
       </div>
+
+      {configuredCount === 0 ? (
+        <p
+          className="auth-social-status"
+          role="status"
+        >
+          Social sign-in is not active on this environment yet. You can use email while provider setup is completed.
+        </p>
+      ) : configuredCount <
+        providers.length ? (
+        <p
+          className="auth-social-status"
+          role="status"
+        >
+          Available providers are active. Providers marked setup required are waiting for production OAuth configuration.
+        </p>
+      ) : null}
 
       <div
         className="auth-divider"
