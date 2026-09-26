@@ -117,11 +117,12 @@ jobs:
           target="$PRODUCTION_USER@$PRODUCTION_HOST"
 
           runtime_version="$(
-            ssh "${ssh_options[@]}" "$target"               'set -euo pipefail
+            ssh "${ssh_options[@]}" "$target" \
+              'set -euo pipefail
                test "$(id -un)" = "salonai-deploy"
                test -d /opt/salonai
                docker inspect salonai-backend >/dev/null
-               docker exec salonai-backend node -e "process.stdout.write(String(process.env.APP_VERSION || \"\\"))"'
+               docker exec salonai-backend printenv APP_VERSION'
           )"
 
           if [[ "$runtime_version" != "$EXPECTED_RELEASE_TAG" ]]; then
@@ -141,26 +142,38 @@ jobs:
           import sys
 
           payload = json.loads(sys.argv[1])
+          calendar = (
+              payload.get("checks", {})
+              .get("scheduler", {})
+              .get("calendarSync", {})
+          )
+
+          if payload.get("ready") is not True:
+              raise SystemExit("Backend readiness is not green.")
+
           required_true = [
-              "httpOk",
-              "ready",
               "enabled",
               "started",
               "required",
-              "workerReady",
+              "ready",
           ]
 
-          missing = [key for key in required_true if payload.get(key) is not True]
+          missing = [
+              key
+              for key in required_true
+              if calendar.get(key) is not True
+          ]
 
           if missing:
               raise SystemExit(
-                  "Calendar worker is not production-ready: " + ", ".join(missing)
+                  "Calendar worker is not production-ready: "
+                  + ", ".join(missing)
               )
 
-          if payload.get("lastFailedCycleAt") is not None:
+          if calendar.get("lastFailedCycleAt") is not None:
               raise SystemExit("Calendar worker reports a failed cycle.")
 
-          if payload.get("lastError"):
+          if calendar.get("lastError"):
               raise SystemExit("Calendar worker reports a non-empty lastError.")
 
           print("Calendar worker readiness is green.")
