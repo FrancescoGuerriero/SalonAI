@@ -25,7 +25,6 @@ test("social authentication supports the five customer providers", () => {
       "facebook",
       "google",
       "linkedin",
-      "linkedin",
       "microsoft",
       "yahoo",
     ]
@@ -41,6 +40,7 @@ test("social authentication supports the five customer providers", () => {
     [
       "facebook",
       "google",
+      "linkedin",
       "microsoft",
       "yahoo",
     ]
