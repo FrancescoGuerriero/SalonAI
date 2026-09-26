@@ -49,6 +49,120 @@ test("social authentication supports the five customer providers", () => {
 
 
 
+test("LinkedIn authorization uses OIDC identity scopes and the configured callback", () => {
+  const keys = [
+    "SOCIAL_LINKEDIN_CLIENT_ID",
+    "SOCIAL_LINKEDIN_CLIENT_SECRET",
+    "SOCIAL_LINKEDIN_REDIRECT_URI",
+  ];
+  const previous =
+    Object.fromEntries(
+      keys.map((key) => [
+        key,
+        process.env[key],
+      ])
+    );
+
+  process.env.SOCIAL_LINKEDIN_CLIENT_ID =
+    "linkedin-client";
+  process.env.SOCIAL_LINKEDIN_CLIENT_SECRET =
+    "linkedin-secret";
+  process.env.SOCIAL_LINKEDIN_REDIRECT_URI =
+    "http://localhost:5000/api/auth/social/linkedin/callback";
+
+  try {
+    const authorization =
+      createSocialAuthorization({
+        provider: "linkedin",
+        returnTo: "/account",
+      });
+    const url =
+      new URL(
+        authorization.authorizationUrl
+      );
+
+    assert.equal(
+      url.origin,
+      "https://www.linkedin.com"
+    );
+    assert.equal(
+      url.pathname,
+      "/oauth/v2/authorization"
+    );
+    assert.equal(
+      url.searchParams.get(
+        "client_id"
+      ),
+      "linkedin-client"
+    );
+    assert.equal(
+      url.searchParams.get(
+        "redirect_uri"
+      ),
+      "http://localhost:5000/api/auth/social/linkedin/callback"
+    );
+
+    const scopes =
+      new Set(
+        String(
+          url.searchParams.get(
+            "scope"
+          ) || ""
+        )
+          .split(/\s+/)
+          .filter(Boolean)
+      );
+
+    assert.deepEqual(
+      [...scopes].sort(),
+      [
+        "email",
+        "openid",
+        "profile",
+      ]
+    );
+
+    const state =
+      readSocialState(
+        url.searchParams.get(
+          "state"
+        )
+      );
+
+    assert.equal(
+      state.provider,
+      "linkedin"
+    );
+    assert.equal(
+      state.returnTo,
+      "/account"
+    );
+
+    const cookie =
+      socialAuthTransactionCookie(
+        "linkedin",
+        state.transactionId
+      );
+
+    assert.equal(
+      cookie.options.path,
+      "/api/auth/social/linkedin/callback"
+    );
+  } finally {
+    for (const key of keys) {
+      if (
+        previous[key] ===
+        undefined
+      ) {
+        delete process.env[key];
+      } else {
+        process.env[key] =
+          previous[key];
+      }
+    }
+  }
+});
+
 test("social authorization state is bound to the initiating browser transaction", () => {
   const keys = [
     "SOCIAL_GOOGLE_CLIENT_ID",
