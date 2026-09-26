@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 import {
   assignRetailOrder,
   getStaffPerformance,
@@ -723,7 +724,7 @@ function RetailAttributionPanel({ orders, staff, canManage, assigning, onAssign 
 
 export default function StaffPerformancePage() {
   const { user } = useAuth();
-  const canManage = ["admin", "manager"].includes(user?.role);
+  const canManage = hasPermission(user, "reports:manage");
 
   const [months, setMonths] = useState(6);
   const [analytics, setAnalytics] = useState(null);
