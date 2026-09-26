@@ -16,6 +16,8 @@ import {
 } from "react";
 
 import reportApi from "../Services/reportApi.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 function localIsoDate(date) {
   const copy = new Date(date);
@@ -127,6 +129,12 @@ const REPORT_EXPORTS = [
 ];
 
 export default function ReportsCentrePage() {
+  const { user } = useAuth();
+  const canExportReports = hasPermission(
+    user,
+    "data-export:manage"
+  );
+
   const [range, setRange] =
     useState(defaultDateRange);
 
@@ -389,7 +397,8 @@ export default function ReportsCentrePage() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {canExportReports ? (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-5">
           <h2 className="text-lg font-bold text-slate-900">
             Report exports
@@ -463,7 +472,17 @@ export default function ReportsCentrePage() {
             }
           )}
         </div>
-      </section>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">
+            Report exports
+          </h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Your account can view report summaries, but data export permission has not been assigned.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
