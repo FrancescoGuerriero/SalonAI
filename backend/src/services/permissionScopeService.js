@@ -113,6 +113,10 @@ export const PERMISSION_SCOPE_BY_KEY =
     "product:cost:read": "A",
     "product:delete": "H",
 
+    "order:read": "A",
+    "order:manage": "A",
+    "order:refund": "A",
+
     "communications:read": "A",
     "communications:manage": "A",
 
