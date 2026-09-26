@@ -136,7 +136,7 @@ const RAW_MANAGEMENT_SECTIONS = [
     id: "administration",
     label: "Configure the business",
     links: [
-      ["/admin", "Admin overview", "Open the administrator control centre", "Gauge", true, "dashboard:view", "", ADVANCED],
+      ["/admin", "Admin overview", "Open the administrator control centre", "Gauge", false, "dashboard:view", "", ADVANCED],
       ["/admin/privacy-requests", "Privacy requests", "Review and action customer privacy-rights requests", "ShieldCheck", false, "privacy-request:manage", "", ADVANCED],
       ["/admin/system", "On/Off Ideas", "Manage administrator feature controls", "ToggleLeft", false, "feature-control:read", "", ADVANCED],
     ],
