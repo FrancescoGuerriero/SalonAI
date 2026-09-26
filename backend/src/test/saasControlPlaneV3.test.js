@@ -8,6 +8,9 @@ import {
   resolveTrustedTenantContext,
 } from "../platform/tenancy/trustedTenantContext.js";
 import {
+  createTrustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
+import {
   resolveEffectiveConfiguration,
 } from "../platform/configuration/configurationInheritance.js";
 
@@ -137,6 +140,10 @@ test("trusted tenant resolution treats client ids as selectors, not authority", 
     businessId: businessA,
     locationId: locationA,
     roleKey: "admin",
+    locationAccessMode: "selected",
+    allowedLocationIds: [
+      locationA,
+    ],
   });
 
   await assert.rejects(
@@ -198,6 +205,8 @@ test("trusted tenant resolution can use an explicit active default membership", 
   assert.equal(context.businessId, businessId);
   assert.equal(context.locationId, null);
   assert.equal(context.roleKey, "manager");
+  assert.equal(context.locationAccessMode, "all");
+  assert.equal(context.allowedLocationIds, null);
 });
 
 test("configuration inheritance records provenance, locks, entitlements and revisions", () => {
@@ -358,4 +367,137 @@ test("configuration entitlement permits a governed override when available", () 
   assert.equal(result.value.ai.enabled, true);
   assert.equal(result.provenance["ai.enabled"], "business");
   assert.equal(result.blockedOverrides.length, 0);
+});
+
+
+test("trusted tenant middleware ignores raw client tenant fields by default", async () => {
+  const userId = new mongoose.Types.ObjectId().toString();
+  const spoofedBusinessId = new mongoose.Types.ObjectId().toString();
+  const spoofedLocationId = new mongoose.Types.ObjectId().toString();
+
+  const calls = [];
+  const middleware = createTrustedTenantContextMiddleware({
+    contextResolver: async (input) => {
+      calls.push(input);
+      return Object.freeze({
+        userId,
+        businessId: "trusted-business",
+        locationId: null,
+        roleKey: "admin",
+        locationAccessMode: "all",
+        allowedLocationIds: null,
+      });
+    },
+  });
+
+  const request = {
+    user: {
+      _id: userId,
+    },
+    headers: {
+      "x-business-id": spoofedBusinessId,
+      "x-location-id": spoofedLocationId,
+    },
+    query: {
+      businessId: spoofedBusinessId,
+      locationId: spoofedLocationId,
+    },
+    body: {
+      businessId: spoofedBusinessId,
+      locationId: spoofedLocationId,
+    },
+  };
+
+  let nextError = null;
+
+  await middleware(
+    request,
+    {},
+    (error) => {
+      nextError = error || null;
+    }
+  );
+
+  assert.equal(nextError, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].requestedBusinessId, null);
+  assert.equal(calls[0].requestedLocationId, null);
+  assert.equal(request.tenantContext.businessId, "trusted-business");
+});
+
+test("trusted tenant middleware consumes only server-approved selection", async () => {
+  const userId = new mongoose.Types.ObjectId().toString();
+  const businessId = new mongoose.Types.ObjectId().toString();
+  const locationId = new mongoose.Types.ObjectId().toString();
+
+  const calls = [];
+  const middleware = createTrustedTenantContextMiddleware({
+    contextResolver: async (input) => {
+      calls.push(input);
+      return Object.freeze({
+        userId,
+        businessId,
+        locationId,
+        roleKey: "manager",
+        locationAccessMode: "selected",
+        allowedLocationIds: [
+          locationId,
+        ],
+      });
+    },
+  });
+
+  const request = {
+    user: {
+      _id: userId,
+    },
+    trustedTenantSelection: {
+      businessId,
+      locationId,
+    },
+    headers: {
+      "x-business-id": new mongoose.Types.ObjectId().toString(),
+    },
+  };
+
+  let nextError = null;
+
+  await middleware(
+    request,
+    {},
+    (error) => {
+      nextError = error || null;
+    }
+  );
+
+  assert.equal(nextError, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].requestedBusinessId, businessId);
+  assert.equal(calls[0].requestedLocationId, locationId);
+  assert.equal(request.tenantContext.locationId, locationId);
+});
+
+test("trusted tenant middleware fails closed before authentication", async () => {
+  const middleware = createTrustedTenantContextMiddleware({
+    contextResolver: async () => {
+      throw new Error("context resolver should not be called");
+    },
+  });
+
+  let nextError = null;
+
+  await middleware(
+    {},
+    {},
+    (error) => {
+      nextError = error || null;
+    }
+  );
+
+  assert.ok(nextError);
+  assert.equal(nextError.statusCode, 401);
+  assert.equal(
+    nextError.code,
+    "TRUSTED_TENANT_CONTEXT_REQUIRED"
+  );
 });
