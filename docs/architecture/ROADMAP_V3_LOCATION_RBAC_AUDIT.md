@@ -416,3 +416,67 @@ The existing SalonAI permission catalogue and StaffRole registry are suitable fo
 The principal missing primitive is **trusted membership/location scope**, not more role names.
 
 DEV3 implementation should therefore remain blocked until #279 publishes the trusted control-plane contract. Once that contract exists, the safest path is to compose location scope into the current effective-permission pipeline and migrate management domains incrementally, fail-closed, with server-side resource ownership checks.
+
+
+## Concrete route-family scope matrix
+
+This matrix maps the current API mounts in `backend/src/app.js` and the current permission registry to the intended multi-location authority boundary.
+
+| Route / function family | Current permission family | Target scope | Multi-location rule |
+| --- | --- | --- | --- |
+| `/api/appointments` | `appointment:*` | location | appointment must belong to active Business + authorised Location |
+| appointment payments | `appointment:payment:manage` | location/business-finance | payment action requires appointment location authority; settlement may be business-wide |
+| customers/profiles/notes/contacts | `customer:*` | business by default | customer identity may be business-wide; location-specific activity retains provenance |
+| employee/staff management | `employee:*`, `profile:*` | business + selected locations | management authority cannot exceed BusinessMembership location scope |
+| schedules / leave / staff calendar | `schedule:*`, `leave:*` | self or location | own schedule is self-scope; management changes require location authority |
+| services | `service:*` | business + location availability | catalogue may be shared; availability/publish/bookability may vary by location |
+| products | `product:*` | business/location | catalogue may be shared; stock and availability are location-scoped |
+| suppliers / purchasing / inventory | `inventory:*` | location/business-purchasing | stock and fulfilment carry location; supplier master may be business-wide |
+| communications | `communications:*` | business | campaigns business-scoped; sender/audience filters retain location provenance |
+| loyalty | `loyalty:manage` | business | balances business-owned initially; earn/redeem location retained |
+| gift cards | `gift-card:manage` | business + financial provenance | sale and redemption locations required for settlement |
+| referrals | `referral:manage` | business | location attribution does not grant authority |
+| notifications/push | `notification:manage`, `push:manage` | business | operational event provenance retained |
+| email campaigns | `email-campaign:manage` | business | consent/suppression remains customer/business authority |
+| SMS reminders | `sms-reminder:manage` | business/location source | execution follows appointment/location scope |
+| WhatsApp | `whatsapp:manage` | business/location source | conversation may be business-wide; booking action must use authorised location |
+| retention automation | `retention-automation:manage` | business | cohort filters may include location |
+| analytics/reports | `premium-analytics:read`, `reports:*` | business or location-filtered | data limited to effective location scope unless business-wide authority |
+| AI | `ai:use` | source-domain scope | AI must never expand access beyond permitted records/tools |
+| feature controls | `feature-control:*` | business; some platform-only | tenant controls cannot override platform safety locks |
+| data import/export | `data-import:manage`, `data-export:manage` | business + explicit location mapping | target scope required; reject cross-tenant identifiers |
+| staff roles | `staff-role:*` | business | role templates business-scoped; assignment also carries location scope |
+| system administration | role/permission guarded | platform or business | platform-only controls remain separate from tenant administration |
+
+## Effective authorization composition
+
+Keep the existing permission calculation and add scope rather than a second permission system:
+
+`authenticated user + BusinessMembership + permitted Location + existing permission + resource ownership`
+
+The request path should be:
+
+1. authenticate;
+2. resolve DEV4 trusted BusinessMembership;
+3. resolve/validate Location when location-scoped;
+4. evaluate existing permission middleware;
+5. enforce Business/Location criteria in the database query itself;
+6. use 404-style cross-tenant/cross-location denial;
+7. audit authority-changing operations.
+
+A frontend location selector is a selector only; it never grants access.
+
+## High-risk implementation targets
+
+Before runtime RBAC changes, tests are required for:
+- employee/profile list queries;
+- appointment read/update by id;
+- inventory and purchase-order lookups;
+- reports/analytics aggregation;
+- AI context-building queries;
+- staff-role assignment;
+- feature-control updates;
+- imports/exports;
+- background jobs and provider webhooks.
+
+These are the first surfaces to audit for accidental cross-location data exposure.
