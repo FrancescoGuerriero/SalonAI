@@ -1,5 +1,12 @@
 export const CANONICAL_SALON_BUSINESS_TYPE = "salon";
 
+export const CANONICAL_TENANT_IDENTITY_ENVIRONMENT_KEYS = Object.freeze([
+  "SALONAI_CANONICAL_BUSINESS_NAME",
+  "SALONAI_CANONICAL_BUSINESS_SLUG",
+  "SALONAI_CANONICAL_LOCATION_NAME",
+  "SALONAI_CANONICAL_LOCATION_SLUG",
+]);
+
 function bootstrapError(message, code = "INVALID_CANONICAL_TENANT_BOOTSTRAP") {
   const error = new Error(message);
   error.code = code;
@@ -39,6 +46,23 @@ function currency(value) {
   }
 
   return text;
+}
+
+export function assertExplicitCanonicalTenantIdentity(
+  environment = process.env
+) {
+  const missing = CANONICAL_TENANT_IDENTITY_ENVIRONMENT_KEYS.filter(
+    (name) => !String(environment[name] ?? "").trim()
+  );
+
+  if (missing.length > 0) {
+    throw bootstrapError(
+      `Canonical tenant apply requires explicit operator-approved identity configuration: ${missing.join(", ")}.`,
+      "CANONICAL_TENANT_IDENTITY_REQUIRED"
+    );
+  }
+
+  return true;
 }
 
 export function getCanonicalSalonTenantConfiguration(
@@ -110,6 +134,16 @@ export function assertCanonicalBusinessCompatible(
     );
   }
 
+  if (
+    String(business.name || "").trim() !==
+    configuration.business.name
+  ) {
+    throw bootstrapError(
+      "The resolved canonical business does not match the configured name.",
+      "CANONICAL_BUSINESS_CONFLICT"
+    );
+  }
+
   return business;
 }
 
@@ -144,6 +178,16 @@ export function assertCanonicalLocationCompatible({
   ) {
     throw bootstrapError(
       "The resolved canonical location does not match the configured slug.",
+      "CANONICAL_LOCATION_CONFLICT"
+    );
+  }
+
+  if (
+    String(location.name || "").trim() !==
+    configuration.location.name
+  ) {
+    throw bootstrapError(
+      "The resolved canonical location does not match the configured name.",
       "CANONICAL_LOCATION_CONFLICT"
     );
   }
