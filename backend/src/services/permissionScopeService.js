@@ -75,6 +75,9 @@ export const PERMISSION_SCOPE_BY_KEY =
     "customer:archive": "B",
     "customer:delete": "B",
 
+    "customer-experience:read": "A",
+    "customer-experience:manage": "A",
+
     "employee:read": "A",
     "employee:create": "B",
     "employee:update": "A",
