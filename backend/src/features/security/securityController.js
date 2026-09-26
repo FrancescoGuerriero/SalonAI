@@ -7,5 +7,7 @@ export async function auditLogs(req, res) {
 }
 
 export async function permissions(_req, res) {
-  res.json(service.permissionMatrix());
+  res.json(
+    await service.permissionMatrix()
+  );
 }

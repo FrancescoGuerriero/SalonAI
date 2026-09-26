@@ -3,6 +3,9 @@ import {
   paginationFromQuery,
   paginationResult,
 } from "../../shared/pagination.js";
+import {
+  listStaffRoleDefinitions,
+} from "../../services/staffRoleRegistryService.js";
 
 export async function listAuditLogs(
   query = {}
@@ -51,27 +54,46 @@ export async function listAuditLogs(
   };
 }
 
-export function permissionMatrix() {
+export async function permissionMatrix() {
+  const roles =
+    await listStaffRoleDefinitions();
+
   return {
-    customer: [
-      "view_own_profile",
-      "book_appointment",
-      "view_own_appointments",
-    ],
-    stylist: [
-      "view_calendar",
-      "update_appointment_status",
-      "view_customer_service_notes",
-    ],
-    manager: [
-      "manage_customers",
-      "manage_appointments",
-      "manage_campaigns",
-      "view_reports",
-      "manage_staff_schedule",
-    ],
-    admin: [
-      "*",
-    ],
+    source:
+      "canonical_staff_role_registry",
+    roles:
+      roles.map(
+        (role) => ({
+          key:
+            role.key,
+          name:
+            role.name,
+          active:
+            role.active !==
+            false,
+          system:
+            Boolean(
+              role.system
+            ),
+          baselinePermissions:
+            Array.isArray(
+              role.baselinePermissions
+            )
+              ? role.baselinePermissions
+              : [],
+          rolePermissions:
+            Array.isArray(
+              role.rolePermissions
+            )
+              ? role.rolePermissions
+              : [],
+          permissions:
+            Array.isArray(
+              role.permissions
+            )
+              ? role.permissions
+              : [],
+        })
+      ),
   };
 }
