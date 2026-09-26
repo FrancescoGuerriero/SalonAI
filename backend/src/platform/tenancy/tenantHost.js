@@ -1,6 +1,9 @@
 import {
   domainToASCII,
 } from "node:url";
+import {
+  isIP,
+} from "node:net";
 
 function hostError(
   message,
@@ -61,9 +64,27 @@ export function normaliseTenantHost(value) {
       port &&
       /^\d{1,5}$/.test(port)
     ) {
+      const numericPort =
+        Number(port);
+
+      if (
+        numericPort < 1 ||
+        numericPort > 65535
+      ) {
+        throw hostError(
+          "Tenant host contains an invalid port."
+        );
+      }
+
       candidate = hostname;
     }
   } else if (colonCount > 1) {
+    throw hostError(
+      "IP-address tenant hosts are not supported."
+    );
+  }
+
+  if (isIP(candidate)) {
     throw hostError(
       "IP-address tenant hosts are not supported."
     );
