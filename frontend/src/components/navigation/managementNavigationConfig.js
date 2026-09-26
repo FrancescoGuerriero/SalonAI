@@ -78,7 +78,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/manage/service-packages", "Service packages", "Create bundles and manage package credits", "PackagePlus", false, "service:read", "", SIMPLE],
       ["/manage/products", "Products", "Manage the retail catalogue and publishing", "Package", false, "product:read", "", SIMPLE],
       ["/manage/inventory", "Inventory", "Review stock levels and adjustments", "Package", false, "inventory:read", "", SIMPLE],
-      ["/manage/orders", "Order management", "Manage customer orders and fulfilment", "ClipboardList", false, "product:read", "", SIMPLE],
+      ["/manage/orders", "Order management", "Manage customer orders and fulfilment", "ClipboardList", false, "order:read", "", SIMPLE],
       ["/suppliers", "Suppliers", "Manage supplier accounts and terms", "Building2", false, "inventory:read", "inventory-purchasing", SIMPLE],
       ["/purchase-orders", "Purchase orders", "Approve and receive purchasing", "ClipboardList", false, "inventory:read", "inventory-purchasing", SIMPLE],
       ["/reorder-recommendations", "Reorder recommendations", "Review low-stock needs", "PackagePlus", false, "inventory:read", "inventory-purchasing", ADVANCED],
