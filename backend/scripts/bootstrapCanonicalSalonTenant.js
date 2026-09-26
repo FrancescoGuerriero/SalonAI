@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { pathToFileURL } from "node:url";
 
 import Business from "../src/models/Business.js";
+import BusinessDomain from "../src/models/BusinessDomain.js";
 import Location from "../src/models/Location.js";
 import {
   buildCanonicalTenantBootstrapPlan,
@@ -71,9 +72,21 @@ async function loadCurrentState(configuration) {
       })
     : null;
 
+  const domains =
+    await BusinessDomain.find({
+      host: {
+        $in:
+          configuration.domains.map(
+            (domain) =>
+              domain.host
+          ),
+      },
+    });
+
   return {
     business,
     location,
+    domains,
   };
 }
 
@@ -81,9 +94,17 @@ async function createMissingResources({
   configuration,
   business,
   location,
+  domains = [],
 }) {
   let resolvedBusiness = business;
   let resolvedLocation = location;
+  const domainsByHost =
+    new Map(
+      domains.map((domain) => [
+        String(domain.host),
+        domain,
+      ])
+    );
 
   if (!resolvedBusiness) {
     resolvedBusiness = await Business.create({
@@ -96,6 +117,7 @@ async function createMissingResources({
       metadata: {
         canonicalReferenceApplication:
           "Salon AI",
+        referenceTenant: true,
       },
     });
   }
@@ -117,9 +139,53 @@ async function createMissingResources({
     });
   }
 
+  for (
+    const expected of
+      configuration.domains
+  ) {
+    if (
+      domainsByHost.has(
+        expected.host
+      )
+    ) {
+      continue;
+    }
+
+    const created =
+      await BusinessDomain.create({
+        business:
+          resolvedBusiness._id,
+        host:
+          expected.host,
+        role:
+          expected.role,
+        status:
+          "pending",
+        redirectToPrimary:
+          expected.redirectToPrimary,
+        verification: {
+          method:
+            "manual",
+        },
+        metadata: {
+          canonicalReferenceTenant:
+            true,
+        },
+      });
+
+    domainsByHost.set(
+      expected.host,
+      created
+    );
+  }
+
   return {
-    business: resolvedBusiness,
-    location: resolvedLocation,
+    business:
+      resolvedBusiness,
+    location:
+      resolvedLocation,
+    domains:
+      [...domainsByHost.values()],
   };
 }
 
@@ -129,7 +195,16 @@ function summary({
   plan,
   business,
   location,
+  domains = [],
 }) {
+  const domainsByHost =
+    new Map(
+      domains.map((domain) => [
+        String(domain.host),
+        domain,
+      ])
+    );
+
   return {
     mode,
     business: {
@@ -145,7 +220,8 @@ function summary({
       businessType:
         business?.businessType ||
         configuration.business.businessType,
-      action: plan.business.action,
+      action:
+        plan.business.action,
     },
     location: {
       id: location
@@ -157,13 +233,54 @@ function summary({
       slug:
         location?.slug ||
         configuration.location.slug,
-      action: plan.location.action,
+      action:
+        plan.location.action,
     },
+    domains:
+      plan.domains.map(
+        (domainPlan) => {
+          const domain =
+            domainsByHost.get(
+              domainPlan.host
+            );
+
+          return {
+            id: domain
+              ? String(domain._id)
+              : domainPlan.id,
+            host:
+              domainPlan.host,
+            role:
+              domainPlan.role,
+            status:
+              domain?.status ||
+              "pending",
+            action:
+              domainPlan.action,
+          };
+        }
+      ),
     writesRequired:
       plan.writesRequired,
     domainBackfillPerformed:
       false,
+    dnsMutationPerformed:
+      false,
   };
+}
+
+function allResourcesPresent(plan) {
+  return (
+    plan.business.action ===
+      "reuse" &&
+    plan.location.action ===
+      "reuse" &&
+    plan.domains.every(
+      (domain) =>
+        domain.action ===
+        "reuse"
+    )
+  );
 }
 
 export async function main(
@@ -210,25 +327,24 @@ export async function main(
 
   if (mode === "verify") {
     if (
-      plan.business.action !==
-        "reuse" ||
-      plan.location.action !==
-        "reuse"
+      !allResourcesPresent(
+        plan
+      )
     ) {
       throw new Error(
-        "Canonical Salon AI Business/Location verification failed: one or more resources are missing."
+        "Canonical Francesco Picardi tenant verification failed: one or more Business/Location/Domain resources are missing."
       );
     }
 
     console.log(
-      "[PASS] Canonical Salon AI tenant resources are present and compatible."
+      "[PASS] Canonical Francesco Picardi tenant resources are present and compatible."
     );
     return;
   }
 
   if (mode === "dry-run") {
     console.log(
-      "[PASS] Canonical tenant bootstrap dry-run completed. No database changes were made."
+      "[PASS] Canonical tenant bootstrap dry-run completed. No database or DNS changes were made."
     );
     return;
   }
@@ -251,20 +367,20 @@ export async function main(
     });
 
   if (
-    plan.business.action !==
-      "reuse" ||
-    plan.location.action !==
-      "reuse"
+    !allResourcesPresent(
+      plan
+    )
   ) {
     throw new Error(
-      "Canonical Salon AI tenant bootstrap verification failed after apply."
+      "Canonical Francesco Picardi tenant bootstrap verification failed after apply."
     );
   }
 
   console.log(
     JSON.stringify(
       summary({
-        mode: "verified-after-apply",
+        mode:
+          "verified-after-apply",
         configuration,
         plan,
         ...verifiedState,
@@ -275,7 +391,7 @@ export async function main(
   );
 
   console.log(
-    "[PASS] Canonical Salon AI Business/Location bootstrap applied and verified. Existing domain collections were not backfilled."
+    "[PASS] Canonical Francesco Picardi Business/Location/Domain records were applied and verified. Domain mappings remain pending until separately verified/activated; existing domain collections were not backfilled and DNS was not changed."
   );
 }
 
