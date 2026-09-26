@@ -15,9 +15,14 @@ import {
   createSupplier,
   getSuppliers,
 } from "../Services/inventoryPurchasingService.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 
 export default function SupplierManagementPage() {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "inventory:manage");
+
   const [suppliers, setSuppliers] =
     useState([]);
 
@@ -69,6 +74,7 @@ export default function SupplierManagementPage() {
 
   async function submit(event) {
     event.preventDefault();
+    if (!canManage) return;
     setError("");
 
     try {
@@ -142,6 +148,12 @@ export default function SupplierManagementPage() {
           </div>
         </section>
 
+        {!canManage ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+            Read-only access. Inventory management permission is required to create or edit suppliers.
+          </section>
+        ) : null}
+
         {error ? (
           <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
             {error}
@@ -185,6 +197,7 @@ export default function SupplierManagementPage() {
                     </span>
 
                     <input
+                      disabled={!canManage}
                       type={type}
                       value={form[key]}
                       required={[
@@ -209,6 +222,7 @@ export default function SupplierManagementPage() {
 
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
+                  disabled={!canManage}
                   type="checkbox"
                   checked={
                     form.preferred
@@ -229,6 +243,7 @@ export default function SupplierManagementPage() {
 
               <button
                 type="submit"
+                disabled={!canManage}
                 className="w-full rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white"
               >
                 Create supplier
