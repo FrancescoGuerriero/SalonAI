@@ -266,7 +266,23 @@ export async function verifyEmail(req, res, next) {
     user.emailVerificationTokenHash = "";
     user.emailVerificationExpiresAt = null;
 
-    await user.save();
+    if (
+      user.isActive ===
+      false
+    ) {
+      await user.save();
+
+      return res.status(200).json({
+        success: true,
+        authenticated: false,
+        message:
+          "Your email has been verified, but this account is not currently active.",
+        user:
+          publicUser(
+            user
+          ),
+      });
+    }
 
     const accessToken =
       await establishCustomerSession(
