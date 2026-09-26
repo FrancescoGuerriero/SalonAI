@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 
 import CampaignComposerModal from "../components/communications/CampaignComposerModal.jsx";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 import CampaignPreviewModal from "../components/communications/CampaignPreviewModal.jsx";
 import CommunicationCampaignCard from "../components/communications/CommunicationCampaignCard.jsx";
 
@@ -451,6 +453,8 @@ export default function CommunicationCampaignsPage({
   recordsPerPage = 12,
   initialTemplate = null,
 }) {
+  const { user } = useAuth();
+  const canManage = hasPermission(user, "communications:manage");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -750,6 +754,7 @@ export default function CommunicationCampaignsPage({
       Boolean(initialTemplate);
 
     if (
+      !canManage ||
       !shouldOpenComposer ||
       !transferredTemplate
     ) {
@@ -813,6 +818,7 @@ export default function CommunicationCampaignsPage({
     location.pathname,
     location.state,
     navigate,
+    canManage,
   ]);
 
   function updateFilter(
@@ -866,6 +872,8 @@ export default function CommunicationCampaignsPage({
   }
 
   function openCreateComposer() {
+    if (!canManage) return;
+
     setEditingCampaign(null);
 
     setComposerTemplate(null);
@@ -878,6 +886,8 @@ export default function CommunicationCampaignsPage({
   function openEditComposer(
     campaign
   ) {
+    if (!canManage) return;
+
     setPreviewCampaign(null);
 
     setEditingCampaign(campaign);
@@ -937,6 +947,8 @@ export default function CommunicationCampaignsPage({
     successMessage: message,
     targetPage = pagination.page,
   }) {
+    if (!canManage) return null;
+
     const campaignId =
       getCampaignId(campaign);
 
@@ -1229,6 +1241,7 @@ export default function CommunicationCampaignsPage({
             </div>
           </div>
 
+{canManage ? (
           <button
             type="button"
             onClick={
@@ -1239,6 +1252,7 @@ export default function CommunicationCampaignsPage({
             <Plus size={18} />
             Create Campaign
           </button>
+          ) : null}
         </div>
       </header>
 
@@ -1586,6 +1600,7 @@ export default function CommunicationCampaignsPage({
               current filters.
             </p>
 
+{canManage ? (
             <button
               type="button"
               onClick={
@@ -1596,6 +1611,7 @@ export default function CommunicationCampaignsPage({
               <Plus size={17} />
               Create Campaign
             </button>
+            ) : null}
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
@@ -1612,6 +1628,7 @@ export default function CommunicationCampaignsPage({
                     campaign={
                       campaign
                     }
+                    canManage={canManage}
                     busyAction={
                       busyActions[
                         campaignId
@@ -1728,10 +1745,10 @@ export default function CommunicationCampaignsPage({
           setPreviewCampaign(null)
         }
         onEdit={
-          openEditComposer
+          canManage ? openEditComposer : undefined
         }
         onLaunch={
-          handleLaunch
+          canManage ? handleLaunch : undefined
         }
       />
     </main>
