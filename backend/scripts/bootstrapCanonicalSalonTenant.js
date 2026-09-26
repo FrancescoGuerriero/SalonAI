@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import Business from "../src/models/Business.js";
 import Location from "../src/models/Location.js";
 import {
+  assertExplicitCanonicalTenantIdentity,
   buildCanonicalTenantBootstrapPlan,
   getCanonicalSalonTenantConfiguration,
 } from "../src/platform/tenancy/canonicalSalonTenantBootstrap.js";
@@ -60,16 +61,52 @@ function mongoUri(environment = process.env) {
 }
 
 async function loadCurrentState(configuration) {
-  const business = await Business.findOne({
-    slug: configuration.business.slug,
-  });
+  const businesses = await Business.find({
+    $or: [
+      {
+        slug: configuration.business.slug,
+      },
+      {
+        name: configuration.business.name,
+      },
+    ],
+  }).limit(2);
 
-  const location = business
-    ? await Location.findOne({
-        business: business._id,
-        slug: configuration.location.slug,
-      })
-    : null;
+  if (businesses.length > 1) {
+    const error = new Error(
+      "More than one Business matches the configured canonical SalonAI identity."
+    );
+    error.code = "CANONICAL_BUSINESS_CONFLICT";
+    throw error;
+  }
+
+  const business = businesses[0] || null;
+
+  let location = null;
+
+  if (business) {
+    const locations = await Location.find({
+      business: business._id,
+      $or: [
+        {
+          slug: configuration.location.slug,
+        },
+        {
+          name: configuration.location.name,
+        },
+      ],
+    }).limit(2);
+
+    if (locations.length > 1) {
+      const error = new Error(
+        "More than one Location matches the configured canonical SalonAI identity."
+      );
+      error.code = "CANONICAL_LOCATION_CONFLICT";
+      throw error;
+    }
+
+    location = locations[0] || null;
+  }
 
   return {
     business,
@@ -82,44 +119,75 @@ async function createMissingResources({
   business,
   location,
 }) {
+  const session = await mongoose.startSession();
   let resolvedBusiness = business;
   let resolvedLocation = location;
+  let createdBusiness = false;
+  let createdLocation = false;
 
-  if (!resolvedBusiness) {
-    resolvedBusiness = await Business.create({
-      name: configuration.business.name,
-      slug: configuration.business.slug,
-      businessType:
-        configuration.business.businessType,
-      status: "active",
-      settings: configuration.business.settings,
-      metadata: {
-        canonicalReferenceApplication:
-          "Salon AI",
-      },
-    });
-  }
+  try {
+    await session.withTransaction(async () => {
+      if (!resolvedBusiness) {
+        const records = await Business.create(
+          [
+            {
+              name: configuration.business.name,
+              slug: configuration.business.slug,
+              businessType:
+                configuration.business.businessType,
+              status: "active",
+              settings: configuration.business.settings,
+              metadata: {
+                canonicalReferenceApplication:
+                  "Salon AI",
+              },
+            },
+          ],
+          {
+            session,
+          }
+        );
 
-  if (!resolvedLocation) {
-    resolvedLocation = await Location.create({
-      business: resolvedBusiness._id,
-      name: configuration.location.name,
-      slug: configuration.location.slug,
-      status: "active",
-      settings: {
-        timezone: "",
-        locale: "",
-        currency: "",
-      },
-      metadata: {
-        canonicalReferenceLocation: true,
-      },
+        resolvedBusiness = records[0];
+        createdBusiness = true;
+      }
+
+      if (!resolvedLocation) {
+        const records = await Location.create(
+          [
+            {
+              business: resolvedBusiness._id,
+              name: configuration.location.name,
+              slug: configuration.location.slug,
+              status: "active",
+              settings: {
+                timezone: "",
+                locale: "",
+                currency: "",
+              },
+              metadata: {
+                canonicalReferenceLocation: true,
+              },
+            },
+          ],
+          {
+            session,
+          }
+        );
+
+        resolvedLocation = records[0];
+        createdLocation = true;
+      }
     });
+  } finally {
+    await session.endSession();
   }
 
   return {
     business: resolvedBusiness,
     location: resolvedLocation,
+    createdBusiness,
+    createdLocation,
   };
 }
 
@@ -129,6 +197,7 @@ function summary({
   plan,
   business,
   location,
+  applicationResult = null,
 }) {
   return {
     mode,
@@ -163,6 +232,36 @@ function summary({
       plan.writesRequired,
     domainBackfillPerformed:
       false,
+    rollbackMetadata: applicationResult
+      ? {
+          createdBusinessId:
+            applicationResult.createdBusiness
+              ? String(applicationResult.business?._id || "")
+              : null,
+          createdLocationId:
+            applicationResult.createdLocation
+              ? String(applicationResult.location?._id || "")
+              : null,
+          safeRemovalOrder: [
+            ...(applicationResult.createdLocation
+              ? [
+                  {
+                    resource: "Location",
+                    id: String(applicationResult.location?._id || ""),
+                  },
+                ]
+              : []),
+            ...(applicationResult.createdBusiness
+              ? [
+                  {
+                    resource: "Business",
+                    id: String(applicationResult.business?._id || ""),
+                  },
+                ]
+              : []),
+          ],
+        }
+      : null,
   };
 }
 
@@ -175,6 +274,13 @@ export async function main(
       args,
       environment
     );
+
+  if (mode === "apply") {
+    assertExplicitCanonicalTenantIdentity(
+      environment
+    );
+  }
+
   const configuration =
     getCanonicalSalonTenantConfiguration(
       environment
@@ -233,11 +339,16 @@ export async function main(
     return;
   }
 
-  state =
+  const applicationResult =
     await createMissingResources({
       configuration,
       ...state,
     });
+
+  state = {
+    business: applicationResult.business,
+    location: applicationResult.location,
+  };
 
   const verifiedState =
     await loadCurrentState(
@@ -268,6 +379,7 @@ export async function main(
         configuration,
         plan,
         ...verifiedState,
+        applicationResult,
       }),
       null,
       2
