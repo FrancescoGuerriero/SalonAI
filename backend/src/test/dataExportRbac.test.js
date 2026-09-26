@@ -107,3 +107,66 @@ test(
     );
   }
 );
+
+test(
+  "report viewing stays readable while report downloads require data export authority",
+  async () => {
+    const parentRoutes =
+      await source(
+        "../features/futureFeatureRoutes.js"
+      );
+    const reportRoutes =
+      await source(
+        "../features/reports/reportRoutes.js"
+      );
+
+    assert.match(
+      parentRoutes,
+      /"\/reports"[\s\S]{0,120}requirePermissions\(\s*"reports:read"\s*\)[\s\S]{0,120}reportRoutes/
+    );
+
+    assert.match(
+      reportRoutes,
+      /"\/summary"[\s\S]{0,100}asyncHandler\(controller\.summary\)/
+    );
+
+    for (const exportRoute of [
+      "appointments\\.csv",
+      "communications\\.csv",
+      "management\\.xlsx",
+    ]) {
+      assert.match(
+        reportRoutes,
+        new RegExp(
+          `"\\/${exportRoute}"[\\s\\S]{0,160}requirePermissions\\(\\s*"data-export:manage"\\s*\\)`
+        )
+      );
+    }
+  }
+);
+
+test(
+  "reports centre only presents download actions to users with data export authority",
+  async () => {
+    const page =
+      await source(
+        "../../../frontend/src/pages/ReportsCentrePage.jsx"
+      );
+
+    assert.match(
+      page,
+      /hasPermission\(\s*user,\s*"data-export:manage"\s*\)/
+    );
+
+    assert.match(
+      page,
+      /canExportReports\s*\?\s*\(/
+    );
+
+    assert.match(
+      page,
+      /data export permission has not been assigned/
+    );
+  }
+);
+
