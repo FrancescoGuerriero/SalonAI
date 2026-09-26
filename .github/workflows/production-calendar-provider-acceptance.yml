@@ -160,35 +160,35 @@ jobs:
           connection_id="$(
             ssh "${ssh_options[@]}" "$target" \
               "docker exec -e CALENDAR_ACCEPTANCE_PROVIDER=$PROVIDER salonai-backend node --input-type=module -e '
-import mongoose from \"mongoose\";
-import ExternalCalendarConnection from \"./src/models/ExternalCalendarConnection.js\";
+          import mongoose from \"mongoose\";
+          import ExternalCalendarConnection from \"./src/models/ExternalCalendarConnection.js\";
 
-await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, {
-  serverSelectionTimeoutMS: 15000,
-});
+          await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 15000,
+          });
 
-const matches = await ExternalCalendarConnection.find({
-  provider: process.env.CALENDAR_ACCEPTANCE_PROVIDER,
-  status: \"connected\",
-  syncEnabled: true,
-})
-  .select(\"_id\")
-  .limit(2)
-  .lean();
+          const matches = await ExternalCalendarConnection.find({
+            provider: process.env.CALENDAR_ACCEPTANCE_PROVIDER,
+            status: \"connected\",
+            syncEnabled: true,
+          })
+            .select(\"_id\")
+            .limit(2)
+            .lean();
 
-if (matches.length !== 1) {
-  console.error(
-    matches.length === 0
-      ? \"No connected, sync-enabled acceptance candidate exists for this provider.\"
-      : \"More than one connected, sync-enabled candidate exists; acceptance requires an unambiguous dedicated test/staff calendar.\"
-  );
-  await mongoose.disconnect();
-  process.exit(2);
-}
+          if (matches.length !== 1) {
+            console.error(
+              matches.length === 0
+                ? \"No connected, sync-enabled acceptance candidate exists for this provider.\"
+                : \"More than one connected, sync-enabled candidate exists; acceptance requires an unambiguous dedicated test/staff calendar.\"
+            );
+            await mongoose.disconnect();
+            process.exit(2);
+          }
 
-process.stdout.write(String(matches[0]._id));
-await mongoose.disconnect();
-'"
+          process.stdout.write(String(matches[0]._id));
+          await mongoose.disconnect();
+          '"
           )"
 
           if [[ ! "$connection_id" =~ ^[a-fA-F0-9]{24}$ ]]; then
@@ -241,53 +241,53 @@ await mongoose.disconnect();
           set -e
 
           python3 - "$raw_file" "$safe_file" "$acceptance_status" <<'PY'
-import json
-import sys
-from pathlib import Path
+          import json
+          import sys
+          from pathlib import Path
 
-raw_path = Path(sys.argv[1])
-safe_path = Path(sys.argv[2])
-exit_code = int(sys.argv[3])
-raw = raw_path.read_text(encoding="utf-8", errors="replace")
+          raw_path = Path(sys.argv[1])
+          safe_path = Path(sys.argv[2])
+          exit_code = int(sys.argv[3])
+          raw = raw_path.read_text(encoding="utf-8", errors="replace")
 
-payload = {}
-try:
-    start = raw.find("{")
-    end = raw.rfind("}")
-    if start >= 0 and end >= start:
-        payload = json.loads(raw[start:end + 1])
-except Exception:
-    payload = {}
+          payload = {}
+          try:
+              start = raw.find("{")
+              end = raw.rfind("}")
+              if start >= 0 and end >= start:
+                  payload = json.loads(raw[start:end + 1])
+          except Exception:
+              payload = {}
 
-lifecycle = payload.get("lifecycle") or {}
-webhook = payload.get("webhook") or {}
+          lifecycle = payload.get("lifecycle") or {}
+          webhook = payload.get("webhook") or {}
 
-safe = {
-    "success": payload.get("success") is True and exit_code == 0,
-    "provider": payload.get("provider"),
-    "lifecycle": {
-        "success": lifecycle.get("success"),
-        "steps": lifecycle.get("steps") if isinstance(lifecycle.get("steps"), list) else [],
-    },
-    "webhook": {
-        "required": webhook.get("required"),
-        "enabled": webhook.get("enabled"),
-        "subscriptionMaintained": webhook.get("subscriptionMaintained"),
-        "observedAt": webhook.get("observedAt"),
-    },
-}
+          safe = {
+              "success": payload.get("success") is True and exit_code == 0,
+              "provider": payload.get("provider"),
+              "lifecycle": {
+                  "success": lifecycle.get("success"),
+                  "steps": lifecycle.get("steps") if isinstance(lifecycle.get("steps"), list) else [],
+              },
+              "webhook": {
+                  "required": webhook.get("required"),
+                  "enabled": webhook.get("enabled"),
+                  "subscriptionMaintained": webhook.get("subscriptionMaintained"),
+                  "observedAt": webhook.get("observedAt"),
+              },
+          }
 
-if not safe["success"]:
-    safe["code"] = payload.get("code") or "CALENDAR_ACCEPTANCE_FAILED"
-    safe["message"] = payload.get("message") or (
-        "Calendar provider acceptance failed. Raw provider/account identifiers were withheld from workflow output."
-    )
+          if not safe["success"]:
+              safe["code"] = payload.get("code") or "CALENDAR_ACCEPTANCE_FAILED"
+              safe["message"] = payload.get("message") or (
+                  "Calendar provider acceptance failed. Raw provider/account identifiers were withheld from workflow output."
+              )
 
-safe_path.write_text(
-    json.dumps(safe, indent=2) + "\n",
-    encoding="utf-8",
-)
-PY
+          safe_path.write_text(
+              json.dumps(safe, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
 
           rm -f -- "$raw_file"
 
