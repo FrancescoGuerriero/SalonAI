@@ -21,17 +21,42 @@ export function hasUserPermission(user, permission) {
   ).includes(permission);
 }
 
+export function hasRequestPermission(request, permission) {
+  if (!request || !permission) {
+    return false;
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      request,
+      "effectiveAuthority"
+    )
+  ) {
+    return Boolean(
+      request.effectiveAuthority &&
+      Array.isArray(
+        request.effectiveAuthority.permissions
+      ) &&
+      request.effectiveAuthority.permissions.includes(
+        permission
+      )
+    );
+  }
+
+  return hasUserPermission(
+    request.user,
+    permission
+  );
+}
+
 export function requirePermissions(...requiredPermissions) {
   return function permissionMiddleware(req, res, next) {
-    if (
-      String(req.user?.role || "").trim().toLowerCase() ===
-      "super_admin"
-    ) {
-      return next();
-    }
-
     const missing = requiredPermissions.filter(
-      (permission) => !hasUserPermission(req.user, permission)
+      (permission) =>
+        !hasRequestPermission(
+          req,
+          permission
+        )
     );
 
     if (missing.length > 0) {
@@ -51,10 +76,12 @@ export function requirePermissions(...requiredPermissions) {
 export function requireAnyPermission(...acceptedPermissions) {
   return function anyPermissionMiddleware(req, res, next) {
     if (
-      String(req.user?.role || "").trim().toLowerCase() ===
-      "super_admin" ||
-      acceptedPermissions.some((permission) =>
-        hasUserPermission(req.user, permission)
+      acceptedPermissions.some(
+        (permission) =>
+          hasRequestPermission(
+            req,
+            permission
+          )
       )
     ) {
       return next();
