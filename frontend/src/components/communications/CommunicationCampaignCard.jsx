@@ -501,6 +501,7 @@ function DeliveryMetric({
 export default function CommunicationCampaignCard({
   campaign,
   busyAction = "",
+  canManage = false,
   onPreview,
   onEdit,
   onDuplicate,
@@ -784,7 +785,7 @@ export default function CommunicationCampaignCard({
               <ActionButton
                 icon={Edit3}
                 label="Edit campaign"
-                disabled={!editable}
+                disabled={!canManage || !editable}
                 onClick={() =>
                   closeMenuAndRun(onEdit)
                 }
@@ -797,7 +798,7 @@ export default function CommunicationCampaignCard({
                     ? "Duplicating..."
                     : "Duplicate campaign"
                 }
-                disabled={isBusy}
+                disabled={!canManage || isBusy}
                 onClick={() =>
                   closeMenuAndRun(
                     onDuplicate
@@ -813,7 +814,7 @@ export default function CommunicationCampaignCard({
                     ? "Refreshing..."
                     : "Refresh statistics"
                 }
-                disabled={isBusy}
+                disabled={!canManage || isBusy}
                 onClick={() =>
                   closeMenuAndRun(
                     onRefreshCounts
@@ -833,7 +834,7 @@ export default function CommunicationCampaignCard({
                         ? "Launch now"
                         : "Launch campaign"
                   }
-                  disabled={isBusy}
+                  disabled={!canManage || isBusy}
                   onClick={() =>
                     closeMenuAndRun(
                       onLaunch
@@ -850,7 +851,7 @@ export default function CommunicationCampaignCard({
                       ? "Pausing..."
                       : "Pause campaign"
                   }
-                  disabled={isBusy}
+                  disabled={!canManage || isBusy}
                   onClick={() =>
                     closeMenuAndRun(
                       onPause
@@ -867,7 +868,7 @@ export default function CommunicationCampaignCard({
                       ? "Resuming..."
                       : "Resume campaign"
                   }
-                  disabled={isBusy}
+                  disabled={!canManage || isBusy}
                   onClick={() =>
                     closeMenuAndRun(
                       onResume
@@ -884,7 +885,7 @@ export default function CommunicationCampaignCard({
                       ? "Cancelling..."
                       : "Cancel campaign"
                   }
-                  disabled={isBusy}
+                  disabled={!canManage || isBusy}
                   onClick={() =>
                     closeMenuAndRun(
                       onCancel
@@ -904,7 +905,7 @@ export default function CommunicationCampaignCard({
                 }
                 danger
                 disabled={
-                  isBusy || !deletable
+                  !canManage || isBusy || !deletable
                 }
                 onClick={() =>
                   closeMenuAndRun(
@@ -1231,7 +1232,7 @@ export default function CommunicationCampaignCard({
             <button
               type="button"
               onClick={handlePrimaryAction}
-              disabled={isBusy}
+              disabled={!canManage || isBusy}
               className={`inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 primaryAction.label ===
                 "Pause"
@@ -1257,7 +1258,7 @@ export default function CommunicationCampaignCard({
               onClick={() =>
                 onEdit?.(campaign)
               }
-              disabled={isBusy}
+              disabled={!canManage || isBusy}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Edit3 size={16} />
@@ -1269,7 +1270,7 @@ export default function CommunicationCampaignCard({
               onClick={() =>
                 onRefreshCounts?.(campaign)
               }
-              disabled={isBusy}
+              disabled={!canManage || isBusy}
               className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCcw
