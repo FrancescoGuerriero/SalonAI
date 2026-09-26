@@ -27,7 +27,8 @@
     "stylists:assign-all-services": "node scripts/assignAllServicesToStylists.js",
     "social-auth:readiness": "node scripts/checkSocialAuthReadiness.js",
     "marketing:compliance-readiness": "node scripts/checkMarketingComplianceReadiness.js",
-    "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js"
+    "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js",
+    "tenant:migration-readiness": "node scripts/checkTenantMigrationReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
