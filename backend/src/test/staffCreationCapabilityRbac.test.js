@@ -48,6 +48,11 @@ test(
       controller,
       /\["super_admin",\s*"admin"\][\s\S]{0,100}permissions\.length/
     );
+
+    assert.match(
+      controller,
+      /createdUser\s*=\s*await User\.create\(\{[\s\S]{0,500}permissions,\s*rolePermissions/
+    );
   }
 );
 
