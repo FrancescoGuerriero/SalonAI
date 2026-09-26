@@ -15,6 +15,8 @@ import {
 } from "../services/effectiveAuthorityService.js";
 import {
   permissionScope,
+  permissionScopeLegend,
+  permissionScopeMap,
   unclassifiedEmployeePermissions,
 } from "../services/permissionScopeService.js";
 
@@ -73,6 +75,67 @@ test(
           permission
         ),
         permission
+      );
+    }
+  }
+);
+
+test(
+  "permission scope metadata is complete and safe for management presentation",
+  () => {
+    const scopes =
+      permissionScopeMap();
+    const legend =
+      permissionScopeLegend();
+
+    assert.equal(
+      Object.keys(
+        scopes
+      ).length,
+      EMPLOYEE_PERMISSIONS.length
+    );
+
+    assert.ok(
+      legend.some(
+        (scope) =>
+          scope.code ===
+            "L" &&
+          scope.label ===
+            "Location"
+      )
+    );
+
+    assert.equal(
+      scopes[
+        "appointment:read"
+      ].code,
+      "L"
+    );
+    assert.equal(
+      scopes[
+        "staff-role:update"
+      ].code,
+      "B"
+    );
+    assert.equal(
+      scopes[
+        "schedule:own:read"
+      ].code,
+      "S"
+    );
+
+    for (
+      const metadata
+      of Object.values(
+        scopes
+      )
+    ) {
+      assert.equal(
+        typeof metadata.label,
+        "string"
+      );
+      assert.ok(
+        metadata.description
       );
     }
   }
