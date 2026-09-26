@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import mongoose from "mongoose";
+import { pathToFileURL } from "node:url";
 
 import {
   summariseDatabaseReadiness,
@@ -174,16 +175,25 @@ export async function main(
   }
 }
 
-main()
-  .catch((error) => {
-    console.error(
-      "[FAIL] Tenant migration readiness:",
-      error.message
-    );
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await mongoose
-      .disconnect()
-      .catch(() => {});
-  });
+const executedDirectly =
+  Boolean(process.argv[1]) &&
+  import.meta.url ===
+    pathToFileURL(
+      process.argv[1]
+    ).href;
+
+if (executedDirectly) {
+  main()
+    .catch((error) => {
+      console.error(
+        "[FAIL] Tenant migration readiness:",
+        error.message
+      );
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await mongoose
+        .disconnect()
+        .catch(() => {});
+    });
+}
