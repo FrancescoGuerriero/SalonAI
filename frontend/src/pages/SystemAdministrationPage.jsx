@@ -66,7 +66,13 @@ export default function SystemAdministrationPage() {
         API.get("/health/dependencies"),
         API.get("/system-administration/settings"),
         API.get("/system-administration/features"),
-        API.get("/system-administration/social-auth-readiness"),
+        API.get(
+          "/system-administration/social-auth-readiness"
+        ).catch(() => ({
+          data: {
+            socialAuth: null,
+          },
+        })),
       ]);
 
       setHealth(healthResponse.data);
@@ -325,8 +331,9 @@ export default function SystemAdministrationPage() {
               </span>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {(socialAuth?.providers || []).map((provider) => (
+            {socialAuth ? (
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {(socialAuth.providers || []).map((provider) => (
                 <article
                   key={provider.provider}
                   className="rounded-xl border border-black/10 bg-stone-50 p-4"
@@ -381,7 +388,12 @@ export default function SystemAdministrationPage() {
                   ) : null}
                 </article>
               ))}
-            </div>
+              </div>
+            ) : (
+              <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-black">
+                Social-auth readiness could not be loaded. Core system administration remains available; refresh to retry this diagnostic.
+              </p>
+            )}
 
             {socialAuth?.nextSteps?.length ? (
               <div className="mt-5 rounded-xl border border-black/10 bg-white p-4">
