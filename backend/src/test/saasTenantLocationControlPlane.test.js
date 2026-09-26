@@ -187,6 +187,10 @@ test("selected location access fails closed outside the membership scope", () =>
       businessId: String(businessId),
       locationId: String(allowedLocationId),
       roleKey: "receptionist",
+      locationAccessMode: "selected",
+      allowedLocationIds: [
+        String(allowedLocationId),
+      ],
     }
   );
 });
