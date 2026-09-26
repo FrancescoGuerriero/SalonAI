@@ -7,6 +7,7 @@ const SOCIAL_AUTH_PROVIDERS = Object.freeze([
   "facebook",
   "microsoft",
   "yahoo",
+  "linkedin",
 ]);
 
 const socialIdentitySchema =
