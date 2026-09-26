@@ -198,6 +198,8 @@ jobs:
 
           echo "A single eligible $PROVIDER connection was selected without exposing account or calendar identifiers."
 
+          echo "::add-mask::$connection_id"
+
           {
             echo "CALENDAR_ACCEPTANCE_CONNECTION_ID=$connection_id"
           } >> "$GITHUB_ENV"
