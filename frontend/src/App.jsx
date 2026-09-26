@@ -1038,7 +1038,7 @@ function AppRoutes() {
 
         <Route
           path="manage/orders"
-          element={permissionPage(OrderManagement, "product:read")}
+          element={permissionPage(OrderManagement, "order:read")}
         />
 
         <Route
