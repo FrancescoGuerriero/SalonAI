@@ -1470,8 +1470,8 @@ export default function AddEmployeeModal({
               </summary>
               <p className="mt-2 text-sm text-stone-600">
                 {customRoleSelected
-                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that Super Admin or Admin can grant."
-                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can be granted by Super Admin or Admin."}
+                  ? "The selected custom role supplies its shared template automatically. The options below are additional employee-specific permissions that authorised permission managers can grant."
+                  : "Optional employee-specific permissions. These are additional to the selected role's normal capabilities and can be granted by accounts with employee permission-management authority."}
               </p>
 
               {customRoleSelected && selectedRole?.permissions?.length ? (
