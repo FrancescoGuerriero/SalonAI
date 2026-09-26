@@ -1,7 +1,7 @@
 import * as service from "./commerceService.js";
 import { refundOrder } from "./orderRefundService.js";
 import {
-  hasUserPermission,
+  hasRequestPermission,
 } from "../../middleware/permissionMiddleware.js";
 
 export function getCommerceConfig(req, res) {
@@ -13,15 +13,15 @@ export async function createProduct(req, res) {
     await service.createProduct({
       ...req.body,
       stockQuantity:
-        hasUserPermission(
-          req.user,
+        hasRequestPermission(
+          req,
           "product:inventory:update"
         )
           ? req.body.stockQuantity
           : 0,
       reorderLevel:
-        hasUserPermission(
-          req.user,
+        hasRequestPermission(
+          req,
           "product:inventory:update"
         )
           ? req.body.reorderLevel
@@ -115,8 +115,8 @@ export async function inventorySummary(req, res) {
   res.json(
     await service.inventorySummary({
       includeCost:
-        hasUserPermission(
-          req.user,
+        hasRequestPermission(
+          req,
           "product:cost:read"
         ),
     })
