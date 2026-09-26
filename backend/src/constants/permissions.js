@@ -13,6 +13,9 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "customer:archive",
   "customer:delete",
 
+  "customer-experience:read",
+  "customer-experience:manage",
+
   "employee:read",
   "employee:create",
   "employee:update",
@@ -125,6 +128,8 @@ export const STAFF_ROLE_BASELINE_PERMISSIONS = Object.freeze({
     "dashboard:view",
     "appointment:read",
     "customer:read",
+    "customer-experience:read",
+    "customer-experience:manage",
     "employee:read",
     "employee:permissions:update",
     "profile:own:read",
