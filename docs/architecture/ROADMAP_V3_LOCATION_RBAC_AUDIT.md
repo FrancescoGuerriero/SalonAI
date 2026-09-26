@@ -416,3 +416,81 @@ The existing SalonAI permission catalogue and StaffRole registry are suitable fo
 The principal missing primitive is **trusted membership/location scope**, not more role names.
 
 DEV3 implementation should therefore remain blocked until #279 publishes the trusted control-plane contract. Once that contract exists, the safest path is to compose location scope into the current effective-permission pipeline and migrate management domains incrementally, fail-closed, with server-side resource ownership checks.
+
+
+## Concrete route-family scope matrix
+
+This matrix is based on the current API mounts in `backend/src/app.js` and the current permission registry. It is the implementation baseline for the next DEV3 increment.
+
+| Route / function family | Current permission family | Target scope | Multi-location rule |
+| --- | --- | --- | --- |
+| `/api/appointments` | `appointment:*` | location | appointment must belong to active Business + authorised Location |
+| appointment payments | `appointment:payment:manage` | location/business-finance | payment action requires appointment location authority; settlement may be business-wide |
+| `/api/customers`, profiles, notes, contacts | `customer:*` | business by default | customer identity may be visible business-wide; location-specific notes/activity remain provenance-scoped |
+| `/api/admin` employee/staff surfaces | `employee:*`, `profile:*` | business + selected locations | Super Admin/Admin may manage only locations granted by membership unless platform authority explicitly applies |
+| schedules / leave / staff calendar | `schedule:*`, `leave:*` | self or location | own schedule is self-scope; management changes require location authority |
+| `/api/services` | `service:*` | business with location availability overlay | catalogue definition can be business-wide; publish/bookability/availability may vary by location |
+| product/catalogue | `product:*` | business/location | product definition may be business-wide; stock and availability are location-scoped |
+| suppliers / purchase orders / inventory | `inventory:*` | location/business-purchasing | stock ledger and purchase fulfilment must carry location; supplier master may be business-wide |
+| communication templates/campaigns | `communications:*` | business | campaigns business-scoped; sender/config and audience filters may have location provenance |
+| loyalty | `loyalty:manage` | business | balances business-owned initially; earning/redemption location retained |
+| gift cards | `gift-card:manage` | business + financial provenance | instrument business-owned; sale/redemption locations required for settlement |
+| referrals | `referral:manage` | business | location attribution optional, never authorization |
+| notifications/push | `notification:manage`, `push:manage` | business | delivery policies business-scoped; operational event provenance retained |
+| email campaigns | `email-campaign:manage` | business | marketing consent/suppression remains customer/business authority |
+| SMS reminders | `sms-reminder:manage` | business/location source | reminder execution follows appointment/location scope |
+| WhatsApp | `whatsapp:manage` | business/location source | conversation may be business-wide but booking action must use authorised location |
+| retention automation | `retention-automation:manage` | business | cohort filters may include location; automation authority remains business-wide |
+| premium analytics / reports | `premium-analytics:read`, `reports:*` | business or location-filtered | user sees only data for locations in effective scope unless business-wide authority |
+| AI | `ai:use` | same as source domain | AI cannot expand authority beyond the records/tools the user may access |
+| feature controls | `feature-control:*` | business; some platform-only | tenant feature controls cannot override platform safety locks |
+| data imports/exports | `data-import:manage`, `data-export:manage` | business with explicit location mapping | import/export must declare target scope and reject cross-tenant identifiers |
+| staff roles | `staff-role:*` | business | role templates are business-scoped; assignment additionally carries location scope |
+| system administration | role/permission guarded | platform or business depending function | platform-only controls must remain separated from tenant administration |
+
+## Permission semantics to preserve
+
+The existing `permissionsForRole()` merge remains the canonical permission calculation:
+
+`baseline role permissions + rolePermissions + direct assigned permissions`
+
+Multi-location support adds **scope**, not a second permission list. The effective authorization decision becomes:
+
+`authenticated user + active BusinessMembership + permitted Location + existing permission + resource ownership`
+
+The following permissions should remain non-delegable without an explicit later security decision:
+
+- `employee:role:update`
+- `employee:permissions:update`
+
+Location assignment itself should also be treated as a high-authority operation because expanding a membership's location set expands the data boundary.
+
+## Required middleware composition
+
+The future request path should compose existing and DEV4 contracts in this order:
+
+1. authenticate the user;
+2. resolve trusted BusinessMembership using DEV4 `resolveTrustedTenantContext()`;
+3. resolve/validate active Location when the route is location-scoped;
+4. evaluate the existing permission with `requirePermissions()` / `requireAnyPermission()`;
+5. add business/location criteria to the database query itself;
+6. return 404-style semantics for cross-tenant or cross-location resource misses;
+7. emit audit evidence for authority-changing operations.
+
+A frontend location selector is therefore only a selector. It never becomes authorization.
+
+## High-risk implementation targets
+
+Before DEV3 modifies runtime RBAC, explicit tests are required for:
+
+- employee/profile list queries that currently assume one global salon;
+- appointment reads/updates by id;
+- inventory and purchase-order lookups;
+- reports/analytics aggregations;
+- AI context-building queries;
+- staff role assignment;
+- feature-control updates;
+- import/export jobs;
+- background jobs and provider webhooks that operate without an interactive browser session.
+
+These are the surfaces most likely to leak data if only the UI is location-aware.
