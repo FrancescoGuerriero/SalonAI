@@ -232,10 +232,12 @@ test.describe("SalonAI public application", () => {
     );
 
     await expect(
-      page.getByText(
-        "Customer account"
+      page.locator(
+        ".account-eyebrow"
       )
-    ).toBeVisible();
+    ).toHaveText(
+      "Customer account"
+    );
   });
 
   test("email verification signs the customer in automatically and continues to the account", async ({
