@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -138,6 +139,29 @@ test(
         metadata.description
       );
     }
+  }
+);
+
+test(
+  "staff role management response exposes the canonical scope map and legend",
+  async () => {
+    const controller =
+      await readFile(
+        new URL(
+          "../controllers/staffRoleController.js",
+          import.meta.url
+        ),
+        "utf8"
+      );
+
+    assert.match(
+      controller,
+      /permissionScopes:\s*permissionScopeMap\(\)/
+    );
+    assert.match(
+      controller,
+      /scopeLegend:\s*permissionScopeLegend\(\)/
+    );
   }
 );
 
