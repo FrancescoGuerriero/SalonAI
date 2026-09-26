@@ -253,8 +253,7 @@ export default function EmployeeAccessPanel({
   const isProtectedSuperAdmin =
     selectedEmployee?.role ===
       "super_admin" &&
-    currentUser?.role !==
-      "super_admin";
+    !canManageRoles;
 
   const mayChangePermissions =
     canManagePermissions &&
