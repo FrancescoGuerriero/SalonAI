@@ -21,7 +21,6 @@ import staffRoleService from "../Services/staffRoleService.js";
 import useAuth from "../hooks/useAuth.js";
 import {
   ASSIGNABLE_EMPLOYEE_PERMISSIONS,
-  EMPLOYEE_PERMISSIONS,
   hasPermission,
 } from "../utils/permissions.js";
 
@@ -70,17 +69,6 @@ function groupPermissions() {
   return [
     ...groups.entries(),
   ];
-}
-
-function permissionLabel(value) {
-  return (
-    EMPLOYEE_PERMISSIONS.find(
-      (permission) =>
-        permission.value ===
-        value
-    )?.label ||
-    value
-  );
 }
 
 function PermissionLabel({
