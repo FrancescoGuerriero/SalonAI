@@ -6,6 +6,7 @@ import {
   CapabilityStatus,
   ConfigurationChangePreviewDialog,
   ConnectorHealth,
+  ConversationOwnershipStatus,
   ContextSwitchWarningDialog,
   EffectiveConfigurationRow,
   LocationContext,
@@ -198,6 +199,52 @@ describe("Roadmap v3 platform presentation components", () => {
 
 
 
+
+
+  it.each([
+    ["bot", false, "AI handling", "bot"],
+    ["bot", true, "Human handoff requested", "handoff-requested"],
+    ["human", false, "Human handling", "human"],
+  ])(
+    "renders WhatsApp ownership mode %s with handoff %s",
+    (mode, handoffRequested, title, ownerState) => {
+      render(
+        <ConversationOwnershipStatus
+          mode={mode}
+          handoffRequested={handoffRequested}
+          handoffReason="Customer requested a person."
+          assignedToLabel="Reception"
+        />
+      );
+
+      expect(screen.getByText(title)).toBeInTheDocument();
+
+      expect(
+        screen.getByText(title).closest("section")
+      ).toHaveAttribute("data-conversation-owner", ownerState);
+    }
+  );
+
+  it("requests bot resume only when authoritative UI state permits it", () => {
+    const resume = vi.fn();
+
+    render(
+      <ConversationOwnershipStatus
+        mode="human"
+        assignedToLabel="Reception"
+        canResumeBot
+        onRequestResumeBot={resume}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Return to AI",
+      })
+    );
+
+    expect(resume).toHaveBeenCalledTimes(1);
+  });
 
   it.each([
     ["permission-denied", "You do not have access"],
