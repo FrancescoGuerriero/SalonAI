@@ -14,18 +14,40 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  servicePublicTenantContextMiddleware,
+} from "../middleware/serviceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 
 const router = express.Router();
 
-// Customers browse published salon services without signing in.
-router.get("/", getServices);
+const protectedServiceTenantChain = [
+  protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+];
 
-// Management catalogue includes published and unpublished records.
+// Customers browse published services only for the Business resolved from
+// the server-trusted request host.
+router.get(
+  "/",
+  servicePublicTenantContextMiddleware,
+  getServices
+);
+
+// Management catalogue includes published and unpublished records, but only
+// inside the trusted BusinessMembership/effective-authority tenant scope.
 router.get(
   "/management",
-  protect,
+  ...protectedServiceTenantChain,
   requirePermissions(
     "service:read"
   ),
@@ -34,7 +56,7 @@ router.get(
 
 router.post(
   "/",
-  protect,
+  ...protectedServiceTenantChain,
   requirePermissions(
     "service:create"
   ),
@@ -43,7 +65,7 @@ router.post(
 
 router.patch(
   "/:id/publication",
-  protect,
+  ...protectedServiceTenantChain,
   requirePermissions(
     "service:publish"
   ),
@@ -52,17 +74,18 @@ router.patch(
 
 router.put(
   "/:id",
-  protect,
+  ...protectedServiceTenantChain,
   requirePermissions(
     "service:update"
   ),
   updateService
 );
 
-// Hard deletion remains Super-Admin-only; unpublish is the normal lifecycle.
+// Hard deletion remains Super-Admin-only through the canonical permission
+// registry; unpublish is the normal lifecycle.
 router.delete(
   "/:id",
-  protect,
+  ...protectedServiceTenantChain,
   requirePermissions(
     "service:delete"
   ),
@@ -71,6 +94,7 @@ router.delete(
 
 router.get(
   "/:id",
+  servicePublicTenantContextMiddleware,
   getServiceById
 );
 
