@@ -20,6 +20,11 @@ import {
   customerVisibleStylistFilter,
   isAppointmentEligibleStylist,
 } from "../services/stylistBookingEligibilityService.js";
+import {
+  publicWorkforceBusinessId,
+  scopedWorkforceFilter,
+  workforceCreationOwnership,
+} from "../services/workforceAuthorityService.js";
 
 export const PUBLIC_STYLIST_FIELDS = [
   "firstName",
@@ -449,14 +454,20 @@ export async function getStylists(req, res) {
         published === "true";
     }
 
+    const tenantFilter =
+      scopedWorkforceFilter(
+        req.effectiveAuthority,
+        filter
+      );
+
     const total =
       await Stylist.countDocuments(
-        filter
+        tenantFilter
       );
 
     const stylists =
       await Stylist.find(
-        filter
+        tenantFilter
       )
         .populate(
           "services"
@@ -505,10 +516,17 @@ export async function getPublicStylists(
   next
 ) {
   try {
+    const businessId =
+      publicWorkforceBusinessId(
+        req
+      );
+
     const stylists =
-      await Stylist.find(
-        customerVisibleStylistFilter()
-      )
+      await Stylist.find({
+        business:
+          businessId,
+        ...customerVisibleStylistFilter(),
+      })
         .select(
           PUBLIC_STYLIST_FIELDS
         )
@@ -545,8 +563,13 @@ export async function getBookingStylists(
           ""
       ).trim();
 
-    const filter =
-      appointmentEligibleStylistFilter();
+    const filter = {
+      business:
+        publicWorkforceBusinessId(
+          req
+        ),
+      ...appointmentEligibleStylistFilter(),
+    };
 
     if (serviceId) {
       if (
@@ -740,8 +763,14 @@ export async function updateMyStylistProfile(
 export async function getStylist(req, res) {
   try {
     const stylist =
-      await Stylist.findById(
-        req.params.id
+      await Stylist.findOne(
+        scopedWorkforceFilter(
+          req.effectiveAuthority,
+          {
+            _id:
+              req.params.id,
+          }
+        )
       ).populate(
         "services"
       );
@@ -797,9 +826,15 @@ export async function getStylistAvailability(req, res, next) {
     const targetDate = parseBookingDate(dateText);
     const stylistObjectId = new mongoose.Types.ObjectId(stylistId);
     const serviceObjectId = new mongoose.Types.ObjectId(serviceId);
+    const businessId =
+      publicWorkforceBusinessId(
+        req
+      );
     const [service, stylist] = await Promise.all([
       Service.findOne({
         _id: serviceObjectId,
+        business:
+          businessId,
         active: { $ne: false },
         $or: [
           {
@@ -816,7 +851,12 @@ export async function getStylistAvailability(req, res, next) {
           "+onlineBookable"
         )
         .lean(),
-      Stylist.findById(stylistObjectId)
+      Stylist.findOne({
+        _id:
+          stylistObjectId,
+        business:
+          businessId,
+      })
         .select(
           "services isActive acceptsAppointments profilePublished"
         )
@@ -903,6 +943,11 @@ export async function getStylistAvailability(req, res, next) {
 */
 export async function createStylist(req, res) {
   try {
+    const ownership =
+      workforceCreationOwnership(
+        req.effectiveAuthority
+      );
+
     const payload = {
       ...req.body,
       profileImage:
@@ -911,10 +956,18 @@ export async function createStylist(req, res) {
         ),
     };
 
+    delete payload.business;
+    delete payload.workingLocations;
+    delete payload.userAccount;
+
     const stylist =
-      await Stylist.create(
-        payload
-      );
+      await Stylist.create({
+        ...payload,
+        business:
+          ownership.businessId,
+        workingLocations:
+          ownership.workingLocationIds,
+      });
 
     const populated =
       await Stylist.findById(
@@ -951,12 +1004,21 @@ export async function updateStylist(req, res) {
         req.body
       );
 
+    const tenantFilter =
+      scopedWorkforceFilter(
+        req.effectiveAuthority,
+        {
+          _id:
+            req.params.id,
+        }
+      );
+
     const existingStylist =
-      await Stylist.findById(
-        req.params.id
+      await Stylist.findOne(
+        tenantFilter
       )
         .select(
-          "_id userAccount"
+          "_id userAccount business workingLocations"
         )
         .lean();
 
@@ -970,8 +1032,8 @@ export async function updateStylist(req, res) {
     }
 
     const stylist =
-      await Stylist.findByIdAndUpdate(
-        existingStylist._id,
+      await Stylist.findOneAndUpdate(
+        tenantFilter,
         payload,
         {
           new: true,
@@ -1028,8 +1090,14 @@ export async function updateStylist(req, res) {
 export async function deleteStylist(req, res) {
   try {
     const stylist =
-      await Stylist.findByIdAndDelete(
-        req.params.id
+      await Stylist.findOneAndDelete(
+        scopedWorkforceFilter(
+          req.effectiveAuthority,
+          {
+            _id:
+              req.params.id,
+          }
+        )
       );
 
     if (!stylist) {
@@ -1061,8 +1129,14 @@ export async function deleteStylist(req, res) {
 export async function toggleStylistStatus(req, res) {
   try {
     const stylist =
-      await Stylist.findById(
-        req.params.id
+      await Stylist.findOne(
+        scopedWorkforceFilter(
+          req.effectiveAuthority,
+          {
+            _id:
+              req.params.id,
+          }
+        )
       );
 
     if (!stylist) {
