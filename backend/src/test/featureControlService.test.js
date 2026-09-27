@@ -151,16 +151,23 @@ test("stylist API separates protected management data from public booking data",
 
   assert.match(
     routes,
-    /"\/public",\s*requireFeature\("public-team"\),\s*getPublicStylists/s
-  );
-  assert.match(routes, /"\/booking",\s*requireFeature\("online-booking"\),\s*getBookingStylists/s);
-  assert.match(
-    routes,
-    /"\/",\s*protect,\s*requirePermissions\(\s*"profile:all:read"\s*\),\s*getStylists/s
+    /"\/public",[\s\S]{0,180}requireFeature\([\s\S]{0,80}"public-team"[\s\S]{0,180}workforcePublicTenantContextMiddleware,[\s\S]{0,80}getPublicStylists/
   );
   assert.match(
     routes,
-    /"\/me\/profile",\s*protect,\s*requirePermissions\(\s*"profile:own:read"\s*\),\s*getMyStaffProfile/s
+    /"\/booking",[\s\S]{0,180}requireFeature\([\s\S]{0,80}"online-booking"[\s\S]{0,180}workforcePublicTenantContextMiddleware,[\s\S]{0,80}getBookingStylists/
+  );
+  assert.match(
+    routes,
+    /const protectedWorkforceTenantChain = \[\s*protect,\s*workforcePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
+  );
+  assert.match(
+    routes,
+    /"\/",\s*\.\.\.protectedWorkforceTenantChain,\s*requirePermissions\(\s*"profile:all:read"\s*\),\s*getStylists/s
+  );
+  assert.match(
+    routes,
+    /"\/me\/profile",\s*\.\.\.protectedWorkforceTenantChain,\s*requirePermissions\(\s*"profile:own:read"\s*\),\s*getMyStaffProfile/s
   );
   assert.doesNotMatch(PUBLIC_STYLIST_FIELDS, /acceptsAppointments/);
   assert.doesNotMatch(PUBLIC_STYLIST_FIELDS, /profilePublished/);

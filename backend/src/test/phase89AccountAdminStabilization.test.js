@@ -90,12 +90,36 @@ test(
     assert.ok(patchRoute);
     assert.equal(
       getRoute.stack.length,
-      3
+      6
     );
     assert.equal(
       patchRoute.stack.length,
-      3
+      6
     );
+
+    for (
+      const route of [
+        getRoute,
+        patchRoute,
+      ]
+    ) {
+      assert.equal(
+        route.stack[0].handle.name,
+        "protect"
+      );
+      assert.equal(
+        route.stack[1].handle.name,
+        "publicTenantContextMiddleware"
+      );
+      assert.equal(
+        route.stack[2].handle.name,
+        "trustedTenantContextMiddleware"
+      );
+      assert.equal(
+        route.stack[3].handle.name,
+        "effectiveAuthorityMiddleware"
+      );
+    }
   }
 );
 

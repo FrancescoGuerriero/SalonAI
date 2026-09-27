@@ -20,6 +20,7 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "employee:create",
   "employee:update",
   "employee:deactivate",
+  "employee:delete",
   "employee:role:update",
   "employee:permissions:update",
   "employee:schedule:update",
@@ -93,6 +94,7 @@ export const EMPLOYEE_PERMISSION_SET =
 
 export const NON_DELEGABLE_EMPLOYEE_PERMISSIONS =
   Object.freeze([
+    "employee:delete",
     "employee:role:update",
     "employee:permissions:update",
   ]);
