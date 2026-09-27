@@ -153,8 +153,9 @@ export function sanitiseCustomerAppointmentReadiness({
         readiness?.safeForBackfill
       ),
     migrationScope:
-      readiness?.scope ||
-      null,
+      sanitiseCustomerAppointmentMigrationScope(
+        readiness?.scope
+      ),
     summary:
       Object.freeze({
         ...(
