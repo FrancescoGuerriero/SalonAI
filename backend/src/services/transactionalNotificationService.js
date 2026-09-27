@@ -41,7 +41,7 @@ function normaliseChannels(channels) {
   return output;
 }
 
-function customerAllowsTransactionalMessage(customer, channel) {
+export function customerAllowsTransactionalMessage(customer, channel) {
   if (!customer) return true;
 
   const preferences = customer.communicationPreferences || {};
