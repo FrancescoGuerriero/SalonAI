@@ -636,40 +636,165 @@ async function waitForProviderWindow({
   providerEventId,
   start,
   end,
+  stage =
+    "provider_window",
 }) {
-  return waitFor(
-    async () => {
-      try {
-        const event =
-          await getProviderEvent({
-            provider,
-            calendarId,
-            accessToken,
-            providerEventId,
-          });
+  let lastObserved =
+    null;
+  let lastProviderError =
+    null;
 
-        return (
-          !event.deleted &&
-          sameInstant(
-            event.start,
-            start
-          ) &&
-          sameInstant(
-            event.end,
-            end
+  try {
+    return await waitFor(
+      async () => {
+        try {
+          const event =
+            await getProviderEvent({
+              provider,
+              calendarId,
+              accessToken,
+              providerEventId,
+            });
+
+          lastObserved = {
+            deleted:
+              event.deleted ===
+              true,
+            start:
+              text(
+                event.start
+              ),
+            end:
+              text(
+                event.end
+              ),
+          };
+          lastProviderError =
+            null;
+
+          return (
+            !event.deleted &&
+            sameInstant(
+              event.start,
+              start
+            ) &&
+            sameInstant(
+              event.end,
+              end
+            )
           )
-        )
-          ? event
-          : null;
-      } catch {
-        return null;
+            ? event
+            : null;
+        } catch (error) {
+          lastProviderError = {
+            status:
+              Number(
+                error?.providerStatus
+              ) || null,
+            code:
+              text(
+                error?.code
+              ),
+          };
+          return null;
+        }
+      },
+      {
+        label:
+          "provider event window synchronization",
       }
-    },
-    {
-      label:
-        "provider event window synchronization",
+    );
+  } catch (error) {
+    if (
+      error?.code !==
+      "CALENDAR_ACCEPTANCE_TIMEOUT"
+    ) {
+      throw error;
     }
-  );
+
+    const expectedStart =
+      instant(start)
+        ?.toISOString() ||
+      "";
+    const expectedEnd =
+      instant(end)
+        ?.toISOString() ||
+      "";
+
+    const observed =
+      lastObserved
+        ? (
+            "lastObservedStart=" +
+            (lastObserved.start || "null") +
+            ", lastObservedEnd=" +
+            (lastObserved.end || "null") +
+            ", lastObservedDeleted=" +
+            String(
+              lastObserved.deleted
+            )
+          )
+        : (
+            "lastObserved=none" +
+            (
+              lastProviderError
+                ? (
+                    ", lastProviderStatus=" +
+                    String(
+                      lastProviderError.status ||
+                      "unknown"
+                    ) +
+                    ", lastProviderCode=" +
+                    (
+                      lastProviderError.code ||
+                      "unknown"
+                    )
+                  )
+                : ""
+            )
+          );
+
+    const timeout =
+      acceptanceError(
+        "CALENDAR_ACCEPTANCE_TIMEOUT",
+        "Timed out waiting for provider event window synchronization at " +
+          stage +
+          ". Expected start=" +
+          expectedStart +
+          ", end=" +
+          expectedEnd +
+          "; " +
+          observed +
+          "."
+      );
+
+    timeout.acceptanceProvider =
+      provider;
+    timeout.acceptanceStage =
+      stage;
+    timeout.diagnostics = {
+      expectedStart,
+      expectedEnd,
+      observedStart:
+        lastObserved?.start ||
+        null,
+      observedEnd:
+        lastObserved?.end ||
+        null,
+      observedDeleted:
+        lastObserved?.deleted ??
+        null,
+      providerStatus:
+        lastProviderError
+          ?.status ||
+        null,
+      providerCode:
+        lastProviderError
+          ?.code ||
+        "",
+    };
+
+    throw timeout;
+  }
 }
 
 async function waitForAppointmentWindow({
@@ -1095,6 +1220,8 @@ async function runAcceptance() {
         slots[0].start,
       end:
         slots[0].end,
+      stage:
+        "outbound_create_readback",
     });
 
     await rescheduleAppointment(
@@ -1128,6 +1255,8 @@ async function runAcceptance() {
         slots[1].start,
       end:
         slots[1].end,
+      stage:
+        "outbound_reschedule_readback",
     });
 
     const outboundAppointment =
@@ -1343,6 +1472,15 @@ try {
     JSON.stringify(
       {
         success: false,
+        provider:
+          error?.acceptanceProvider ||
+          null,
+        stage:
+          error?.acceptanceStage ||
+          null,
+        diagnostics:
+          error?.diagnostics ||
+          null,
         code:
           error?.code ||
           "CALENDAR_APPOINTMENT_ACCEPTANCE_FAILED",
