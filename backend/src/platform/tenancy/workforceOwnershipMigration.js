@@ -189,6 +189,7 @@ export function buildWorkforceOwnershipReadiness({
   users = [],
   memberships = [],
   activeStaffRoleKeys = [],
+  migrationScope = null,
   businessId,
   locationId,
 } = {}) {
@@ -315,6 +316,19 @@ export function buildWorkforceOwnershipReadiness({
   const blockers = [];
   const membershipCreates = [];
   const manualLinkCandidates = [];
+
+  if (
+    migrationScope &&
+    migrationScope.safeForGlobalUnownedBackfill !==
+      true
+  ) {
+    blockers.push({
+      stylistId:
+        null,
+      blocker:
+        "global-unowned-workforce-scope-not-proven",
+    });
+  }
 
   for (
     const stylist of
@@ -626,6 +640,39 @@ export function buildWorkforceOwnershipReadiness({
       targetLocationId,
     safeForBackfill:
       blockers.length === 0,
+    migrationScope:
+      migrationScope
+        ? Object.freeze({
+            businessCount:
+              Number(
+                migrationScope.businessCount ||
+                  0
+              ),
+            canonicalBusinessCount:
+              Number(
+                migrationScope.canonicalBusinessCount ||
+                  0
+              ),
+            otherBusinessCount:
+              Number(
+                migrationScope.otherBusinessCount ||
+                  0
+              ),
+            safeForGlobalUnownedBackfill:
+              migrationScope.safeForGlobalUnownedBackfill ===
+              true,
+            blockers:
+              Object.freeze([
+                ...(
+                  Array.isArray(
+                    migrationScope.blockers
+                  )
+                    ? migrationScope.blockers
+                    : []
+                ),
+              ]),
+          })
+        : null,
     summary,
     plans:
       Object.freeze(plans),
