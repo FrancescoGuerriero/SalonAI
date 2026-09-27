@@ -105,7 +105,7 @@ jobs:
             exit 1
           fi
 
-          docker exec salonai-backend node --input-type=module - <<'NODE'
+          docker exec -i salonai-backend node --input-type=module - <<'NODE'
           import mongoose from "mongoose";
           import Appointment from "./src/models/Appointment.js";
           import TransactionalNotificationEvent from "./src/models/TransactionalNotificationEvent.js";
