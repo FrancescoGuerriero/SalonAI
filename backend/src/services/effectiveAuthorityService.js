@@ -332,6 +332,134 @@ export function hasLocationAuthority(
   );
 }
 
+
+export function hasBusinessResourceAuthority(
+  authority,
+  businessId
+) {
+  const targetBusinessId =
+    idText(
+      businessId
+    );
+
+  return Boolean(
+    authority &&
+    targetBusinessId &&
+    idText(
+      authority.businessId
+    ) === targetBusinessId
+  );
+}
+
+export function hasLocationResourceAuthority(
+  authority,
+  {
+    businessId,
+    locationId,
+    requireSelectedLocation =
+      false,
+  } = {}
+) {
+  const targetLocationId =
+    idText(
+      locationId
+    );
+
+  if (
+    !hasBusinessResourceAuthority(
+      authority,
+      businessId
+    ) ||
+    !targetLocationId ||
+    !hasLocationAuthority(
+      authority,
+      targetLocationId
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    requireSelectedLocation
+  ) {
+    return Boolean(
+      authority.locationId &&
+      idText(
+        authority.locationId
+      ) === targetLocationId
+    );
+  }
+
+  return true;
+}
+
+function resourceNotFoundError() {
+  return authorityError(
+    "The requested resource was not found.",
+    "RESOURCE_NOT_FOUND",
+    404
+  );
+}
+
+export function assertBusinessResourceAuthority(
+  authority,
+  businessId
+) {
+  if (
+    !hasBusinessResourceAuthority(
+      authority,
+      businessId
+    )
+  ) {
+    throw resourceNotFoundError();
+  }
+
+  return {
+    businessId:
+      idText(
+        businessId
+      ),
+  };
+}
+
+export function assertLocationResourceAuthority(
+  authority,
+  {
+    businessId,
+    locationId,
+    requireSelectedLocation =
+      false,
+  } = {}
+) {
+  if (
+    !hasLocationResourceAuthority(
+      authority,
+      {
+        businessId,
+        locationId,
+        requireSelectedLocation,
+      }
+    )
+  ) {
+    throw resourceNotFoundError();
+  }
+
+  return {
+    businessId:
+      idText(
+        businessId
+      ),
+    locationId:
+      idText(
+        locationId
+      ),
+    requireSelectedLocation:
+      Boolean(
+        requireSelectedLocation
+      ),
+  };
+}
+
 export function canUsePermissionAtCurrentScope(
   authority,
   permission
@@ -412,9 +540,13 @@ export function assertEffectivePermission(
 }
 
 export default {
+  assertBusinessResourceAuthority,
   assertEffectivePermission,
+  assertLocationResourceAuthority,
   canUsePermissionAtCurrentScope,
+  hasBusinessResourceAuthority,
   hasEffectivePermission,
   hasLocationAuthority,
+  hasLocationResourceAuthority,
   resolveEffectiveAuthority,
 };
