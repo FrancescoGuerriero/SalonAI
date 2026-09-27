@@ -124,6 +124,9 @@ export async function createService(
       ...body,
     };
 
+    // Business ownership is trusted server-side tenancy state.
+    // Never accept it from a client payload during the migration window.
+    delete payload.business;
     delete payload.onlineBookable;
     delete payload.published;
 
@@ -245,7 +248,9 @@ export async function updateService(
       ...req.body,
     };
 
-    // Publication is a separate privileged action.
+    // Business ownership is trusted server-side tenancy state and
+    // publication is a separate privileged action.
+    delete payload.business;
     delete payload.published;
     delete payload.onlineBookable;
 
