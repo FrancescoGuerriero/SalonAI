@@ -206,6 +206,9 @@ test("readiness assigns unowned Customer and Appointment when references are sam
             stylistId,
           business:
             businessId,
+          workingLocations: [
+            locationId,
+          ],
         },
       ],
       appointments: [
@@ -314,6 +317,9 @@ test("readiness blocks Appointment when Service belongs to another Business", ()
             stylistId,
           business:
             businessId,
+          workingLocations: [
+            locationId,
+          ],
         },
       ],
       appointments: [
@@ -449,6 +455,93 @@ test("second Business blocks global legacy Customer/Appointment attribution", ()
       (item) =>
         item.blocker ===
         "global-customer-scope-not-proven"
+    )
+  );
+});
+
+
+test("readiness blocks Appointment when Stylist is not assigned to the target Location", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const otherLocationId =
+    oid();
+  const customerId =
+    oid();
+  const serviceId =
+    oid();
+  const stylistId =
+    oid();
+
+  const readiness =
+    buildCustomerAppointmentOwnershipReadiness({
+      businessId,
+      locationId,
+      businesses: [
+        {
+          _id:
+            businessId,
+        },
+      ],
+      locations: [
+        {
+          _id:
+            locationId,
+          business:
+            businessId,
+          status:
+            "active",
+        },
+      ],
+      customers: [
+        {
+          _id:
+            customerId,
+        },
+      ],
+      services: [
+        {
+          _id:
+            serviceId,
+          business:
+            businessId,
+        },
+      ],
+      stylists: [
+        {
+          _id:
+            stylistId,
+          business:
+            businessId,
+          workingLocations: [
+            otherLocationId,
+          ],
+        },
+      ],
+      appointments: [
+        {
+          _id:
+            oid(),
+          customer:
+            customerId,
+          service:
+            serviceId,
+          stylist:
+            stylistId,
+        },
+      ],
+    });
+
+  assert.equal(
+    readiness.safeForBackfill,
+    false
+  );
+  assert.ok(
+    readiness.blockers.some(
+      (item) =>
+        item.blocker ===
+        "appointment-stylist-location-unproven"
     )
   );
 });
