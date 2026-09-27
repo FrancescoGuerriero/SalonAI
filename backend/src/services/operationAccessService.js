@@ -24,8 +24,17 @@ function text(value) {
   ).trim();
 }
 
+function capabilityKey(value) {
+  return text(
+    value
+  ).toLowerCase();
+}
+
 export function assertTrustedCapabilityDecision(
-  decision
+  decision,
+  {
+    authority,
+  } = {}
 ) {
   if (decision === undefined || decision === null) {
     return null;
@@ -44,18 +53,31 @@ export function assertTrustedCapabilityDecision(
   }
 
   const key =
-    text(
+    capabilityKey(
       decision.key ||
         decision.capability
     );
+  const businessId =
+    text(
+      decision.businessId
+    );
 
-  if (!key) {
+  if (
+    !key ||
+    !businessId ||
+    !authority?.businessId
+  ) {
     throw accessError(
       "Trusted capability evaluation is unavailable.",
       "INVALID_CAPABILITY_DECISION",
       500
     );
   }
+
+  assertBusinessResourceAuthority(
+    authority,
+    businessId
+  );
 
   if (
     decision.allowed !==
@@ -70,13 +92,101 @@ export function assertTrustedCapabilityDecision(
 
   return Object.freeze({
     key,
+    businessId,
     allowed:
       true,
     source:
       text(
         decision.source
       ) || null,
+    verticalId:
+      text(
+        decision.verticalId
+      ) || null,
+    manifestRevision:
+      text(
+        decision.manifestRevision
+      ) || null,
   });
+}
+
+export function capabilityDecisionFromComposition({
+  authority,
+  composition,
+  capability,
+} = {}) {
+  if (
+    !composition ||
+    typeof composition !== "object" ||
+    Array.isArray(composition) ||
+    !composition.manifest ||
+    typeof composition.manifest !== "object" ||
+    !Array.isArray(
+      composition.capabilities
+    )
+  ) {
+    throw accessError(
+      "Effective tenant product composition is unavailable.",
+      "INVALID_CAPABILITY_COMPOSITION",
+      500
+    );
+  }
+
+  const key =
+    capabilityKey(
+      capability
+    );
+  const businessId =
+    text(
+      composition.manifest
+        .businessId
+    );
+
+  if (
+    !key ||
+    !businessId
+  ) {
+    throw accessError(
+      "Effective tenant product composition is unavailable.",
+      "INVALID_CAPABILITY_COMPOSITION",
+      500
+    );
+  }
+
+  assertBusinessResourceAuthority(
+    authority,
+    businessId
+  );
+
+  const state =
+    composition.capabilities.find(
+      (item) =>
+        capabilityKey(
+          item?.key
+        ) === key
+    );
+
+  return assertTrustedCapabilityDecision(
+    {
+      key,
+      businessId,
+      allowed:
+        state?.enabled ===
+        true,
+      source:
+        state?.reason ||
+        "not-selected",
+      verticalId:
+        composition.manifest
+          .verticalId,
+      manifestRevision:
+        composition.manifest
+          .manifestRevision,
+    },
+    {
+      authority,
+    }
+  );
 }
 
 export function assertOperationAccess({
@@ -93,7 +203,10 @@ export function assertOperationAccess({
 
   const capabilityGrant =
     assertTrustedCapabilityDecision(
-      capabilityDecision
+      capabilityDecision,
+      {
+        authority,
+      }
     );
 
   let resourceGrant =
@@ -164,4 +277,5 @@ export function assertOperationAccess({
 export default {
   assertOperationAccess,
   assertTrustedCapabilityDecision,
+  capabilityDecisionFromComposition,
 };
