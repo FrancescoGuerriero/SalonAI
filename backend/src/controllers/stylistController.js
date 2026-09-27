@@ -76,6 +76,56 @@ function createHttpError(message, statusCode, details = null) {
   return error;
 }
 
+export function validateStylistAvailabilityIdentifiers(
+  request
+) {
+  const stylistId =
+    String(
+      request?.params?.id ||
+        ""
+    ).trim();
+  const serviceId =
+    String(
+      request?.query?.service ||
+        ""
+    ).trim();
+
+  if (
+    !mongoose.isValidObjectId(
+      stylistId
+    )
+  ) {
+    throw createHttpError(
+      "The stylist identifier is invalid.",
+      400,
+      {
+        field:
+          "stylist",
+      }
+    );
+  }
+
+  if (
+    !mongoose.isValidObjectId(
+      serviceId
+    )
+  ) {
+    throw createHttpError(
+      "A valid service identifier is required.",
+      400,
+      {
+        field:
+          "service",
+      }
+    );
+  }
+
+  return Object.freeze({
+    stylistId,
+    serviceId,
+  });
+}
+
 function cleanText(value, maximumLength) {
   return String(value ?? "")
     .trim()
@@ -803,25 +853,18 @@ export async function getStylist(req, res) {
 */
 export async function getStylistAvailability(req, res, next) {
   try {
-    const stylistId = String(req.params.id || "").trim();
-    const serviceId = String(req.query.service || "").trim();
-    const dateText = String(req.query.date || "").trim();
-
-    if (!mongoose.isValidObjectId(stylistId)) {
-      throw createHttpError(
-        "The stylist identifier is invalid.",
-        400,
-        { field: "stylist" }
+    const {
+      stylistId,
+      serviceId,
+    } =
+      validateStylistAvailabilityIdentifiers(
+        req
       );
-    }
-
-    if (!mongoose.isValidObjectId(serviceId)) {
-      throw createHttpError(
-        "A valid service identifier is required.",
-        400,
-        { field: "service" }
-      );
-    }
+    const dateText =
+      String(
+        req.query.date ||
+          ""
+      ).trim();
 
     const targetDate = parseBookingDate(dateText);
     const stylistObjectId = new mongoose.Types.ObjectId(stylistId);
