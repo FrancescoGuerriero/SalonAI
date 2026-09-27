@@ -9,6 +9,7 @@ import StaffShift from "../features/staffRota/StaffShift.js";
 import StaffAttendance from "../features/staffRota/StaffAttendance.js";
 import {
   buildWorkforceOwnershipReadiness,
+  WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
 } from "../platform/tenancy/workforceOwnershipMigration.js";
 
 function oid() {
@@ -397,6 +398,293 @@ test("same User may already have another Business membership without blocking th
       .business,
     String(
       businessId
+    )
+  );
+});
+
+
+test("inactive linked User blocks new BusinessMembership authority", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const userId =
+    oid();
+
+  const readiness =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            oid(),
+          userAccount:
+            userId,
+          email:
+            "inactive@example.com",
+        },
+      ],
+      users: [
+        {
+          _id:
+            userId,
+          email:
+            "inactive@example.com",
+          role:
+            "stylist",
+          isActive:
+            false,
+        },
+      ],
+      memberships: [],
+    });
+
+  assert.equal(
+    readiness.safeForBackfill,
+    false
+  );
+  assert.equal(
+    readiness.membershipCreates.length,
+    0
+  );
+  assert.ok(
+    readiness.blockers.some(
+      (item) =>
+        item.blocker ===
+        "linked-user-inactive"
+    )
+  );
+  assert.equal(
+    readiness.plans[0]
+      .membershipAction,
+    "manual-review"
+  );
+});
+
+test("custom role must be present in active canonical StaffRole authority before grant", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const userId =
+    oid();
+  const stylistId =
+    oid();
+
+  const blocked =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            stylistId,
+          userAccount:
+            userId,
+          email:
+            "colour@example.com",
+        },
+      ],
+      users: [
+        {
+          _id:
+            userId,
+          email:
+            "colour@example.com",
+          role:
+            "colour_specialist",
+          isActive:
+            true,
+        },
+      ],
+      memberships: [],
+      activeStaffRoleKeys:
+        [],
+    });
+
+  assert.equal(
+    blocked.safeForBackfill,
+    false
+  );
+  assert.equal(
+    blocked.membershipCreates.length,
+    0
+  );
+  assert.ok(
+    blocked.blockers.some(
+      (item) =>
+        item.blocker ===
+        "linked-user-role-not-active-staff-role"
+    )
+  );
+
+  const allowed =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            stylistId,
+          userAccount:
+            userId,
+          email:
+            "colour@example.com",
+        },
+      ],
+      users: [
+        {
+          _id:
+            userId,
+          email:
+            "colour@example.com",
+          role:
+            "colour_specialist",
+          isActive:
+            true,
+        },
+      ],
+      memberships: [],
+      activeStaffRoleKeys: [
+        "colour_specialist",
+      ],
+    });
+
+  assert.equal(
+    allowed.safeForBackfill,
+    true
+  );
+  assert.equal(
+    allowed.membershipCreates.length,
+    1
+  );
+  assert.equal(
+    allowed.membershipCreates[0]
+      .roleKey,
+    "colour_specialist"
+  );
+  assert.equal(
+    allowed.membershipCreates[0]
+      .provenanceKey,
+    WORKFORCE_MEMBERSHIP_MIGRATION_KEY
+  );
+  assert.match(
+    allowed.membershipCreates[0]
+      .grantReference,
+    /^[a-f0-9]{64}$/
+  );
+});
+
+test("existing active membership with non-canonical role blocks ownership readiness", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const userId =
+    oid();
+
+  const readiness =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            oid(),
+          userAccount:
+            userId,
+          email:
+            "role@example.com",
+        },
+      ],
+      users: [
+        {
+          _id:
+            userId,
+          email:
+            "role@example.com",
+          role:
+            "stylist",
+          isActive:
+            true,
+        },
+      ],
+      memberships: [
+        {
+          _id:
+            oid(),
+          user:
+            userId,
+          business:
+            businessId,
+          roleKey:
+            "retired_custom_role",
+          status:
+            "active",
+        },
+      ],
+      activeStaffRoleKeys:
+        [],
+    });
+
+  assert.equal(
+    readiness.safeForBackfill,
+    false
+  );
+  assert.ok(
+    readiness.blockers.some(
+      (item) =>
+        item.blocker ===
+        "existing-membership-role-not-active-staff-role"
+    )
+  );
+});
+
+test("unproven multi-tenant scope blocks global unowned workforce assignment", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+
+  const readiness =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            oid(),
+          email:
+            "unowned@example.com",
+        },
+      ],
+      users: [],
+      memberships: [],
+      migrationScope: {
+        businessCount:
+          2,
+        canonicalBusinessCount:
+          1,
+        otherBusinessCount:
+          1,
+        safeForGlobalUnownedBackfill:
+          false,
+        blockers: [
+          "additional-business-present",
+        ],
+      },
+    });
+
+  assert.equal(
+    readiness.safeForBackfill,
+    false
+  );
+  assert.ok(
+    readiness.blockers.some(
+      (item) =>
+        item.blocker ===
+        "global-unowned-workforce-scope-not-proven"
     )
   );
 });
