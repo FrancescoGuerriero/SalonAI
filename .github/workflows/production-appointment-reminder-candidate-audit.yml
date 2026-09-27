@@ -1,0 +1,557 @@
+name: SalonAI Production Appointment Reminder Candidate Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live SalonAI release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit appointment reminder candidates
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate request
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Audit live reminder candidates without sending
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 reminder-audit-evidence
+          evidence="reminder-audit-evidence/appointment-reminder-candidate-audit.txt"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          ssh "${ssh_options[@]}" "$target"             "EXPECTED_RELEASE_TAG='$EXPECTED_RELEASE_TAG' bash -s" <<'REMOTE' | tee "$evidence"
+          set -euo pipefail
+
+          cd /opt/salonai
+          test "$(id -un)" = "salonai-deploy"
+
+          current_release="$(
+            docker exec salonai-backend node -e               'console.log(process.env.APP_VERSION || "")'
+          )"
+
+          if [[ "$current_release" != "$EXPECTED_RELEASE_TAG" ]]; then
+            echo "[ERROR] Live release $current_release does not match expected $EXPECTED_RELEASE_TAG." >&2
+            exit 1
+          fi
+
+          docker exec salonai-backend node --input-type=module - <<'NODE'
+          import mongoose from "mongoose";
+          import Appointment from "./src/models/Appointment.js";
+          import TransactionalNotificationEvent from "./src/models/TransactionalNotificationEvent.js";
+
+          const bool = (value) =>
+            ["true", "1", "yes", "on", "enabled"].includes(
+              String(value ?? "").trim().toLowerCase()
+            );
+
+          const number = (value, fallback) => {
+            const parsed = Number(value);
+            return Number.isFinite(parsed)
+              ? parsed
+              : fallback;
+          };
+
+          const text = (value) =>
+            String(value ?? "").trim();
+
+          const startOfDay = (value) => {
+            const date = new Date(value);
+            date.setHours(0, 0, 0, 0);
+            return date;
+          };
+
+          const endOfDay = (value) => {
+            const date = new Date(value);
+            date.setHours(23, 59, 59, 999);
+            return date;
+          };
+
+          const appointmentStart = (appointment) => {
+            if (appointment?.startsAt) {
+              const start = new Date(appointment.startsAt);
+              if (!Number.isNaN(start.getTime())) {
+                return start;
+              }
+            }
+
+            const date = new Date(appointment?.appointmentDate);
+            if (Number.isNaN(date.getTime())) {
+              return null;
+            }
+
+            const [hours = "0", minutes = "0"] =
+              text(appointment?.appointmentTime || "00:00")
+                .split(":");
+
+            date.setHours(
+              Number(hours) || 0,
+              Number(minutes) || 0,
+              0,
+              0
+            );
+
+            return date;
+          };
+
+          const preferredReminderChannel = (customer) => {
+            const booking =
+              text(
+                customer?.bookingPreferences
+                  ?.preferredReminderChannel
+              ).toLowerCase();
+
+            if (
+              ["email", "sms", "whatsapp", "none"]
+                .includes(booking)
+            ) {
+              return booking;
+            }
+
+            const communication =
+              text(
+                customer?.communicationPreferences
+                  ?.preferredChannel
+              ).toLowerCase();
+
+            return (
+              ["email", "sms", "whatsapp", "none"]
+                .includes(communication)
+                ? communication
+                : "email"
+            );
+          };
+
+          const now = new Date();
+          const hoursBefore = Math.max(
+            0,
+            number(
+              process.env.APPOINTMENT_REMINDER_HOURS_BEFORE,
+              24
+            )
+          );
+          const lookAheadHours = Math.max(
+            1,
+            number(
+              process.env.APPOINTMENT_REMINDER_LOOK_AHEAD_HOURS,
+              48
+            )
+          );
+          const upper = new Date(
+            now.getTime() +
+              lookAheadHours * 60 * 60 * 1000
+          );
+
+          await mongoose.connect(
+            process.env.MONGODB_URI,
+            {
+              serverSelectionTimeoutMS: 15000,
+              autoIndex: false,
+              autoCreate: false,
+            }
+          );
+
+          try {
+            const appointments =
+              await Appointment.find({
+                status: {
+                  $in: [
+                    "pending",
+                    "confirmed",
+                  ],
+                },
+                $or: [
+                  {
+                    startsAt: {
+                      $gte: now,
+                      $lte: upper,
+                    },
+                  },
+                  {
+                    appointmentDate: {
+                      $gte: startOfDay(now),
+                      $lte: endOfDay(upper),
+                    },
+                  },
+                ],
+              })
+                .select(
+                  "_id startsAt appointmentDate appointmentTime status customer"
+                )
+                .populate(
+                  "customer",
+                  "email phone alternativePhone phoneNumber mobile communicationPreferences bookingPreferences"
+                )
+                .sort({
+                  startsAt: 1,
+                  appointmentDate: 1,
+                  appointmentTime: 1,
+                })
+                .limit(500)
+                .lean();
+
+            const summary = {
+              checked: appointments.length,
+              due: 0,
+              duplicateEventKeys: 0,
+              eligibleAfterPolicy: 0,
+              remindersDisabled: 0,
+              globallyUnsubscribed: 0,
+              preferredNone: 0,
+              channelUnsubscribed: 0,
+              missingContact: 0,
+              missingCustomer: 0,
+              byPreferredChannel: {
+                email: 0,
+                sms: 0,
+                whatsapp: 0,
+                none: 0,
+              },
+              byEligibleChannel: {
+                email: 0,
+                sms: 0,
+                whatsapp: 0,
+              },
+            };
+
+            const candidates = [];
+
+            for (const appointment of appointments) {
+              const start =
+                appointmentStart(appointment);
+
+              if (
+                !start ||
+                start <= now ||
+                start > upper
+              ) {
+                continue;
+              }
+
+              const dueAt = new Date(
+                start.getTime() -
+                  hoursBefore * 60 * 60 * 1000
+              );
+
+              if (dueAt > now) {
+                continue;
+              }
+
+              summary.due += 1;
+
+              const customer =
+                appointment.customer;
+
+              if (!customer) {
+                summary.missingCustomer += 1;
+                continue;
+              }
+
+              const preferences =
+                customer.communicationPreferences || {};
+
+              if (
+                preferences.appointmentReminders ===
+                  false
+              ) {
+                summary.remindersDisabled += 1;
+                continue;
+              }
+
+              if (
+                preferences.unsubscribed === true
+              ) {
+                summary.globallyUnsubscribed += 1;
+                continue;
+              }
+
+              const preferred =
+                preferredReminderChannel(customer);
+
+              summary.byPreferredChannel[
+                preferred
+              ] += 1;
+
+              if (preferred === "none") {
+                summary.preferredNone += 1;
+                continue;
+              }
+
+              const email =
+                text(customer.email);
+              const phone =
+                text(
+                  customer.phone ||
+                    customer.alternativePhone ||
+                    customer.phoneNumber ||
+                    customer.mobile
+                );
+
+              if (
+                preferred === "email" &&
+                preferences.emailUnsubscribed === true
+              ) {
+                summary.channelUnsubscribed += 1;
+                continue;
+              }
+
+              if (
+                preferred === "sms" &&
+                preferences.smsUnsubscribed === true
+              ) {
+                summary.channelUnsubscribed += 1;
+                continue;
+              }
+
+              if (
+                preferred === "whatsapp" &&
+                preferences.whatsappUnsubscribed === true
+              ) {
+                summary.channelUnsubscribed += 1;
+                continue;
+              }
+
+              if (
+                (preferred === "email" && !email) ||
+                (
+                  ["sms", "whatsapp"].includes(
+                    preferred
+                  ) &&
+                  !phone
+                )
+              ) {
+                summary.missingContact += 1;
+                continue;
+              }
+
+              summary.eligibleAfterPolicy += 1;
+              summary.byEligibleChannel[
+                preferred
+              ] += 1;
+
+              candidates.push({
+                eventKey:
+                  `appointment.reminder:${appointment._id}:${hoursBefore}:${start.toISOString()}`,
+              });
+            }
+
+            if (candidates.length > 0) {
+              summary.duplicateEventKeys =
+                await TransactionalNotificationEvent.countDocuments({
+                  eventKey: {
+                    $in:
+                      candidates.map(
+                        (entry) =>
+                          entry.eventKey
+                      ),
+                  },
+                });
+            }
+
+            const providerReadiness = {
+              deliveryMode:
+                text(
+                  process.env.MESSAGE_DELIVERY_MODE
+                ) || "sandbox",
+              email: {
+                enabled:
+                  bool(
+                    process.env.EMAIL_DELIVERY_ENABLED
+                  ),
+                provider:
+                  text(
+                    process.env.EMAIL_PROVIDER
+                  ) || "smtp",
+              },
+              sms: {
+                enabled:
+                  bool(
+                    process.env.SMS_DELIVERY_ENABLED
+                  ),
+                provider:
+                  text(
+                    process.env.SMS_PROVIDER
+                  ) || "twilio",
+              },
+              whatsapp: {
+                enabled:
+                  bool(
+                    process.env.WHATSAPP_DELIVERY_ENABLED
+                  ),
+                provider:
+                  text(
+                    process.env.WHATSAPP_PROVIDER
+                  ) || "console",
+                reminderTemplateConfigured:
+                  Boolean(
+                    text(
+                      process.env
+                        .TWILIO_WHATSAPP_APPOINTMENT_REMINDER_CONTENT_SID
+                    ) ||
+                    text(
+                      process.env
+                        .META_WHATSAPP_APPOINTMENT_REMINDER_TEMPLATE_NAME
+                    )
+                  ),
+              },
+            };
+
+            const providerBlockedCandidates =
+              (
+                providerReadiness.email.enabled
+                  ? 0
+                  : summary.byEligibleChannel.email
+              ) +
+              (
+                providerReadiness.sms.enabled
+                  ? 0
+                  : summary.byEligibleChannel.sms
+              ) +
+              (
+                (
+                  providerReadiness.whatsapp.enabled &&
+                  providerReadiness.whatsapp
+                    .reminderTemplateConfigured
+                )
+                  ? 0
+                  : summary.byEligibleChannel.whatsapp
+              );
+
+            const effectiveNewCandidates =
+              Math.max(
+                0,
+                summary.eligibleAfterPolicy -
+                  summary.duplicateEventKeys
+              );
+
+            const report = {
+              readOnly: true,
+              release:
+                process.env.APP_VERSION || null,
+              window: {
+                hoursBefore,
+                lookAheadHours,
+              },
+              appointmentReminderJobEnabled:
+                bool(
+                  process.env
+                    .APPOINTMENT_REMINDER_JOB_ENABLED
+                ),
+              summary: {
+                ...summary,
+                effectiveNewCandidates,
+                providerBlockedCandidates,
+              },
+              providerReadiness,
+              safeForReminderActivation:
+                providerBlockedCandidates === 0,
+              providerSends: false,
+              databaseWrites: false,
+              piiIncluded: false,
+            };
+
+            console.log(
+              JSON.stringify(
+                report,
+                null,
+                2
+              )
+            );
+          } finally {
+            await mongoose.disconnect();
+          }
+          NODE
+
+          echo "[PASS] Appointment reminder candidate audit completed without provider sends or database writes."
+          REMOTE
+
+      - name: Upload reminder audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-appointment-reminder-candidate-audit-${{ github.run_id }}
+          path: reminder-audit-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          if [[ -n "${SSH_PRIVATE_KEY_PATH:-}" ]]; then
+            rm -f -- "$SSH_PRIVATE_KEY_PATH"
+          fi
+          if [[ -n "${SSH_KNOWN_HOSTS_PATH:-}" ]]; then
+            rm -f -- "$SSH_KNOWN_HOSTS_PATH"
+          fi
