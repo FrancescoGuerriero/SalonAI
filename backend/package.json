@@ -30,7 +30,15 @@
     "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js",
     "tenant:migration-readiness": "node scripts/checkTenantMigrationReadiness.js",
     "calendar:readiness": "node scripts/checkCalendarReadiness.js",
-    "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js"
+    "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js",
+    "workforce:tenant-readiness": "node scripts/checkWorkforceTenantReadiness.js",
+    "workforce:tenant-backfill-plan": "node scripts/planWorkforceTenantBackfill.js",
+    "workforce:tenant-backfill": "node scripts/applyWorkforceTenantBackfill.js",
+    "services:tenant-readiness": "node scripts/checkServiceTenantReadiness.js",
+    "services:tenant-backfill-plan": "node scripts/planServiceTenantBackfill.js",
+    "services:tenant-backfill": "node scripts/applyServiceTenantBackfill.js",
+    "tenant:domain:activate": "node scripts/activateCanonicalTenantDomain.js",
+    "communications:scheduler-readiness": "node scripts/checkCommunicationSchedulerReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

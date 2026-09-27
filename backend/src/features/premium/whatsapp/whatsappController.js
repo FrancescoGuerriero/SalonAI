@@ -5,6 +5,7 @@ import Customer from "../../../models/customer.js";
 import Service from "../../../models/service.js";
 import Stylist from "../../../models/Stylist.js";
 import {
+  createManagedAppointment,
   findConflict,
 } from "../../appointments/appointmentManagementService.js";
 import {
@@ -416,37 +417,37 @@ export async function confirmBooking(request, response) {
     });
     const customer = await resolveWhatsAppCustomer(conversation, request.user._id);
     const totalPrice = Math.max(0, Number(resources.service.price) || 0);
-    const appointment = await Appointment.create({
-      customer: customer._id,
-      service: resources.service._id,
-      stylist: resources.stylist._id,
-      appointmentDate:
-        salonDateAnchor(
-          resources.startsAt
-        ),
-      appointmentTime:
-        resources.appointmentTime,
-      startsAt:
-        resources.startsAt,
-      endsAt: resources.endsAt,
-      duration: resources.duration,
-      totalPrice,
-      finalPrice: totalPrice,
-      balanceDue: totalPrice,
-      paymentStatus: "pending",
-      status: "confirmed",
-      bookingSource: "whatsapp",
-      externalBookingReference,
-      notes: "Booking received through WhatsApp and confirmed by the salon team.",
-      createdBy: request.user._id,
-      updatedBy: request.user._id,
-    });
-
-    if (!customer.nextAppointment || resources.startsAt < customer.nextAppointment) {
-      customer.nextAppointment = resources.startsAt;
-      customer.updatedBy = request.user._id;
-      await customer.save();
-    }
+    const appointment =
+      await createManagedAppointment(
+        {
+          customer:
+            customer._id,
+          service:
+            resources.service._id,
+          stylist:
+            resources.stylist._id,
+          startsAt:
+            resources.startsAt,
+          endsAt:
+            resources.endsAt,
+          duration:
+            resources.duration,
+          totalPrice,
+          status:
+            "confirmed",
+          notes:
+            "Booking received through WhatsApp and confirmed by the salon team.",
+        },
+        {
+          actor:
+            request.user,
+          bookingSource:
+            "whatsapp",
+          externalBookingReference,
+          returnPopulated:
+            false,
+        }
+      );
 
     const confirmationText = buildBookingConfirmationMessage({
       serviceName: resources.service.name,

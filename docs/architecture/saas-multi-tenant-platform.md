@@ -1,22 +1,31 @@
-# AI Business Platform — SaaS / Multi-Vertical Architecture
+# AI Intelligent Business Platform — SaaS / Multi-Vertical Architecture
 
 ## Product hierarchy
 
-**AI Business Platform** is the shared SaaS platform.
+**AI Intelligent Business Platform** is the shared SaaS platform.
 
-The current product applications are:
+The platform is organised into vertical products and independent customer tenants.
 
-1. **Salon AI** — the reference implementation and primary development application.
-2. **Plastic Surgery AI** — plastic-surgery vertical.
-3. **Spa AI** — spa vertical.
-4. **Fitness AI** — fitness vertical.
+Current vertical products are:
 
-Salon AI is the application currently used to build and prove shared capabilities. Features that are genuinely reusable should move downward into AI Business Platform rather than remaining salon-specific. Salon-specific behaviour stays in the Salon AI vertical.
+1. **Salon AI** — the first/reference vertical.
+2. **Spa AI** — later spa vertical.
+3. **Plastic Surgery AI** — later clinical/surgical vertical.
+4. **Fitness AI** — later fitness/performance vertical.
+
+The first SaaS acceptance sequence is intentionally within Salon AI:
+
+1. **Tenant 1 — Francesco Picardi** — reference tenant; primary domain `francescopicardi.co.uk`, with the current application host `salonai.francescopicardi.co.uk`.
+2. **Tenant 2 — second independent salon** — future SaaS acceptance tenant used to prove that onboarding does not require a code fork.
+
+Only after two independent Salon AI tenants operate correctly should the platform activate Spa AI or another second vertical.
+
+Salon AI is the application currently used to build and prove shared capabilities. Features that are genuinely reusable should move downward into AI Intelligent Business Platform rather than remaining salon-specific. Salon-specific behaviour stays in the Salon AI vertical.
 
 This relationship is:
 
 ```text
-AI Business Platform
+AI Intelligent Business Platform
 |
 +-- Shared platform core
 |   +-- Identity and tenancy
@@ -30,9 +39,12 @@ AI Business Platform
 |   +-- Feature entitlements
 |   +-- Audit/security
 |
-+-- Salon AI                 <- reference implementation / primary development vertical
-+-- Plastic Surgery AI
++-- Salon AI                 <- reference vertical
+|   +-- Tenant 1: Francesco Picardi
+|   +-- Tenant 2: future independent salon
+|
 +-- Spa AI
++-- Plastic Surgery AI
 +-- Fitness AI
 ```
 
@@ -40,11 +52,11 @@ The platform may later support additional vertical products without cloning the 
 
 ## Architectural rule
 
-Shared functionality belongs to AI Business Platform. Industry-specific behaviour belongs to a vertical module. Tenant-specific data is always scoped to one Business id.
+Shared functionality belongs to AI Intelligent Business Platform. Industry-specific behaviour belongs to a vertical module. Tenant-specific data is always scoped to one Business id.
 
 The target layering is:
 
-1. **AI Business Platform core** — identity, tenancy, booking primitives, commerce, communications, calendar, analytics, feature controls, audit and AI infrastructure.
+1. **AI Intelligent Business Platform core** — identity, tenancy, booking primitives, commerce, communications, calendar, analytics, feature controls, audit and AI infrastructure.
 2. **Vertical modules** — terminology, workflows, validation, policy and optional domain metadata for Salon AI, Plastic Surgery AI, Spa AI, Fitness AI and later products.
 3. **Tenant configuration** — branding, locale, subscription, enabled capabilities, locations and tenant data.
 4. **Product applications** — separately branded customer/staff experiences composed from the same shared platform.
@@ -55,7 +67,7 @@ Salon AI is not a separate fork of the platform. It is the first and primary imp
 
 When Developer 1 adds functionality to Salon AI, Developer 4 evaluates whether the capability is:
 
-- **platform-generic** — suitable for extraction into AI Business Platform;
+- **platform-generic** — suitable for extraction into AI Intelligent Business Platform;
 - **vertical-generic** — reusable within appointment/service businesses but needing vertical configuration;
 - **Salon AI-specific** — kept in the salon vertical.
 
@@ -78,7 +90,7 @@ Plastic Surgery AI will require additional healthcare-specific privacy, consent,
 
 ## Developer 4 ownership
 
-Developer 4 owns the AI Business Platform extraction lane:
+Developer 4 owns the AI Intelligent Business Platform extraction lane:
 
 - Business/tenant root model and tenant-isolation primitives.
 - Vertical registry and business-type contracts.
@@ -113,9 +125,15 @@ Add the tenant root, four-product vertical registry, scoping primitives and test
 
 Add Business membership or equivalent tenant-aware identity binding. Authentication must derive the active tenant from trusted server-side membership/session state, never from an arbitrary client-supplied id.
 
-### Stage C — current Salon AI tenant bootstrap
+### Stage C — reference Salon AI tenant bootstrap
 
-Create the canonical Salon AI Business record and migration tooling. Existing production data is associated with that tenant in controlled migration batches.
+Create the canonical **Francesco Picardi** Business record, primary Location and trusted BusinessDomain mappings. Salon AI remains the vertical; Francesco Picardi is the first tenant.
+
+Reference routing:
+- primary tenant domain: `francescopicardi.co.uk`;
+- current application domain: `salonai.francescopicardi.co.uk`.
+
+Domain mappings begin pending until separately verified/activated. Existing production data is associated with the Francesco Picardi tenant only through controlled migration batches.
 
 ### Stage D — domain model migration
 
@@ -137,17 +155,26 @@ Each group requires data backfill and cross-tenant isolation tests before produc
 
 Move appropriate global feature flags to tenant-scoped subscription/entitlement configuration while preserving platform-level safety and emergency controls.
 
-### Stage F — second product activation
+### Stage F — second Salon AI tenant
 
-Activate one of Plastic Surgery AI, Spa AI or Fitness AI against the shared core without copying Salon AI. This is the architectural acceptance test.
+Provision a second independent salon Business against the same Salon AI vertical without copying code, repositories or shared data. This is the first real SaaS acceptance test.
 
-### Stage G — remaining products
+Success requires tenant-specific:
+- domain/host routing;
+- locations;
+- branding/configuration;
+- staff and permissions;
+- services/catalogue;
+- customer/booking data;
+- integrations and AI knowledge.
 
-Add the other registered products using vertical modules, configuration and shared packages.
+### Stage G — second vertical activation
 
-### Stage H — package/monorepo extraction
+After two Salon AI tenants prove multi-tenancy, activate **Spa AI** (or another agreed second vertical) against the same platform core without copying Salon AI. This is the multi-vertical acceptance test.
 
-After at least two vertical products prove the boundaries, extract stable shared modules into packages/apps. Avoid a disruptive repository rewrite before the abstractions are proven.
+### Stage H — further verticals and package extraction
+
+Add later verticals such as Plastic Surgery AI and Fitness AI through vertical modules, capability packs and configuration. Extract stable shared packages only after tenant and vertical boundaries have been proven in production-like use.
 
 ## Security requirements
 
@@ -170,4 +197,4 @@ This increment remains intentionally non-breaking:
 - no deployment workflow changes;
 - no frontend surface changes.
 
-Developer 1 can therefore continue Salon AI development while Developer 4 grows AI Business Platform underneath it.
+Developer 1 can therefore continue Salon AI development while Developer 4 grows AI Intelligent Business Platform underneath it.

@@ -33,3 +33,52 @@ When the active membership role differs from the User role, those global legacy 
 Every current employee permission is classified.
 
 This foundation does not itself migrate domain resources. Resource ownership and domain-specific location filtering are applied when each route family is migrated.
+
+
+## Operation access composition
+
+AIIBP capability/entitlement availability remains outside the RBAC registry.
+
+For a capability-gated management operation, the intended composition is:
+
+`trusted tenant context -> effective user permission -> trusted capability decision -> trusted resource ownership`
+
+DEV3 does not resolve plan entitlements or vertical capability packs. Those are trusted inputs from the platform/configuration control plane. The reusable operation-access helper only composes the decision with effective permission and optional Business/Location resource authority.
+
+This preserves the platform rule:
+
+`platform support AND vertical capability AND plan entitlement AND tenant configuration AND user permission AND resource ownership`
+
+A denied capability returns a non-disclosing unavailable response. Cross-Business/cross-Location resources use the shared non-disclosing resource denial contract.
+
+
+## Tenant-bound capability decisions
+
+Effective product composition is now a merged AIIBP control-plane contract.
+
+DEV3 consumes that composition without becoming the entitlement authority. A capability decision used by Gate C must be bound to the same trusted Business as the effective authority.
+
+The adapter contract is:
+
+`effective tenant product composition -> Business match -> capability state -> trusted capability decision -> operation access`
+
+A composition for another Business fails with the same non-disclosing resource denial used for cross-tenant domain resources. Disabled or unselected capabilities fail closed as unavailable.
+
+This prevents a valid capability state for Tenant B from being reused to authorise an operation in Tenant A.
+
+
+## Workforce scope contract after #306
+
+DEV4 #306 has merged the additive workforce ownership fields, but production route enforcement remains disabled until DEV1 completes readiness, dry-run and backfill.
+
+DEV3 may therefore prepare the query/authority contract without activating it.
+
+The workforce scope contract:
+- always binds management queries to trusted `Stylist.business`;
+- for selected-location memberships, further restricts to `Stylist.workingLocations[]` intersecting the trusted allowed-location set;
+- preserves business-wide visibility for authorised all-location management;
+- never uses `profilePublished`, `acceptsAppointments` or `isActive` as management-authority filters;
+- uses non-disclosing resource denial for cross-Business/out-of-scope staff;
+- supports a stricter selected-location assertion for location-specific workforce operations.
+
+Live route wiring remains a separate post-backfill activation step.

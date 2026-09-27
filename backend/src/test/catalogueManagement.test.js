@@ -24,15 +24,19 @@ test("service management separates edit and publication permissions", async () =
 
   assert.match(
     routes,
-    /"\/management",\s*protect,\s*requirePermissions\(\s*"service:read"/s
+    /"\/management",\s*\.\.\.protectedServiceTenantChain,\s*requirePermissions\(\s*"service:read"/s
   );
   assert.match(
     routes,
-    /"\/:id\/publication",\s*protect,\s*requirePermissions\(\s*"service:publish"/s
+    /"\/:id\/publication",\s*\.\.\.protectedServiceTenantChain,\s*requirePermissions\(\s*"service:publish"/s
   );
   assert.match(
     routes,
-    /"\/:id",\s*protect,\s*requirePermissions\(\s*"service:update"/s
+    /"\/:id",\s*\.\.\.protectedServiceTenantChain,\s*requirePermissions\(\s*"service:update"/s
+  );
+  assert.match(
+    routes,
+    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
   );
   assert.match(
     controller,

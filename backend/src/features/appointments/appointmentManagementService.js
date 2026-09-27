@@ -970,6 +970,8 @@ async function createManagedAppointment(
     session = null,
     bookingSource =
       "management",
+    externalBookingReference =
+      "",
     returnPopulated =
       true,
   } = {}
@@ -1135,6 +1137,18 @@ async function createManagedAppointment(
         bookingSource
       ) ||
       "management",
+    ...(
+      normaliseText(
+        externalBookingReference
+      )
+        ? {
+            externalBookingReference:
+              normaliseText(
+                externalBookingReference
+              ),
+          }
+        : {}
+    ),
     createdBy:
       actorId,
     updatedBy:

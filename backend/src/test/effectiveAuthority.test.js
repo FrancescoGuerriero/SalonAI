@@ -10,8 +10,12 @@ import {
   requireEffectivePermissions,
 } from "../middleware/effectiveAuthorityMiddleware.js";
 import {
+  assertBusinessResourceAuthority,
+  assertLocationResourceAuthority,
   canUsePermissionAtCurrentScope,
+  hasBusinessResourceAuthority,
   hasLocationAuthority,
+  hasLocationResourceAuthority,
   resolveEffectiveAuthority,
 } from "../services/effectiveAuthorityService.js";
 import {
@@ -582,6 +586,182 @@ test(
     assert.equal(
       success,
       null
+    );
+  }
+);
+
+
+test(
+  "business resource authority is bounded to the trusted active business",
+  () => {
+    const authority = {
+      businessId:
+        "507f1f77bcf86cd799439012",
+      locationId:
+        null,
+      locationAccessMode:
+        "all",
+      allowedLocationIds:
+        null,
+    };
+
+    assert.equal(
+      hasBusinessResourceAuthority(
+        authority,
+        "507f1f77bcf86cd799439012"
+      ),
+      true
+    );
+
+    assert.equal(
+      hasBusinessResourceAuthority(
+        authority,
+        "507f1f77bcf86cd799439099"
+      ),
+      false
+    );
+
+    assert.throws(
+      () =>
+        assertBusinessResourceAuthority(
+          authority,
+          "507f1f77bcf86cd799439099"
+        ),
+      (error) =>
+        error?.code ===
+          "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404 &&
+        error?.message ===
+          "The requested resource was not found."
+    );
+  }
+);
+
+test(
+  "location resource authority respects allowed and selected location scope",
+  () => {
+    const authority = {
+      businessId:
+        "507f1f77bcf86cd799439012",
+      locationId:
+        "507f1f77bcf86cd799439013",
+      locationAccessMode:
+        "selected",
+      allowedLocationIds: [
+        "507f1f77bcf86cd799439013",
+        "507f1f77bcf86cd799439014",
+      ],
+    };
+
+    assert.equal(
+      hasLocationResourceAuthority(
+        authority,
+        {
+          businessId:
+            "507f1f77bcf86cd799439012",
+          locationId:
+            "507f1f77bcf86cd799439014",
+        }
+      ),
+      true
+    );
+
+    assert.equal(
+      hasLocationResourceAuthority(
+        authority,
+        {
+          businessId:
+            "507f1f77bcf86cd799439012",
+          locationId:
+            "507f1f77bcf86cd799439014",
+          requireSelectedLocation:
+            true,
+        }
+      ),
+      false
+    );
+
+    assert.deepEqual(
+      assertLocationResourceAuthority(
+        authority,
+        {
+          businessId:
+            "507f1f77bcf86cd799439012",
+          locationId:
+            "507f1f77bcf86cd799439013",
+          requireSelectedLocation:
+            true,
+        }
+      ),
+      {
+        businessId:
+          "507f1f77bcf86cd799439012",
+        locationId:
+          "507f1f77bcf86cd799439013",
+        requireSelectedLocation:
+          true,
+      }
+    );
+
+    assert.throws(
+      () =>
+        assertLocationResourceAuthority(
+          authority,
+          {
+            businessId:
+              "507f1f77bcf86cd799439012",
+            locationId:
+              "507f1f77bcf86cd799439099",
+          }
+        ),
+      (error) =>
+        error?.code ===
+          "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404
+    );
+  }
+);
+
+test(
+  "all-location membership remains bounded to its trusted business",
+  () => {
+    const authority = {
+      businessId:
+        "507f1f77bcf86cd799439012",
+      locationId:
+        null,
+      locationAccessMode:
+        "all",
+      allowedLocationIds:
+        null,
+    };
+
+    assert.equal(
+      hasLocationResourceAuthority(
+        authority,
+        {
+          businessId:
+            "507f1f77bcf86cd799439012",
+          locationId:
+            "507f1f77bcf86cd799439077",
+        }
+      ),
+      true
+    );
+
+    assert.equal(
+      hasLocationResourceAuthority(
+        authority,
+        {
+          businessId:
+            "507f1f77bcf86cd799439099",
+          locationId:
+            "507f1f77bcf86cd799439077",
+        }
+      ),
+      false
     );
   }
 );
