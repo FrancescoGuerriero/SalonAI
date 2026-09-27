@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 
 import {
   assertCustomerAppointmentReadOnlyArguments,
@@ -36,12 +37,25 @@ test("Customer/Appointment readiness CLI rejects every write-like argument", () 
 });
 
 test("Customer/Appointment readiness report exposes counts and blocker classes without identifiers or PII", () => {
+  const businessId =
+    new mongoose.Types.ObjectId();
+  const locationId =
+    new mongoose.Types.ObjectId();
+
   const report =
     sanitiseCustomerAppointmentReadiness({
       readiness: {
         safeForBackfill:
           false,
         scope: {
+          businessId:
+            String(
+              businessId
+            ),
+          locationId:
+            String(
+              locationId
+            ),
           businessCount:
             1,
           canonicalBusinessCount:
@@ -181,6 +195,22 @@ test("Customer/Appointment readiness report exposes counts and blocker classes w
   assert.doesNotMatch(
     text,
     /sensitive-record-id/
+  );
+  assert.doesNotMatch(
+    text,
+    new RegExp(
+      String(
+        businessId
+      )
+    )
+  );
+  assert.doesNotMatch(
+    text,
+    new RegExp(
+      String(
+        locationId
+      )
+    )
   );
   assert.doesNotMatch(
     text,
