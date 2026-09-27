@@ -11,6 +11,9 @@ import {
 import {
   loadCustomerAppointmentOwnershipSnapshot,
 } from "../src/platform/tenancy/customerAppointmentOwnershipSnapshot.js";
+import {
+  sanitiseCustomerAppointmentMigrationScope,
+} from "../src/platform/tenancy/customerAppointmentOwnershipMigration.js";
 
 function mongoUri(
   environment = process.env
