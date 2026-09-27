@@ -41,23 +41,31 @@ function mongoUri(
 export function assertReadOnlyArguments(
   args = process.argv.slice(2)
 ) {
-  const prohibited =
-    new Set([
+  const prohibitedPrefixes =
+    [
       "--apply",
       "--write",
       "--migrate",
       "--backfill",
       "--fix",
-    ]);
+    ];
 
   const supplied =
     args.filter(
-      (argument) =>
-        prohibited.has(
+      (argument) => {
+        const value =
           String(
             argument || ""
-          ).trim()
-        )
+          ).trim();
+
+        return prohibitedPrefixes.some(
+          (prefix) =>
+            value === prefix ||
+            value.startsWith(
+              `${prefix}=`
+            )
+        );
+      }
     );
 
   if (
