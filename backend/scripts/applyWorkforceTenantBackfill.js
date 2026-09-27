@@ -7,7 +7,9 @@ import {
 
 import Business from "../src/models/Business.js";
 import BusinessMembership from "../src/models/BusinessMembership.js";
+import AuditLog from "../src/models/AuditLog.js";
 import Location from "../src/models/Location.js";
+import StaffRole from "../src/models/StaffRole.js";
 import Stylist from "../src/models/Stylist.js";
 import User from "../src/models/user.js";
 import StaffAvailability from "../src/features/staff/StaffAvailability.js";
@@ -20,11 +22,16 @@ import {
 } from "../src/platform/tenancy/canonicalSalonTenantBootstrap.js";
 import {
   buildWorkforceBackfillPlan,
+  buildWorkforceMembershipGrantReference,
   buildWorkforceOwnershipReadiness,
+  WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
 } from "../src/platform/tenancy/workforceOwnershipMigration.js";
 import {
   buildWorkforceScheduleBackfillPlan,
 } from "../src/platform/tenancy/workforceScheduleOwnershipMigration.js";
+import {
+  buildCanonicalWorkforceMigrationScope,
+} from "../src/platform/tenancy/workforceMigrationScope.js";
 import {
   sanitiseWorkforceBackfillPlan,
 } from "./planWorkforceTenantBackfill.js";
@@ -196,6 +203,64 @@ async function loadPlans({
       session
     );
 
+  let businessesQuery =
+    Business.find({})
+      .sort({
+        _id: 1,
+      })
+      .select(
+        "_id"
+      );
+
+  let staffRoleQuery =
+    StaffRole.find({
+      active: true,
+    })
+      .sort({
+        key: 1,
+      })
+      .select(
+        "key active"
+      );
+
+  if (session) {
+    businessesQuery =
+      businessesQuery.session(
+        session
+      );
+    staffRoleQuery =
+      staffRoleQuery.session(
+        session
+      );
+  }
+
+  const [
+    businesses,
+    activeCustomStaffRoles,
+  ] =
+    await Promise.all([
+      businessesQuery.lean(),
+      staffRoleQuery.lean(),
+    ]);
+
+  const migrationScope =
+    buildCanonicalWorkforceMigrationScope({
+      businesses,
+      businessId:
+        business._id,
+    });
+
+  const activeCustomStaffRoleKeys =
+    activeCustomStaffRoles.map(
+      (role) =>
+        String(
+          role.key ||
+            ""
+        )
+          .trim()
+          .toLowerCase()
+    );
+
   let stylistQuery =
     Stylist.find({})
       .sort({
@@ -323,6 +388,9 @@ async function loadPlans({
       stylists,
       users,
       memberships,
+      activeStaffRoleKeys:
+        activeCustomStaffRoleKeys,
+      migrationScope,
       businessId:
         business._id,
       locationId:
@@ -569,6 +637,31 @@ async function applyMembershipOperation({
   session,
   rollbackEvidence,
 }) {
+  const expectedGrantReference =
+    buildWorkforceMembershipGrantReference({
+      userId:
+        operation.userId,
+      businessId:
+        operation.businessId,
+      roleKey:
+        operation.roleKey,
+      locationAccessMode:
+        operation.locationAccessMode,
+      locations:
+        operation.locations,
+    });
+
+  if (
+    operation.provenanceKey !==
+      WORKFORCE_MEMBERSHIP_MIGRATION_KEY ||
+    operation.grantReference !==
+      expectedGrantReference
+  ) {
+    throw new Error(
+      "BusinessMembership grant provenance does not match the reviewed plan. Transaction aborted."
+    );
+  }
+
   const existing =
     await BusinessMembership.findOne({
       user:
@@ -607,6 +700,69 @@ async function applyMembershipOperation({
           operation.locations,
         isDefault:
           false,
+        createdBy:
+          null,
+        updatedBy:
+          null,
+      }],
+      {
+        session,
+      }
+    );
+
+  const membership =
+    created[0];
+
+  const auditRows =
+    await AuditLog.create(
+      [{
+        action:
+          "workforce.tenant-backfill.membership-created",
+        resourceType:
+          "BusinessMembership",
+        resourceId:
+          String(
+            membership._id
+          ),
+        before:
+          null,
+        after: {
+          userId:
+            String(
+              operation.userId
+            ),
+          businessId:
+            String(
+              operation.businessId
+            ),
+          status:
+            "active",
+          roleKey:
+            operation.roleKey,
+          locationAccessMode:
+            operation.locationAccessMode,
+          locations:
+            [
+              ...operation.locations,
+            ].map(
+              (value) =>
+                String(
+                  value
+                )
+            ),
+          isDefault:
+            false,
+        },
+        metadata: {
+          source:
+            "system-migration",
+          migrationKey:
+            operation.provenanceKey,
+          grantReference:
+            operation.grantReference,
+          authorityGrant:
+            true,
+        },
       }],
       {
         session,
@@ -616,12 +772,20 @@ async function applyMembershipOperation({
   rollbackEvidence.memberships.push({
     id:
       String(
-        created[0]._id
+        membership._id
       ),
     userId:
       operation.userId,
     businessId:
       operation.businessId,
+    grantReference:
+      operation.grantReference,
+    auditLogId:
+      String(
+        auditRows[0]._id
+      ),
+    provenanceKey:
+      operation.provenanceKey,
   });
 }
 
