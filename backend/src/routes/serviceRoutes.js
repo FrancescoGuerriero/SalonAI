@@ -29,8 +29,8 @@ import {
 const router = express.Router();
 
 const protectedServiceTenantChain = [
-  servicePublicTenantContextMiddleware,
   protect,
+  servicePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
 ];
