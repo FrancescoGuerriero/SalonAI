@@ -32,7 +32,8 @@
     "calendar:readiness": "node scripts/checkCalendarReadiness.js",
     "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js",
     "workforce:tenant-readiness": "node scripts/checkWorkforceTenantReadiness.js",
-    "workforce:tenant-backfill-plan": "node scripts/planWorkforceTenantBackfill.js"
+    "workforce:tenant-backfill-plan": "node scripts/planWorkforceTenantBackfill.js",
+    "workforce:tenant-backfill": "node scripts/applyWorkforceTenantBackfill.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
