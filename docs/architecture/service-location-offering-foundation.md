@@ -152,3 +152,29 @@ The zero-write backfill plan:
 The canonical Salon AI single-location migration does not need one LocationServiceOffering per Service. In the absence of an offering, the base Service remains effective at the Location. Offering records should exist only when location-specific operational state or overrides are actually required.
 
 There is intentionally no Service backfill apply executor in this preparation PR.
+
+## Post-backfill route enforcement
+
+After the canonical SalonAI Service ownership backfill has completed, Service HTTP routes must consume the existing trusted tenancy stack rather than accepting tenant ids from clients.
+
+Public catalogue flow:
+
+`server-trusted Host -> active BusinessDomain -> Business -> Service.business`
+
+Protected management flow:
+
+`server-trusted Host -> active BusinessDomain -> BusinessMembership -> effective authority -> permission -> Service.business`
+
+Production nginx preserves the original request host with `proxy_set_header Host $host`; Service tenant routing therefore does not trust `X-Forwarded-Host`.
+
+Required behavior:
+- public Service list/detail queries include the host-resolved Business;
+- management list/create/update/publication/delete use the effective-authority Business;
+- Service create stamps the trusted Business server-side;
+- client-supplied `business` remains ignored;
+- cross-Business Service identifiers return non-disclosing 404 behavior;
+- serialized Service responses do not expose the internal Business id;
+- local development may map localhost to the explicitly configured canonical app domain, while production has no canonical-host fallback;
+- `LocationServiceOffering` remains separate and is not auto-created by this activation.
+
+The public route wiring is deployment-safe only after the corresponding canonical BusinessDomain is explicitly activated and verified.
