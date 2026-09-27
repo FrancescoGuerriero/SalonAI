@@ -504,6 +504,32 @@ export function buildCustomerAppointmentOwnershipReadiness({
       recordBlockers.push(
         "appointment-stylist-business-conflict"
       );
+    } else {
+      const stylistLocationIds =
+        (
+          Array.isArray(
+            stylist.workingLocations
+          )
+            ? stylist.workingLocations
+            : []
+        )
+          .map(
+            (value) =>
+              idText(
+                value
+              )
+          )
+          .filter(Boolean);
+
+      if (
+        !stylistLocationIds.includes(
+          targetLocationId
+        )
+      ) {
+        recordBlockers.push(
+          "appointment-stylist-location-unproven"
+        );
+      }
     }
 
     if (
