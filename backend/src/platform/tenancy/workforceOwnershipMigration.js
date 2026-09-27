@@ -1,4 +1,15 @@
+import {
+  createHash,
+} from "node:crypto";
+
 import mongoose from "mongoose";
+
+import {
+  BUILT_IN_STAFF_ROLE_KEYS,
+} from "../../services/staffRoleRegistryService.js";
+
+export const WORKFORCE_MEMBERSHIP_MIGRATION_KEY =
+  "workforce-tenant-backfill-v1";
 
 function ownershipError(
   message,
@@ -91,10 +102,93 @@ function membershipKey(
   return `${userId}:${businessId}`;
 }
 
+function activeStaffRoleKeySet(
+  activeStaffRoleKeys = []
+) {
+  return new Set([
+    ...BUILT_IN_STAFF_ROLE_KEYS,
+    ...(
+      Array.isArray(
+        activeStaffRoleKeys
+      )
+        ? activeStaffRoleKeys
+        : []
+    )
+      .map(
+        (value) =>
+          roleKey(
+            value
+          )
+      )
+      .filter(Boolean),
+  ]);
+}
+
+export function buildWorkforceMembershipGrantReference({
+  userId,
+  businessId,
+  roleKey: grantRoleKey,
+  locationAccessMode,
+  locations = [],
+} = {}) {
+  const normalizedUserId =
+    requiredObjectId(
+      userId,
+      "grant.userId"
+    );
+  const normalizedBusinessId =
+    requiredObjectId(
+      businessId,
+      "grant.businessId"
+    );
+  const normalizedRoleKey =
+    roleKey(
+      grantRoleKey
+    );
+
+  if (!normalizedRoleKey) {
+    throw ownershipError(
+      "grant.roleKey must be a valid staff role key."
+    );
+  }
+
+  const normalizedLocations =
+    uniqueIds(
+      locations
+    ).sort();
+
+  return createHash(
+    "sha256"
+  )
+    .update(
+      JSON.stringify({
+        version:
+          WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
+        userId:
+          normalizedUserId,
+        businessId:
+          normalizedBusinessId,
+        roleKey:
+          normalizedRoleKey,
+        locationAccessMode:
+          locationAccessMode ===
+            "all"
+            ? "all"
+            : "selected",
+        locations:
+          normalizedLocations,
+      })
+    )
+    .digest(
+      "hex"
+    );
+}
+
 export function buildWorkforceOwnershipReadiness({
   stylists = [],
   users = [],
   memberships = [],
+  activeStaffRoleKeys = [],
   businessId,
   locationId,
 } = {}) {
@@ -107,6 +201,10 @@ export function buildWorkforceOwnershipReadiness({
     requiredObjectId(
       locationId,
       "locationId"
+    );
+  const activeRoleKeys =
+    activeStaffRoleKeySet(
+      activeStaffRoleKeys
     );
 
   const userById =
@@ -293,17 +391,13 @@ export function buildWorkforceOwnershipReadiness({
           "linked-user-missing"
         );
       } else {
+        const userActive =
+          user.isActive !==
+          false;
         const nextRoleKey =
           roleKey(
             user.role
           );
-
-        if (!nextRoleKey) {
-          recordBlockers.push(
-            "linked-user-not-staff-role"
-          );
-        }
-
         const membership =
           membershipByUserBusiness.get(
             membershipKey(
@@ -312,12 +406,33 @@ export function buildWorkforceOwnershipReadiness({
             )
           );
 
-        if (!membership) {
+        if (!userActive) {
           membershipAction =
-            "create";
+            "manual-review";
+          recordBlockers.push(
+            "linked-user-inactive"
+          );
+        }
 
-          if (nextRoleKey) {
-            membershipCreates.push({
+        if (!membership) {
+          if (
+            !nextRoleKey ||
+            !activeRoleKeys.has(
+              nextRoleKey
+            )
+          ) {
+            membershipAction =
+              "manual-review";
+            recordBlockers.push(
+              "linked-user-role-not-active-staff-role"
+            );
+          } else if (
+            userActive
+          ) {
+            membershipAction =
+              "create";
+
+            const grant = {
               stylistId,
               userId:
                 linkedUserId,
@@ -330,20 +445,59 @@ export function buildWorkforceOwnershipReadiness({
               locations: [
                 targetLocationId,
               ],
+              provenanceKey:
+                WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
+            };
+
+            membershipCreates.push({
+              ...grant,
+              grantReference:
+                buildWorkforceMembershipGrantReference({
+                  userId:
+                    grant.userId,
+                  businessId:
+                    grant.business,
+                  roleKey:
+                    grant.roleKey,
+                  locationAccessMode:
+                    grant.locationAccessMode,
+                  locations:
+                    grant.locations,
+                }),
             });
           }
         } else if (
-          membership.status ===
+          membership.status !==
             "active"
         ) {
-          membershipAction =
-            "reuse";
-        } else {
           membershipAction =
             "manual-review";
           recordBlockers.push(
             "existing-membership-not-active"
           );
+        } else {
+          const membershipRoleKey =
+            roleKey(
+              membership.roleKey
+            );
+
+          if (
+            !membershipRoleKey ||
+            !activeRoleKeys.has(
+              membershipRoleKey
+            )
+          ) {
+            membershipAction =
+              "manual-review";
+            recordBlockers.push(
+              "existing-membership-role-not-active-staff-role"
+            );
+          } else if (
+            userActive
+          ) {
+            membershipAction =
+              "reuse";
+          }
         }
       }
     } else if (email) {
@@ -722,6 +876,16 @@ export function buildWorkforceBackfillPlan(
               membership.locations
             ),
           ]),
+        grantReference:
+          String(
+            membership.grantReference ||
+              ""
+          ),
+        provenanceKey:
+          String(
+            membership.provenanceKey ||
+              WORKFORCE_MEMBERSHIP_MIGRATION_KEY
+          ),
       })
     );
 
