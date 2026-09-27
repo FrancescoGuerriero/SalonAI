@@ -223,7 +223,7 @@ test("Service routes compose host, membership, effective authority and canonical
   );
   assert.match(
     source,
-    /const protectedServiceTenantChain = \[\s*servicePublicTenantContextMiddleware,\s*protect,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
+    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
   );
 
   for (const permission of [
