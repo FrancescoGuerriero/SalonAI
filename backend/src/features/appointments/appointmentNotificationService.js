@@ -90,7 +90,6 @@ function notificationChannels(customer, { reminder = false } = {}) {
   const preferences = customer?.communicationPreferences || {};
   if (preferences.unsubscribed === true) return [];
 
-  const channels = [];
   const email = text(customer?.email);
   const phone = text(
     customer?.phone ||
@@ -99,15 +98,57 @@ function notificationChannels(customer, { reminder = false } = {}) {
       customer?.mobile
   );
 
-  if (email && preferences.emailUnsubscribed !== true) {
+  if (reminder) {
+    const preferred =
+      reminderChannel(customer);
+
+    if (preferred === "none") {
+      return [];
+    }
+
+    if (
+      preferred === "email" &&
+      email &&
+      preferences.emailUnsubscribed !== true
+    ) {
+      return ["email"];
+    }
+
+    if (
+      preferred === "sms" &&
+      phone &&
+      preferences.smsUnsubscribed !== true
+    ) {
+      return ["sms"];
+    }
+
+    if (
+      preferred === "whatsapp" &&
+      phone &&
+      preferences.whatsappUnsubscribed !== true
+    ) {
+      return ["whatsapp"];
+    }
+
+    return [];
+  }
+
+  const channels = [];
+
+  if (
+    email &&
+    preferences.emailUnsubscribed !== true
+  ) {
     channels.push("email");
   }
 
-  const preferred = reminder
-    ? reminderChannel(customer)
-    : text(preferences.preferredChannel).toLowerCase();
+  const preferred =
+    text(preferences.preferredChannel)
+      .toLowerCase();
 
-  if (preferred === "none") return channels;
+  if (preferred === "none") {
+    return channels;
+  }
 
   if (
     preferred === "sms" &&
@@ -117,7 +158,11 @@ function notificationChannels(customer, { reminder = false } = {}) {
     channels.push("sms");
   }
 
-  if (preferred === "whatsapp" && phone) {
+  if (
+    preferred === "whatsapp" &&
+    phone &&
+    preferences.whatsappUnsubscribed !== true
+  ) {
     channels.push("whatsapp");
   }
 
