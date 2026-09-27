@@ -135,3 +135,39 @@ This command:
 The internal dry-run plan may contain resource ids because a future executor will require exact targets, but the operator-facing report intentionally exposes only counts and the fingerprint.
 
 No apply executor exists in this slice.
+
+
+## Guarded transactional apply command
+
+The apply executor exists for later DEV1-controlled migration, but DEV4 does not run it against production.
+
+First generate and review the zero-write plan:
+
+```bash
+npm run workforce:tenant-backfill-plan
+```
+
+Record the emitted SHA-256 fingerprint. Apply requires all of the following simultaneously:
+
+1. explicit `--apply`;
+2. `WORKFORCE_TENANT_BACKFILL_CONFIRM=APPLY_WORKFORCE_TENANT_BACKFILL`;
+3. `WORKFORCE_TENANT_BACKFILL_PLAN_FINGERPRINT=<reviewed fingerprint>`;
+4. the six explicit canonical tenant identity environment variables required by the Francesco Picardi bootstrap contract.
+
+Example shape for the future DEV1-controlled operation:
+
+```bash
+WORKFORCE_TENANT_BACKFILL_CONFIRM=APPLY_WORKFORCE_TENANT_BACKFILL \
+WORKFORCE_TENANT_BACKFILL_PLAN_FINGERPRINT=<reviewed-sha256> \
+npm run workforce:tenant-backfill -- --apply
+```
+
+The executor recomputes the plan before the transaction, verifies the reviewed fingerprint, recomputes it again inside the MongoDB transaction, applies only the reviewed operations, then re-reads the ownership state **inside the same transaction**. The transaction aborts unless both workforce and schedule/rota planners converge to zero remaining operations.
+
+The apply output contains rollback evidence for modified Stylist/schedule records and any BusinessMembership records created by that invocation.
+
+This slice still does **not**:
+- make ownership fields required;
+- change tenant-local unique indexes;
+- enable route tenant enforcement;
+- activate any production domain automatically.
