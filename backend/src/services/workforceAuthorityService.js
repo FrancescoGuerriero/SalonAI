@@ -1,5 +1,6 @@
 import {
   assertBusinessResourceAuthority,
+  hasLocationAuthority,
 } from "./effectiveAuthorityService.js";
 
 function scopeError(
@@ -83,6 +84,27 @@ function resourceNotFound() {
   );
 }
 
+export function publicWorkforceBusinessId(
+  request
+) {
+  const businessId =
+    idText(
+      request
+        ?.publicTenantContext
+        ?.businessId
+    );
+
+  if (!businessId) {
+    throw scopeError(
+      "The requested tenant is unavailable.",
+      "PUBLIC_TENANT_NOT_FOUND",
+      404
+    );
+  }
+
+  return businessId;
+}
+
 export function workforceManagementScope(
   authority
 ) {
@@ -158,6 +180,68 @@ export function scopedWorkforceFilter(
       domainFilter,
     ],
   };
+}
+
+export function workforceCreationOwnership(
+  authority
+) {
+  assertAuthority(
+    authority
+  );
+
+  const businessId =
+    idText(
+      authority.businessId
+    );
+  const selectedLocationId =
+    idText(
+      authority.locationId
+    );
+
+  if (
+    selectedLocationId &&
+    hasLocationAuthority(
+      authority,
+      selectedLocationId
+    )
+  ) {
+    return Object.freeze({
+      businessId,
+      workingLocationIds:
+        Object.freeze([
+          selectedLocationId,
+        ]),
+    });
+  }
+
+  if (
+    authority.locationAccessMode ===
+    "selected"
+  ) {
+    const allowedLocationIds =
+      uniqueIds(
+        authority.allowedLocationIds
+      );
+
+    if (
+      allowedLocationIds.length ===
+      1
+    ) {
+      return Object.freeze({
+        businessId,
+        workingLocationIds:
+          Object.freeze([
+            allowedLocationIds[0],
+          ]),
+      });
+    }
+  }
+
+  throw scopeError(
+    "A trusted working location must be selected before creating a workforce record.",
+    "WORKFORCE_LOCATION_CONTEXT_REQUIRED",
+    403
+  );
 }
 
 export function assertWorkforceResourceAuthority(
@@ -270,6 +354,8 @@ export function assertWorkforceResourceAuthority(
 
 export default {
   assertWorkforceResourceAuthority,
+  publicWorkforceBusinessId,
   scopedWorkforceFilter,
+  workforceCreationOwnership,
   workforceManagementScope,
 };
