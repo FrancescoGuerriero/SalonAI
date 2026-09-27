@@ -1,0 +1,322 @@
+name: SalonAI Production MessageDelivery Scheduler Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live SalonAI release
+        required: true
+        type: string
+      confirm_activation:
+        description: Type ENABLE_MESSAGE_DELIVERY_SCHEDULER to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  activate:
+    name: Activate MessageDelivery scheduler
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Validate request
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          CONFIRMATION: ${{ inputs.confirm_activation }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$CONFIRMATION" == "ENABLE_MESSAGE_DELIVERY_SCHEDULER" ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Activate scheduler with automatic rollback
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+
+          install -d -m 0700 activation-evidence
+          evidence="activation-evidence/message-delivery-scheduler-activation.txt"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          ssh "${ssh_options[@]}" "$target"             "EXPECTED_RELEASE_TAG='$EXPECTED_RELEASE_TAG' bash -s" <<'REMOTE' | tee "$evidence"
+          set -euo pipefail
+
+          cd /opt/salonai
+          test "$(id -un)" = "salonai-deploy"
+          test -f .env.production
+          test -f docker-compose.production.yml
+
+          current_release="$(
+            docker exec salonai-backend node -e               'console.log(process.env.APP_VERSION || "")'
+          )"
+
+          if [[ "$current_release" != "$EXPECTED_RELEASE_TAG" ]]; then
+            echo "[ERROR] Live release $current_release does not match expected $EXPECTED_RELEASE_TAG." >&2
+            exit 1
+          fi
+
+          readiness_file="$(mktemp)"
+          backup_file=".env.production.message-delivery-scheduler.$$.bak"
+
+          cleanup() {
+            rm -f -- "$readiness_file"
+          }
+          trap cleanup EXIT
+
+          set +e
+          docker exec salonai-backend             node scripts/checkCommunicationSchedulerReadiness.js             >"$readiness_file"
+          readiness_status=$?
+          set -e
+
+          node --input-type=module - "$readiness_file" <<'NODE'
+          import fs from "node:fs";
+
+          const report = JSON.parse(
+            fs.readFileSync(process.argv[2], "utf8")
+          );
+
+          const requiredZero = [
+            "scheduledCampaignsDue",
+            "scheduledCampaignsFuture",
+            "retryableDeliveriesDue",
+            "retryableDeliveriesFuture",
+            "processingDeliveries",
+            "failedOrUndelivered",
+            "pendingDeliveries",
+          ];
+
+          for (const key of requiredZero) {
+            if (Number(report?.inventory?.[key] || 0) !== 0) {
+              throw new Error(
+                `Scheduler activation requires zero ${key}.`
+              );
+            }
+          }
+
+          if (report?.scheduler?.enabled !== false) {
+            throw new Error(
+              "MessageDelivery scheduler must be disabled before activation."
+            );
+          }
+
+          if (report?.appointmentReminders?.enabled !== false) {
+            throw new Error(
+              "Appointment reminder job must remain disabled during MessageDelivery scheduler activation."
+            );
+          }
+
+          console.log(JSON.stringify({
+            preflight: true,
+            schedulerEnabled: report.scheduler.enabled,
+            appointmentRemindersEnabled:
+              report.appointmentReminders.enabled,
+            inventory: report.inventory,
+            providerSends: report.providerSends,
+            databaseWrites: report.databaseWrites,
+          }, null, 2));
+          NODE
+
+          if [[ "$readiness_status" -eq 0 ]]; then
+            echo "[WARN] Preflight readiness unexpectedly reported fully ready; continuing only because the zero-backlog and disabled-state assertions passed."
+          fi
+
+          cp --preserve=mode,ownership,timestamps             .env.production             "$backup_file"
+          chmod 0600 "$backup_file"
+
+          set_env() {
+            local key="$1"
+            local value="$2"
+
+            if grep -q "^$key=" .env.production; then
+              sed -i "s|^$key=.*|$key=$value|" .env.production
+            else
+              printf '%s=%s\n' "$key" "$value" >> .env.production
+            fi
+          }
+
+          rollback() {
+            local status=$?
+            trap - ERR
+
+            echo "[ROLLBACK] Restoring previous production environment." >&2
+            cp "$backup_file" .env.production
+            chmod 0600 .env.production
+
+            docker compose               --env-file .env.production               -f docker-compose.production.yml               up -d --no-deps --force-recreate backend || true
+
+            docker compose               --env-file .env.production               -f docker-compose.production.yml               restart edge || true
+
+            rm -f -- "$backup_file"
+            exit "$status"
+          }
+
+          trap rollback ERR
+
+          set_env MESSAGE_DELIVERY_SCHEDULER_ENABLED true
+          set_env MESSAGE_DELIVERY_SCHEDULER_RUN_IMMEDIATELY false
+          set_env APPOINTMENT_REMINDER_JOB_ENABLED false
+
+          docker compose             --env-file .env.production             -f docker-compose.production.yml             config --quiet
+
+          docker compose             --env-file .env.production             -f docker-compose.production.yml             up -d --no-deps --force-recreate backend
+
+          docker compose             --env-file .env.production             -f docker-compose.production.yml             restart edge
+
+          healthy=false
+          for attempt in $(seq 1 45); do
+            backend_health="$(
+              docker inspect                 --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}'                 salonai-backend 2>/dev/null || true
+            )"
+
+            if [[ "$backend_health" == "healthy" ]]; then
+              healthy=true
+              break
+            fi
+
+            sleep 2
+          done
+
+          if [[ "$healthy" != "true" ]]; then
+            echo "[ERROR] Backend did not become healthy after scheduler activation." >&2
+            false
+          fi
+
+          docker exec salonai-backend node --input-type=module - <<'NODE'
+          const response =
+            await fetch(
+              "http://127.0.0.1:5000/api/health"
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              `Health endpoint returned HTTP ${response.status}.`
+            );
+          }
+
+          const health =
+            await response.json();
+
+          const scheduler =
+            health?.checks?.scheduler || {};
+
+          if (
+            scheduler.enabled !== true ||
+            scheduler.started !== true ||
+            scheduler.runningCycle !== false
+          ) {
+            throw new Error(
+              "MessageDelivery scheduler did not reach the expected running state."
+            );
+          }
+
+          if (
+            scheduler?.appointmentReminders?.enabled === true ||
+            scheduler?.appointmentReminders?.started === true
+          ) {
+            throw new Error(
+              "Appointment reminder job must remain disabled."
+            );
+          }
+
+          console.log(JSON.stringify({
+            postflight: true,
+            ready: health.ready,
+            release: process.env.APP_VERSION,
+            scheduler: {
+              enabled: scheduler.enabled,
+              started: scheduler.started,
+              runningCycle: scheduler.runningCycle,
+              lastFailedCycleAt:
+                scheduler.lastFailedCycleAt || null,
+              lastError:
+                scheduler.lastError || null,
+            },
+            appointmentReminders:
+              scheduler.appointmentReminders || null,
+          }, null, 2));
+          NODE
+
+          rm -f -- "$backup_file"
+          trap - ERR
+
+          echo "[PASS] MessageDelivery scheduler enabled. Appointment reminder job remains disabled."
+          REMOTE
+
+      - name: Upload activation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-message-delivery-scheduler-activation-${{ github.run_id }}
+          path: activation-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          if [[ -n "${SSH_PRIVATE_KEY_PATH:-}" ]]; then
+            rm -f -- "$SSH_PRIVATE_KEY_PATH"
+          fi
+          if [[ -n "${SSH_KNOWN_HOSTS_PATH:-}" ]]; then
+            rm -f -- "$SSH_KNOWN_HOSTS_PATH"
+          fi
