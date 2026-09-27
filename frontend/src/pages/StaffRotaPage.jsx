@@ -25,6 +25,7 @@ import {
 } from "react";
 
 import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 import staffRotaApi from "../Services/staffRotaApi.js";
 
 const DAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -186,7 +187,7 @@ function MetricCard({ icon: Icon, label, value, detail, warning = false }) {
 
 export default function StaffRotaPage() {
   const { user } = useAuth();
-  const canManage = ["admin", "manager"].includes(user?.role);
+  const canManage = hasPermission(user, "employee:schedule:update");
 
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [rota, setRota] = useState(null);

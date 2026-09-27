@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { authorize } from "../../middleware/authMiddleware.js";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import {
   assignRetailSale,
   getStaffPerformance,
@@ -9,25 +9,23 @@ import {
 } from "./staffPerformanceController.js";
 
 const router = Router();
-const managerOrAdmin = authorize("admin", "manager");
-
 router.get("/", getStaffPerformance);
 
 router.put(
   "/stylists/:stylistId/plan",
-  managerOrAdmin,
+  requirePermissions("reports:manage"),
   updateStaffCompensationPlan
 );
 
 router.patch(
   "/retail-orders/:orderId/assignment",
-  managerOrAdmin,
+  requirePermissions("reports:manage"),
   assignRetailSale
 );
 
 router.delete(
   "/retail-orders/:orderId/assignment",
-  managerOrAdmin,
+  requirePermissions("reports:manage"),
   unassignRetailSale
 );
 

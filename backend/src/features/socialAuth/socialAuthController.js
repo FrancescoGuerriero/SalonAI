@@ -35,6 +35,7 @@ function provider(value) {
       "facebook",
       "microsoft",
       "yahoo",
+      "linkedin",
     ].includes(normalised)
   ) {
     const error = new Error(

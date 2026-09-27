@@ -27,6 +27,8 @@ import {
   SummaryCard,
 } from "../shared/FutureUi.jsx";
 import { formatCurrency, formatDateTime, getErrorMessage } from "../shared/formatters.js";
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
 
 const initialForm = {
   name: "",
@@ -41,6 +43,9 @@ const initialForm = {
 };
 
 export default function RebookingCampaignsPage() {
+  const { user } = useAuth();
+  const canManageCommunications = hasPermission(user, "communications:manage");
+
   const [campaigns, setCampaigns] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
@@ -69,6 +74,7 @@ export default function RebookingCampaignsPage() {
 
   async function handleCreate(event) {
     event.preventDefault();
+    if (!canManageCommunications) return;
     setSaving(true);
     setError("");
     try {
@@ -99,6 +105,7 @@ export default function RebookingCampaignsPage() {
   }
 
   async function runAction(action, campaign) {
+    if (action !== "results" && !canManageCommunications) return;
     setError("");
     try {
       if (action === "schedule") {
@@ -155,6 +162,7 @@ export default function RebookingCampaignsPage() {
         <SummaryCard title="Opportunity value" value={formatCurrency(recoverable)} description="Estimated recipient revenue" icon={PoundSterling} loading={loading} />
       </section>
 
+      {canManageCommunications && (
       <form onSubmit={handleCreate} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-3">
           <Plus size={20} className="text-indigo-600" />
@@ -180,6 +188,7 @@ export default function RebookingCampaignsPage() {
           <Plus size={17} /> {saving ? "Creating" : "Create campaign"}
         </button>
       </form>
+      )}
 
       {loading ? (
         <LoadingPanel />
@@ -212,10 +221,10 @@ export default function RebookingCampaignsPage() {
                         ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => runAction("schedule", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold"><CalendarClock size={14} />Schedule</button>
-                        <button type="button" onClick={() => runAction("send", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-2 text-xs font-semibold text-indigo-700"><Send size={14} />Send</button>
+                        {canManageCommunications && <button type="button" onClick={() => runAction("schedule", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold"><CalendarClock size={14} />Schedule</button>}
+                        {canManageCommunications && <button type="button" onClick={() => runAction("send", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 px-3 py-2 text-xs font-semibold text-indigo-700"><Send size={14} />Send</button>}
                         <button type="button" onClick={() => runAction("results", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-700"><Play size={14} />Results</button>
-                        <button type="button" onClick={() => runAction("cancel", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-700"><XCircle size={14} />Cancel</button>
+                        {canManageCommunications && <button type="button" onClick={() => runAction("cancel", campaign)} className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-700"><XCircle size={14} />Cancel</button>}
                       </div>
                     </div>
                   </article>

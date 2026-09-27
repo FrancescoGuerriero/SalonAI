@@ -13,8 +13,6 @@ import {
 import MainLayout from "./components/MainLayout.jsx";
 import PageLoader from "./components/ui/PageLoader.jsx";
 
-import AdminRoute from "./Routes/AdminRoute.jsx";
-import ManagementRoute from "./Routes/ManagementRoute.jsx";
 import PermissionRoute from "./Routes/PermissionRoute.jsx";
 import ProtectedRoute from "./Routes/ProtectedRoute.jsx";
 import FeatureRoute from "./Routes/FeatureRoute.jsx";
@@ -536,27 +534,6 @@ function protectedPage(
 }
 
 
-function managementPage(
-  PageComponent
-) {
-  return (
-    <ManagementRoute>
-      <PageComponent />
-    </ManagementRoute>
-  );
-}
-
-
-function adminPage(
-  PageComponent
-) {
-  return (
-    <AdminRoute>
-      <PageComponent />
-    </AdminRoute>
-  );
-}
-
 function permissionPage(
   PageComponent,
   permission
@@ -598,7 +575,7 @@ function AppRoutes() {
 <Route path="whatsapp-booking" element={featurePage(permissionPage(WhatsAppBookingPage, "whatsapp:manage"), "whatsapp-booking")} />
 <Route path="retention-automation" element={featurePage(permissionPage(RetentionAutomationPage, "retention-automation:manage"), "retention-automation")} />
 <Route path="premium-analytics" element={featurePage(permissionPage(PremiumAnalyticsPage, "premium-analytics:read"), "premium-analytics")} />
-<Route path="customer-experience-management" element={permissionPage(CustomerExperienceManagementPage, "customer:read")} />
+<Route path="customer-experience-management" element={permissionPage(CustomerExperienceManagementPage, "customer-experience:read")} />
         <Route
           index
           element={<Home />}
@@ -1038,7 +1015,7 @@ function AppRoutes() {
 
         <Route
           path="manage/orders"
-          element={permissionPage(OrderManagement, "product:read")}
+          element={permissionPage(OrderManagement, "order:read")}
         />
 
         <Route
@@ -1053,7 +1030,7 @@ function AppRoutes() {
 
         <Route
           path="purchase-orders/new"
-          element={featurePage(permissionPage(CreatePurchaseOrderPage, "inventory:read"), "inventory-purchasing")}
+          element={featurePage(permissionPage(CreatePurchaseOrderPage, "inventory:manage"), "inventory-purchasing")}
         />
 
         <Route
@@ -1120,7 +1097,7 @@ function AppRoutes() {
 
         <Route
           path="data-export-audit"
-          element={permissionPage(DataExportAuditPage, "reports:read")}
+          element={permissionPage(DataExportAuditPage, "data-export:manage")}
         />
 
 
@@ -1132,15 +1109,17 @@ function AppRoutes() {
 
         <Route
           path="admin"
-          element={adminPage(
-            AdminDashboard
+          element={permissionPage(
+            AdminDashboard,
+            "dashboard:view"
           )}
         />
 
         <Route
           path="admin/privacy-requests"
-          element={adminPage(
-            AdminPrivacyRequestsPage
+          element={permissionPage(
+            AdminPrivacyRequestsPage,
+            "privacy-request:manage"
           )}
         />
 

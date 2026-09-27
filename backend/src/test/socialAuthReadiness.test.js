@@ -36,11 +36,17 @@ function readyEnvironment() {
       "yahoo-secret-value",
     SOCIAL_YAHOO_REDIRECT_URI:
       "https://salon.example.com/api/auth/social/yahoo/callback",
+    SOCIAL_LINKEDIN_CLIENT_ID:
+      "linkedin-client-id",
+    SOCIAL_LINKEDIN_CLIENT_SECRET:
+      "linkedin-secret-value",
+    SOCIAL_LINKEDIN_REDIRECT_URI:
+      "https://salon.example.com/api/auth/social/linkedin/callback",
   };
 }
 
 test(
-  "social-auth readiness accepts four correctly configured production providers",
+  "social-auth readiness accepts five correctly configured production providers",
   () => {
     const report =
       buildSocialAuthReadinessReport({
@@ -54,7 +60,7 @@ test(
     );
     assert.equal(
       report.providerCount,
-      4
+      5
     );
     assert.deepEqual(
       report.blockedProviders,
@@ -187,6 +193,8 @@ test(
       "microsoft-secret-value",
       "yahoo-client-id",
       "yahoo-secret-value",
+      "linkedin-client-id",
+      "linkedin-secret-value",
     ]) {
       assert.equal(
         serialised.includes(

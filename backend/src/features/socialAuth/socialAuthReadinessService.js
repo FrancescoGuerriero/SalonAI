@@ -8,6 +8,7 @@ const SOCIAL_AUTH_PROVIDER_LABELS =
     facebook: "Facebook",
     microsoft: "Microsoft",
     yahoo: "Yahoo",
+    linkedin: "LinkedIn",
   });
 
 function text(value) {
