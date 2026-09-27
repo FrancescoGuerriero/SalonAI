@@ -42,18 +42,28 @@ function mongoUri(
   return uri;
 }
 
-async function resolveCanonicalOwnership(
-  configuration
+export async function resolveCanonicalServiceOwnership(
+  configuration,
+  session = null
 ) {
-  const business =
-    await Business.findOne({
+  let businessQuery =
+    Business.findOne({
       slug:
         configuration.business.slug,
     })
       .select(
         "_id name slug businessType"
-      )
-      .lean();
+      );
+
+  if (session) {
+    businessQuery =
+      businessQuery.session(
+        session
+      );
+  }
+
+  const business =
+    await businessQuery.lean();
 
   if (!business) {
     throw new Error(
@@ -61,8 +71,8 @@ async function resolveCanonicalOwnership(
     );
   }
 
-  const location =
-    await Location.findOne({
+  let locationQuery =
+    Location.findOne({
       business:
         business._id,
       slug:
@@ -72,8 +82,17 @@ async function resolveCanonicalOwnership(
     })
       .select(
         "_id business slug status"
-      )
-      .lean();
+      );
+
+  if (session) {
+    locationQuery =
+      locationQuery.session(
+        session
+      );
+  }
+
+  const location =
+    await locationQuery.lean();
 
   if (!location) {
     throw new Error(
@@ -87,10 +106,63 @@ async function resolveCanonicalOwnership(
   };
 }
 
-async function loadCatalogueState({
+export async function loadServiceCatalogueState({
   business,
   location,
+  session = null,
 }) {
+  let businessesQuery =
+    Business.find({})
+      .sort({
+        _id: 1,
+      })
+      .select(
+        "_id"
+      );
+  let locationsQuery =
+    Location.find({})
+      .sort({
+        _id: 1,
+      })
+      .select(
+        "_id business status"
+      );
+  let servicesQuery =
+    Service.find({})
+      .sort({
+        _id: 1,
+      })
+      .select(
+        "_id business"
+      );
+  let offeringsQuery =
+    LocationServiceOffering.find({})
+      .sort({
+        _id: 1,
+      })
+      .select(
+        "_id business location service status"
+      );
+
+  if (session) {
+    businessesQuery =
+      businessesQuery.session(
+        session
+      );
+    locationsQuery =
+      locationsQuery.session(
+        session
+      );
+    servicesQuery =
+      servicesQuery.session(
+        session
+      );
+    offeringsQuery =
+      offeringsQuery.session(
+        session
+      );
+  }
+
   const [
     businesses,
     locations,
@@ -98,38 +170,10 @@ async function loadCatalogueState({
     offerings,
   ] =
     await Promise.all([
-      Business.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id"
-        )
-        .lean(),
-      Location.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business status"
-        )
-        .lean(),
-      Service.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business"
-        )
-        .lean(),
-      LocationServiceOffering.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business location service status"
-        )
-        .lean(),
+      businessesQuery.lean(),
+      locationsQuery.lean(),
+      servicesQuery.lean(),
+      offeringsQuery.lean(),
     ]);
 
   return buildServiceCatalogueReadiness({
@@ -206,6 +250,41 @@ export function sanitiseServiceBackfillPlan({
   });
 }
 
+export async function loadServiceBackfillSnapshot({
+  configuration,
+  session = null,
+} = {}) {
+  const ownership =
+    await resolveCanonicalServiceOwnership(
+      configuration,
+      session
+    );
+
+  const readiness =
+    await loadServiceCatalogueState({
+      ...ownership,
+      session,
+    });
+
+  const plan =
+    buildServiceBusinessBackfillPlan(
+      readiness
+    );
+
+  const report =
+    sanitiseServiceBackfillPlan({
+      readiness,
+      plan,
+    });
+
+  return {
+    ...ownership,
+    readiness,
+    plan,
+    report,
+  };
+}
+
 export async function main(
   args = process.argv.slice(2),
   environment = process.env
@@ -229,33 +308,20 @@ export async function main(
     }
   );
 
-  const ownership =
-    await resolveCanonicalOwnership(
-      configuration
-    );
-
-  const readiness =
-    await loadCatalogueState(
-      ownership
-    );
-
-  const plan =
-    buildServiceBusinessBackfillPlan(
-      readiness
-    );
+  const snapshot =
+    await loadServiceBackfillSnapshot({
+      configuration,
+    });
 
   console.log(
     JSON.stringify(
-      sanitiseServiceBackfillPlan({
-        readiness,
-        plan,
-      }),
+      snapshot.report,
       null,
       2
     )
   );
 
-  if (!plan.executable) {
+  if (!snapshot.plan.executable) {
     process.exitCode =
       2;
   }
