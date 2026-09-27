@@ -17,6 +17,7 @@ import {
   compactFingerprint,
   TenantManifestSummary,
   TenantProductActivationReview,
+  TenantProductCompositionWorkspace,
   TenantProductUpgradeReview,
 } from "../components/platform/productComposition/index.js";
 
@@ -194,6 +195,94 @@ describe("AIIBP tenant product composition presentation", () => {
     expect(
       screen.getByText(/aaaaaaaa…bbbbbbbb/)
     ).toBeInTheDocument();
+  });
+
+
+  it("assembles manifest, capability provenance and review plans into one accessible workspace", () => {
+    render(
+      <TenantProductCompositionWorkspace
+        manifest={{
+          status: "active",
+          manifestRevision: "4",
+          platformVersion: "3.0.0",
+          deploymentProfile: "shared-saas",
+        }}
+        verticalLabel="Salon AI"
+        composition={{
+          vertical: {
+            label: "Salon AI",
+          },
+          capabilities: [
+            {
+              key: "inventory",
+              label: "Inventory",
+              enabled: true,
+              reason: "tenant-manifest",
+              status: "active",
+            },
+            {
+              key: "memberships",
+              label: "Memberships",
+              enabled: false,
+              reason: "not-entitled",
+              status: "active",
+            },
+          ],
+        }}
+        upgradePlan={{
+          fromRevision: "4",
+          toRevision: "5",
+          writesPerformed: false,
+          capabilityTransitions: [],
+          profileChanges: [],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Tenant product composition",
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Inventory")).toBeInTheDocument();
+    expect(screen.getByText("Memberships")).toBeInTheDocument();
+    expect(screen.getByText("2 capabilities")).toBeInTheDocument();
+    expect(screen.getByText("Revision 4 → 5")).toBeInTheDocument();
+  });
+
+  it("keeps activation approval hidden unless authoritative permission is supplied", () => {
+    render(
+      <TenantProductCompositionWorkspace
+        manifest={{
+          status: "draft",
+          manifestRevision: "1",
+          deploymentProfile: "shared-saas",
+        }}
+        composition={{
+          capabilities: [],
+        }}
+        activationPlan={{
+          fromRevision: null,
+          toRevision: "1",
+          approvalRequired: true,
+          approvalReasons: ["initial-tenant-product-activation"],
+          persistenceOperations: [],
+          writesPerformed: false,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        "No effective capability states were supplied for this tenant."
+      )
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Approve reviewed plan",
+      })
+    ).not.toBeInTheDocument();
   });
 
   it("renders activation approval reasons and persistence intent without implying writes", () => {
