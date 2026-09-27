@@ -353,3 +353,36 @@ test("manifest rejects unsupported deployment profiles and schema versions", () 
       error.code === "INVALID_TENANT_PRODUCT_MANIFEST"
   );
 });
+
+
+test("manifest rejects invalid revision and effective date metadata", () => {
+  assert.throws(
+    () =>
+      normaliseTenantProductManifest({
+        businessId:
+          "tenant-1",
+        verticalId:
+          "salon",
+        manifestRevision:
+          "revision-two",
+      }),
+    (error) =>
+      error.code ===
+      "INVALID_TENANT_PRODUCT_MANIFEST"
+  );
+
+  assert.throws(
+    () =>
+      normaliseTenantProductManifest({
+        businessId:
+          "tenant-1",
+        verticalId:
+          "salon",
+        effectiveFrom:
+          "not-a-date",
+      }),
+    (error) =>
+      error.code ===
+      "INVALID_TENANT_PRODUCT_MANIFEST"
+  );
+});
