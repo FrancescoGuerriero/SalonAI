@@ -5,3 +5,4 @@ export { default as ConnectorHealth } from "./ConnectorHealth.jsx";
 export { default as ContextSwitchWarningDialog } from "./ContextSwitchWarningDialog.jsx";
 export { default as EffectiveConfigurationRow } from "./EffectiveConfigurationRow.jsx";
 export { default as LocationContext } from "./LocationContext.jsx";
+export { default as PlatformSurfaceState } from "./PlatformSurfaceState.jsx";
