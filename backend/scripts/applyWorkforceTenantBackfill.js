@@ -864,6 +864,8 @@ export async function main(
 
   let rollbackEvidence =
     null;
+  let transactionVerification =
+    null;
 
   try {
     await session.withTransaction(
@@ -891,6 +893,32 @@ export async function main(
               current.schedulePlan,
             session,
           });
+
+        transactionVerification =
+          await loadPlans({
+            configuration,
+            session,
+          });
+
+        const remainingWorkforceOperations =
+          transactionVerification.workforcePlan
+            .operations.length;
+        const remainingScheduleOperations =
+          transactionVerification.schedulePlan
+            .operations.length;
+
+        if (
+          transactionVerification.report.executable !==
+            true ||
+          remainingWorkforceOperations !==
+            0 ||
+          remainingScheduleOperations !==
+            0
+        ) {
+          throw new Error(
+            "Workforce backfill verification did not converge to zero remaining operations. Transaction aborted."
+          );
+        }
       }
     );
   } finally {
@@ -908,6 +936,10 @@ export async function main(
         applied: true,
         transactionCommitted:
           true,
+        verifiedInsideTransaction:
+          Boolean(
+            transactionVerification
+          ),
         reviewedPlanFingerprint:
           preflight.report.planFingerprint,
         postflightExecutable:
