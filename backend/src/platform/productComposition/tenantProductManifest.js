@@ -279,7 +279,7 @@ export function resolveEffectiveTenantProductComposition({
     )
   );
 
-  const capabilities = selectedCapabilityKeys.map(
+  const capabilityStates = selectedCapabilityKeys.map(
     (capabilityKey) => {
       const definition = getCapabilityPack(
         capabilityKey
@@ -314,7 +314,7 @@ export function resolveEffectiveTenantProductComposition({
         reason = "feature-flag-disabled";
       }
 
-      return Object.freeze({
+      return {
         key: capabilityKey,
         label: definition.label,
         contractVersion:
@@ -326,8 +326,45 @@ export function resolveEffectiveTenantProductComposition({
         dependencies: definition.dependencies,
         requiredPermissions:
           definition.requiredPermissions,
-      });
+      };
     }
+  );
+
+  const stateByKey = new Map(
+    capabilityStates.map((state) => [
+      state.key,
+      state,
+    ])
+  );
+
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (const state of capabilityStates) {
+      if (!state.enabled) {
+        continue;
+      }
+
+      const unavailableDependency =
+        state.dependencies.find(
+          (dependencyKey) =>
+            stateByKey.get(dependencyKey)?.enabled ===
+            false
+        );
+
+      if (unavailableDependency) {
+        state.enabled = false;
+        state.reason =
+          `dependency-unavailable:${unavailableDependency}`;
+        changed = true;
+      }
+    }
+  }
+
+  const capabilities = capabilityStates.map(
+    (state) => Object.freeze({ ...state })
   );
 
   return Object.freeze({
