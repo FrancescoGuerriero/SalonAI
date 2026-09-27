@@ -247,6 +247,27 @@ test("Service apply accepts only unowned Service assignment operations", () => {
   );
 });
 
+test("Service apply rejects plan count mismatches", () => {
+  assert.throws(
+    () =>
+      assertServiceApplyPlan(
+        plan({
+          summary: {
+            serviceBusinessAssignments:
+              2,
+            rollbackServiceRestores:
+              1,
+            offeringsCreated:
+              0,
+            blockers:
+              0,
+          },
+        })
+      ),
+    /operation\/rollback counts/
+  );
+});
+
 test("Service apply rejects any plan that creates LocationServiceOffering records", () => {
   assert.throws(
     () =>
