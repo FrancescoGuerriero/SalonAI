@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { pathToFileURL } from "node:url";
 
 import Business from "../src/models/Business.js";
+import BusinessDomain from "../src/models/BusinessDomain.js";
 import Location from "../src/models/Location.js";
 import {
   assertExplicitCanonicalTenantIdentity,
@@ -63,43 +64,34 @@ function mongoUri(environment = process.env) {
 async function loadCurrentState(configuration) {
   const businesses = await Business.find({
     $or: [
-      {
-        slug: configuration.business.slug,
-      },
-      {
-        name: configuration.business.name,
-      },
+      { slug: configuration.business.slug },
+      { name: configuration.business.name },
     ],
   }).limit(2);
 
   if (businesses.length > 1) {
     const error = new Error(
-      "More than one Business matches the configured canonical SalonAI identity."
+      "More than one Business matches the configured canonical Salon AI tenant identity."
     );
     error.code = "CANONICAL_BUSINESS_CONFLICT";
     throw error;
   }
 
   const business = businesses[0] || null;
-
   let location = null;
 
   if (business) {
     const locations = await Location.find({
       business: business._id,
       $or: [
-        {
-          slug: configuration.location.slug,
-        },
-        {
-          name: configuration.location.name,
-        },
+        { slug: configuration.location.slug },
+        { name: configuration.location.name },
       ],
     }).limit(2);
 
     if (locations.length > 1) {
       const error = new Error(
-        "More than one Location matches the configured canonical SalonAI identity."
+        "More than one Location matches the configured canonical Salon AI tenant identity."
       );
       error.code = "CANONICAL_LOCATION_CONFLICT";
       throw error;
@@ -108,9 +100,16 @@ async function loadCurrentState(configuration) {
     location = locations[0] || null;
   }
 
+  const domains = await BusinessDomain.find({
+    host: {
+      $in: configuration.domains.map((domain) => domain.host),
+    },
+  }).limit(configuration.domains.length + 1);
+
   return {
     business,
     location,
+    domains,
   };
 }
 
@@ -118,65 +117,94 @@ async function createMissingResources({
   configuration,
   business,
   location,
+  domains = [],
 }) {
   const session = await mongoose.startSession();
   let resolvedBusiness = business;
   let resolvedLocation = location;
-  let createdBusiness = false;
-  let createdLocation = false;
+  const domainsByHost = new Map(
+    domains.map((domain) => [
+      String(domain.host),
+      domain,
+    ])
+  );
+
+  const created = {
+    business: false,
+    location: false,
+    domains: [],
+  };
 
   try {
     await session.withTransaction(async () => {
       if (!resolvedBusiness) {
         const records = await Business.create(
-          [
-            {
-              name: configuration.business.name,
-              slug: configuration.business.slug,
-              businessType:
-                configuration.business.businessType,
-              status: "active",
-              settings: configuration.business.settings,
-              metadata: {
-                canonicalReferenceApplication:
-                  "Salon AI",
-              },
+          [{
+            name: configuration.business.name,
+            slug: configuration.business.slug,
+            businessType: configuration.business.businessType,
+            status: "active",
+            settings: configuration.business.settings,
+            metadata: {
+              canonicalReferenceApplication: "Salon AI",
+              referenceTenant: true,
             },
-          ],
-          {
-            session,
-          }
+          }],
+          { session }
         );
 
         resolvedBusiness = records[0];
-        createdBusiness = true;
+        created.business = true;
       }
 
       if (!resolvedLocation) {
         const records = await Location.create(
-          [
-            {
-              business: resolvedBusiness._id,
-              name: configuration.location.name,
-              slug: configuration.location.slug,
-              status: "active",
-              settings: {
-                timezone: "",
-                locale: "",
-                currency: "",
-              },
-              metadata: {
-                canonicalReferenceLocation: true,
-              },
+          [{
+            business: resolvedBusiness._id,
+            name: configuration.location.name,
+            slug: configuration.location.slug,
+            status: "active",
+            settings: {
+              timezone: "",
+              locale: "",
+              currency: "",
             },
-          ],
-          {
-            session,
-          }
+            metadata: {
+              canonicalReferenceLocation: true,
+            },
+          }],
+          { session }
         );
 
         resolvedLocation = records[0];
-        createdLocation = true;
+        created.location = true;
+      }
+
+      for (const expected of configuration.domains) {
+        if (domainsByHost.has(expected.host)) {
+          continue;
+        }
+
+        const records = await BusinessDomain.create(
+          [{
+            business: resolvedBusiness._id,
+            host: expected.host,
+            role: expected.role,
+            status: "pending",
+            redirectToPrimary: expected.redirectToPrimary,
+            verification: {
+              method: "manual",
+            },
+            metadata: {
+              canonicalReferenceTenant: true,
+            },
+          }],
+          { session }
+        );
+
+        const domain = records[0];
+        domainsByHost.set(expected.host, domain);
+        created.domains.push(domain);
       }
     });
   } finally {
@@ -186,8 +214,8 @@ async function createMissingResources({
   return {
     business: resolvedBusiness,
     location: resolvedLocation,
-    createdBusiness,
-    createdLocation,
+    domains: [...domainsByHost.values()],
+    created,
   };
 }
 
@@ -197,67 +225,76 @@ function summary({
   plan,
   business,
   location,
+  domains = [],
   applicationResult = null,
 }) {
+  const domainsByHost = new Map(
+    domains.map((domain) => [
+      String(domain.host),
+      domain,
+    ])
+  );
+
+  const created = applicationResult?.created || null;
+
   return {
     mode,
     business: {
-      id: business
-        ? String(business._id)
-        : plan.business.id,
-      name:
-        business?.name ||
-        configuration.business.name,
-      slug:
-        business?.slug ||
-        configuration.business.slug,
+      id: business ? String(business._id) : plan.business.id,
+      name: business?.name || configuration.business.name,
+      slug: business?.slug || configuration.business.slug,
       businessType:
         business?.businessType ||
         configuration.business.businessType,
       action: plan.business.action,
     },
     location: {
-      id: location
-        ? String(location._id)
-        : plan.location.id,
-      name:
-        location?.name ||
-        configuration.location.name,
-      slug:
-        location?.slug ||
-        configuration.location.slug,
+      id: location ? String(location._id) : plan.location.id,
+      name: location?.name || configuration.location.name,
+      slug: location?.slug || configuration.location.slug,
       action: plan.location.action,
     },
-    writesRequired:
-      plan.writesRequired,
-    domainBackfillPerformed:
-      false,
-    rollbackMetadata: applicationResult
+    domains: plan.domains.map((domainPlan) => {
+      const domain = domainsByHost.get(domainPlan.host);
+
+      return {
+        id: domain ? String(domain._id) : domainPlan.id,
+        host: domainPlan.host,
+        role: domainPlan.role,
+        status: domain?.status || "pending",
+        action: domainPlan.action,
+      };
+    }),
+    writesRequired: plan.writesRequired,
+    domainBackfillPerformed: false,
+    dnsMutationPerformed: false,
+    rollbackMetadata: created
       ? {
-          createdBusinessId:
-            applicationResult.createdBusiness
-              ? String(applicationResult.business?._id || "")
-              : null,
-          createdLocationId:
-            applicationResult.createdLocation
-              ? String(applicationResult.location?._id || "")
-              : null,
+          createdBusinessId: created.business
+            ? String(applicationResult.business?._id || "")
+            : null,
+          createdLocationId: created.location
+            ? String(applicationResult.location?._id || "")
+            : null,
+          createdDomainIds: created.domains.map(
+            (domain) => String(domain._id)
+          ),
           safeRemovalOrder: [
-            ...(applicationResult.createdLocation
-              ? [
-                  {
-                    resource: "Location",
-                    id: String(applicationResult.location?._id || ""),
-                  },
-                ]
+            ...created.domains.map((domain) => ({
+              resource: "BusinessDomain",
+              id: String(domain._id),
+            })),
+            ...(created.location
+              ? [{
+                  resource: "Location",
+                  id: String(applicationResult.location?._id || ""),
+                }]
               : []),
-            ...(applicationResult.createdBusiness
-              ? [
-                  {
-                    resource: "Business",
-                    id: String(applicationResult.business?._id || ""),
-                  },
-                ]
+            ...(created.business
+              ? [{
+                  resource: "Business",
+                  id: String(applicationResult.business?._id || ""),
+                }]
               : []),
           ],
         }
@@ -265,41 +302,35 @@ function summary({
   };
 }
 
+function allResourcesPresent(plan) {
+  return (
+    plan.business.action === "reuse" &&
+    plan.location.action === "reuse" &&
+    plan.domains.every((domain) => domain.action === "reuse")
+  );
+}
+
 export async function main(
   args = process.argv.slice(2),
   environment = process.env
 ) {
-  const mode =
-    selectedMode(
-      args,
-      environment
-    );
+  const mode = selectedMode(args, environment);
 
   if (mode === "apply") {
-    assertExplicitCanonicalTenantIdentity(
-      environment
-    );
+    assertExplicitCanonicalTenantIdentity(environment);
   }
 
   const configuration =
-    getCanonicalSalonTenantConfiguration(
-      environment
-    );
+    getCanonicalSalonTenantConfiguration(environment);
 
-  await mongoose.connect(
-    mongoUri(environment)
-  );
+  await mongoose.connect(mongoUri(environment));
 
-  let state =
-    await loadCurrentState(
-      configuration
-    );
+  let state = await loadCurrentState(configuration);
 
-  let plan =
-    buildCanonicalTenantBootstrapPlan({
-      ...state,
-      configuration,
-    });
+  let plan = buildCanonicalTenantBootstrapPlan({
+    ...state,
+    configuration,
+  });
 
   console.log(
     JSON.stringify(
@@ -315,60 +346,46 @@ export async function main(
   );
 
   if (mode === "verify") {
-    if (
-      plan.business.action !==
-        "reuse" ||
-      plan.location.action !==
-        "reuse"
-    ) {
+    if (!allResourcesPresent(plan)) {
       throw new Error(
-        "Canonical Salon AI Business/Location verification failed: one or more resources are missing."
+        "Canonical Francesco Picardi tenant verification failed: one or more Business/Location/Domain resources are missing."
       );
     }
 
     console.log(
-      "[PASS] Canonical Salon AI tenant resources are present and compatible."
+      "[PASS] Canonical Francesco Picardi tenant resources are present and compatible."
     );
     return;
   }
 
   if (mode === "dry-run") {
     console.log(
-      "[PASS] Canonical tenant bootstrap dry-run completed. No database changes were made."
+      "[PASS] Canonical tenant bootstrap dry-run completed. No database or DNS changes were made."
     );
     return;
   }
 
-  const applicationResult =
-    await createMissingResources({
-      configuration,
-      ...state,
-    });
+  const applicationResult = await createMissingResources({
+    configuration,
+    ...state,
+  });
 
   state = {
     business: applicationResult.business,
     location: applicationResult.location,
+    domains: applicationResult.domains,
   };
 
-  const verifiedState =
-    await loadCurrentState(
-      configuration
-    );
+  const verifiedState = await loadCurrentState(configuration);
 
-  plan =
-    buildCanonicalTenantBootstrapPlan({
-      ...verifiedState,
-      configuration,
-    });
+  plan = buildCanonicalTenantBootstrapPlan({
+    ...verifiedState,
+    configuration,
+  });
 
-  if (
-    plan.business.action !==
-      "reuse" ||
-    plan.location.action !==
-      "reuse"
-  ) {
+  if (!allResourcesPresent(plan)) {
     throw new Error(
-      "Canonical Salon AI tenant bootstrap verification failed after apply."
+      "Canonical Francesco Picardi tenant bootstrap verification failed after apply."
     );
   }
 
@@ -387,16 +404,13 @@ export async function main(
   );
 
   console.log(
-    "[PASS] Canonical Salon AI Business/Location bootstrap applied and verified. Existing domain collections were not backfilled."
+    "[PASS] Canonical Francesco Picardi Business/Location/Domain records were applied and verified. Domain mappings remain pending until separately verified/activated; existing operational collections were not backfilled and DNS was not changed."
   );
 }
 
 const executedDirectly =
   Boolean(process.argv[1]) &&
-  import.meta.url ===
-    pathToFileURL(
-      process.argv[1]
-    ).href;
+  import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (executedDirectly) {
   main()
@@ -408,8 +422,6 @@ if (executedDirectly) {
       process.exitCode = 1;
     })
     .finally(async () => {
-      await mongoose
-        .disconnect()
-        .catch(() => {});
+      await mongoose.disconnect().catch(() => {});
     });
 }
