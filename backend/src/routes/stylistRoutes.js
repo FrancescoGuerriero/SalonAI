@@ -10,6 +10,7 @@ import {
   updateStylist,
   deleteStylist,
   toggleStylistStatus,
+  validateStylistAvailabilityIdentifiers,
 } from "../controllers/stylistController.js";
 import {
   getMyStaffProfile,
@@ -43,6 +44,23 @@ const protectedWorkforceTenantChain = [
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
 ];
+
+function validateAvailabilityIdentifiers(
+  request,
+  response,
+  next
+) {
+  try {
+    validateStylistAvailabilityIdentifiers(
+      request
+    );
+    return next();
+  } catch (error) {
+    return next(
+      error
+    );
+  }
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -120,6 +138,7 @@ router.get(
   requireFeature(
     "online-booking"
   ),
+  validateAvailabilityIdentifiers,
   workforcePublicTenantContextMiddleware,
   getStylistAvailability
 );
