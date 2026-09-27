@@ -6,6 +6,10 @@ import {
 import {
   listStaffRoleDefinitions,
 } from "../../services/staffRoleRegistryService.js";
+import {
+  permissionScopeLegend,
+  permissionScopeMap,
+} from "../../services/permissionScopeService.js";
 
 export async function listAuditLogs(
   query = {}
@@ -61,6 +65,12 @@ export async function permissionMatrix() {
   return {
     source:
       "canonical_staff_role_registry",
+    scopeSource:
+      "canonical_effective_authority_scope_registry",
+    permissionScopes:
+      permissionScopeMap(),
+    scopeLegend:
+      permissionScopeLegend(),
     roles:
       roles.map(
         (role) => ({
