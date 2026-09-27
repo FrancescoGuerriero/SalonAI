@@ -89,6 +89,7 @@ test("trusted tenant resolution treats client ids as selectors, not authority", 
     business: businessA,
     status: "active",
     roleKey: "admin",
+    legacyUserGrantsEligible: true,
     locationAccessMode: "selected",
     locations: [locationA],
     isDefault: true,
@@ -133,6 +134,9 @@ test("trusted tenant resolution treats client ids as selectors, not authority", 
     requestedLocationId: locationA,
     findMembership,
     findLocation,
+    countMemberships:
+      async () =>
+        1,
   });
 
   assert.deepEqual(context, {
@@ -200,11 +204,18 @@ test("trusted tenant resolution can use an explicit active default membership", 
       return membership;
     },
     findLocation: async () => null,
+    countMemberships:
+      async () =>
+        1,
   });
 
   assert.equal(context.businessId, businessId);
   assert.equal(context.locationId, null);
   assert.equal(context.roleKey, "manager");
+  assert.equal(
+    context.legacyUserGrantsEligible,
+    true
+  );
   assert.equal(context.locationAccessMode, "all");
   assert.equal(context.allowedLocationIds, null);
 });
