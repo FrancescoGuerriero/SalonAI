@@ -244,3 +244,25 @@ test("appointment reminder candidate audit is aggregate-only and send-free", asy
     /sendTransactionalNotification\(/
   );
 });
+
+
+test("scheduler activation preflight parses readiness inside the backend container", async () => {
+  const workflow =
+    await readFile(
+      new URL(
+        "../../../.github/workflows/production-message-delivery-scheduler-activation.yml",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  assert.match(
+    workflow,
+    /cat "\$readiness_file" \| \\\s*docker exec -i salonai-backend/
+  );
+
+  assert.doesNotMatch(
+    workflow,
+    /\n\s*node --input-type=module - "\$readiness_file"/
+  );
+});
