@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 
 import {
+  assertExplicitCanonicalTenantIdentity,
   buildCanonicalTenantBootstrapPlan,
   getCanonicalSalonTenantConfiguration,
 } from "../platform/tenancy/canonicalSalonTenantBootstrap.js";
@@ -10,77 +11,63 @@ import {
   selectedMode,
 } from "../../scripts/bootstrapCanonicalSalonTenant.js";
 
+function explicitIdentity() {
+  return {
+    SALONAI_CANONICAL_BUSINESS_NAME:
+      "Francesco Picardi",
+    SALONAI_CANONICAL_BUSINESS_SLUG:
+      "francesco-picardi",
+    SALONAI_CANONICAL_LOCATION_NAME:
+      "Primary Location",
+    SALONAI_CANONICAL_LOCATION_SLUG:
+      "primary-location",
+    SALONAI_CANONICAL_PRIMARY_DOMAIN:
+      "francescopicardi.co.uk",
+    SALONAI_CANONICAL_APP_DOMAIN:
+      "salonai.francescopicardi.co.uk",
+  };
+}
+
 test("canonical Salon tenant configuration identifies Francesco Picardi as Tenant 1", () => {
   const configuration =
     getCanonicalSalonTenantConfiguration({});
 
-  assert.deepEqual(
-    configuration,
-    {
-      business: {
-        name:
-          "Francesco Picardi",
-        slug:
-          "francesco-picardi",
-        businessType:
-          "salon",
-        settings: {
-          timezone:
-            "Europe/London",
-          locale:
-            "en-GB",
-          currency:
-            "GBP",
-        },
+  assert.deepEqual(configuration, {
+    business: {
+      name: "Francesco Picardi",
+      slug: "francesco-picardi",
+      businessType: "salon",
+      settings: {
+        timezone: "Europe/London",
+        locale: "en-GB",
+        currency: "GBP",
       },
-      location: {
-        name:
-          "Primary Location",
-        slug:
-          "primary-location",
+    },
+    location: {
+      name: "Primary Location",
+      slug: "primary-location",
+    },
+    domains: [
+      {
+        host: "francescopicardi.co.uk",
+        role: "primary",
+        redirectToPrimary: false,
       },
-      domains: [
-        {
-          host:
-            "francescopicardi.co.uk",
-          role:
-            "primary",
-          redirectToPrimary:
-            false,
-        },
-        {
-          host:
-            "salonai.francescopicardi.co.uk",
-          role:
-            "app-subdomain",
-          redirectToPrimary:
-            false,
-        },
-      ],
-    }
-  );
+      {
+        host: "salonai.francescopicardi.co.uk",
+        role: "app-subdomain",
+        redirectToPrimary: false,
+      },
+    ],
+  });
 });
 
 test("canonical Salon tenant bootstrap defaults to dry-run", () => {
-  assert.equal(
-    selectedMode([], {}),
-    "dry-run"
-  );
-
-  assert.equal(
-    selectedMode(
-      ["--verify"],
-      {}
-    ),
-    "verify"
-  );
+  assert.equal(selectedMode([], {}), "dry-run");
+  assert.equal(selectedMode(["--verify"], {}), "verify");
 
   assert.throws(
-    () =>
-      selectedMode(
-        ["--apply"],
-        {}
-      ),
+    () => selectedMode(["--apply"], {}),
     /SALONAI_TENANT_BOOTSTRAP_CONFIRM/
   );
 
@@ -96,6 +83,33 @@ test("canonical Salon tenant bootstrap defaults to dry-run", () => {
   );
 });
 
+test("canonical tenant apply identity must be explicitly operator configured including domains", () => {
+  assert.throws(
+    () => assertExplicitCanonicalTenantIdentity({}),
+    (error) =>
+      error.code ===
+      "CANONICAL_TENANT_IDENTITY_REQUIRED"
+  );
+
+  const incomplete = explicitIdentity();
+  delete incomplete.SALONAI_CANONICAL_APP_DOMAIN;
+
+  assert.throws(
+    () =>
+      assertExplicitCanonicalTenantIdentity(
+        incomplete
+      ),
+    /SALONAI_CANONICAL_APP_DOMAIN/
+  );
+
+  assert.equal(
+    assertExplicitCanonicalTenantIdentity(
+      explicitIdentity()
+    ),
+    true
+  );
+});
+
 test("canonical tenant bootstrap plan includes Business, Location and domains", () => {
   const configuration =
     getCanonicalSalonTenantConfiguration({});
@@ -108,22 +122,14 @@ test("canonical tenant bootstrap plan includes Business, Location and domains", 
       configuration,
     });
 
-  assert.equal(
-    plan.business.action,
-    "create"
-  );
-  assert.equal(
-    plan.location.action,
-    "create"
-  );
+  assert.equal(plan.business.action, "create");
+  assert.equal(plan.location.action, "create");
   assert.deepEqual(
-    plan.domains.map(
-      (domain) => [
-        domain.host,
-        domain.role,
-        domain.action,
-      ]
-    ),
+    plan.domains.map((domain) => [
+      domain.host,
+      domain.role,
+      domain.action,
+    ]),
     [
       [
         "francescopicardi.co.uk",
@@ -137,10 +143,7 @@ test("canonical tenant bootstrap plan includes Business, Location and domains", 
       ],
     ]
   );
-  assert.equal(
-    plan.writesRequired,
-    true
-  );
+  assert.equal(plan.writesRequired, true);
 });
 
 test("canonical tenant bootstrap plan is idempotent when all reference resources exist", () => {
@@ -152,38 +155,32 @@ test("canonical tenant bootstrap plan is idempotent when all reference resources
     new mongoose.Types.ObjectId();
 
   const business = {
-    _id:
-      businessId,
-    slug:
-      "francesco-picardi",
-    businessType:
-      "salon",
+    _id: businessId,
+    name: "Francesco Picardi",
+    slug: "francesco-picardi",
+    businessType: "salon",
   };
 
   const location = {
-    _id:
-      locationId,
-    business:
-      businessId,
-    slug:
-      "primary-location",
+    _id: locationId,
+    business: businessId,
+    name: "Primary Location",
+    slug: "primary-location",
   };
 
   const domains =
-    configuration.domains.map(
-      (domain) => ({
-        _id:
-          new mongoose.Types.ObjectId(),
-        business:
-          businessId,
-        host:
-          domain.host,
-        role:
-          domain.role,
-        status:
-          "pending",
-      })
-    );
+    configuration.domains.map((domain) => ({
+      _id:
+        new mongoose.Types.ObjectId(),
+      business:
+        businessId,
+      host:
+        domain.host,
+      role:
+        domain.role,
+      status:
+        "pending",
+    }));
 
   const plan =
     buildCanonicalTenantBootstrapPlan({
@@ -193,26 +190,16 @@ test("canonical tenant bootstrap plan is idempotent when all reference resources
       configuration,
     });
 
-  assert.equal(
-    plan.business.action,
-    "reuse"
-  );
-  assert.equal(
-    plan.location.action,
-    "reuse"
-  );
+  assert.equal(plan.business.action, "reuse");
+  assert.equal(plan.location.action, "reuse");
   assert.equal(
     plan.domains.every(
       (domain) =>
-        domain.action ===
-        "reuse"
+        domain.action === "reuse"
     ),
     true
   );
-  assert.equal(
-    plan.writesRequired,
-    false
-  );
+  assert.equal(plan.writesRequired, false);
 });
 
 test("canonical tenant bootstrap refuses a conflicting vertical", () => {
@@ -225,10 +212,39 @@ test("canonical tenant bootstrap refuses a conflicting vertical", () => {
         business: {
           _id:
             new mongoose.Types.ObjectId(),
+          name:
+            "Francesco Picardi",
           slug:
             "francesco-picardi",
           businessType:
             "spa",
+        },
+        location: null,
+        domains: [],
+        configuration,
+      }),
+    (error) =>
+      error.code ===
+      "CANONICAL_BUSINESS_CONFLICT"
+  );
+});
+
+test("canonical tenant bootstrap refuses a same-slug business with a different name", () => {
+  const configuration =
+    getCanonicalSalonTenantConfiguration({});
+
+  assert.throws(
+    () =>
+      buildCanonicalTenantBootstrapPlan({
+        business: {
+          _id:
+            new mongoose.Types.ObjectId(),
+          name:
+            "Different Business",
+          slug:
+            "francesco-picardi",
+          businessType:
+            "salon",
         },
         location: null,
         domains: [],
@@ -252,6 +268,8 @@ test("canonical tenant bootstrap refuses a cross-business location", () => {
         business: {
           _id:
             businessId,
+          name:
+            "Francesco Picardi",
           slug:
             "francesco-picardi",
           businessType:
@@ -262,6 +280,46 @@ test("canonical tenant bootstrap refuses a cross-business location", () => {
             new mongoose.Types.ObjectId(),
           business:
             new mongoose.Types.ObjectId(),
+          name:
+            "Primary Location",
+          slug:
+            "primary-location",
+        },
+        domains: [],
+        configuration,
+      }),
+    (error) =>
+      error.code ===
+      "CANONICAL_LOCATION_CONFLICT"
+  );
+});
+
+test("canonical tenant bootstrap refuses a same-slug location with a different name", () => {
+  const configuration =
+    getCanonicalSalonTenantConfiguration({});
+  const businessId =
+    new mongoose.Types.ObjectId();
+
+  assert.throws(
+    () =>
+      buildCanonicalTenantBootstrapPlan({
+        business: {
+          _id:
+            businessId,
+          name:
+            "Francesco Picardi",
+          slug:
+            "francesco-picardi",
+          businessType:
+            "salon",
+        },
+        location: {
+          _id:
+            new mongoose.Types.ObjectId(),
+          business:
+            businessId,
+          name:
+            "Different Location",
           slug:
             "primary-location",
         },
@@ -286,6 +344,8 @@ test("canonical tenant bootstrap refuses a domain owned by another Business", ()
         business: {
           _id:
             businessId,
+          name:
+            "Francesco Picardi",
           slug:
             "francesco-picardi",
           businessType:
