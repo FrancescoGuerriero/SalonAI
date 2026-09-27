@@ -5,6 +5,11 @@ import {
   recordAuditEvent,
 } from "../services/auditService.js";
 import {
+  managementServiceBusinessId,
+  publicServiceBusinessId,
+  scopedServiceFilter,
+} from "../services/serviceTenantAuthorityService.js";
+import {
   normaliseCatalogueImage,
 } from "../utils/catalogueMedia.js";
 
@@ -31,6 +36,7 @@ function serialiseService(service) {
         false;
 
   delete value.onlineBookable;
+  delete value.business;
 
   return {
     ...value,
@@ -53,15 +59,41 @@ const PUBLIC_SERVICE_FILTER = {
   ],
 };
 
+function invalidServiceId(
+  id
+) {
+  return !mongoose.isValidObjectId(
+    id
+  );
+}
+
+function serviceNotFound(
+  res
+) {
+  return res.status(404).json({
+    message:
+      "Service not found.",
+  });
+}
+
 export async function getServices(
   req,
   res,
   next
 ) {
   try {
+    const businessId =
+      publicServiceBusinessId(
+        req
+      );
+
     const services =
       await Service.find(
-        PUBLIC_SERVICE_FILTER
+        scopedServiceFilter({
+          businessId,
+          domainFilter:
+            PUBLIC_SERVICE_FILTER,
+        })
       )
         .select(
           "+onlineBookable"
@@ -76,7 +108,7 @@ export async function getServices(
       )
     );
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -86,8 +118,17 @@ export async function getManagementServices(
   next
 ) {
   try {
+    const businessId =
+      managementServiceBusinessId(
+        req
+      );
+
     const services =
-      await Service.find()
+      await Service.find(
+        scopedServiceFilter({
+          businessId,
+        })
+      )
         .select(
           "+onlineBookable"
         )
@@ -113,6 +154,11 @@ export async function createService(
   next
 ) {
   try {
+    const businessId =
+      managementServiceBusinessId(
+        req
+      );
+
     const body =
       req.body &&
       typeof req.body ===
@@ -124,6 +170,9 @@ export async function createService(
       ...body,
     };
 
+    // Business ownership is trusted server-side tenancy state.
+    // Never accept it from a client payload.
+    delete payload.business;
     delete payload.onlineBookable;
     delete payload.published;
 
@@ -142,6 +191,8 @@ export async function createService(
     const service =
       await Service.create({
         ...payload,
+        business:
+          businessId,
         active:
           typeof payload.active ===
           "boolean"
@@ -171,14 +222,15 @@ export async function createService(
     });
 
     return res.status(201).json({
-      message: "Service created successfully.",
+      message:
+        "Service created successfully.",
       service:
         serialiseService(
           service
-        )
+        ),
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -189,29 +241,39 @@ export async function getServiceById(
 ) {
   try {
     if (
-      !mongoose.isValidObjectId(
+      invalidServiceId(
         req.params.id
       )
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
 
+    const businessId =
+      publicServiceBusinessId(
+        req
+      );
+
     const service =
-      await Service.findOne({
-        _id:
-          req.params.id,
-        ...PUBLIC_SERVICE_FILTER,
-      }).select(
+      await Service.findOne(
+        scopedServiceFilter({
+          businessId,
+          domainFilter: {
+            _id:
+              req.params.id,
+            ...PUBLIC_SERVICE_FILTER,
+          },
+        })
+      ).select(
         "+onlineBookable"
       );
 
     if (!service) {
-      return res.status(404).json({
-        message: "Service not found."
-      });
+      return serviceNotFound(
+        res
+      );
     }
 
     return res.json(
@@ -220,7 +282,7 @@ export async function getServiceById(
       )
     );
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -231,21 +293,28 @@ export async function updateService(
 ) {
   try {
     if (
-      !mongoose.isValidObjectId(
+      invalidServiceId(
         req.params.id
       )
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
+
+    const businessId =
+      managementServiceBusinessId(
+        req
+      );
 
     const payload = {
       ...req.body,
     };
 
-    // Publication is a separate privileged action.
+    // Business ownership is trusted server-side tenancy state and
+    // publication is a separate privileged action.
+    delete payload.business;
     delete payload.published;
     delete payload.onlineBookable;
 
@@ -261,28 +330,43 @@ export async function updateService(
         );
     }
 
+    const filter =
+      scopedServiceFilter({
+        businessId,
+        domainFilter: {
+          _id:
+            req.params.id,
+        },
+      });
+
     const before =
-      await Service.findById(
-        req.params.id
+      await Service.findOne(
+        filter
       ).lean();
 
     if (!before) {
-      return res.status(404).json({
-        message: "Service not found."
-      });
+      return serviceNotFound(
+        res
+      );
     }
 
     const service =
-      await Service.findByIdAndUpdate(
-        req.params.id,
+      await Service.findOneAndUpdate(
+        filter,
         payload,
         {
           new: true,
-          runValidators: true
+          runValidators: true,
         }
       ).select(
         "+onlineBookable"
       );
+
+    if (!service) {
+      return serviceNotFound(
+        res
+      );
+    }
 
     await recordAuditEvent({
       req,
@@ -306,14 +390,15 @@ export async function updateService(
     });
 
     return res.json({
-      message: "Service updated successfully.",
+      message:
+        "Service updated successfully.",
       service:
         serialiseService(
           service
-        )
+        ),
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -324,25 +409,36 @@ export async function deleteService(
 ) {
   try {
     if (
-      !mongoose.isValidObjectId(
+      invalidServiceId(
         req.params.id
       )
     ) {
       return res.status(400).json({
         message:
-          "The service identifier is invalid."
+          "The service identifier is invalid.",
       });
     }
 
+    const businessId =
+      managementServiceBusinessId(
+        req
+      );
+
     const service =
-      await Service.findByIdAndDelete(
-        req.params.id
+      await Service.findOneAndDelete(
+        scopedServiceFilter({
+          businessId,
+          domainFilter: {
+            _id:
+              req.params.id,
+          },
+        })
       );
 
     if (!service) {
-      return res.status(404).json({
-        message: "Service not found."
-      });
+      return serviceNotFound(
+        res
+      );
     }
 
     await recordAuditEvent({
@@ -359,10 +455,11 @@ export async function deleteService(
     });
 
     return res.json({
-      message: "Service deleted successfully."
+      message:
+        "Service deleted successfully.",
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 }
 
@@ -373,7 +470,7 @@ export async function updateServicePublication(
 ) {
   try {
     if (
-      !mongoose.isValidObjectId(
+      invalidServiceId(
         req.params.id
       )
     ) {
@@ -393,21 +490,34 @@ export async function updateServicePublication(
       });
     }
 
+    const businessId =
+      managementServiceBusinessId(
+        req
+      );
+
+    const filter =
+      scopedServiceFilter({
+        businessId,
+        domainFilter: {
+          _id:
+            req.params.id,
+        },
+      });
+
     const before =
-      await Service.findById(
-        req.params.id
+      await Service.findOne(
+        filter
       ).lean();
 
     if (!before) {
-      return res.status(404).json({
-        message:
-          "Service not found.",
-      });
+      return serviceNotFound(
+        res
+      );
     }
 
     const service =
-      await Service.findByIdAndUpdate(
-        req.params.id,
+      await Service.findOneAndUpdate(
+        filter,
         {
           published:
             req.body.published,
@@ -419,6 +529,12 @@ export async function updateServicePublication(
       ).select(
         "+onlineBookable"
       );
+
+    if (!service) {
+      return serviceNotFound(
+        res
+      );
+    }
 
     await recordAuditEvent({
       req,

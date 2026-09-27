@@ -19,6 +19,18 @@ const rangeSchema = new mongoose.Schema(
 const staffAvailabilitySchema =
   new mongoose.Schema(
     {
+      business: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
       staff: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Stylist",
@@ -49,6 +61,14 @@ const staffAvailabilitySchema =
   );
 
 staffAvailabilitySchema.index({
+  staff: 1,
+  dayOfWeek: 1,
+  effectiveFrom: 1,
+});
+
+staffAvailabilitySchema.index({
+  business: 1,
+  location: 1,
   staff: 1,
   dayOfWeek: 1,
   effectiveFrom: 1,

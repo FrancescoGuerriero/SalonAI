@@ -11,6 +11,21 @@ export const STAFF_SCHEDULE_BLOCK_TYPES =
 
 const staffTimeOffSchema = new mongoose.Schema(
   {
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    // Optional because some future time-off blocks may apply to every
+    // working location for the employee. A populated value means the block
+    // is explicitly location-scoped.
+    location: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     staff: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Stylist",
@@ -61,6 +76,15 @@ const staffTimeOffSchema = new mongoose.Schema(
 );
 
 staffTimeOffSchema.index({
+  staff: 1,
+  status: 1,
+  startsAt: 1,
+  endsAt: 1,
+});
+
+staffTimeOffSchema.index({
+  business: 1,
+  location: 1,
   staff: 1,
   status: 1,
   startsAt: 1,

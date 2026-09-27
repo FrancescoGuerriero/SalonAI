@@ -2,16 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  resolveEffectiveTenantProductComposition,
+} from "../platform/productComposition/tenantProductManifest.js";
+import {
   assertOperationAccess,
   assertTrustedCapabilityDecision,
+  capabilityDecisionFromComposition,
 } from "../services/operationAccessService.js";
+
+const BUSINESS_ID =
+  "507f1f77bcf86cd799439012";
+const OTHER_BUSINESS_ID =
+  "507f1f77bcf86cd799439099";
 
 function authority({
   permissions = [
     "reports:read",
   ],
   businessId =
-    "507f1f77bcf86cd799439012",
+    BUSINESS_ID,
   locationId = null,
   locationAccessMode =
     "all",
@@ -31,6 +40,32 @@ function authority({
   };
 }
 
+function composition({
+  businessId =
+    BUSINESS_ID,
+  platformDisabledCapabilityPackKeys =
+    [],
+} = {}) {
+  return resolveEffectiveTenantProductComposition({
+    manifest: {
+      schemaVersion:
+        "1",
+      platformVersion:
+        "3.0.0",
+      businessId,
+      verticalId:
+        "salon",
+      capabilityPackKeys:
+        [],
+      manifestRevision:
+        "1",
+      status:
+        "active",
+    },
+    platformDisabledCapabilityPackKeys,
+  });
+}
+
 test(
   "operation access composes permission, trusted capability and business resource authority",
   () => {
@@ -43,14 +78,16 @@ test(
         capabilityDecision: {
           key:
             "analytics",
+          businessId:
+            BUSINESS_ID,
           allowed:
             true,
           source:
-            "effective-configuration",
+            "effective-composition",
         },
         resource: {
           businessId:
-            "507f1f77bcf86cd799439012",
+            BUSINESS_ID,
         },
       });
 
@@ -63,12 +100,16 @@ test(
       "analytics"
     );
     assert.equal(
+      grant.capability.businessId,
+      BUSINESS_ID
+    );
+    assert.equal(
       grant.capability.source,
-      "effective-configuration"
+      "effective-composition"
     );
     assert.equal(
       grant.resource.businessId,
-      "507f1f77bcf86cd799439012"
+      BUSINESS_ID
     );
   }
 );
@@ -88,6 +129,8 @@ test(
           capabilityDecision: {
             key:
               "analytics",
+            businessId:
+              BUSINESS_ID,
             allowed:
               true,
           },
@@ -109,6 +152,8 @@ test(
           capabilityDecision: {
             key:
               "analytics",
+            businessId:
+              BUSINESS_ID,
             allowed:
               false,
           },
@@ -145,12 +190,16 @@ test(
 );
 
 test(
-  "malformed capability decisions fail closed",
+  "malformed or unbound capability decisions fail closed",
   () => {
     assert.throws(
       () =>
         assertTrustedCapabilityDecision(
-          true
+          true,
+          {
+            authority:
+              authority(),
+          }
         ),
       (error) =>
         error?.code ===
@@ -161,13 +210,49 @@ test(
 
     assert.throws(
       () =>
-        assertTrustedCapabilityDecision({
-          allowed:
-            true,
-        }),
+        assertTrustedCapabilityDecision(
+          {
+            key:
+              "analytics",
+            allowed:
+              true,
+          },
+          {
+            authority:
+              authority(),
+          }
+        ),
       (error) =>
         error?.code ===
           "INVALID_CAPABILITY_DECISION"
+    );
+  }
+);
+
+test(
+  "cross-business capability decisions use non-disclosing resource denial",
+  () => {
+    assert.throws(
+      () =>
+        assertOperationAccess({
+          authority:
+            authority(),
+          permission:
+            "reports:read",
+          capabilityDecision: {
+            key:
+              "analytics",
+            businessId:
+              OTHER_BUSINESS_ID,
+            allowed:
+              true,
+          },
+        }),
+      (error) =>
+        error?.code ===
+          "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404
     );
   }
 );
@@ -184,7 +269,7 @@ test(
             "reports:read",
           resource: {
             businessId:
-              "507f1f77bcf86cd799439099",
+              OTHER_BUSINESS_ID,
           },
         }),
       (error) =>
@@ -222,7 +307,7 @@ test(
           "appointment:read",
         resource: {
           businessId:
-            "507f1f77bcf86cd799439012",
+            BUSINESS_ID,
           locationId:
             "507f1f77bcf86cd799439013",
           requireSelectedLocation:
@@ -244,7 +329,7 @@ test(
             "appointment:read",
           resource: {
             businessId:
-              "507f1f77bcf86cd799439012",
+              BUSINESS_ID,
             locationId:
               "507f1f77bcf86cd799439014",
             requireSelectedLocation:
@@ -254,6 +339,107 @@ test(
       (error) =>
         error?.code ===
           "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404
+    );
+  }
+);
+
+test(
+  "merged tenant product composition produces a business-bound trusted capability decision",
+  () => {
+    const decision =
+      capabilityDecisionFromComposition({
+        authority:
+          authority(),
+        composition:
+          composition(),
+        capability:
+          "analytics",
+      });
+
+    assert.deepEqual(
+      decision,
+      {
+        key:
+          "analytics",
+        businessId:
+          BUSINESS_ID,
+        allowed:
+          true,
+        source:
+          "vertical-default",
+        verticalId:
+          "salon",
+        manifestRevision:
+          "1",
+      }
+    );
+  }
+);
+
+test(
+  "tenant product composition from another business cannot grant capability access",
+  () => {
+    assert.throws(
+      () =>
+        capabilityDecisionFromComposition({
+          authority:
+            authority(),
+          composition:
+            composition({
+              businessId:
+                OTHER_BUSINESS_ID,
+            }),
+          capability:
+            "analytics",
+        }),
+      (error) =>
+        error?.code ===
+          "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404
+    );
+  }
+);
+
+test(
+  "platform-disabled and unselected capabilities fail closed",
+  () => {
+    assert.throws(
+      () =>
+        capabilityDecisionFromComposition({
+          authority:
+            authority(),
+          composition:
+            composition({
+              platformDisabledCapabilityPackKeys: [
+                "analytics",
+              ],
+            }),
+          capability:
+            "analytics",
+        }),
+      (error) =>
+        error?.code ===
+          "CAPABILITY_UNAVAILABLE" &&
+        error?.statusCode ===
+          404
+    );
+
+    assert.throws(
+      () =>
+        capabilityDecisionFromComposition({
+          authority:
+            authority(),
+          composition:
+            composition(),
+          capability:
+            "clinical-records",
+        }),
+      (error) =>
+        error?.code ===
+          "CAPABILITY_UNAVAILABLE" &&
         error?.statusCode ===
           404
     );

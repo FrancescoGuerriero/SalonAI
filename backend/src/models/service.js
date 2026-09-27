@@ -6,6 +6,12 @@ import {
 
 const serviceSchema = new mongoose.Schema(
   {
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -83,6 +89,13 @@ const serviceSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+serviceSchema.index({
+  business: 1,
+  active: 1,
+  published: 1,
+  name: 1,
+});
 
 export default (
   mongoose.models.Service ||
