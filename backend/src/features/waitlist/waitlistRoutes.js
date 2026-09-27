@@ -1,6 +1,7 @@
 import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 
 import * as waitlistController from "./waitlistController.js";
 
@@ -33,6 +34,7 @@ router.get(
 
 router.post(
   "/expire",
+  requirePermissions("appointment:update"),
   asyncHandler(
     waitlistController.expire
   )
@@ -52,6 +54,7 @@ router
     )
   )
   .post(
+    requirePermissions("appointment:create"),
     asyncHandler(
       waitlistController.create
     )
@@ -65,6 +68,7 @@ router
 
 router.post(
   "/:id/convert",
+  requirePermissions("appointment:create", "appointment:update"),
   asyncHandler(
     waitlistController.convert
   )
@@ -84,11 +88,13 @@ router
     )
   )
   .patch(
+    requirePermissions("appointment:update"),
     asyncHandler(
       waitlistController.update
     )
   )
   .delete(
+    requirePermissions("appointment:cancel"),
     asyncHandler(
       waitlistController.remove
     )

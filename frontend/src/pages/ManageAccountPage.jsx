@@ -13,6 +13,7 @@ import {
 
 import ProfilePhotoUploader from "../components/profile/ProfilePhotoUploader.jsx";
 import SocialAccountLinks from "../components/auth/SocialAccountLinks.jsx";
+import StaffCalendarConnections from "../components/calendar/StaffCalendarConnections.jsx";
 import useAuth from "../hooks/useAuth.js";
 import HairConsultationPage from "./HairConsultationPage.jsx";
 
@@ -207,7 +208,11 @@ export default function ManageAccountPage() {
           </div>
         ) : null}
 
-        <SocialAccountLinks />
+        {user?.role === "customer" ? (
+          <SocialAccountLinks />
+        ) : user?.role ? (
+          <StaffCalendarConnections />
+        ) : null}
 
         <form
           className="manage-account-form"

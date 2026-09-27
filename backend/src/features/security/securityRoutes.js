@@ -1,21 +1,32 @@
 import express from "express";
 
-import { adminOnly } from "../../middleware/authMiddleware.js";
+import {
+  requirePermissions,
+} from "../../middleware/permissionMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import * as controller from "./securityController.js";
 
-const router = express.Router();
-
-router.use(adminOnly);
+const router =
+  express.Router();
 
 router.get(
   "/audit-logs",
-  asyncHandler(controller.auditLogs)
+  requirePermissions(
+    "security:audit:read"
+  ),
+  asyncHandler(
+    controller.auditLogs
+  )
 );
 
 router.get(
   "/permissions",
-  asyncHandler(controller.permissions)
+  requirePermissions(
+    "staff-role:read"
+  ),
+  asyncHandler(
+    controller.permissions
+  )
 );
 
 export default router;

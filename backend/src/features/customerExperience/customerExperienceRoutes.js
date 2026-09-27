@@ -1,7 +1,8 @@
 import express from "express";
 
 import asyncHandler from "../../middleware/asyncHandler.js";
-import { managementOnly, protect } from "../../middleware/authMiddleware.js";
+import { protect } from "../../middleware/authMiddleware.js";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./customerExperienceController.js";
 import {
   getCommunicationPreferences,
@@ -17,15 +18,15 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/offers", requireFeature("offers"), asyncHandler(controller.listOffers));
-router.get("/management/offers", managementOnly, asyncHandler(controller.listAllOffers));
-router.post("/management/offers", managementOnly, asyncHandler(controller.createOffer));
-router.patch("/management/offers/:offerId", managementOnly, asyncHandler(controller.updateOffer));
-router.get("/management/appointment-requests", managementOnly, asyncHandler(controller.listAppointmentRequests));
-router.patch("/management/appointment-requests/:requestId", managementOnly, asyncHandler(controller.resolveAppointmentRequest));
-router.get("/management/overview", managementOnly, asyncHandler(controller.getManagementOverview));
-router.patch("/management/reviews/:reviewId", managementOnly, asyncHandler(controller.updateReviewStatus));
-router.patch("/management/feedback/:feedbackId", managementOnly, asyncHandler(controller.updateFeedbackStatus));
-router.patch("/management/consultations/:consultationId", managementOnly, asyncHandler(controller.updateConsultationStatus));
+router.get("/management/offers", requirePermissions("customer-experience:read"), asyncHandler(controller.listAllOffers));
+router.post("/management/offers", requirePermissions("customer-experience:manage"), asyncHandler(controller.createOffer));
+router.patch("/management/offers/:offerId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateOffer));
+router.get("/management/appointment-requests", requirePermissions("customer-experience:read"), asyncHandler(controller.listAppointmentRequests));
+router.patch("/management/appointment-requests/:requestId", requirePermissions("customer-experience:manage"), asyncHandler(controller.resolveAppointmentRequest));
+router.get("/management/overview", requirePermissions("customer-experience:read"), asyncHandler(controller.getManagementOverview));
+router.patch("/management/reviews/:reviewId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateReviewStatus));
+router.patch("/management/feedback/:feedbackId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateFeedbackStatus));
+router.patch("/management/consultations/:consultationId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateConsultationStatus));
 
 router.get("/me", asyncHandler(controller.getCustomerExperience));
 router.get("/me/communications", asyncHandler(getCommunicationPreferences));

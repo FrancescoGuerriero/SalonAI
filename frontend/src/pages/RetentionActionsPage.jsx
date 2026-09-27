@@ -29,6 +29,9 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import useAuth from "../hooks/useAuth.js";
+import { hasPermission } from "../utils/permissions.js";
+
 import {
   getCustomerContact,
   getCustomerIdentifier,
@@ -710,6 +713,8 @@ function FollowUpForm({
 export default function RetentionActionsPage() {
   const navigate =
     useNavigate();
+  const { user } = useAuth();
+  const canManageCommunications = hasPermission(user, "communications:manage");
 
   const [
     dormantForm,
@@ -867,6 +872,7 @@ export default function RetentionActionsPage() {
     event
   ) {
     event.preventDefault();
+    if (!canManageCommunications) return;
     clearMessages();
     setQueuingDormant(true);
 
@@ -904,6 +910,7 @@ export default function RetentionActionsPage() {
     event
   ) {
     event.preventDefault();
+    if (!canManageCommunications) return;
     clearMessages();
     setQueuingFollowUps(true);
 
@@ -1150,6 +1157,7 @@ export default function RetentionActionsPage() {
           />
         </section>
 
+        {canManageCommunications ? (
         <div className="mt-6 grid gap-6 xl:grid-cols-2">
           <DormantOutreachForm
             form={dormantForm}
@@ -1180,6 +1188,11 @@ export default function RetentionActionsPage() {
             }
           />
         </div>
+        ) : (
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+            You have read-only customer retention access. Communications management permission is required to queue outreach.
+          </div>
+        )}
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col justify-between gap-4 border-b border-slate-200 p-5 lg:flex-row lg:items-center">
