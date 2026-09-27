@@ -104,6 +104,41 @@ test("entitlement can make a selected capability unavailable without changing ma
   assert.ok(resolved.disabledCapabilityPackKeys.includes("memberships"));
 });
 
+test("dependent capability becomes unavailable when an entitled dependency is unavailable", () => {
+  const resolved = resolveEffectiveTenantProductComposition({
+    manifest: {
+      businessId: "tenant-1",
+      verticalId: "salon",
+      capabilityPackKeys: ["memberships"],
+    },
+    entitledCapabilityPackKeys: [
+      "appointments",
+      "staff",
+      "services",
+      "communications",
+      "calendar",
+      "analytics",
+      "ai",
+      "memberships",
+    ],
+  });
+
+  const commerce = resolved.capabilities.find(
+    ({ key }) => key === "commerce"
+  );
+  const membership = resolved.capabilities.find(
+    ({ key }) => key === "memberships"
+  );
+
+  assert.equal(commerce.enabled, false);
+  assert.equal(commerce.reason, "not-entitled");
+  assert.equal(membership.enabled, false);
+  assert.equal(
+    membership.reason,
+    "dependency-unavailable:commerce"
+  );
+});
+
 test("platform safety lock wins over entitlement and feature exposure", () => {
   const resolved = resolveEffectiveTenantProductComposition({
     manifest: {
