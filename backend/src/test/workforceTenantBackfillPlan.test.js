@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import {
   buildWorkforceBackfillPlan,
   buildWorkforceOwnershipReadiness,
+  WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
 } from "../platform/tenancy/workforceOwnershipMigration.js";
 import {
   sanitiseWorkforceBackfillPlan,
@@ -101,6 +102,74 @@ test("workforce backfill plan produces deterministic stylist and membership oper
       "stylist-restore",
       "membership-delete",
     ]
+  );
+
+  const grant =
+    plan.operations.find(
+      (item) =>
+        item.type ===
+        "membership-create"
+    );
+
+  assert.match(
+    grant.grantReference,
+    /^[a-f0-9]{64}$/
+  );
+  assert.equal(
+    grant.provenanceKey,
+    WORKFORCE_MEMBERSHIP_MIGRATION_KEY
+  );
+
+  const report =
+    sanitiseWorkforceBackfillPlan({
+      readiness,
+      plan,
+    });
+
+  assert.equal(
+    report.membershipGrantEvidence.length,
+    1
+  );
+  assert.equal(
+    report.membershipGrantEvidence[0]
+      .grantReference,
+    grant.grantReference
+  );
+  assert.equal(
+    report.membershipGrantEvidence[0]
+      .roleKey,
+    "stylist"
+  );
+  assert.equal(
+    report.membershipGrantEvidence[0]
+      .locationAccessMode,
+    "selected"
+  );
+
+  const reportText =
+    JSON.stringify(
+      report
+    );
+
+  assert.doesNotMatch(
+    reportText,
+    new RegExp(
+      String(
+        userId
+      )
+    )
+  );
+  assert.doesNotMatch(
+    reportText,
+    new RegExp(
+      String(
+        stylistId
+      )
+    )
+  );
+  assert.doesNotMatch(
+    reportText,
+    /linked@example\.com/
   );
 });
 
