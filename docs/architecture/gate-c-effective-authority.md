@@ -50,3 +50,18 @@ This preserves the platform rule:
 `platform support AND vertical capability AND plan entitlement AND tenant configuration AND user permission AND resource ownership`
 
 A denied capability returns a non-disclosing unavailable response. Cross-Business/cross-Location resources use the shared non-disclosing resource denial contract.
+
+
+## Tenant-bound capability decisions
+
+Effective product composition is now a merged AIIBP control-plane contract.
+
+DEV3 consumes that composition without becoming the entitlement authority. A capability decision used by Gate C must be bound to the same trusted Business as the effective authority.
+
+The adapter contract is:
+
+`effective tenant product composition -> Business match -> capability state -> trusted capability decision -> operation access`
+
+A composition for another Business fails with the same non-disclosing resource denial used for cross-tenant domain resources. Disabled or unselected capabilities fail closed as unavailable.
+
+This prevents a valid capability state for Tenant B from being reused to authorise an operation in Tenant A.
