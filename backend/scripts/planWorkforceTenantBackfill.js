@@ -12,6 +12,7 @@ import Business from "../src/models/Business.js";
 import BusinessMembership from "../src/models/BusinessMembership.js";
 import Location from "../src/models/Location.js";
 import Stylist from "../src/models/Stylist.js";
+import StaffRole from "../src/models/StaffRole.js";
 import User from "../src/models/user.js";
 import StaffAvailability from "../src/features/staff/StaffAvailability.js";
 import StaffTimeOff from "../src/features/staff/StaffTimeOff.js";
@@ -27,6 +28,9 @@ import {
 import {
   buildWorkforceScheduleBackfillPlan,
 } from "../src/platform/tenancy/workforceScheduleOwnershipMigration.js";
+import {
+  buildCanonicalWorkforceMigrationScope,
+} from "../src/platform/tenancy/workforceMigrationScope.js";
 import {
   assertReadOnlyArguments,
 } from "./checkWorkforceTenantReadiness.js";
@@ -258,6 +262,55 @@ export function sanitiseWorkforceBackfillPlan({
           {}
         ),
       }),
+    migrationScope:
+      readiness?.migrationScope ||
+      null,
+    membershipGrantEvidence:
+      Object.freeze(
+        (
+          Array.isArray(
+            plan?.operations
+          )
+            ? plan.operations
+            : []
+        )
+          .filter(
+            (operation) =>
+              operation?.type ===
+              "membership-create"
+          )
+          .map(
+            (operation) =>
+              Object.freeze({
+                grantReference:
+                  operation.grantReference,
+                roleKey:
+                  operation.roleKey,
+                membershipStatus:
+                  "active",
+                locationAccessMode:
+                  operation.locationAccessMode,
+                locationCount:
+                  Array.isArray(
+                    operation.locations
+                  )
+                    ? operation.locations.length
+                    : 0,
+                provenanceKey:
+                  operation.provenanceKey,
+              })
+          )
+          .sort(
+            (left, right) =>
+              String(
+                left.grantReference
+              ).localeCompare(
+                String(
+                  right.grantReference
+                )
+              )
+          )
+      ),
     planned:
       Object.freeze({
         workforce:
@@ -343,6 +396,49 @@ export async function main(
       configuration
     );
 
+  const [
+    businesses,
+    activeCustomStaffRoles,
+  ] =
+    await Promise.all([
+      Business.find({})
+        .sort({
+          _id: 1,
+        })
+        .select(
+          "_id"
+        )
+        .lean(),
+      StaffRole.find({
+        active: true,
+      })
+        .sort({
+          key: 1,
+        })
+        .select(
+          "key active"
+        )
+        .lean(),
+    ]);
+
+  const migrationScope =
+    buildCanonicalWorkforceMigrationScope({
+      businesses,
+      businessId:
+        business._id,
+    });
+
+  const activeCustomStaffRoleKeys =
+    activeCustomStaffRoles.map(
+      (role) =>
+        String(
+          role.key ||
+            ""
+        )
+          .trim()
+          .toLowerCase()
+    );
+
   const stylists =
     await Stylist.find({})
       .sort({
@@ -366,6 +462,9 @@ export async function main(
       stylists,
       users,
       memberships,
+      activeStaffRoleKeys:
+        activeCustomStaffRoleKeys,
+      migrationScope,
       businessId:
         business._id,
       locationId:
