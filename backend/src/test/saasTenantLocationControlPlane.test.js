@@ -7,6 +7,7 @@ import Location from "../models/Location.js";
 import {
   assertMembershipGrantsBusiness,
   assertMembershipGrantsLocation,
+  resolveTrustedTenantContext,
   trustedTenantContext,
 } from "../platform/tenancy/trustedTenantContext.js";
 import {
@@ -187,6 +188,7 @@ test("selected location access fails closed outside the membership scope", () =>
       businessId: String(businessId),
       locationId: String(allowedLocationId),
       roleKey: "receptionist",
+      legacyUserGrantsEligible: false,
       locationAccessMode: "selected",
       allowedLocationIds: [
         String(allowedLocationId),
@@ -263,3 +265,94 @@ test("configuration inheritance records provenance and honours locks", () => {
     "platform"
   );
 });
+
+
+test(
+  "trusted tenant context allows legacy User grants only for one active BusinessMembership",
+  async () => {
+    const userId =
+      new mongoose.Types.ObjectId();
+    const businessId =
+      new mongoose.Types.ObjectId();
+    const locationId =
+      new mongoose.Types.ObjectId();
+
+    const membership = {
+      user:
+        userId,
+      business:
+        businessId,
+      status:
+        "active",
+      roleKey:
+        "manager",
+      locationAccessMode:
+        "selected",
+      locations: [
+        locationId,
+      ],
+    };
+
+    const location = {
+      _id:
+        locationId,
+      business:
+        businessId,
+      status:
+        "active",
+    };
+
+    const resolveWithCount =
+      (count) =>
+        resolveTrustedTenantContext({
+          authenticatedUser:
+            userId,
+          requestedBusinessId:
+            businessId,
+          requestedLocationId:
+            locationId,
+          findMembership:
+            async () =>
+              membership,
+          findLocation:
+            async () =>
+              location,
+          countMemberships:
+            async () =>
+              count,
+        });
+
+    const single =
+      await resolveWithCount(
+        1
+      );
+    const multiple =
+      await resolveWithCount(
+        2
+      );
+
+    assert.equal(
+      single
+        .legacyUserGrantsEligible,
+      true
+    );
+    assert.equal(
+      multiple
+        .legacyUserGrantsEligible,
+      false
+    );
+
+    assert.equal(
+      single.businessId,
+      String(
+        businessId
+      )
+    );
+    assert.equal(
+      multiple.businessId,
+      String(
+        businessId
+      )
+    );
+  }
+);
