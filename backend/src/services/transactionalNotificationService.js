@@ -41,13 +41,14 @@ function normaliseChannels(channels) {
   return output;
 }
 
-function customerAllowsTransactionalMessage(customer, channel) {
+export function customerAllowsTransactionalMessage(customer, channel) {
   if (!customer) return true;
 
   const preferences = customer.communicationPreferences || {};
   if (preferences.unsubscribed === true) return false;
   if (channel === "email" && preferences.emailUnsubscribed === true) return false;
   if (channel === "sms" && preferences.smsUnsubscribed === true) return false;
+  if (channel === "whatsapp" && preferences.whatsappUnsubscribed === true) return false;
 
   return true;
 }
