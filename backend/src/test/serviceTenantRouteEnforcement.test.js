@@ -89,6 +89,8 @@ test("Service domain filters always include trusted Business ownership", () => {
           "service-a",
         active:
           true,
+        business:
+          "attacker-business",
       },
     }),
     {
