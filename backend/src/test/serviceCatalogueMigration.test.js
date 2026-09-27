@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 
 import {
+  buildServiceBusinessBackfillPlan,
   buildServiceCatalogueReadiness,
 } from "../platform/tenancy/serviceCatalogueMigration.js";
 
@@ -346,5 +347,139 @@ test("duplicate Business/Location/Service offering tuples block readiness", () =
         item.blocker ===
         "duplicate-business-location-service-offering"
     )
+  );
+});
+
+
+test("safe readiness produces Service Business assignments only and no Location offerings", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const serviceId =
+    oid();
+
+  const readiness =
+    buildServiceCatalogueReadiness({
+      businessId,
+      primaryLocationId:
+        locationId,
+      businesses: [
+        {
+          _id:
+            businessId,
+        },
+      ],
+      locations: [
+        {
+          _id:
+            locationId,
+          business:
+            businessId,
+        },
+      ],
+      services: [
+        {
+          _id:
+            serviceId,
+        },
+      ],
+      offerings: [],
+    });
+
+  const plan =
+    buildServiceBusinessBackfillPlan(
+      readiness
+    );
+
+  assert.equal(
+    plan.executable,
+    true
+  );
+  assert.equal(
+    plan.writesPerformed,
+    false
+  );
+  assert.equal(
+    plan.summary.serviceBusinessAssignments,
+    1
+  );
+  assert.equal(
+    plan.summary.offeringsCreated,
+    0
+  );
+  assert.deepEqual(
+    plan.operations.map(
+      (operation) =>
+        operation.type
+    ),
+    [
+      "service-business-assign",
+    ]
+  );
+  assert.deepEqual(
+    plan.rollback.map(
+      (operation) =>
+        operation.type
+    ),
+    [
+      "service-business-restore",
+    ]
+  );
+});
+
+test("unsafe readiness never produces executable Service backfill operations", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+
+  const readiness =
+    buildServiceCatalogueReadiness({
+      businessId,
+      primaryLocationId:
+        locationId,
+      businesses: [
+        {
+          _id:
+            businessId,
+        },
+        {
+          _id:
+            oid(),
+        },
+      ],
+      locations: [
+        {
+          _id:
+            locationId,
+          business:
+            businessId,
+        },
+      ],
+      services: [
+        {
+          _id:
+            oid(),
+        },
+      ],
+    });
+
+  const plan =
+    buildServiceBusinessBackfillPlan(
+      readiness
+    );
+
+  assert.equal(
+    plan.executable,
+    false
+  );
+  assert.equal(
+    plan.operations.length,
+    0
+  );
+  assert.equal(
+    plan.rollback.length,
+    0
   );
 });
