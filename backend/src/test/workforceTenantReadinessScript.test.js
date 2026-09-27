@@ -10,7 +10,9 @@ test("workforce readiness CLI refuses every write-like mode", () => {
   for (
     const argument of [
       "--apply",
+      "--apply=true",
       "--write",
+      "--write=yes",
       "--migrate",
       "--backfill",
       "--fix",
