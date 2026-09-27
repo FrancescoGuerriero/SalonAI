@@ -13,6 +13,7 @@ import {
 } from "../src/platform/tenancy/canonicalSalonTenantBootstrap.js";
 import {
   buildCustomerAppointmentBackfillPlan,
+  sanitiseCustomerAppointmentMigrationScope,
 } from "../src/platform/tenancy/customerAppointmentOwnershipMigration.js";
 import {
   loadCustomerAppointmentOwnershipSnapshot,
@@ -130,8 +131,9 @@ export function sanitiseCustomerAppointmentBackfillPlan({
         plan?.blocked
       ),
     migrationScope:
-      readiness?.scope ||
-      null,
+      sanitiseCustomerAppointmentMigrationScope(
+        readiness?.scope
+      ),
     readiness:
       Object.freeze({
         ...(
