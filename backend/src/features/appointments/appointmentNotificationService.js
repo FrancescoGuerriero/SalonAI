@@ -86,7 +86,7 @@ function reminderChannel(customer) {
   return text(customer?.communicationPreferences?.preferredChannel).toLowerCase() || "email";
 }
 
-function notificationChannels(customer, { reminder = false } = {}) {
+export function notificationChannels(customer, { reminder = false } = {}) {
   const preferences = customer?.communicationPreferences || {};
   if (preferences.unsubscribed === true) return [];
 
