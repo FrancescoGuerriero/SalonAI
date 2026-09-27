@@ -58,6 +58,17 @@ async function findActiveMembership({
   return BusinessMembership.findOne(filter);
 }
 
+async function countActiveMemberships({
+  userId,
+}) {
+  return BusinessMembership.countDocuments({
+    user:
+      userId,
+    status:
+      "active",
+  });
+}
+
 async function findActiveLocation({
   locationId,
   businessId,
@@ -146,6 +157,8 @@ export function trustedTenantContext({
   userId,
   businessId,
   location = null,
+  legacyUserGrantsEligible =
+    false,
 }) {
   assertMembershipGrantsBusiness({
     membership,
@@ -183,6 +196,9 @@ export function trustedTenantContext({
       ? normaliseObjectId(location, "location")
       : null,
     roleKey: String(membership.roleKey || "").trim().toLowerCase(),
+    legacyUserGrantsEligible:
+      legacyUserGrantsEligible ===
+      true,
     locationAccessMode,
     allowedLocationIds,
   });
@@ -205,8 +221,17 @@ export async function resolveTrustedTenantContext({
   requestedLocationId = null,
   findMembership = findActiveMembership,
   findLocation = findActiveLocation,
+  countMemberships =
+    countActiveMemberships,
 }) {
-  if (typeof findMembership !== "function" || typeof findLocation !== "function") {
+  if (
+    typeof findMembership !==
+      "function" ||
+    typeof findLocation !==
+      "function" ||
+    typeof countMemberships !==
+      "function"
+  ) {
     throw contextError(
       "Trusted tenant repositories are not configured.",
       "INVALID_TRUSTED_CONTEXT",
@@ -260,11 +285,26 @@ export async function resolveTrustedTenantContext({
     });
   }
 
+  const activeMembershipCount =
+    Number(
+      await countMemberships({
+        userId,
+      })
+    );
+
+  const legacyUserGrantsEligible =
+    Number.isInteger(
+      activeMembershipCount
+    ) &&
+    activeMembershipCount ===
+      1;
+
   return trustedTenantContext({
     membership,
     userId,
     businessId,
     location,
+    legacyUserGrantsEligible,
   });
 }
 
