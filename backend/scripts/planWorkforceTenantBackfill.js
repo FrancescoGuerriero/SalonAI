@@ -13,6 +13,10 @@ import BusinessMembership from "../src/models/BusinessMembership.js";
 import Location from "../src/models/Location.js";
 import Stylist from "../src/models/Stylist.js";
 import User from "../src/models/user.js";
+import StaffAvailability from "../src/features/staff/StaffAvailability.js";
+import StaffTimeOff from "../src/features/staff/StaffTimeOff.js";
+import StaffShift from "../src/features/staffRota/StaffShift.js";
+import StaffAttendance from "../src/features/staffRota/StaffAttendance.js";
 import {
   getCanonicalSalonTenantConfiguration,
 } from "../src/platform/tenancy/canonicalSalonTenantBootstrap.js";
@@ -20,6 +24,9 @@ import {
   buildWorkforceBackfillPlan,
   buildWorkforceOwnershipReadiness,
 } from "../src/platform/tenancy/workforceOwnershipMigration.js";
+import {
+  buildWorkforceScheduleBackfillPlan,
+} from "../src/platform/tenancy/workforceScheduleOwnershipMigration.js";
 import {
   assertReadOnlyArguments,
 } from "./checkWorkforceTenantReadiness.js";
@@ -201,15 +208,19 @@ function countTypes(
 export function sanitiseWorkforceBackfillPlan({
   readiness,
   plan,
+  schedulePlan = null,
 } = {}) {
   const fingerprint =
     createHash(
       "sha256"
     )
       .update(
-        JSON.stringify(
-          plan || {}
-        )
+        JSON.stringify({
+          workforce:
+            plan || {},
+          schedule:
+            schedulePlan || {},
+        })
       )
       .digest(
         "hex"
@@ -221,10 +232,18 @@ export function sanitiseWorkforceBackfillPlan({
     executable:
       Boolean(
         plan?.executable
+      ) &&
+      (
+        schedulePlan === null ||
+        schedulePlan?.executable ===
+          true
       ),
     blocked:
       Boolean(
         plan?.blocked
+      ) ||
+      Boolean(
+        schedulePlan?.blocked
       ),
     readiness:
       Object.freeze({
@@ -235,22 +254,49 @@ export function sanitiseWorkforceBackfillPlan({
       }),
     planned:
       Object.freeze({
-        ...(
-          plan?.summary ||
-          {}
-        ),
-        operationTypes:
-          Object.freeze(
-            countTypes(
-              plan?.operations
-            )
-          ),
-        rollbackTypes:
-          Object.freeze(
-            countTypes(
-              plan?.rollback
-            )
-          ),
+        workforce:
+          Object.freeze({
+            ...(
+              plan?.summary ||
+              {}
+            ),
+            operationTypes:
+              Object.freeze(
+                countTypes(
+                  plan?.operations
+                )
+              ),
+            rollbackTypes:
+              Object.freeze(
+                countTypes(
+                  plan?.rollback
+                )
+              ),
+          }),
+        scheduleAndRota:
+          Object.freeze({
+            ...(
+              schedulePlan?.summary ||
+              {
+                operations: 0,
+                rollbackOperations: 0,
+                blockers: 0,
+              }
+            ),
+            operationTypes:
+              Object.freeze({
+                ...(
+                  schedulePlan?.operationTypes ||
+                  {}
+                ),
+              }),
+            rollbackTypes:
+              Object.freeze(
+                countTypes(
+                  schedulePlan?.rollback
+                )
+              ),
+          }),
       }),
     planFingerprint:
       fingerprint,
@@ -322,11 +368,50 @@ export async function main(
       readiness
     );
 
+  const [
+    availabilities,
+    timeOff,
+    shifts,
+    attendance,
+  ] = await Promise.all([
+    StaffAvailability.find({})
+      .select(
+        "_id business location staff"
+      )
+      .lean(),
+    StaffTimeOff.find({})
+      .select(
+        "_id business location staff"
+      )
+      .lean(),
+    StaffShift.find({})
+      .select(
+        "_id business locationRef location staff"
+      )
+      .lean(),
+    StaffAttendance.find({})
+      .select(
+        "_id business locationRef shift staff"
+      )
+      .lean(),
+  ]);
+
+  const schedulePlan =
+    buildWorkforceScheduleBackfillPlan({
+      workforceReadiness:
+        readiness,
+      availabilities,
+      timeOff,
+      shifts,
+      attendance,
+    });
+
   console.log(
     JSON.stringify(
       sanitiseWorkforceBackfillPlan({
         readiness,
         plan,
+        schedulePlan,
       }),
       null,
       2
@@ -334,7 +419,8 @@ export async function main(
   );
 
   if (
-    !plan.executable
+    !plan.executable ||
+    !schedulePlan.executable
   ) {
     process.exitCode =
       2;
