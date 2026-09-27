@@ -33,3 +33,20 @@ When the active membership role differs from the User role, those global legacy 
 Every current employee permission is classified.
 
 This foundation does not itself migrate domain resources. Resource ownership and domain-specific location filtering are applied when each route family is migrated.
+
+
+## Operation access composition
+
+AIIBP capability/entitlement availability remains outside the RBAC registry.
+
+For a capability-gated management operation, the intended composition is:
+
+`trusted tenant context -> effective user permission -> trusted capability decision -> trusted resource ownership`
+
+DEV3 does not resolve plan entitlements or vertical capability packs. Those are trusted inputs from the platform/configuration control plane. The reusable operation-access helper only composes the decision with effective permission and optional Business/Location resource authority.
+
+This preserves the platform rule:
+
+`platform support AND vertical capability AND plan entitlement AND tenant configuration AND user permission AND resource ownership`
+
+A denied capability returns a non-disclosing unavailable response. Cross-Business/cross-Location resources use the shared non-disclosing resource denial contract.
