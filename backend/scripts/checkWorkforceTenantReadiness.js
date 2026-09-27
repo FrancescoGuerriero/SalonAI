@@ -7,6 +7,7 @@ import Business from "../src/models/Business.js";
 import BusinessMembership from "../src/models/BusinessMembership.js";
 import Location from "../src/models/Location.js";
 import Stylist from "../src/models/Stylist.js";
+import StaffRole from "../src/models/StaffRole.js";
 import User from "../src/models/user.js";
 import StaffAvailability from "../src/features/staff/StaffAvailability.js";
 import StaffTimeOff from "../src/features/staff/StaffTimeOff.js";
@@ -18,6 +19,9 @@ import {
 import {
   buildWorkforceOwnershipReadiness,
 } from "../src/platform/tenancy/workforceOwnershipMigration.js";
+import {
+  buildCanonicalWorkforceMigrationScope,
+} from "../src/platform/tenancy/workforceMigrationScope.js";
 
 function mongoUri(
   environment = process.env
@@ -150,6 +154,7 @@ export function sanitiseWorkforceReadiness({
   plan,
   coverageByDomain,
   indexNames = [],
+  activeCustomStaffRoleKeys = [],
 } = {}) {
   return Object.freeze({
     readOnly: true,
@@ -169,6 +174,22 @@ export function sanitiseWorkforceReadiness({
               plan?.blockers
             )
           ),
+      }),
+    migrationScope:
+      plan?.migrationScope ||
+      null,
+    roleAuthority:
+      Object.freeze({
+        activeCustomStaffRoleKeys:
+          Object.freeze([
+            ...(
+              Array.isArray(
+                activeCustomStaffRoleKeys
+              )
+                ? activeCustomStaffRoleKeys
+                : []
+            ),
+          ]),
       }),
     coverage:
       Object.freeze({
@@ -278,6 +299,49 @@ export async function main(
       configuration
     );
 
+  const [
+    businesses,
+    activeCustomStaffRoles,
+  ] =
+    await Promise.all([
+      Business.find({})
+        .sort({
+          _id: 1,
+        })
+        .select(
+          "_id"
+        )
+        .lean(),
+      StaffRole.find({
+        active: true,
+      })
+        .sort({
+          key: 1,
+        })
+        .select(
+          "key active"
+        )
+        .lean(),
+    ]);
+
+  const migrationScope =
+    buildCanonicalWorkforceMigrationScope({
+      businesses,
+      businessId:
+        business._id,
+    });
+
+  const activeCustomStaffRoleKeys =
+    activeCustomStaffRoles.map(
+      (role) =>
+        String(
+          role.key ||
+            ""
+        )
+          .trim()
+          .toLowerCase()
+    );
+
   const stylists =
     await Stylist.find({})
       .select(
@@ -370,6 +434,9 @@ export async function main(
       stylists,
       users,
       memberships,
+      activeStaffRoleKeys:
+        activeCustomStaffRoleKeys,
+      migrationScope,
       businessId:
         business._id,
       locationId:
@@ -460,6 +527,7 @@ export async function main(
           (index) =>
             index.name
         ),
+      activeCustomStaffRoleKeys,
     });
 
   console.log(
