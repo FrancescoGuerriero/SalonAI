@@ -239,7 +239,7 @@ jobs:
             false
           fi
 
-          docker exec salonai-backend node --input-type=module - <<'NODE'
+          docker exec -i salonai-backend node --input-type=module - <<'NODE'
           const response =
             await fetch(
               "http://127.0.0.1:5000/api/health"
