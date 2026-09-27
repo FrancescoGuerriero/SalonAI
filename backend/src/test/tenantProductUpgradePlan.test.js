@@ -272,3 +272,40 @@ test("ordinary tenant upgrade cannot switch verticals", () => {
       "TENANT_PRODUCT_MANIFEST_VERTICAL_CONFLICT"
   );
 });
+
+
+test("platform version change is surfaced as an explicit upgrade review", () => {
+  const plan =
+    planTenantProductUpgrade({
+      currentManifest:
+        manifest({
+          revision:
+            1,
+        }),
+      nextManifest:
+        manifest({
+          revision:
+            2,
+          overrides: {
+            platformVersion:
+              "3.1.0",
+          },
+        }),
+    });
+
+  assert.equal(
+    plan.requiresPlatformUpgradeReview,
+    true
+  );
+  assert.ok(
+    plan.profileChanges.some(
+      (change) =>
+        change.field ===
+        "platformVersion" &&
+        change.from ===
+        "3.0.0" &&
+        change.to ===
+        "3.1.0"
+    )
+  );
+});
