@@ -180,7 +180,7 @@ test("active manifest requires platformVersion and resolves composition before a
   );
 });
 
-test("manifest persistence model preserves revision history and one-active-manifest contract", () => {
+test("manifest persistence model preserves revision history and one-active-manifest contract", async () => {
   const indexes =
     TenantProductManifest.schema
       .indexes();
@@ -234,19 +234,94 @@ test("manifest persistence model preserves revision history and one-active-manif
       platformVersion:
         "3.0.0",
       verticalId:
-        "salon",
+        "SALON",
+      capabilityPackKeys: [
+        "memberships",
+        "memberships",
+      ],
       manifestRevision:
+        2,
+      previousRevision:
         1,
       manifestHash:
-        "a".repeat(
+        "0".repeat(
           64
         ),
       status:
         "draft",
     });
 
+  await record.validate();
+
   assert.equal(
-    record.validateSync(),
-    undefined
+    record.verticalId,
+    "salon"
+  );
+  assert.deepEqual(
+    record.capabilityPackKeys,
+    [
+      "memberships",
+    ]
+  );
+  assert.notEqual(
+    record.manifestHash,
+    "0".repeat(
+      64
+    )
+  );
+  assert.equal(
+    record.manifestHash.length,
+    64
+  );
+});
+
+test("active persistence model fails closed when composition is invalid", async () => {
+  const record =
+    new TenantProductManifest({
+      business:
+        new mongoose.Types.ObjectId(),
+      schemaVersion:
+        "1",
+      platformVersion:
+        "3.0.0",
+      verticalId:
+        "salon",
+      capabilityPackKeys: [
+        "clinical-records",
+      ],
+      manifestRevision:
+        1,
+      status:
+        "active",
+    });
+
+  await assert.rejects(
+    record.validate(),
+    (error) =>
+      error.code ===
+      "UNSUPPORTED_VERTICAL_CAPABILITY"
+  );
+});
+
+test("persistence model enforces direct revision ancestry", async () => {
+  const record =
+    new TenantProductManifest({
+      business:
+        new mongoose.Types.ObjectId(),
+      schemaVersion:
+        "1",
+      verticalId:
+        "salon",
+      manifestRevision:
+        4,
+      previousRevision:
+        2,
+      status:
+        "draft",
+    });
+
+  await assert.rejects(
+    record.validate(),
+    /Previous revision must be exactly one less/
   );
 });
