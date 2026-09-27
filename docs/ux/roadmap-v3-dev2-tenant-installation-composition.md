@@ -256,6 +256,141 @@ Future provisioning report presentation:
 
 Do not expose secrets or unnecessary internal identifiers.
 
+
+## #352 product-composition contract alignment
+
+DEV2 now consumes the review-ready DEV4 #352 / PR #356 vocabulary for tenant product composition. This remains descriptive/presentation work until that contract is integrated.
+
+### Manifest metadata
+
+The installation and upgrade UX should be able to present:
+
+- schema version;
+- platform version;
+- Business identity;
+- vertical id;
+- plan key;
+- capability pack keys;
+- configuration profile;
+- theme profile;
+- terminology profile;
+- integration bindings;
+- AI capability keys;
+- workflow pack keys;
+- data policy profile;
+- approved extension keys;
+- deployment profile;
+- manifest revision;
+- manifest status;
+- effective-from date/time;
+- deterministic manifest hash where review evidence requires it.
+
+Manifest statuses:
+- `draft`;
+- `active`;
+- `suspended`;
+- `archived`.
+
+Deployment profiles:
+- `shared-saas`;
+- `dedicated`.
+
+Dedicated deployment must remain the same versioned AIIBP product composition and requires infrastructure review; it is not a code fork.
+
+### Effective capability provenance
+
+Capability state must display the authoritative explanation returned by the composition resolver.
+
+Canonical reason values currently include:
+
+- `tenant-manifest`;
+- `vertical-default`;
+- `platform-safety-lock`;
+- `not-entitled`;
+- `feature-flag-disabled`;
+- `dependency-unavailable:<capability-key>`.
+
+Upgrade comparison may additionally use:
+- `not-selected`.
+
+DEV2 wording should translate these codes into operator language while preserving the underlying reason for diagnostics/audit.
+
+Suggested presentation mapping:
+
+| Resolver reason | Operator-facing meaning |
+| --- | --- |
+| tenant-manifest | Selected explicitly for this tenant |
+| vertical-default | Included by the selected vertical |
+| platform-safety-lock | Disabled by a platform safety control |
+| not-entitled | Not available under current entitlement |
+| feature-flag-disabled | Temporarily not exposed by rollout control |
+| dependency-unavailable:* | Unavailable because a required capability is unavailable |
+| not-selected | Not selected in this composition |
+
+The frontend must not recompute these reasons.
+
+### Upgrade review contract
+
+A tenant product upgrade review may present:
+
+- current manifest revision -> next revision;
+- current platform version -> next platform version;
+- current manifest hash;
+- next manifest hash;
+- capability transitions;
+- capabilities to enable;
+- capabilities to disable;
+- profile changes;
+- tenant acceptance requirement;
+- infrastructure review requirement;
+- platform-upgrade review requirement;
+- experimental-capability approval requirement;
+- deterministic upgrade fingerprint.
+
+Each capability transition may present:
+- capability key/label;
+- lifecycle status;
+- from enabled -> to enabled;
+- from reason -> to reason;
+- required permissions;
+- integration contracts;
+- metering key when the authoritative contract exposes it.
+
+No upgrade write is performed by the review UI.
+
+### Activation approval contract
+
+Activation review must be able to present these canonical approval reasons:
+
+- `initial-tenant-product-activation`;
+- `tenant-product-change`;
+- `platform-version-upgrade-review`;
+- `deployment-infrastructure-review`;
+- `experimental-capability`.
+
+The activation plan may also expose:
+
+- from revision / to revision;
+- current manifest hash;
+- candidate draft manifest hash;
+- active manifest hash;
+- enabled capability keys;
+- disabled capability keys;
+- persistence intent:
+  - archive current manifest;
+  - activate candidate manifest;
+- deterministic activation fingerprint;
+- `writesPerformed: false` during planning.
+
+DEV2 must present persistence intent as a reviewable plan, not as proof that writes happened.
+
+### Product-composition review UX rule
+
+The operator should be able to answer, without reading source code:
+
+> What product composition is this tenant running, what is changing, why is each capability available/unavailable, what approvals are required, and which review fingerprint identifies this exact plan?
+
+
 ## Deployment topology presentation
 
 The tenant product may later be deployed as:
@@ -375,6 +510,11 @@ Built and visually reviewed:
 - 10 — Tablet Capability Composition (768px)
 - 11 — Write Confirmation
 - 12 — Collision & Blocked Recovery States
+- 13 — Effective Product Composition & Provenance
+- 14 — Manifest Revision & Deployment Profile
+- 15 — Tenant Product Upgrade Review
+- 16 — Activation Approval & Fingerprint
+- 17 — Mobile Upgrade Review
 
 Figma file:
 https://www.figma.com/design/iNumviutWfqBibpl43cKSC
