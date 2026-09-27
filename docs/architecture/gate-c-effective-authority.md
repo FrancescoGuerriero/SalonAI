@@ -65,3 +65,20 @@ The adapter contract is:
 A composition for another Business fails with the same non-disclosing resource denial used for cross-tenant domain resources. Disabled or unselected capabilities fail closed as unavailable.
 
 This prevents a valid capability state for Tenant B from being reused to authorise an operation in Tenant A.
+
+
+## Workforce scope contract after #306
+
+DEV4 #306 has merged the additive workforce ownership fields, but production route enforcement remains disabled until DEV1 completes readiness, dry-run and backfill.
+
+DEV3 may therefore prepare the query/authority contract without activating it.
+
+The workforce scope contract:
+- always binds management queries to trusted `Stylist.business`;
+- for selected-location memberships, further restricts to `Stylist.workingLocations[]` intersecting the trusted allowed-location set;
+- preserves business-wide visibility for authorised all-location management;
+- never uses `profilePublished`, `acceptsAppointments` or `isActive` as management-authority filters;
+- uses non-disclosing resource denial for cross-Business/out-of-scope staff;
+- supports a stricter selected-location assertion for location-specific workforce operations.
+
+Live route wiring remains a separate post-backfill activation step.
