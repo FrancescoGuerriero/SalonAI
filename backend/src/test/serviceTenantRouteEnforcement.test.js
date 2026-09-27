@@ -154,6 +154,31 @@ test("local development may use only the server-configured canonical app host fa
   );
 });
 
+test("Service host override is forbidden in production", () => {
+  assert.throws(
+    () =>
+      resolveServicePublicTenantHost(
+        {
+          headers: {
+            host:
+              "salonai.francescopicardi.co.uk",
+          },
+        },
+        {
+          NODE_ENV:
+            "production",
+          SERVICE_PUBLIC_TENANT_HOST_OVERRIDE:
+            "tenant-two.example.com",
+        }
+      ),
+    (error) =>
+      error.code ===
+        "INVALID_SERVICE_TENANT_HOST_CONFIGURATION" &&
+      error.statusCode ===
+        500
+  );
+});
+
 test("explicit server Service host override wins for controlled test environments", () => {
   assert.equal(
     resolveServicePublicTenantHost(
