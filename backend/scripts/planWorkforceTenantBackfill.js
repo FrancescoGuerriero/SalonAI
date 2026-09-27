@@ -147,6 +147,9 @@ async function loadIdentityState(
         },
       ],
     })
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id email role isActive"
       )
@@ -166,6 +169,9 @@ async function loadIdentityState(
               userIds,
           },
         })
+          .sort({
+            _id: 1,
+          })
           .select(
             "_id user business status roleKey locationAccessMode locations"
           )
@@ -339,6 +345,9 @@ export async function main(
 
   const stylists =
     await Stylist.find({})
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id business workingLocations userAccount email isActive acceptsAppointments profilePublished"
       )
@@ -375,21 +384,33 @@ export async function main(
     attendance,
   ] = await Promise.all([
     StaffAvailability.find({})
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id business location staff"
       )
       .lean(),
     StaffTimeOff.find({})
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id business location staff"
       )
       .lean(),
     StaffShift.find({})
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id business locationRef location staff"
       )
       .lean(),
     StaffAttendance.find({})
+      .sort({
+        _id: 1,
+      })
       .select(
         "_id business locationRef shift staff"
       )
