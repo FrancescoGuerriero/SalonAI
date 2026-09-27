@@ -101,6 +101,7 @@ async function permissionsForTenantRole({
   user,
   roleKey,
   businessId,
+  legacyUserGrantsEligible,
   roleResolver,
 }) {
   const userRole =
@@ -111,6 +112,7 @@ async function permissionsForTenantRole({
     userRole === roleKey;
 
   if (
+    legacyUserGrantsEligible &&
     roleMatchesLegacyUser &&
     isBuiltInStaffRoleKey(
       roleKey
@@ -161,6 +163,7 @@ async function permissionsForTenantRole({
     );
 
   const permissions =
+    legacyUserGrantsEligible &&
     roleMatchesLegacyUser
       ? normalisedPermissions([
           ...registryPermissions,
@@ -181,6 +184,7 @@ async function permissionsForTenantRole({
     permissions,
     roleMatchesLegacyUser,
     legacyUserGrantsApplied:
+      legacyUserGrantsEligible &&
       roleMatchesLegacyUser,
     roleSource:
       "staff-role-registry",
@@ -239,6 +243,10 @@ export async function resolveEffectiveAuthority({
       roleKey,
       businessId:
         tenantContext.businessId,
+      legacyUserGrantsEligible:
+        tenantContext
+          .legacyUserGrantsEligible ===
+        true,
       roleResolver,
     });
 
@@ -280,6 +288,10 @@ export async function resolveEffectiveAuthority({
         ),
       roleMatchesLegacyUser:
         result.roleMatchesLegacyUser,
+      legacyUserGrantsEligible:
+        tenantContext
+          .legacyUserGrantsEligible ===
+        true,
       legacyUserGrantsApplied:
         result.legacyUserGrantsApplied,
       roleSource:
