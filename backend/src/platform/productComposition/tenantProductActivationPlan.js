@@ -157,11 +157,25 @@ export function planTenantProductManifestActivation({
 
   const approvalReasons = [];
 
+  if (!current) {
+    approvalReasons.push(
+      "initial-tenant-product-activation"
+    );
+  }
+
   if (
     upgradePlan?.requiresTenantAcceptance
   ) {
     approvalReasons.push(
       "tenant-product-change"
+    );
+  }
+
+  if (
+    upgradePlan?.requiresPlatformUpgradeReview
+  ) {
+    approvalReasons.push(
+      "platform-version-upgrade-review"
     );
   }
 
