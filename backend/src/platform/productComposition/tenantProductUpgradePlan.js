@@ -68,6 +68,7 @@ function profileChanges(
   next
 ) {
   const scalarFields = [
+    "platformVersion",
     "planKey",
     "configurationProfile",
     "themeProfile",
@@ -278,6 +279,8 @@ function fingerprintPayload(
       plan.requiresTenantAcceptance,
     requiresInfrastructureReview:
       plan.requiresInfrastructureReview,
+    requiresPlatformUpgradeReview:
+      plan.requiresPlatformUpgradeReview,
     containsExperimentalCapability:
       plan.containsExperimentalCapability,
   };
@@ -364,6 +367,13 @@ export function planTenantProductUpgrade({
           "deploymentProfile"
     );
 
+  const requiresPlatformUpgradeReview =
+    profiles.some(
+      (change) =>
+        change.field ===
+          "platformVersion"
+    );
+
   const requiresTenantAcceptance =
     transitions.length >
       0 ||
@@ -447,6 +457,7 @@ export function planTenantProductUpgrade({
       ),
     requiresTenantAcceptance,
     requiresInfrastructureReview,
+    requiresPlatformUpgradeReview,
     containsExperimentalCapability,
     writesPerformed:
       false,
