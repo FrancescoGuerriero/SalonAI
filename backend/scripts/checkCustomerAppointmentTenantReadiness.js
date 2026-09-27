@@ -5,18 +5,12 @@ import {
   pathToFileURL,
 } from "node:url";
 
-import Appointment from "../src/models/Appointment.js";
-import Business from "../src/models/Business.js";
-import Customer from "../src/models/customer.js";
-import Location from "../src/models/Location.js";
-import Service from "../src/models/service.js";
-import Stylist from "../src/models/Stylist.js";
 import {
   getCanonicalSalonTenantConfiguration,
 } from "../src/platform/tenancy/canonicalSalonTenantBootstrap.js";
 import {
-  buildCustomerAppointmentOwnershipReadiness,
-} from "../src/platform/tenancy/customerAppointmentOwnershipMigration.js";
+  loadCustomerAppointmentOwnershipSnapshot,
+} from "../src/platform/tenancy/customerAppointmentOwnershipSnapshot.js";
 
 function mongoUri(
   environment = process.env
@@ -215,51 +209,6 @@ export function sanitiseCustomerAppointmentReadiness({
   });
 }
 
-async function resolveCanonicalOwnership(
-  configuration
-) {
-  const business =
-    await Business.findOne({
-      slug:
-        configuration.business.slug,
-    })
-      .select(
-        "_id slug businessType status"
-      )
-      .lean();
-
-  if (!business) {
-    throw new Error(
-      "Canonical Business is missing. Complete the canonical tenant bootstrap before Customer/Appointment readiness."
-    );
-  }
-
-  const location =
-    await Location.findOne({
-      business:
-        business._id,
-      slug:
-        configuration.location.slug,
-      status:
-        "active",
-    })
-      .select(
-        "_id business slug status"
-      )
-      .lean();
-
-  if (!location) {
-    throw new Error(
-      "Canonical active primary Location is missing. Complete the canonical tenant bootstrap before Customer/Appointment readiness."
-    );
-  }
-
-  return {
-    business,
-    location,
-  };
-}
-
 export async function main(
   args = process.argv.slice(2),
   environment = process.env
@@ -283,137 +232,25 @@ export async function main(
     }
   );
 
-  const {
-    business,
-    location,
-  } =
-    await resolveCanonicalOwnership(
-      configuration
-    );
-
-  const [
-    businesses,
-    locations,
-    customers,
-    appointments,
-    services,
-    stylists,
-    customerIndexes,
-    appointmentIndexes,
-  ] =
-    await Promise.all([
-      Business.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id"
-        )
-        .lean(),
-      Location.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business status"
-        )
-        .lean(),
-      Customer.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business"
-        )
-        .lean(),
-      Appointment.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business location customer service stylist"
-        )
-        .lean(),
-      Service.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business"
-        )
-        .lean(),
-      Stylist.find({})
-        .sort({
-          _id: 1,
-        })
-        .select(
-          "_id business"
-        )
-        .lean(),
-      Customer.collection
-        .indexes()
-        .catch(
-          () => []
-        ),
-      Appointment.collection
-        .indexes()
-        .catch(
-          () => []
-        ),
-    ]);
-
-  const readiness =
-    buildCustomerAppointmentOwnershipReadiness({
-      customers,
-      appointments,
-      services,
-      stylists,
-      businesses,
-      locations,
-      businessId:
-        business._id,
-      locationId:
-        location._id,
+  const snapshot =
+    await loadCustomerAppointmentOwnershipSnapshot({
+      configuration,
+      includeIndexes:
+        true,
     });
-
-  const customerCoverage = {
-    total:
-      customers.length,
-    businessScoped:
-      customers.filter(
-        (customer) =>
-          Boolean(
-            customer.business
-          )
-      ).length,
-  };
-
-  const appointmentCoverage = {
-    total:
-      appointments.length,
-    businessScoped:
-      appointments.filter(
-        (appointment) =>
-          Boolean(
-            appointment.business
-          )
-      ).length,
-    locationScoped:
-      appointments.filter(
-        (appointment) =>
-          Boolean(
-            appointment.location
-          )
-      ).length,
-  };
 
   const report =
     sanitiseCustomerAppointmentReadiness({
-      readiness,
-      customerCoverage,
-      appointmentCoverage,
-      customerIndexes,
-      appointmentIndexes,
+      readiness:
+        snapshot.readiness,
+      customerCoverage:
+        snapshot.coverage.customers,
+      appointmentCoverage:
+        snapshot.coverage.appointments,
+      customerIndexes:
+        snapshot.indexes.customers,
+      appointmentIndexes:
+        snapshot.indexes.appointments,
     });
 
   console.log(
@@ -425,7 +262,7 @@ export async function main(
   );
 
   if (
-    !readiness.safeForBackfill
+    !snapshot.readiness.safeForBackfill
   ) {
     process.exitCode =
       2;
