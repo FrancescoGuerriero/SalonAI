@@ -407,6 +407,25 @@
   text-align: center;
 }
 
+.auth-terms a {
+  color: var(--palette-gold-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.auth-terms a:hover,
+.auth-terms a:focus-visible {
+  color: var(--palette-black);
+}
+
+.auth-terms a:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--palette-gold-dark);
+  outline-offset: 3px;
+}
+
 .password-strength {
   margin: -2px 0 8px;
   padding: 13px;
