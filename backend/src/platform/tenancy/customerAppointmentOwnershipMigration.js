@@ -252,6 +252,72 @@ export function buildCustomerAppointmentMigrationScope({
   });
 }
 
+export function sanitiseCustomerAppointmentMigrationScope(
+  scope
+) {
+  if (
+    !scope ||
+    typeof scope !==
+      "object"
+  ) {
+    return null;
+  }
+
+  return Object.freeze({
+    businessCount:
+      Number(
+        scope.businessCount ||
+          0
+      ),
+    canonicalBusinessCount:
+      Number(
+        scope.canonicalBusinessCount ||
+          0
+      ),
+    otherBusinessCount:
+      Number(
+        scope.otherBusinessCount ||
+          0
+      ),
+    activeBusinessLocationCount:
+      Number(
+        scope.activeBusinessLocationCount ||
+          0
+      ),
+    canonicalLocationCount:
+      Number(
+        scope.canonicalLocationCount ||
+          0
+      ),
+    safeForGlobalCustomerBackfill:
+      scope.safeForGlobalCustomerBackfill ===
+      true,
+    safeForGlobalAppointmentBackfill:
+      scope.safeForGlobalAppointmentBackfill ===
+      true,
+    customerBlockers:
+      Object.freeze([
+        ...(
+          Array.isArray(
+            scope.customerBlockers
+          )
+            ? scope.customerBlockers
+            : []
+        ),
+      ]),
+    appointmentBlockers:
+      Object.freeze([
+        ...(
+          Array.isArray(
+            scope.appointmentBlockers
+          )
+            ? scope.appointmentBlockers
+            : []
+        ),
+      ]),
+  });
+}
+
 export function buildCustomerAppointmentOwnershipReadiness({
   customers = [],
   appointments = [],
@@ -871,6 +937,7 @@ export function buildCustomerAppointmentBackfillPlan(
 
 export default {
   buildCustomerAppointmentMigrationScope,
+  sanitiseCustomerAppointmentMigrationScope,
   buildCustomerAppointmentOwnershipReadiness,
   buildCustomerAppointmentBackfillPlan,
 };
