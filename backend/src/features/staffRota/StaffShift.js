@@ -9,6 +9,20 @@ const SHIFT_STATUSES = [
 
 const staffShiftSchema = new mongoose.Schema(
   {
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    // Transitional trusted Location reference. The existing string
+    // `location` remains for backwards compatibility until migration.
+    locationRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     staff: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Stylist",
@@ -87,6 +101,13 @@ staffShiftSchema.index({
 });
 
 staffShiftSchema.index({
+  startsAt: 1,
+  status: 1,
+});
+
+staffShiftSchema.index({
+  business: 1,
+  locationRef: 1,
   startsAt: 1,
   status: 1,
 });
