@@ -444,6 +444,159 @@ export function buildServiceCatalogueReadiness({
   });
 }
 
+
+export function buildServiceBusinessBackfillPlan(
+  readiness
+) {
+  if (
+    !readiness ||
+    typeof readiness !==
+      "object"
+  ) {
+    throw migrationError(
+      "A Service catalogue readiness result is required."
+    );
+  }
+
+  if (
+    readiness.safeForBusinessBackfill !==
+      true
+  ) {
+    return Object.freeze({
+      dryRun:
+        true,
+      writesPerformed:
+        false,
+      executable:
+        false,
+      blocked:
+        true,
+      businessId:
+        idText(
+          readiness.businessId
+        ) ||
+        null,
+      summary:
+        Object.freeze({
+          serviceBusinessAssignments:
+            0,
+          rollbackServiceRestores:
+            0,
+          offeringsCreated:
+            0,
+          blockers:
+            Array.isArray(
+              readiness.blockers
+            )
+              ? readiness.blockers.length
+              : 0,
+        }),
+      operations:
+        Object.freeze([]),
+      rollback:
+        Object.freeze([]),
+    });
+  }
+
+  const businessId =
+    requiredId(
+      readiness.businessId,
+      "readiness.businessId"
+    );
+
+  const operations = [];
+  const rollback = [];
+
+  for (
+    const servicePlan of
+      Array.isArray(
+        readiness.servicePlans
+      )
+        ? readiness.servicePlans
+        : []
+  ) {
+    const serviceId =
+      requiredId(
+        servicePlan?.serviceId,
+        "readiness.servicePlans[].serviceId"
+      );
+
+    if (
+      servicePlan.businessAction ===
+        "reuse"
+    ) {
+      continue;
+    }
+
+    if (
+      servicePlan.businessAction !==
+        "assign"
+    ) {
+      throw migrationError(
+        `Unsupported Service business action for ${serviceId}.`
+      );
+    }
+
+    operations.push(
+      Object.freeze({
+        type:
+          "service-business-assign",
+        serviceId,
+        businessId,
+        expectedPreviousBusinessId:
+          null,
+      })
+    );
+
+    rollback.push(
+      Object.freeze({
+        type:
+          "service-business-restore",
+        serviceId,
+        previousBusinessId:
+          null,
+      })
+    );
+  }
+
+  return Object.freeze({
+    dryRun:
+      true,
+    writesPerformed:
+      false,
+    executable:
+      true,
+    blocked:
+      false,
+    businessId,
+    primaryLocationId:
+      idText(
+        readiness.primaryLocationId
+      ) ||
+      null,
+    summary:
+      Object.freeze({
+        serviceBusinessAssignments:
+          operations.length,
+        rollbackServiceRestores:
+          rollback.length,
+        offeringsCreated:
+          0,
+        blockers:
+          0,
+      }),
+    operations:
+      Object.freeze(
+        operations
+      ),
+    rollback:
+      Object.freeze(
+        rollback
+      ),
+  });
+}
+
 export default {
   buildServiceCatalogueReadiness,
+  buildServiceBusinessBackfillPlan,
 };
