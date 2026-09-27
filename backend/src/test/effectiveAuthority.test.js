@@ -30,6 +30,8 @@ function tenantContext({
   locationId = null,
   mode = "selected",
   allowed = [],
+  legacyUserGrantsEligible =
+    true,
 } = {}) {
   return {
     userId:
@@ -38,6 +40,7 @@ function tenantContext({
       "507f1f77bcf86cd799439012",
     locationId,
     roleKey,
+    legacyUserGrantsEligible,
     locationAccessMode:
       mode,
     allowedLocationIds:
@@ -826,6 +829,92 @@ test(
       authority.businessId,
       resolverCall.options
         .businessId
+    );
+  }
+);
+
+
+test(
+  "matching membership role does not inherit legacy User grants when the user has multiple active businesses",
+  async () => {
+    const resolverCalls =
+      [];
+
+    const authority =
+      await resolveEffectiveAuthority({
+        user:
+          user({
+            role:
+              "manager",
+            permissions: [
+              "reports:manage",
+            ],
+            rolePermissions: [
+              "customer:delete",
+            ],
+          }),
+        tenantContext:
+          tenantContext({
+            roleKey:
+              "manager",
+            legacyUserGrantsEligible:
+              false,
+          }),
+        roleResolver:
+          async (
+            roleKey,
+            options
+          ) => {
+            resolverCalls.push({
+              roleKey,
+              options,
+            });
+
+            return {
+              key:
+                roleKey,
+              active:
+                true,
+              permissions: [
+                "dashboard:view",
+              ],
+            };
+          },
+      });
+
+    assert.equal(
+      authority.roleMatchesLegacyUser,
+      true
+    );
+    assert.equal(
+      authority.legacyUserGrantsEligible,
+      false
+    );
+    assert.equal(
+      authority.legacyUserGrantsApplied,
+      false
+    );
+    assert.deepEqual(
+      authority.permissions,
+      [
+        "dashboard:view",
+      ]
+    );
+    assert.equal(
+      authority.permissions.includes(
+        "reports:manage"
+      ),
+      false
+    );
+    assert.equal(
+      authority.permissions.includes(
+        "customer:delete"
+      ),
+      false
+    );
+    assert.equal(
+      resolverCalls.length,
+      1
     );
   }
 );
