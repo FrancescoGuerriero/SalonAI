@@ -359,19 +359,22 @@ provisioning result
 
 ## Figma deliverable inventory
 
-Planned frames:
-1. Installation workspace
-2. Vertical selection
-3. Tenant identity & locale
-4. Location & domains
-5. Capability composition
-6. Branding & terminology
-7. Integration planning
-8. Dry-run review
-9. Installation report
-10. Mobile review
-11. Tablet capability composition
-12. Error / collision states
+Current page: **DEV2 #353 — Tenant Installation**
+
+Built and visually reviewed:
+- 00 — Installation Model
+- 01 — Vertical Selection
+- 02 — Business Identity & Locale
+- 03 — Location & Domain Setup
+- 04 — Capability Composition
+- 05 — Branding & Terminology
+- 06 — Integration Planning
+- 07 — Dry-run Review
+- 08 — Installation Report
+- 09 — Mobile Dry-run Review (390px)
+- 10 — Tablet Capability Composition (768px)
+- 11 — Write Confirmation
+- 12 — Collision & Blocked Recovery States
 
 Figma file:
 https://www.figma.com/design/iNumviutWfqBibpl43cKSC
