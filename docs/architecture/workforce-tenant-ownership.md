@@ -113,3 +113,25 @@ The command:
 - emits no employee names, email addresses or record identifiers.
 
 A non-zero readiness result is evidence to resolve before any backfill apply path is introduced; it is not permission to silently repair records.
+
+
+## Zero-write backfill planning command
+
+After the canonical Francesco Picardi Business and primary Location are present, run:
+
+```bash
+npm run workforce:tenant-backfill-plan
+```
+
+This command:
+- performs no writes;
+- reuses the same ownership-readiness logic as the readiness scanner;
+- stops as blocked when unresolved ownership conflicts exist;
+- converts safe readiness into proposed Stylist ownership/location updates and BusinessMembership creations;
+- produces matching rollback-operation counts;
+- emits a deterministic SHA-256 plan fingerprint for review evidence;
+- excludes staff names, email addresses and record identifiers from console output.
+
+The internal dry-run plan may contain resource ids because a future executor will require exact targets, but the operator-facing report intentionally exposes only counts and the fingerprint.
+
+No apply executor exists in this slice.
