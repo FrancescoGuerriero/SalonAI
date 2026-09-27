@@ -69,6 +69,15 @@ test("initial tenant product activation is planned without performing writes", (
     plan.activationFingerprint.length,
     64
   );
+  assert.equal(
+    plan.approvalRequired,
+    true
+  );
+  assert.ok(
+    plan.approvalReasons.includes(
+      "initial-tenant-product-activation"
+    )
+  );
 });
 
 test("upgrade activation archives current revision then activates next revision", () => {
@@ -239,5 +248,34 @@ test("activation fingerprint is deterministic for the same reviewed candidate", 
   assert.equal(
     left.activationFingerprint,
     right.activationFingerprint
+  );
+});
+
+
+test("platform version upgrade requires explicit platform review", () => {
+  const plan =
+    planTenantProductManifestActivation({
+      currentActiveManifest:
+        manifest({
+          revision:
+            1,
+          status:
+            "active",
+        }),
+      candidateManifest:
+        manifest({
+          revision:
+            2,
+          overrides: {
+            platformVersion:
+              "3.1.0",
+          },
+        }),
+    });
+
+  assert.ok(
+    plan.approvalReasons.includes(
+      "platform-version-upgrade-review"
+    )
   );
 });
