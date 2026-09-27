@@ -205,7 +205,7 @@ test("sanitized workforce backfill plan hides identifiers while preserving deter
     64
   );
   assert.equal(
-    report.planned.operationTypes[
+    report.planned.workforce.operationTypes[
       "stylist-update"
     ],
     1
@@ -227,5 +227,110 @@ test("sanitized workforce backfill plan hides identifiers while preserving deter
   assert.doesNotMatch(
     text,
     /nosignin@example\.com/
+  );
+});
+
+
+test("sanitized combined workforce plan includes schedule operation counts without identifiers", () => {
+  const businessId =
+    oid();
+  const locationId =
+    oid();
+  const stylistId =
+    oid();
+
+  const readiness =
+    buildWorkforceOwnershipReadiness({
+      businessId,
+      locationId,
+      stylists: [
+        {
+          _id:
+            stylistId,
+          email:
+            "employee@example.com",
+        },
+      ],
+      users: [],
+      memberships: [],
+    });
+
+  const plan =
+    buildWorkforceBackfillPlan(
+      readiness
+    );
+
+  const schedulePlan = {
+    executable: true,
+    blocked: false,
+    summary: {
+      operations: 2,
+      rollbackOperations: 2,
+      blockers: 0,
+    },
+    operationTypes: {
+      "availability-update": 1,
+      "shift-update": 1,
+    },
+    operations: [
+      {
+        type: "availability-update",
+        recordId: String(oid()),
+      },
+      {
+        type: "shift-update",
+        recordId: String(oid()),
+      },
+    ],
+    rollback: [
+      {
+        type: "availability-restore",
+      },
+      {
+        type: "shift-restore",
+      },
+    ],
+  };
+
+  const report =
+    sanitiseWorkforceBackfillPlan({
+      readiness,
+      plan,
+      schedulePlan,
+    });
+
+  assert.equal(
+    report.executable,
+    true
+  );
+  assert.equal(
+    report.planned.scheduleAndRota.operationTypes[
+      "availability-update"
+    ],
+    1
+  );
+  assert.equal(
+    report.planned.scheduleAndRota.rollbackTypes[
+      "shift-restore"
+    ],
+    1
+  );
+  assert.equal(
+    report.identifiersIncluded,
+    false
+  );
+
+  const text =
+    JSON.stringify(
+      report
+    );
+
+  assert.doesNotMatch(
+    text,
+    /recordId/
+  );
+  assert.doesNotMatch(
+    text,
+    /employee@example\.com/
   );
 });
