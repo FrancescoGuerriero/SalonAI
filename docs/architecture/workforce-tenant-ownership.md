@@ -94,3 +94,22 @@ Migration must eventually ensure:
 11. activate tenant-scoped queries incrementally with DEV3 effective authority.
 
 No migration runs automatically on backend startup.
+
+
+## Read-only readiness command
+
+After the canonical Business and primary Location exist, run:
+
+```bash
+npm run workforce:tenant-readiness
+```
+
+The command:
+- performs no writes;
+- refuses apply/write/migrate/backfill/fix flags, including `--flag=value` variants;
+- reports ownership coverage for Stylist, availability, time-off, shifts and attendance;
+- reports blocker **counts/types** only;
+- reports the presence of legacy workforce unique-index names;
+- emits no employee names, email addresses or record identifiers.
+
+A non-zero readiness result is evidence to resolve before any backfill apply path is introduced; it is not permission to silently repair records.
