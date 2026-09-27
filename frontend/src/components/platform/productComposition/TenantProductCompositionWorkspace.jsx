@@ -63,8 +63,8 @@ export default function TenantProductCompositionWorkspace({
           </div>
 
           <p className="text-xs font-semibold text-stone-600">
-            {capabilities.length} capability
-            {capabilities.length === 1 ? "" : "ies"}
+            {capabilities.length}{" "}
+            {capabilities.length === 1 ? "capability" : "capabilities"}
           </p>
         </div>
 
