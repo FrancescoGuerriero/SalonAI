@@ -125,6 +125,43 @@ export function normaliseTenantProductManifest(manifest = {}) {
     );
   }
 
+  const manifestRevision =
+    cleanString(
+      manifest.manifestRevision ||
+        "1"
+    );
+
+  if (
+    !/^[1-9]\d*$/.test(
+      manifestRevision
+    )
+  ) {
+    throw compositionError(
+      "Manifest revision must be a positive integer string.",
+      "INVALID_TENANT_PRODUCT_MANIFEST"
+    );
+  }
+
+  const effectiveFrom =
+    cleanString(
+      manifest.effectiveFrom ||
+        ""
+    );
+
+  if (
+    effectiveFrom &&
+    Number.isNaN(
+      Date.parse(
+        effectiveFrom
+      )
+    )
+  ) {
+    throw compositionError(
+      "Manifest effectiveFrom must be a valid date/time when provided.",
+      "INVALID_TENANT_PRODUCT_MANIFEST"
+    );
+  }
+
   return Object.freeze({
     schemaVersion,
     platformVersion: cleanString(
@@ -176,11 +213,9 @@ export function normaliseTenantProductManifest(manifest = {}) {
       )
     ),
     deploymentProfile,
-    manifestRevision: cleanString(
-      manifest.manifestRevision || "1"
-    ),
+    manifestRevision,
     status,
-    effectiveFrom: cleanString(manifest.effectiveFrom || ""),
+    effectiveFrom,
   });
 }
 
