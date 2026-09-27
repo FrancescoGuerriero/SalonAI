@@ -105,9 +105,9 @@ export function scopedServiceFilter({
   }
 
   return {
+    ...domainFilter,
     business:
       trustedBusinessId,
-    ...domainFilter,
   };
 }
 
