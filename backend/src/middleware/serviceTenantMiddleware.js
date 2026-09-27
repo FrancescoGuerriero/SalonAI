@@ -34,6 +34,21 @@ export function resolveServicePublicTenantHost(
   if (
     explicitOverride
   ) {
+    if (
+      environment.NODE_ENV ===
+        "production"
+    ) {
+      const error =
+        new Error(
+          "SERVICE_PUBLIC_TENANT_HOST_OVERRIDE is not permitted in production."
+        );
+      error.code =
+        "INVALID_SERVICE_TENANT_HOST_CONFIGURATION";
+      error.statusCode =
+        500;
+      throw error;
+    }
+
     return normaliseTenantHost(
       explicitOverride
     );
