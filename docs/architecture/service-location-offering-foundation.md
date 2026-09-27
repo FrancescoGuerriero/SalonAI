@@ -119,3 +119,36 @@ The production migration sequence remains:
 8. only then make Business ownership authoritative and tenant-scope routes.
 
 No migration step runs automatically on backend startup.
+
+
+## Read-only migration evidence
+
+This preparation branch provides two commands for future DEV1-controlled evidence gathering:
+
+```bash
+npm run services:tenant-readiness
+npm run services:tenant-backfill-plan
+```
+
+Neither command writes to the database.
+
+The readiness command:
+- resolves the canonical Business and active primary Location;
+- proves the canonical Business is still the sole Business before any global-unowned Service assumption is allowed;
+- counts unowned/already-owned/conflicting Services;
+- validates any existing LocationServiceOffering ownership;
+- detects missing/cross-Business Location or Service references;
+- detects duplicate Business/Location/Service tuples;
+- emits only counts and blocker types.
+
+The zero-write backfill plan:
+- assigns only missing `Service.business` ownership;
+- reuses already-owned canonical Services;
+- emits no catalogue names, Service ids or Business ids to the operator report;
+- emits a deterministic SHA-256 plan fingerprint;
+- includes internal rollback metadata;
+- plans **zero LocationServiceOffering creations**.
+
+The canonical Salon AI single-location migration does not need one LocationServiceOffering per Service. In the absence of an offering, the base Service remains effective at the Location. Offering records should exist only when location-specific operational state or overrides are actually required.
+
+There is intentionally no Service backfill apply executor in this preparation PR.
