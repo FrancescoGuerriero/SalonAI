@@ -126,53 +126,80 @@ jobs:
           readiness_status=$?
           set -e
 
-          node --input-type=module - "$readiness_file" <<'NODE'
-          import fs from "node:fs";
+          cat "$readiness_file" | \
+            docker exec -i salonai-backend \
+              node --input-type=module -e '
+                let input = "";
+                for await (const chunk of process.stdin) {
+                  input += chunk;
+                }
 
-          const report = JSON.parse(
-            fs.readFileSync(process.argv[2], "utf8")
-          );
+                const report =
+                  JSON.parse(input);
 
-          const requiredZero = [
-            "scheduledCampaignsDue",
-            "scheduledCampaignsFuture",
-            "retryableDeliveriesDue",
-            "retryableDeliveriesFuture",
-            "processingDeliveries",
-            "failedOrUndelivered",
-            "pendingDeliveries",
-          ];
+                const requiredZero = [
+                  "scheduledCampaignsDue",
+                  "scheduledCampaignsFuture",
+                  "retryableDeliveriesDue",
+                  "retryableDeliveriesFuture",
+                  "processingDeliveries",
+                  "failedOrUndelivered",
+                  "pendingDeliveries",
+                ];
 
-          for (const key of requiredZero) {
-            if (Number(report?.inventory?.[key] || 0) !== 0) {
-              throw new Error(
-                `Scheduler activation requires zero ${key}.`
-              );
-            }
-          }
+                for (const key of requiredZero) {
+                  if (
+                    Number(
+                      report?.inventory?.[key] ||
+                      0
+                    ) !== 0
+                  ) {
+                    throw new Error(
+                      `Scheduler activation requires zero ${key}.`
+                    );
+                  }
+                }
 
-          if (report?.scheduler?.enabled !== false) {
-            throw new Error(
-              "MessageDelivery scheduler must be disabled before activation."
-            );
-          }
+                if (
+                  report?.scheduler?.enabled !==
+                  false
+                ) {
+                  throw new Error(
+                    "MessageDelivery scheduler must be disabled before activation."
+                  );
+                }
 
-          if (report?.appointmentReminders?.enabled !== false) {
-            throw new Error(
-              "Appointment reminder job must remain disabled during MessageDelivery scheduler activation."
-            );
-          }
+                if (
+                  report
+                    ?.appointmentReminders
+                    ?.enabled !== false
+                ) {
+                  throw new Error(
+                    "Appointment reminder job must remain disabled during MessageDelivery scheduler activation."
+                  );
+                }
 
-          console.log(JSON.stringify({
-            preflight: true,
-            schedulerEnabled: report.scheduler.enabled,
-            appointmentRemindersEnabled:
-              report.appointmentReminders.enabled,
-            inventory: report.inventory,
-            providerSends: report.providerSends,
-            databaseWrites: report.databaseWrites,
-          }, null, 2));
-          NODE
+                console.log(
+                  JSON.stringify(
+                    {
+                      preflight: true,
+                      schedulerEnabled:
+                        report.scheduler.enabled,
+                      appointmentRemindersEnabled:
+                        report.appointmentReminders
+                          .enabled,
+                      inventory:
+                        report.inventory,
+                      providerSends:
+                        report.providerSends,
+                      databaseWrites:
+                        report.databaseWrites,
+                    },
+                    null,
+                    2
+                  )
+                );
+              '
 
           if [[ "$readiness_status" -eq 0 ]]; then
             echo "[WARN] Preflight readiness unexpectedly reported fully ready; continuing only because the zero-backlog and disabled-state assertions passed."
