@@ -30,7 +30,8 @@
     "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js",
     "tenant:migration-readiness": "node scripts/checkTenantMigrationReadiness.js",
     "calendar:readiness": "node scripts/checkCalendarReadiness.js",
-    "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js"
+    "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js",
+    "workforce:tenant-readiness": "node scripts/checkWorkforceTenantReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
