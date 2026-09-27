@@ -82,3 +82,14 @@ The workforce scope contract:
 - supports a stricter selected-location assertion for location-specific workforce operations.
 
 Live route wiring remains a separate post-backfill activation step.
+
+
+## StaffRole tenant ownership boundary
+
+Issue #387 owns the persistence migration required to make stored custom roles and built-in overrides Business-specific.
+
+DEV3 effective authority now passes the trusted active `businessId` to the existing role-resolver interface. The current global resolver safely ignores that additional option until #387 replaces its persistence lookup with a Business-aware implementation.
+
+StaffRole mutation permission checks are request-aware, so once trusted tenant/effective authority is attached to the StaffRole route family they will automatically consume Gate-C scope instead of reverting to a legacy User-only permission snapshot.
+
+DEV3 must not activate tenant-scoped StaffRole listing/mutation while persisted StaffRole records remain global.
