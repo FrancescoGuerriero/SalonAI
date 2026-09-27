@@ -1,9 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 
 import {
   assertWorkforceApplyAuthorization,
+  assertWorkforceMembershipGrantProvenance,
+  buildWorkforceMembershipAuditEvent,
 } from "../../scripts/applyWorkforceTenantBackfill.js";
+import {
+  buildWorkforceMembershipGrantReference,
+  WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
+} from "../platform/tenancy/workforceOwnershipMigration.js";
 
 const FINGERPRINT =
   "a".repeat(
@@ -139,5 +146,132 @@ test("workforce apply authorisation succeeds only with all gates satisfied", () 
         FINGERPRINT,
     }),
     true
+  );
+});
+
+
+function membershipOperation() {
+  const userId =
+    new mongoose.Types.ObjectId();
+  const businessId =
+    new mongoose.Types.ObjectId();
+  const locationId =
+    new mongoose.Types.ObjectId();
+
+  const operation = {
+    type:
+      "membership-create",
+    userId:
+      String(
+        userId
+      ),
+    businessId:
+      String(
+        businessId
+      ),
+    roleKey:
+      "stylist",
+    locationAccessMode:
+      "selected",
+    locations: [
+      String(
+        locationId
+      ),
+    ],
+    provenanceKey:
+      WORKFORCE_MEMBERSHIP_MIGRATION_KEY,
+  };
+
+  operation.grantReference =
+    buildWorkforceMembershipGrantReference(
+      operation
+    );
+
+  return operation;
+}
+
+test("workforce membership grant provenance rejects tampering", () => {
+  const operation =
+    membershipOperation();
+
+  assert.equal(
+    assertWorkforceMembershipGrantProvenance(
+      operation
+    ),
+    true
+  );
+
+  assert.throws(
+    () =>
+      assertWorkforceMembershipGrantProvenance({
+        ...operation,
+        grantReference:
+          "b".repeat(
+            64
+          ),
+      }),
+    /provenance does not match/
+  );
+
+  assert.throws(
+    () =>
+      assertWorkforceMembershipGrantProvenance({
+        ...operation,
+        provenanceKey:
+          "manual-admin-action",
+      }),
+    /provenance does not match/
+  );
+});
+
+test("workforce membership migration emits canonical system-migration AuditLog payload", () => {
+  const operation =
+    membershipOperation();
+  const membershipId =
+    new mongoose.Types.ObjectId();
+
+  const event =
+    buildWorkforceMembershipAuditEvent({
+      operation,
+      membershipId,
+    });
+
+  assert.equal(
+    event.action,
+    "workforce.tenant-backfill.membership-created"
+  );
+  assert.equal(
+    event.resourceType,
+    "BusinessMembership"
+  );
+  assert.equal(
+    event.resourceId,
+    String(
+      membershipId
+    )
+  );
+  assert.equal(
+    event.metadata.source,
+    "system-migration"
+  );
+  assert.equal(
+    event.metadata.migrationKey,
+    WORKFORCE_MEMBERSHIP_MIGRATION_KEY
+  );
+  assert.equal(
+    event.metadata.grantReference,
+    operation.grantReference
+  );
+  assert.equal(
+    event.metadata.authorityGrant,
+    true
+  );
+  assert.equal(
+    event.after.roleKey,
+    "stylist"
+  );
+  assert.equal(
+    event.after.status,
+    "active"
   );
 });
