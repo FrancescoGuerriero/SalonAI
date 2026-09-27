@@ -36,7 +36,8 @@
     "workforce:tenant-backfill": "node scripts/applyWorkforceTenantBackfill.js",
     "services:tenant-readiness": "node scripts/checkServiceTenantReadiness.js",
     "services:tenant-backfill-plan": "node scripts/planServiceTenantBackfill.js",
-    "services:tenant-backfill": "node scripts/applyServiceTenantBackfill.js"
+    "services:tenant-backfill": "node scripts/applyServiceTenantBackfill.js",
+    "tenant:domain:activate": "node scripts/activateCanonicalTenantDomain.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
