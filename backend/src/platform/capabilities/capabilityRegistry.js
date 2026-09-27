@@ -23,7 +23,13 @@ function cleanKey(value, label = "Capability pack key") {
   return key;
 }
 
-function uniqueKeys(values = [], label) {
+function uniqueKeys(
+  values = [],
+  label,
+  {
+    allowWildcard = false,
+  } = {}
+) {
   if (!Array.isArray(values)) {
     throw new TypeError(`${label} must be an array.`);
   }
@@ -31,7 +37,22 @@ function uniqueKeys(values = [], label) {
   return Object.freeze([
     ...new Set(
       values
-        .map((value) => cleanKey(value, label))
+        .map((value) => {
+          const cleaned =
+            cleanString(value).toLowerCase();
+
+          if (
+            allowWildcard &&
+            cleaned === "*"
+          ) {
+            return "*";
+          }
+
+          return cleanKey(
+            cleaned,
+            label
+          );
+        })
         .filter(Boolean)
     ),
   ]);
@@ -55,7 +76,10 @@ function normaliseDefinition(definition = {}) {
 
   const supportedVerticals = uniqueKeys(
     definition.supportedVerticals || [],
-    "Supported vertical id"
+    "Supported vertical id",
+    {
+      allowWildcard: true,
+    }
   );
 
   if (supportedVerticals.length === 0) {
