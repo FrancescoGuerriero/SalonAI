@@ -142,11 +142,15 @@ test("photo synchronisation uses the persisted employee link rather than request
   );
   assert.match(
     source,
-    /Stylist\.findById\(/
+    /scopedWorkforceFilter\(/
   );
   assert.match(
     source,
-    /select\([\s\S]*?_id userAccount/
+    /Stylist\.findOne\(/
+  );
+  assert.match(
+    source,
+    /select\([\s\S]*?_id userAccount business workingLocations/
   );
   assert.match(
     source,
@@ -159,5 +163,55 @@ test("photo synchronisation uses the persisted employee link rather than request
   assert.doesNotMatch(
     source,
     /\.\.\.req\.body/
+  );
+});
+
+
+test("stylist creation ignores client tenant ownership and account-link fields", async () => {
+  const controller =
+    await readFile(
+      new URL(
+        "../controllers/stylistController.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+  const start =
+    controller.indexOf(
+      "export async function createStylist"
+    );
+  const source =
+    controller.slice(
+      start,
+      controller.indexOf(
+        "export async function updateStylist",
+        start
+      )
+    );
+
+  assert.match(
+    source,
+    /workforceCreationOwnership\(/
+  );
+  assert.match(
+    source,
+    /delete payload\.business;/
+  );
+  assert.match(
+    source,
+    /delete payload\.workingLocations;/
+  );
+  assert.match(
+    source,
+    /delete payload\.userAccount;/
+  );
+  assert.match(
+    source,
+    /business:\s*ownership\.businessId/
+  );
+  assert.match(
+    source,
+    /workingLocations:\s*ownership\.workingLocationIds/
   );
 });

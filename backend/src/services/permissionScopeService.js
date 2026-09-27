@@ -82,6 +82,7 @@ export const PERMISSION_SCOPE_BY_KEY =
     "employee:create": "B",
     "employee:update": "A",
     "employee:deactivate": "A",
+    "employee:delete": "B",
     "employee:role:update": "B",
     "employee:permissions:update": "B",
     "employee:schedule:update": "L",

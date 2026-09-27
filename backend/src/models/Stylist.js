@@ -59,6 +59,25 @@ const workingHoursSchema = new mongoose.Schema(
 
 const stylistSchema = new mongoose.Schema(
   {
+    // Transitional Roadmap v3 ownership fields. They remain optional until
+    // the canonical Salon AI workforce has passed dry-run/backfill gates.
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+
+    workingLocations: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Location",
+        },
+      ],
+      default: [],
+    },
+
     userAccount: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -239,6 +258,46 @@ const stylistSchema = new mongoose.Schema(
   }
 );
 
+stylistSchema.pre(
+  "validate",
+  function normaliseWorkforceOwnership() {
+    if (
+      Array.isArray(
+        this.workingLocations
+      )
+    ) {
+      const unique =
+        new Map();
+
+      for (
+        const value of
+          this.workingLocations
+      ) {
+        const id =
+          String(
+            value || ""
+          ).trim();
+
+        if (
+          mongoose.Types.ObjectId.isValid(
+            id
+          )
+        ) {
+          unique.set(
+            id,
+            new mongoose.Types.ObjectId(
+              id
+            )
+          );
+        }
+      }
+
+      this.workingLocations =
+        [...unique.values()];
+    }
+  }
+);
+
 stylistSchema.virtual("fullName").get(function getFullName() {
   return `${this.firstName} ${this.lastName}`;
 });
@@ -271,6 +330,20 @@ stylistSchema.index({
   profilePublished: 1,
   displayOrder: 1,
   firstName: 1,
+});
+
+stylistSchema.index({
+  business: 1,
+  isActive: 1,
+  acceptsAppointments: 1,
+  profilePublished: 1,
+  displayOrder: 1,
+});
+
+stylistSchema.index({
+  business: 1,
+  workingLocations: 1,
+  isActive: 1,
 });
 
 const Stylist =
