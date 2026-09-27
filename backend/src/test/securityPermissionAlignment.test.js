@@ -109,6 +109,18 @@ test(
       service,
       /canonical_staff_role_registry/
     );
+    assert.match(
+      service,
+      /canonical_effective_authority_scope_registry/
+    );
+    assert.match(
+      service,
+      /permissionScopes:\s*permissionScopeMap\(\)/
+    );
+    assert.match(
+      service,
+      /scopeLegend:\s*permissionScopeLegend\(\)/
+    );
     assert.doesNotMatch(
       service,
       /manage_customers|view_calendar|update_appointment_status/
