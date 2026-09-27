@@ -9,6 +9,7 @@ import {
   ContextSwitchWarningDialog,
   EffectiveConfigurationRow,
   LocationContext,
+  PlatformSurfaceState,
 } from "../components/platform/index.js";
 
 describe("Roadmap v3 platform presentation components", () => {
@@ -196,6 +197,47 @@ describe("Roadmap v3 platform presentation components", () => {
   });
 
 
+
+
+  it.each([
+    ["permission-denied", "You do not have access"],
+    ["locked", "This setting is locked"],
+    ["plan-unavailable", "Not included in this capability pack"],
+    ["error", "This information could not be loaded"],
+    ["empty", "Nothing here yet"],
+  ])("renders explicit platform surface state %s", (state, title) => {
+    render(
+      <PlatformSurfaceState
+        state={state}
+      />
+    );
+
+    expect(screen.getByText(title)).toBeInTheDocument();
+
+    expect(
+      screen.getByText(title).closest("section")
+    ).toHaveAttribute("data-platform-surface-state", state);
+  });
+
+  it("keeps retry as a request action rather than silently mutating state", () => {
+    const retry = vi.fn();
+
+    render(
+      <PlatformSurfaceState
+        state="error"
+        actionLabel="Try again"
+        onRequestAction={retry}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Try again",
+      })
+    );
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
 
   it("previews an override without applying configuration in the frontend", () => {
     const cancel = vi.fn();
