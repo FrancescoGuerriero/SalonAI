@@ -48,6 +48,7 @@ function customerAllowsTransactionalMessage(customer, channel) {
   if (preferences.unsubscribed === true) return false;
   if (channel === "email" && preferences.emailUnsubscribed === true) return false;
   if (channel === "sms" && preferences.smsUnsubscribed === true) return false;
+  if (channel === "whatsapp" && preferences.whatsappUnsubscribed === true) return false;
 
   return true;
 }
