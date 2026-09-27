@@ -4,7 +4,7 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
-  hasUserPermission,
+  hasRequestPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
 import {
@@ -62,8 +62,8 @@ function requireStaffRoleChanges(
   const missing =
     required.filter(
       (permission) =>
-        !hasUserPermission(
-          req.user,
+        !hasRequestPermission(
+          req,
           permission
         )
     );
