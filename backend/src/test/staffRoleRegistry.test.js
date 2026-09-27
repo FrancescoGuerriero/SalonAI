@@ -382,3 +382,31 @@ test("customer APIs rely on granular customer permissions without a blanket mana
     );
   }
 });
+
+
+test(
+  "staff role mutation guard is request-aware for future tenant authority",
+  async () => {
+    const routes =
+      await readFile(
+        new URL(
+          "../routes/staffRoleRoutes.js",
+          import.meta.url
+        ),
+        "utf8"
+      );
+
+    assert.match(
+      routes,
+      /hasRequestPermission/
+    );
+    assert.match(
+      routes,
+      /hasRequestPermission\(\s*req,\s*permission\s*\)/
+    );
+    assert.doesNotMatch(
+      routes,
+      /hasUserPermission/
+    );
+  }
+);

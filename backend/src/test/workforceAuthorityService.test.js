@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   assertWorkforceResourceAuthority,
+  publicWorkforceBusinessId,
   scopedWorkforceFilter,
+  workforceCreationOwnership,
   workforceManagementScope,
 } from "../services/workforceAuthorityService.js";
 
@@ -334,6 +336,115 @@ test(
         "isActive"
       ),
       false
+    );
+  }
+);
+
+
+test(
+  "public workforce scope comes only from trusted host tenant context",
+  () => {
+    assert.equal(
+      publicWorkforceBusinessId({
+        publicTenantContext: {
+          businessId:
+            BUSINESS_ID,
+        },
+        query: {
+          businessId:
+            OTHER_BUSINESS_ID,
+        },
+        body: {
+          business:
+            OTHER_BUSINESS_ID,
+        },
+      }),
+      BUSINESS_ID
+    );
+
+    assert.throws(
+      () =>
+        publicWorkforceBusinessId({
+          query: {
+            businessId:
+              OTHER_BUSINESS_ID,
+          },
+        }),
+      (error) =>
+        error?.code ===
+          "PUBLIC_TENANT_NOT_FOUND" &&
+        error?.statusCode ===
+          404
+    );
+  }
+);
+
+test(
+  "single allowed location supplies trusted ownership for workforce creation",
+  () => {
+    assert.deepEqual(
+      workforceCreationOwnership(
+        authority({
+          mode:
+            "selected",
+          allowed: [
+            LOCATION_A,
+          ],
+        })
+      ),
+      {
+        businessId:
+          BUSINESS_ID,
+        workingLocationIds: [
+          LOCATION_A,
+        ],
+      }
+    );
+  }
+);
+
+test(
+  "multi-location creation requires a trusted selected location",
+  () => {
+    assert.throws(
+      () =>
+        workforceCreationOwnership(
+          authority({
+            mode:
+              "selected",
+            allowed: [
+              LOCATION_A,
+              LOCATION_B,
+            ],
+          })
+        ),
+      (error) =>
+        error?.code ===
+          "WORKFORCE_LOCATION_CONTEXT_REQUIRED" &&
+        error?.statusCode ===
+          403
+    );
+
+    assert.deepEqual(
+      workforceCreationOwnership(
+        authority({
+          mode:
+            "selected",
+          locationId:
+            LOCATION_B,
+          allowed: [
+            LOCATION_A,
+            LOCATION_B,
+          ],
+        })
+      ),
+      {
+        businessId:
+          BUSINESS_ID,
+        workingLocationIds: [
+          LOCATION_B,
+        ],
+      }
     );
   }
 );

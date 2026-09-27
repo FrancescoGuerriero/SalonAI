@@ -765,3 +765,67 @@ test(
     );
   }
 );
+
+
+test(
+  "tenant role resolution receives the trusted active Business",
+  async () => {
+    let resolverCall =
+      null;
+
+    const authority =
+      await resolveEffectiveAuthority({
+        user:
+          user({
+            role:
+              "manager",
+          }),
+        tenantContext:
+          tenantContext({
+            roleKey:
+              "colour_specialist",
+          }),
+        roleResolver:
+          async (
+            roleKey,
+            options
+          ) => {
+            resolverCall = {
+              roleKey,
+              options,
+            };
+
+            return {
+              key:
+                roleKey,
+              active:
+                true,
+              permissions: [
+                "dashboard:view",
+                "profile:own:read",
+              ],
+            };
+          },
+      });
+
+    assert.equal(
+      resolverCall.roleKey,
+      "colour_specialist"
+    );
+    assert.equal(
+      resolverCall.options
+        .businessId,
+      "507f1f77bcf86cd799439012"
+    );
+    assert.equal(
+      resolverCall.options
+        .activeOnly,
+      true
+    );
+    assert.equal(
+      authority.businessId,
+      resolverCall.options
+        .businessId
+    );
+  }
+);

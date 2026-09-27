@@ -2,14 +2,10 @@ import Stylist from "../models/Stylist.js";
 import {
   normaliseStaffProfileUpdate,
 } from "./stylistController.js";
-
-const MANAGEMENT_ROLES = new Set([
-  "stylist",
-  "receptionist",
-  "manager",
-  "admin",
-  "super_admin",
-]);
+import {
+  scopedWorkforceFilter,
+  workforceCreationOwnership,
+} from "../services/workforceAuthorityService.js";
 
 const DEFAULT_JOB_TITLES = {
   stylist: "Hair professional",
@@ -19,80 +15,163 @@ const DEFAULT_JOB_TITLES = {
   super_admin: "Super administrator",
 };
 
-function createHttpError(message, statusCode) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  error.status = statusCode;
+function createHttpError(
+  message,
+  statusCode
+) {
+  const error =
+    new Error(
+      message
+    );
+  error.statusCode =
+    statusCode;
+  error.status =
+    statusCode;
   return error;
 }
 
-function cleanText(value, maximumLength = 120) {
-  return String(value ?? "")
+function cleanText(
+  value,
+  maximumLength = 120
+) {
+  return String(
+    value ?? ""
+  )
     .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, maximumLength);
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .slice(
+      0,
+      maximumLength
+    );
 }
 
-function splitUserName(name) {
-  const parts = cleanText(name)
-    .split(/\s+/)
-    .filter(Boolean);
+function splitUserName(
+  name
+) {
+  const parts =
+    cleanText(
+      name
+    )
+      .split(
+        /\s+/
+      )
+      .filter(
+        Boolean
+      );
 
-  if (parts.length === 0) {
+  if (
+    parts.length ===
+    0
+  ) {
     return {
-      firstName: "Salon",
-      lastName: "Professional",
+      firstName:
+        "Salon",
+      lastName:
+        "Professional",
     };
   }
 
-  if (parts.length === 1) {
+  if (
+    parts.length ===
+    1
+  ) {
     return {
-      firstName: parts[0],
-      lastName: "Professional",
+      firstName:
+        parts[0],
+      lastName:
+        "Professional",
     };
   }
 
   return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
+    firstName:
+      parts[0],
+    lastName:
+      parts
+        .slice(
+          1
+        )
+        .join(
+          " "
+        ),
   };
 }
 
-function normalisedEmail(user) {
-  return String(user?.email || "")
+function normalisedEmail(
+  user
+) {
+  return String(
+    user?.email ||
+      ""
+  )
     .trim()
     .toLowerCase();
 }
 
-function sameIdentifier(left, right) {
-  return String(left || "") === String(right || "");
+function sameIdentifier(
+  left,
+  right
+) {
+  return (
+    String(
+      left || ""
+    ) ===
+    String(
+      right || ""
+    )
+  );
 }
 
-function assertManagementUser(user) {
-  if (!user || !MANAGEMENT_ROLES.has(user.role)) {
+async function findOrCreateOwnedProfile(
+  user,
+  authority
+) {
+  if (
+    !user ||
+    !authority
+  ) {
     throw createHttpError(
-      "A staff or administrator account is required.",
-      403
+      "Trusted staff authority is required.",
+      401
     );
   }
-}
 
-async function findOrCreateOwnedProfile(user) {
-  assertManagementUser(user);
+  const email =
+    normalisedEmail(
+      user
+    );
 
-  const email = normalisedEmail(user);
+  let stylist =
+    await Stylist.findOne(
+      scopedWorkforceFilter(
+        authority,
+        {
+          userAccount:
+            user._id,
+        }
+      )
+    );
 
-  let stylist = await Stylist.findOne({
-    userAccount: user._id,
-  });
-
-  if (!stylist && email) {
-    const emailMatch = await Stylist.findOne({
-      email,
-    });
+  if (
+    !stylist &&
+    email
+  ) {
+    const emailMatch =
+      await Stylist.findOne(
+        scopedWorkforceFilter(
+          authority,
+          {
+            email,
+          }
+        )
+      );
 
     if (
-      emailMatch?.userAccount &&
+      emailMatch
+        ?.userAccount &&
       !sameIdentifier(
         emailMatch.userAccount,
         user._id
@@ -104,22 +183,29 @@ async function findOrCreateOwnedProfile(user) {
       );
     }
 
-    stylist = emailMatch;
+    stylist =
+      emailMatch;
   }
 
   if (stylist) {
-    if (!stylist.userAccount) {
-      stylist.userAccount = user._id;
+    if (
+      !stylist.userAccount
+    ) {
+      stylist.userAccount =
+        user._id;
     }
 
     if (
       !stylist.profileImage &&
       user.profilePhoto
     ) {
-      stylist.profileImage = user.profilePhoto;
+      stylist.profileImage =
+        user.profilePhoto;
     }
 
-    if (stylist.isModified()) {
+    if (
+      stylist.isModified()
+    ) {
       await stylist.save();
     }
 
@@ -133,23 +219,42 @@ async function findOrCreateOwnedProfile(user) {
     );
   }
 
+  const ownership =
+    workforceCreationOwnership(
+      authority
+    );
+
   const {
     firstName,
     lastName,
-  } = splitUserName(user.name);
+  } =
+    splitUserName(
+      user.name
+    );
 
   return Stylist.create({
-    userAccount: user._id,
+    business:
+      ownership.businessId,
+    workingLocations:
+      ownership.workingLocationIds,
+    userAccount:
+      user._id,
     firstName,
     lastName,
     email,
-    phone: user.phone || "",
+    phone:
+      user.phone ||
+      "",
     jobTitle:
-      DEFAULT_JOB_TITLES[user.role] ||
+      DEFAULT_JOB_TITLES[
+        user.role
+      ] ||
       "Salon professional",
     profileImage:
-      user.profilePhoto || "",
-    profilePublished: false,
+      user.profilePhoto ||
+      "",
+    profilePublished:
+      false,
   });
 }
 
@@ -161,15 +266,19 @@ export async function getMyStaffProfile(
   try {
     const stylist =
       await findOrCreateOwnedProfile(
-        request.user
+        request.user,
+        request.effectiveAuthority
       );
 
     return response.json({
-      success: true,
+      success:
+        true,
       stylist,
     });
   } catch (error) {
-    return next(error);
+    return next(
+      error
+    );
   }
 }
 
@@ -181,14 +290,16 @@ export async function updateMyStaffProfile(
   try {
     const stylist =
       await findOrCreateOwnedProfile(
-        request.user
+        request.user,
+        request.effectiveAuthority
       );
 
     const update =
       normaliseStaffProfileUpdate(
         request.body,
         {
-          partial: true,
+          partial:
+            true,
           allowPublication:
             false,
         }
@@ -211,18 +322,22 @@ export async function updateMyStaffProfile(
       request.user.profilePhoto =
         update.profileImage;
       await request.user.save({
-        validateModifiedOnly: true,
+        validateModifiedOnly:
+          true,
       });
     }
 
     return response.json({
-      success: true,
+      success:
+        true,
       message:
         "Your staff profile has been saved. Profile visibility remains controlled by authorised salon management.",
       stylist,
     });
   } catch (error) {
-    return next(error);
+    return next(
+      error
+    );
   }
 }
 

@@ -100,6 +100,7 @@ function normalisedPermissions(
 async function permissionsForTenantRole({
   user,
   roleKey,
+  businessId,
   roleResolver,
 }) {
   const userRole =
@@ -136,6 +137,10 @@ async function permissionsForTenantRole({
       {
         activeOnly:
           true,
+        businessId:
+          idText(
+            businessId
+          ),
       }
     );
 
@@ -232,6 +237,8 @@ export async function resolveEffectiveAuthority({
     await permissionsForTenantRole({
       user,
       roleKey,
+      businessId:
+        tenantContext.businessId,
       roleResolver,
     });
 
