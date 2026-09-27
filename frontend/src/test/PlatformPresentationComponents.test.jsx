@@ -5,6 +5,7 @@ import {
   AIProposalDecision,
   CapabilityStatus,
   ConnectorHealth,
+  ContextSwitchWarningDialog,
   EffectiveConfigurationRow,
   LocationContext,
 } from "../components/platform/index.js";
@@ -191,6 +192,69 @@ describe("Roadmap v3 platform presentation components", () => {
     expect(reconnect).toHaveBeenCalledTimes(1);
     expect(diagnostics).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Appointments still work.")).toBeInTheDocument();
+  });
+
+
+  it("protects unsaved work before a requested context switch", () => {
+    const stay = vi.fn();
+    const discardAndSwitch = vi.fn();
+
+    render(
+      <ContextSwitchWarningDialog
+        open
+        currentContextLabel="Marylebone"
+        nextContextLabel="Soho"
+        unsavedWorkLabel="booking settings"
+        onRequestStay={stay}
+        onRequestDiscardAndSwitch={discardAndSwitch}
+      />
+    );
+
+    expect(
+      screen.getByRole("dialog", {
+        name: "Switch location without saving?",
+      })
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        /You have unsaved changes in booking settings/
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Discard changes and switch",
+      })
+    );
+    expect(discardAndSwitch).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Stay here",
+      })
+    );
+    expect(stay).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats Escape as staying on the current context", () => {
+    const stay = vi.fn();
+
+    render(
+      <ContextSwitchWarningDialog
+        open
+        currentContextLabel="Marylebone"
+        nextContextLabel="Soho"
+        onRequestStay={stay}
+        onRequestDiscardAndSwitch={() => {}}
+      />
+    );
+
+    fireEvent.keyDown(document, {
+      key: "Escape",
+    });
+
+    expect(stay).toHaveBeenCalledTimes(1);
   });
 
   it("uses the existing 44px minimum target and visible focus treatment", () => {
