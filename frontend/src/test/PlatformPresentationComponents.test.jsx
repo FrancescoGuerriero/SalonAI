@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import {
   AIProposalDecision,
   CapabilityStatus,
+  ConfigurationChangePreviewDialog,
   ConnectorHealth,
   ContextSwitchWarningDialog,
   EffectiveConfigurationRow,
@@ -194,6 +195,75 @@ describe("Roadmap v3 platform presentation components", () => {
     expect(screen.getByText("Appointments still work.")).toBeInTheDocument();
   });
 
+
+
+  it("previews an override without applying configuration in the frontend", () => {
+    const cancel = vi.fn();
+    const confirm = vi.fn();
+
+    render(
+      <ConfigurationChangePreviewDialog
+        open
+        mode="override"
+        settingLabel="Deposit required"
+        currentValue="20%"
+        proposedValue="25%"
+        currentSourceLabel="Business"
+        proposedSourceLabel="Marylebone"
+        onRequestCancel={cancel}
+        onRequestConfirm={confirm}
+      />
+    );
+
+    expect(
+      screen.getByRole("dialog", {
+        name: "Apply this configuration override?",
+      })
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("20%")).toBeInTheDocument();
+    expect(screen.getByText("25%")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Request override",
+      })
+    );
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("previews revert-to-inherited configuration before requesting it", () => {
+    const confirm = vi.fn();
+
+    render(
+      <ConfigurationChangePreviewDialog
+        open
+        mode="revert"
+        settingLabel="Deposit required"
+        currentValue="25%"
+        proposedValue="20%"
+        currentSourceLabel="Marylebone"
+        proposedSourceLabel="Business"
+        onRequestCancel={() => {}}
+        onRequestConfirm={confirm}
+      />
+    );
+
+    expect(
+      screen.getByRole("dialog", {
+        name: "Revert to inherited configuration?",
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Revert to inherited",
+      })
+    );
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
 
   it("protects unsaved work before a requested context switch", () => {
     const stay = vi.fn();
