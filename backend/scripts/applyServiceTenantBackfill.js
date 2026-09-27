@@ -146,13 +146,47 @@ export function assertServiceApplyPlan(
     );
   }
 
+  const operations =
+    Array.isArray(
+      plan.operations
+    )
+      ? plan.operations
+      : [];
+  const rollback =
+    Array.isArray(
+      plan.rollback
+    )
+      ? plan.rollback
+      : [];
+
+  if (
+    Number(
+      plan?.summary
+        ?.blockers ||
+        0
+    ) !==
+      0 ||
+    operations.length !==
+      Number(
+        plan?.summary
+          ?.serviceBusinessAssignments ||
+          0
+      ) ||
+    rollback.length !==
+      Number(
+        plan?.summary
+          ?.rollbackServiceRestores ||
+          0
+      )
+  ) {
+    throw new Error(
+      "Service tenant backfill operation/rollback counts do not match the reviewed plan summary."
+    );
+  }
+
   for (
     const operation of
-      Array.isArray(
-        plan.operations
-      )
-        ? plan.operations
-        : []
+      operations
   ) {
     if (
       operation?.type !==
