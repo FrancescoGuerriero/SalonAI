@@ -10,6 +10,18 @@ const ATTENDANCE_STATUSES = [
 
 const staffAttendanceSchema = new mongoose.Schema(
   {
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    locationRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     shift: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "StaffShift",
@@ -53,6 +65,13 @@ const staffAttendanceSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+staffAttendanceSchema.index({
+  business: 1,
+  locationRef: 1,
+  staff: 1,
+  status: 1,
+});
 
 staffAttendanceSchema.pre(
   "validate",
