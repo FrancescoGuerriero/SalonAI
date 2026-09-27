@@ -632,35 +632,127 @@ async function applyStylistOperation({
   });
 }
 
+
+export function assertWorkforceMembershipGrantProvenance(
+  operation
+) {
+  const expectedGrantReference =
+    buildWorkforceMembershipGrantReference({
+      userId:
+        operation?.userId,
+      businessId:
+        operation?.businessId,
+      roleKey:
+        operation?.roleKey,
+      locationAccessMode:
+        operation?.locationAccessMode,
+      locations:
+        operation?.locations,
+    });
+
+  if (
+    operation?.provenanceKey !==
+      WORKFORCE_MEMBERSHIP_MIGRATION_KEY ||
+    operation?.grantReference !==
+      expectedGrantReference
+  ) {
+    throw new Error(
+      "BusinessMembership grant provenance does not match the reviewed plan."
+    );
+  }
+
+  return true;
+}
+
+export function buildWorkforceMembershipAuditEvent({
+  operation,
+  membershipId,
+} = {}) {
+  assertWorkforceMembershipGrantProvenance(
+    operation
+  );
+
+  const resourceId =
+    String(
+      membershipId || ""
+    ).trim();
+
+  if (
+    !mongoose.Types.ObjectId.isValid(
+      resourceId
+    )
+  ) {
+    throw new Error(
+      "A valid BusinessMembership id is required for migration audit provenance."
+    );
+  }
+
+  return Object.freeze({
+    action:
+      "workforce.tenant-backfill.membership-created",
+    resourceType:
+      "BusinessMembership",
+    resourceId,
+    before:
+      null,
+    after:
+      Object.freeze({
+        userId:
+          String(
+            operation.userId
+          ),
+        businessId:
+          String(
+            operation.businessId
+          ),
+        status:
+          "active",
+        roleKey:
+          operation.roleKey,
+        locationAccessMode:
+          operation.locationAccessMode,
+        locations:
+          Object.freeze(
+            [
+              ...(
+                Array.isArray(
+                  operation.locations
+                )
+                  ? operation.locations
+                  : []
+              ),
+            ].map(
+              (value) =>
+                String(
+                  value
+                )
+            )
+          ),
+        isDefault:
+          false,
+      }),
+    metadata:
+      Object.freeze({
+        source:
+          "system-migration",
+        migrationKey:
+          operation.provenanceKey,
+        grantReference:
+          operation.grantReference,
+        authorityGrant:
+          true,
+      }),
+  });
+}
+
 async function applyMembershipOperation({
   operation,
   session,
   rollbackEvidence,
 }) {
-  const expectedGrantReference =
-    buildWorkforceMembershipGrantReference({
-      userId:
-        operation.userId,
-      businessId:
-        operation.businessId,
-      roleKey:
-        operation.roleKey,
-      locationAccessMode:
-        operation.locationAccessMode,
-      locations:
-        operation.locations,
-    });
-
-  if (
-    operation.provenanceKey !==
-      WORKFORCE_MEMBERSHIP_MIGRATION_KEY ||
-    operation.grantReference !==
-      expectedGrantReference
-  ) {
-    throw new Error(
-      "BusinessMembership grant provenance does not match the reviewed plan. Transaction aborted."
-    );
-  }
+  assertWorkforceMembershipGrantProvenance(
+    operation
+  );
 
   const existing =
     await BusinessMembership.findOne({
@@ -715,55 +807,13 @@ async function applyMembershipOperation({
 
   const auditRows =
     await AuditLog.create(
-      [{
-        action:
-          "workforce.tenant-backfill.membership-created",
-        resourceType:
-          "BusinessMembership",
-        resourceId:
-          String(
-            membership._id
-          ),
-        before:
-          null,
-        after: {
-          userId:
-            String(
-              operation.userId
-            ),
-          businessId:
-            String(
-              operation.businessId
-            ),
-          status:
-            "active",
-          roleKey:
-            operation.roleKey,
-          locationAccessMode:
-            operation.locationAccessMode,
-          locations:
-            [
-              ...operation.locations,
-            ].map(
-              (value) =>
-                String(
-                  value
-                )
-            ),
-          isDefault:
-            false,
-        },
-        metadata: {
-          source:
-            "system-migration",
-          migrationKey:
-            operation.provenanceKey,
-          grantReference:
-            operation.grantReference,
-          authorityGrant:
-            true,
-        },
-      }],
+      [
+        buildWorkforceMembershipAuditEvent({
+          operation,
+          membershipId:
+            membership._id,
+        }),
+      ],
       {
         session,
       }
