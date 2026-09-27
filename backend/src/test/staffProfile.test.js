@@ -90,7 +90,15 @@ test("self-profile controller excludes publication from own updates", async () =
   );
   assert.match(
     controller,
-    /"super_admin"/
+    /request\.effectiveAuthority/
+  );
+  assert.match(
+    controller,
+    /scopedWorkforceFilter\(/
+  );
+  assert.doesNotMatch(
+    controller,
+    /MANAGEMENT_ROLES/
   );
 });
 
