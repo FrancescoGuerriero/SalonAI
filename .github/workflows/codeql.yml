@@ -76,11 +76,21 @@ jobs:
           category: /language:${{ matrix.language }}
           upload: ${{ steps.code-scanning.outputs.available == 'true' && 'always' || 'never' }}
 
+      - name: Stage CodeQL analysis evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p codeql-evidence
+          if [[ -d ../results ]]; then
+            cp -R ../results/. codeql-evidence/
+          fi
+
       - name: Upload CodeQL analysis evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: salonai-codeql-${{ matrix.language }}-${{ github.sha }}
-          path: ../results
+          path: codeql-evidence
           if-no-files-found: warn
           retention-days: 30
