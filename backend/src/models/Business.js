@@ -181,9 +181,6 @@ businessSchema.index({
   status: 1,
 });
 
-businessSchema.index({
-  "subscription.status": 1,
-});
 
 const Business =
   mongoose.models.Business ||
