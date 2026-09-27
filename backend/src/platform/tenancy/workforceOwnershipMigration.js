@@ -509,6 +509,282 @@ export function buildWorkforceOwnershipReadiness({
   });
 }
 
+
+export function buildWorkforceBackfillPlan(
+  readiness
+) {
+  if (
+    !readiness ||
+    typeof readiness !== "object"
+  ) {
+    throw ownershipError(
+      "A workforce ownership readiness result is required."
+    );
+  }
+
+  if (
+    readiness.safeForBackfill !==
+      true
+  ) {
+    return Object.freeze({
+      dryRun: true,
+      writesPerformed: false,
+      executable: false,
+      blocked: true,
+      businessId:
+        idText(
+          readiness.businessId
+        ) || null,
+      locationId:
+        idText(
+          readiness.locationId
+        ) || null,
+      summary: Object.freeze({
+        stylistUpdates: 0,
+        membershipCreates: 0,
+        rollbackStylistRestores: 0,
+        rollbackMembershipDeletes: 0,
+        blockers:
+          Array.isArray(
+            readiness.blockers
+          )
+            ? readiness.blockers.length
+            : 0,
+      }),
+      operations:
+        Object.freeze([]),
+      rollback:
+        Object.freeze([]),
+    });
+  }
+
+  const businessId =
+    requiredObjectId(
+      readiness.businessId,
+      "readiness.businessId"
+    );
+  const locationId =
+    requiredObjectId(
+      readiness.locationId,
+      "readiness.locationId"
+    );
+
+  const operations = [];
+  const rollback = [];
+
+  for (
+    const item of
+      Array.isArray(
+        readiness.plans
+      )
+        ? readiness.plans
+        : []
+  ) {
+    const stylistId =
+      requiredObjectId(
+        item?.stylistId,
+        "readiness.plans[].stylistId"
+      );
+
+    const set = {};
+    const addToSet = {};
+
+    if (
+      item.businessAction ===
+        "assign"
+    ) {
+      set.business =
+        businessId;
+    } else if (
+      item.businessAction !==
+        "reuse"
+    ) {
+      throw ownershipError(
+        `Unsupported stylist business action for ${stylistId}.`
+      );
+    }
+
+    if (
+      item.locationAction ===
+        "add-primary-location"
+    ) {
+      addToSet.workingLocations =
+        locationId;
+    } else if (
+      item.locationAction !==
+        "reuse"
+    ) {
+      throw ownershipError(
+        `Unsupported stylist location action for ${stylistId}.`
+      );
+    }
+
+    if (
+      Object.keys(set).length >
+        0 ||
+      Object.keys(addToSet).length >
+        0
+    ) {
+      const update = {};
+
+      if (
+        Object.keys(set).length >
+        0
+      ) {
+        update.$set = set;
+      }
+
+      if (
+        Object.keys(
+          addToSet
+        ).length >
+        0
+      ) {
+        update.$addToSet =
+          addToSet;
+      }
+
+      operations.push(
+        Object.freeze({
+          type:
+            "stylist-update",
+          stylistId,
+          filter:
+            Object.freeze({
+              _id:
+                stylistId,
+            }),
+          update:
+            Object.freeze(
+              update
+            ),
+        })
+      );
+
+      rollback.push(
+        Object.freeze({
+          type:
+            "stylist-restore",
+          stylistId,
+          previousBusinessId:
+            item.businessAction ===
+              "assign"
+              ? null
+              : businessId,
+          previousWorkingLocations:
+            Object.freeze([
+              ...(
+                Array.isArray(
+                  item.currentLocations
+                )
+                  ? item.currentLocations
+                  : []
+              ),
+            ]),
+        })
+      );
+    }
+  }
+
+  for (
+    const membership of
+      Array.isArray(
+        readiness.membershipCreates
+      )
+        ? readiness.membershipCreates
+        : []
+  ) {
+    const userId =
+      requiredObjectId(
+        membership?.userId,
+        "readiness.membershipCreates[].userId"
+      );
+
+    operations.push(
+      Object.freeze({
+        type:
+          "membership-create",
+        userId,
+        businessId,
+        roleKey:
+          String(
+            membership.roleKey ||
+              ""
+          ),
+        locationAccessMode:
+          membership.locationAccessMode ===
+            "all"
+            ? "all"
+            : "selected",
+        locations:
+          Object.freeze([
+            ...uniqueIds(
+              membership.locations
+            ),
+          ]),
+      })
+    );
+
+    rollback.push(
+      Object.freeze({
+        type:
+          "membership-delete",
+        userId,
+        businessId,
+      })
+    );
+  }
+
+  const stylistUpdates =
+    operations.filter(
+      (operation) =>
+        operation.type ===
+        "stylist-update"
+    ).length;
+  const membershipCreates =
+    operations.filter(
+      (operation) =>
+        operation.type ===
+        "membership-create"
+    ).length;
+
+  return Object.freeze({
+    dryRun: true,
+    writesPerformed: false,
+    executable: true,
+    blocked: false,
+    businessId,
+    locationId,
+    summary:
+      Object.freeze({
+        stylistUpdates,
+        membershipCreates,
+        rollbackStylistRestores:
+          rollback.filter(
+            (operation) =>
+              operation.type ===
+              "stylist-restore"
+          ).length,
+        rollbackMembershipDeletes:
+          rollback.filter(
+            (operation) =>
+              operation.type ===
+              "membership-delete"
+          ).length,
+        blockers: 0,
+      }),
+    operations:
+      Object.freeze(
+        operations
+      ),
+    rollback:
+      Object.freeze(
+        rollback
+      ),
+  });
+}
+
 export default {
   buildWorkforceOwnershipReadiness,
+  buildWorkforceBackfillPlan,
 };
