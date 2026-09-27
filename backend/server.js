@@ -35,6 +35,12 @@ import {
   stopCalendarSyncWorker,
 } from "./src/integrations/calendar/calendarSyncWorkerService.js";
 
+import {
+  getAppointmentReminderJobStatus,
+  startAppointmentReminderJob,
+  stopAppointmentReminderJob,
+} from "./src/jobs/appointmentReminderJob.js";
+
 const DEFAULT_PORT = 5000;
 const DEFAULT_HOST =
   "0.0.0.0";
@@ -166,9 +172,18 @@ function getSchedulerStatus() {
   const calendarSync =
     getCalendarSyncWorkerStatus();
 
+  const appointmentReminders =
+    getAppointmentReminderJobStatus();
+
   const calendarSyncRequired =
     calendarSync.enabled ===
     true;
+
+  const appointmentRemindersRequired =
+    getBooleanEnvironmentValue(
+      "APPOINTMENT_REMINDER_JOB_ENABLED",
+      false
+    );
 
   const schedulerRequired =
     getBooleanEnvironmentValue(
@@ -186,6 +201,10 @@ function getSchedulerStatus() {
       (
         !calendarSyncRequired ||
         calendarSync.started
+      ) &&
+      (
+        !appointmentRemindersRequired ||
+        appointmentReminders.started
       ),
 
     required:
@@ -225,6 +244,15 @@ function getSchedulerStatus() {
       ready:
         !calendarSyncRequired ||
         calendarSync.started,
+    },
+
+    appointmentReminders: {
+      ...appointmentReminders,
+      required:
+        appointmentRemindersRequired,
+      ready:
+        !appointmentRemindersRequired ||
+        appointmentReminders.started,
     },
   };
 }
@@ -661,6 +689,9 @@ async function closeScheduler() {
     stopCalendarSyncWorker({
       waitForCycle: true,
     }),
+    stopAppointmentReminderJob({
+      waitForCycle: true,
+    }),
   ]);
 }
 
@@ -821,9 +852,11 @@ async function initialiseScheduler() {
   const [
     result,
     calendarSync,
+    appointmentReminders,
   ] = await Promise.all([
     startMessageDeliveryScheduler(),
     startCalendarSyncWorker(),
+    startAppointmentReminderJob(),
   ]);
 
   if (
@@ -854,6 +887,44 @@ async function initialiseScheduler() {
         message:
           calendarSync.message ||
           "Calendar sync worker is disabled.",
+      }
+    );
+  }
+
+  if (
+    appointmentReminders.started
+  ) {
+    logger.info(
+      "appointment_reminders.job_started",
+      {
+        event:
+          "appointment_reminders.job_started",
+        intervalMs:
+          appointmentReminders.job
+            ?.configuration
+            ?.intervalMs,
+        hoursBefore:
+          appointmentReminders.job
+            ?.configuration
+            ?.hoursBefore,
+        lookAheadHours:
+          appointmentReminders.job
+            ?.configuration
+            ?.lookAheadHours,
+        initialCycle:
+          appointmentReminders.initialCycle ||
+          null,
+      }
+    );
+  } else {
+    logger.info(
+      "appointment_reminders.job_disabled",
+      {
+        event:
+          "appointment_reminders.job_disabled",
+        message:
+          appointmentReminders.message ||
+          "Appointment reminder job is disabled.",
       }
     );
   }
