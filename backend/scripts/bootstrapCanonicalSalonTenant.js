@@ -113,32 +113,46 @@ async function loadCurrentState(configuration) {
   };
 }
 
-async function createMissingResources({
+export async function createMissingResources({
   configuration,
   business,
   location,
   domains = [],
+  dependencies = {},
 }) {
-  const session = await mongoose.startSession();
-  let resolvedBusiness = business;
-  let resolvedLocation = location;
-  const domainsByHost = new Map(
-    domains.map((domain) => [
-      String(domain.host),
-      domain,
-    ])
-  );
+  const BusinessModel = dependencies.Business || Business;
+  const LocationModel = dependencies.Location || Location;
+  const BusinessDomainModel =
+    dependencies.BusinessDomain || BusinessDomain;
+  const startSession =
+    dependencies.startSession || (() => mongoose.startSession());
 
-  const created = {
-    business: false,
-    location: false,
-    domains: [],
-  };
+  const session = await startSession();
+  let transactionResult = null;
 
   try {
     await session.withTransaction(async () => {
+      // withTransaction may retry this callback after a transient error.
+      // All attempt-local state must therefore be rebuilt inside the
+      // callback. Keeping resolved documents outside the callback can make a
+      // retry reference writes that were rolled back by the previous attempt.
+      let resolvedBusiness = business;
+      let resolvedLocation = location;
+      const domainsByHost = new Map(
+        domains.map((domain) => [
+          String(domain.host),
+          domain,
+        ])
+      );
+
+      const created = {
+        business: false,
+        location: false,
+        domains: [],
+      };
+
       if (!resolvedBusiness) {
-        const records = await Business.create(
+        const records = await BusinessModel.create(
           [{
             name: configuration.business.name,
             slug: configuration.business.slug,
@@ -158,7 +172,7 @@ async function createMissingResources({
       }
 
       if (!resolvedLocation) {
-        const records = await Location.create(
+        const records = await LocationModel.create(
           [{
             business: resolvedBusiness._id,
             name: configuration.location.name,
@@ -185,7 +199,7 @@ async function createMissingResources({
           continue;
         }
 
-        const records = await BusinessDomain.create(
+        const records = await BusinessDomainModel.create(
           [{
             business: resolvedBusiness._id,
             host: expected.host,
@@ -206,17 +220,25 @@ async function createMissingResources({
         domainsByHost.set(expected.host, domain);
         created.domains.push(domain);
       }
+
+      transactionResult = {
+        business: resolvedBusiness,
+        location: resolvedLocation,
+        domains: [...domainsByHost.values()],
+        created,
+      };
     });
   } finally {
     await session.endSession();
   }
 
-  return {
-    business: resolvedBusiness,
-    location: resolvedLocation,
-    domains: [...domainsByHost.values()],
-    created,
-  };
+  if (!transactionResult) {
+    throw new Error(
+      "Canonical tenant bootstrap transaction completed without a result."
+    );
+  }
+
+  return transactionResult;
 }
 
 function summary({

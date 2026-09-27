@@ -8,6 +8,7 @@ import {
   getCanonicalSalonTenantConfiguration,
 } from "../platform/tenancy/canonicalSalonTenantBootstrap.js";
 import {
+  createMissingResources,
   selectedMode,
 } from "../../scripts/bootstrapCanonicalSalonTenant.js";
 
@@ -384,5 +385,125 @@ test("canonical tenant bootstrap rejects identical primary and app domains", () 
     (error) =>
       error.code ===
       "CANONICAL_DOMAIN_CONFLICT"
+  );
+});
+
+
+test("canonical tenant transaction rebuilds attempt-local state when withTransaction retries", async () => {
+  const configuration =
+    getCanonicalSalonTenantConfiguration({});
+
+  const businessIds = [
+    new mongoose.Types.ObjectId(),
+    new mongoose.Types.ObjectId(),
+  ];
+  const businessCreateOwners = [];
+  const locationCreateOwners = [];
+  const domainCreateOwners = [];
+  let businessCreateCalls = 0;
+  let locationCreateCalls = 0;
+  let endSessionCalls = 0;
+
+  const fakeBusiness = {
+    async create() {
+      const id = businessIds[businessCreateCalls];
+      businessCreateCalls += 1;
+      businessCreateOwners.push(String(id));
+      return [{ _id: id }];
+    },
+  };
+
+  const fakeLocation = {
+    async create(records) {
+      locationCreateCalls += 1;
+      locationCreateOwners.push(String(records[0].business));
+
+      if (locationCreateCalls === 1) {
+        const error = new Error("simulated transient transaction retry");
+        error.code = "SIMULATED_TRANSIENT_TRANSACTION";
+        throw error;
+      }
+
+      return [{
+        _id: new mongoose.Types.ObjectId(),
+        business: records[0].business,
+      }];
+    },
+  };
+
+  const fakeBusinessDomain = {
+    async create(records) {
+      domainCreateOwners.push(String(records[0].business));
+      return [{
+        _id: new mongoose.Types.ObjectId(),
+        business: records[0].business,
+        host: records[0].host,
+      }];
+    },
+  };
+
+  const fakeSession = {
+    async withTransaction(callback) {
+      try {
+        await callback();
+      } catch (error) {
+        assert.equal(
+          error.code,
+          "SIMULATED_TRANSIENT_TRANSACTION"
+        );
+        await callback();
+      }
+    },
+    async endSession() {
+      endSessionCalls += 1;
+    },
+  };
+
+  const result = await createMissingResources({
+    configuration,
+    business: null,
+    location: null,
+    domains: [],
+    dependencies: {
+      Business: fakeBusiness,
+      Location: fakeLocation,
+      BusinessDomain: fakeBusinessDomain,
+      startSession: async () => fakeSession,
+    },
+  });
+
+  assert.equal(businessCreateCalls, 2);
+  assert.equal(locationCreateCalls, 2);
+  assert.equal(endSessionCalls, 1);
+
+  assert.equal(
+    String(result.business._id),
+    String(businessIds[1])
+  );
+  assert.equal(
+    String(result.location.business),
+    String(businessIds[1])
+  );
+  assert.deepEqual(
+    domainCreateOwners,
+    [
+      String(businessIds[1]),
+      String(businessIds[1]),
+    ]
+  );
+
+  assert.deepEqual(
+    locationCreateOwners,
+    [
+      String(businessIds[0]),
+      String(businessIds[1]),
+    ]
+  );
+  assert.deepEqual(
+    businessCreateOwners,
+    [
+      String(businessIds[0]),
+      String(businessIds[1]),
+    ]
   );
 });
