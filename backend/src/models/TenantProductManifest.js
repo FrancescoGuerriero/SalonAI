@@ -3,7 +3,12 @@ import mongoose from "mongoose";
 import {
   DEPLOYMENT_PROFILES,
   TENANT_PRODUCT_MANIFEST_STATUSES,
+  normaliseTenantProductManifest,
 } from "../platform/productComposition/tenantProductManifest.js";
+import {
+  calculateTenantProductManifestHash,
+  validateTenantProductManifestForActivation,
+} from "../platform/productComposition/tenantProductManifestPersistence.js";
 
 const {
   Schema,
@@ -270,6 +275,158 @@ tenantProductManifestSchema.index({
   status:
     1,
 });
+
+tenantProductManifestSchema.pre(
+  "validate",
+  function validateTenantProductManifestRecord() {
+    const input = {
+      schemaVersion:
+        this.schemaVersion,
+      platformVersion:
+        this.platformVersion,
+      businessId:
+        String(
+          this.business || ""
+        ),
+      verticalId:
+        this.verticalId,
+      planKey:
+        this.planKey,
+      capabilityPackKeys:
+        this.capabilityPackKeys,
+      entitlementOverrides:
+        this.entitlementOverrides,
+      configurationProfile:
+        this.configurationProfile,
+      themeProfile:
+        this.themeProfile,
+      terminologyProfile:
+        this.terminologyProfile,
+      integrationBindings:
+        this.integrationBindings,
+      aiCapabilityKeys:
+        this.aiCapabilityKeys,
+      workflowPackKeys:
+        this.workflowPackKeys,
+      dataPolicyProfile:
+        this.dataPolicyProfile,
+      approvedExtensionKeys:
+        this.approvedExtensionKeys,
+      deploymentProfile:
+        this.deploymentProfile,
+      manifestRevision:
+        String(
+          this.manifestRevision ||
+            1
+        ),
+      status:
+        this.status,
+      effectiveFrom:
+        this.effectiveFrom
+          ? new Date(
+              this.effectiveFrom
+            ).toISOString()
+          : "",
+    };
+
+    const normalised =
+      this.status ===
+        "active"
+        ? validateTenantProductManifestForActivation({
+            manifest:
+              input,
+          }).manifest
+        : normaliseTenantProductManifest(
+            input
+          );
+
+    const revision =
+      Number(
+        normalised.manifestRevision
+      );
+
+    if (
+      !Number.isInteger(
+        revision
+      ) ||
+      revision < 1
+    ) {
+      this.invalidate(
+        "manifestRevision",
+        "Manifest revision must be a positive integer."
+      );
+
+      return;
+    }
+
+    if (
+      this.previousRevision !==
+        null &&
+      this.previousRevision !==
+        undefined &&
+      Number(
+        this.previousRevision
+      ) !==
+        revision - 1
+    ) {
+      this.invalidate(
+        "previousRevision",
+        "Previous revision must be exactly one less than manifestRevision."
+      );
+
+      return;
+    }
+
+    this.schemaVersion =
+      normalised.schemaVersion;
+    this.platformVersion =
+      normalised.platformVersion;
+    this.verticalId =
+      normalised.verticalId;
+    this.planKey =
+      normalised.planKey;
+    this.capabilityPackKeys =
+      [
+        ...normalised.capabilityPackKeys,
+      ];
+    this.entitlementOverrides =
+      [
+        ...normalised.entitlementOverrides,
+      ];
+    this.configurationProfile =
+      normalised.configurationProfile;
+    this.themeProfile =
+      normalised.themeProfile;
+    this.terminologyProfile =
+      normalised.terminologyProfile;
+    this.integrationBindings =
+      [
+        ...normalised.integrationBindings,
+      ];
+    this.aiCapabilityKeys =
+      [
+        ...normalised.aiCapabilityKeys,
+      ];
+    this.workflowPackKeys =
+      [
+        ...normalised.workflowPackKeys,
+      ];
+    this.dataPolicyProfile =
+      normalised.dataPolicyProfile;
+    this.approvedExtensionKeys =
+      [
+        ...normalised.approvedExtensionKeys,
+      ];
+    this.deploymentProfile =
+      normalised.deploymentProfile;
+    this.manifestRevision =
+      revision;
+    this.manifestHash =
+      calculateTenantProductManifestHash(
+        normalised
+      );
+  }
+);
 
 const TenantProductManifest =
   mongoose.models
