@@ -111,3 +111,40 @@ Not yet allowed:
 9. required ownership activation.
 
 No migration runs automatically at backend startup.
+
+
+## Read-only readiness and zero-write planning
+
+Repository/live readiness command:
+
+```bash
+npm run customer-appointments:tenant-readiness
+```
+
+The command is read-only and reports only:
+- Business/Location migration-scope counts;
+- Customer Business ownership coverage;
+- Appointment Business/Location ownership coverage;
+- blocker types/counts;
+- transitional legacy unique-index names.
+
+It deliberately excludes Customer, Appointment, Business and Location identifiers plus customer PII.
+
+After readiness is clean, generate the deterministic zero-write plan:
+
+```bash
+npm run customer-appointments:tenant-backfill-plan
+```
+
+The plan:
+- reuses the exact same canonical snapshot loader as readiness;
+- proposes only missing Customer Business and Appointment Business/Location ownership updates;
+- creates no Customers or Appointments;
+- produces matching rollback-operation counts;
+- binds the reviewed Customer -> Appointment -> Service -> Stylist relationships into a SHA-256 plan fingerprint;
+- exposes no resource identifiers or PII in operator output;
+- performs no writes.
+
+The fingerprint is intentionally sensitive to reviewed relationship changes even when the high-level update counts remain the same.
+
+No apply executor exists in this preparation slice.
