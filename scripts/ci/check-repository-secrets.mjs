@@ -9,7 +9,7 @@ const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" })
 const failures = [];
 const exampleEnvPattern = /(^|\/)(?:\.env\.example|env\.example)$/i;
 const sensitiveNamePattern =
-  /(?:^|_)(?:SECRET|PASSWORD|TOKEN|API_KEY|SERVICE_KEY|MONGODB_URI|DATABASE_URL)(?:$|_)/i;
+  /^(?:MONGODB_URI|DATABASE_URL|SERVICE_KEY|AI_API_KEY|JWT_SECRET|JWT_REFRESH_SECRET|.*(?:_SECRET|_PASSWORD|_API_KEY|_AUTH_TOKEN|_ACCESS_TOKEN|_PRIVATE_KEY|_ENCRYPTION_KEY|_PSEUDONYM_KEY))$/i;
 
 const allowedPlaceholder = (value) =>
   value === "" ||
