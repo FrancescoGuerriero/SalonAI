@@ -96,6 +96,27 @@ function locationValue(
   );
 }
 
+function intersects(
+  left,
+  right
+) {
+  const rightSet =
+    new Set(
+      uniqueIds(
+        right
+      )
+    );
+
+  return uniqueIds(
+    left
+  ).some(
+    (value) =>
+      rightSet.has(
+        value
+      )
+  );
+}
+
 export function staffScheduleBusinessScope(
   authority
 ) {
@@ -119,6 +140,10 @@ export function staffScheduleLocationScope(
       "location",
     includeBusinessWide =
       false,
+    businessWideStaffIds =
+      [],
+    staffField =
+      "staff",
   } = {}
 ) {
   const {
@@ -159,39 +184,61 @@ export function staffScheduleLocationScope(
     };
   }
 
-  const locationFilter =
-    includeBusinessWide
-      ? {
-          $or: [
-            {
-              [locationField]: {
-                $in:
-                  allowedLocationIds,
-              },
-            },
-            {
-              [locationField]:
-                null,
-            },
-            {
-              [locationField]: {
-                $exists:
-                  false,
-              },
-            },
-          ],
-        }
-      : {
+  const scopedBusinessWideStaffIds =
+    uniqueIds(
+      businessWideStaffIds
+    );
+
+  if (
+    includeBusinessWide &&
+    scopedBusinessWideStaffIds.length >
+      0
+  ) {
+    return {
+      business:
+        businessId,
+      $or: [
+        {
           [locationField]: {
             $in:
               allowedLocationIds,
           },
-        };
+        },
+        {
+          $and: [
+            {
+              [staffField]: {
+                $in:
+                  scopedBusinessWideStaffIds,
+              },
+            },
+            {
+              $or: [
+                {
+                  [locationField]:
+                    null,
+                },
+                {
+                  [locationField]: {
+                    $exists:
+                      false,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
 
   return {
     business:
       businessId,
-    ...locationFilter,
+    [locationField]: {
+      $in:
+        allowedLocationIds,
+    },
   };
 }
 
@@ -258,6 +305,8 @@ export function assertStaffScheduleRecordAuthority(
       false,
     requireSelectedLocation =
       false,
+    staffWorkingLocationIds =
+      [],
   } = {}
 ) {
   const {
@@ -304,7 +353,11 @@ export function assertStaffScheduleRecordAuthority(
 
     if (
       allowBusinessWide &&
-      !requireSelectedLocation
+      !requireSelectedLocation &&
+      intersects(
+        staffWorkingLocationIds,
+        trustedAuthority.allowedLocationIds
+      )
     ) {
       return Object.freeze({
         businessId:
