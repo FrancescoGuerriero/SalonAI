@@ -68,33 +68,79 @@ function countTypes(
   return counts;
 }
 
+export function canonicaliseCustomerAppointmentFingerprintValue(
+  value
+) {
+  if (Array.isArray(value)) {
+    return value
+      .map(
+        (entry) =>
+          canonicaliseCustomerAppointmentFingerprintValue(
+            entry
+          )
+      )
+      .sort(
+        (left, right) =>
+          JSON.stringify(left)
+            .localeCompare(
+              JSON.stringify(right)
+            )
+      );
+  }
+
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map(
+          (key) => [
+            key,
+            canonicaliseCustomerAppointmentFingerprintValue(
+              value[key]
+            ),
+          ]
+        )
+    );
+  }
+
+  return value;
+}
+
 export function calculateCustomerAppointmentBackfillFingerprint({
   readiness,
   plan,
 } = {}) {
+  const reviewedState =
+    canonicaliseCustomerAppointmentFingerprintValue({
+      businessId:
+        readiness?.businessId ||
+        null,
+      locationId:
+        readiness?.locationId ||
+        null,
+      scope:
+        readiness?.scope ||
+        null,
+      customerPlans:
+        readiness?.customerPlans ||
+        [],
+      appointmentPlans:
+        readiness?.appointmentPlans ||
+        [],
+      plan:
+        plan || null,
+    });
+
   return createHash(
     "sha256"
   )
     .update(
-      JSON.stringify({
-        businessId:
-          readiness?.businessId ||
-          null,
-        locationId:
-          readiness?.locationId ||
-          null,
-        scope:
-          readiness?.scope ||
-          null,
-        customerPlans:
-          readiness?.customerPlans ||
-          [],
-        appointmentPlans:
-          readiness?.appointmentPlans ||
-          [],
-        plan:
-          plan || null,
-      })
+      JSON.stringify(
+        reviewedState
+      )
     )
     .digest(
       "hex"
