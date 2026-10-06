@@ -268,6 +268,12 @@ jobs:
             echo "GitHub code scanning returned HTTP ${http_status}; security analysis remains blocking and SARIF will be retained as an artifact instead of uploaded."
           fi
 
+      - name: Enforce repository secret hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/check-repository-secrets.mjs
+
       - name: Enforce workflow security policy
         shell: bash
         run: |

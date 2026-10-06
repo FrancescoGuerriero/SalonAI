@@ -93,3 +93,16 @@ DEV3 effective authority now passes the trusted active `businessId` to the exist
 StaffRole mutation permission checks are request-aware, so once trusted tenant/effective authority is attached to the StaffRole route family they will automatically consume Gate-C scope instead of reverting to a legacy User-only permission snapshot.
 
 DEV3 must not activate tenant-scoped StaffRole listing/mutation while persisted StaffRole records remain global.
+
+
+## Legacy User grant isolation across Businesses
+
+Legacy `User.permissions` and `User.rolePermissions` exist as a compatibility snapshot from the original single-tenant SalonAI model. They are not a tenant-owned authority source.
+
+The trusted tenant resolver therefore marks those legacy grants eligible only when the authenticated User has exactly one active BusinessMembership.
+
+- one active membership: matching-role legacy grants may be retained for backwards compatibility;
+- two or more active memberships: legacy User grants are suppressed, even when the active membership uses the same role key;
+- tenant authority then resolves from the Business role definition plus the trusted membership/location context.
+
+This prevents a legacy global User grant from becoming a cross-Business permission as AIIBP adds tenants.
