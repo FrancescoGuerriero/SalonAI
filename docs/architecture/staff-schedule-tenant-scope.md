@@ -42,6 +42,10 @@ Cross-Business or out-of-scope Location records use non-disclosing `404 RESOURCE
 
 Such records are visible only through an explicit `allowBusinessWide` contract. They must not be treated as implicitly location-authorised merely because the Location value is absent.
 
+For an all-location authority, same-Business ownership is sufficient. For a selected-location authority, a Business-wide block is visible only after the associated employee has already been proven in workforce scope: the employee's trusted `Stylist.workingLocations[]` must intersect the membership's allowed Locations. Query helpers therefore require the caller to provide the already-scoped employee ids before they may include location-less Business-wide blocks.
+
+This prevents a selected-location manager from seeing another location's employee merely because that employee has an all-location leave record.
+
 Location-specific mutations should require a trusted selected Location.
 
 ## Creation ownership
@@ -68,14 +72,16 @@ The contract exposes this explicitly through `APPOINTMENT_LOCATION_SCOPE_REQUIRE
 1. Merge this pure authority/query contract with tests.
 2. Activate StaffAvailability and StaffTimeOff management paths that can be bounded entirely by #306-owned records.
 3. Preserve self-service by binding the authenticated User to a Stylist in the same trusted Business.
-4. Activate Shift/Attendance paths using `business` and `locationRef` after their controller/service queries are converted.
-5. Keep selected-location day/rota views that include Appointment data closed until #380 is production-owned and route-safe.
-6. After #380, replace the temporary Appointment boundary with direct Business + Location Appointment filters and cross-tenant tests.
+4. For location-less Business-wide TimeOff records under selected-location authority, first resolve the in-scope workforce set and pass only those employee ids to the schedule query.
+5. Activate Shift/Attendance paths using `business` and `locationRef` after their controller/service queries are converted.
+6. Keep selected-location day/rota views that include Appointment data closed until #380 is production-owned and route-safe.
+7. After #380, replace the temporary Appointment boundary with direct Business + Location Appointment filters and cross-tenant tests.
 
 ## Invariants
 
 - management visibility is independent of `profilePublished`, `acceptsAppointments` and `isActive`;
 - no second RBAC or tenancy system;
 - no client Business/Location value grants authority;
+- a missing schedule Location never expands selected-location authority;
 - legacy `StaffShift.location` free text is presentation/compatibility data, not trusted Location authority;
 - current canonical single-location SalonAI behavior must remain unchanged while the new scope is activated incrementally.
