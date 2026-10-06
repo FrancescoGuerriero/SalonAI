@@ -13,6 +13,10 @@ const BUSINESS_ID =
   "507f1f77bcf86cd799439012";
 const OTHER_BUSINESS_ID =
   "507f1f77bcf86cd799439099";
+const STAFF_A =
+  "507f1f77bcf86cd799439021";
+const STAFF_B =
+  "507f1f77bcf86cd799439022";
 const LOCATION_A =
   "507f1f77bcf86cd799439013";
 const LOCATION_B =
@@ -82,7 +86,69 @@ test(
 );
 
 test(
-  "time-off scope may include explicit Business-wide records",
+  "selected-location time-off scope includes Business-wide records only for already scoped employees",
+  () => {
+    assert.deepEqual(
+      staffScheduleLocationScope(
+        authority({
+          mode:
+            "selected",
+          allowed: [
+            LOCATION_A,
+          ],
+        }),
+        {
+          includeBusinessWide:
+            true,
+          businessWideStaffIds: [
+            STAFF_A,
+          ],
+        }
+      ),
+      {
+        business:
+          BUSINESS_ID,
+        $or: [
+          {
+            location: {
+              $in: [
+                LOCATION_A,
+              ],
+            },
+          },
+          {
+            $and: [
+              {
+                staff: {
+                  $in: [
+                    STAFF_A,
+                  ],
+                },
+              },
+              {
+                $or: [
+                  {
+                    location:
+                      null,
+                  },
+                  {
+                    location: {
+                      $exists:
+                        false,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }
+    );
+  }
+);
+
+test(
+  "Business-wide schedule blocks are excluded from selected-location queries without scoped staff proof",
   () => {
     assert.deepEqual(
       staffScheduleLocationScope(
@@ -101,25 +167,11 @@ test(
       {
         business:
           BUSINESS_ID,
-        $or: [
-          {
-            location: {
-              $in: [
-                LOCATION_A,
-              ],
-            },
-          },
-          {
-            location:
-              null,
-          },
-          {
-            location: {
-              $exists:
-                false,
-            },
-          },
-        ],
+        location: {
+          $in: [
+            LOCATION_A,
+          ],
+        },
       }
     );
   }
@@ -304,26 +356,35 @@ test(
 );
 
 test(
-  "Business-wide time-off record is readable only through the explicit Business-wide contract",
+  "selected-location Business-wide time-off requires scoped employee working-location proof",
   () => {
+    const selected =
+      authority({
+        mode:
+          "selected",
+        allowed: [
+          LOCATION_A,
+        ],
+      });
+
     assert.deepEqual(
       assertStaffScheduleRecordAuthority(
-        authority({
-          mode:
-            "selected",
-          allowed: [
-            LOCATION_A,
-          ],
-        }),
+        selected,
         {
           business:
             BUSINESS_ID,
+          staff:
+            STAFF_A,
           location:
             null,
         },
         {
           allowBusinessWide:
             true,
+          staffWorkingLocationIds: [
+            LOCATION_A,
+            LOCATION_B,
+          ],
         }
       ),
       {
@@ -332,6 +393,33 @@ test(
         locationId:
           null,
       }
+    );
+
+    assert.throws(
+      () =>
+        assertStaffScheduleRecordAuthority(
+          selected,
+          {
+            business:
+              BUSINESS_ID,
+            staff:
+              STAFF_B,
+            location:
+              null,
+          },
+          {
+            allowBusinessWide:
+              true,
+            staffWorkingLocationIds: [
+              LOCATION_B,
+            ],
+          }
+        ),
+      (error) =>
+        error?.code ===
+          "RESOURCE_NOT_FOUND" &&
+        error?.statusCode ===
+          404
     );
   }
 );
