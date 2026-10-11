@@ -9,11 +9,15 @@ import {
   assertStaffRoleReadOnlyArguments,
   sanitiseStaffRoleReadiness,
 } from "../../scripts/checkStaffRoleTenantReadiness.js";
+import {
+  assertStaffRoleApplyAuthorization,
+} from "../../scripts/applyStaffRoleTenantBackfill.js";
 
 const BUSINESS_A = "507f1f77bcf86cd799439011";
 const BUSINESS_B = "507f1f77bcf86cd799439012";
 const ROLE_A = "507f1f77bcf86cd799439021";
 const ROLE_B = "507f1f77bcf86cd799439022";
+const FINGERPRINT = "a".repeat(64);
 
 function role(_id, key, business = null, active = true) {
   return {
@@ -135,5 +139,57 @@ test("StaffRole readiness command rejects write-like flags and sanitises output"
       "ambiguous-business-attribution"
     ],
     1
+  );
+});
+
+test("StaffRole apply gate requires explicit flag, confirmation and exact reviewed fingerprint", () => {
+  assert.throws(
+    () =>
+      assertStaffRoleApplyAuthorization({
+        args: [],
+        environment: {},
+        actualFingerprint: FINGERPRINT,
+      }),
+    /explicit --apply flag/
+  );
+
+  assert.throws(
+    () =>
+      assertStaffRoleApplyAuthorization({
+        args: ["--apply"],
+        environment: {},
+        actualFingerprint: FINGERPRINT,
+      }),
+    /STAFF_ROLE_TENANT_BACKFILL_CONFIRM/
+  );
+
+  assert.throws(
+    () =>
+      assertStaffRoleApplyAuthorization({
+        args: ["--apply"],
+        environment: {
+          STAFF_ROLE_TENANT_BACKFILL_CONFIRM:
+            "APPLY_STAFF_ROLE_TENANT_BACKFILL",
+          STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT:
+            "not-a-fingerprint",
+        },
+        actualFingerprint: FINGERPRINT,
+      }),
+    /64-character SHA-256/
+  );
+
+  assert.throws(
+    () =>
+      assertStaffRoleApplyAuthorization({
+        args: ["--apply"],
+        environment: {
+          STAFF_ROLE_TENANT_BACKFILL_CONFIRM:
+            "APPLY_STAFF_ROLE_TENANT_BACKFILL",
+          STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT:
+            "b".repeat(64),
+        },
+        actualFingerprint: FINGERPRINT,
+      }),
+    /does not match the current database plan/
   );
 });
