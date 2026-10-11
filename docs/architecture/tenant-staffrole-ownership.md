@@ -46,7 +46,7 @@ DEV1-only guarded apply:
 
 `STAFF_ROLE_TENANT_BACKFILL_CONFIRM=APPLY_STAFF_ROLE_TENANT_BACKFILL STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT=<reviewed-sha256> npm run staff-roles:tenant-backfill -- --apply`
 
-The apply path also requires the shared explicit canonical tenant identity. It recomputes the reviewed plan before writes, verifies the fingerprint again inside a transaction, updates only records that remain unowned, and performs a zero-unowned postflight. DEV4 must not run this against production.
+The apply executor is shipped as migration tooling but is not production authority. It requires the shared explicit canonical tenant identity, recomputes the reviewed plan before writes, verifies the fingerprint again inside a transaction, updates only records that remain unowned, and performs a zero-unowned postflight. DEV4 must not execute this command against production; DEV1 owns that gate.
 
 ## Activation sequence
 
