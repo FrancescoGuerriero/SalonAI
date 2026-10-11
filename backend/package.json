@@ -40,7 +40,8 @@
     "tenant:domain:activate": "node scripts/activateCanonicalTenantDomain.js",
     "communications:scheduler-readiness": "node scripts/checkCommunicationSchedulerReadiness.js",
     "customer-appointments:tenant-readiness": "node scripts/checkCustomerAppointmentTenantReadiness.js",
-    "customer-appointments:tenant-backfill-plan": "node scripts/planCustomerAppointmentTenantBackfill.js"
+    "customer-appointments:tenant-backfill-plan": "node scripts/planCustomerAppointmentTenantBackfill.js",
+    "customer-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
