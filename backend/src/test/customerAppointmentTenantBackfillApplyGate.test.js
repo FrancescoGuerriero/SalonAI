@@ -13,10 +13,18 @@ function environment(overrides = {}) {
       "APPLY_CUSTOMER_APPOINTMENT_TENANT_BACKFILL",
     CUSTOMER_APPOINTMENT_TENANT_BACKFILL_PLAN_FINGERPRINT:
       FINGERPRINT,
-    CANONICAL_TENANT_BUSINESS_SLUG:
+    SALONAI_CANONICAL_BUSINESS_NAME:
+      "Francesco Picardi",
+    SALONAI_CANONICAL_BUSINESS_SLUG:
       "francesco-picardi",
-    CANONICAL_TENANT_LOCATION_SLUG:
+    SALONAI_CANONICAL_LOCATION_NAME:
+      "Marylebone",
+    SALONAI_CANONICAL_LOCATION_SLUG:
       "marylebone",
+    SALONAI_CANONICAL_PRIMARY_DOMAIN:
+      "francescopicardi.co.uk",
+    SALONAI_CANONICAL_APP_DOMAIN:
+      "salonai.francescopicardi.co.uk",
     ...overrides,
   };
 }
@@ -68,5 +76,16 @@ test("Customer/Appointment apply rejects invalid or stale fingerprints", () => {
         actualFingerprint: "b".repeat(64),
       }),
     /does not match/
+  );
+});
+
+test("Customer/Appointment apply accepts exact reviewed intent", () => {
+  assert.equal(
+    assertCustomerAppointmentApplyAuthorization({
+      args: ["--apply"],
+      environment: environment(),
+      actualFingerprint: FINGERPRINT,
+    }),
+    true
   );
 });
