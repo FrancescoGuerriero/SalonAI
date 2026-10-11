@@ -32,6 +32,22 @@ The resolver:
 
 `listTenantStaffRoleDefinitions({ businessId })` similarly returns platform built-ins plus only current-Business persisted overrides/custom roles.
 
+## Migration commands
+
+Read-only readiness:
+
+`npm run staff-roles:tenant-readiness`
+
+Deterministic zero-write plan:
+
+`npm run staff-roles:tenant-backfill-plan`
+
+DEV1-only guarded apply:
+
+`STAFF_ROLE_TENANT_BACKFILL_CONFIRM=APPLY_STAFF_ROLE_TENANT_BACKFILL STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT=<reviewed-sha256> npm run staff-roles:tenant-backfill -- --apply`
+
+The apply path also requires the shared explicit canonical tenant identity. It recomputes the reviewed plan before writes, verifies the fingerprint again inside a transaction, updates only records that remain unowned, and performs a zero-unowned postflight. DEV4 must not run this against production.
+
 ## Activation sequence
 
 1. Read-only production StaffRole ownership readiness.
