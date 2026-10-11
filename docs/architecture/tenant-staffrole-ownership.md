@@ -46,7 +46,7 @@ DEV1-only guarded apply:
 
 `STAFF_ROLE_TENANT_BACKFILL_CONFIRM=APPLY_STAFF_ROLE_TENANT_BACKFILL STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT=<reviewed-sha256> npm run staff-roles:tenant-backfill -- --apply`
 
-The apply executor is shipped as migration tooling but is not production authority. It requires the shared explicit canonical tenant identity, recomputes the reviewed plan before writes, verifies the fingerprint again inside a transaction, updates only records that remain unowned, and performs a zero-unowned postflight. DEV4 must not execute this command against production; DEV1 owns that gate.
+The apply executor is migration tooling, not production authority. It requires the shared explicit canonical tenant identity, recomputes the reviewed plan before writes, verifies the fingerprint again inside a transaction, updates only records that remain unowned, and performs a zero-unowned postflight. DEV4 must not execute this command against production; DEV1 owns that gate.
 
 ## Activation sequence
 
@@ -59,6 +59,10 @@ The apply executor is shipped as migration tooling but is not production authori
 7. DEV3 switches effective authority and `/api/staff-roles` to the Business-aware resolver/controller path.
 8. Remove unsafe global User role-permission propagation.
 9. Only then replace the transitional global unique key with tenant-local `{ business, key }` uniqueness.
+
+## Current implementation state
+
+The additive ownership contract, tenant resolver, read-only readiness scanner, deterministic plan/fingerprint, guarded transactional apply executor, postflight verification and apply-gate tests are implemented in PR #402. Production execution remains intentionally pending DEV1 review/authority.
 
 ## Guardrails
 
