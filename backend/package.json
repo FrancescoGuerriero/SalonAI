@@ -39,6 +39,7 @@
     "services:tenant-backfill": "node scripts/applyServiceTenantBackfill.js",
     "staff-roles:tenant-readiness": "node scripts/checkStaffRoleTenantReadiness.js",
     "staff-roles:tenant-backfill-plan": "node scripts/planStaffRoleTenantBackfill.js",
+    "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js",
     "tenant:domain:activate": "node scripts/activateCanonicalTenantDomain.js",
     "communications:scheduler-readiness": "node scripts/checkCommunicationSchedulerReadiness.js"
   },
