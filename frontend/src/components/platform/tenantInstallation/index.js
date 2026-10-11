@@ -1,6 +1,7 @@
 export { default as BrandingTerminologyPreview } from "./BrandingTerminologyPreview.jsx";
 export { default as InstallationBlockerList } from "./InstallationBlockerList.jsx";
 export { default as InstallationPlanSummary } from "./InstallationPlanSummary.jsx";
+export { default as InstallationReadinessNotice } from "./InstallationReadinessNotice.jsx";
 export { default as InstallationStepper } from "./InstallationStepper.jsx";
 export { default as InstallationWriteConfirmationDialog } from "./InstallationWriteConfirmationDialog.jsx";
 export { default as IntegrationPlanningList } from "./IntegrationPlanningList.jsx";
