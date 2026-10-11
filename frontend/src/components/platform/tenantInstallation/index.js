@@ -8,4 +8,5 @@ export { default as LocationDomainLifecycle } from "./LocationDomainLifecycle.js
 export { default as TenantIdentityLocaleSummary } from "./TenantIdentityLocaleSummary.jsx";
 export { default as TenantInstallationCompositionWorkspace } from "./TenantInstallationCompositionWorkspace.jsx";
 export { default as TenantInstallationReviewWorkspace } from "./TenantInstallationReviewWorkspace.jsx";
+export { default as TenantInstallationWorkspaceShell } from "./TenantInstallationWorkspaceShell.jsx";
 export { default as VerticalPackSelector } from "./VerticalPackSelector.jsx";
