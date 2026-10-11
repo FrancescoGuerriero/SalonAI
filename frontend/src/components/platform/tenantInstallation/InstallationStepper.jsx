@@ -27,6 +27,7 @@ export default function InstallationStepper({
             <li key={id}>
               <button
                 type="button"
+                aria-label={label}
                 aria-current={current ? "step" : undefined}
                 aria-disabled={disabled}
                 disabled={disabled}
