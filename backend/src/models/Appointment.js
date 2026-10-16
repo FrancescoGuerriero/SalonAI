@@ -180,6 +180,24 @@ const statusHistorySchema =
 const appointmentSchema =
   new Schema(
     {
+      // Transitional AIIBP ownership. Optional until canonical appointment
+      // ownership backfill and route enforcement are production-verified.
+      business: {
+        type:
+          Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+
+      location: {
+        type:
+          Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
+
       customer: {
         type:
           Schema.Types.ObjectId,
@@ -965,6 +983,27 @@ appointmentSchema.post(
 appointmentSchema.index({
   appointmentDate: 1,
   stylist: 1,
+});
+
+appointmentSchema.index({
+  business: 1,
+  location: 1,
+  appointmentDate: 1,
+  status: 1,
+});
+
+appointmentSchema.index({
+  business: 1,
+  customer: 1,
+  appointmentDate: -1,
+});
+
+appointmentSchema.index({
+  business: 1,
+  stylist: 1,
+  startsAt: 1,
+  endsAt: 1,
+  status: 1,
 });
 
 appointmentSchema.index({
