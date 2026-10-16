@@ -99,6 +99,13 @@ const recipientSchema = new Schema(
 
 const rebookingCampaignSchema = new Schema(
   {
+    // Transitional #309 tenant ownership for retention exports.
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -163,6 +170,7 @@ const rebookingCampaignSchema = new Schema(
 );
 
 rebookingCampaignSchema.index({ createdAt: -1, status: 1 });
+rebookingCampaignSchema.index({ business: 1, createdAt: -1, status: 1 });
 
 const RebookingCampaign =
   mongoose.models.RebookingCampaign ||
