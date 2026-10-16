@@ -19,8 +19,8 @@ vi.mock("../Services/adminStaffService.js", () => ({
 vi.mock("../hooks/useAuth.js", () => ({
   default: () => ({
     user: {
-      id: "admin-user",
-      role: "admin",
+      id: "super-admin-user",
+      role: "super_admin",
       permissions: [],
       rolePermissions: [],
     },
