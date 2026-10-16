@@ -19,6 +19,8 @@ import {
 } from "./staffTenantController.js";
 import {
   listTimeOff as tenantScopedTimeOffList,
+  requestTimeOff as tenantScopedRequestTimeOff,
+  updateTimeOff as tenantScopedUpdateTimeOff,
 } from "./staffTimeOffTenantController.js";
 
 const router = express.Router();
@@ -112,9 +114,10 @@ router.get(
 
 router.patch(
   "/time-off/:id",
+  ...workforceTenantAuthority,
   updateEmployeeSchedule,
   asyncHandler(
-    controller.updateTimeOff
+    tenantScopedUpdateTimeOff
   )
 );
 
@@ -162,9 +165,10 @@ router.get(
 
 router.post(
   "/:staffId/time-off",
+  ...workforceTenantAuthority,
   updateEmployeeSchedule,
   asyncHandler(
-    controller.requestTimeOff
+    tenantScopedRequestTimeOff
   )
 );
 
