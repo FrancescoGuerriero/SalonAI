@@ -14,6 +14,7 @@ import {
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import * as controller from "./staffController.js";
 import {
+  setAvailability as tenantScopedSetAvailability,
   week as tenantScopedWeek,
 } from "./staffTenantController.js";
 import {
@@ -144,9 +145,10 @@ router.get(
 
 router.put(
   "/:staffId/availability",
+  ...workforceTenantAuthority,
   updateEmployeeSchedule,
   asyncHandler(
-    controller.setAvailability
+    tenantScopedSetAvailability
   )
 );
 
