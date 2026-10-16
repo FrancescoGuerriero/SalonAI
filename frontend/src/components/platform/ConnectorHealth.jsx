@@ -19,14 +19,19 @@ export default function ConnectorHealth({
   onRequestDiagnostics,
 }) {
   const disconnected = state === "disconnected";
+  const stateLabel = LABELS[state] || state || "Unknown state";
 
   return (
     <article
       className={"rounded-xl border p-4 shadow-sm " + (disconnected ? "border-stone-800 bg-stone-900 text-white" : state === "connected" ? "border-amber-300 bg-amber-50 text-black" : "border-black/10 bg-white text-black")}
       data-connector-state={state}
+      aria-busy={state === "reconnecting" ? "true" : undefined}
     >
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {label || "Connector"}: {stateLabel}.{summary ? ` ${summary}` : ""}
+      </p>
       <span className={"inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-bold " + (disconnected ? "border-white/20 bg-white/10 text-white" : "border-black/10 bg-white text-black")}>
-        {LABELS[state] || state}
+        {stateLabel}
       </span>
       <h3 className="mt-3 text-sm font-bold">{label}</h3>
       {summary ? <p className={"mt-1 text-xs leading-5 " + (disconnected ? "text-stone-200" : "text-stone-600")}>{summary}</p> : null}
