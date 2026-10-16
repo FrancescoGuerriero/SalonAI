@@ -74,7 +74,7 @@ test("cross-employee schedule and leave routes remain separately delegated", asy
   );
   assert.match(
     routes,
-    /"\/:staffId\/availability",\s*updateEmployeeSchedule/s
+    /"\/:staffId\/availability",\s*\.\.\.workforceTenantAuthority,\s*updateEmployeeSchedule/s
   );
   assert.match(
     routes,
