@@ -1,9 +1,21 @@
 import express from "express";
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../platform/tenancy/trustedTenantMiddleware.js";
 import * as controller from "./staffController.js";
+import {
+  week as tenantScopedWeek,
+} from "./staffTenantController.js";
 
 const router = express.Router();
 
@@ -22,6 +34,11 @@ const readCalendar =
     "appointment:read"
   );
 
+const workforceTenantAuthority = [
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+];
 
 const readOwnSchedule =
   requirePermissions(
@@ -114,9 +131,10 @@ router.patch(
 
 router.get(
   "/:staffId/availability",
+  ...workforceTenantAuthority,
   readEmployees,
   asyncHandler(
-    controller.week
+    tenantScopedWeek
   )
 );
 
