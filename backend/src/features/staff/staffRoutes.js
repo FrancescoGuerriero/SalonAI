@@ -22,6 +22,10 @@ import {
   requestTimeOff as tenantScopedRequestTimeOff,
   updateTimeOff as tenantScopedUpdateTimeOff,
 } from "./staffTimeOffTenantController.js";
+import {
+  listMyTimeOff as tenantScopedListMyTimeOff,
+  requestMyTimeOff as tenantScopedRequestMyTimeOff,
+} from "./staffSelfServiceTenantController.js";
 
 const router = express.Router();
 
@@ -88,17 +92,19 @@ router.get(
 
 router.get(
   "/me/time-off",
+  ...workforceTenantAuthority,
   readOwnSchedule,
   asyncHandler(
-    controller.listMyTimeOff
+    tenantScopedListMyTimeOff
   )
 );
 
 router.post(
   "/me/time-off",
+  ...workforceTenantAuthority,
   requestOwnLeave,
   asyncHandler(
-    controller.requestMyTimeOff
+    tenantScopedRequestMyTimeOff
   )
 );
 

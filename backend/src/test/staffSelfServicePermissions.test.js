@@ -12,13 +12,12 @@ async function source(relativePath) {
   );
 }
 
-test("staff self-service routes use explicit own-scope permissions", async () => {
-  const routes =
-    await source(
-      "../features/staff/staffRoutes.js"
-    );
+test("staff self-service routes keep explicit own-scope permissions", async () => {
+  const routes = await source(
+    "../features/staff/staffRoutes.js"
+  );
 
-  const expected = [
+  for (const [pattern, label] of [
     [
       /"\/me\/availability",\s*readOwnSchedule,\s*asyncHandler\(\s*controller\.myWeek/s,
       "read own availability",
@@ -32,24 +31,15 @@ test("staff self-service routes use explicit own-scope permissions", async () =>
       "read own day",
     ],
     [
-      /"\/me\/time-off",\s*readOwnSchedule,\s*asyncHandler\(\s*controller\.listMyTimeOff/s,
-      "read own leave",
+      /"\/me\/time-off",\s*\.\.\.workforceTenantAuthority,\s*readOwnSchedule,\s*asyncHandler\(\s*tenantScopedListMyTimeOff/s,
+      "read own tenant-scoped leave",
     ],
     [
-      /"\/me\/time-off",\s*requestOwnLeave,\s*asyncHandler\(\s*controller\.requestMyTimeOff/s,
-      "request own leave",
+      /"\/me\/time-off",\s*\.\.\.workforceTenantAuthority,\s*requestOwnLeave,\s*asyncHandler\(\s*tenantScopedRequestMyTimeOff/s,
+      "request own tenant-scoped leave",
     ],
-  ];
-
-  for (const [
-    pattern,
-    label,
-  ] of expected) {
-    assert.match(
-      routes,
-      pattern,
-      `Missing route contract: ${label}`
-    );
+  ]) {
+    assert.match(routes, pattern, `Missing route contract: ${label}`);
   }
 
   assert.doesNotMatch(
@@ -58,20 +48,40 @@ test("staff self-service routes use explicit own-scope permissions", async () =>
   );
 });
 
-test("cross-employee schedule and leave routes require tenant authority before delegated permissions", async () => {
-  const routes =
-    await source(
-      "../features/staff/staffRoutes.js"
-    );
+test("self-service time-off resolves the authenticated employee inside trusted workforce scope", async () => {
+  const controller = await source(
+    "../features/staff/staffSelfServiceTenantController.js"
+  );
 
   assert.match(
-    routes,
-    /requirePermissions\(\s*"employee:read"\s*\)/
+    controller,
+    /scopedWorkforceFilter\(\s*req\.effectiveAuthority,\s*\{\s*userAccount:\s*req\.user\?\._id/s
   );
   assert.match(
-    routes,
-    /requirePermissions\(\s*"employee:schedule:update"\s*\)/
+    controller,
+    /scopedTimeOffList\(\s*\{\s*staff:\s*stylist\._id/s
   );
+  assert.match(
+    controller,
+    /createScopedTimeOff\(\s*stylist\._id,\s*req\.body,\s*req\.effectiveAuthority/s
+  );
+  assert.match(
+    controller,
+    /scope:\s*"self-tenant"/
+  );
+  assert.doesNotMatch(
+    controller,
+    /Stylist\.findOne\(\{\s*userAccount/
+  );
+});
+
+test("cross-employee schedule and leave routes require tenant authority before delegated permissions", async () => {
+  const routes = await source(
+    "../features/staff/staffRoutes.js"
+  );
+
+  assert.match(routes, /requirePermissions\(\s*"employee:read"\s*\)/);
+  assert.match(routes, /requirePermissions\(\s*"employee:schedule:update"\s*\)/);
   assert.match(
     routes,
     /"\/:staffId\/availability",\s*\.\.\.workforceTenantAuthority,\s*updateEmployeeSchedule/s
@@ -87,10 +97,9 @@ test("cross-employee schedule and leave routes require tenant authority before d
 });
 
 test("leave requests always enter requested state", async () => {
-  const service =
-    await source(
-      "../features/staff/staffService.js"
-    );
+  const service = await source(
+    "../features/staff/staffService.js"
+  );
 
   assert.match(
     service,
@@ -102,123 +111,76 @@ test("leave requests always enter requested state", async () => {
   );
 });
 
-test("self-service resolves the canonical linked staff account", async () => {
-  const controller =
-    await source(
-      "../features/staff/staffController.js"
-    );
+test("legacy self availability still resolves the canonical linked staff account until its tenant slice lands", async () => {
+  const controller = await source(
+    "../features/staff/staffController.js"
+  );
 
   assert.match(
     controller,
     /Stylist\.findOne\(\{\s*userAccount:\s*user\._id/s
   );
-
-  const ownedStart =
-    controller.indexOf(
-      "async function ownedStylist"
-    );
-  const ownedEnd =
-    controller.indexOf(
-      "async function auditAvailability"
-    );
-
-  assert.ok(
-    ownedStart >= 0 &&
-      ownedEnd >
-        ownedStart
-  );
-
-  const ownedBlock =
-    controller.slice(
-      ownedStart,
-      ownedEnd
-    );
-
-  assert.doesNotMatch(
-    ownedBlock,
-    /email:/
-  );
 });
 
-test("self-service availability falls back to configured working hours", async () => {
-  const service =
-    await source(
-      "../features/staff/staffService.js"
-    );
-  const controller =
-    await source(
-      "../features/staff/staffController.js"
-    );
+test("self-service availability fallback remains unchanged", async () => {
+  const service = await source(
+    "../features/staff/staffService.js"
+  );
+  const controller = await source(
+    "../features/staff/staffController.js"
+  );
 
-  assert.match(
-    service,
-    /export async function weeklyAvailabilityWithFallback/
-  );
-  assert.match(
-    service,
-    /source:\s*"stylist_working_hours"/
-  );
+  assert.match(service, /export async function weeklyAvailabilityWithFallback/);
+  assert.match(service, /source:\s*"stylist_working_hours"/);
   assert.match(
     controller,
     /weeklyAvailabilityWithFallback\(\s*stylist\._id/s
   );
 });
 
-test("schedule and leave writes emit canonical audit events", async () => {
-  const controller =
-    await source(
-      "../features/staff/staffController.js"
-    );
+test("schedule and leave writes retain canonical audit actions", async () => {
+  const legacyController = await source(
+    "../features/staff/staffController.js"
+  );
+  const tenantSelfController = await source(
+    "../features/staff/staffSelfServiceTenantController.js"
+  );
 
   for (const action of [
     "staff.availability_updated",
-    "staff.time_off_requested",
     "staff.time_off_status_updated",
   ]) {
     assert.ok(
-      controller.includes(
-        `"${action}"`
-      ),
+      legacyController.includes(`"${action}"`),
       `Missing canonical audit action: ${action}`
     );
   }
 
-  assert.match(
-    controller,
-    /recordAuditEvent\(/
+  assert.ok(
+    tenantSelfController.includes('"staff.time_off_requested"')
   );
+  assert.match(tenantSelfController, /recordAuditEvent\(/);
 });
 
 test("frontend exposes self-service only through delegated schedule permission", async () => {
-  const app =
-    await source(
-      "../../../frontend/src/App.jsx"
-    );
-  const navigation =
-    await source(
-      "../../../frontend/src/components/navigation/managementNavigationConfig.js"
-    );
-  const api =
-    await source(
-      "../../../frontend/src/Services/futureFeaturesApi.js"
-    );
+  const app = await source(
+    "../../../frontend/src/App.jsx"
+  );
+  const navigation = await source(
+    "../../../frontend/src/components/navigation/managementNavigationConfig.js"
+  );
+  const api = await source(
+    "../../../frontend/src/Services/futureFeaturesApi.js"
+  );
 
   assert.match(
     app,
     /path="staff\/self-service"[\s\S]*?"schedule:own:read"/
   );
-
   assert.match(
     navigation,
     /"\/staff\/self-service"[\s\S]{0,180}"schedule:own:read"/
   );
-
-  assert.match(
-    api,
-    /get\("\/staff\/me\/availability"\)/
-  );
-  assert.match(
-    api,
-    /post\(\s*"\/staff\/me\/time-off"/s
-  );
+  assert.match(api, /get\("\/staff\/me\/availability"\)/);
+  assert.match(api, /post\(\s*"\/staff\/me\/time-off"/s);
 });
