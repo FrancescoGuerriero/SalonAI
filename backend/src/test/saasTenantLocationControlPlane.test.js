@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
+import { readFile } from "node:fs/promises";
 
 import BusinessMembership from "../models/BusinessMembership.js";
 import Location from "../models/Location.js";
@@ -268,7 +269,7 @@ test("configuration inheritance records provenance and honours locks", () => {
 
 
 test(
-  "trusted tenant context allows legacy User grants only for one active BusinessMembership",
+  "trusted tenant context allows legacy User grants only for one non-revoked BusinessMembership",
   async () => {
     const userId =
       new mongoose.Types.ObjectId();
@@ -353,6 +354,32 @@ test(
       String(
         businessId
       )
+    );
+  }
+);
+
+test(
+  "legacy User grant compatibility counts suspended memberships and excludes only revoked memberships",
+  async () => {
+    const source = await readFile(
+      new URL(
+        "../platform/tenancy/trustedTenantContext.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+
+    assert.match(
+      source,
+      /async function countNonRevokedMemberships/
+    );
+    assert.match(
+      source,
+      /status:\s*\{\s*\$ne:\s*"revoked"/s
+    );
+    assert.doesNotMatch(
+      source,
+      /async function countActiveMemberships/
     );
   }
 );

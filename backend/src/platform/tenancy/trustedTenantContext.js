@@ -58,14 +58,16 @@ async function findActiveMembership({
   return BusinessMembership.findOne(filter);
 }
 
-async function countActiveMemberships({
+async function countNonRevokedMemberships({
   userId,
 }) {
   return BusinessMembership.countDocuments({
     user:
       userId,
-    status:
-      "active",
+    status: {
+      $ne:
+        "revoked",
+    },
   });
 }
 
@@ -213,6 +215,11 @@ export function trustedTenantContext({
  * and be granted by the membership. When no business selector is supplied, an
  * active membership explicitly marked isDefault is required.
  *
+ * Legacy global User permission snapshots are compatible only while the User
+ * has exactly one non-revoked tenant relationship. Suspended memberships are
+ * deliberately counted so a global grant cannot later become cross-Business
+ * authority when membership status changes.
+ *
  * Repository functions are injectable for deterministic isolation testing.
  */
 export async function resolveTrustedTenantContext({
@@ -222,7 +229,7 @@ export async function resolveTrustedTenantContext({
   findMembership = findActiveMembership,
   findLocation = findActiveLocation,
   countMemberships =
-    countActiveMemberships,
+    countNonRevokedMemberships,
 }) {
   if (
     typeof findMembership !==
@@ -285,7 +292,7 @@ export async function resolveTrustedTenantContext({
     });
   }
 
-  const activeMembershipCount =
+  const nonRevokedMembershipCount =
     Number(
       await countMemberships({
         userId,
@@ -294,9 +301,9 @@ export async function resolveTrustedTenantContext({
 
   const legacyUserGrantsEligible =
     Number.isInteger(
-      activeMembershipCount
+      nonRevokedMembershipCount
     ) &&
-    activeMembershipCount ===
+    nonRevokedMembershipCount ===
       1;
 
   return trustedTenantContext({
