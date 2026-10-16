@@ -58,7 +58,7 @@ test("staff self-service routes use explicit own-scope permissions", async () =>
   );
 });
 
-test("cross-employee schedule and leave routes remain separately delegated", async () => {
+test("cross-employee schedule and leave routes require tenant authority before delegated permissions", async () => {
   const routes =
     await source(
       "../features/staff/staffRoutes.js"
@@ -78,7 +78,11 @@ test("cross-employee schedule and leave routes remain separately delegated", asy
   );
   assert.match(
     routes,
-    /"\/time-off\/:id",\s*updateEmployeeSchedule/s
+    /"\/time-off\/:id",\s*\.\.\.workforceTenantAuthority,\s*updateEmployeeSchedule/s
+  );
+  assert.match(
+    routes,
+    /"\/:staffId\/time-off",\s*\.\.\.workforceTenantAuthority,\s*updateEmployeeSchedule/s
   );
 });
 
