@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarCheck,
   CheckCircle2,
@@ -18,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import ConversationOwnershipStatus from "../components/platform/ConversationOwnershipStatus.jsx";
 import serviceService from "../Services/serviceService.js";
 import stylistService from "../Services/stylistService.js";
 import {
@@ -25,6 +21,7 @@ import {
   getWhatsAppConversation,
   listWhatsAppConversations,
   markWhatsAppConversationRead,
+  resumeWhatsAppBot,
   sendOneOffWhatsAppMessage,
   sendWhatsAppConversationMessage,
   updateWhatsAppBookingSession,
@@ -65,10 +62,8 @@ const EMPTY_ONE_OFF = {
 
 const STATUS_LABELS = {
   open: "Open",
-  collecting_details:
-    "Collecting details",
-  awaiting_confirmation:
-    "Staff confirmation required",
+  collecting_details: "Collecting details",
+  awaiting_confirmation: "Staff confirmation required",
   confirming: "Confirming",
   booked: "Booked",
   completed: "Completed",
@@ -76,636 +71,295 @@ const STATUS_LABELS = {
   failed: "Needs attention",
 };
 
-const CUSTOMER_SERVICE_WINDOW_MS =
-  24 * 60 * 60 * 1000;
+const CUSTOMER_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function idOf(value) {
-  return String(
-    value?._id || value || ""
-  );
+  return String(value?._id || value || "");
 }
 
 function dateInputValue(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date =
-    new Date(value);
-
-  return Number.isNaN(
-    date.getTime()
-  )
-    ? ""
-    : date
-        .toISOString()
-        .slice(0, 10);
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
 function formatTimestamp(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date =
-    new Date(value);
-
-  return Number.isNaN(
-    date.getTime()
-  )
-    ? ""
-    : new Intl.DateTimeFormat(
-        "en-GB",
-        {
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      ).format(date);
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
-function customerName(
-  conversation = {}
-) {
-  const profile =
-    conversation.customer ||
-    {};
-
+function customerName(conversation = {}) {
+  const profile = conversation.customer || {};
   return (
     conversation.displayName ||
     profile.preferredName ||
-    [
-      profile.firstName,
-      profile.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ") ||
+    [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
     "WhatsApp customer"
   );
 }
 
-function requestMessage(
-  error,
-  fallback
-) {
+function assignedStaffLabel(conversation = {}) {
+  const assigned = conversation.assignedTo;
+  if (!assigned || typeof assigned !== "object") return "";
   return (
-    error?.response?.data
-      ?.message ||
-    error?.message ||
-    fallback
+    assigned.displayName ||
+    assigned.name ||
+    [assigned.firstName, assigned.lastName].filter(Boolean).join(" ") ||
+    ""
   );
 }
 
-function serviceWindowOpen(
-  value
-) {
-  if (!value) {
-    return false;
-  }
-
-  const inbound =
-    new Date(value);
-
-  if (
-    Number.isNaN(
-      inbound.getTime()
-    )
-  ) {
-    return false;
-  }
-
-  const elapsed =
-    Date.now() -
-    inbound.getTime();
-
-  return (
-    elapsed >= 0 &&
-    elapsed <=
-      CUSTOMER_SERVICE_WINDOW_MS
-  );
+function requestMessage(error, fallback) {
+  return error?.response?.data?.message || error?.message || fallback;
 }
 
-function parseVariables(
-  value
-) {
-  const text =
-    String(value || "")
-      .trim();
+function serviceWindowOpen(value) {
+  if (!value) return false;
+  const inbound = new Date(value);
+  if (Number.isNaN(inbound.getTime())) return false;
+  const elapsed = Date.now() - inbound.getTime();
+  return elapsed >= 0 && elapsed <= CUSTOMER_SERVICE_WINDOW_MS;
+}
 
-  if (!text) {
-    return {};
+function parseVariables(value) {
+  const text = String(value || "").trim();
+  if (!text) return {};
+  const parsed = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Template variables must be a JSON object.");
   }
-
-  const parsed =
-    JSON.parse(text);
-
-  if (
-    !parsed ||
-    typeof parsed !==
-      "object" ||
-    Array.isArray(parsed)
-  ) {
-    throw new Error(
-      "Template variables must be a JSON object."
-    );
-  }
-
   return parsed;
 }
 
 export default function WhatsAppBookingPage() {
-  const [
-    rows,
-    setRows,
-  ] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [selectedId, setSelectedId] = useState("");
+  const [conversation, setConversation] = useState(null);
+  const [services, setServices] = useState([]);
+  const [stylists, setStylists] = useState([]);
+  const [slots, setSlots] = useState([]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [booking, setBooking] = useState(EMPTY_BOOKING);
+  const [outboundMessage, setOutboundMessage] = useState("");
+  const [replyContentSid, setReplyContentSid] = useState("");
+  const [replyVariables, setReplyVariables] = useState("{}");
+  const [oneOff, setOneOff] = useState(EMPTY_ONE_OFF);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [oneOffSending, setOneOffSending] = useState(false);
+  const [resumePending, setResumePending] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
-  const [
-    summary,
-    setSummary,
-  ] = useState(
-    EMPTY_SUMMARY
+  const activeServices = useMemo(
+    () => services.filter((service) => service.active !== false),
+    [services]
   );
 
-  const [
-    selectedId,
-    setSelectedId,
-  ] = useState("");
-
-  const [
-    conversation,
-    setConversation,
-  ] = useState(null);
-
-  const [
-    services,
-    setServices,
-  ] = useState([]);
-
-  const [
-    stylists,
-    setStylists,
-  ] = useState([]);
-
-  const [
-    slots,
-    setSlots,
-  ] = useState([]);
-
-  const [
-    query,
-    setQuery,
-  ] = useState("");
-
-  const [
-    status,
-    setStatus,
-  ] = useState("all");
-
-  const [
-    booking,
-    setBooking,
-  ] = useState(
-    EMPTY_BOOKING
+  const eligibleStylists = useMemo(
+    () =>
+      stylists.filter(
+        (stylist) =>
+          isStylistActive(stylist) &&
+          stylistOffersService(stylist, booking.serviceId)
+      ),
+    [booking.serviceId, stylists]
   );
 
-  const [
-    outboundMessage,
-    setOutboundMessage,
-  ] = useState("");
+  const currentServiceWindowOpen = serviceWindowOpen(conversation?.lastInboundAt);
 
-  const [
-    replyContentSid,
-    setReplyContentSid,
-  ] = useState("");
-
-  const [
-    replyVariables,
-    setReplyVariables,
-  ] = useState("{}");
-
-  const [
-    oneOff,
-    setOneOff,
-  ] = useState(
-    EMPTY_ONE_OFF
-  );
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    detailLoading,
-    setDetailLoading,
-  ] = useState(false);
-
-  const [
-    availabilityLoading,
-    setAvailabilityLoading,
-  ] = useState(false);
-
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-
-  const [
-    sending,
-    setSending,
-  ] = useState(false);
-
-  const [
-    oneOffSending,
-    setOneOffSending,
-  ] = useState(false);
-
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  const [
-    notice,
-    setNotice,
-  ] = useState("");
-
-  const activeServices =
-    useMemo(
-      () =>
-        services.filter(
-          (service) =>
-            service.active !==
-            false
-        ),
-      [services]
-    );
-
-  const eligibleStylists =
-    useMemo(
-      () =>
-        stylists.filter(
-          (stylist) =>
-            isStylistActive(
-              stylist
-            ) &&
-            stylistOffersService(
-              stylist,
-              booking.serviceId
-            )
-        ),
-      [
-        booking.serviceId,
-        stylists,
-      ]
-    );
-
-  const currentServiceWindowOpen =
-    serviceWindowOpen(
-      conversation
-        ?.lastInboundAt
-    );
-
-  async function loadList({
-    preserveSelection = true,
-  } = {}) {
+  async function loadList({ preserveSelection = true } = {}) {
     setLoading(true);
     setError("");
-
     try {
-      const result =
-        await listWhatsAppConversations({
-          status,
-          search:
-            query.trim() ||
-            undefined,
-          limit: 100,
-        });
-
-      const conversations =
-        Array.isArray(
-          result
-            ?.conversations
-        )
-          ? result.conversations
-          : [];
-
-      setRows(
-        conversations
-      );
-
-      setSummary(
-        result?.summary ||
-          EMPTY_SUMMARY
-      );
-
+      const result = await listWhatsAppConversations({
+        status,
+        search: query.trim() || undefined,
+        limit: 100,
+      });
+      const conversations = Array.isArray(result?.conversations)
+        ? result.conversations
+        : [];
+      setRows(conversations);
+      setSummary(result?.summary || EMPTY_SUMMARY);
       if (
         !preserveSelection ||
-        !conversations.some(
-          (item) =>
-            item._id ===
-            selectedId
-        )
+        !conversations.some((item) => item._id === selectedId)
       ) {
-        setSelectedId(
-          conversations[0]
-            ?._id || ""
-        );
+        setSelectedId(conversations[0]?._id || "");
       }
-    } catch (
-      requestError
-    ) {
+    } catch (requestError) {
       setError(
-        requestMessage(
-          requestError,
-          "Unable to load WhatsApp conversations."
-        )
+        requestMessage(requestError, "Unable to load WhatsApp conversations.")
       );
     } finally {
       setLoading(false);
     }
   }
 
-  async function loadConversation(
-    conversationId
-  ) {
+  async function loadConversation(conversationId) {
     if (!conversationId) {
       setConversation(null);
-      setBooking(
-        EMPTY_BOOKING
-      );
+      setBooking(EMPTY_BOOKING);
       return;
     }
 
     setDetailLoading(true);
     setError("");
-
     try {
-      const item =
-        await getWhatsAppConversation(
-          conversationId
-        );
-
+      const item = await getWhatsAppConversation(conversationId);
       setConversation(item);
-
       setBooking({
-        displayName:
-          item
-            ?.displayName ||
-          customerName(item),
-        serviceId:
-          idOf(
-            item
-              ?.bookingSession
-              ?.serviceId
-          ),
-        stylistId:
-          idOf(
-            item
-              ?.bookingSession
-              ?.stylistId
-          ),
-        appointmentDate:
-          dateInputValue(
-            item
-              ?.bookingSession
-              ?.appointmentDate
-          ),
-        appointmentTime:
-          item
-            ?.bookingSession
-            ?.appointmentTime ||
-          "",
+        displayName: item?.displayName || customerName(item),
+        serviceId: idOf(item?.bookingSession?.serviceId),
+        stylistId: idOf(item?.bookingSession?.stylistId),
+        appointmentDate: dateInputValue(item?.bookingSession?.appointmentDate),
+        appointmentTime: item?.bookingSession?.appointmentTime || "",
       });
-
       setSlots([]);
       setReplyContentSid("");
-      setReplyVariables(
-        "{}"
-      );
+      setReplyVariables("{}");
 
-      if (
-        Number(
-          item
-            ?.unreadCount
-        ) > 0
-      ) {
-        await markWhatsAppConversationRead(
-          conversationId
-        );
-
-        setRows(
-          (current) =>
-            current.map(
-              (row) =>
-                row._id ===
-                conversationId
-                  ? {
-                      ...row,
-                      unreadCount: 0,
-                    }
-                  : row
-            )
+      if (Number(item?.unreadCount) > 0) {
+        await markWhatsAppConversationRead(conversationId);
+        setRows((current) =>
+          current.map((row) =>
+            row._id === conversationId ? { ...row, unreadCount: 0 } : row
+          )
         );
       }
-    } catch (
-      requestError
-    ) {
-      setError(
-        requestMessage(
-          requestError,
-          "Unable to load the conversation."
-        )
-      );
+    } catch (requestError) {
+      setError(requestMessage(requestError, "Unable to load the conversation."));
     } finally {
-      setDetailLoading(
-        false
-      );
+      setDetailLoading(false);
     }
   }
 
   useEffect(() => {
     Promise.all([
-      serviceService
-        .getServices(),
-      stylistService
-        .getBookingStylists(),
+      serviceService.getServices(),
+      stylistService.getBookingStylists(),
     ])
-      .then(
-        ([
-          serviceRows,
-          stylistResult,
-        ]) => {
-          setServices(
-            Array.isArray(
-              serviceRows
-            )
-              ? serviceRows
+      .then(([serviceRows, stylistResult]) => {
+        setServices(Array.isArray(serviceRows) ? serviceRows : []);
+        setStylists(
+          Array.isArray(stylistResult)
+            ? stylistResult
+            : Array.isArray(stylistResult?.stylists)
+              ? stylistResult.stylists
               : []
-          );
-
-          setStylists(
-            Array.isArray(
-              stylistResult
-            )
-              ? stylistResult
-              : Array.isArray(
-                    stylistResult
-                      ?.stylists
-                  )
-                ? stylistResult.stylists
-                : []
-          );
-        }
-      )
-      .catch(
-        (
-          requestError
-        ) =>
-          setError(
-            requestMessage(
-              requestError,
-              "Unable to load booking resources."
-            )
-          )
+        );
+      })
+      .catch((requestError) =>
+        setError(
+          requestMessage(requestError, "Unable to load booking resources.")
+        )
       );
   }, []);
 
   useEffect(() => {
-    loadList({
-      preserveSelection:
-        true,
-    });
+    void loadList({ preserveSelection: true });
   }, [status]);
 
   useEffect(() => {
-    loadConversation(
-      selectedId
-    );
+    void loadConversation(selectedId);
   }, [selectedId]);
 
   async function refresh() {
     setNotice("");
+    await loadList({ preserveSelection: true });
+    if (selectedId) await loadConversation(selectedId);
+  }
 
-    await loadList({
-      preserveSelection:
-        true,
-    });
+  async function resumeBot() {
+    if (!selectedId || resumePending) return;
 
-    if (selectedId) {
-      await loadConversation(
-        selectedId
+    setResumePending(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await resumeWhatsAppBot(selectedId);
+      if (result?.conversation) {
+        setConversation((current) => ({
+          ...(current || {}),
+          ...result.conversation,
+          messages: current?.messages || [],
+        }));
+      }
+      setNotice(
+        result?.staleBookingReset
+          ? "AI handling resumed. Stale unconfirmed booking details were reset."
+          : "AI handling resumed for this conversation."
       );
+      await loadList({ preserveSelection: true });
+      await loadConversation(selectedId);
+    } catch (requestError) {
+      setError(
+        requestMessage(
+          requestError,
+          "Unable to return this conversation to AI handling."
+        )
+      );
+    } finally {
+      setResumePending(false);
     }
   }
 
   async function checkAvailability() {
-    if (
-      !booking.serviceId ||
-      !booking.stylistId ||
-      !booking.appointmentDate
-    ) {
+    if (!booking.serviceId || !booking.stylistId || !booking.appointmentDate) {
       setError(
         "Choose a service, stylist, and date before checking availability."
       );
       return;
     }
-
-    setAvailabilityLoading(
-      true
-    );
+    setAvailabilityLoading(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await stylistService
-          .getAvailability(
-            booking.stylistId,
-            {
-              service:
-                booking
-                  .serviceId,
-              date:
-                booking
-                  .appointmentDate,
-            }
-          );
-
-      const availableSlots =
-        Array.isArray(
-          result?.slots
-        )
-          ? result.slots
-          : [];
-
-      setSlots(
-        availableSlots
-      );
-
-      if (
-        !availableSlots.length
-      ) {
-        setNotice(
-          "No available times were found for that day."
-        );
+      const result = await stylistService.getAvailability(booking.stylistId, {
+        service: booking.serviceId,
+        date: booking.appointmentDate,
+      });
+      const availableSlots = Array.isArray(result?.slots) ? result.slots : [];
+      setSlots(availableSlots);
+      if (!availableSlots.length) {
+        setNotice("No available times were found for that day.");
       }
-    } catch (
-      requestError
-    ) {
+    } catch (requestError) {
       setSlots([]);
-
       setError(
-        requestMessage(
-          requestError,
-          "Unable to check appointment availability."
-        )
+        requestMessage(requestError, "Unable to check appointment availability.")
       );
     } finally {
-      setAvailabilityLoading(
-        false
-      );
+      setAvailabilityLoading(false);
     }
   }
 
-  async function saveBooking(
-    event
-  ) {
+  async function saveBooking(event) {
     event.preventDefault();
-
     setSaving(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await updateWhatsAppBookingSession(
-          selectedId,
-          booking
-        );
-
-      setConversation(
-        result.conversation
-      );
-
-      setNotice(
-        result.message ||
-          "Booking details are ready to confirm."
-      );
-
-      await loadList({
-        preserveSelection:
-          true,
-      });
-    } catch (
-      requestError
-    ) {
+      const result = await updateWhatsAppBookingSession(selectedId, booking);
+      setConversation(result.conversation);
+      setNotice(result.message || "Booking details are ready to confirm.");
+      await loadList({ preserveSelection: true });
+    } catch (requestError) {
       setError(
-        requestMessage(
-          requestError,
-          "Unable to save the booking details."
-        )
+        requestMessage(requestError, "Unable to save the booking details.")
       );
     } finally {
       setSaving(false);
@@ -716,62 +370,26 @@ export default function WhatsAppBookingPage() {
     setSaving(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await confirmWhatsAppBooking(
-          selectedId
-        );
-
-      setConversation(
-        result.conversation
-      );
-
-      setNotice(
-        result.message ||
-          "WhatsApp appointment confirmed."
-      );
-
-      await loadList({
-        preserveSelection:
-          true,
-      });
-    } catch (
-      requestError
-    ) {
+      const result = await confirmWhatsAppBooking(selectedId);
+      setConversation(result.conversation);
+      setNotice(result.message || "WhatsApp appointment confirmed.");
+      await loadList({ preserveSelection: true });
+    } catch (requestError) {
       setError(
-        requestMessage(
-          requestError,
-          "Unable to confirm the WhatsApp booking."
-        )
+        requestMessage(requestError, "Unable to confirm the WhatsApp booking.")
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function sendMessage(
-    event
-  ) {
+  async function sendMessage(event) {
     event.preventDefault();
-
-    const body =
-      outboundMessage.trim();
-
-    const contentSid =
-      replyContentSid.trim();
-
-    if (
-      currentServiceWindowOpen &&
-      !body
-    ) {
-      return;
-    }
-
-    if (
-      !currentServiceWindowOpen &&
-      !contentSid
-    ) {
+    const body = outboundMessage.trim();
+    const contentSid = replyContentSid.trim();
+    if (currentServiceWindowOpen && !body) return;
+    if (!currentServiceWindowOpen && !contentSid) {
       setError(
         "This conversation is outside the 24-hour WhatsApp customer service window. Select an approved Content SID."
       );
@@ -781,196 +399,78 @@ export default function WhatsAppBookingPage() {
     setSending(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await sendWhatsAppConversationMessage(
-          selectedId,
-          {
-            body,
-            contentSid,
-            contentVariables:
-              contentSid
-                ? parseVariables(
-                    replyVariables
-                  )
-                : {},
-            purpose:
-              "service",
-          }
-        );
-
-      setConversation(
-        result.conversation
-      );
-
-      setOutboundMessage(
-        ""
-      );
-
-      setReplyContentSid(
-        ""
-      );
-
-      setReplyVariables(
-        "{}"
-      );
-
-      setNotice(
-        result.message ||
-          "WhatsApp message sent."
-      );
-
-      await loadList({
-        preserveSelection:
-          true,
+      const result = await sendWhatsAppConversationMessage(selectedId, {
+        body,
+        contentSid,
+        contentVariables: contentSid ? parseVariables(replyVariables) : {},
+        purpose: "service",
       });
-    } catch (
-      requestError
-    ) {
-      setError(
-        requestMessage(
-          requestError,
-          "Unable to send the WhatsApp message."
-        )
-      );
+      setConversation(result.conversation);
+      setOutboundMessage("");
+      setReplyContentSid("");
+      setReplyVariables("{}");
+      setNotice(result.message || "WhatsApp message sent.");
+      await loadList({ preserveSelection: true });
+    } catch (requestError) {
+      setError(requestMessage(requestError, "Unable to send the WhatsApp message."));
     } finally {
       setSending(false);
     }
   }
 
-  async function sendOneOff(
-    event
-  ) {
+  async function sendOneOff(event) {
     event.preventDefault();
-
-    setOneOffSending(
-      true
-    );
+    setOneOffSending(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await sendOneOffWhatsAppMessage({
-          ...oneOff,
-          contentVariables:
-            oneOff
-              .contentSid
-              .trim()
-              ? parseVariables(
-                  oneOff
-                    .contentVariables
-                )
-              : {},
-        });
-
-      setNotice(
-        result.message ||
-          "One-off WhatsApp message sent."
-      );
-
-      setOneOff(
-        EMPTY_ONE_OFF
-      );
-
-      const conversationId =
-        result
-          ?.conversation
-          ?._id ||
-        "";
-
-      await loadList({
-        preserveSelection:
-          false,
+      const result = await sendOneOffWhatsAppMessage({
+        ...oneOff,
+        contentVariables: oneOff.contentSid.trim()
+          ? parseVariables(oneOff.contentVariables)
+          : {},
       });
-
-      if (
-        conversationId
-      ) {
-        setSelectedId(
-          conversationId
-        );
-      }
-    } catch (
-      requestError
-    ) {
+      setNotice(result.message || "One-off WhatsApp message sent.");
+      setOneOff(EMPTY_ONE_OFF);
+      const conversationId = result?.conversation?._id || "";
+      await loadList({ preserveSelection: false });
+      if (conversationId) setSelectedId(conversationId);
+    } catch (requestError) {
       setError(
-        requestMessage(
-          requestError,
-          "Unable to send the one-off WhatsApp message."
-        )
+        requestMessage(requestError, "Unable to send the one-off WhatsApp message.")
       );
     } finally {
-      setOneOffSending(
-        false
-      );
+      setOneOffSending(false);
     }
   }
 
-  async function changeStatus(
-    nextStatus
-  ) {
+  async function changeStatus(nextStatus) {
     setSaving(true);
     setError("");
     setNotice("");
-
     try {
-      const result =
-        await updateWhatsAppConversationStatus(
-          selectedId,
-          nextStatus
-        );
-
-      setConversation(
-        result.conversation
-      );
-
+      const result = await updateWhatsAppConversationStatus(selectedId, nextStatus);
+      setConversation(result.conversation);
       setNotice(
-        nextStatus ===
-          "closed"
+        nextStatus === "closed"
           ? "Conversation closed."
           : "Conversation reopened."
       );
-
-      await loadList({
-        preserveSelection:
-          true,
-      });
-    } catch (
-      requestError
-    ) {
-      setError(
-        requestMessage(
-          requestError,
-          "Unable to update the conversation."
-        )
-      );
+      await loadList({ preserveSelection: true });
+    } catch (requestError) {
+      setError(requestMessage(requestError, "Unable to update the conversation."));
     } finally {
       setSaving(false);
     }
   }
 
-  const messages =
-    Array.isArray(
-      conversation
-        ?.messages
-    )
-      ? conversation.messages
-      : [];
-
-  const alreadyBooked =
-    Boolean(
-      conversation
-        ?.bookingSession
-        ?.appointmentId
-    );
-
+  const messages = Array.isArray(conversation?.messages)
+    ? conversation.messages
+    : [];
+  const alreadyBooked = Boolean(conversation?.bookingSession?.appointmentId);
   const readyToConfirm =
-    conversation
-      ?.status ===
-      "awaiting_confirmation" &&
-    !alreadyBooked;
+    conversation?.status === "awaiting_confirmation" && !alreadyBooked;
 
   return (
     <main className="whatsapp-workspace">
@@ -978,123 +478,55 @@ export default function WhatsAppBookingPage() {
         <header className="whatsapp-page-header">
           <div>
             <p className="app-eyebrow">
-              <MessageCircle size={15} />
-              Customer channels
+              <MessageCircle size={15} /> Customer channels
             </p>
-
-            <h1>
-              WhatsApp booking
-            </h1>
-
+            <h1>WhatsApp booking</h1>
             <p>
               Review incoming requests, send one-off messages, verify live appointment slots,
               and keep the customer conversation together.
             </p>
           </div>
-
           <button
             type="button"
             className="app-button app-button-secondary"
             onClick={refresh}
             disabled={loading}
           >
-            <RefreshCw
-              size={17}
-              className={
-                loading
-                  ? "app-spin"
-                  : ""
-              }
-            />
+            <RefreshCw size={17} className={loading ? "app-spin" : ""} />
             Refresh
           </button>
         </header>
 
-        <section
-          className="whatsapp-summary-grid"
-          aria-label="WhatsApp booking summary"
-        >
+        <section className="whatsapp-summary-grid" aria-label="WhatsApp booking summary">
           <article>
-            <span>
-              <Inbox size={19} />
-            </span>
-            <div>
-              <strong>
-                {summary.open}
-              </strong>
-              <small>
-                Open conversations
-              </small>
-            </div>
+            <span><Inbox size={19} /></span>
+            <div><strong>{summary.open}</strong><small>Open conversations</small></div>
           </article>
-
           <article>
-            <span>
-              <Clock3 size={19} />
-            </span>
-            <div>
-              <strong>
-                {summary.awaitingConfirmation}
-              </strong>
-              <small>
-                Ready to confirm
-              </small>
-            </div>
+            <span><Clock3 size={19} /></span>
+            <div><strong>{summary.awaitingConfirmation}</strong><small>Ready to confirm</small></div>
           </article>
-
           <article>
-            <span>
-              <CalendarCheck size={19} />
-            </span>
-            <div>
-              <strong>
-                {summary.booked}
-              </strong>
-              <small>
-                Bookings created
-              </small>
-            </div>
+            <span><CalendarCheck size={19} /></span>
+            <div><strong>{summary.booked}</strong><small>Bookings created</small></div>
           </article>
-
           <article>
-            <span>
-              <MessageCircle size={19} />
-            </span>
-            <div>
-              <strong>
-                {summary.unread}
-              </strong>
-              <small>
-                Unread conversations
-              </small>
-            </div>
+            <span><MessageCircle size={19} /></span>
+            <div><strong>{summary.unread}</strong><small>Unread conversations</small></div>
           </article>
         </section>
 
         {error ? (
-          <div
-            className="app-alert app-alert-error"
-            role="alert"
-          >
+          <div className="app-alert app-alert-error" role="alert">
             <XCircle size={19} />
-            <div>
-              <strong>
-                Action needed
-              </strong>
-              {error}
-            </div>
+            <div><strong>Action needed</strong>{error}</div>
           </div>
         ) : null}
 
         {notice ? (
-          <div
-            className="app-alert app-alert-success"
-            role="status"
-          >
+          <div className="app-alert app-alert-success" role="status">
             <CheckCircle2 size={19} />
-            <div>
-              {notice}
-            </div>
+            <div>{notice}</div>
           </div>
         ) : null}
 
@@ -1112,48 +544,29 @@ export default function WhatsAppBookingPage() {
             </p>
           </div>
 
-          <form
-            onSubmit={sendOneOff}
-            className="grid gap-4 md:grid-cols-2"
-          >
+          <form onSubmit={sendOneOff} className="grid gap-4 md:grid-cols-2">
             <label className="text-sm font-semibold text-slate-700">
               WhatsApp number
               <input
                 required
                 value={oneOff.to}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      to:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, to: event.target.value }))
                 }
                 placeholder="+447..."
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
             </label>
-
             <label className="text-sm font-semibold text-slate-700">
               Customer name
               <input
                 value={oneOff.displayName}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      displayName:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, displayName: event.target.value }))
                 }
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
             </label>
-
             <label className="md:col-span-2 text-sm font-semibold text-slate-700">
               Message
               <textarea
@@ -1161,101 +574,60 @@ export default function WhatsAppBookingPage() {
                 maxLength={4096}
                 value={oneOff.body}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      body:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, body: event.target.value }))
                 }
                 placeholder="Free-form message for an open service window, or an optional audit preview when using a template."
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
             </label>
-
             <label className="text-sm font-semibold text-slate-700">
               Approved Content SID
               <input
                 value={oneOff.contentSid}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      contentSid:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, contentSid: event.target.value }))
                 }
                 placeholder="HX..."
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               />
             </label>
-
             <label className="text-sm font-semibold text-slate-700">
               Template variables JSON
               <input
                 value={oneOff.contentVariables}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      contentVariables:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, contentVariables: event.target.value }))
                 }
                 placeholder='{"1":"Francesco","2":"10:30"}'
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs"
               />
             </label>
-
             <label className="text-sm font-semibold text-slate-700">
               Purpose
               <select
                 value={oneOff.purpose}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      purpose:
-                        event.target
-                          .value,
-                    })
-                  )
+                  setOneOff((current) => ({ ...current, purpose: event.target.value }))
                 }
                 className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
               >
-                <option value="service">
-                  Service / booking
-                </option>
-                <option value="marketing">
-                  Marketing
-                </option>
+                <option value="service">Service / booking</option>
+                <option value="marketing">Marketing</option>
               </select>
             </label>
-
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <input
                 type="checkbox"
                 checked={oneOff.consentConfirmed}
                 onChange={(event) =>
-                  setOneOff(
-                    (current) => ({
-                      ...current,
-                      consentConfirmed:
-                        event.target
-                          .checked,
-                    })
-                  )
+                  setOneOff((current) => ({
+                    ...current,
+                    consentConfirmed: event.target.checked,
+                  }))
                 }
               />
               Customer consent confirmed
             </label>
-
             <div className="md:col-span-2">
               <button
                 type="submit"
@@ -1264,18 +636,10 @@ export default function WhatsAppBookingPage() {
                   oneOffSending ||
                   !oneOff.to.trim() ||
                   !oneOff.consentConfirmed ||
-                  (!oneOff.body.trim() &&
-                    !oneOff.contentSid.trim())
+                  (!oneOff.body.trim() && !oneOff.contentSid.trim())
                 }
               >
-                {oneOffSending ? (
-                  <Loader2
-                    size={16}
-                    className="app-spin"
-                  />
-                ) : (
-                  <Send size={16} />
-                )}
+                {oneOffSending ? <Loader2 size={16} className="app-spin" /> : <Send size={16} />}
                 Send one-off WhatsApp
               </button>
             </div>
@@ -1288,144 +652,73 @@ export default function WhatsAppBookingPage() {
               className="whatsapp-inbox-filters"
               onSubmit={(event) => {
                 event.preventDefault();
-                loadList({
-                  preserveSelection:
-                    false,
-                });
+                void loadList({ preserveSelection: false });
               }}
             >
               <label>
                 <Search size={16} />
-                <span className="sr-only">
-                  Search conversations
-                </span>
+                <span className="sr-only">Search conversations</span>
                 <input
                   value={query}
-                  onChange={(event) =>
-                    setQuery(
-                      event.target.value
-                    )
-                  }
+                  onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search name or number"
                 />
               </label>
-
               <select
                 value={status}
-                onChange={(event) =>
-                  setStatus(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setStatus(event.target.value)}
                 aria-label="Filter conversation status"
               >
-                <option value="all">
-                  All statuses
-                </option>
-                <option value="open">
-                  Open
-                </option>
-                <option value="awaiting_confirmation">
-                  Ready to confirm
-                </option>
-                <option value="booked">
-                  Booked
-                </option>
-                <option value="closed">
-                  Closed
-                </option>
-                <option value="failed">
-                  Needs attention
-                </option>
+                <option value="all">All statuses</option>
+                <option value="open">Open</option>
+                <option value="awaiting_confirmation">Ready to confirm</option>
+                <option value="booked">Booked</option>
+                <option value="closed">Closed</option>
+                <option value="failed">Needs attention</option>
               </select>
             </form>
 
             <div className="whatsapp-conversation-list">
               {loading ? (
                 <div className="whatsapp-loading">
-                  <Loader2 className="app-spin" />
-                  Loading conversations
+                  <Loader2 className="app-spin" /> Loading conversations
                 </div>
               ) : (
-                rows.map(
-                  (item) => (
-                    <button
-                      type="button"
-                      key={item._id}
-                      className={`whatsapp-conversation-row${
-                        selectedId === item._id
-                          ? " is-selected"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        setSelectedId(
-                          item._id
-                        )
-                      }
-                    >
-                      <span className="whatsapp-customer-avatar">
-                        {customerName(
-                          item
-                        )
-                          .charAt(0)
-                          .toUpperCase()}
+                rows.map((item) => (
+                  <button
+                    type="button"
+                    key={item._id}
+                    className={`whatsapp-conversation-row${
+                      selectedId === item._id ? " is-selected" : ""
+                    }`}
+                    onClick={() => setSelectedId(item._id)}
+                  >
+                    <span className="whatsapp-customer-avatar">
+                      {customerName(item).charAt(0).toUpperCase()}
+                    </span>
+                    <span className="whatsapp-conversation-copy">
+                      <span>
+                        <strong>{customerName(item)}</strong>
+                        <small>{formatTimestamp(item.lastMessageAt)}</small>
                       </span>
-
-                      <span className="whatsapp-conversation-copy">
-                        <span>
-                          <strong>
-                            {customerName(
-                              item
-                            )}
-                          </strong>
-                          <small>
-                            {formatTimestamp(
-                              item.lastMessageAt
-                            )}
-                          </small>
-                        </span>
-
-                        <small>
-                          {item.phone}
-                        </small>
-
-                        <p>
-                          {item.lastMessagePreview ||
-                            "No message preview"}
-                        </p>
-
-                        <span>
-                          <em
-                            className={`whatsapp-status is-${item.status}`}
-                          >
-                            {STATUS_LABELS[
-                              item.status
-                            ] ||
-                              item.status}
-                          </em>
-
-                          {item.unreadCount ? (
-                            <b>
-                              {item.unreadCount}
-                            </b>
-                          ) : null}
-                        </span>
+                      <small>{item.phone}</small>
+                      <p>{item.lastMessagePreview || "No message preview"}</p>
+                      <span>
+                        <em className={`whatsapp-status is-${item.status}`}>
+                          {STATUS_LABELS[item.status] || item.status}
+                        </em>
+                        {item.unreadCount ? <b>{item.unreadCount}</b> : null}
                       </span>
-                    </button>
-                  )
-                )
+                    </span>
+                  </button>
+                ))
               )}
 
-              {!loading &&
-              !rows.length ? (
+              {!loading && !rows.length ? (
                 <div className="whatsapp-empty">
                   <Inbox size={28} />
-                  <strong>
-                    No conversations found
-                  </strong>
-                  <p>
-                    Incoming verified WhatsApp messages will appear here.
-                  </p>
+                  <strong>No conversations found</strong>
+                  <p>Incoming verified WhatsApp messages will appear here.</p>
                 </div>
               ) : null}
             </div>
@@ -1434,75 +727,54 @@ export default function WhatsAppBookingPage() {
           <div className="whatsapp-detail">
             {!selectedId ? (
               <div className="whatsapp-empty large">
-                <MessageCircle
-                  size={36}
-                />
-                <strong>
-                  Select a conversation
-                </strong>
-                <p>
-                  Choose a conversation to review messages and prepare a booking.
-                </p>
+                <MessageCircle size={36} />
+                <strong>Select a conversation</strong>
+                <p>Choose a conversation to review messages and prepare a booking.</p>
               </div>
             ) : detailLoading ? (
               <div className="whatsapp-loading large">
-                <Loader2 className="app-spin" />
-                Loading conversation
+                <Loader2 className="app-spin" /> Loading conversation
               </div>
             ) : conversation ? (
               <>
                 <header className="whatsapp-detail-header">
                   <div>
                     <span className="whatsapp-customer-avatar large">
-                      {customerName(
-                        conversation
-                      )
-                        .charAt(0)
-                        .toUpperCase()}
+                      {customerName(conversation).charAt(0).toUpperCase()}
                     </span>
-
                     <div>
-                      <h2>
-                        {customerName(
-                          conversation
-                        )}
-                      </h2>
-
+                      <h2>{customerName(conversation)}</h2>
                       <p>
-                        {conversation.phone} ·{" "}
-                        {STATUS_LABELS[
-                          conversation.status
-                        ] ||
-                          conversation.status}
+                        {conversation.phone} · {STATUS_LABELS[conversation.status] || conversation.status}
                       </p>
                     </div>
                   </div>
-
                   <button
                     type="button"
                     className="app-button app-button-secondary app-button-sm"
                     onClick={() =>
-                      changeStatus(
-                        conversation.status ===
-                          "closed"
-                          ? "open"
-                          : "closed"
-                      )
+                      changeStatus(conversation.status === "closed" ? "open" : "closed")
                     }
                     disabled={saving}
                   >
-                    {conversation.status ===
-                    "closed"
-                      ? "Reopen"
-                      : "Close conversation"}
+                    {conversation.status === "closed" ? "Reopen" : "Close conversation"}
                   </button>
                 </header>
 
+                <div className="mb-4">
+                  <ConversationOwnershipStatus
+                    mode={conversation?.automation?.mode || "bot"}
+                    handoffRequested={conversation?.automation?.handoffRequested === true}
+                    handoffReason={conversation?.automation?.handoffReason || ""}
+                    assignedToLabel={assignedStaffLabel(conversation)}
+                    canResumeBot={Boolean(selectedId)}
+                    resumePending={resumePending}
+                    onRequestResumeBot={resumeBot}
+                  />
+                </div>
+
                 <div className="whatsapp-detail-grid">
-                  <section
-                    className="whatsapp-thread"
-                    aria-label="WhatsApp messages"
-                  >
+                  <section className="whatsapp-thread" aria-label="WhatsApp messages">
                     <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
                       {currentServiceWindowOpen ? (
                         <p className="font-semibold text-emerald-700">
@@ -1516,120 +788,61 @@ export default function WhatsAppBookingPage() {
                     </div>
 
                     <div className="whatsapp-message-list">
-                      {messages.map(
-                        (
-                          message,
-                          index
-                        ) => (
-                          <article
-                            key={
-                              message._id ||
-                              `${message.sentAt}-${index}`
-                            }
-                            className={`whatsapp-message is-${message.direction}`}
-                          >
-                            <p>
-                              {message.body}
-                            </p>
-
-                            <small>
-                              {formatTimestamp(
-                                message.sentAt
-                              )}
-
-                              {message.direction ===
-                              "outbound"
-                                ? ` · ${
-                                    message.providerStatus ||
-                                    "sent"
-                                  }`
-                                : ""}
-                            </small>
-
-                            {message.error ? (
-                              <em>
-                                {message.error}
-                              </em>
-                            ) : null}
-                          </article>
-                        )
-                      )}
-
+                      {messages.map((message, index) => (
+                        <article
+                          key={message._id || `${message.sentAt}-${index}`}
+                          className={`whatsapp-message is-${message.direction}`}
+                        >
+                          <p>{message.body}</p>
+                          <small>
+                            {formatTimestamp(message.sentAt)}
+                            {message.direction === "outbound"
+                              ? ` · ${message.providerStatus || "sent"}`
+                              : ""}
+                          </small>
+                          {message.error ? <em>{message.error}</em> : null}
+                        </article>
+                      ))}
                       {!messages.length ? (
                         <div className="whatsapp-empty">
-                          <MessageCircle
-                            size={26}
-                          />
-                          <p>
-                            No messages recorded.
-                          </p>
+                          <MessageCircle size={26} />
+                          <p>No messages recorded.</p>
                         </div>
                       ) : null}
                     </div>
 
-                    <form
-                      className="whatsapp-reply-form"
-                      onSubmit={sendMessage}
-                    >
-                      <label
-                        htmlFor="whatsapp-reply"
-                        className="sr-only"
-                      >
+                    <form className="whatsapp-reply-form" onSubmit={sendMessage}>
+                      <label htmlFor="whatsapp-reply" className="sr-only">
                         Reply on WhatsApp
                       </label>
-
                       <textarea
                         id="whatsapp-reply"
                         rows={2}
                         maxLength={4096}
-                        value={
-                          outboundMessage
-                        }
-                        onChange={(event) =>
-                          setOutboundMessage(
-                            event.target
-                              .value
-                          )
-                        }
+                        value={outboundMessage}
+                        onChange={(event) => setOutboundMessage(event.target.value)}
                         placeholder={
                           currentServiceWindowOpen
                             ? "Write a clear booking reply…"
                             : "Optional audit preview for the approved template"
                         }
                       />
-
                       {!currentServiceWindowOpen ? (
                         <div className="grid w-full gap-2 md:grid-cols-2">
                           <input
-                            value={
-                              replyContentSid
-                            }
-                            onChange={(event) =>
-                              setReplyContentSid(
-                                event.target
-                                  .value
-                              )
-                            }
+                            value={replyContentSid}
+                            onChange={(event) => setReplyContentSid(event.target.value)}
                             placeholder="Approved Content SID (HX...)"
                             className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
                           />
-
                           <input
-                            value={
-                              replyVariables
-                            }
-                            onChange={(event) =>
-                              setReplyVariables(
-                                event.target
-                                  .value
-                              )
-                            }
+                            value={replyVariables}
+                            onChange={(event) => setReplyVariables(event.target.value)}
                             placeholder='{"1":"value"}'
                             className="rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs"
                           />
                         </div>
                       ) : null}
-
                       <button
                         type="submit"
                         disabled={
@@ -1651,16 +864,9 @@ export default function WhatsAppBookingPage() {
 
                   <section className="whatsapp-booking-card">
                     <header>
-                      <span>
-                        <UserRoundCheck
-                          size={19}
-                        />
-                      </span>
-
+                      <span><UserRoundCheck size={19} /></span>
                       <div>
-                        <h3>
-                          Booking details
-                        </h3>
+                        <h3>Booking details</h3>
                         <p>
                           {readyToConfirm
                             ? "Customer confirmed this slot. Review the details, then create the appointment and send the final confirmation."
@@ -1671,294 +877,141 @@ export default function WhatsAppBookingPage() {
 
                     {alreadyBooked ? (
                       <div className="whatsapp-booked-state">
-                        <CheckCircle2
-                          size={24}
-                        />
-
+                        <CheckCircle2 size={24} />
                         <div>
-                          <strong>
-                            Appointment created
-                          </strong>
-
+                          <strong>Appointment created</strong>
                           <p>
-                            {
-                              conversation
-                                .bookingSession
-                                ?.serviceId
-                                ?.name
-                            }{" "}
-                            ·{" "}
-                            {dateInputValue(
-                              conversation
-                                .bookingSession
-                                ?.appointmentDate
-                            )}{" "}
-                            at{" "}
-                            {
-                              conversation
-                                .bookingSession
-                                ?.appointmentTime
-                            }
+                            {conversation.bookingSession?.serviceId?.name} · {dateInputValue(
+                              conversation.bookingSession?.appointmentDate
+                            )} at {conversation.bookingSession?.appointmentTime}
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <form
-                        onSubmit={
-                          saveBooking
-                        }
-                        className="whatsapp-booking-form"
-                      >
+                      <form onSubmit={saveBooking} className="whatsapp-booking-form">
                         <label>
                           Customer name
                           <input
                             required
-                            value={
-                              booking.displayName
-                            }
+                            value={booking.displayName}
                             onChange={(event) =>
-                              setBooking(
-                                (
-                                  current
-                                ) => ({
-                                  ...current,
-                                  displayName:
-                                    event.target
-                                      .value,
-                                })
-                              )
+                              setBooking((current) => ({
+                                ...current,
+                                displayName: event.target.value,
+                              }))
                             }
                             placeholder="Customer name"
                           />
                         </label>
-
                         <label>
                           Service
                           <select
                             required
-                            value={
-                              booking.serviceId
-                            }
+                            value={booking.serviceId}
                             onChange={(event) =>
-                              setBooking(
-                                (
-                                  current
-                                ) => ({
-                                  ...current,
-                                  serviceId:
-                                    event.target
-                                      .value,
-                                  stylistId:
-                                    "",
-                                  appointmentTime:
-                                    "",
-                                })
-                              )
+                              setBooking((current) => ({
+                                ...current,
+                                serviceId: event.target.value,
+                                stylistId: "",
+                                appointmentTime: "",
+                              }))
                             }
                           >
-                            <option value="">
-                              Choose a service
-                            </option>
-
-                            {activeServices.map(
-                              (
-                                service
-                              ) => (
-                                <option
-                                  key={
-                                    service._id
-                                  }
-                                  value={
-                                    service._id
-                                  }
-                                >
-                                  {
-                                    service.name
-                                  }{" "}
-                                  · £
-                                  {Number(
-                                    service.price ||
-                                      0
-                                  ).toFixed(
-                                    2
-                                  )}
-                                </option>
-                              )
-                            )}
+                            <option value="">Choose a service</option>
+                            {activeServices.map((service) => (
+                              <option key={service._id} value={service._id}>
+                                {service.name} · £{Number(service.price || 0).toFixed(2)}
+                              </option>
+                            ))}
                           </select>
                         </label>
-
                         <label>
                           Stylist
                           <select
                             required
-                            value={
-                              booking.stylistId
-                            }
+                            value={booking.stylistId}
                             onChange={(event) =>
-                              setBooking(
-                                (
-                                  current
-                                ) => ({
-                                  ...current,
-                                  stylistId:
-                                    event.target
-                                      .value,
-                                  appointmentTime:
-                                    "",
-                                })
-                              )
+                              setBooking((current) => ({
+                                ...current,
+                                stylistId: event.target.value,
+                                appointmentTime: "",
+                              }))
                             }
                           >
-                            <option value="">
-                              Choose a stylist
-                            </option>
-
-                            {eligibleStylists.map(
-                              (
-                                stylist
-                              ) => (
-                                <option
-                                  key={
-                                    stylist._id
-                                  }
-                                  value={
-                                    stylist._id
-                                  }
-                                >
-                                  {getStylistName(
-                                    stylist
-                                  )}
-                                </option>
-                              )
-                            )}
+                            <option value="">Choose a stylist</option>
+                            {eligibleStylists.map((stylist) => (
+                              <option key={stylist._id} value={stylist._id}>
+                                {getStylistName(stylist)}
+                              </option>
+                            ))}
                           </select>
                         </label>
-
                         <label>
                           Date
                           <input
                             required
                             type="date"
-                            min={new Date()
-                              .toISOString()
-                              .slice(
-                                0,
-                                10
-                              )}
-                            value={
-                              booking.appointmentDate
-                            }
+                            min={new Date().toISOString().slice(0, 10)}
+                            value={booking.appointmentDate}
                             onChange={(event) =>
-                              setBooking(
-                                (
-                                  current
-                                ) => ({
-                                  ...current,
-                                  appointmentDate:
-                                    event.target
-                                      .value,
-                                  appointmentTime:
-                                    "",
-                                })
-                              )
+                              setBooking((current) => ({
+                                ...current,
+                                appointmentDate: event.target.value,
+                                appointmentTime: "",
+                              }))
                             }
                           />
                         </label>
-
                         <button
                           type="button"
                           className="app-button app-button-secondary"
-                          onClick={
-                            checkAvailability
-                          }
-                          disabled={
-                            availabilityLoading
-                          }
+                          onClick={checkAvailability}
+                          disabled={availabilityLoading}
                         >
                           {availabilityLoading ? (
-                            <Loader2
-                              size={16}
-                              className="app-spin"
-                            />
+                            <Loader2 size={16} className="app-spin" />
                           ) : (
-                            <Clock3
-                              size={16}
-                            />
+                            <Clock3 size={16} />
                           )}
                           Check availability
                         </button>
-
                         {slots.length ? (
                           <fieldset className="whatsapp-slots">
-                            <legend>
-                              Available times
-                            </legend>
-
+                            <legend>Available times</legend>
                             <div>
-                              {slots.map(
-                                (
-                                  slot
-                                ) => (
-                                  <button
-                                    type="button"
-                                    key={
-                                      slot
-                                    }
-                                    className={
-                                      booking.appointmentTime ===
-                                      slot
-                                        ? "is-selected"
-                                        : ""
-                                    }
-                                    onClick={() =>
-                                      setBooking(
-                                        (
-                                          current
-                                        ) => ({
-                                          ...current,
-                                          appointmentTime:
-                                            slot,
-                                        })
-                                      )
-                                    }
-                                  >
-                                    {
-                                      slot
-                                    }
-                                  </button>
-                                )
-                              )}
+                              {slots.map((slot) => (
+                                <button
+                                  type="button"
+                                  key={slot}
+                                  className={booking.appointmentTime === slot ? "is-selected" : ""}
+                                  onClick={() =>
+                                    setBooking((current) => ({
+                                      ...current,
+                                      appointmentTime: slot,
+                                    }))
+                                  }
+                                >
+                                  {slot}
+                                </button>
+                              ))}
                             </div>
                           </fieldset>
                         ) : null}
-
                         <input
                           type="hidden"
-                          value={
-                            booking.appointmentTime
-                          }
+                          value={booking.appointmentTime}
                           required
                           readOnly
                         />
-
                         <button
                           type="submit"
                           className="app-button app-button-primary"
-                          disabled={
-                            saving ||
-                            !booking.appointmentTime
-                          }
+                          disabled={saving || !booking.appointmentTime}
                         >
                           {saving ? (
-                            <Loader2
-                              size={16}
-                              className="app-spin"
-                            />
+                            <Loader2 size={16} className="app-spin" />
                           ) : (
-                            <CalendarCheck
-                              size={16}
-                            />
+                            <CalendarCheck size={16} />
                           )}
                           Save verified slot
                         </button>
@@ -1969,20 +1022,13 @@ export default function WhatsAppBookingPage() {
                       <button
                         type="button"
                         className="whatsapp-confirm-button"
-                        onClick={
-                          confirmBooking
-                        }
+                        onClick={confirmBooking}
                         disabled={saving}
                       >
                         {saving ? (
-                          <Loader2
-                            size={17}
-                            className="app-spin"
-                          />
+                          <Loader2 size={17} className="app-spin" />
                         ) : (
-                          <CheckCircle2
-                            size={17}
-                          />
+                          <CheckCircle2 size={17} />
                         )}
                         Create appointment and send confirmation
                       </button>
