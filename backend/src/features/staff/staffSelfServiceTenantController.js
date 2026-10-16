@@ -11,6 +11,10 @@ import {
 import {
   createScopedTimeOff,
 } from "../../services/staffTimeOffMutationService.js";
+import {
+  scopedSelfWeeklyAvailability,
+  setScopedSelfWeeklyAvailability,
+} from "../../services/staffSelfAvailabilityService.js";
 
 function resourceNotFound() {
   const error = new Error("The requested resource was not found.");
@@ -36,6 +40,45 @@ async function ownedTenantStylist(req) {
   }
 
   return stylist;
+}
+
+export async function myWeek(req, res) {
+  res.json(
+    await scopedSelfWeeklyAvailability(
+      req.user?._id,
+      req.effectiveAuthority
+    )
+  );
+}
+
+export async function setMyAvailability(req, res) {
+  const before = await scopedSelfWeeklyAvailability(
+    req.user?._id,
+    req.effectiveAuthority
+  );
+
+  const after = await setScopedSelfWeeklyAvailability(
+    req.user?._id,
+    req.body,
+    req.effectiveAuthority
+  );
+
+  await recordAuditEvent({
+    req,
+    action: "staff.availability_updated",
+    resourceType: "staffAvailability",
+    resourceId: after?._id,
+    before: before?.items || [],
+    after,
+    metadata: {
+      scope: "self-tenant",
+      business: String(after?.business || ""),
+      location: String(after?.location || ""),
+      dayOfWeek: req.body?.dayOfWeek,
+    },
+  });
+
+  res.json(after);
 }
 
 export async function listMyTimeOff(req, res) {
@@ -83,5 +126,7 @@ export async function requestMyTimeOff(req, res) {
 
 export default {
   listMyTimeOff,
+  myWeek,
   requestMyTimeOff,
+  setMyAvailability,
 };
