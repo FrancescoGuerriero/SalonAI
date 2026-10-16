@@ -18,11 +18,15 @@ test(
     const auth = await source(
       "../routes/authRoutes.js"
     );
+    const appointments = await source(
+      "../features/appointments/appointmentManagementRoutes.js"
+    );
 
     for (const text of [
       commerce,
       groups,
       auth,
+      appointments,
     ]) {
       assert.match(
         text,
@@ -47,6 +51,11 @@ test(
     assert.match(
       auth,
       /hasRequestPermission\(\s*req,\s*permission\s*\)/
+    );
+
+    assert.match(
+      appointments,
+      /hasRequestPermission\(\s*request,\s*permission\s*\)/
     );
   }
 );

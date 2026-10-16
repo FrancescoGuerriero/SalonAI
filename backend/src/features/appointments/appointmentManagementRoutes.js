@@ -32,7 +32,7 @@ import {
   appointmentLifecycleNotification,
 } from "./appointmentLifecycleNotificationMiddleware.js";
 import {
-  hasUserPermission,
+  hasRequestPermission,
   requireAnyPermission,
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
@@ -58,8 +58,8 @@ function requireStatusPermission(
       : "appointment:update";
 
   if (
-    hasUserPermission(
-      request.user,
+    hasRequestPermission(
+      request,
       permission
     )
   ) {
