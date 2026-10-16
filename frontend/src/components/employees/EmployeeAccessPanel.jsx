@@ -5,9 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  Link,
-} from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import adminStaffService from "../../Services/adminStaffService.js";
 import useAuth from "../../hooks/useAuth.js";
@@ -17,415 +15,196 @@ import {
   effectivePermissions,
   hasPermission,
 } from "../../utils/permissions.js";
-import {
-  employeeManagementPath,
-} from "../../utils/employees.js";
+import { employeeManagementPath } from "../../utils/employees.js";
 
 function errorMessage(error) {
   return (
-    error?.response?.data
-      ?.message ||
+    error?.response?.data?.message ||
     error?.message ||
     "Employee access could not be updated."
   );
 }
 
-function labelForPermission(
-  value
-) {
+function labelForPermission(value) {
   return (
-    EMPLOYEE_PERMISSIONS.find(
-      (permission) =>
-        permission.value ===
-        value
-    )?.label ||
+    EMPLOYEE_PERMISSIONS.find((permission) => permission.value === value)?.label ||
     value
   );
 }
 
-function roleLabel(
-  roles,
-  key
-) {
-  return (
-    roles.find(
-      (role) =>
-        role.key === key
-    )?.name ||
-    key ||
-    "No role"
-  );
+function roleLabel(roles, key) {
+  return roles.find((role) => role.key === key)?.name || key || "No role";
 }
 
-function samePermissions(
-  left = [],
-  right = []
-) {
-  const a =
-    [...new Set(left)].sort();
-  const b =
-    [...new Set(right)].sort();
-
-  return (
-    a.length === b.length &&
-    a.every(
-      (value, index) =>
-        value === b[index]
-    )
-  );
+function samePermissions(left = [], right = []) {
+  const a = [...new Set(left)].sort();
+  const b = [...new Set(right)].sort();
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
-export default function EmployeeAccessPanel({
-  roles = [],
-}) {
-  const {
-    user: currentUser,
-  } = useAuth();
+export default function EmployeeAccessPanel({ roles = [] }) {
+  const { user: currentUser } = useAuth();
 
-  const canReadEmployees =
-    hasPermission(
-      currentUser,
-      "employee:read"
-    );
-  const canManagePermissions =
-    hasPermission(
-      currentUser,
-      "employee:permissions:update"
-    );
-  const canManageRoles =
-    hasPermission(
-      currentUser,
-      "employee:role:update"
-    );
+  const canReadEmployees = hasPermission(currentUser, "employee:read");
+  const canManagePermissions = hasPermission(
+    currentUser,
+    "employee:permissions:update"
+  );
+  const canManageRoles = hasPermission(currentUser, "employee:role:update");
 
-  const [
-    employees,
-    setEmployees,
-  ] = useState([]);
-  const [
-    selectedId,
-    setSelectedId,
-  ] = useState("");
-  const [
-    draftRole,
-    setDraftRole,
-  ] = useState("");
-  const [
-    draftPermissions,
-    setDraftPermissions,
-  ] = useState([]);
-  const [
-    loading,
-    setLoading,
-  ] = useState(false);
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
-  const [
-    error,
-    setError,
-  ] = useState("");
-  const [
-    success,
-    setSuccess,
-  ] = useState("");
+  const [employees, setEmployees] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [draftRole, setDraftRole] = useState("");
+  const [draftPermissions, setDraftPermissions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const load =
-    useCallback(
-      async () => {
-        if (!canReadEmployees) {
-          setEmployees([]);
-          setSelectedId("");
-          return;
-        }
+  const load = useCallback(async () => {
+    if (!canReadEmployees) {
+      setEmployees([]);
+      setSelectedId("");
+      return;
+    }
 
-        setLoading(true);
-        setError("");
-
-        try {
-          const response =
-            await adminStaffService.list({
-              limit: 500,
-              view: "access",
-            });
-          const rows =
-            Array.isArray(
-              response?.users
-            )
-              ? response.users
-              : [];
-
-          setEmployees(rows);
-          setSelectedId(
-            (current) => {
-              if (
-                rows.some(
-                  (employee) =>
-                    String(
-                      employee.id
-                    ) ===
-                    String(
-                      current
-                    )
-                )
-              ) {
-                return current;
-              }
-
-              return String(
-                rows[0]?.id ||
-                  ""
-              );
-            }
-          );
-        } catch (
-          requestError
-        ) {
-          setError(
-            errorMessage(
-              requestError
-            )
-          );
-        } finally {
-          setLoading(false);
-        }
-      },
-      [canReadEmployees]
-    );
+    setLoading(true);
+    setError("");
+    try {
+      const response = await adminStaffService.list({
+        limit: 500,
+        view: "access",
+      });
+      const rows = Array.isArray(response?.users) ? response.users : [];
+      setEmployees(rows);
+      setSelectedId((current) =>
+        rows.some((employee) => String(employee.id) === String(current))
+          ? current
+          : String(rows[0]?.id || "")
+      );
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setLoading(false);
+    }
+  }, [canReadEmployees]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const selectedEmployee =
-    useMemo(
-      () =>
-        employees.find(
-          (employee) =>
-            String(
-              employee.id
-            ) ===
-            String(
-              selectedId
-            )
-        ) ||
-        null,
-      [
-        employees,
-        selectedId,
-      ]
-    );
+  const selectedEmployee = useMemo(
+    () =>
+      employees.find(
+        (employee) => String(employee.id) === String(selectedId)
+      ) || null,
+    [employees, selectedId]
+  );
 
   useLayoutEffect(() => {
-    setDraftRole(
-      selectedEmployee?.role ||
-        ""
-    );
+    setDraftRole(selectedEmployee?.role || "");
     setDraftPermissions(
-      Array.isArray(
-        selectedEmployee
-          ?.permissions
-      )
-        ? [
-            ...selectedEmployee.permissions,
-          ]
+      Array.isArray(selectedEmployee?.permissions)
+        ? [...selectedEmployee.permissions]
         : []
     );
   }, [selectedEmployee]);
 
-  const inheritedPermissions =
-    useMemo(() => {
-      if (!selectedEmployee) {
-        return [];
-      }
+  const inheritedPermissions = useMemo(() => {
+    if (!selectedEmployee) return [];
+    return effectivePermissions({
+      ...selectedEmployee,
+      permissions: [],
+    });
+  }, [selectedEmployee]);
 
-      return effectivePermissions({
-        ...selectedEmployee,
-        permissions: [],
-      });
-    }, [selectedEmployee]);
-
-  const signInDisabled =
-    selectedEmployee
-      ?.signInEnabled ===
-    false;
+  const signInDisabled = selectedEmployee?.signInEnabled === false;
   const isProtectedSuperAdmin =
-    selectedEmployee?.role ===
-      "super_admin" &&
-    !canManageRoles;
-
+    selectedEmployee?.role === "super_admin" && !canManageRoles;
   const mayChangePermissions =
-    canManagePermissions &&
-    !signInDisabled &&
-    !isProtectedSuperAdmin;
-
+    canManagePermissions && !signInDisabled && !isProtectedSuperAdmin;
   const mayChangeRole =
-    canManageRoles &&
-    !signInDisabled &&
-    selectedEmployee?.role !==
-      "super_admin";
+    canManageRoles && !signInDisabled && selectedEmployee?.role !== "super_admin";
 
-  const assignableRoles =
-    useMemo(
-      () =>
-        roles.filter(
-          (role) =>
-            role.active !==
-              false &&
-            role.assignable !==
-              false
-        ),
-      [roles]
-    );
+  const assignableRoles = useMemo(
+    () =>
+      roles.filter(
+        (role) => role.active !== false && role.assignable !== false
+      ),
+    [roles]
+  );
 
-  const hasChanges =
-    Boolean(
-      selectedEmployee &&
+  const hasChanges = Boolean(
+    selectedEmployee &&
       !signInDisabled &&
-      (
-        (
-          mayChangeRole &&
-          draftRole !==
-            selectedEmployee.role
-        ) ||
-        (
-          mayChangePermissions &&
-          !samePermissions(
-            draftPermissions,
-            selectedEmployee
-              .permissions ||
-              []
-          )
-        )
-      )
-    );
+      ((mayChangeRole && draftRole !== selectedEmployee.role) ||
+        (mayChangePermissions &&
+          !samePermissions(draftPermissions, selectedEmployee.permissions || [])))
+  );
 
-  function togglePermission(
-    permission
-  ) {
-    if (
-      !mayChangePermissions
-    ) {
-      return;
-    }
-
-    setDraftPermissions(
-      (current) =>
-        current.includes(
-          permission
-        )
-          ? current.filter(
-              (item) =>
-                item !==
-                permission
-            )
-          : [
-              ...current,
-              permission,
-            ]
+  function togglePermission(permission) {
+    if (!mayChangePermissions || saving) return;
+    setDraftPermissions((current) =>
+      current.includes(permission)
+        ? current.filter((item) => item !== permission)
+        : [...current, permission]
     );
   }
 
   async function saveEmployeeAccess() {
-    if (
-      !selectedEmployee ||
-      signInDisabled
-    ) {
-      return;
-    }
+    if (!selectedEmployee || signInDisabled || saving) return;
 
     const payload = {};
-
-    if (
-      mayChangeRole &&
-      draftRole !==
-        selectedEmployee.role
-    ) {
-      payload.role =
-        draftRole;
+    if (mayChangeRole && draftRole !== selectedEmployee.role) {
+      payload.role = draftRole;
     }
-
     if (
       mayChangePermissions &&
-      !samePermissions(
-        draftPermissions,
-        selectedEmployee
-          .permissions ||
-          []
-      )
+      !samePermissions(draftPermissions, selectedEmployee.permissions || [])
     ) {
-      payload.permissions =
-        draftPermissions;
+      payload.permissions = draftPermissions;
     }
 
-    if (
-      Object.keys(
-        payload
-      ).length === 0
-    ) {
-      setSuccess(
-        "No employee access changes to save."
-      );
+    if (Object.keys(payload).length === 0) {
+      setSuccess("No employee access changes to save.");
       return;
     }
 
     setSaving(true);
     setError("");
     setSuccess("");
-
     try {
-      const response =
-        await adminStaffService.updateSettings(
-          selectedEmployee.id,
-          payload
-        );
-      const updated =
-        response?.user;
-
+      const response = await adminStaffService.updateSettings(
+        selectedEmployee.id,
+        payload
+      );
+      const updated = response?.user;
       if (updated) {
-        setEmployees(
-          (current) =>
-            current.map(
-              (employee) =>
-                String(
-                  employee.id
-                ) ===
-                String(
-                  updated.id
-                )
-                  ? updated
-                  : employee
-            )
+        setEmployees((current) =>
+          current.map((employee) =>
+            String(employee.id) === String(updated.id) ? updated : employee
+          )
         );
       }
-
-      setSuccess(
-        response?.message ||
-          "Employee access updated."
-      );
-    } catch (
-      requestError
-    ) {
-      setError(
-        errorMessage(
-          requestError
-        )
-      );
+      setSuccess(response?.message || "Employee access updated.");
+    } catch (requestError) {
+      setError(errorMessage(requestError));
     } finally {
       setSaving(false);
     }
   }
 
-  if (!canReadEmployees) {
-    return null;
-  }
+  if (!canReadEmployees) return null;
 
   return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <section
+      className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      aria-labelledby="employee-access-title"
+      aria-busy={loading || saving}
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-black">
+          <h2 id="employee-access-title" className="text-lg font-bold text-black">
             Employee access
           </h2>
           <p className="mt-1 max-w-3xl text-sm text-stone-600">
@@ -435,18 +214,11 @@ export default function EmployeeAccessPanel({
 
         <button
           type="button"
-          onClick={() =>
-            void load()
-          }
-          disabled={
-            loading ||
-            saving
-          }
+          onClick={() => void load()}
+          disabled={loading || saving}
           className="min-h-11 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50 disabled:opacity-50"
         >
-          {loading
-            ? "Refreshing..."
-            : "Refresh employees"}
+          {loading ? "Refreshing..." : "Refresh employees"}
         </button>
       </div>
 
@@ -462,65 +234,41 @@ export default function EmployeeAccessPanel({
       {success ? (
         <div
           role="status"
+          aria-live="polite"
           className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800"
         >
           {success}
         </div>
       ) : null}
 
-      {loading &&
-      employees.length ===
-        0 ? (
-        <p className="mt-5 text-sm font-semibold text-stone-600">
+      {loading && employees.length === 0 ? (
+        <p role="status" aria-live="polite" className="mt-5 text-sm font-semibold text-stone-600">
           Loading employees...
         </p>
-      ) : employees.length ===
-        0 ? (
-        <p className="mt-5 text-sm text-stone-600">
-          No staff records are available.
-        </p>
+      ) : employees.length === 0 ? (
+        <p className="mt-5 text-sm text-stone-600">No staff records are available.</p>
       ) : (
         <>
           <label className="mt-5 block max-w-2xl text-sm font-semibold text-black">
             Employee
             <select
-              value={
-                selectedId
-              }
-              onChange={(
-                event
-              ) => {
+              value={selectedId}
+              disabled={saving}
+              onChange={(event) => {
                 setError("");
                 setSuccess("");
-                setSelectedId(
-                  event.target
-                    .value
-                );
+                setSelectedId(event.target.value);
               }}
-              className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300"
+              className="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-black outline-none focus:border-black focus:ring-2 focus:ring-amber-300 disabled:opacity-60"
             >
-              {employees.map(
-                (employee) => (
-                  <option
-                    key={
-                      employee.id
-                    }
-                    value={
-                      employee.id
-                    }
-                  >
-                    {employee.name}
-                    {" · "}
-                    {employee.signInEnabled ===
-                    false
-                      ? "sign-in not enabled"
-                      : roleLabel(
-                          roles,
-                          employee.role
-                        )}
-                  </option>
-                )
-              )}
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}{" · "}
+                  {employee.signInEnabled === false
+                    ? "sign-in not enabled"
+                    : roleLabel(roles, employee.role)}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -531,13 +279,10 @@ export default function EmployeeAccessPanel({
                   Selected employee
                 </p>
                 <h3 className="mt-2 text-lg font-bold text-black">
-                  {
-                    selectedEmployee.name
-                  }
+                  {selectedEmployee.name}
                 </h3>
                 <p className="mt-1 break-all text-sm text-stone-600">
-                  {selectedEmployee.email ||
-                    "No email address"}
+                  {selectedEmployee.email || "No email address"}
                 </p>
 
                 <div className="mt-4">
@@ -547,17 +292,12 @@ export default function EmployeeAccessPanel({
                   <p className="mt-1 text-sm font-bold text-black">
                     {signInDisabled
                       ? "Not assigned — sign-in not enabled"
-                      : roleLabel(
-                          roles,
-                          selectedEmployee.role
-                        )}
+                      : roleLabel(roles, selectedEmployee.role)}
                   </p>
                 </div>
 
                 <Link
-                  to={employeeManagementPath(
-                    selectedEmployee
-                  )}
+                  to={employeeManagementPath(selectedEmployee)}
                   className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
                 >
                   Manage employee
@@ -567,9 +307,7 @@ export default function EmployeeAccessPanel({
               <div className="min-w-0">
                 {signInDisabled ? (
                   <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                    <h3 className="font-bold text-black">
-                      Sign-in not enabled
-                    </h3>
+                    <h3 className="font-bold text-black">Sign-in not enabled</h3>
                     <p className="mt-1 text-sm leading-6 text-stone-700">
                       This person is managed as an employee. Application roles and permissions become available only after sign-in access is enabled. Profile details, publication and booking settings remain available from the employee workspace.
                     </p>
@@ -578,48 +316,27 @@ export default function EmployeeAccessPanel({
                   <>
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div className="rounded-xl border border-stone-200 p-4">
-                        <h3 className="font-bold text-black">
+                        <h3 id="employee-access-role-label" className="font-bold text-black">
                           Access role
                         </h3>
 
                         {mayChangeRole ? (
                           <select
-                            className="mt-3 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-black"
-                            value={
-                              draftRole
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              setDraftRole(
-                                event.target
-                                  .value
-                              )
-                            }
+                            aria-labelledby="employee-access-role-label"
+                            className="mt-3 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
+                            value={draftRole}
+                            disabled={saving}
+                            onChange={(event) => setDraftRole(event.target.value)}
                           >
-                            {assignableRoles.map(
-                              (role) => (
-                                <option
-                                  key={
-                                    role.key
-                                  }
-                                  value={
-                                    role.key
-                                  }
-                                >
-                                  {
-                                    role.name
-                                  }
-                                </option>
-                              )
-                            )}
+                            {assignableRoles.map((role) => (
+                              <option key={role.key} value={role.key}>
+                                {role.name}
+                              </option>
+                            ))}
                           </select>
                         ) : (
                           <p className="mt-2 text-sm text-stone-700">
-                            {roleLabel(
-                              roles,
-                              selectedEmployee.role
-                            )}
+                            {roleLabel(roles, selectedEmployee.role)}
                           </p>
                         )}
 
@@ -631,90 +348,56 @@ export default function EmployeeAccessPanel({
                       </div>
 
                       <div className="rounded-xl border border-stone-200 p-4">
-                        <h3 className="font-bold text-black">
-                          Inherited role permissions
-                        </h3>
+                        <h3 className="font-bold text-black">Inherited role permissions</h3>
                         <p className="mt-2 text-sm leading-6 text-stone-600">
                           {inheritedPermissions.length
-                            ? inheritedPermissions
-                                .map(
-                                  labelForPermission
-                                )
-                                .join(
-                                  ", "
-                                )
+                            ? inheritedPermissions.map(labelForPermission).join(", ")
                             : "No inherited permissions."}
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-xl border border-stone-200 p-4">
-                      <h3 className="font-bold text-black">
+                    <fieldset className="mt-4 rounded-xl border border-stone-200 p-4">
+                      <legend className="px-1 font-bold text-black">
                         Employee-specific permissions
-                      </h3>
+                      </legend>
                       <p className="mt-1 text-sm text-stone-600">
                         These permissions apply only to this employee and do not modify the selected role template.
                       </p>
 
                       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {ASSIGNABLE_EMPLOYEE_PERMISSIONS.map(
-                          (
-                            permission
-                          ) => (
-                            <label
-                              key={
-                                permission.value
-                              }
-                              className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-stone-700"
-                            >
-                              <input
-                                type="checkbox"
-                                className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
-                                checked={draftPermissions.includes(
-                                  permission.value
-                                )}
-                                disabled={
-                                  !mayChangePermissions ||
-                                  saving
-                                }
-                                onChange={() =>
-                                  togglePermission(
-                                    permission.value
-                                  )
-                                }
-                              />
-                              <span>
-                                {
-                                  permission.label
-                                }
-                              </span>
-                            </label>
-                          )
-                        )}
+                        {ASSIGNABLE_EMPLOYEE_PERMISSIONS.map((permission) => (
+                          <label
+                            key={permission.value}
+                            className="flex min-h-11 items-start gap-3 rounded-lg border border-stone-200 p-2.5 text-sm text-stone-700"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-5 w-5 shrink-0 accent-amber-500"
+                              checked={draftPermissions.includes(permission.value)}
+                              disabled={!mayChangePermissions || saving}
+                              onChange={() => togglePermission(permission.value)}
+                            />
+                            <span>{permission.label}</span>
+                          </label>
+                        ))}
                       </div>
 
                       {!mayChangePermissions ? (
                         <p className="mt-3 text-xs leading-5 text-stone-500">
-                          You can review this employee's access but do not have authority to change employee-specific permissions.
+                          You can review this employee&apos;s access but do not have authority to change employee-specific permissions.
                         </p>
                       ) : null}
-                    </div>
+                    </fieldset>
 
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        disabled={
-                          saving ||
-                          !hasChanges
-                        }
-                        onClick={() =>
-                          void saveEmployeeAccess()
-                        }
+                        disabled={saving || !hasChanges}
+                        onClick={() => void saveEmployeeAccess()}
                         className="min-h-11 rounded-xl border border-black bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300 disabled:opacity-50"
                       >
-                        {saving
-                          ? "Saving..."
-                          : "Save employee access"}
+                        {saving ? "Saving..." : "Save employee access"}
                       </button>
 
                       {isProtectedSuperAdmin ? (
