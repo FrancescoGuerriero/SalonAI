@@ -1,4 +1,4 @@
-import { Bot, Hand, UserRoundCheck } from "lucide-react";
+import { Bot, Hand, Loader2, UserRoundCheck } from "lucide-react";
 
 export default function ConversationOwnershipStatus({
   mode = "bot",
@@ -6,6 +6,7 @@ export default function ConversationOwnershipStatus({
   handoffReason = "",
   assignedToLabel = "",
   canResumeBot = false,
+  resumePending = false,
   onRequestResumeBot,
 }) {
   const human = mode === "human";
@@ -49,6 +50,7 @@ export default function ConversationOwnershipStatus({
         human ? "human" : awaitingHuman ? "handoff-requested" : "bot"
       }
       aria-live="polite"
+      aria-busy={resumePending ? "true" : undefined}
     >
       <div className="flex min-w-0 items-start gap-3">
         <span className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 text-amber-800">
@@ -72,9 +74,15 @@ export default function ConversationOwnershipStatus({
         <button
           type="button"
           onClick={onRequestResumeBot}
-          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-black bg-amber-400 px-4 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          disabled={resumePending}
+          className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-black bg-amber-400 px-4 text-sm font-bold text-black hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
         >
-          Return to AI
+          {resumePending ? (
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Bot size={16} aria-hidden="true" />
+          )}
+          {resumePending ? "Returning to AI…" : "Return to AI"}
         </button>
       ) : null}
     </section>
