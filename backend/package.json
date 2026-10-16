@@ -45,6 +45,7 @@
     "customer-appointments:tenant-readiness": "node scripts/checkCustomerAppointmentTenantReadiness.js",
     "customer-appointments:tenant-backfill-plan": "node scripts/planCustomerAppointmentTenantBackfill.js",
     "customer-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js",
+    "reports:tenant-readiness": "node scripts/checkReportExportTenantReadiness.js",
     "staff-roles:tenant-readiness": "node scripts/checkStaffRoleTenantReadiness.js",
     "staff-roles:tenant-backfill-plan": "node scripts/planStaffRoleTenantBackfill.js",
     "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js"
