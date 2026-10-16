@@ -8,6 +8,12 @@ const { Schema } = mongoose;
 
 const staffRoleSchema = new Schema(
   {
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: null,
+      index: true,
+    },
     key: {
       type: String,
       required: true,
@@ -62,6 +68,21 @@ const staffRoleSchema = new Schema(
     timestamps: true,
   }
 );
+
+// Transitional indexes for #387. The existing global unique key remains in
+// place until production ownership backfill and collision analysis are
+// complete. A later reviewed migration may replace it with { business, key }
+// uniqueness once every persisted role is Business-owned.
+staffRoleSchema.index({
+  business: 1,
+  active: -1,
+  name: 1,
+});
+
+staffRoleSchema.index({
+  business: 1,
+  key: 1,
+});
 
 staffRoleSchema.index({
   active: 1,
