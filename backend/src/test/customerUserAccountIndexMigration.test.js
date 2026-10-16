@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import Customer from "../models/customer.js";
 import {
   LEGACY_CUSTOMER_USER_ACCOUNT_INDEX,
   TARGET_CUSTOMER_USER_ACCOUNT_INDEX,
@@ -179,22 +179,23 @@ test("Customer index apply gate requires explicit flag, confirmation and reviewe
   );
 });
 
-test("Customer schema declares an ObjectId-only partial unique userAccount index", async () => {
-  const source = await readFile(
-    new URL("../models/customer.js", import.meta.url),
-    "utf8"
-  );
+test("Customer schema declares an ObjectId-only partial unique userAccount index", () => {
+  const userAccountPath = Customer.schema.path("userAccount");
 
-  assert.doesNotMatch(
-    source,
-    /userAccount:\s*\{[\s\S]*?unique:\s*true,[\s\S]*?sparse:\s*true,[\s\S]*?\}/
-  );
-  assert.match(
-    source,
-    /name:\s*"userAccount_unique_linked"/
-  );
-  assert.match(
-    source,
-    /partialFilterExpression:[\s\S]*?userAccount:[\s\S]*?\$type:\s*"objectId"/
+  assert.equal(userAccountPath.options.unique, undefined);
+  assert.equal(userAccountPath.options.sparse, undefined);
+
+  const declaredIndex = Customer.schema
+    .indexes()
+    .find(([, options]) => options?.name === TARGET_CUSTOMER_USER_ACCOUNT_INDEX);
+
+  assert.ok(declaredIndex, "Expected Customer userAccount partial unique index");
+
+  const [keys, options] = declaredIndex;
+  assert.deepEqual(keys, { userAccount: 1 });
+  assert.equal(options.unique, true);
+  assert.equal(
+    options.partialFilterExpression?.userAccount?.$type,
+    "objectId"
   );
 });
