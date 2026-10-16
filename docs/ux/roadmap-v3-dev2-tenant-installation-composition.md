@@ -3,150 +3,518 @@
 Authority: #280  
 Owner: DEV2 — UX/HCI/accessibility/Figma  
 Runtime provisioning authority: DEV4 #295  
-Integration/release authority: DEV1
+Status: Figma-first / no runtime provisioning
 
-## Product rule
+## Governing model
 
-AIIBP is the product source of truth. Tenant products are configured/provisioned installations assembled from platform core, reusable modules, vertical packs and tenant configuration. A tenant installation must never become a source-code fork.
+AIIBP is the product source of truth.
 
-## Authority boundary
+A tenant product is assembled from:
 
-DEV2 owns presentation, interaction behaviour, responsive layout and accessibility. DEV2 does not create Business, Location, BusinessMembership, entitlement, RBAC, DNS, billing, connector or provisioning authority.
+```
+AIIBP Core
+  -> Vertical pack
+  -> Capability modules
+  -> Tenant configuration
+  -> Branding / terminology
+  -> Locations / domains
+  -> Integrations
+  -> governed extensions
+  -> tenant installation
+```
 
-The frontend consumes authoritative state and emits request callbacks. Server-side contracts remain responsible for validation, collision checks, effective permission, entitlement and writes.
+The UX must make that composition visible without implying that a tenant receives a separate fork or repository.
+
+## Product classification vocabulary
+
+Every configurable product element presented in this flow should be classified as one of:
+
+- **CORE** — shared platform capability, not tenant-removable when required by the platform.
+- **MODULE** — reusable optional capability.
+- **VERTICAL** — vertical-specific defaults/rules/templates.
+- **TENANT CONFIGURATION** — tenant-specific values and overrides.
+- **GOVERNED EXTENSION** — explicit extension point for genuinely bespoke behaviour.
+
+The UI must never offer “custom fork” as a tenant option.
 
 ## Installation flow
 
-1. installation workspace;
-2. vertical selection;
-3. Business identity and locale;
-4. primary Location and domain lifecycle;
-5. capability composition and provenance;
-6. branding, terminology and public-module visibility;
-7. integration planning;
-8. governed extension boundary review;
-9. dry-run review and blockers;
-10. explicit write-request confirmation;
-11. machine-readable installation report presentation;
-12. activation-readiness state.
+### Step 1 — Installation workspace
 
-## Classification vocabulary
+Show:
+- AIIBP release/version;
+- installation id/reference;
+- current mode: Dry run / Write request;
+- selected vertical;
+- Business name when known;
+- readiness status;
+- blockers/warnings.
 
-Tenant requirements must be represented as one of:
+Default mode is **Dry run**.
 
-- platform core;
-- reusable module;
-- vertical pack/default;
-- tenant configuration;
-- governed tenant extension.
+Write mode is only a request state and requires authoritative backend permission plus explicit confirmation.
 
-A tenant-specific code fork is not an installation option.
+### Step 2 — Select vertical
 
-## Capability state
+The UI consumes the registered vertical list from the platform registry.
 
-The UI may present server-supplied states such as:
+Example display only:
+- Salon AI
+- Spa AI
+- Plastic Surgery AI
+- Fitness AI
 
-- platform core / mandatory;
-- vertical default;
-- tenant-manifest selection;
-- optional capability;
-- not selected;
-- not entitled;
-- feature-flag disabled;
-- dependency unavailable;
-- platform safety lock;
-- unavailable/incompatible.
+For each vertical, show:
+- display name;
+- short description;
+- default terminology;
+- default capability set;
+- compatibility warnings if provided by the backend.
 
-Entitlement is not permission. DEV3 effective authority remains a separate caller-supplied contract for action availability.
+DEV2 must not hard-code authority from the displayed vertical selection.
 
-## Installation readiness
+### Step 3 — Tenant identity & locale
+
+Present fields for:
+- Business name;
+- slug;
+- initial status;
+- locale;
+- timezone;
+- currency;
+- optional existing owner/admin account binding.
+
+Validation presentation:
+- available;
+- conflict;
+- invalid;
+- pending authoritative check.
+
+The browser does not establish uniqueness.
+
+### Step 4 — Primary location & domains
+
+Present:
+- primary Location name;
+- address/region data when part of the authoritative contract;
+- primary domain;
+- optional app-domain/subdomain;
+- domain state: pending / active / disabled;
+- collision / invalid / unavailable states.
+
+No DNS mutation occurs in this UX.
+
+Domain status must clearly distinguish:
+- requested;
+- pending verification;
+- active;
+- disabled;
+- blocked/collision.
+
+### Step 5 — Capability composition
+
+Capability selection is organised into categories.
+
+Suggested categories:
+- Customer & CRM
+- Booking & availability
+- Commerce
+- Communications
+- Workforce
+- Inventory
+- Calendar
+- Loyalty / memberships / packages
+- Marketing / retention
+- Analytics / BI
+- AI Adviser / AI Workforce
+- Consultation / vertical intelligence
+
+Each capability card renders authoritative metadata such as:
+
+```js
+{
+  capabilityId: "booking",
+  name: "Booking & availability",
+  classification: "MODULE",
+  source: "vertical-default",
+  state: "included",
+  selectable: true,
+  required: false,
+  reason: null
+}
+```
 
 Presentation states:
+- required core;
+- vertical default;
+- optional selected;
+- optional available;
+- not included;
+- incompatible;
+- blocked by dependency;
+- tenant override.
 
-- ready;
-- stale dry-run;
-- provisioning runtime unavailable;
-- partially blocked;
-- blocked.
+The frontend does not compute entitlement.
 
-Recovery controls are request-only and must remain hidden unless the caller supplies authoritative action permission.
+### Step 6 — Branding & terminology
 
-## Machine-readable installation report presentation
+Present tenant-level composition for:
+- logo/brand identity;
+- theme choice;
+- primary/accent treatment;
+- public business name;
+- terminology overrides;
+- selected public navigation/modules;
+- public content/template pack.
 
-The future server-generated report is presented without executing provisioning. The UX supports:
+Important rule:
+theme and terminology may vary per tenant without changing the underlying application codebase.
 
-- created resources;
-- reused resources;
-- skipped resources;
-- blocked resources;
-- warnings;
-- unresolved dependencies;
-- activation readiness;
-- opaque audit/reference id.
+### Step 7 — Integration planning
 
-Raw credentials and secrets must never be rendered. A screen-reader summary must communicate the counts and readiness without relying on colour or visual layout.
+Provider-neutral integration planning cards for:
+- Email
+- SMS / WhatsApp
+- Calendars
+- Payments
+- Analytics / marketing
+- External business systems
 
-## Governed extension boundary
+States:
+- not configured;
+- planned;
+- connected;
+- attention required;
+- unavailable.
 
-Custom requirements are reviewed as:
+Do not display secrets or raw credentials.
 
-- existing configuration;
-- reusable module;
-- vertical extension;
-- governed tenant extension.
+### Step 8 — Extension decision
 
-The presentation does not decide architecture. It displays the classification supplied by the platform workflow and explains why a tenant code fork is rejected as the default implementation path.
+When the requested business behaviour is not represented by current configuration, the UX should classify the need:
 
-## Domain and integration safety
+1. existing tenant configuration;
+2. existing reusable module;
+3. vertical capability;
+4. candidate reusable platform capability;
+5. governed tenant extension.
 
-Domain presentation may show pending, active, disabled, collision and error state, but it must not mutate DNS.
+The interface should explicitly warn against tenant-specific core forks.
 
-Integration planning may show provider-neutral state for email, SMS/WhatsApp, calendars, payments, analytics/marketing and external business systems. Credentials are configured outside the presentation layer.
+### Step 9 — Dry-run review
+
+Review panel should show:
+
+- Business to create/reuse;
+- Location to create/reuse;
+- domain records to create/reuse;
+- owner/admin membership intent;
+- selected vertical;
+- capability composition;
+- configuration overrides;
+- integration intentions;
+- extensions;
+- conflicts;
+- unresolved blockers.
+
+Dry run result states:
+- CREATE
+- REUSE
+- SKIP
+- BLOCKED
+- WARNING
+
+No write is performed.
+
+### Step 10 — Write confirmation
+
+Only available if the authoritative runtime contract allows it.
+
+Confirmation must state:
+- this will request creation/update of platform resources;
+- pending domains are not DNS activation;
+- capability intent is not equivalent to billing/subscription activation unless a future billing authority confirms it;
+- server will revalidate authority, collisions and current state.
+
+### Step 11 — Installation report
+
+Future provisioning report presentation:
+
+```js
+{
+  referenceId: "opaque-reference",
+  mode: "dry-run",
+  status: "ready | blocked | completed",
+  created: [],
+  reused: [],
+  skipped: [],
+  blocked: [],
+  warnings: [],
+  activationReady: false
+}
+```
+
+Do not expose secrets or unnecessary internal identifiers.
+
+
+## #352 product-composition contract alignment
+
+DEV2 now consumes the review-ready DEV4 #352 / PR #356 vocabulary for tenant product composition. This remains descriptive/presentation work until that contract is integrated.
+
+### Manifest metadata
+
+The installation and upgrade UX should be able to present:
+
+- schema version;
+- platform version;
+- Business identity;
+- vertical id;
+- plan key;
+- capability pack keys;
+- configuration profile;
+- theme profile;
+- terminology profile;
+- integration bindings;
+- AI capability keys;
+- workflow pack keys;
+- data policy profile;
+- approved extension keys;
+- deployment profile;
+- manifest revision;
+- manifest status;
+- effective-from date/time;
+- deterministic manifest hash where review evidence requires it.
+
+Manifest statuses:
+- `draft`;
+- `active`;
+- `suspended`;
+- `archived`.
+
+Deployment profiles:
+- `shared-saas`;
+- `dedicated`.
+
+Dedicated deployment must remain the same versioned AIIBP product composition and requires infrastructure review; it is not a code fork.
+
+### Effective capability provenance
+
+Capability state must display the authoritative explanation returned by the composition resolver.
+
+Canonical reason values currently include:
+
+- `tenant-manifest`;
+- `vertical-default`;
+- `platform-safety-lock`;
+- `not-entitled`;
+- `feature-flag-disabled`;
+- `dependency-unavailable:<capability-key>`.
+
+Upgrade comparison may additionally use:
+- `not-selected`.
+
+DEV2 wording should translate these codes into operator language while preserving the underlying reason for diagnostics/audit.
+
+Suggested presentation mapping:
+
+| Resolver reason | Operator-facing meaning |
+| --- | --- |
+| tenant-manifest | Selected explicitly for this tenant |
+| vertical-default | Included by the selected vertical |
+| platform-safety-lock | Disabled by a platform safety control |
+| not-entitled | Not available under current entitlement |
+| feature-flag-disabled | Temporarily not exposed by rollout control |
+| dependency-unavailable:* | Unavailable because a required capability is unavailable |
+| not-selected | Not selected in this composition |
+
+The frontend must not recompute these reasons.
+
+### Upgrade review contract
+
+A tenant product upgrade review may present:
+
+- current manifest revision -> next revision;
+- current platform version -> next platform version;
+- current manifest hash;
+- next manifest hash;
+- capability transitions;
+- capabilities to enable;
+- capabilities to disable;
+- profile changes;
+- tenant acceptance requirement;
+- infrastructure review requirement;
+- platform-upgrade review requirement;
+- experimental-capability approval requirement;
+- deterministic upgrade fingerprint.
+
+Each capability transition may present:
+- capability key/label;
+- lifecycle status;
+- from enabled -> to enabled;
+- from reason -> to reason;
+- required permissions;
+- integration contracts;
+- metering key when the authoritative contract exposes it.
+
+No upgrade write is performed by the review UI.
+
+### Activation approval contract
+
+Activation review must be able to present these canonical approval reasons:
+
+- `initial-tenant-product-activation`;
+- `tenant-product-change`;
+- `platform-version-upgrade-review`;
+- `deployment-infrastructure-review`;
+- `experimental-capability`.
+
+The activation plan may also expose:
+
+- from revision / to revision;
+- current manifest hash;
+- candidate draft manifest hash;
+- active manifest hash;
+- enabled capability keys;
+- disabled capability keys;
+- persistence intent:
+  - archive current manifest;
+  - activate candidate manifest;
+- deterministic activation fingerprint;
+- `writesPerformed: false` during planning.
+
+DEV2 must present persistence intent as a reviewable plan, not as proof that writes happened.
+
+### Product-composition review UX rule
+
+The operator should be able to answer, without reading source code:
+
+> What product composition is this tenant running, what is changing, why is each capability available/unavailable, what approvals are required, and which review fingerprint identifies this exact plan?
+
+
+## Deployment topology presentation
+
+The tenant product may later be deployed as:
+
+- shared SaaS;
+- dedicated environment.
+
+Dedicated deployment must be described as running the same versioned AIIBP release/modules, not a divergent product branch.
+
+DEV2 only presents this choice if DEV4/DEV1 expose it as an authoritative deployment option.
+
+## Accessibility acceptance
+
+- keyboard-complete step navigation;
+- no modal-on-modal flow;
+- visible focus;
+- 44x44 CSS px primary targets;
+- classification/state always has text, not colour alone;
+- current step announced programmatically;
+- validation/conflict errors associated with the relevant field;
+- dry-run result summary readable linearly by screen reader;
+- no required horizontal scroll at 320 CSS px;
+- write confirmation uses explicit action wording;
+- focus returns to the initiating control after dialogs/sheets close.
 
 ## Responsive acceptance
 
-Validate presentation behaviour at:
+### Desktop
+- persistent installation summary rail;
+- main step content in central workspace;
+- capability composition may use multi-column card layout.
 
-- 320px;
-- 360px;
-- 390px;
-- tablet;
-- desktop.
+### Tablet
+- summary collapses into top status strip;
+- two-column capability layout where width allows.
 
-Acceptance rules:
+### Mobile 320–390px
+- single-column flow;
+- sticky bottom action bar;
+- step title + progress remain visible;
+- capability cards stack;
+- summary opens as one sheet/dialog only;
+- no fixed-width tables.
 
-1. no horizontal overflow at 320px;
-2. minimum 44x44 primary interactive targets;
-3. visible keyboard focus;
-4. stable accessible names;
-5. status never conveyed by colour alone;
-6. dialogs remain viewport-safe and internally scroll when needed;
-7. no modal-on-modal interaction;
-8. blocker/error states expose explicit recovery guidance;
-9. screen-reader-readable composition/report summaries;
-10. write-request confirmation is explicit and only available from authoritative caller permission.
+## Error / blocked states
 
-## Runtime integration gate
+Explicitly design:
+- unsupported vertical;
+- slug collision;
+- domain collision;
+- invalid domain;
+- capability dependency conflict;
+- capability incompatible with vertical;
+- owner binding unavailable;
+- no authoritative permission;
+- stale dry-run result;
+- provisioning runtime unavailable;
+- installation partially blocked.
 
-DEV4 #295 remains deferred. Therefore this implementation intentionally contains no production provisioning API or route wiring.
+## Contract boundary
 
-When DEV4 activates #295, DEV2 may consume its validated dry-run/report/write-request contract, but must not duplicate it. DEV1 remains responsible for integration/release and DEV3 remains responsible for effective action authority.
+DEV2 may build:
+- Figma flows;
+- presentation components;
+- accessibility behaviour;
+- review/summary UI;
+- error/loading/empty states;
+- prop-level contracts.
 
-## Current DEV2 implementation
+DEV2 must not build:
+- provisioning authority;
+- uniqueness logic;
+- DNS mutation;
+- tenant creation service;
+- BusinessMembership creation rules;
+- entitlement/billing authority;
+- deployment orchestration;
+- code/repository generation.
 
-Current-main implementation authority is PR #420. It consolidates the valid historical #353 stack and includes:
+## Implementation handoff
 
-- installation review;
-- vertical selection;
-- identity/locale summary;
-- location/domain lifecycle;
-- branding/terminology;
-- integration planning;
-- product composition/provenance/upgrade/activation review;
-- workspace shell;
-- explicit readiness/error states;
-- machine-readable installation report presentation;
-- governed extension boundary review;
-- focused component tests.
+When DEV4 activates #295, the preferred integration flow is:
 
-Historical PRs #401, #404, #406, #408, #409 and #410 are traceability evidence only and must not be force-merged.
+```
+authoritative provisioning contract
+        ↓
+DEV2 presentation components
+        ↓
+dry-run request
+        ↓
+server-generated plan/report
+        ↓
+human review
+        ↓
+explicit write request
+        ↓
+server revalidation
+        ↓
+provisioning result
+```
+
+## Figma deliverable inventory
+
+Current page: **DEV2 #353 — Tenant Installation**
+
+Built and visually reviewed:
+- 00 — Installation Model
+- 01 — Vertical Selection
+- 02 — Business Identity & Locale
+- 03 — Location & Domain Setup
+- 04 — Capability Composition
+- 05 — Branding & Terminology
+- 06 — Integration Planning
+- 07 — Dry-run Review
+- 08 — Installation Report
+- 09 — Mobile Dry-run Review (390px)
+- 10 — Tablet Capability Composition (768px)
+- 11 — Write Confirmation
+- 12 — Collision & Blocked Recovery States
+- 13 — Effective Product Composition & Provenance
+- 14 — Manifest Revision & Deployment Profile
+- 15 — Tenant Product Upgrade Review
+- 16 — Activation Approval & Fingerprint
+- 17 — Mobile Upgrade Review
+
+Figma file:
+https://www.figma.com/design/iNumviutWfqBibpl43cKSC
