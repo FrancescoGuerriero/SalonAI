@@ -16,6 +16,9 @@ import * as controller from "./staffController.js";
 import {
   week as tenantScopedWeek,
 } from "./staffTenantController.js";
+import {
+  listTimeOff as tenantScopedTimeOffList,
+} from "./staffTimeOffTenantController.js";
 
 const router = express.Router();
 
@@ -99,9 +102,10 @@ router.post(
 // Cross-employee management routes.
 router.get(
   "/time-off",
+  ...workforceTenantAuthority,
   readEmployees,
   asyncHandler(
-    controller.listTimeOff
+    tenantScopedTimeOffList
   )
 );
 
