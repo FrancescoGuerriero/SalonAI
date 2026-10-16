@@ -1,4 +1,5 @@
 export { default as BrandingTerminologyPreview } from "./BrandingTerminologyPreview.jsx";
+export { default as ExtensionBoundaryReview } from "./ExtensionBoundaryReview.jsx";
 export { default as InstallationBlockerList } from "./InstallationBlockerList.jsx";
 export { default as InstallationPlanSummary } from "./InstallationPlanSummary.jsx";
 export { default as InstallationReadinessNotice } from "./InstallationReadinessNotice.jsx";
