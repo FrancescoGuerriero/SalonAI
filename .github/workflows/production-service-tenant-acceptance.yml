@@ -1,0 +1,250 @@
+name: SalonAI Production Service Tenant Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live application release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: Verify production Service tenant acceptance
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+
+    steps:
+      - name: Validate expected release tag
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify public Service catalogue on active app domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 0700 acceptance-evidence
+          evidence="acceptance-evidence/service-tenant-acceptance.txt"
+          catalogue="$RUNNER_TEMP/service-catalogue.json"
+
+          {
+            echo "SalonAI production Service tenant acceptance"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: ${{ inputs.expected_release_tag }}"
+            echo
+            echo "=== Public catalogue ==="
+          } | tee "$evidence"
+
+          curl --fail --silent --show-error \
+            --connect-timeout 15 \
+            --max-time 30 \
+            https://salonai.francescopicardi.co.uk/api/services \
+            -o "$catalogue"
+
+          node - "$catalogue" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const path = process.argv[2];
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (!Array.isArray(payload)) throw new Error('Public Service catalogue is not an array.');
+          if (payload.length < 1) throw new Error('Public Service catalogue is empty.');
+          if (payload.some((service) => Object.prototype.hasOwnProperty.call(service || {}, 'business'))) {
+            throw new Error('Public Service catalogue exposed Business ownership.');
+          }
+          console.log(`PUBLIC_SERVICE_COUNT=${payload.length}`);
+          console.log('PUBLIC_BUSINESS_FIELD_EXPOSED=false');
+          console.log('[PASS] Public Service catalogue resolved on the active app domain.');
+          NODE
+
+      - name: Verify live release, protected Service management and ownership readiness
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          evidence="acceptance-evidence/service-tenant-acceptance.txt"
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo
+            echo "=== Runtime identity ==="
+          } | tee -a "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          {
+            echo
+            echo "=== Protected management route ==="
+          } | tee -a "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'docker exec -i salonai-backend node --input-type=module' <<'NODE' | tee -a "$evidence"
+          import http from "node:http";
+          import jwt from "jsonwebtoken";
+          import mongoose from "mongoose";
+          import BusinessMembership from "./src/models/BusinessMembership.js";
+          import User from "./src/models/user.js";
+
+          const uri = String(process.env.MONGODB_URI || process.env.MONGO_URI || "").trim();
+          const secret = String(process.env.JWT_SECRET || "").trim();
+          if (!uri || !secret) throw new Error("Production database/JWT configuration is unavailable.");
+
+          await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+          try {
+            const membership = await BusinessMembership.findOne({
+              status: "active",
+              roleKey: { $in: ["super_admin", "admin"] },
+            }).sort({ isDefault: -1 }).select("user").lean();
+            if (!membership) throw new Error("No active management BusinessMembership is available for read-only acceptance.");
+
+            const user = await User.findOne({
+              _id: membership.user,
+              isActive: { $ne: false },
+            }).select("_id").lean();
+            if (!user) throw new Error("No active management User is available for read-only acceptance.");
+
+            const token = jwt.sign(
+              { id: String(user._id), tokenType: "access" },
+              secret,
+              { expiresIn: "2m" }
+            );
+
+            const port = Number(process.env.PORT || 5000);
+            const response = await new Promise((resolve, reject) => {
+              const request = http.request({
+                hostname: "127.0.0.1",
+                port,
+                path: "/api/services/management",
+                method: "GET",
+                headers: {
+                  Host: "salonai.francescopicardi.co.uk",
+                  Authorization: `Bearer ${token}`,
+                  Accept: "application/json",
+                },
+                timeout: 15000,
+              }, (res) => {
+                let body = "";
+                res.setEncoding("utf8");
+                res.on("data", (chunk) => { body += chunk; });
+                res.on("end", () => resolve({ statusCode: res.statusCode, body }));
+              });
+              request.on("timeout", () => request.destroy(new Error("Protected Service request timed out.")));
+              request.on("error", reject);
+              request.end();
+            });
+
+            if (response.statusCode !== 200) {
+              throw new Error(`Protected Service management route returned HTTP ${response.statusCode}.`);
+            }
+            const payload = JSON.parse(response.body);
+            if (payload?.success !== true || !Array.isArray(payload?.services)) {
+              throw new Error("Protected Service management response shape is invalid.");
+            }
+            if (payload.services.some((service) => Object.prototype.hasOwnProperty.call(service || {}, "business"))) {
+              throw new Error("Protected Service response exposed Business ownership.");
+            }
+            console.log(`PROTECTED_SERVICE_COUNT=${payload.services.length}`);
+            console.log("PROTECTED_BUSINESS_FIELD_EXPOSED=false");
+            console.log("[PASS] Protected Service management resolved through trusted tenant authority.");
+          } finally {
+            await mongoose.disconnect().catch(() => {});
+          }
+          NODE
+
+          {
+            echo
+            echo "=== Service tenant readiness ==="
+          } | tee -a "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             docker exec salonai-backend node scripts/checkServiceTenantReadiness.js' \
+            | tee -a "$evidence"
+
+          if ! grep -Eq '"safeForBusinessBackfill"[[:space:]]*:[[:space:]]*true' "$evidence"; then
+            echo "[ERROR] Service tenant readiness is not safe." | tee -a "$evidence"
+            exit 1
+          fi
+          if ! grep -Eq '"missingBusiness"[[:space:]]*:[[:space:]]*0' "$evidence"; then
+            echo "[ERROR] One or more Services are missing Business ownership." | tee -a "$evidence"
+            exit 1
+          fi
+
+          echo "[PASS] #287 production Service acceptance completed read-only." | tee -a "$evidence"
+
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-service-tenant-acceptance-${{ github.run_id }}
+          path: acceptance-evidence
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          rm -f -- "${SSH_PRIVATE_KEY_PATH:-}" "${SSH_KNOWN_HOSTS_PATH:-}"
