@@ -24,7 +24,9 @@ import {
 } from "./staffTimeOffTenantController.js";
 import {
   listMyTimeOff as tenantScopedListMyTimeOff,
+  myWeek as tenantScopedMyWeek,
   requestMyTimeOff as tenantScopedRequestMyTimeOff,
+  setMyAvailability as tenantScopedSetMyAvailability,
 } from "./staffSelfServiceTenantController.js";
 
 const router = express.Router();
@@ -68,20 +70,23 @@ const requestOwnLeave =
 // Self-service routes must be declared before /:staffId routes.
 router.get(
   "/me/availability",
+  ...workforceTenantAuthority,
   readOwnSchedule,
   asyncHandler(
-    controller.myWeek
+    tenantScopedMyWeek
   )
 );
 
 router.put(
   "/me/availability",
+  ...workforceTenantAuthority,
   updateOwnSchedule,
   asyncHandler(
-    controller.setMyAvailability
+    tenantScopedSetMyAvailability
   )
 );
 
+// Appointment-backed self day remains on the legacy service until #380.
 router.get(
   "/me/day",
   readOwnSchedule,
