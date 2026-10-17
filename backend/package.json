@@ -39,6 +39,9 @@
     "services:tenant-backfill": "node scripts/applyServiceTenantBackfill.js",
     "tenant:domain:activate": "node scripts/activateCanonicalTenantDomain.js",
     "communications:scheduler-readiness": "node scripts/checkCommunicationSchedulerReadiness.js",
+    "customers:user-account-index-readiness": "node scripts/checkCustomerUserAccountIndexReadiness.js",
+    "customers:user-account-index-plan": "node scripts/planCustomerUserAccountIndexMigration.js",
+    "customers:user-account-index-migrate": "node scripts/applyCustomerUserAccountIndexMigration.js",
     "staff-roles:tenant-readiness": "node scripts/checkStaffRoleTenantReadiness.js",
     "staff-roles:tenant-backfill-plan": "node scripts/planStaffRoleTenantBackfill.js",
     "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js"

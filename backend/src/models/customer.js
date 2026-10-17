@@ -404,8 +404,6 @@ const customerSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       default: null,
-      unique: true,
-      sparse: true,
     },
 
     title: {
@@ -1077,6 +1075,21 @@ customerSchema.methods.archive =
 | Indexes
 |--------------------------------------------------------------------------
 */
+
+customerSchema.index(
+  {
+    userAccount: 1,
+  },
+  {
+    name: "userAccount_unique_linked",
+    unique: true,
+    partialFilterExpression: {
+      userAccount: {
+        $type: "objectId",
+      },
+    },
+  }
+);
 
 customerSchema.index({
   firstName: "text",
