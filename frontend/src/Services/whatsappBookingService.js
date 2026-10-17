@@ -55,6 +55,17 @@ export async function updateWhatsAppConversationStatus(
   return response.data;
 }
 
+export async function resumeWhatsAppBot(
+  conversationId
+) {
+  const response =
+    await API.post(
+      `${BASE}/${conversationId}/resume-bot`
+    );
+
+  return response.data;
+}
+
 export async function updateWhatsAppBookingSession(
   conversationId,
   payload
@@ -135,6 +146,7 @@ export default {
   getWhatsAppOutboundPolicy,
   listWhatsAppConversations,
   markWhatsAppConversationRead,
+  resumeWhatsAppBot,
   sendOneOffWhatsAppMessage,
   sendWhatsAppConversationMessage,
   updateWhatsAppBookingSession,
