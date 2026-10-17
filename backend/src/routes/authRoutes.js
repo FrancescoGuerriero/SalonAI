@@ -18,26 +18,35 @@ import {
 } from "../controllers/emailVerificationController.js";
 
 import {
-  listAdminUsers,
-  createStaffUserByAdmin,
-  getEmployeeManagementDetail,
-  getEmployeeWithoutSignInManagementDetail,
-  updateEmployeeRecordServices,
-  updateEmployeeRecordSchedule,
-  enableEmployeeSignIn,
-  updateEmployeeManagementSettings,
-  updateEmployeeSchedule,
-  updateEmployeeServices,
-  updateAdminUserStatus,
-} from "../controllers/adminUserController.js";
+  listTenantAdminUsers as listAdminUsers,
+  createTenantStaffUserByAdmin as createStaffUserByAdmin,
+  getTenantEmployeeManagementDetail as getEmployeeManagementDetail,
+  getTenantEmployeeWithoutSignInManagementDetail as getEmployeeWithoutSignInManagementDetail,
+  updateTenantEmployeeRecordServices as updateEmployeeRecordServices,
+  updateTenantEmployeeRecordSchedule as updateEmployeeRecordSchedule,
+  enableTenantEmployeeSignIn as enableEmployeeSignIn,
+  updateTenantEmployeeManagementSettings as updateEmployeeManagementSettings,
+  updateTenantEmployeeSchedule as updateEmployeeSchedule,
+  updateTenantEmployeeServices as updateEmployeeServices,
+  updateTenantAdminUserStatus as updateAdminUserStatus,
+} from "../controllers/tenantAdminUserController.js";
 
 import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   hasRequestPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 
 import {
   authRateLimiter,
@@ -51,6 +60,13 @@ import {
 
 const router =
   express.Router();
+
+const protectedStaffTenantChain = [
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+];
 
 function requireEmployeeSettingsChanges(
   req,
@@ -206,7 +222,7 @@ router
  */
 router.post(
   "/admin/users",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:create"
   ),
@@ -216,14 +232,14 @@ router.post(
 router
   .route("/admin/staff")
   .get(
-    protect,
+    ...protectedStaffTenantChain,
     requirePermissions(
       "employee:read"
     ),
     listAdminUsers
   )
   .post(
-    protect,
+    ...protectedStaffTenantChain,
     requirePermissions(
       "employee:create"
     ),
@@ -232,14 +248,14 @@ router
 
 router.patch(
   "/admin/staff/:id",
-  protect,
+  ...protectedStaffTenantChain,
   requireEmployeeSettingsChanges,
   updateEmployeeManagementSettings
 );
 
 router.get(
   "/admin/staff-record/:id",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:read"
   ),
@@ -248,7 +264,7 @@ router.get(
 
 router.post(
   "/admin/staff-record/:id/sign-in",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:create"
   ),
@@ -257,7 +273,7 @@ router.post(
 
 router.patch(
   "/admin/staff-record/:id/services",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:services:update"
   ),
@@ -266,7 +282,7 @@ router.patch(
 
 router.patch(
   "/admin/staff-record/:id/schedule",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:schedule:update"
   ),
@@ -275,7 +291,7 @@ router.patch(
 
 router.get(
   "/admin/staff/:id",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:read"
   ),
@@ -284,7 +300,7 @@ router.get(
 
 router.patch(
   "/admin/staff/:id/services",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:services:update"
   ),
@@ -293,7 +309,7 @@ router.patch(
 
 router.patch(
   "/admin/staff/:id/schedule",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:schedule:update"
   ),
@@ -302,7 +318,7 @@ router.patch(
 
 router.patch(
   "/admin/staff/:id/status",
-  protect,
+  ...protectedStaffTenantChain,
   requirePermissions(
     "employee:deactivate"
   ),
