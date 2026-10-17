@@ -9,16 +9,13 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
-
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import {
-  Link,
-} from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import AddEmployeeModal from "../components/employees/AddEmployeeModal.jsx";
 import adminStaffService from "../Services/adminStaffService.js";
@@ -31,9 +28,7 @@ import {
   employeeScheduleForDate,
   employeeServiceNames,
 } from "../utils/employees.js";
-import {
-  hasPermission,
-} from "../utils/permissions.js";
+import { hasPermission } from "../utils/permissions.js";
 
 function errorMessage(error) {
   return (
@@ -44,26 +39,16 @@ function errorMessage(error) {
 }
 
 function avatarInitials(name) {
-  const parts =
-    String(name || "")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2);
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
 
-  return parts
-    .map((item) =>
-      item[0]?.toUpperCase()
-    )
-    .join("") || "SA";
+  return parts.map((item) => item[0]?.toUpperCase()).join("") || "SA";
 }
 
-function SettingSwitch({
-  checked,
-  disabled,
-  label,
-  onChange,
-}) {
+function SettingSwitch({ checked, disabled, label, onChange }) {
   return (
     <button
       type="button"
@@ -71,245 +56,97 @@ function SettingSwitch({
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
-      onClick={() =>
-        onChange(!checked)
-      }
-      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
+      onClick={() => onChange(!checked)}
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
     >
       <span
         aria-hidden="true"
         className={`relative inline-flex h-5 w-9 rounded-full transition ${
-          checked
-            ? "bg-amber-400"
-            : "bg-slate-300"
+          checked ? "bg-amber-400" : "bg-slate-300"
         }`}
       >
         <span
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${
-            checked
-              ? "left-[18px]"
-              : "left-0.5"
+            checked ? "left-[18px]" : "left-0.5"
           }`}
         />
       </span>
-
       {label}
     </button>
   );
 }
 
 export default function AdminStaffAccountsPage() {
-  const {
-    user: currentUser,
-  } = useAuth();
+  const { user: currentUser } = useAuth();
 
-  const canCreate =
-    hasPermission(
-      currentUser,
-      "employee:create"
-    );
+  const canCreate = hasPermission(currentUser, "employee:create");
+  const canUpdate = hasPermission(currentUser, "employee:update");
+  const canUpdateProfiles = hasPermission(currentUser, "profile:all:update");
+  const canDeactivate = hasPermission(currentUser, "employee:deactivate");
+  const canManageRoles = hasPermission(currentUser, "employee:role:update");
+  const canViewStaffRoles = hasPermission(currentUser, "staff-role:read");
 
-  const canUpdate =
-    hasPermission(
-      currentUser,
-      "employee:update"
-    );
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatingId, setUpdatingId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
+  const [accessFilter, setAccessFilter] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const canUpdateProfiles =
-    hasPermission(
-      currentUser,
-      "profile:all:update"
-    );
+  const loadUsers = useCallback(
+    async ({ quiet = false } = {}) => {
+      if (quiet) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError("");
 
-  const canDeactivate =
-    hasPermission(
-      currentUser,
-      "employee:deactivate"
-    );
+      try {
+        const [response, roleRows] = await Promise.all([
+          adminStaffService.list({ limit: 500 }),
+          canViewStaffRoles ? staffRoleService.list() : Promise.resolve([]),
+        ]);
 
-  const canManageRoles =
-    hasPermission(
-      currentUser,
-      "employee:role:update"
-    );
-
-  const canViewStaffRoles =
-    hasPermission(
-      currentUser,
-      "staff-role:read"
-    );
-
-  const [
-    users,
-    setUsers,
-  ] = useState([]);
-
-  const [
-    roles,
-    setRoles,
-  ] = useState([]);
-
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
-
-  const [
-    refreshing,
-    setRefreshing,
-  ] = useState(false);
-
-  const [
-    updatingId,
-    setUpdatingId,
-  ] = useState("");
-
-  const [
-    showForm,
-    setShowForm,
-  ] = useState(false);
-
-  const [
-    search,
-    setSearch,
-  ] = useState("");
-
-  const [
-    roleFilter,
-    setRoleFilter,
-  ] = useState("");
-
-  const [
-    accessFilter,
-    setAccessFilter,
-  ] = useState("");
-
-  const [
-    error,
-    setError,
-  ] = useState("");
-
-  const [
-    success,
-    setSuccess,
-  ] = useState("");
-
-  const loadUsers =
-    useCallback(
-      async ({
-        quiet = false,
-      } = {}) => {
-        if (quiet) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
-
-        setError("");
-
-        try {
-          const [
-            response,
-            roleRows,
-          ] =
-            await Promise.all([
-              adminStaffService.list({
-                limit: 500,
-              }),
-              canViewStaffRoles
-                ? staffRoleService.list()
-                : Promise.resolve([]),
-            ]);
-
-          setUsers(
-            response?.users || []
-          );
-          setRoles(
-            Array.isArray(roleRows)
-              ? roleRows
-              : []
-          );
-        } catch (
-          requestError
-        ) {
-          setError(
-            errorMessage(
-              requestError
-            )
-          );
-        } finally {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      },
-      [
-        canViewStaffRoles,
-      ]
-    );
+        setUsers(Array.isArray(response?.users) ? response.users : []);
+        setRoles(Array.isArray(roleRows) ? roleRows : []);
+      } catch (requestError) {
+        setError(errorMessage(requestError));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [canViewStaffRoles]
+  );
 
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
 
-  const filteredUsers =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
-          .toLowerCase();
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-      return users.filter(
-        (user) => {
-          if (
-            roleFilter &&
-            user.role !==
-              roleFilter
-          ) {
-            return false;
-          }
+    return users.filter((user) => {
+      if (roleFilter && user.role !== roleFilter) return false;
+      if (accessFilter === "enabled" && user.signInEnabled === false) {
+        return false;
+      }
+      if (accessFilter === "disabled" && user.signInEnabled !== false) {
+        return false;
+      }
+      if (!query) return true;
 
-          if (
-            accessFilter ===
-              "enabled" &&
-            user.signInEnabled ===
-              false
-          ) {
-            return false;
-          }
-
-          if (
-            accessFilter ===
-              "disabled" &&
-            user.signInEnabled !==
-              false
-          ) {
-            return false;
-          }
-
-          if (!query) {
-            return true;
-          }
-
-          return [
-            user.name,
-            user.email,
-            user.phone,
-            user.role,
-          ].some((value) =>
-            String(
-              value || ""
-            )
-              .toLowerCase()
-              .includes(query)
-          );
-        }
+      return [user.name, user.email, user.phone, user.role].some((value) =>
+        String(value || "").toLowerCase().includes(query)
       );
-    }, [
-      users,
-      search,
-      roleFilter,
-      accessFilter,
-    ]);
+    });
+  }, [users, search, roleFilter, accessFilter]);
 
   function openCreateForm() {
     setError("");
@@ -317,18 +154,11 @@ export default function AdminStaffAccountsPage() {
     setShowForm(true);
   }
 
-  async function updateEmployeeSetting(
-    user,
-    field,
-    value
-  ) {
-    const signInDisabled =
-      user.signInEnabled ===
-      false;
+  async function updateEmployeeSetting(user, field, value) {
+    const signInDisabled = user.signInEnabled === false;
 
     if (
-      field ===
-        "isActive" &&
+      field === "isActive" &&
       value === false &&
       !window.confirm(
         signInDisabled
@@ -339,186 +169,118 @@ export default function AdminStaffAccountsPage() {
       return;
     }
 
-    const operationId =
-      `${user.id}:${field}`;
-
-    setUpdatingId(
-      operationId
-    );
-
+    const operationId = `${user.id}:${field}`;
+    setUpdatingId(operationId);
     setError("");
     setSuccess("");
 
     try {
       if (signInDisabled) {
-        const profileId =
-          user
-            ?.stylistProfile
-            ?.id;
+        const profileId = user?.stylistProfile?.id;
 
         if (!profileId) {
-          throw new Error(
-            "This employee record does not have a staff profile."
-          );
+          throw new Error("This employee record does not have a staff profile.");
         }
 
-        if (
-          ![
-            "isActive",
-            "profilePublished",
-            "acceptsAppointments",
-          ].includes(
-            field
-          )
-        ) {
+        if (!["isActive", "profilePublished", "acceptsAppointments"].includes(field)) {
           throw new Error(
             "Enable sign-in access before changing application roles or permissions."
           );
         }
 
-        const profile =
-          await stylistService.updateStylist(
-            profileId,
-            {
-              [field]:
-                value,
-            }
-          );
+        const profile = await stylistService.updateStylist(profileId, {
+          [field]: value,
+        });
 
-        setUsers(
-          (current) =>
-            current.map(
-              (item) =>
-                item.id ===
-                user.id
-                  ? {
-                      ...item,
-                      isActive:
-                        field ===
-                        "isActive"
-                          ? profile.isActive ===
-                            true
-                          : item.isActive,
-                      profilePhoto:
-                        profile.profileImage ||
-                        item.profilePhoto,
-                      stylistProfile: {
-                        ...item.stylistProfile,
-                        ...profile,
-                        id:
-                          profile._id ||
-                          profileId,
-                      },
-                    }
-                  : item
-            )
+        setUsers((current) =>
+          current.map((item) =>
+            item.id === user.id
+              ? {
+                  ...item,
+                  isActive:
+                    field === "isActive"
+                      ? profile.isActive === true
+                      : item.isActive,
+                  profilePhoto: profile.profileImage || item.profilePhoto,
+                  stylistProfile: {
+                    ...item.stylistProfile,
+                    ...profile,
+                    id: profile._id || profileId,
+                  },
+                }
+              : item
+          )
         );
 
-        setSuccess(
-          `${user.name} staff profile updated.`
-        );
-
+        setSuccess(`${user.name} staff profile updated.`);
         return;
       }
 
       const response =
-        field ===
-        "isActive"
-          ? await adminStaffService.setStatus(
-              user.id,
-              value
-            )
-          : await adminStaffService.updateSettings(
-              user.id,
-              {
-                [field]: value,
-              }
-            );
+        field === "isActive"
+          ? await adminStaffService.setStatus(user.id, value)
+          : await adminStaffService.updateSettings(user.id, {
+              [field]: value,
+            });
 
-      setSuccess(
-        response?.message ||
-          "Employee settings updated."
+      setSuccess(response?.message || "Employee settings updated.");
+      setUsers((current) =>
+        current.map((item) => (item.id === user.id ? response.user : item))
       );
-
-      setUsers(
-        (current) =>
-          current.map(
-            (item) =>
-              item.id ===
-              user.id
-                ? response.user
-                : item
-          )
-      );
-    } catch (
-      requestError
-    ) {
-      setError(
-        errorMessage(
-          requestError
-        )
-      );
+    } catch (requestError) {
+      setError(errorMessage(requestError));
     } finally {
       setUpdatingId("");
     }
   }
+
+  const pageBusy = loading || refreshing || Boolean(updatingId);
 
   return (
     <main
       className="space-y-6 p-4 sm:p-6 lg:p-8"
       id="main-content"
       tabIndex="-1"
+      aria-busy={pageBusy}
     >
       <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-2 text-amber-700">
-            <UsersRound
-              size={20}
-            />
-
+            <UsersRound size={20} aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-wider">
               Administration
             </span>
           </div>
 
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">
-            Employees
-          </h1>
-
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Employees</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            View the complete salon workforce and manage employee sign-in access, public visibility, global booking eligibility and today&apos;s schedule from one page.
+            View the complete salon workforce and manage employee sign-in access,
+            public visibility, global booking eligibility and today&apos;s schedule
+            from one page.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            disabled={refreshing}
-            onClick={() =>
-              loadUsers({
-                quiet: true,
-              })
-            }
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            disabled={refreshing || loading}
+            onClick={() => void loadUsers({ quiet: true })}
           >
             <RefreshCw
               size={17}
-              className={
-                refreshing
-                  ? "animate-spin"
-                  : ""
-              }
+              aria-hidden="true"
+              className={refreshing ? "animate-spin" : ""}
             />
-
-            Refresh
+            {refreshing ? "Refreshing" : "Refresh"}
           </button>
 
           {canViewStaffRoles ? (
             <Link
               to="/admin/staff-roles"
-              className="inline-flex items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black bg-white px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-50"
             >
-              <ShieldCheck size={17} />
+              <ShieldCheck size={17} aria-hidden="true" />
               Manage roles
             </Link>
           ) : null}
@@ -526,12 +288,10 @@ export default function AdminStaffAccountsPage() {
           {canCreate ? (
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
-              onClick={
-                openCreateForm
-              }
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black hover:bg-amber-300"
+              onClick={openCreateForm}
             >
-              <Plus size={17} />
+              <Plus size={17} aria-hidden="true" />
               Add employee
             </button>
           ) : null}
@@ -551,173 +311,149 @@ export default function AdminStaffAccountsPage() {
         <div
           className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
           role="status"
+          aria-live="polite"
         >
-          <CheckCircle2
-            size={17}
-          />
+          <CheckCircle2 size={17} aria-hidden="true" />
           {success}
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        aria-labelledby="staff-account-filters-title"
+      >
+        <h2 id="staff-account-filters-title" className="sr-only">
+          Employee filters
+        </h2>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem_14rem]">
-          <input
-            type="search"
-            className="rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
-            placeholder="Search staff name, email or phone..."
-            value={search}
-            onChange={(
-              event
-            ) =>
-              setSearch(
-                event.target
-                  .value
-              )
-            }
-          />
+          <label className="block">
+            <span className="sr-only">Search employees</span>
+            <input
+              type="search"
+              aria-label="Search employees"
+              className="min-h-11 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+              placeholder="Search staff name, email or phone..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
 
-          <select
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
-            value={
-              roleFilter
-            }
-            onChange={(
-              event
-            ) =>
-              setRoleFilter(
-                event.target
-                  .value
-              )
-            }
-          >
-            <option value="">
-              All staff roles
-            </option>
-
-            {roles.map(
-              (role) => (
-                <option
-                  key={
-                    role.key
-                  }
-                  value={
-                    role.key
-                  }
-                >
+          <label className="block">
+            <span className="sr-only">Staff role filter</span>
+            <select
+              aria-label="Staff role filter"
+              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+              value={roleFilter}
+              onChange={(event) => setRoleFilter(event.target.value)}
+            >
+              <option value="">All staff roles</option>
+              {roles.map((role) => (
+                <option key={role.key} value={role.key}>
                   {role.name}
-                  {role.active === false
-                    ? " (inactive)"
-                    : ""}
+                  {role.active === false ? " (inactive)" : ""}
                 </option>
-              )
-            )}
-          </select>
+              ))}
+            </select>
+          </label>
 
-          <select
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
-            value={accessFilter}
-            onChange={(event) =>
-              setAccessFilter(
-                event.target.value
-              )
-            }
-            aria-label="Sign-in access filter"
-          >
-            <option value="">
-              All sign-in states
-            </option>
-            <option value="enabled">
-              Sign-in enabled
-            </option>
-            <option value="disabled">
-              Sign-in not enabled
-            </option>
-          </select>
+          <label className="block">
+            <span className="sr-only">Sign-in access filter</span>
+            <select
+              className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+              value={accessFilter}
+              onChange={(event) => setAccessFilter(event.target.value)}
+              aria-label="Sign-in access filter"
+            >
+              <option value="">All sign-in states</option>
+              <option value="enabled">Sign-in enabled</option>
+              <option value="disabled">Sign-in not enabled</option>
+            </select>
+          </label>
         </div>
+
+        {!loading ? (
+          <p
+            className="mt-3 text-xs font-semibold text-slate-500"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {filteredUsers.length} of {users.length} employees shown.
+          </p>
+        ) : null}
       </section>
 
       {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">
+        <div
+          className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600"
+          role="status"
+          aria-live="polite"
+        >
           Loading employees...
         </div>
-      ) : filteredUsers.length ===
-        0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+      ) : filteredUsers.length === 0 ? (
+        <div
+          className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500"
+          role="status"
+        >
           No employees match the current filters.
         </div>
       ) : (
-        <section className="grid gap-4 xl:grid-cols-2">
-          {filteredUsers.map(
-            (user) => (
+        <section className="grid gap-4 xl:grid-cols-2" aria-label="Employee accounts">
+          {filteredUsers.map((user) => {
+            const cardBusy = updatingId.startsWith(`${user.id}:`);
+            const signInDisabled = user.signInEnabled === false;
+
+            return (
               <article
                 key={user.id}
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                aria-busy={cardBusy}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-sm font-bold text-slate-600">
-                    {employeeDisplayPhoto(
-                      user
-                    ) ? (
+                    {employeeDisplayPhoto(user) ? (
                       <img
-                        src={
-                          employeeDisplayPhoto(
-                            user
-                          )
-                        }
+                        src={employeeDisplayPhoto(user)}
                         alt=""
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      avatarInitials(
-                        user.name
-                      )
+                      avatarInitials(user.name)
                     )}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-bold text-slate-900">
-                        {user.name}
-                      </h2>
-
+                      <h2 className="font-bold text-slate-900">{user.name}</h2>
                       <span
                         className={
-                          user.isActive !==
-                          false
+                          user.isActive !== false
                             ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700"
                             : "rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"
                         }
                       >
-                        {user.isActive !==
-                        false
-                          ? "Active"
-                          : "Inactive"}
+                        {user.isActive !== false ? "Active" : "Inactive"}
                       </span>
                     </div>
 
                     <p className="mt-1 break-all text-sm text-slate-600">
-                      {user.email ||
-                        "No email address"}
+                      {user.email || "No email address"}
                     </p>
 
-                    {user.signInEnabled ===
-                    false ? (
+                    {signInDisabled ? (
                       <span className="mt-2 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-900">
                         Sign-in not enabled
                       </span>
                     ) : null}
 
                     {user.phone ? (
-                      <p className="mt-1 text-sm text-slate-500">
-                        {user.phone}
-                      </p>
+                      <p className="mt-1 text-sm text-slate-500">{user.phone}</p>
                     ) : null}
 
                     <label className="mt-3 block max-w-52 text-xs font-bold uppercase tracking-wide text-slate-600">
                       Access role
-
-                      {user.signInEnabled ===
-                      false ? (
+                      {signInDisabled ? (
                         <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-amber-800">
                           Sign-in not enabled
                         </span>
@@ -726,43 +462,28 @@ export default function AdminStaffAccountsPage() {
                           value={user.role}
                           disabled={Boolean(updatingId)}
                           onChange={(event) =>
-                            updateEmployeeSetting(
-                              user,
-                              "role",
-                              event.target.value
-                            )
+                            void updateEmployeeSetting(user, "role", event.target.value)
                           }
-                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
+                          className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-semibold normal-case tracking-normal text-black"
                           aria-label={`Role for ${user.name}`}
                         >
-                          {roles.map(
-                            (role) => (
-                              <option
-                                key={role.key}
-                                value={role.key}
-                                disabled={
-                                  (
-                                    role.assignable === false ||
-                                    role.active === false
-                                  ) &&
-                                  user.role !== role.key
-                                }
-                              >
-                                {role.name}
-                                {role.active === false
-                                  ? " (inactive)"
-                                  : ""}
-                              </option>
-                            )
-                          )}
+                          {roles.map((role) => (
+                            <option
+                              key={role.key}
+                              value={role.key}
+                              disabled={
+                                (role.assignable === false || role.active === false) &&
+                                user.role !== role.key
+                              }
+                            >
+                              {role.name}
+                              {role.active === false ? " (inactive)" : ""}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-black">
-                          {roles.find(
-                            (role) =>
-                              role.key ===
-                              user.role
-                          )?.name || user.role}
+                          {roles.find((role) => role.key === user.role)?.name || user.role}
                         </span>
                       )}
                     </label>
@@ -772,10 +493,9 @@ export default function AdminStaffAccountsPage() {
                 <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
                   <div>
                     <div className="flex items-center gap-2 text-sm font-bold text-black">
-                      <CalendarClock size={16} />
+                      <CalendarClock size={16} aria-hidden="true" />
                       Today&apos;s schedule
                     </div>
-
                     <p className="mt-1 text-sm text-slate-700">
                       {employeeScheduleForDate(user)}
                     </p>
@@ -783,10 +503,9 @@ export default function AdminStaffAccountsPage() {
 
                   <div>
                     <div className="flex items-center gap-2 text-sm font-bold text-black">
-                      <Scissors size={16} />
+                      <Scissors size={16} aria-hidden="true" />
                       Services
                     </div>
-
                     <p className="mt-1 text-sm text-slate-700">
                       {employeeServiceNames(user).length
                         ? employeeServiceNames(user).join(", ")
@@ -797,7 +516,7 @@ export default function AdminStaffAccountsPage() {
 
                 <div className="mt-4 border-t border-slate-200 pt-4">
                   <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-600">
-                    <ShieldCheck size={15} />
+                    <ShieldCheck size={15} aria-hidden="true" />
                     Employee controls
                   </div>
 
@@ -806,82 +525,50 @@ export default function AdminStaffAccountsPage() {
                       checked={user.isActive !== false}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.signInEnabled ===
-                        false
-                          ? !canUpdateProfiles
-                          : !canDeactivate)
+                        (signInDisabled ? !canUpdateProfiles : !canDeactivate)
                       }
-                      label={
-                        user.signInEnabled ===
-                        false
-                          ? "Active"
-                          : "Active"
-                      }
+                      label="Active"
                       onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "isActive",
-                          value
-                        )
+                        void updateEmployeeSetting(user, "isActive", value)
                       }
                     />
-
                     <SettingSwitch
                       checked={user.stylistProfile?.profilePublished === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.signInEnabled ===
-                        false
-                          ? !canUpdateProfiles
-                          : !canUpdate)
+                        (signInDisabled ? !canUpdateProfiles : !canUpdate)
                       }
                       label="Published"
                       onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "profilePublished",
-                          value
-                        )
+                        void updateEmployeeSetting(user, "profilePublished", value)
                       }
                     />
-
                     <SettingSwitch
                       checked={user.stylistProfile?.acceptsAppointments === true}
                       disabled={
                         Boolean(updatingId) ||
-                        (user.signInEnabled ===
-                        false
-                          ? !canUpdateProfiles
-                          : !canUpdate)
+                        (signInDisabled ? !canUpdateProfiles : !canUpdate)
                       }
                       label="Bookable"
                       onChange={(value) =>
-                        updateEmployeeSetting(
-                          user,
-                          "acceptsAppointments",
-                          value
-                        )
+                        void updateEmployeeSetting(user, "acceptsAppointments", value)
                       }
                     />
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Link
-                      to={
-                        employeeManagementPath(
-                          user
-                        )
-                      }
-                      className="rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
+                      to={employeeManagementPath(user)}
+                      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-black px-3 py-2 text-xs font-bold text-black hover:bg-amber-50"
                     >
                       Manage employee
                     </Link>
 
                     <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                       {user.stylistProfile?.profilePublished ? (
-                        <Eye size={14} />
+                        <Eye size={14} aria-hidden="true" />
                       ) : (
-                        <EyeOff size={14} />
+                        <EyeOff size={14} aria-hidden="true" />
                       )}
                       {user.stylistProfile?.profilePublished
                         ? "Public profile visible"
@@ -890,31 +577,22 @@ export default function AdminStaffAccountsPage() {
                   </div>
                 </div>
               </article>
-            )
-          )}
+            );
+          })}
         </section>
       )}
 
       <AddEmployeeModal
         open={showForm}
-        onClose={() =>
-          setShowForm(false)
-        }
-        onCreated={async (
-          response
-        ) => {
+        onClose={() => setShowForm(false)}
+        onCreated={async (response) => {
           setError("");
           setSuccess(
-            response?.message ||
-              "Employee account and profile created successfully."
+            response?.message || "Employee account and profile created successfully."
           );
-
-          await loadUsers({
-            quiet: true,
-          });
+          await loadUsers({ quiet: true });
         }}
       />
-
     </main>
   );
 }
