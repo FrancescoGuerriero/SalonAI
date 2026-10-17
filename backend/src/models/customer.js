@@ -400,6 +400,15 @@ const bookingPreferencesSchema =
 
 const customerSchema = new Schema(
   {
+    // Transitional AIIBP tenant ownership. Optional until the canonical
+    // Customer backfill is reviewed, applied and verified in production.
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+
     userAccount: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -1090,6 +1099,17 @@ customerSchema.index(
     },
   }
 );
+
+customerSchema.index({
+  business: 1,
+  status: 1,
+  lastVisit: -1,
+});
+
+customerSchema.index({
+  business: 1,
+  createdAt: -1,
+});
 
 customerSchema.index({
   firstName: "text",
