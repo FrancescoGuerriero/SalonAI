@@ -20,7 +20,7 @@ import * as controller from "./staffRotaController.js";
 
 const router = express.Router();
 const manageRota = requirePermissions("employee:schedule:update");
-const viewRota = requirePermissions("employee:schedule:view");
+const viewRota = requirePermissions("appointment:read");
 
 const rotaTenantAuthority = [
   workforcePublicTenantContextMiddleware,
