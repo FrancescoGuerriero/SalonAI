@@ -4,6 +4,20 @@ const { Schema } = mongoose;
 
 const customerFeedbackSchema = new Schema(
   {
+    // Transitional #309 ownership. Business is authoritative; location is
+    // optional until it can be reconciled from the linked Appointment.
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    location: {
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     customer: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
@@ -67,6 +81,18 @@ const customerFeedbackSchema = new Schema(
     timestamps: true,
   }
 );
+
+customerFeedbackSchema.index({
+  business: 1,
+  location: 1,
+  createdAt: -1,
+});
+
+customerFeedbackSchema.index({
+  business: 1,
+  sentiment: 1,
+  createdAt: -1,
+});
 
 const CustomerFeedback =
   mongoose.models.CustomerFeedback ||
