@@ -1,5 +1,6 @@
 import Business from "../../models/Business.js";
 import Location from "../../models/Location.js";
+import Product from "../../features/commerce/Product.js";
 import Supplier from "../../features/inventoryPurchasing/models/Supplier.js";
 import SupplierProduct from "../../features/inventoryPurchasing/models/SupplierProduct.js";
 import PurchaseOrder from "../../features/inventoryPurchasing/models/PurchaseOrder.js";
@@ -60,7 +61,13 @@ export async function loadInventoryPurchasingOwnershipSnapshot({
     session,
   });
 
-  const [suppliers, supplierProducts, purchaseOrders] = await Promise.all([
+  const [products, suppliers, supplierProducts, purchaseOrders] = await Promise.all([
+    querySession(
+      Product.find({})
+        .sort({ _id: 1 })
+        .select("_id business location slug sku"),
+      session
+    ).lean(),
     querySession(
       Supplier.find({}).sort({ _id: 1 }).select("_id business location code"),
       session
@@ -82,15 +89,18 @@ export async function loadInventoryPurchasingOwnershipSnapshot({
   const plan = buildInventoryPurchasingOwnershipPlan({
     business,
     location,
+    products,
     suppliers,
     supplierProducts,
     purchaseOrders,
   });
 
+  let productIndexes = [];
   let supplierIndexes = [];
   let purchaseOrderIndexes = [];
   if (includeIndexes && !session) {
-    [supplierIndexes, purchaseOrderIndexes] = await Promise.all([
+    [productIndexes, supplierIndexes, purchaseOrderIndexes] = await Promise.all([
+      Product.collection.indexes().catch(() => []),
       Supplier.collection.indexes().catch(() => []),
       PurchaseOrder.collection.indexes().catch(() => []),
     ]);
@@ -99,11 +109,13 @@ export async function loadInventoryPurchasingOwnershipSnapshot({
   return Object.freeze({
     business,
     location,
+    products: Object.freeze([...products]),
     suppliers: Object.freeze([...suppliers]),
     supplierProducts: Object.freeze([...supplierProducts]),
     purchaseOrders: Object.freeze([...purchaseOrders]),
     plan,
     indexes: Object.freeze({
+      products: Object.freeze([...productIndexes]),
       suppliers: Object.freeze([...supplierIndexes]),
       purchaseOrders: Object.freeze([...purchaseOrderIndexes]),
     }),
