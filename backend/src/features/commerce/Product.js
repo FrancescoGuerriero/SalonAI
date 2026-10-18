@@ -7,6 +7,23 @@ import {
 
 const productSchema = new mongoose.Schema(
   {
+    // Transitional #476 ownership because this canonical Product record also
+    // carries stockQuantity/reorderLevel used by inventory purchasing.
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    // Current stock is a single-location quantity. The canonical SalonAI
+    // migration assigns its primary Location; future shared catalogue data
+    // should separate catalogue metadata from per-Location stock state.
+    location: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -18,7 +35,6 @@ const productSchema = new mongoose.Schema(
       required: true,
       trim: true,
       lowercase: true,
-      unique: true,
       index: true,
     },
     sku: {
@@ -26,7 +42,6 @@ const productSchema = new mongoose.Schema(
       required: true,
       trim: true,
       uppercase: true,
-      unique: true,
       index: true,
     },
     brand: {
@@ -98,27 +113,13 @@ const productSchema = new mongoose.Schema(
       validate: [
         {
           validator(images) {
-            return (
-              Array.isArray(
-                images
-              ) &&
-              images.length <=
-                MAX_CATALOGUE_IMAGES
-            );
+            return Array.isArray(images) && images.length <= MAX_CATALOGUE_IMAGES;
           },
-          message:
-            "A product can have at most six images.",
+          message: "A product can have at most six images.",
         },
         {
           validator(images) {
-            return (
-              Array.isArray(
-                images
-              ) &&
-              images.every(
-                isSupportedCatalogueImage
-              )
-            );
+            return Array.isArray(images) && images.every(isSupportedCatalogueImage);
           },
           message:
             "Product images must be HTTPS URLs, app-relative paths, or supported JPEG, PNG or WebP uploads.",
@@ -143,6 +144,24 @@ const productSchema = new mongoose.Schema(
   }
 );
 
+productSchema.index({ business: 1, location: 1, active: 1, name: 1 });
+productSchema.index(
+  { business: 1, slug: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { business: { $type: "objectId" } },
+    name: "product_business_slug_unique",
+  }
+);
+productSchema.index(
+  { business: 1, sku: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { business: { $type: "objectId" } },
+    name: "product_business_sku_unique",
+  }
+);
+
 productSchema.virtual("inStock").get(function inStock() {
   return this.active && this.stockQuantity > 0;
 });
@@ -152,10 +171,6 @@ productSchema.virtual("lowStock").get(function lowStock() {
 });
 
 const Product =
-  mongoose.models.Product ||
-  mongoose.model(
-    "Product",
-    productSchema
-  );
+  mongoose.models.Product || mongoose.model("Product", productSchema);
 
 export default Product;
