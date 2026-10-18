@@ -23,8 +23,23 @@ test(
 
     for (const routePattern of [
       "\/shifts",
-      "\/shifts\/:shiftId",
       "\/weeks\/publish",
+    ]) {
+      assert.match(
+        routes,
+        new RegExp(
+          `"${routePattern}"[\\s\\S]{0,160}manageRota`
+        )
+      );
+    }
+
+    assert.match(
+      routes,
+      /const scopedExistingShiftMutation = \[[\s\S]{0,240}manageRota/
+    );
+
+    for (const routePattern of [
+      "\/shifts\/:shiftId",
       "\/shifts\/:shiftId\/clock-in",
       "\/shifts\/:shiftId\/clock-out",
       "\/shifts\/:shiftId\/attendance",
@@ -32,7 +47,7 @@ test(
       assert.match(
         routes,
         new RegExp(
-          `"${routePattern}"[\\s\\S]{0,160}manageRota`
+          `"${routePattern}"[\\s\\S]{0,160}\\.\\.\\.scopedExistingShiftMutation`
         )
       );
     }
