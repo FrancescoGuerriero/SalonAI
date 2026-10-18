@@ -25,6 +25,32 @@ const providerBindingSchema = new Schema(
   { _id: false }
 );
 
+const lifecycleHistorySchema = new Schema(
+  {
+    action: { type: String, required: true, trim: true },
+    fromState: { type: String, required: true, trim: true },
+    toState: { type: String, required: true, trim: true },
+    fromPlanKey: { type: String, required: true, trim: true },
+    toPlanKey: { type: String, required: true, trim: true },
+    revision: { type: Number, required: true, min: 2 },
+    fingerprint: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[a-f0-9]{64}$/, "Lifecycle fingerprint must be a SHA-256 hex digest."],
+    },
+    source: {
+      type: String,
+      enum: ["platform", "operator", "billing", "migration"],
+      default: "platform",
+    },
+    occurredAt: { type: Date, required: true },
+    reason: { type: String, trim: true, default: "", maxlength: 500 },
+  },
+  { _id: true }
+);
+
 const tenantSubscriptionSchema = new Schema(
   {
     business: {
@@ -52,6 +78,7 @@ const tenantSubscriptionSchema = new Schema(
       default: "",
       match: [/^$|^[a-f0-9]{64}$/, "Transition fingerprint must be empty or a SHA-256 hex digest."],
     },
+    lifecycleHistory: { type: [lifecycleHistorySchema], default: [] },
     trialStartedAt: { type: Date, default: null },
     trialEndsAt: { type: Date, default: null },
     currentPeriodStart: { type: Date, default: null },
