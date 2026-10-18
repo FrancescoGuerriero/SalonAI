@@ -19,6 +19,10 @@ function notFound(message = "Communication resource not found.") {
   return error;
 }
 
+function isObjectId(value) {
+  return /^[a-f\d]{24}$/i.test(String(value ?? "").trim());
+}
+
 function identifierConditions(identifier) {
   const value = String(identifier ?? "").trim();
   if (!value) return [];
@@ -28,7 +32,7 @@ function identifierConditions(identifier) {
     { providerMessageId: value },
   ];
 
-  if (/^[a-f\d]{24}$/i.test(value)) {
+  if (isObjectId(value)) {
     conditions.unshift({ _id: value });
   }
 
@@ -67,6 +71,7 @@ function resourceMiddleware({
   param,
   attachAs,
   identifier = false,
+  field = "_id",
   requireSelectedLocation = false,
   allowBusinessWide = true,
 }) {
@@ -76,7 +81,22 @@ function resourceMiddleware({
     next
   ) {
     try {
-      const value = request.params?.[param];
+      const value = String(
+        request.params?.[param] ?? ""
+      ).trim();
+
+      if (!value) {
+        throw notFound();
+      }
+
+      if (
+        !identifier &&
+        field === "_id" &&
+        !isObjectId(value)
+      ) {
+        throw notFound();
+      }
+
       const scopeFilter =
         communicationAggregateAuthorityFilter(
           request.communicationScope,
@@ -85,7 +105,7 @@ function resourceMiddleware({
 
       const identityFilter = identifier
         ? { $or: identifierConditions(value) }
-        : { _id: value };
+        : { [field]: value };
 
       if (
         identifier &&
@@ -144,6 +164,14 @@ export const scopedTemplateResource =
     attachAs: "communicationTemplate",
   });
 
+export const scopedTemplateSlugResource =
+  resourceMiddleware({
+    Model: CommunicationTemplate,
+    param: "slug",
+    field: "slug",
+    attachAs: "communicationTemplate",
+  });
+
 export const scopedTemplateMutationResource =
   resourceMiddleware({
     Model: CommunicationTemplate,
@@ -181,6 +209,13 @@ export async function scopedRecipientResource(
   next
 ) {
   try {
+    if (
+      !isObjectId(request.params?.recipientId) ||
+      !isObjectId(request.params?.campaignId)
+    ) {
+      throw notFound();
+    }
+
     const scopeFilter =
       communicationAggregateAuthorityFilter(
         request.communicationScope
@@ -191,8 +226,8 @@ export async function scopedRecipientResource(
         $and: [
           scopeFilter,
           {
-            _id: request.params?.recipientId,
-            campaign: request.params?.campaignId,
+            _id: request.params.recipientId,
+            campaign: request.params.campaignId,
           },
         ],
       });
@@ -219,6 +254,14 @@ export async function scopedScheduledCommunicationResource(
   next
 ) {
   try {
+    const campaignId = String(
+      request.params?.campaignId ?? ""
+    ).trim();
+
+    if (!isObjectId(campaignId)) {
+      throw notFound();
+    }
+
     const scopeFilter =
       communicationAggregateAuthorityFilter(
         request.communicationScope
@@ -230,8 +273,8 @@ export async function scopedScheduledCommunicationResource(
           scopeFilter,
           {
             $or: [
-              { _id: request.params?.campaignId },
-              { campaign: request.params?.campaignId },
+              { _id: campaignId },
+              { campaign: campaignId },
             ],
           },
         ],
@@ -267,4 +310,5 @@ export default {
   scopedScheduledCommunicationResource,
   scopedTemplateMutationResource,
   scopedTemplateResource,
+  scopedTemplateSlugResource,
 };
