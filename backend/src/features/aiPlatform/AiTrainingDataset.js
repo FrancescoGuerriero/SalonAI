@@ -27,6 +27,60 @@ const aiTrainingDatasetSchema =
         required: true,
         trim: true,
       },
+      scope: {
+        mode: {
+          type: String,
+          enum: [
+            "single_business",
+            "cross_business_deidentified",
+            "platform_global",
+          ],
+          default: "single_business",
+          index: true,
+        },
+        business: {
+          type: Schema.Types.ObjectId,
+          ref: "Business",
+          default: undefined,
+          index: true,
+        },
+        locations: {
+          type: [
+            {
+              type: Schema.Types.ObjectId,
+              ref: "Location",
+            },
+          ],
+          default: [],
+        },
+        verticals: {
+          type: [String],
+          default: [],
+        },
+        deidentified: {
+          type: Boolean,
+          default: true,
+          validate: {
+            validator(value) {
+              return (
+                this.scope?.mode !== "cross_business_deidentified" ||
+                value === true
+              );
+            },
+            message:
+              "cross-business datasets must be de-identified.",
+          },
+        },
+        governanceBasis: {
+          type: String,
+          trim: true,
+          maxlength: 1000,
+          default: "",
+          required() {
+            return this.scope?.mode === "cross_business_deidentified";
+          },
+        },
+      },
       status: {
         type: String,
         enum: [
@@ -144,6 +198,13 @@ aiTrainingDatasetSchema.index(
     unique: true,
   }
 );
+
+aiTrainingDatasetSchema.index({
+  "scope.mode": 1,
+  "scope.business": 1,
+  task: 1,
+  status: 1,
+});
 
 const AiTrainingDataset =
   mongoose.models
