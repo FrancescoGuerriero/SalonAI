@@ -1,7 +1,11 @@
 import * as service from "./staffRotaService.js";
+import * as tenantService from "./staffRotaTenantService.js";
 
 export async function week(request, response) {
-  const data = await service.getStaffRota(request.query);
+  const data = await tenantService.getTenantStaffRota(
+    request.query,
+    request.effectiveAuthority
+  );
 
   return response.status(200).json({
     success: true,
@@ -10,9 +14,10 @@ export async function week(request, response) {
 }
 
 export async function createShift(request, response) {
-  const shift = await service.createStaffShift(
+  const shift = await tenantService.createTenantStaffShift(
     request.body,
-    request.user
+    request.user,
+    request.effectiveAuthority
   );
 
   return response.status(201).json({
@@ -46,9 +51,10 @@ export async function deleteShift(request, response) {
 }
 
 export async function publishWeek(request, response) {
-  const result = await service.publishStaffRotaWeek(
+  const result = await tenantService.publishTenantStaffRotaWeek(
     request.body.startDate,
-    request.user
+    request.user,
+    request.effectiveAuthority
   );
 
   return response.status(200).json({
