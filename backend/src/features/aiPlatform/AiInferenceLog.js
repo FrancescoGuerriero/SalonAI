@@ -39,6 +39,35 @@ const aiInferenceLogSchema =
         default: "",
         index: true,
       },
+      tenant: {
+        business: {
+          type: Schema.Types.ObjectId,
+          ref: "Business",
+          default: null,
+          index: true,
+        },
+        location: {
+          type: Schema.Types.ObjectId,
+          ref: "Location",
+          default: null,
+          index: true,
+        },
+        verticalId: {
+          type: String,
+          trim: true,
+          default: "",
+          index: true,
+        },
+        source: {
+          type: String,
+          enum: [
+            "legacy_unassigned",
+            "trusted_runtime",
+            "governed_builder",
+          ],
+          default: "legacy_unassigned",
+        },
+      },
       requestedAt: {
         type: Date,
         default: Date.now,
@@ -138,6 +167,18 @@ aiInferenceLogSchema.index({
 aiInferenceLogSchema.index({
   capability: 1,
   outcomeObservedAt: 1,
+  requestedAt: -1,
+});
+
+aiInferenceLogSchema.index({
+  "tenant.business": 1,
+  capability: 1,
+  requestedAt: -1,
+});
+
+aiInferenceLogSchema.index({
+  "tenant.location": 1,
+  capability: 1,
   requestedAt: -1,
 });
 
