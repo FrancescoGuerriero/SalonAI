@@ -6,6 +6,7 @@ on:
       - "frontend/figma/**"
       - "frontend/figma.config.json"
       - "frontend/scripts/figma-sync.mjs"
+      - "frontend/scripts/figma-identity-guard.mjs"
       - "frontend/src/styles/aiibpTokens.generated.css"
       - "frontend/src/components/**/*.figma.ts"
       - "frontend/src/main.jsx"
@@ -18,6 +19,7 @@ on:
       - "frontend/figma/**"
       - "frontend/figma.config.json"
       - "frontend/scripts/figma-sync.mjs"
+      - "frontend/scripts/figma-identity-guard.mjs"
       - "frontend/src/styles/aiibpTokens.generated.css"
       - "frontend/src/components/**/*.figma.ts"
   schedule:
@@ -107,8 +109,10 @@ jobs:
         env:
           FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
         run: |
+          node frontend/scripts/figma-identity-guard.mjs
           node frontend/scripts/figma-sync.mjs pull
           node frontend/scripts/figma-sync.mjs check
+          node frontend/scripts/figma-sync.mjs remote-check
 
       - name: Open or update Figma token synchronization PR
         if: steps.figma.outputs.enabled == 'true'
@@ -182,7 +186,10 @@ jobs:
         if: steps.figma.outputs.enabled == 'true'
         env:
           FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
-        run: node frontend/scripts/figma-sync.mjs push
+        run: |
+          node frontend/scripts/figma-identity-guard.mjs
+          node frontend/scripts/figma-sync.mjs push
+          node frontend/scripts/figma-sync.mjs remote-check
 
       - name: Publish Code Connect mappings
         if: steps.figma.outputs.enabled == 'true'

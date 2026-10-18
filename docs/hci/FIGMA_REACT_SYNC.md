@@ -31,6 +31,7 @@ The repository automation therefore begins from a known matching design-token ba
 - `frontend/figma/aiibp.tokens.json` — versioned bridge manifest for the three managed Figma collections.
 - `frontend/src/styles/aiibpTokens.generated.css` — deterministic React/CSS output. Never edit by hand.
 - `frontend/scripts/figma-sync.mjs` — `generate`, `check`, `pull`, `push`, and `remote-check`.
+- `frontend/scripts/figma-identity-guard.mjs` — fail-closed stable-ID/name/collection/mode/type validation before unattended remote writes.
 - `frontend/figma.config.json` — Figma Code Connect project configuration.
 - `frontend/figma/code-connect/*.figma.ts` — production component mappings.
 - `.github/workflows/figma-react-sync.yml` — CI validation, scheduled Figma pull, and `main` publication.
@@ -98,16 +99,19 @@ Only these collections are synchronized:
 
 A new variable appearing in one of these collections causes the automated pull to fail closed. Add it deliberately to `aiibp.tokens.json`, review its CSS name/scope/type, then resume.
 
+Before either unattended direction executes, `figma-identity-guard.mjs` validates the stable collection, mode and variable identities. Renames, moves, recreation under a new Figma ID, or type changes fail closed and require an explicit manifest migration. This prevents a same-name replacement from silently becoming production design authority.
+
 ### Figma-originated changes
 
 The scheduled workflow:
 
-1. downloads the local variables;
-2. updates only existing allow-listed tokens;
-3. regenerates CSS;
-4. runs the deterministic token check;
-5. commits changes to `automation/figma-token-sync`;
-6. creates or updates a PR into `main`.
+1. validates stable Figma collection/mode/variable identities;
+2. downloads the local variables;
+3. updates only existing allow-listed tokens;
+4. regenerates CSS;
+5. runs the deterministic token check and a remote convergence check;
+6. commits changes to `automation/figma-token-sync`;
+7. creates or updates a PR into `main`.
 
 No Figma-originated change is written directly to `main`.
 
@@ -116,9 +120,11 @@ No Figma-originated change is written directly to `main`.
 On relevant changes merged to `main`, the workflow:
 
 1. validates the manifest and generated CSS;
-2. atomically updates the managed Figma variables through the Variables REST API;
-3. publishes Code Connect templates using the pinned `@figma/code-connect@2.0.0` CLI;
-4. fails visibly if plan, token scope, or Figma permissions are insufficient.
+2. validates stable remote Figma identities;
+3. atomically updates the managed Figma variables through the Variables REST API;
+4. verifies remote convergence against the approved manifest;
+5. publishes Code Connect templates using the pinned `@figma/code-connect@2.0.0` CLI;
+6. fails visibly if plan, token scope, Figma identity, convergence, or permissions are insufficient.
 
 ## Code Connect
 
