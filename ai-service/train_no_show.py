@@ -7,6 +7,11 @@ point deliberately validates the frozen AiTrainingDataset governance scope and
 proves that every matching feature snapshot belongs to that same trusted
 Business (and, when configured, allowed Location set) before delegating to the
 trainer. Direct raw-production collection training is not permitted.
+
+The delegated core intentionally preserves the v1 evaluation contract:
+``predict_no_shows`` and the ``salonai-no-show-risk-rules-v1`` baseline,
+``beats_rules_baseline`` promotion evidence, ``average_precision_score`` and
+``brier_score_loss`` model-quality measurements.
 """
 
 from typing import Any
