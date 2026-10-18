@@ -27,6 +27,9 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  communicationReferenceScopeMiddleware,
+} from "../middleware/communicationReferenceScopeMiddleware.js";
+import {
   communicationEffectiveScopeMiddleware,
   scopedCampaignMutationResource,
   scopedCampaignResource,
@@ -84,6 +87,7 @@ router.use(
 
 router.post(
   "/preview",
+  communicationReferenceScopeMiddleware,
   manageCommunications,
   previewNewCampaignAudience
 );
@@ -96,6 +100,7 @@ router.get(
 
 router.post(
   "/",
+  communicationReferenceScopeMiddleware,
   manageCommunications,
   createScopedCampaign
 );
@@ -212,6 +217,7 @@ router.get(
 router.patch(
   "/:campaignId",
   scopedCampaignMutationResource,
+  communicationReferenceScopeMiddleware,
   manageCommunications,
   updateCampaign
 );
