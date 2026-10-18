@@ -1,0 +1,263 @@
+name: SalonAI Production Customer Appointment Tenant Backfill Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Exact live application release reviewed during readiness
+        required: true
+        type: string
+      reviewed_plan_fingerprint:
+        description: Reviewed 64-character SHA-256 Customer/Appointment dry-run fingerprint
+        required: true
+        type: string
+      confirm_apply:
+        description: Type APPLY_CUSTOMER_APPOINTMENT_TENANT_BACKFILL to authorize the guarded production write
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply reviewed Customer Appointment ownership backfill
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate explicit production authorization inputs
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+          CONFIRM_APPLY: ${{ inputs.confirm_apply }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$REVIEWED_PLAN_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$CONFIRM_APPLY" == "APPLY_CUSTOMER_APPOINTMENT_TENANT_BACKFILL" ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Re-prove release, readiness and reviewed fingerprint immediately before apply
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 migration-evidence
+          evidence="migration-evidence/customer-appointment-tenant-backfill.txt"
+          readiness="$RUNNER_TEMP/customer-appointment-preflight-readiness.json"
+          plan1="$RUNNER_TEMP/customer-appointment-preflight-plan-1.json"
+          plan2="$RUNNER_TEMP/customer-appointment-preflight-plan-2.json"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo "SalonAI guarded production Customer/Appointment tenant backfill"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: $EXPECTED_RELEASE_TAG"
+          } | tee "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkCustomerAppointmentTenantReadiness.js' \
+            > "$readiness"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCustomerAppointmentTenantBackfill.js' \
+            > "$plan1"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCustomerAppointmentTenantBackfill.js' \
+            > "$plan2"
+
+          node - "$readiness" "$plan1" "$plan2" "$REVIEWED_PLAN_FINGERPRINT" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [readinessPath, plan1Path, plan2Path, reviewedFingerprint] = process.argv.slice(2);
+          const readiness = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+          const plan1 = JSON.parse(fs.readFileSync(plan1Path, 'utf8'));
+          const plan2 = JSON.parse(fs.readFileSync(plan2Path, 'utf8'));
+          if (readiness.readOnly !== true || readiness.databaseWrites !== false || readiness.safeForBackfill !== true) {
+            throw new Error('Customer/Appointment production readiness is no longer safe.');
+          }
+          if (readiness.piiIncluded !== false || readiness.identifiersIncluded !== false) {
+            throw new Error('Customer/Appointment readiness evidence is not sanitised.');
+          }
+          const blockerTypes = readiness?.summary?.blockerTypes || {};
+          if (Object.values(blockerTypes).some((value) => Number(value) !== 0)) {
+            throw new Error('Customer/Appointment readiness contains blockers.');
+          }
+          for (const plan of [plan1, plan2]) {
+            if (plan.dryRun !== true || plan.writesPerformed !== false || plan.databaseWrites !== false || plan.executable !== true || plan.blocked === true) {
+              throw new Error('Customer/Appointment preflight plan is not an executable zero-write plan.');
+            }
+            if (!/^[a-f0-9]{64}$/.test(String(plan.planFingerprint || ''))) {
+              throw new Error('Customer/Appointment plan fingerprint is invalid.');
+            }
+          }
+          if (plan1.planFingerprint !== plan2.planFingerprint || JSON.stringify(plan1.planned || {}) !== JSON.stringify(plan2.planned || {})) {
+            throw new Error('Customer/Appointment plan changed between immediate preflight runs.');
+          }
+          if (plan1.planFingerprint !== reviewedFingerprint) {
+            throw new Error('Customer/Appointment plan no longer matches the reviewed fingerprint.');
+          }
+          console.log('PREFLIGHT_READ_ONLY=true');
+          console.log(`PLAN_FINGERPRINT=${plan1.planFingerprint}`);
+          console.log('PLAN_MATCHES_REVIEWED_FINGERPRINT=true');
+          console.log(`CUSTOMER_UNOWNED=${Number(readiness?.coverage?.customers?.unowned || 0)}`);
+          console.log(`APPOINTMENT_UNOWNED_BUSINESS=${Number(readiness?.coverage?.appointments?.unownedBusiness || 0)}`);
+          console.log(`APPOINTMENT_UNOWNED_LOCATION=${Number(readiness?.coverage?.appointments?.unownedLocation || 0)}`);
+          NODE
+
+      - name: Apply exactly the reviewed Customer Appointment plan transactionally
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+        run: |
+          set -euo pipefail
+          apply_result="$RUNNER_TEMP/customer-appointment-apply-result.json"
+          evidence="migration-evidence/customer-appointment-tenant-backfill.txt"
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          ssh "${ssh_options[@]}" "$target" \
+            "set -euo pipefail; docker exec -e CUSTOMER_APPOINTMENT_TENANT_BACKFILL_CONFIRM=APPLY_CUSTOMER_APPOINTMENT_TENANT_BACKFILL -e CUSTOMER_APPOINTMENT_TENANT_BACKFILL_PLAN_FINGERPRINT=$REVIEWED_PLAN_FINGERPRINT salonai-backend node scripts/applyCustomerAppointmentTenantBackfill.js --apply" \
+            > "$apply_result"
+
+          node - "$apply_result" "$REVIEWED_PLAN_FINGERPRINT" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [resultPath, reviewedFingerprint] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+          if (result.applied !== true || result.planFingerprint !== reviewedFingerprint || result.postflightVerified !== true) {
+            throw new Error('Customer/Appointment apply did not verify the reviewed plan and postflight.');
+          }
+          if (result.identifiersIncluded !== false || result.piiIncluded !== false) {
+            throw new Error('Customer/Appointment apply evidence is not sanitised.');
+          }
+          console.log('APPLIED=true');
+          console.log(`APPLIED_OPERATION_COUNT=${Number(result.operationCount)}`);
+          console.log('POSTFLIGHT_VERIFIED=true');
+          console.log('PII_INCLUDED=false');
+          console.log('IDENTIFIERS_INCLUDED=false');
+          NODE
+
+      - name: Re-run Customer Appointment readiness postflight
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+          postflight="$RUNNER_TEMP/customer-appointment-postflight.json"
+          evidence="migration-evidence/customer-appointment-tenant-backfill.txt"
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkCustomerAppointmentTenantReadiness.js' \
+            > "$postflight"
+
+          node - "$postflight" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const readiness = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (readiness.readOnly !== true || readiness.databaseWrites !== false || readiness.safeForBackfill !== true) {
+            throw new Error('Customer/Appointment postflight readiness failed.');
+          }
+          if (Number(readiness?.coverage?.customers?.unowned || 0) !== 0 || Number(readiness?.coverage?.appointments?.unownedBusiness || 0) !== 0 || Number(readiness?.coverage?.appointments?.unownedLocation || 0) !== 0) {
+            throw new Error('Customer/Appointment postflight still contains unowned records.');
+          }
+          const blockerTypes = readiness?.summary?.blockerTypes || {};
+          if (Object.values(blockerTypes).some((value) => Number(value) !== 0)) {
+            throw new Error('Customer/Appointment postflight contains blockers.');
+          }
+          console.log('POSTFLIGHT_READ_ONLY=true');
+          console.log('CUSTOMER_UNOWNED=0');
+          console.log('APPOINTMENT_UNOWNED_BUSINESS=0');
+          console.log('APPOINTMENT_UNOWNED_LOCATION=0');
+          console.log('[PASS] Guarded Customer/Appointment production backfill completed with zero-unowned postflight.');
+          NODE
+
+      - name: Upload sanitised migration evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-customer-appointment-backfill-${{ github.run_id }}
+          path: migration-evidence
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          rm -f -- "${SSH_PRIVATE_KEY_PATH:-}" "${SSH_KNOWN_HOSTS_PATH:-}"
