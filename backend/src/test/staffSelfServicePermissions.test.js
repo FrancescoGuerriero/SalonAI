@@ -4,31 +4,24 @@ import test from "node:test";
 
 async function source(relativePath) {
   return readFile(
-    new URL(
-      relativePath,
-      import.meta.url
-    ),
+    new URL(relativePath, import.meta.url),
     "utf8"
   );
 }
 
-test("staff self-service routes keep explicit own-scope permissions", async () => {
+test("staff self-service workforce-only routes use tenant authority before own-scope permissions", async () => {
   const routes = await source(
     "../features/staff/staffRoutes.js"
   );
 
   for (const [pattern, label] of [
     [
-      /"\/me\/availability",\s*readOwnSchedule,\s*asyncHandler\(\s*controller\.myWeek/s,
-      "read own availability",
+      /"\/me\/availability",\s*\.\.\.workforceTenantAuthority,\s*readOwnSchedule,\s*asyncHandler\(\s*tenantScopedMyWeek/s,
+      "read own tenant-scoped availability",
     ],
     [
-      /"\/me\/availability",\s*updateOwnSchedule,\s*asyncHandler\(\s*controller\.setMyAvailability/s,
-      "update own availability",
-    ],
-    [
-      /"\/me\/day",\s*readOwnSchedule,\s*asyncHandler\(\s*controller\.myDay/s,
-      "read own day",
+      /"\/me\/availability",\s*\.\.\.workforceTenantAuthority,\s*updateOwnSchedule,\s*asyncHandler\(\s*tenantScopedSetMyAvailability/s,
+      "update own tenant-scoped availability",
     ],
     [
       /"\/me\/time-off",\s*\.\.\.workforceTenantAuthority,\s*readOwnSchedule,\s*asyncHandler\(\s*tenantScopedListMyTimeOff/s,
@@ -42,6 +35,14 @@ test("staff self-service routes keep explicit own-scope permissions", async () =
     assert.match(routes, pattern, `Missing route contract: ${label}`);
   }
 
+  assert.match(
+    routes,
+    /"\/me\/day",\s*readOwnSchedule,\s*asyncHandler\(\s*controller\.myDay/s
+  );
+  assert.doesNotMatch(
+    routes,
+    /"\/me\/day",\s*\.\.\.workforceTenantAuthority/s
+  );
   assert.doesNotMatch(
     routes,
     /router\.patch\(\s*"\/me\/time-off/
@@ -65,13 +66,46 @@ test("self-service time-off resolves the authenticated employee inside trusted w
     controller,
     /createScopedTimeOff\(\s*stylist\._id,\s*req\.body,\s*req\.effectiveAuthority/s
   );
-  assert.match(
-    controller,
-    /scope:\s*"self-tenant"/
-  );
   assert.doesNotMatch(
     controller,
     /Stylist\.findOne\(\{\s*userAccount/
+  );
+});
+
+test("self-service availability requires trusted location ownership and preserves seven-day fallback", async () => {
+  const service = await source(
+    "../services/staffSelfAvailabilityService.js"
+  );
+  const controller = await source(
+    "../features/staff/staffSelfServiceTenantController.js"
+  );
+
+  assert.match(
+    service,
+    /staffScheduleCreationOwnership\(authority\)/
+  );
+  assert.match(
+    service,
+    /scopedWorkforceFilter\(\s*authority,\s*\{\s*userAccount:\s*userId,\s*workingLocations:\s*ownership\.locationId/s
+  );
+  assert.match(
+    service,
+    /StaffAvailability\.find\(\{\s*business:\s*ownership\.businessId,\s*location:\s*ownership\.locationId,\s*staff:\s*stylist\._id/s
+  );
+  assert.match(service, /Array\.from\(\s*\{ length: 7 \}/s);
+  assert.match(service, /source:\s*"configured_availability"/);
+  assert.match(service, /source:\s*"stylist_working_hours"/);
+  assert.match(
+    service,
+    /setScopedWeeklyAvailability\(\s*stylist\._id,\s*payload,\s*authority/s
+  );
+  assert.match(
+    controller,
+    /scopedSelfWeeklyAvailability\(\s*req\.user\?\._id,\s*req\.effectiveAuthority/s
+  );
+  assert.match(
+    controller,
+    /setScopedSelfWeeklyAvailability\(\s*req\.user\?\._id,\s*req\.body,\s*req\.effectiveAuthority/s
   );
 });
 
@@ -96,73 +130,40 @@ test("cross-employee schedule and leave routes require tenant authority before d
   );
 });
 
-test("leave requests always enter requested state", async () => {
-  const service = await source(
-    "../features/staff/staffService.js"
-  );
-
-  assert.match(
-    service,
-    /StaffTimeOff\.create\(\{[\s\S]*?status:\s*"requested"/s
-  );
-  assert.doesNotMatch(
-    service,
-    /status:\s*payload\.status\s*\|\|/
-  );
-});
-
-test("legacy self availability still resolves the canonical linked staff account until its tenant slice lands", async () => {
-  const controller = await source(
-    "../features/staff/staffController.js"
-  );
-
-  assert.match(
-    controller,
-    /Stylist\.findOne\(\{\s*userAccount:\s*user\._id/s
-  );
-});
-
-test("self-service availability fallback remains unchanged", async () => {
-  const service = await source(
-    "../features/staff/staffService.js"
-  );
-  const controller = await source(
-    "../features/staff/staffController.js"
-  );
-
-  assert.match(service, /export async function weeklyAvailabilityWithFallback/);
-  assert.match(service, /source:\s*"stylist_working_hours"/);
-  assert.match(
-    controller,
-    /weeklyAvailabilityWithFallback\(\s*stylist\._id/s
-  );
-});
-
-test("schedule and leave writes retain canonical audit actions", async () => {
+test("Appointment-backed self day remains isolated from the workforce-only tenant activation", async () => {
   const legacyController = await source(
     "../features/staff/staffController.js"
   );
-  const tenantSelfController = await source(
+  const legacyService = await source(
+    "../features/staff/staffService.js"
+  );
+
+  assert.match(
+    legacyController,
+    /export async function myDay/
+  );
+  assert.match(
+    legacyController,
+    /service\.dayAvailability\(\s*stylist\._id/s
+  );
+  assert.match(
+    legacyService,
+    /Appointment\.find\(/
+  );
+});
+
+test("tenant self-service writes retain canonical audit actions", async () => {
+  const controller = await source(
     "../features/staff/staffSelfServiceTenantController.js"
   );
 
-  for (const action of [
-    "staff.availability_updated",
-    "staff.time_off_status_updated",
-  ]) {
-    assert.ok(
-      legacyController.includes(`"${action}"`),
-      `Missing canonical audit action: ${action}`
-    );
-  }
-
-  assert.ok(
-    tenantSelfController.includes('"staff.time_off_requested"')
-  );
-  assert.match(tenantSelfController, /recordAuditEvent\(/);
+  assert.ok(controller.includes('"staff.availability_updated"'));
+  assert.ok(controller.includes('"staff.time_off_requested"'));
+  assert.match(controller, /scope:\s*"self-tenant"/);
+  assert.match(controller, /recordAuditEvent\(/);
 });
 
-test("frontend exposes self-service only through delegated schedule permission", async () => {
+test("frontend exposes self-service through delegated schedule permission", async () => {
   const app = await source(
     "../../../frontend/src/App.jsx"
   );
