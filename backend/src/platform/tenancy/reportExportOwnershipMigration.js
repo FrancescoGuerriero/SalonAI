@@ -76,18 +76,12 @@ function inferOwner({
 
   const inferredBusinessId = referencedBusinessIds[0] || null;
 
-  if (
-    inferredBusinessId &&
-    !businessIds.has(inferredBusinessId)
-  ) {
+  if (inferredBusinessId && !businessIds.has(inferredBusinessId)) {
     addBlocker(blockers, source, recordId, "linked-business-not-found");
     return null;
   }
 
-  if (
-    currentBusinessId &&
-    !businessIds.has(currentBusinessId)
-  ) {
+  if (currentBusinessId && !businessIds.has(currentBusinessId)) {
     addBlocker(blockers, source, recordId, "existing-business-not-found");
     return null;
   }
@@ -251,7 +245,7 @@ export function buildReportExportOwnershipBackfillPlan(snapshot = {}) {
   // Customer is Business-owned and every Appointment is Business+Location-owned.
   for (const customer of customers) {
     if (!businessFrom(customer)) {
-      addBlocker(blockers, "customers", idText(customer), "customer-business-missing")
+      addBlocker(blockers, "customers", idText(customer), "customer-business-missing");
     }
   }
   for (const appointment of appointments) {
@@ -423,7 +417,7 @@ export function buildReportExportOwnershipBackfillPlan(snapshot = {}) {
     });
 
     if (blockers.length === localBlockerStart) {
-      pushOperation(-makeOperation({ source, record, businessId }));
+      pushOperation(makeOperation({ source, record, businessId }));
     }
   }
 
@@ -634,11 +628,11 @@ export function buildReportExportOwnershipBackfillPlan(snapshot = {}) {
     }),
     operations: Object.freeze(orderedOperations),
     rollback: Object.freeze(rollback),
-    blockers: Object.free(orderedBlockers),
+    blockers: Object.freeze(orderedBlockers),
   });
 }
 
-export function sanitiseReportExportBackfillPlan(plan){
+export function sanitiseReportExportBackfillPlan(plan) {
   if (!plan || typeof plan !== "object") {
     throw migrationError("Report/export ownership plan is required.");
   }
