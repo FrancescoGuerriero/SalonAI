@@ -159,8 +159,8 @@ export async function cancelPurchaseOrderHandler(request, response) {
 
 export async function receivePurchaseOrderHandler(request, response) {
   const purchaseOrder = await receivePurchaseOrder({
-    purchaseOrderId: request.params.purchaseOrderId,
     ...request.body,
+    purchaseOrderId: request.params.purchaseOrderId,
     receivedBy: request.user?._id,
     effectiveAuthority: request.effectiveAuthority,
   });
