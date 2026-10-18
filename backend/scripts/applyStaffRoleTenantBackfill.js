@@ -3,6 +3,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { pathToFileURL } from "node:url";
 
+import AuditLog from "../src/models/AuditLog.js";
 import Business from "../src/models/Business.js";
 import StaffRole from "../src/models/StaffRole.js";
 import {
@@ -112,6 +113,49 @@ async function loadPlan(configuration, session = null) {
   return { business, plan };
 }
 
+async function writeMigrationAudit({
+  session,
+  business,
+  fingerprint,
+  beforeSummary,
+  afterSummary,
+  appliedCount,
+}) {
+  await AuditLog.create(
+    [
+      {
+        action: "tenant_migration.staff_role_business_backfill",
+        resourceType: "TenantMigration",
+        resourceId: fingerprint,
+        before: {
+          unowned: beforeSummary.unowned,
+          targetOwned: beforeSummary.targetOwned,
+          foreignOwned: beforeSummary.foreignOwned,
+        },
+        after: {
+          unowned: afterSummary.unowned,
+          targetOwned: afterSummary.targetOwned,
+          foreignOwned: afterSummary.foreignOwned,
+        },
+        metadata: {
+          schemaVersion: 1,
+          targetBusinessId: String(business._id),
+          reviewedFingerprint: fingerprint,
+          operationCount: appliedCount,
+          rollback: {
+            strategy:
+              "unset business only for StaffRole records assigned by this reviewed migration after explicit rollback authorisation",
+            operationCount: appliedCount,
+          },
+          identifiersIncluded: false,
+          permissionsIncluded: false,
+        },
+      },
+    ],
+    { session }
+  );
+}
+
 export async function main(
   args = process.argv.slice(2),
   environment = process.env
@@ -170,6 +214,27 @@ export async function main(
 
         appliedCount += 1;
       }
+
+      const transactionalPostflight = await loadPlan(configuration, session);
+
+      if (
+        !transactionalPostflight.plan.readiness.safeForBusinessBackfill ||
+        transactionalPostflight.plan.readiness.summary.unowned !== 0 ||
+        transactionalPostflight.plan.readiness.summary.foreignOwned !== 0
+      ) {
+        throw new Error(
+          "StaffRole transactional postflight failed. Transaction aborted before migration provenance was recorded."
+        );
+      }
+
+      await writeMigrationAudit({
+        session,
+        business: current.business,
+        fingerprint: preflight.plan.fingerprint,
+        beforeSummary: preflight.plan.readiness.summary,
+        afterSummary: transactionalPostflight.plan.readiness.summary,
+        appliedCount,
+      });
     });
   } finally {
     await session.endSession();
@@ -179,7 +244,8 @@ export async function main(
 
   if (
     !postflight.plan.readiness.safeForBusinessBackfill ||
-    postflight.plan.readiness.summary.unowned !== 0
+    postflight.plan.readiness.summary.unowned !== 0 ||
+    postflight.plan.readiness.summary.foreignOwned !== 0
   ) {
     throw new Error(
       "StaffRole postflight verification failed: unowned or conflicting records remain."
@@ -194,10 +260,11 @@ export async function main(
         appliedCount,
         remainingUnowned: postflight.plan.readiness.summary.unowned,
         targetOwned: postflight.plan.readiness.summary.targetOwned,
+        migrationAuditRecorded: true,
         rollback: {
           operationCount: appliedCount,
           strategy:
-            "unset business only for the exact StaffRole ids owned by this reviewed migration if rollback is explicitly authorised",
+            "unset business only for StaffRole records assigned by this reviewed migration if rollback is explicitly authorised",
         },
       },
       null,
