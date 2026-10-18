@@ -23,6 +23,35 @@ const aiFeatureSnapshotSchema =
         trim: true,
         index: true,
       },
+      tenant: {
+        business: {
+          type: Schema.Types.ObjectId,
+          ref: "Business",
+          default: null,
+          index: true,
+        },
+        location: {
+          type: Schema.Types.ObjectId,
+          ref: "Location",
+          default: null,
+          index: true,
+        },
+        verticalId: {
+          type: String,
+          trim: true,
+          default: "",
+          index: true,
+        },
+        source: {
+          type: String,
+          enum: [
+            "legacy_unassigned",
+            "trusted_runtime",
+            "governed_builder",
+          ],
+          default: "legacy_unassigned",
+        },
+      },
       asOf: {
         type: Date,
         required: true,
@@ -121,6 +150,18 @@ aiFeatureSnapshotSchema.index(
     unique: true,
   }
 );
+
+aiFeatureSnapshotSchema.index({
+  "tenant.business": 1,
+  task: 1,
+  asOf: -1,
+});
+
+aiFeatureSnapshotSchema.index({
+  "tenant.location": 1,
+  task: 1,
+  asOf: -1,
+});
 
 const AiFeatureSnapshot =
   mongoose.models
