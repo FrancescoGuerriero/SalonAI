@@ -1,43 +1,42 @@
 import express from "express";
 
 import asyncHandler from "../../../middleware/asyncHandler.js";
+import { protect } from "../../../middleware/authMiddleware.js";
+import { effectiveAuthorityMiddleware } from "../../../middleware/effectiveAuthorityMiddleware.js";
+import { requireAnyPermission } from "../../../middleware/permissionMiddleware.js";
 import {
-  protect,
-} from "../../../middleware/authMiddleware.js";
+  workforcePublicTenantContextMiddleware,
+} from "../../../middleware/workforceTenantMiddleware.js";
 import {
-  requireAnyPermission,
-} from "../../../middleware/permissionMiddleware.js";
+  trustedTenantContextMiddleware,
+} from "../../../platform/tenancy/trustedTenantMiddleware.js";
 
 import {
   getSupplierPerformance,
   listReorderRecommendations,
 } from "../controllers/inventoryPurchasingController.js";
 
-
 const router = express.Router();
 
-const readInventory =
-  requireAnyPermission(
-    "inventory:read",
-    "inventory:manage"
-  );
+const readInventory = requireAnyPermission("inventory:read", "inventory:manage");
 
-router.use(protect);
+router.use(
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware
+);
 
 router.get(
   "/reorder-recommendations",
   readInventory,
-  asyncHandler(
-    listReorderRecommendations
-  )
+  asyncHandler(listReorderRecommendations)
 );
 
 router.get(
   "/supplier-performance",
   readInventory,
-  asyncHandler(
-    getSupplierPerformance
-  )
+  asyncHandler(getSupplierPerformance)
 );
 
 export default router;
