@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import mongoose from "mongoose";
 
 import AiFeatureSnapshot from "../features/aiPlatform/AiFeatureSnapshot.js";
 import AiInferenceLog from "../features/aiPlatform/AiInferenceLog.js";
@@ -42,7 +43,25 @@ test("AI training foundation records time-aware versioned features without direc
   );
 });
 
-test("AI dataset registry defaults to temporal training governance", () => {
+test("AI feature snapshots expose additive trusted tenant provenance", () => {
+  assert.ok(
+    AiFeatureSnapshot.schema.path(
+      "business"
+    )
+  );
+  assert.ok(
+    AiFeatureSnapshot.schema.path(
+      "location"
+    )
+  );
+  assert.ok(
+    AiFeatureSnapshot.schema.path(
+      "vertical"
+    )
+  );
+});
+
+test("AI dataset registry defaults to restrictive single-business temporal governance", () => {
   const dataset =
     new AiTrainingDataset({
       name:
@@ -61,6 +80,71 @@ test("AI dataset registry defaults to temporal training governance", () => {
   assert.equal(
     dataset.splitStrategy.type,
     "temporal"
+  );
+  assert.equal(
+    dataset.scope.mode,
+    "single_business"
+  );
+  assert.equal(
+    dataset.scope.deidentified,
+    true
+  );
+});
+
+test("single-business AI datasets require a trusted Business scope", async () => {
+  const dataset =
+    new AiTrainingDataset({
+      name:
+        "tenant-no-show-training",
+      version: "1",
+      task:
+        "no_show_prediction",
+      featureVersion:
+        "no-show-v1",
+    });
+
+  await assert.rejects(
+    dataset.validate(),
+    /scope\.business/
+  );
+
+  dataset.scope.business =
+    new mongoose.Types.ObjectId();
+
+  await assert.doesNotReject(
+    dataset.validate()
+  );
+});
+
+test("cross-business AI datasets require de-identification and explicit governance", async () => {
+  const dataset =
+    new AiTrainingDataset({
+      name:
+        "platform-learning",
+      version: "1",
+      task:
+        "no_show_prediction",
+      featureVersion:
+        "no-show-v1",
+      scope: {
+        mode:
+          "cross_business_deidentified",
+        deidentified: false,
+      },
+    });
+
+  await assert.rejects(
+    dataset.validate(),
+    /scope\.(deidentified|governanceBasis)/
+  );
+
+  dataset.scope.deidentified =
+    true;
+  dataset.scope.governanceBasis =
+    "Reviewed de-identified cross-business research dataset.";
+
+  await assert.doesNotReject(
+    dataset.validate()
   );
 });
 
@@ -106,6 +190,24 @@ test("AI inference log captures outcome and usefulness feedback separately from 
   assert.equal(
     inference.feedback.useful,
     null
+  );
+});
+
+test("AI inference logs expose additive trusted tenant provenance", () => {
+  assert.ok(
+    AiInferenceLog.schema.path(
+      "business"
+    )
+  );
+  assert.ok(
+    AiInferenceLog.schema.path(
+      "location"
+    )
+  );
+  assert.ok(
+    AiInferenceLog.schema.path(
+      "vertical"
+    )
   );
 });
 
