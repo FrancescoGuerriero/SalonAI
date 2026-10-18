@@ -280,7 +280,7 @@ test("proposal governance does not import or invoke operational mutation service
   );
 });
 
-test("Adviser query surfaces proposal templates without creating proposals", async () => {
+test("A1 proposal capability remains separate and is not surfaced by the A0 Business Adviser pilot", async () => {
   const service =
     await readFile(
       new URL(
@@ -290,13 +290,13 @@ test("Adviser query surfaces proposal templates without creating proposals", asy
       "utf8"
     );
 
-  assert.match(
+  assert.doesNotMatch(
     service,
     /suggestAdviserActions/
   );
   assert.match(
     service,
-    /suggestedActions/
+    /suggestedActions:\s*\[\]/
   );
   assert.equal(
     service.includes(

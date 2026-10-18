@@ -57,7 +57,7 @@ test("Adviser feedback limits free-text feedback before persistence", () => {
   );
 });
 
-test("Adviser feedback persistence is constrained to the authenticated inference owner", async () => {
+test("Adviser feedback persistence is constrained to tenant scope and authenticated inference owner", async () => {
   const service =
     await readFile(
       new URL(
@@ -85,7 +85,15 @@ test("Adviser feedback persistence is constrained to the authenticated inference
 
   assert.match(
     service,
-    /capability:[\s\S]*?CAPABILITY/
+    /normaliseAiTenantScope/
+  );
+  assert.match(
+    service,
+    /scopeFilter[\s\S]*?business:[\s\S]*?scope\.businessId/
+  );
+  assert.match(
+    service,
+    /findOneAndUpdate\([\s\S]*?\.\.\.scopeFilter[\s\S]*?capability:[\s\S]*?CAPABILITY/
   );
   assert.match(
     service,
@@ -93,7 +101,11 @@ test("Adviser feedback persistence is constrained to the authenticated inference
   );
   assert.match(
     adviser,
-    /actorUserId:[\s\S]*?user\?\._id/
+    /Authenticated user identity is required for AI AgentRun provenance/
+  );
+  assert.match(
+    adviser,
+    /actorUserId:[\s\S]*?user\._id/
   );
   assert.match(
     schema,
@@ -105,7 +117,7 @@ test("Adviser feedback persistence is constrained to the authenticated inference
   );
 });
 
-test("Adviser feedback route and UI remain governed by ai:use and inferenceId", async () => {
+test("Adviser feedback route uses trusted tenant authority and UI binds feedback to inferenceId", async () => {
   const routes =
     await readFile(
       new URL(
@@ -133,11 +145,7 @@ test("Adviser feedback route and UI remain governed by ai:use and inferenceId", 
 
   assert.match(
     routes,
-    /\/adviser\/inferences\/:inferenceId\/feedback/
-  );
-  assert.match(
-    routes,
-    /feedback"[\s\S]*?"ai:use"/
+    /"\/adviser\/inferences\/:inferenceId\/feedback"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?submitFeedback/
   );
   assert.match(
     api,

@@ -6,6 +6,9 @@ export async function submitFeedback(
   request,
   response
 ) {
+  const tenantContext =
+    request.tenantContext ||
+    {};
   const result =
     await submitAdviserFeedback({
       inferenceId:
@@ -19,6 +22,18 @@ export async function submitFeedback(
           ?.comment,
       user:
         request.user,
+      businessId:
+        tenantContext.businessId ||
+        null,
+      locationId:
+        tenantContext.locationId ||
+        null,
+      locationAccessMode:
+        tenantContext.locationAccessMode ||
+        "selected",
+      allowedLocationIds:
+        tenantContext.allowedLocationIds ||
+        [],
     });
 
   return response

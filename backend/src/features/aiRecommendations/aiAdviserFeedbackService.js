@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
 import AiInferenceLog from "../aiPlatform/AiInferenceLog.js";
+import {
+  normaliseAiTenantScope,
+} from "../aiPlatform/aiTenantScope.js";
 
 const CAPABILITY =
   "management-adviser";
@@ -74,6 +77,11 @@ export async function submitAdviserFeedback({
   rating,
   comment = "",
   user,
+  businessId,
+  locationId = null,
+  locationAccessMode =
+    "selected",
+  allowedLocationIds = [],
 } = {}) {
   const actorUserId =
     user?._id;
@@ -86,6 +94,13 @@ export async function submitAdviserFeedback({
     );
   }
 
+  const scope =
+    normaliseAiTenantScope({
+      businessId,
+      locationId,
+      locationAccessMode,
+      allowedLocationIds,
+    });
   const safeInferenceId =
     String(
       inferenceId || ""
@@ -111,6 +126,23 @@ export async function submitAdviserFeedback({
     });
   const submittedAt =
     new Date();
+  const scopeFilter = {
+    business:
+      scope.businessId,
+  };
+
+  if (scope.locationId) {
+    scopeFilter.location =
+      scope.locationId;
+  } else if (
+    scope.locationAccessMode ===
+    "selected"
+  ) {
+    scopeFilter.location = {
+      $in:
+        scope.allowedLocationIds,
+    };
+  }
 
   const inference =
     await AiInferenceLog
@@ -118,6 +150,7 @@ export async function submitAdviserFeedback({
         {
           _id:
             safeInferenceId,
+          ...scopeFilter,
           capability:
             CAPABILITY,
           "context.actorUserId":

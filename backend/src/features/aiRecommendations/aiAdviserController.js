@@ -6,6 +6,9 @@ export async function askAdviser(
   request,
   response
 ) {
+  const tenantContext =
+    request.tenantContext ||
+    {};
   const result =
     await askSalonAiAdviser({
       question:
@@ -27,6 +30,18 @@ export async function askAdviser(
         request.headers?.[
           "x-request-id"
         ],
+      businessId:
+        tenantContext.businessId ||
+        null,
+      locationId:
+        tenantContext.locationId ||
+        null,
+      locationAccessMode:
+        tenantContext.locationAccessMode ||
+        "selected",
+      allowedLocationIds:
+        tenantContext.allowedLocationIds ||
+        [],
     });
 
   return response

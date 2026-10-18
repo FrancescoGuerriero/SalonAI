@@ -1,4 +1,9 @@
+import mongoose from "mongoose";
+
 import AiInferenceLog from "../aiPlatform/AiInferenceLog.js";
+import {
+  buildAiTenantFilter,
+} from "../aiPlatform/aiTenantScope.js";
 
 const CAPABILITY =
   "management-adviser";
@@ -25,9 +30,7 @@ function percentage(
   numerator,
   denominator
 ) {
-  if (
-    !denominator
-  ) {
+  if (!denominator) {
     return 0;
   }
 
@@ -189,6 +192,7 @@ export function normaliseAdviserEvaluationAggregate({
     DEFAULT_PERIOD_DAYS,
   from,
   to,
+  scope = null,
 } = {}) {
   const summary =
     summaryMetrics(
@@ -232,6 +236,26 @@ export function normaliseAdviserEvaluationAggregate({
       ).map(
         contextMetrics
       ),
+    scope:
+      scope
+        ? {
+            tenantScoped:
+              true,
+            locationScoped:
+              Boolean(
+                scope.locationId
+              ),
+            locationAccessMode:
+              scope.locationAccessMode,
+            authorisedLocationCount:
+              scope.locationAccessMode ===
+              "all"
+                ? null
+                : scope
+                    .allowedLocationIds
+                    .length,
+          }
+        : null,
     governance: {
       aggregateOnly:
         true,
@@ -345,24 +369,68 @@ function metricAccumulator() {
   };
 }
 
+function aggregateTenantFilter(
+  scope
+) {
+  const filter = {
+    business:
+      new mongoose.Types.ObjectId(
+        scope.businessId
+      ),
+  };
+
+  if (scope.locationId) {
+    filter.location =
+      new mongoose.Types.ObjectId(
+        scope.locationId
+      );
+  } else if (
+    scope.locationAccessMode ===
+    "selected"
+  ) {
+    filter.location = {
+      $in:
+        scope.allowedLocationIds.map(
+          (id) =>
+            new mongoose.Types.ObjectId(
+              id
+            )
+        ),
+    };
+  }
+
+  return filter;
+}
+
 export async function getAdviserEvaluation({
   periodDays =
     DEFAULT_PERIOD_DAYS,
   now =
     new Date(),
+  businessId,
+  locationId = null,
+  locationAccessMode =
+    "selected",
+  allowedLocationIds = [],
 } = {}) {
+  const {
+    scope,
+  } = buildAiTenantFilter({
+    businessId,
+    locationId,
+    locationAccessMode,
+    allowedLocationIds,
+  });
+  const tenantFilter =
+    aggregateTenantFilter(
+      scope
+    );
   const safePeriodDays =
     clampAdviserEvaluationPeriodDays(
       periodDays
     );
   const to =
-    now instanceof Date
-      ? new Date(
-          now
-        )
-      : new Date(
-          now
-        );
+    new Date(now);
   const from =
     new Date(
       to.getTime() -
@@ -380,6 +448,7 @@ export async function getAdviserEvaluation({
       [
         {
           $match: {
+            ...tenantFilter,
             capability:
               CAPABILITY,
             requestedAt: {
@@ -468,6 +537,7 @@ export async function getAdviserEvaluation({
         safePeriodDays,
       from,
       to,
+      scope,
     }
   );
 }

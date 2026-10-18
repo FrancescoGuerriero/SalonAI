@@ -269,8 +269,7 @@ test("AI knowledge documents carry audience and permission boundaries for Advise
   );
 });
 
-
-test("canonical API router exposes the built-in Adviser through ai:use permission", async () => {
+test("canonical Business Adviser and management copilot routes use trusted tenant authority", async () => {
   const routes =
     await readFile(
       new URL(
@@ -282,6 +281,14 @@ test("canonical API router exposes the built-in Adviser through ai:use permissio
 
   assert.match(
     routes,
-    /"\/management-copilot"[\s\S]*?"ai:use"[\s\S]*?getAiManagementCopilot/
+    /const tenantAwareAiChain = \[[\s\S]*?trustedTenantContextMiddleware[\s\S]*?effectiveAuthorityMiddleware[\s\S]*?"ai:use"/
+  );
+  assert.match(
+    routes,
+    /"\/adviser\/query"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?askAdviser/
+  );
+  assert.match(
+    routes,
+    /"\/management-copilot"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?getAiManagementCopilot/
   );
 });

@@ -4,8 +4,8 @@ import {
 } from "node:fs/promises";
 import test from "node:test";
 
-test("Adviser domain tools are permission-scoped and aggregate-only", async () => {
-  const source =
+test("legacy Adviser domain context remains aggregate-only but is not activated by the A0 pilot", async () => {
+  const contextSource =
     await readFile(
       new URL(
         "../features/aiRecommendations/aiAdviserContextService.js",
@@ -13,46 +13,30 @@ test("Adviser domain tools are permission-scoped and aggregate-only", async () =
       ),
       "utf8"
     );
-
-  for (const permission of [
-    "appointment:read",
-    "customer:read",
-    "product:read",
-    "inventory:read",
-    "service:read",
-    "communications:read",
-  ]) {
-    assert.match(
-      source,
-      new RegExp(
-        `"${permission.replace(":", "\\:")}"`
-      )
+  const adviserSource =
+    await readFile(
+      new URL(
+        "../features/aiRecommendations/aiAdviserService.js",
+        import.meta.url
+      ),
+      "utf8"
     );
-  }
 
   assert.match(
-    source,
+    contextSource,
     /countDocuments/
   );
-
-  for (const sensitiveField of [
-    "email",
-    "phone",
-    "hairProfile",
-    "internalNotes",
-    "consultationNotes",
-    "costPrice",
-  ]) {
-    assert.equal(
-      source.includes(
-        sensitiveField
-      ),
-      false
-    );
-  }
+  assert.doesNotMatch(
+    adviserSource,
+    /buildAdviserDomainContext\(/
+  );
+  assert.match(
+    adviserSource,
+    /omittedUnsafeDomains/
+  );
 });
 
-test("page path selects contextual AI domains instead of loading all business data", async () => {
+test("legacy contextual domain selectors are retained as migration evidence for later tenant-safe activation", async () => {
   const source =
     await readFile(
       new URL(
@@ -80,7 +64,7 @@ test("page path selects contextual AI domains instead of loading all business da
   );
 });
 
-test("Adviser prompt and evidence include permitted domain context", async () => {
+test("Business Adviser A0 prompt receives only tenant-safe Appointment aggregate evidence", async () => {
   const source =
     await readFile(
       new URL(
@@ -92,19 +76,27 @@ test("Adviser prompt and evidence include permitted domain context", async () =>
 
   assert.match(
     source,
-    /buildAdviserDomainContext/
+    /buildManagementCopilotPayload/
   );
   assert.match(
     source,
-    /contextualDomainEvidence/
+    /authorised tenant-scoped evidence/
   );
   assert.match(
+    source,
+    /Only tenant-safe canonical Appointment aggregates are enabled in this A0 pilot/
+  );
+  assert.doesNotMatch(
+    source,
+    /contextualDomainEvidence/
+  );
+  assert.doesNotMatch(
     source,
     /domainContext/
   );
 });
 
-test("calendar Adviser context exposes governed no-show model evidence without treating candidates as production", async () => {
+test("no-show model evidence in legacy domain context is not exposed through A0 until tenant-safe activation", async () => {
   const contextSource =
     await readFile(
       new URL(
@@ -130,12 +122,12 @@ test("calendar Adviser context exposes governed no-show model evidence without t
     contextSource,
     /modelEvidence/
   );
-  assert.match(
+  assert.doesNotMatch(
     adviserSource,
-    /productionActive/
+    /latestNoShowModelEvidence/
   );
   assert.match(
     adviserSource,
-    /not active in production/
+    /knowledge-retrieval/
   );
 });

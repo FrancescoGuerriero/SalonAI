@@ -68,19 +68,6 @@ import {
 
 const router = express.Router();
 
-
-/*
-|--------------------------------------------------------------------------
-| Authentication and authorisation
-|--------------------------------------------------------------------------
-|
-| Every route in this router contains operational or AI-generated management
-| information. Authentication plus the delegated ai:use capability is required.
-| This keeps custom staff roles permission-driven rather than tied to a legacy
-| hard-coded role name.
-|
-*/
-
 router.use(protect);
 router.use(
   requirePermissions(
@@ -96,30 +83,14 @@ const tenantAwareAiChain = [
   ),
 ];
 
-
-/*
-|--------------------------------------------------------------------------
-| AI-service status
-|--------------------------------------------------------------------------
-*/
-
 router.get(
   "/status",
   asyncHandler(status)
 );
 
-
-/*
-|--------------------------------------------------------------------------
-| SalonAI Adviser / management copilot
-|--------------------------------------------------------------------------
-*/
-
 router.post(
   "/adviser/query",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     askAdviser
   )
@@ -127,9 +98,7 @@ router.post(
 
 router.patch(
   "/adviser/inferences/:inferenceId/feedback",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     submitFeedback
   )
@@ -137,9 +106,7 @@ router.patch(
 
 router.get(
   "/adviser/evaluation",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     getEvaluation
   )
@@ -187,20 +154,11 @@ router.post(
 
 router.get(
   "/management-copilot",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     getAiManagementCopilot
   )
 );
-
-
-/*
-|--------------------------------------------------------------------------
-| Appointment no-show intelligence
-|--------------------------------------------------------------------------
-*/
 
 router.get(
   "/no-show-predictions",
@@ -218,26 +176,12 @@ router.get(
   )
 );
 
-
-/*
-|--------------------------------------------------------------------------
-| Haircare recommendations
-|--------------------------------------------------------------------------
-*/
-
 router.post(
   "/haircare/recommendations",
   asyncHandler(
     recommendHaircare
   )
 );
-
-
-/*
-|--------------------------------------------------------------------------
-| Customer AI summaries
-|--------------------------------------------------------------------------
-*/
 
 router.get(
   "/customers/:customerId/summary",
@@ -246,13 +190,6 @@ router.get(
   )
 );
 
-
-/*
-|--------------------------------------------------------------------------
-| AI customer segmentation
-|--------------------------------------------------------------------------
-*/
-
 router.get(
   "/customer-segmentation",
   asyncHandler(
@@ -260,41 +197,12 @@ router.get(
   )
 );
 
-
-/*
-|--------------------------------------------------------------------------
-| AI appointment-demand forecasting
-|--------------------------------------------------------------------------
-|
-| Examples:
-|
-| GET /api/ai/appointment-demand-forecast
-| GET /api/ai/appointment-demand-forecast?horizonDays=28
-| GET /api/ai/appointment-demand-forecast?lookbackDays=180&horizonDays=28
-|
-*/
-
 router.get(
   "/appointment-demand-forecast",
   asyncHandler(
     generateAppointmentDemandForecast
   )
 );
-
-
-/*
-|--------------------------------------------------------------------------
-| AI sales forecasting
-|--------------------------------------------------------------------------
-|
-| Examples:
-|
-| GET /api/ai/sales-forecast
-| GET /api/ai/sales-forecast?horizonDays=90
-| GET /api/ai/sales-forecast?lookbackDays=365&horizonDays=28
-| GET /api/ai/sales-forecast?scenarioAdjustment=0.1
-|
-*/
 
 router.get(
   "/sales-forecast",
