@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import Appointment from "../../models/Appointment.js";
 import AiInferenceLog from "./AiInferenceLog.js";
 import {
+  normaliseAiTenantScope,
+} from "./aiTenantScope.js";
+import {
   NO_SHOW_INFERENCE_CAPABILITY,
   normaliseNoShowOutcome,
   observeNoShowOutcomeForAppointment,
@@ -39,11 +42,18 @@ function safeLimit(
 }
 
 export async function reconcileNoShowInferenceOutcomes({
+  businessId,
   limit =
     DEFAULT_LIMIT,
   apply =
     false,
 } = {}) {
+  const scope =
+    normaliseAiTenantScope({
+      businessId,
+      locationAccessMode:
+        "all",
+    });
   const safe =
     safeLimit(
       limit
@@ -51,6 +61,8 @@ export async function reconcileNoShowInferenceOutcomes({
 
   const unresolved =
     await AiInferenceLog.find({
+      business:
+        scope.businessId,
       capability:
         NO_SHOW_INFERENCE_CAPABILITY,
       entityType:
@@ -103,6 +115,8 @@ export async function reconcileNoShowInferenceOutcomes({
         Boolean(
           apply
         ),
+      businessId:
+        scope.businessId,
       scannedInferenceRecords:
         unresolved.length,
       candidateAppointments:
@@ -118,6 +132,8 @@ export async function reconcileNoShowInferenceOutcomes({
 
   const appointments =
     await Appointment.find({
+      business:
+        scope.businessId,
       _id: {
         $in:
           appointmentKeys,
@@ -131,7 +147,7 @@ export async function reconcileNoShowInferenceOutcomes({
       },
     })
       .select(
-        "_id status completedAt cancelledAt noShowAt updatedAt"
+        "_id business location status completedAt cancelledAt noShowAt updatedAt"
       )
       .lean();
 
@@ -175,6 +191,8 @@ export async function reconcileNoShowInferenceOutcomes({
       Boolean(
         apply
       ),
+    businessId:
+      scope.businessId,
     scannedInferenceRecords:
       unresolved.length,
     candidateAppointments:

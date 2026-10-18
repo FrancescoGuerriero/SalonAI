@@ -66,6 +66,16 @@ async function main() {
     process.argv.includes(
       APPLY
     );
+  const businessId =
+    argumentValue(
+      "business-id"
+    );
+
+  if (!businessId) {
+    throw new Error(
+      "Provide --business-id=<trusted Business ObjectId>. Global no-show inference reconciliation is prohibited."
+    );
+  }
 
   if (
     apply &&
@@ -84,6 +94,7 @@ async function main() {
 
   const result =
     await reconcileNoShowInferenceOutcomes({
+      businessId,
       limit:
         argumentValue(
           "limit"
@@ -108,8 +119,8 @@ async function main() {
 
   console.log(
     apply
-      ? "[PASS] No-show inference outcomes reconciled."
-      : "[PASS] Dry-run completed. No inference outcomes were changed."
+      ? "[PASS] Tenant-scoped no-show inference outcomes reconciled."
+      : "[PASS] Tenant-scoped dry-run completed. No inference outcomes were changed."
   );
 }
 

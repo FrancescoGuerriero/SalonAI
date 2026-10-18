@@ -1,6 +1,9 @@
 import Appointment from "../../models/Appointment.js";
 import { predictNoShowRisk } from "../../services/aiMicroserviceClient.js";
 import {
+  buildAiTenantFilter,
+} from "../aiPlatform/aiTenantScope.js";
+import {
   logNoShowPredictions,
 } from "../aiPlatform/noShowInferenceLedgerService.js";
 
@@ -26,9 +29,16 @@ function historyIndex(rows) {
 }
 
 export async function buildNoShowPredictionPayload(options = {}) {
+  const {
+    scope,
+    filter: tenantFilter,
+  } = buildAiTenantFilter(options);
   const asOf = new Date(options.asOfDate || new Date()); asOf.setHours(0,0,0,0);
   const horizon = new Date(asOf); horizon.setDate(horizon.getDate() + Math.max(1, asNumber(options.horizonDays, 14))); horizon.setHours(23,59,59,999);
-  const rows = await Appointment.find({ $or: [{ appointmentDate: { $lte: horizon } }, { date: { $lte: horizon } }, { scheduledAt: { $lte: horizon } }] }).lean().exec();
+  const rows = await Appointment.find({
+    ...tenantFilter,
+    $or: [{ appointmentDate: { $lte: horizon } }, { date: { $lte: horizon } }, { scheduledAt: { $lte: horizon } }],
+  }).lean().exec();
   const history = historyIndex(rows);
   const inactive = new Set(["completed","cancelled","canceled","no-show","no_show","noshow"]);
   const future = rows.filter((row) => { const d = when(row) ? new Date(when(row)) : null; return d && d >= asOf && !inactive.has(status(row)); });
@@ -50,7 +60,8 @@ export async function buildNoShowPredictionPayload(options = {}) {
         is_new_customer:h.bookings<=1, is_weekend:[0,6].includes(scheduled.getDay()), is_evening:scheduled.getHours()>=17,
       };
     }),
-    settings:{ high_risk_threshold:asNumber(options.highRiskThreshold,.65), medium_risk_threshold:asNumber(options.mediumRiskThreshold,.35), include_recommendations:options.includeRecommendations !== false }
+    settings:{ high_risk_threshold:asNumber(options.highRiskThreshold,.65), medium_risk_threshold:asNumber(options.mediumRiskThreshold,.35), include_recommendations:options.includeRecommendations !== false },
+    _tenantScope: scope,
   };
 }
 
@@ -59,16 +70,22 @@ export async function generateNoShowPredictions(options = {}) {
     await buildNoShowPredictionPayload(
       options
     );
+  const tenantScope =
+    payload._tenantScope;
+  const providerPayload = {
+    ...payload,
+  };
+  delete providerPayload._tenantScope;
 
   if (
-    !payload.appointments.length
+    !providerPayload.appointments.length
   ) {
     return {
       prediction: {
         generated_at:
           new Date().toISOString(),
         as_of_date:
-          payload.as_of_date,
+          providerPayload.as_of_date,
         summary: {
           total_appointments: 0,
           high_risk_count: 0,
@@ -92,6 +109,7 @@ export async function generateNoShowPredictions(options = {}) {
         appointmentRecords: 0,
         aggregateOnly: false,
         inferenceLedgerRecords: 0,
+        tenantScoped: true,
       },
     };
   }
@@ -100,7 +118,7 @@ export async function generateNoShowPredictions(options = {}) {
     Date.now();
   const prediction =
     await predictNoShowRisk(
-      payload,
+      providerPayload,
       {
         requestId:
           options.requestId,
@@ -118,6 +136,10 @@ export async function generateNoShowPredictions(options = {}) {
         options.actorRole,
       actorUserId:
         options.actorUserId,
+      businessId:
+        tenantScope.businessId,
+      locationId:
+        tenantScope.locationId,
       latencyMs,
     });
 
@@ -125,12 +147,13 @@ export async function generateNoShowPredictions(options = {}) {
     prediction,
     source: {
       appointmentRecords:
-        payload.appointments.length,
+        providerPayload.appointments.length,
       asOfDate:
-        payload.as_of_date,
+        providerPayload.as_of_date,
       aggregateOnly: false,
       inferenceLedgerRecords:
         ledger.logged,
+      tenantScoped: true,
     },
   };
 }

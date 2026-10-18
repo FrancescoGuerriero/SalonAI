@@ -10,6 +10,9 @@ const aiInferenceLogSchema =
         ref: "Business",
         default: undefined,
         index: true,
+        required() {
+          return this.capability === "no-show-prediction";
+        },
       },
       location: {
         type: Schema.Types.ObjectId,

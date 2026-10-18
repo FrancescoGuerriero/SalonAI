@@ -6,8 +6,14 @@ import {
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../platform/tenancy/trustedTenantMiddleware.js";
 
 import {
   analyseCustomerSegmentation,
@@ -81,6 +87,14 @@ router.use(
     "ai:use"
   )
 );
+
+const tenantAwareAiChain = [
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "ai:use"
+  ),
+];
 
 
 /*
@@ -190,6 +204,7 @@ router.get(
 
 router.get(
   "/no-show-predictions",
+  ...tenantAwareAiChain,
   asyncHandler(
     getAiNoShowPredictions
   )
@@ -197,6 +212,7 @@ router.get(
 
 router.get(
   "/no-show-evaluation",
+  ...tenantAwareAiChain,
   asyncHandler(
     getAiNoShowEvaluation
   )
@@ -275,7 +291,7 @@ router.get(
 |
 | GET /api/ai/sales-forecast
 | GET /api/ai/sales-forecast?horizonDays=90
-| GET /api/ai/sales-forecast?lookbackDays=365&horizonDays=90
+| GET /api/ai/sales-forecast?lookbackDays=365&horizonDays=28
 | GET /api/ai/sales-forecast?scenarioAdjustment=0.1
 |
 */

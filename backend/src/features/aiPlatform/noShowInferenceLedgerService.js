@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import AiInferenceLog from "./AiInferenceLog.js";
 
 const CAPABILITY =
@@ -61,6 +63,51 @@ function validDate(
       );
 }
 
+function trustedObjectId(
+  value,
+  fieldName,
+  {
+    required = false,
+  } = {}
+) {
+  const candidate =
+    value &&
+    typeof value === "object" &&
+    "_id" in value
+      ? value._id
+      : value;
+  const cleaned =
+    text(candidate);
+
+  if (!cleaned) {
+    if (required) {
+      const error = new Error(
+        `Trusted ${fieldName} provenance is required for no-show AI evidence.`
+      );
+      error.code =
+        "AI_INFERENCE_TENANT_SCOPE_REQUIRED";
+      throw error;
+    }
+
+    return null;
+  }
+
+  if (
+    !mongoose.isValidObjectId(
+      cleaned
+    )
+  ) {
+    const error = new Error(
+      `Trusted ${fieldName} provenance is invalid.`
+    );
+    error.code =
+      "INVALID_AI_INFERENCE_TENANT_SCOPE";
+    throw error;
+  }
+
+  return cleaned;
+}
+
 function modelVersion(
   metadata = {}
 ) {
@@ -92,8 +139,23 @@ export function buildNoShowInferenceDocuments({
   requestId = "",
   actorRole = "",
   actorUserId = null,
+  businessId,
+  locationId = null,
   latencyMs = 0,
 } = {}) {
+  const business =
+    trustedObjectId(
+      businessId,
+      "Business",
+      {
+        required: true,
+      }
+    );
+  const location =
+    trustedObjectId(
+      locationId,
+      "Location"
+    );
   const metadata =
     prediction?.metadata ||
     {};
@@ -130,6 +192,12 @@ export function buildNoShowInferenceDocuments({
         }
 
         return {
+          business,
+          ...(location
+            ? {
+                location,
+              }
+            : {}),
           capability:
             CAPABILITY,
           modelName,
@@ -334,9 +402,28 @@ export async function observeNoShowOutcomeForAppointment(
     };
   }
 
+  const business =
+    trustedObjectId(
+      appointment?.business,
+      "Business"
+    );
+
+  // Outcome linkage is evaluation evidence only. Legacy records without
+  // ownership must not cause an operational Appointment mutation to fail and
+  // must never trigger a global inference update.
+  if (!business) {
+    return {
+      matched: 0,
+      modified: 0,
+      skipped:
+        "missing_business_scope",
+    };
+  }
+
   const result =
     await AiInferenceLog.updateMany(
       {
+        business,
         capability:
           CAPABILITY,
         entityType:

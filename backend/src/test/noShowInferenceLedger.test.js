@@ -7,11 +7,21 @@ import test from "node:test";
 import {
   buildNoShowInferenceDocuments,
   normaliseNoShowOutcome,
+  observeNoShowOutcomeForAppointment,
 } from "../features/aiPlatform/noShowInferenceLedgerService.js";
 
-test("no-show prediction ledger stores governed appointment evidence without customer identifiers", () => {
+const BUSINESS_ID =
+  "507f1f77bcf86cd799439021";
+const LOCATION_ID =
+  "507f1f77bcf86cd799439022";
+
+test("no-show prediction ledger stores governed tenant appointment evidence without customer identifiers", () => {
   const documents =
     buildNoShowInferenceDocuments({
+      businessId:
+        BUSINESS_ID,
+      locationId:
+        LOCATION_ID,
       requestId:
         "req-1",
       actorRole:
@@ -66,6 +76,14 @@ test("no-show prediction ledger stores governed appointment evidence without cus
     documents[0];
 
   assert.equal(
+    String(document.business),
+    BUSINESS_ID
+  );
+  assert.equal(
+    String(document.location),
+    LOCATION_ID
+  );
+  assert.equal(
     document.capability,
     "no-show-prediction"
   );
@@ -106,6 +124,18 @@ test("no-show prediction ledger stores governed appointment evidence without cus
       "customer-private-id"
     ),
     false
+  );
+});
+
+test("no-show prediction evidence fails closed without trusted Business provenance", () => {
+  assert.throws(
+    () =>
+      buildNoShowInferenceDocuments({
+        prediction: {
+          predictions: [],
+        },
+      }),
+    /Trusted Business provenance is required/
   );
 });
 
@@ -196,11 +226,41 @@ test("non-terminal appointments do not create observed outcomes", () => {
   );
 });
 
-test("production no-show prediction path logs inferences and appointment saves link terminal outcomes", async () => {
+test("legacy terminal appointment without Business provenance skips outcome linkage instead of updating globally", async () => {
+  const result =
+    await observeNoShowOutcomeForAppointment({
+      _id:
+        "507f1f77bcf86cd799439014",
+      status:
+        "completed",
+      completedAt:
+        "2026-09-22T11:00:00.000Z",
+    });
+
+  assert.deepEqual(
+    result,
+    {
+      matched: 0,
+      modified: 0,
+      skipped:
+        "missing_business_scope",
+    }
+  );
+});
+
+test("production no-show prediction path logs tenant-scoped inferences and appointment saves link terminal outcomes", async () => {
   const predictionService =
     await readFile(
       new URL(
         "../features/aiRecommendations/aiNoShowPredictionService.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const ledgerService =
+    await readFile(
+      new URL(
+        "../features/aiPlatform/noShowInferenceLedgerService.js",
         import.meta.url
       ),
       "utf8"
@@ -224,11 +284,19 @@ test("production no-show prediction path logs inferences and appointment saves l
 
   assert.match(
     predictionService,
-    /logNoShowPredictions/
+    /buildAiTenantFilter/
   );
   assert.match(
     predictionService,
-    /inferenceLedgerRecords/
+    /businessId:[\s\S]*?tenantScope\.businessId/
+  );
+  assert.match(
+    ledgerService,
+    /business,[\s\S]*?capability:/
+  );
+  assert.match(
+    ledgerService,
+    /updateMany\([\s\S]*?business,[\s\S]*?capability:/
   );
   assert.match(
     appointmentModel,
@@ -240,20 +308,24 @@ test("production no-show prediction path logs inferences and appointment saves l
   );
   assert.match(
     inferenceSchema,
-    /entityKey:[\s\S]*?requestedAt/
-  );
-  assert.match(
-    inferenceSchema,
-    /outcomeObservedAt:[\s\S]*?requestedAt/
+    /required\(\)[\s\S]*?no-show-prediction/
   );
 });
 
 
-test("no-show reconciliation command is dry-run first and requires explicit apply confirmation", async () => {
+test("no-show reconciliation command is Business-scoped, dry-run first and requires explicit apply confirmation", async () => {
   const script =
     await readFile(
       new URL(
         "../../scripts/reconcileNoShowInferenceOutcomes.js",
+        import.meta.url
+      ),
+      "utf8"
+    );
+  const service =
+    await readFile(
+      new URL(
+        "../features/aiPlatform/noShowOutcomeReconciliationService.js",
         import.meta.url
       ),
       "utf8"
@@ -271,6 +343,10 @@ test("no-show reconciliation command is dry-run first and requires explicit appl
 
   assert.match(
     script,
+    /--business-id=<trusted Business ObjectId>/
+  );
+  assert.match(
+    script,
     /--apply/
   );
   assert.match(
@@ -280,6 +356,14 @@ test("no-show reconciliation command is dry-run first and requires explicit appl
   assert.match(
     script,
     /dry-run/
+  );
+  assert.match(
+    service,
+    /AiInferenceLog\.find\(\{[\s\S]*?business:[\s\S]*?scope\.businessId/
+  );
+  assert.match(
+    service,
+    /Appointment\.find\(\{[\s\S]*?business:[\s\S]*?scope\.businessId/
   );
   assert.equal(
     packageJson.scripts[

@@ -24,6 +24,10 @@ const boolean = (value) =>
 export function buildNoShowPredictionOptions(
   request
 ) {
+  const tenantContext =
+    request.tenantContext ||
+    {};
+
   return {
     asOfDate:
       request.query
@@ -60,7 +64,20 @@ export function buildNoShowPredictionOptions(
     actorRole:
       request.user
         ?.role ||
+      tenantContext.roleKey ||
       "",
+    businessId:
+      tenantContext.businessId ||
+      null,
+    locationId:
+      tenantContext.locationId ||
+      null,
+    locationAccessMode:
+      tenantContext.locationAccessMode ||
+      "selected",
+    allowedLocationIds:
+      tenantContext.allowedLocationIds ||
+      [],
   };
 }
 
