@@ -11,6 +11,7 @@ async function exportDataset(request, response) {
     format: request.query?.format,
     months: request.query?.months,
     actor: getRequestActor(request),
+    authority: request.effectiveAuthority,
   });
 
   response.setHeader("Content-Type", result.contentType);
@@ -23,7 +24,10 @@ async function exportDataset(request, response) {
 }
 
 async function getAuditEvents(request, response) {
-  const result = await listAuditEvents(request.query);
+  const result = await listAuditEvents(
+    request.query,
+    request.effectiveAuthority
+  );
   return response.status(200).json({ success: true, ...result });
 }
 
