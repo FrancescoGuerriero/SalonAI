@@ -58,7 +58,7 @@ test("built-in Business Adviser is active at A0 with metrics-read tool only", ()
 });
 
 
-test("management metric service scopes Appointment query before aggregation", async () => {
+test("management metric service scopes Appointment occurrence query before aggregation", async () => {
   const source =
     await readFile(
       new URL(
@@ -74,7 +74,11 @@ test("management metric service scopes Appointment query before aggregation", as
   );
   assert.match(
     source,
-    /Appointment\.find\(\{[\s\S]*?\.\.\.tenantFilter[\s\S]*?createdAt/
+    /Appointment\.find\(\{[\s\S]*?\.\.\.tenantFilter[\s\S]*?\$or:[\s\S]*?startsAt:[\s\S]*?appointmentDate:/
+  );
+  assert.doesNotMatch(
+    source,
+    /Appointment\.find\(\{[\s\S]*?createdAt:[\s\S]*?\$gte/
   );
   assert.match(
     source,
