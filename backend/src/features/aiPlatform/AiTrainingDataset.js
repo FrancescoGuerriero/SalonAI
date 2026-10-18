@@ -43,9 +43,6 @@ const aiTrainingDatasetSchema =
           ref: "Business",
           default: undefined,
           index: true,
-          required() {
-            return this.scope?.mode === "single_business";
-          },
         },
         locations: {
           type: [
