@@ -126,10 +126,11 @@ const aiFeatureSnapshotSchema =
     }
   );
 
+// Preserve the pre-tenancy uniqueness contract during the additive provenance
+// rollout. A later reviewed migration may tenant-localise uniqueness once all
+// historical snapshots have trusted ownership.
 aiFeatureSnapshotSchema.index(
   {
-    business: 1,
-    location: 1,
     task: 1,
     entityType: 1,
     entityKey: 1,
