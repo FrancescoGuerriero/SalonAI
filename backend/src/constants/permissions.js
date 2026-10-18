@@ -62,6 +62,13 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "communications:read",
   "communications:manage",
 
+  "consultation:read",
+  "consultation:create",
+  "consultation:update",
+  "consultation:review",
+  "consultation:approve",
+  "consultation:assign",
+
   "loyalty:manage",
   "gift-card:manage",
   "referral:manage",

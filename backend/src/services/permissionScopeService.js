@@ -124,6 +124,13 @@ export const PERMISSION_SCOPE_BY_KEY =
     "communications:read": "A",
     "communications:manage": "A",
 
+    "consultation:read": "A",
+    "consultation:create": "L",
+    "consultation:update": "L",
+    "consultation:review": "L",
+    "consultation:approve": "L",
+    "consultation:assign": "L",
+
     "loyalty:manage": "X",
     "gift-card:manage": "X",
     "referral:manage": "B",
