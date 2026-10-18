@@ -21,8 +21,11 @@ function normaliseRecords(records = []) {
     business: id(record?.business),
     location: id(record?.location),
     supplier: id(record?.supplier),
+    product: id(record?.product),
     code: text(record?.code).toUpperCase() || null,
     orderNumber: text(record?.orderNumber) || null,
+    slug: text(record?.slug).toLowerCase() || null,
+    sku: text(record?.sku).toUpperCase() || null,
   }));
 }
 
@@ -70,12 +73,14 @@ function ownershipCounts(records, targetBusinessId, targetLocationId, requireLoc
 export function buildInventoryPurchasingOwnershipPlan({
   business,
   location,
+  products = [],
   suppliers = [],
   supplierProducts = [],
   purchaseOrders = [],
 } = {}) {
   const targetBusinessId = id(business);
   const targetLocationId = id(location);
+  const normalisedProducts = normaliseRecords(products);
   const normalisedSuppliers = normaliseRecords(suppliers);
   const normalisedSupplierProducts = normaliseRecords(supplierProducts);
   const normalisedPurchaseOrders = normaliseRecords(purchaseOrders);
@@ -86,10 +91,14 @@ export function buildInventoryPurchasingOwnershipPlan({
   if (!targetLocationId) blockers.push({ type: "canonical-location-missing" });
 
   const supplierIds = new Set(normalisedSuppliers.map((item) => item._id).filter(Boolean));
+  const productIds = new Set(normalisedProducts.map((item) => item._id).filter(Boolean));
 
   for (const item of normalisedSupplierProducts) {
     if (!item.supplier || !supplierIds.has(item.supplier)) {
-      blockers.push({ type: "supplier-product-orphan", recordType: "SupplierProduct" });
+      blockers.push({ type: "supplier-product-orphan-supplier", recordType: "SupplierProduct" });
+    }
+    if (!item.product || !productIds.has(item.product)) {
+      blockers.push({ type: "supplier-product-orphan-product", recordType: "SupplierProduct" });
     }
   }
 
@@ -101,14 +110,23 @@ export function buildInventoryPurchasingOwnershipPlan({
 
   const duplicateSupplierCodes = duplicateValues(normalisedSuppliers, "code");
   const duplicateOrderNumbers = duplicateValues(normalisedPurchaseOrders, "orderNumber");
+  const duplicateProductSlugs = duplicateValues(normalisedProducts, "slug");
+  const duplicateProductSkus = duplicateValues(normalisedProducts, "sku");
   if (duplicateSupplierCodes.length) {
     blockers.push({ type: "duplicate-supplier-code", count: duplicateSupplierCodes.length });
   }
   if (duplicateOrderNumbers.length) {
     blockers.push({ type: "duplicate-purchase-order-number", count: duplicateOrderNumbers.length });
   }
+  if (duplicateProductSlugs.length) {
+    blockers.push({ type: "duplicate-product-slug", count: duplicateProductSlugs.length });
+  }
+  if (duplicateProductSkus.length) {
+    blockers.push({ type: "duplicate-product-sku", count: duplicateProductSkus.length });
+  }
 
   for (const [recordType, records, requireLocation] of [
+    ["Product", normalisedProducts, true],
     ["Supplier", normalisedSuppliers, false],
     ["SupplierProduct", normalisedSupplierProducts, false],
     ["PurchaseOrder", normalisedPurchaseOrders, true],
@@ -145,6 +163,7 @@ export function buildInventoryPurchasingOwnershipPlan({
   );
 
   const coverage = Object.freeze({
+    products: ownershipCounts(normalisedProducts, targetBusinessId, targetLocationId, true),
     suppliers: ownershipCounts(normalisedSuppliers, targetBusinessId, targetLocationId, false),
     supplierProducts: ownershipCounts(
       normalisedSupplierProducts,
@@ -161,6 +180,7 @@ export function buildInventoryPurchasingOwnershipPlan({
   });
 
   const summary = Object.freeze({
+    productCount: normalisedProducts.length,
     supplierCount: normalisedSuppliers.length,
     supplierProductCount: normalisedSupplierProducts.length,
     purchaseOrderCount: normalisedPurchaseOrders.length,
