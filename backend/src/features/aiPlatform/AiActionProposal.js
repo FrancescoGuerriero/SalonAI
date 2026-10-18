@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import {
+  AI_AUTONOMY_LEVELS,
+} from "./aiWorkforcePolicy.js";
 
 const { Schema } = mongoose;
 
@@ -21,6 +24,58 @@ export const AI_ACTION_EXECUTION_STATUSES =
 const aiActionProposalSchema =
   new Schema(
     {
+      business: {
+        type: Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
+      agentRun: {
+        type: Schema.Types.ObjectId,
+        ref: "AiAgentRun",
+        default: null,
+        index: true,
+      },
+      agentKey: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        maxlength: 120,
+        default: "",
+        index: true,
+      },
+      autonomyLevel: {
+        type: String,
+        enum:
+          AI_AUTONOMY_LEVELS,
+        default: "A1",
+      },
+      riskLevel: {
+        type: String,
+        enum: [
+          "low",
+          "medium",
+          "high",
+          "critical",
+        ],
+        default: "medium",
+      },
+      evidenceRefs: {
+        type: [String],
+        default: [],
+      },
+      rollbackPlan: {
+        type: String,
+        trim: true,
+        maxlength: 2000,
+        default: "",
+      },
       createdBy: {
         type:
           Schema.Types.ObjectId,
@@ -161,6 +216,14 @@ aiActionProposalSchema.index({
 
 aiActionProposalSchema.index({
   requiredPermission: 1,
+  status: 1,
+  createdAt: -1,
+});
+
+aiActionProposalSchema.index({
+  business: 1,
+  location: 1,
+  agentKey: 1,
   status: 1,
   createdAt: -1,
 });
