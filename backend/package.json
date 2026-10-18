@@ -29,6 +29,7 @@
     "marketing:compliance-readiness": "node scripts/checkMarketingComplianceReadiness.js",
     "tenant:bootstrap:salon": "node scripts/bootstrapCanonicalSalonTenant.js",
     "tenant:migration-readiness": "node scripts/checkTenantMigrationReadiness.js",
+    "tenant:provision": "node scripts/provisionTenant.js",
     "calendar:readiness": "node scripts/checkCalendarReadiness.js",
     "calendar:appointment-acceptance": "node scripts/testCalendarAppointmentSyncAcceptance.js",
     "workforce:tenant-readiness": "node scripts/checkWorkforceTenantReadiness.js",
