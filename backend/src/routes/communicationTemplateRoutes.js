@@ -1,14 +1,34 @@
 import express from "express";
 
 import communicationTemplateController from "../controllers/communicationTemplateController.js";
+import {
+  createScopedTemplate,
+  getScopedTemplateSummary,
+  listScopedTemplates,
+} from "../controllers/communicationTenantController.js";
 
 import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  communicationEffectiveScopeMiddleware,
+  scopedTemplateMutationResource,
+  scopedTemplateResource,
+  scopedTemplateSlugResource,
+} from "../middleware/communicationTenantMiddleware.js";
+import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   requireAnyPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 
 const router = express.Router();
 
@@ -23,7 +43,13 @@ const manageCommunications =
     "communications:manage"
   );
 
-router.use(protect);
+router.use(
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  communicationEffectiveScopeMiddleware
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -31,18 +57,16 @@ router.use(protect);
 |--------------------------------------------------------------------------
 */
 
-// Create a new communication template.
 router.post(
   "/",
   manageCommunications,
-  communicationTemplateController.createCommunicationTemplate
+  createScopedTemplate
 );
 
-// List, search, filter, sort and paginate templates.
 router.get(
   "/",
   readCommunications,
-  communicationTemplateController.listCommunicationTemplates
+  listScopedTemplates
 );
 
 /*
@@ -51,11 +75,10 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-// Return template totals, usage, channels and campaigns.
 router.get(
   "/summary",
   readCommunications,
-  communicationTemplateController.getCommunicationTemplateSummary
+  getScopedTemplateSummary
 );
 
 /*
@@ -64,17 +87,16 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-// Retrieve a template using its slug.
-// This route must remain above "/:templateId".
 router.get(
   "/slug/:slug",
+  scopedTemplateSlugResource,
   readCommunications,
   communicationTemplateController.getCommunicationTemplateBySlug
 );
 
-// Retrieve one template using its MongoDB ID.
 router.get(
   "/:templateId",
+  scopedTemplateResource,
   readCommunications,
   communicationTemplateController.getCommunicationTemplate
 );
@@ -85,37 +107,37 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-// Update template content and configuration.
 router.patch(
   "/:templateId",
+  scopedTemplateMutationResource,
   manageCommunications,
   communicationTemplateController.updateCommunicationTemplate
 );
 
-// Activate or deactivate a template.
 router.patch(
   "/:templateId/status",
+  scopedTemplateMutationResource,
   manageCommunications,
   communicationTemplateController.setCommunicationTemplateStatus
 );
 
-// Render a template using supplied variables.
 router.post(
   "/:templateId/render",
+  scopedTemplateResource,
   readCommunications,
   communicationTemplateController.renderCommunicationTemplate
 );
 
-// Duplicate an existing template.
 router.post(
   "/:templateId/duplicate",
+  scopedTemplateMutationResource,
   manageCommunications,
   communicationTemplateController.duplicateCommunicationTemplate
 );
 
-// Delete a non-system communication template.
 router.delete(
   "/:templateId",
+  scopedTemplateMutationResource,
   manageCommunications,
   communicationTemplateController.deleteCommunicationTemplate
 );
