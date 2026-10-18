@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { pathToFileURL } from "node:url";
 
 import AuditLog from "../src/models/AuditLog.js";
+import Product from "../src/features/commerce/Product.js";
 import Supplier from "../src/features/inventoryPurchasing/models/Supplier.js";
 import SupplierProduct from "../src/features/inventoryPurchasing/models/SupplierProduct.js";
 import PurchaseOrder from "../src/features/inventoryPurchasing/models/PurchaseOrder.js";
@@ -73,6 +74,7 @@ function missing(field) {
 
 async function applyOperation(operation, session) {
   let Model;
+  if (operation.recordType === "Product") Model = Product;
   if (operation.recordType === "Supplier") Model = Supplier;
   if (operation.recordType === "SupplierProduct") Model = SupplierProduct;
   if (operation.recordType === "PurchaseOrder") Model = PurchaseOrder;
@@ -104,6 +106,12 @@ async function writeMigrationAudit({ session, snapshot, fingerprint, operationCo
         resourceId: fingerprint,
         before: snapshot.plan.coverage,
         after: {
+          products: {
+            unownedBusiness: 0,
+            foreignBusiness: 0,
+            missingLocation: 0,
+            foreignLocation: 0,
+          },
           suppliers: { unownedBusiness: 0, foreignBusiness: 0 },
           supplierProducts: { unownedBusiness: 0, foreignBusiness: 0 },
           purchaseOrders: {
