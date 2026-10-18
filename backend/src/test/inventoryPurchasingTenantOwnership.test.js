@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import Product from "../features/commerce/Product.js";
 import Supplier from "../features/inventoryPurchasing/models/Supplier.js";
 import SupplierProduct from "../features/inventoryPurchasing/models/SupplierProduct.js";
 import PurchaseOrder from "../features/inventoryPurchasing/models/PurchaseOrder.js";
@@ -20,27 +21,42 @@ import {
 } from "../../scripts/applyInventoryPurchasingTenantBackfill.js";
 
 test("inventory purchasing models expose transitional Business/Location ownership", () => {
-  for (const Model of [Supplier, SupplierProduct, PurchaseOrder]) {
+  for (const Model of [Product, Supplier, SupplierProduct, PurchaseOrder]) {
     assert.ok(Model.schema.path("business"));
     assert.ok(Model.schema.path("location"));
   }
 });
 
-test("Supplier and PurchaseOrder declare tenant-local uniqueness indexes", () => {
+test("inventory domain declares tenant-local uniqueness indexes", () => {
   const supplierIndex = Supplier.schema.indexes().find(
     ([fields, options]) => fields.business === 1 && fields.code === 1 && options.unique
   );
   const orderIndex = PurchaseOrder.schema.indexes().find(
     ([fields, options]) => fields.business === 1 && fields.orderNumber === 1 && options.unique
   );
+  const productSlugIndex = Product.schema.indexes().find(
+    ([fields, options]) => fields.business === 1 && fields.slug === 1 && options.unique
+  );
+  const productSkuIndex = Product.schema.indexes().find(
+    ([fields, options]) => fields.business === 1 && fields.sku === 1 && options.unique
+  );
   assert.ok(supplierIndex);
   assert.ok(orderIndex);
+  assert.ok(productSlugIndex);
+  assert.ok(productSkuIndex);
 });
 
 test("unowned canonical single-location records produce deterministic ownership operations", () => {
   const input = {
     business: { _id: "507f1f77bcf86cd799439011" },
     location: { _id: "507f1f77bcf86cd799439012" },
+    products: [
+      {
+        _id: "507f1f77bcf86cd799439020",
+        slug: "shampoo",
+        sku: "SKU-1",
+      },
+    ],
     suppliers: [
       { _id: "507f1f77bcf86cd799439021", code: "DAV" },
     ],
@@ -48,6 +64,7 @@ test("unowned canonical single-location records produce deterministic ownership 
       {
         _id: "507f1f77bcf86cd799439031",
         supplier: "507f1f77bcf86cd799439021",
+        product: "507f1f77bcf86cd799439020",
       },
     ],
     purchaseOrders: [
@@ -63,7 +80,8 @@ test("unowned canonical single-location records produce deterministic ownership 
   const second = buildInventoryPurchasingOwnershipPlan(input);
 
   assert.equal(first.executable, true);
-  assert.equal(first.summary.operationCount, 3);
+  assert.equal(first.summary.operationCount, 4);
+  assert.equal(first.coverage.products.missingLocation, 1);
   assert.equal(first.coverage.purchaseOrders.missingLocation, 1);
   assert.equal(
     calculateInventoryPurchasingPlanFingerprint(first),
@@ -75,6 +93,15 @@ test("foreign tenant/location ownership fails closed", () => {
   const plan = buildInventoryPurchasingOwnershipPlan({
     business: { _id: "507f1f77bcf86cd799439011" },
     location: { _id: "507f1f77bcf86cd799439012" },
+    products: [
+      {
+        _id: "507f1f77bcf86cd799439020",
+        business: "507f1f77bcf86cd799439011",
+        location: "507f1f77bcf86cd799439098",
+        slug: "shampoo",
+        sku: "SKU-1",
+      },
+    ],
     suppliers: [
       {
         _id: "507f1f77bcf86cd799439021",
