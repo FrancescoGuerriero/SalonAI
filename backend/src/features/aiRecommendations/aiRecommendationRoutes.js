@@ -98,9 +98,7 @@ router.post(
 
 router.patch(
   "/adviser/inferences/:inferenceId/feedback",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     submitFeedback
   )
@@ -108,9 +106,7 @@ router.patch(
 
 router.get(
   "/adviser/evaluation",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     getEvaluation
   )
