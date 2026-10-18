@@ -141,6 +141,26 @@ const aiInferenceLogSchema =
     }
   );
 
+// Preserve existing global indexes for compatibility with historical records
+// while adding trusted tenant-aware query paths for new data.
+aiInferenceLogSchema.index({
+  capability: 1,
+  requestedAt: -1,
+});
+
+aiInferenceLogSchema.index({
+  capability: 1,
+  entityType: 1,
+  entityKey: 1,
+  requestedAt: -1,
+});
+
+aiInferenceLogSchema.index({
+  capability: 1,
+  outcomeObservedAt: 1,
+  requestedAt: -1,
+});
+
 aiInferenceLogSchema.index({
   business: 1,
   location: 1,
