@@ -12,6 +12,7 @@ import User from "../src/models/user.js";
 import {
   assertTenantProvisioningApplyAuthorization,
   buildTenantProvisioningPlan,
+  normaliseTenantProvisioningRequest,
 } from "../src/platform/tenancy/genericTenantProvisioning.js";
 
 function mongoUri(environment = process.env) {
@@ -27,13 +28,11 @@ function requestFromEnvironment(environment = process.env) {
       "TENANT_PROVISIONING_REQUEST_JSON is required. Supply the reviewed provisioning request as JSON."
     );
   }
-  let parsed;
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
     throw new Error("TENANT_PROVISIONING_REQUEST_JSON must contain valid JSON.");
   }
-  return parsed;
 }
 
 async function queryWithSession(query, session) {
@@ -270,33 +269,30 @@ async function applyProvisioning({ request, reviewedPlan, session }) {
 
 export async function main(args = process.argv.slice(2), environment = process.env) {
   const rawRequest = requestFromEnvironment(environment);
+  const request = normaliseTenantProvisioningRequest(rawRequest);
 
   await mongoose.connect(mongoUri(environment), {
     serverSelectionTimeoutMS: 15000,
   });
 
-  const initialRequest = buildTenantProvisioningPlan({
+  const initialPlan = buildTenantProvisioningPlan({
     request: rawRequest,
-    snapshot: await loadSnapshot(
-      // build once to normalize/validate before querying tenant-shaped records
-      // without trusting any request Business id
-      (await import("../src/platform/tenancy/genericTenantProvisioning.js")).normaliseTenantProvisioningRequest(rawRequest)
-    ),
+    snapshot: await loadSnapshot(request),
   });
 
   if (!args.includes("--apply")) {
-    console.log(JSON.stringify(sanitisedPlan(initialRequest), null, 2));
+    console.log(JSON.stringify(sanitisedPlan(initialPlan), null, 2));
     return;
   }
 
-  if (!initialRequest.executable) {
+  if (!initialPlan.executable) {
     throw new Error("Tenant provisioning plan contains blockers and cannot be applied.");
   }
 
   assertTenantProvisioningApplyAuthorization({
     args,
     environment,
-    actualFingerprint: initialRequest.fingerprint,
+    actualFingerprint: initialPlan.fingerprint,
   });
 
   const session = await mongoose.startSession();
@@ -304,8 +300,8 @@ export async function main(args = process.argv.slice(2), environment = process.e
   try {
     await session.withTransaction(async () => {
       applied = await applyProvisioning({
-        request: initialRequest.request,
-        reviewedPlan: initialRequest,
+        request: initialPlan.request,
+        reviewedPlan: initialPlan,
         session,
       });
     });
@@ -317,7 +313,7 @@ export async function main(args = process.argv.slice(2), environment = process.e
     JSON.stringify(
       {
         applied: true,
-        reviewedFingerprint: initialRequest.fingerprint,
+        reviewedFingerprint: initialPlan.fingerprint,
         ...applied,
         domainsPendingVerification: true,
         dnsMutation: false,
