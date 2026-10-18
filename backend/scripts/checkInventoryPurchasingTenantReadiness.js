@@ -44,21 +44,27 @@ function indexNames(indexes = []) {
 
 export function sanitiseInventoryPurchasingReadiness(snapshot) {
   const plan = snapshot?.plan || {};
+  const productIndexes = indexNames(snapshot?.indexes?.products || []);
   const supplierIndexes = indexNames(snapshot?.indexes?.suppliers || []);
   const purchaseOrderIndexes = indexNames(snapshot?.indexes?.purchaseOrders || []);
+  const legacyGlobalUniqueIndexes = Object.freeze({
+    productSlug: productIndexes.includes("slug_1"),
+    productSku: productIndexes.includes("sku_1"),
+    supplierCode: supplierIndexes.includes("code_1"),
+    purchaseOrderNumber: purchaseOrderIndexes.includes("orderNumber_1"),
+  });
+
   return Object.freeze({
     ...sanitiseInventoryPurchasingPlan(plan),
     planFingerprint: calculateInventoryPurchasingPlanFingerprint(plan),
-    legacyGlobalUniqueIndexes: Object.freeze({
-      supplierCode: supplierIndexes.includes("code_1"),
-      purchaseOrderNumber: purchaseOrderIndexes.includes("orderNumber_1"),
-    }),
+    legacyGlobalUniqueIndexes,
     targetTenantIndexesDeclared: Object.freeze({
+      productSlug: true,
+      productSku: true,
       supplierCode: true,
       purchaseOrderNumber: true,
     }),
-    indexCutoverRequired:
-      supplierIndexes.includes("code_1") || purchaseOrderIndexes.includes("orderNumber_1"),
+    indexCutoverRequired: Object.values(legacyGlobalUniqueIndexes).some(Boolean),
   });
 }
 
