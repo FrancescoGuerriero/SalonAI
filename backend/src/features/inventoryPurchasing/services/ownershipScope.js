@@ -11,84 +11,152 @@ function id(value) {
   return text || null;
 }
 
-export function requireInventoryBusinessContext(tenantContext = {}) {
-  const businessId = id(tenantContext.businessId);
+function uniqueIds(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map(id).filter(Boolean))];
+}
+
+export function resolveInventoryAuthority(authority = {}) {
+  const businessId = id(authority.businessId);
   if (!businessId) {
     throw scopeError(
       "Trusted Business context is required for inventory/purchasing access."
     );
   }
-  return businessId;
-}
 
-export function inventoryBusinessFilter(tenantContext = {}) {
+  const selectedLocationId = id(authority.locationId);
+  const allLocations = authority.locationAccessMode === "all";
+  let allowedLocationIds = allLocations ? null : uniqueIds(authority.allowedLocationIds);
+
+  // Compatibility with transitional trusted tenant contexts that expose only a
+  // selected location. Effective authority remains the preferred runtime input.
+  if (!allLocations && allowedLocationIds.length === 0 && selectedLocationId) {
+    allowedLocationIds = [selectedLocationId];
+  }
+
+  if (!allLocations && allowedLocationIds.length === 0) {
+    throw scopeError(
+      "The active membership has no authorised inventory locations.",
+      "INVENTORY_LOCATION_SCOPE_EMPTY"
+    );
+  }
+
+  if (
+    !allLocations &&
+    selectedLocationId &&
+    !allowedLocationIds.includes(selectedLocationId)
+  ) {
+    throw scopeError(
+      "The selected Location is outside the active membership scope.",
+      "INVENTORY_LOCATION_SCOPE_INVALID"
+    );
+  }
+
+  const scopeMode = selectedLocationId
+    ? "selected-location"
+    : allLocations
+      ? "business-wide"
+      : "allowed-locations";
+
   return Object.freeze({
-    business: requireInventoryBusinessContext(tenantContext),
+    businessId,
+    selectedLocationId,
+    allLocations,
+    allowedLocationIds:
+      allowedLocationIds === null ? null : Object.freeze([...allowedLocationIds]),
+    scopeMode,
   });
 }
 
+export function requireInventoryBusinessContext(authority = {}) {
+  return resolveInventoryAuthority(authority).businessId;
+}
+
+export function inventoryBusinessFilter(authority = {}) {
+  const scope = resolveInventoryAuthority(authority);
+  return Object.freeze({ business: scope.businessId });
+}
+
 export function inventoryLocationFilter(
-  tenantContext = {},
+  authority = {},
   { requireSelectedLocation = false, includeBusinessWide = false } = {}
 ) {
-  const business = requireInventoryBusinessContext(tenantContext);
-  const location = id(tenantContext.locationId);
+  const scope = resolveInventoryAuthority(authority);
+  const base = { business: scope.businessId };
 
-  if (requireSelectedLocation && !location) {
+  if (requireSelectedLocation && !scope.selectedLocationId) {
     throw scopeError(
       "A trusted selected Location is required for this inventory operation.",
       "INVENTORY_LOCATION_SCOPE_REQUIRED"
     );
   }
 
-  if (!location) {
-    return Object.freeze({ business });
+  if (scope.selectedLocationId) {
+    if (!includeBusinessWide) {
+      return Object.freeze({ ...base, location: scope.selectedLocationId });
+    }
+    return Object.freeze({
+      ...base,
+      $or: Object.freeze([
+        Object.freeze({ location: scope.selectedLocationId }),
+        Object.freeze({ location: null }),
+        Object.freeze({ location: Object.freeze({ $exists: false }) }),
+      ]),
+    });
+  }
+
+  if (scope.allLocations) {
+    return Object.freeze(base);
   }
 
   if (!includeBusinessWide) {
-    return Object.freeze({ business, location });
+    return Object.freeze({
+      ...base,
+      location: Object.freeze({ $in: Object.freeze([...scope.allowedLocationIds]) }),
+    });
   }
 
   return Object.freeze({
-    business,
-    $or: [
-      { location },
-      { location: null },
-      { location: { $exists: false } },
-    ],
+    ...base,
+    $or: Object.freeze([
+      Object.freeze({
+        location: Object.freeze({ $in: Object.freeze([...scope.allowedLocationIds]) }),
+      }),
+      Object.freeze({ location: null }),
+      Object.freeze({ location: Object.freeze({ $exists: false }) }),
+    ]),
   });
 }
 
 export function assertInventoryResourceWithinScope(
   resource,
-  tenantContext = {},
+  authority = {},
   { requireLocation = false, allowBusinessWide = false } = {}
 ) {
-  const business = requireInventoryBusinessContext(tenantContext);
-  const location = id(tenantContext.locationId);
+  const scope = resolveInventoryAuthority(authority);
   const resourceBusiness = id(resource?.business);
   const resourceLocation = id(resource?.location);
 
-  if (!resource || !resourceBusiness || resourceBusiness !== business) {
+  if (!resource || !resourceBusiness || resourceBusiness !== scope.businessId) {
     throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
   }
 
-  if (requireLocation && !location) {
-    throw scopeError(
-      "A trusted selected Location is required for this inventory operation.",
-      "INVENTORY_LOCATION_SCOPE_REQUIRED"
-    );
+  if (requireLocation && !resourceLocation) {
+    throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
+  }
+
+  if (!resourceLocation) {
+    if (allowBusinessWide) return true;
+    throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
+  }
+
+  if (scope.selectedLocationId && resourceLocation !== scope.selectedLocationId) {
+    throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
   }
 
   if (
-    location &&
-    resourceLocation &&
-    resourceLocation !== location
+    !scope.allLocations &&
+    !scope.allowedLocationIds.includes(resourceLocation)
   ) {
-    throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
-  }
-
-  if (location && !resourceLocation && !allowBusinessWide) {
     throw scopeError("Inventory resource not found.", "INVENTORY_RESOURCE_NOT_FOUND");
   }
 
