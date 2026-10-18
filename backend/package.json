@@ -44,7 +44,10 @@
     "customers:user-account-index-migrate": "node scripts/applyCustomerUserAccountIndexMigration.js",
     "staff-roles:tenant-readiness": "node scripts/checkStaffRoleTenantReadiness.js",
     "staff-roles:tenant-backfill-plan": "node scripts/planStaffRoleTenantBackfill.js",
-    "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js"
+    "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js",
+    "customers-appointments:tenant-readiness": "node scripts/checkCustomerAppointmentTenantReadiness.js",
+    "customers-appointments:tenant-backfill-plan": "node scripts/planCustomerAppointmentTenantBackfill.js",
+    "customers-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
