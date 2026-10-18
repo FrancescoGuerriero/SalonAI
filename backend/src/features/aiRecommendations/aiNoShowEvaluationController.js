@@ -1,16 +1,31 @@
 import {
-  getNoShowModelEvaluation,
-} from "../aiPlatform/noShowEvaluationService.js";
+  getTenantScopedNoShowModelEvaluation,
+} from "../aiPlatform/tenantScopedNoShowEvaluationService.js";
 
 export async function getAiNoShowEvaluation(
   request,
   response
 ) {
+  const tenantContext =
+    request.tenantContext ||
+    {};
   const evaluation =
-    await getNoShowModelEvaluation({
+    await getTenantScopedNoShowModelEvaluation({
       periodDays:
         request.query
           ?.periodDays,
+      businessId:
+        tenantContext.businessId ||
+        null,
+      locationId:
+        tenantContext.locationId ||
+        null,
+      locationAccessMode:
+        tenantContext.locationAccessMode ||
+        "selected",
+      allowedLocationIds:
+        tenantContext.allowedLocationIds ||
+        [],
     });
 
   return response
