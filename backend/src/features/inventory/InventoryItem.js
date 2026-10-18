@@ -4,6 +4,21 @@ const { Schema } = mongoose;
 
 const inventoryItemSchema = new Schema(
   {
+    // Transitional #309 stock ownership. A null/absent location represents
+    // business-level/shared stock until the final per-location inventory
+    // contract is activated.
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    location: {
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     sku: {
       type: String,
       required: true,
@@ -82,6 +97,13 @@ const inventoryItemSchema = new Schema(
     timestamps: true,
   }
 );
+
+inventoryItemSchema.index({
+  business: 1,
+  location: 1,
+  active: 1,
+  name: 1,
+});
 
 const InventoryItem =
   mongoose.models.InventoryItem ||

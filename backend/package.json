@@ -48,7 +48,8 @@
     "staff-roles:tenant-backfill": "node scripts/applyStaffRoleTenantBackfill.js",
     "customers-appointments:tenant-readiness": "node scripts/checkCustomerAppointmentTenantReadiness.js",
     "customers-appointments:tenant-backfill-plan": "node scripts/planCustomerAppointmentTenantBackfill.js",
-    "customers-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js"
+    "customers-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js",
+    "reports:tenant-readiness": "node scripts/checkReportExportTenantReadiness.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
