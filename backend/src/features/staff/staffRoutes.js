@@ -12,7 +12,6 @@ import {
 import {
   trustedTenantContextMiddleware,
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
-import * as controller from "./staffController.js";
 import {
   setAvailability as tenantScopedSetAvailability,
   week as tenantScopedWeek,
@@ -28,23 +27,16 @@ import {
   requestMyTimeOff as tenantScopedRequestMyTimeOff,
   setMyAvailability as tenantScopedSetMyAvailability,
 } from "./staffSelfServiceTenantController.js";
+import * as controller from "./staffScheduleTenantController.js";
+
+const tenantScopedMyDay = controller.myDay;
+const tenantScopedStaffDay = controller.staffDay;
 
 const router = express.Router();
 
-const readEmployees =
-  requirePermissions(
-    "employee:read"
-  );
-
-const updateEmployeeSchedule =
-  requirePermissions(
-    "employee:schedule:update"
-  );
-
-const readCalendar =
-  requirePermissions(
-    "appointment:read"
-  );
+const readEmployees = requirePermissions("employee:read");
+const updateEmployeeSchedule = requirePermissions("employee:schedule:update");
+const readCalendar = requirePermissions("appointment:read");
 
 const workforceTenantAuthority = [
   workforcePublicTenantContextMiddleware,
@@ -52,143 +44,106 @@ const workforceTenantAuthority = [
   effectiveAuthorityMiddleware,
 ];
 
-const readOwnSchedule =
-  requirePermissions(
-    "schedule:own:read"
-  );
+const readOwnSchedule = requirePermissions("schedule:own:read");
+const updateOwnSchedule = requirePermissions("schedule:own:update");
+const requestOwnLeave = requirePermissions("leave:own:request");
 
-const updateOwnSchedule =
-  requirePermissions(
-    "schedule:own:update"
-  );
-
-const requestOwnLeave =
-  requirePermissions(
-    "leave:own:request"
-  );
-
-// Self-service routes must be declared before /:staffId routes.
 router.get(
   "/me/availability",
   ...workforceTenantAuthority,
   readOwnSchedule,
-  asyncHandler(
-    tenantScopedMyWeek
-  )
+  asyncHandler(tenantScopedMyWeek)
 );
 
 router.put(
   "/me/availability",
   ...workforceTenantAuthority,
   updateOwnSchedule,
-  asyncHandler(
-    tenantScopedSetMyAvailability
-  )
+  asyncHandler(tenantScopedSetMyAvailability)
 );
 
-// Appointment-backed self day remains on the legacy service until #380.
 router.get(
   "/me/day",
+  ...workforceTenantAuthority,
   readOwnSchedule,
-  asyncHandler(
-    controller.myDay
-  )
+  asyncHandler(tenantScopedMyDay)
 );
 
 router.get(
   "/me/time-off",
   ...workforceTenantAuthority,
   readOwnSchedule,
-  asyncHandler(
-    tenantScopedListMyTimeOff
-  )
+  asyncHandler(tenantScopedListMyTimeOff)
 );
 
 router.post(
   "/me/time-off",
   ...workforceTenantAuthority,
   requestOwnLeave,
-  asyncHandler(
-    tenantScopedRequestMyTimeOff
-  )
+  asyncHandler(tenantScopedRequestMyTimeOff)
 );
 
-// Cross-employee management routes.
 router.get(
   "/time-off",
   ...workforceTenantAuthority,
   readEmployees,
-  asyncHandler(
-    tenantScopedTimeOffList
-  )
+  asyncHandler(tenantScopedTimeOffList)
 );
 
 router.patch(
   "/time-off/:id",
   ...workforceTenantAuthority,
   updateEmployeeSchedule,
-  asyncHandler(
-    tenantScopedUpdateTimeOff
-  )
+  asyncHandler(tenantScopedUpdateTimeOff)
 );
 
 router.get(
   "/calendar-blocks",
+  ...workforceTenantAuthority,
   readCalendar,
-  asyncHandler(
-    controller.listCalendarBlocks
-  )
+  asyncHandler(controller.listCalendarBlocks)
 );
 
 router.patch(
   "/calendar-blocks/:id/cancel",
+  ...workforceTenantAuthority,
   updateEmployeeSchedule,
-  asyncHandler(
-    controller.cancelCalendarBlock
-  )
+  asyncHandler(controller.cancelCalendarBlock)
 );
 
 router.get(
   "/:staffId/availability",
   ...workforceTenantAuthority,
   readEmployees,
-  asyncHandler(
-    tenantScopedWeek
-  )
+  asyncHandler(tenantScopedWeek)
 );
 
 router.put(
   "/:staffId/availability",
   ...workforceTenantAuthority,
   updateEmployeeSchedule,
-  asyncHandler(
-    tenantScopedSetAvailability
-  )
+  asyncHandler(tenantScopedSetAvailability)
 );
 
 router.get(
   "/:staffId/day",
+  ...workforceTenantAuthority,
   readEmployees,
-  asyncHandler(
-    controller.day
-  )
+  asyncHandler(tenantScopedStaffDay)
 );
 
 router.post(
   "/:staffId/time-off",
   ...workforceTenantAuthority,
   updateEmployeeSchedule,
-  asyncHandler(
-    tenantScopedRequestTimeOff
-  )
+  asyncHandler(tenantScopedRequestTimeOff)
 );
 
 router.post(
   "/:staffId/calendar-blocks",
+  ...workforceTenantAuthority,
   updateEmployeeSchedule,
-  asyncHandler(
-    controller.createCalendarBlock
-  )
+  asyncHandler(controller.createCalendarBlock)
 );
 
 export default router;
