@@ -10,6 +10,9 @@ const aiFeatureSnapshotSchema =
         ref: "Business",
         default: undefined,
         index: true,
+        required() {
+          return this.task === "no_show_prediction";
+        },
       },
       location: {
         type: Schema.Types.ObjectId,
