@@ -171,6 +171,11 @@ export async function updateCustomer(req, res) {
         ? { ...req.body }
         : {};
 
+    // Business ownership is trusted AIIBP tenancy state. During the
+    // transitional optional-field phase it must never be writable from a
+    // generic customer payload.
+    delete update.business;
+
     if (
       Object.prototype.hasOwnProperty.call(
         update,
