@@ -196,6 +196,10 @@ export default function AppointmentEditorDialog({
     setError,
   ] = useState("");
   const [
+    customerSearchError,
+    setCustomerSearchError,
+  ] = useState("");
+  const [
     notice,
     setNotice,
   ] = useState("");
@@ -254,6 +258,7 @@ export default function AppointmentEditorDialog({
         : []
     );
     setError("");
+    setCustomerSearchError("");
     setNotice("");
   }, [
     appointment,
@@ -270,10 +275,16 @@ export default function AppointmentEditorDialog({
       return;
     }
 
+    let active = true;
     const timer =
       window.setTimeout(
         async () => {
+          if (!active) {
+            return;
+          }
+
           setSearching(true);
+          setCustomerSearchError("");
 
           try {
             const result =
@@ -281,32 +292,45 @@ export default function AppointmentEditorDialog({
                 customerSearch
               );
 
+            if (!active) {
+              return;
+            }
+
             setCustomers(
               result.customers ||
                 []
             );
+            setCustomerSearchError("");
           } catch (
             requestError
           ) {
-            setError(
+            if (!active) {
+              return;
+            }
+
+            setCustomerSearchError(
               errorMessage(
                 requestError,
-                "Customers could not be loaded."
+                "Customers could not be searched. Try again."
               )
             );
           } finally {
-            setSearching(
-              false
-            );
+            if (active) {
+              setSearching(
+                false
+              );
+            }
           }
         },
         250
       );
 
-    return () =>
+    return () => {
+      active = false;
       window.clearTimeout(
         timer
       );
+    };
   }, [
     canCreate,
     customerSearch,
@@ -703,6 +727,15 @@ export default function AppointmentEditorDialog({
                   className="min-w-0 flex-1 border-0 bg-transparent py-3 outline-none"
                 />
               </div>
+
+              {customerSearchError ? (
+                <p
+                  role="alert"
+                  className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800"
+                >
+                  {customerSearchError}
+                </p>
+              ) : null}
 
               <select
                 required

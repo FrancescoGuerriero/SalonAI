@@ -251,8 +251,12 @@ export default function ProductManagementPage() {
     ...EMPTY_PRODUCT,
   });
   const [
-    error,
-    setError,
+    pageError,
+    setPageError,
+  ] = useState("");
+  const [
+    formError,
+    setFormError,
   ] = useState("");
   const [
     success,
@@ -263,7 +267,7 @@ export default function ProductManagementPage() {
     useCallback(
       async () => {
         setLoading(true);
-        setError("");
+        setPageError("");
 
         try {
           const result =
@@ -282,7 +286,7 @@ export default function ProductManagementPage() {
         } catch (
           requestError
         ) {
-          setError(
+          setPageError(
             messageFrom(
               requestError,
               "The product catalogue could not be loaded."
@@ -358,6 +362,7 @@ export default function ProductManagementPage() {
     field,
     value
   ) {
+    setFormError("");
     setForm(
       (current) => ({
         ...current,
@@ -371,7 +376,7 @@ export default function ProductManagementPage() {
     setForm({
       ...EMPTY_PRODUCT,
     });
-    setError("");
+    setFormError("");
     setSuccess("");
     setShowForm(true);
   }
@@ -383,7 +388,7 @@ export default function ProductManagementPage() {
     setForm(
       toForm(product)
     );
-    setError("");
+    setFormError("");
     setSuccess("");
     setShowForm(true);
   }
@@ -396,6 +401,7 @@ export default function ProductManagementPage() {
 
       setShowForm(false);
       setEditingId("");
+      setFormError("");
     }, [saving]);
 
   const setEditorOpen =
@@ -445,7 +451,7 @@ export default function ProductManagementPage() {
       editingId &&
       !canUpdate
     ) {
-      setError(
+      setFormError(
         "You do not have permission to edit products."
       );
       return;
@@ -455,7 +461,7 @@ export default function ProductManagementPage() {
       !editingId &&
       !canCreate
     ) {
-      setError(
+      setFormError(
         "You do not have permission to create products."
       );
       return;
@@ -463,7 +469,7 @@ export default function ProductManagementPage() {
 
     try {
       setSaving(true);
-      setError("");
+      setFormError("");
       setSuccess("");
 
       const payload =
@@ -494,12 +500,13 @@ export default function ProductManagementPage() {
       setForm({
         ...EMPTY_PRODUCT,
       });
+      setFormError("");
 
       await load();
     } catch (
       requestError
     ) {
-      setError(
+      setFormError(
         messageFrom(
           requestError,
           "The product could not be saved."
@@ -521,7 +528,7 @@ export default function ProductManagementPage() {
       setActionId(
         String(product._id)
       );
-      setError("");
+      setPageError("");
       setSuccess("");
 
       const next =
@@ -543,7 +550,7 @@ export default function ProductManagementPage() {
     } catch (
       requestError
     ) {
-      setError(
+      setPageError(
         messageFrom(
           requestError,
           "Product publication could not be changed."
@@ -614,12 +621,12 @@ export default function ProductManagementPage() {
         </div>
       </header>
 
-      {error ? (
+      {pageError ? (
         <div
           className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
           role="alert"
         >
-          {error}
+          {pageError}
         </div>
       ) : null}
 
@@ -896,6 +903,15 @@ export default function ProductManagementPage() {
             </header>
 
             <div className="grid min-h-0 min-w-0 flex-1 gap-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:grid-cols-2 sm:p-5">
+              {formError ? (
+                <div
+                  className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 sm:col-span-2"
+                  role="alert"
+                >
+                  {formError}
+                </div>
+              ) : null}
+
               {[
                 [
                   "name",
