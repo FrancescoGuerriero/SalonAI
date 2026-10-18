@@ -43,6 +43,9 @@ const aiTrainingDatasetSchema =
           ref: "Business",
           default: undefined,
           index: true,
+          required() {
+            return this.scope?.mode === "single_business";
+          },
         },
         locations: {
           type: [
@@ -60,12 +63,25 @@ const aiTrainingDatasetSchema =
         deidentified: {
           type: Boolean,
           default: true,
+          validate: {
+            validator(value) {
+              return (
+                this.scope?.mode !== "cross_business_deidentified" ||
+                value === true
+              );
+            },
+            message:
+              "cross-business datasets must be de-identified.",
+          },
         },
         governanceBasis: {
           type: String,
           trim: true,
           maxlength: 1000,
           default: "",
+          required() {
+            return this.scope?.mode === "cross_business_deidentified";
+          },
         },
       },
       status: {
@@ -175,43 +191,6 @@ const aiTrainingDatasetSchema =
       timestamps: true,
     }
   );
-
-aiTrainingDatasetSchema.pre(
-  "validate",
-  function validateDatasetScope(next) {
-    const scope = this.scope || {};
-
-    if (
-      scope.mode === "single_business" &&
-      !scope.business
-    ) {
-      this.invalidate(
-        "scope.business",
-        "single_business datasets require a trusted Business scope."
-      );
-    }
-
-    if (
-      scope.mode === "cross_business_deidentified"
-    ) {
-      if (scope.deidentified !== true) {
-        this.invalidate(
-          "scope.deidentified",
-          "cross-business datasets must be de-identified."
-        );
-      }
-
-      if (!String(scope.governanceBasis || "").trim()) {
-        this.invalidate(
-          "scope.governanceBasis",
-          "cross-business datasets require an explicit governance basis."
-        );
-      }
-    }
-
-    next();
-  }
-);
 
 aiTrainingDatasetSchema.index(
   {
