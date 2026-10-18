@@ -51,7 +51,10 @@
     "customers-appointments:tenant-backfill": "node scripts/applyCustomerAppointmentTenantBackfill.js",
     "reports:tenant-readiness": "node scripts/checkReportExportTenantReadiness.js",
     "reports:tenant-backfill-plan": "node scripts/planReportExportTenantBackfill.js",
-    "reports:tenant-backfill": "node scripts/applyReportExportTenantBackfill.js"
+    "reports:tenant-backfill": "node scripts/applyReportExportTenantBackfill.js",
+    "inventory-purchasing:tenant-readiness": "node scripts/checkInventoryPurchasingTenantReadiness.js",
+    "inventory-purchasing:tenant-backfill-plan": "node scripts/planInventoryPurchasingTenantBackfill.js",
+    "inventory-purchasing:tenant-backfill": "node scripts/applyInventoryPurchasingTenantBackfill.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -1,13 +1,19 @@
 import express from "express";
 
 import asyncHandler from "../../../middleware/asyncHandler.js";
-import {
-  protect,
-} from "../../../middleware/authMiddleware.js";
+import { protect } from "../../../middleware/authMiddleware.js";
+import { effectiveAuthorityMiddleware } from "../../../middleware/effectiveAuthorityMiddleware.js";
 import {
   requireAnyPermission,
   requirePermissions,
 } from "../../../middleware/permissionMiddleware.js";
+import { apiRateLimiter } from "../../../middleware/securityMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../../../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../../platform/tenancy/trustedTenantMiddleware.js";
 
 import {
   approvePurchaseOrderHandler,
@@ -20,82 +26,51 @@ import {
   updatePurchaseOrder,
 } from "../controllers/purchaseOrderController.js";
 
-
 const router = express.Router();
 
-const readInventory =
-  requireAnyPermission(
-    "inventory:read",
-    "inventory:manage"
-  );
+const readInventory = requireAnyPermission("inventory:read", "inventory:manage");
+const manageInventory = requirePermissions("inventory:manage");
 
-const manageInventory =
-  requirePermissions(
-    "inventory:manage"
-  );
-
-router.use(protect);
+router.use(
+  apiRateLimiter,
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware
+);
 
 router
   .route("/")
-  .get(
-    readInventory,
-    asyncHandler(
-      listPurchaseOrders
-    )
-  )
-  .post(
-    manageInventory,
-    asyncHandler(
-      createPurchaseOrderHandler
-    )
-  );
+  .get(readInventory, asyncHandler(listPurchaseOrders))
+  .post(manageInventory, asyncHandler(createPurchaseOrderHandler));
 
 router
   .route("/:purchaseOrderId")
-  .get(
-    readInventory,
-    asyncHandler(
-      getPurchaseOrder
-    )
-  )
-  .patch(
-    manageInventory,
-    asyncHandler(
-      updatePurchaseOrder
-    )
-  );
+  .get(readInventory, asyncHandler(getPurchaseOrder))
+  .patch(manageInventory, asyncHandler(updatePurchaseOrder));
 
 router.post(
   "/:purchaseOrderId/submit",
   manageInventory,
-  asyncHandler(
-    submitPurchaseOrderHandler
-  )
+  asyncHandler(submitPurchaseOrderHandler)
 );
 
 router.post(
   "/:purchaseOrderId/approve",
   manageInventory,
-  asyncHandler(
-    approvePurchaseOrderHandler
-  )
+  asyncHandler(approvePurchaseOrderHandler)
 );
 
 router.post(
   "/:purchaseOrderId/cancel",
   manageInventory,
-  asyncHandler(
-    cancelPurchaseOrderHandler
-  )
+  asyncHandler(cancelPurchaseOrderHandler)
 );
 
 router.post(
   "/:purchaseOrderId/receive",
   manageInventory,
-  asyncHandler(
-    receivePurchaseOrderHandler
-  )
+  asyncHandler(receivePurchaseOrderHandler)
 );
 
 export default router;
