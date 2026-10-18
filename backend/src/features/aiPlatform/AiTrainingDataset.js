@@ -27,6 +27,47 @@ const aiTrainingDatasetSchema =
         required: true,
         trim: true,
       },
+      scope: {
+        mode: {
+          type: String,
+          enum: [
+            "single_business",
+            "cross_business_deidentified",
+            "platform_global",
+          ],
+          default: "single_business",
+          index: true,
+        },
+        business: {
+          type: Schema.Types.ObjectId,
+          ref: "Business",
+          default: undefined,
+          index: true,
+        },
+        locations: {
+          type: [
+            {
+              type: Schema.Types.ObjectId,
+              ref: "Location",
+            },
+          ],
+          default: [],
+        },
+        verticals: {
+          type: [String],
+          default: [],
+        },
+        deidentified: {
+          type: Boolean,
+          default: true,
+        },
+        governanceBasis: {
+          type: String,
+          trim: true,
+          maxlength: 1000,
+          default: "",
+        },
+      },
       status: {
         type: String,
         enum: [
@@ -135,6 +176,43 @@ const aiTrainingDatasetSchema =
     }
   );
 
+aiTrainingDatasetSchema.pre(
+  "validate",
+  function validateDatasetScope(next) {
+    const scope = this.scope || {};
+
+    if (
+      scope.mode === "single_business" &&
+      !scope.business
+    ) {
+      this.invalidate(
+        "scope.business",
+        "single_business datasets require a trusted Business scope."
+      );
+    }
+
+    if (
+      scope.mode === "cross_business_deidentified"
+    ) {
+      if (scope.deidentified !== true) {
+        this.invalidate(
+          "scope.deidentified",
+          "cross-business datasets must be de-identified."
+        );
+      }
+
+      if (!String(scope.governanceBasis || "").trim()) {
+        this.invalidate(
+          "scope.governanceBasis",
+          "cross-business datasets require an explicit governance basis."
+        );
+      }
+    }
+
+    next();
+  }
+);
+
 aiTrainingDatasetSchema.index(
   {
     name: 1,
@@ -144,6 +222,13 @@ aiTrainingDatasetSchema.index(
     unique: true,
   }
 );
+
+aiTrainingDatasetSchema.index({
+  "scope.mode": 1,
+  "scope.business": 1,
+  task: 1,
+  status: 1,
+});
 
 const AiTrainingDataset =
   mongoose.models
