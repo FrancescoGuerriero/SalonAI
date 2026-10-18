@@ -8,9 +8,14 @@ import AiKnowledgeDocument from "../features/aiPlatform/AiKnowledgeDocument.js";
 import AiModelVersion from "../features/aiPlatform/AiModelVersion.js";
 import AiTrainingDataset from "../features/aiPlatform/AiTrainingDataset.js";
 
+const BUSINESS_ID =
+  "507f1f77bcf86cd799439011";
+
 test("AI training foundation records time-aware versioned features without direct identifiers by default", () => {
   const snapshot =
     new AiFeatureSnapshot({
+      business:
+        BUSINESS_ID,
       task:
         "no_show_prediction",
       entityType:
@@ -21,6 +26,8 @@ test("AI training foundation records time-aware versioned features without direc
         new Date(),
       featureVersion:
         "no-show-v1",
+      datasetVersion:
+        "tenant-dataset-v1",
       features: {
         previousBookings: 4,
       },
@@ -39,6 +46,30 @@ test("AI training foundation records time-aware versioned features without direc
   assert.equal(
     snapshot.split,
     "unassigned"
+  );
+});
+
+test("no-show training snapshots fail closed without trusted Business provenance", async () => {
+  const snapshot =
+    new AiFeatureSnapshot({
+      task:
+        "no_show_prediction",
+      entityType:
+        "appointment",
+      entityKey:
+        "pseudo-unscoped",
+      asOf:
+        new Date(),
+      featureVersion:
+        "no-show-v1",
+      datasetVersion:
+        "tenant-dataset-v1",
+      features: {},
+    });
+
+  await assert.rejects(
+    snapshot.validate(),
+    /business/
   );
 });
 

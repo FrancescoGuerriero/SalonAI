@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import {
-  materialiseNoShowTrainingDataset,
-} from "../src/features/aiPlatform/noShowTrainingDatasetService.js";
+  materialiseTenantScopedNoShowTrainingDataset,
+} from "../src/features/aiPlatform/tenantScopedNoShowTrainingDatasetService.js";
 
 dotenv.config();
 
@@ -68,6 +68,14 @@ async function main() {
     argumentValue(
       "dataset-version"
     );
+  const businessId =
+    argumentValue(
+      "business-id"
+    );
+  const locationId =
+    argumentValue(
+      "location-id"
+    );
   const pseudonymKey =
     String(
       process.env
@@ -78,6 +86,12 @@ async function main() {
   if (!datasetVersion) {
     throw new Error(
       "Provide --dataset-version=<version>."
+    );
+  }
+
+  if (!businessId) {
+    throw new Error(
+      "Provide --business-id=<trusted Business ObjectId>. Global/unscoped AI training dataset builds are no longer permitted."
     );
   }
 
@@ -106,9 +120,11 @@ async function main() {
   );
 
   const result =
-    await materialiseNoShowTrainingDataset({
+    await materialiseTenantScopedNoShowTrainingDataset({
       datasetVersion,
       pseudonymKey,
+      businessId,
+      locationId,
       apply,
     });
 
@@ -131,8 +147,8 @@ async function main() {
 
   console.log(
     apply
-      ? "[PASS] No-show training dataset frozen."
-      : "[PASS] Dry-run completed. No AI training records were changed."
+      ? "[PASS] Tenant-scoped no-show training dataset frozen."
+      : "[PASS] Tenant-scoped dry-run completed. No AI training records were changed."
   );
 }
 

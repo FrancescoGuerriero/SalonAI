@@ -28,17 +28,52 @@ Existing historical records may not yet contain provenance. Their absence must n
 
 Dataset scope is governance metadata, not RBAC. Effective permissions and operational tenant resolution remain enforced by the canonical backend before records are selected.
 
+## No-show dataset activation
+
+The production dataset command is now tenant-scoped and fail-closed. A Business id is mandatory, and an optional Location id is accepted only after the backend verifies that the Location belongs to that Business.
+
+Dry-run example:
+
+```bash
+npm run ai:dataset:no-show -- \
+  --dataset-version=2026-10-tenant-v1 \
+  --business-id=<BUSINESS_OBJECT_ID>
+```
+
+Optional Location restriction:
+
+```bash
+npm run ai:dataset:no-show -- \
+  --dataset-version=2026-10-location-v1 \
+  --business-id=<BUSINESS_OBJECT_ID> \
+  --location-id=<LOCATION_OBJECT_ID>
+```
+
+Applying a frozen dataset still requires the existing explicit confirmation token:
+
+```bash
+npm run ai:dataset:no-show -- \
+  --dataset-version=2026-10-tenant-v1 \
+  --business-id=<BUSINESS_OBJECT_ID> \
+  --apply \
+  --confirm=build-no-show-training-dataset
+```
+
+The materialiser queries canonical `Appointment` records by trusted `business` before feature extraction. Location-specific builds additionally constrain the source query by canonical `location`. Every generated no-show `AiFeatureSnapshot` carries Business provenance, and global deletion of no-show training snapshots is blocked at the model boundary.
+
+Because the existing dataset registry still preserves the historical unique `{name, version}` contract, a dataset version cannot be silently reassigned from one Business to another. Use a new version rather than mutating historical scope. A future reviewed migration may tenant-localise registry uniqueness only after production ownership and compatibility evidence are complete.
+
 ## Privacy and lineage
 
 Training snapshots remain pseudonymised by default and record whether direct identifiers are present. Direct customer/staff identifiers should not become model features unless a reviewed task has a documented need and lawful basis.
 
-Frozen datasets must retain:
+Frozen datasets retain:
 
 - task and feature version;
 - observation window;
 - temporal/grouped split policy;
 - source-collection lineage;
-- schema/data hashes;
+- schema and data hashes;
 - data-quality and readiness evidence;
 - explicit tenancy scope;
 - builder and source-control provenance where available.
@@ -69,9 +104,11 @@ canonical tenant-safe operational records
 - Do not treat missing provenance as global/platform permission.
 - Do not combine Businesses under `single_business` scope.
 - Do not permit `cross_business_deidentified` datasets with `deidentified=false` or without an explicit governance basis.
+- Do not freeze new no-show snapshots without trusted Business provenance.
+- Do not perform an unscoped destructive rebuild of no-show snapshots.
 - Do not copy raw production data into a training directory as a substitute for a governed snapshot.
 - Do not let model training, inference or feedback automatically promote a model or mutate consequential canonical state.
 
 ## Rollout
 
-This provenance change is additive. Existing snapshot uniqueness and inference query indexes are preserved while tenant-aware indexes are added. Any historical ownership backfill, uniqueness cutover, tenant-aware materialiser activation or index retirement requires a separately reviewed migration/readiness gate.
+The first provenance increment was additive: existing snapshot uniqueness and inference query indexes were preserved while tenant-aware indexes were added. The second increment activates a tenant-bound no-show materialisation path and blocks new unscoped no-show snapshots/destructive rebuilds. Historical ownership backfill, registry uniqueness cutover, tenant-aware inference/evaluation activation and index retirement remain separately reviewed gates.

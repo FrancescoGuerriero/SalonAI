@@ -10,6 +10,9 @@ const aiFeatureSnapshotSchema =
         ref: "Business",
         default: undefined,
         index: true,
+        required() {
+          return this.task === "no_show_prediction";
+        },
       },
       location: {
         type: Schema.Types.ObjectId,
@@ -125,6 +128,27 @@ const aiFeatureSnapshotSchema =
       timestamps: true,
     }
   );
+
+// Historical records may remain unscoped until a guarded migration, but new
+// no-show training snapshots must carry trusted Business ownership.
+aiFeatureSnapshotSchema.pre(
+  "deleteMany",
+  function preventUnscopedNoShowDeletion() {
+    const filter = this.getFilter();
+
+    if (
+      filter?.task === "no_show_prediction" &&
+      !filter?.business
+    ) {
+      const error = new Error(
+        "Unscoped deletion of no-show AI feature snapshots is prohibited."
+      );
+      error.code =
+        "UNSCOPED_AI_TRAINING_DELETE_BLOCKED";
+      throw error;
+    }
+  }
+);
 
 // Preserve the pre-tenancy uniqueness contract during the additive provenance
 // rollout. A later reviewed migration may tenant-localise uniqueness once all
