@@ -92,6 +92,10 @@ export function normaliseTenantProvisioningRequest(input = {}) {
     input.ownerUserId,
     "Owner user id"
   );
+  const ownerRoleKey = cleanString(input.ownerRoleKey || "admin").toLowerCase();
+  if (!/^[a-z][a-z0-9_]{2,39}$/.test(ownerRoleKey)) {
+    throw provisioningError("Owner role key is invalid.");
+  }
 
   const manifestInput = normaliseTenantProductManifest({
     ...(input.productManifest || {}),
@@ -127,7 +131,7 @@ export function normaliseTenantProvisioningRequest(input = {}) {
     primaryDomain,
     appDomain,
     ownerUserId,
-    ownerRoleKey: cleanString(input.ownerRoleKey || "admin").toLowerCase(),
+    ownerRoleKey,
     manifest: manifestInput,
     composition,
   });
@@ -160,6 +164,23 @@ function sameId(a, b) {
   return cleanString(a).toLowerCase() === cleanString(b).toLowerCase();
 }
 
+function addBlocker(blockers, type, details = {}) {
+  blockers.push(Object.freeze({ type, ...details }));
+}
+
+function buildPlanFingerprint({ request, blockers, operations, reuse }) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        request: stableProvisioningShape(request),
+        blockers: blockers.map((item) => ({ ...item })),
+        operations: operations.map((item) => ({ ...item })),
+        reuse,
+      })
+    )
+    .digest("hex");
+}
+
 export function buildTenantProvisioningPlan({ request: input, snapshot = {} } = {}) {
   const request = normaliseTenantProvisioningRequest(input);
   const businesses = Array.isArray(snapshot.businesses) ? snapshot.businesses : [];
@@ -175,30 +196,38 @@ export function buildTenantProvisioningPlan({ request: input, snapshot = {} } = 
     (item) => cleanString(item.slug).toLowerCase() === request.businessSlug
   );
 
-  if (business && cleanString(business.businessType).toLowerCase() !== request.verticalId) {
-    blockers.push({ type: "business-slug-conflict" });
+  if (business) {
+    if (cleanString(business.businessType).toLowerCase() !== request.verticalId) {
+      addBlocker(blockers, "business-slug-conflict");
+    }
+    if (cleanString(business.name) && cleanString(business.name) !== request.businessName) {
+      addBlocker(blockers, "business-name-conflict");
+    }
   }
 
   const businessId = business?._id ? cleanString(business._id) : "";
 
-  for (const host of [request.primaryDomain, request.appDomain].filter(Boolean)) {
+  for (const [host, expectedRole] of [
+    [request.primaryDomain, "primary"],
+    [request.appDomain, "app-subdomain"],
+  ]) {
+    if (!host) continue;
     const existing = domains.find(
       (item) => cleanString(item.host).toLowerCase() === host
     );
     if (existing && (!businessId || !sameId(existing.business, businessId))) {
-      blockers.push({ type: "domain-collision", host });
+      addBlocker(blockers, "domain-collision", { host });
+    } else if (existing && cleanString(existing.role) && cleanString(existing.role) !== expectedRole) {
+      addBlocker(blockers, "domain-role-conflict", { host });
     }
   }
 
   if (request.ownerUserId && !users.some((item) => sameId(item._id, request.ownerUserId))) {
-    blockers.push({ type: "owner-user-not-found" });
+    addBlocker(blockers, "owner-user-not-found");
   }
 
   if (!business) {
-    operations.push({
-      type: "create-business",
-      key: request.businessSlug,
-    });
+    operations.push({ type: "create-business", key: request.businessSlug });
   }
 
   const matchingLocation = businessId
@@ -209,11 +238,12 @@ export function buildTenantProvisioningPlan({ request: input, snapshot = {} } = 
       )
     : null;
 
+  if (matchingLocation && cleanString(matchingLocation.name) && cleanString(matchingLocation.name) !== request.primaryLocation.name) {
+    addBlocker(blockers, "location-name-conflict");
+  }
+
   if (!matchingLocation) {
-    operations.push({
-      type: "create-location",
-      key: request.primaryLocation.slug,
-    });
+    operations.push({ type: "create-location", key: request.primaryLocation.slug });
   }
 
   for (const [host, role] of [
@@ -229,27 +259,44 @@ export function buildTenantProvisioningPlan({ request: input, snapshot = {} } = 
     }
   }
 
+  let membership = null;
   if (request.ownerUserId) {
-    const membership = businessId
+    membership = businessId
       ? memberships.find(
           (item) =>
             sameId(item.business, businessId) &&
             sameId(item.user, request.ownerUserId)
         )
       : null;
+    if (membership && cleanString(membership.roleKey) && cleanString(membership.roleKey) !== request.ownerRoleKey) {
+      addBlocker(blockers, "owner-membership-role-conflict");
+    }
     if (!membership) {
       operations.push({ type: "create-owner-membership", key: request.ownerUserId });
     }
   }
 
-  const manifestExists = businessId
-    ? manifests.some((item) => sameId(item.business, businessId))
-    : false;
-  if (!manifestExists) {
+  const existingManifest = businessId
+    ? manifests.find((item) => sameId(item.business, businessId))
+    : null;
+  if (existingManifest) {
+    if (
+      cleanString(existingManifest.verticalId) &&
+      cleanString(existingManifest.verticalId).toLowerCase() !== request.verticalId
+    ) {
+      addBlocker(blockers, "product-manifest-vertical-conflict");
+    }
+  } else {
     operations.push({ type: "create-product-manifest", key: "1" });
   }
 
-  const fingerprint = calculateTenantProvisioningFingerprint(request);
+  const reuse = Object.freeze({
+    businessId,
+    locationId: matchingLocation?._id ? cleanString(matchingLocation._id) : "",
+    membershipId: membership?._id ? cleanString(membership._id) : "",
+    manifestId: existingManifest?._id ? cleanString(existingManifest._id) : "",
+  });
+  const fingerprint = buildPlanFingerprint({ request, blockers, operations, reuse });
 
   return Object.freeze({
     readOnly: true,
@@ -257,16 +304,18 @@ export function buildTenantProvisioningPlan({ request: input, snapshot = {} } = 
     executable: blockers.length === 0,
     idempotentNoop: blockers.length === 0 && operations.length === 0,
     fingerprint,
+    requestFingerprint: calculateTenantProvisioningFingerprint(request),
     request,
     blockers: Object.freeze(blockers),
     operations: Object.freeze(operations),
     operationCount: operations.length,
+    reuse,
     report: Object.freeze({
       business: business ? "reuse" : "create",
       location: matchingLocation ? "reuse" : "create",
       domainCount: [request.primaryDomain, request.appDomain].filter(Boolean).length,
       ownerMembershipRequested: Boolean(request.ownerUserId),
-      manifestRequested: !manifestExists,
+      manifestRequested: !existingManifest,
       dnsMutation: false,
       providerMutation: false,
       sourceCodeGeneration: false,
