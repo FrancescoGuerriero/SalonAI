@@ -22,6 +22,9 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  communicationReferenceScopeMiddleware,
+} from "../middleware/communicationReferenceScopeMiddleware.js";
+import {
   communicationEffectiveScopeMiddleware,
   scopedCampaignResource,
   scopedDeliveryResource,
@@ -103,12 +106,14 @@ router.post(
 router.post(
   "/send",
   manageCommunications,
+  communicationReferenceScopeMiddleware,
   sendScopedMessage
 );
 
 router.post(
   "/send-batch",
   manageCommunications,
+  communicationReferenceScopeMiddleware,
   sendScopedMessageBatch
 );
 
@@ -126,36 +131,36 @@ router.get(
 
 router.get(
   "/campaigns/:campaignId/summary",
-  scopedCampaignResource,
   readCommunications,
+  scopedCampaignResource,
   getScopedCampaignDeliverySummary
 );
 
 router.get(
   "/provider-status/:channel/:providerMessageId",
-  scopedProviderDeliveryResource,
   readCommunications,
+  scopedProviderDeliveryResource,
   getProviderStatus
 );
 
 router.get(
   "/deliveries/:identifier",
-  scopedDeliveryResource,
   readCommunications,
+  scopedDeliveryResource,
   getDelivery
 );
 
 router.post(
   "/deliveries/:identifier/retry",
-  scopedDeliveryResource,
   manageCommunications,
+  scopedDeliveryResource,
   retryDelivery
 );
 
 router.patch(
   "/deliveries/:identifier/cancel",
-  scopedDeliveryResource,
   manageCommunications,
+  scopedDeliveryResource,
   cancelDelivery
 );
 
