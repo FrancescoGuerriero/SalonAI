@@ -1,0 +1,183 @@
+name: SalonAI Production Customer Appointment Tenant Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live application release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    name: Audit Customer and Appointment ownership readiness
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Validate expected release tag
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Run read-only Customer Appointment readiness and deterministic plan
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 readiness-evidence
+          evidence="readiness-evidence/customer-appointment-tenant-readiness.txt"
+          readiness="$RUNNER_TEMP/customer-appointment-readiness.json"
+          plan1="$RUNNER_TEMP/customer-appointment-plan-1.json"
+          plan2="$RUNNER_TEMP/customer-appointment-plan-2.json"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo "SalonAI production Customer/Appointment tenant readiness"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: $EXPECTED_RELEASE_TAG"
+            echo
+            echo "=== Runtime identity ==="
+          } | tee "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkCustomerAppointmentTenantReadiness.js' \
+            > "$readiness"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCustomerAppointmentTenantBackfill.js' \
+            > "$plan1"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCustomerAppointmentTenantBackfill.js' \
+            > "$plan2"
+
+          node - "$readiness" "$plan1" "$plan2" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [readinessPath, plan1Path, plan2Path] = process.argv.slice(2);
+          const readiness = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+          const plan1 = JSON.parse(fs.readFileSync(plan1Path, 'utf8'));
+          const plan2 = JSON.parse(fs.readFileSync(plan2Path, 'utf8'));
+
+          if (readiness.readOnly !== true || readiness.databaseWrites !== false) {
+            throw new Error('Customer/Appointment readiness did not prove read-only execution.');
+          }
+          if (readiness.piiIncluded !== false || readiness.identifiersIncluded !== false) {
+            throw new Error('Readiness evidence is not sanitised.');
+          }
+          if (readiness.safeForBackfill !== true) {
+            throw new Error('Customer/Appointment ownership readiness is blocked.');
+          }
+          const blockerTypes = readiness?.summary?.blockerTypes || {};
+          if (Object.values(blockerTypes).some((value) => Number(value) !== 0)) {
+            throw new Error('Customer/Appointment readiness contains blockers.');
+          }
+
+          for (const plan of [plan1, plan2]) {
+            if (plan.dryRun !== true || plan.writesPerformed !== false || plan.databaseWrites !== false) {
+              throw new Error('Customer/Appointment plan is not zero-write.');
+            }
+            if (plan.executable !== true || plan.blocked === true) {
+              throw new Error('Customer/Appointment plan is not executable.');
+            }
+            if (!/^[a-f0-9]{64}$/.test(String(plan.planFingerprint || ''))) {
+              throw new Error('Customer/Appointment plan fingerprint is invalid.');
+            }
+          }
+
+          if (plan1.planFingerprint !== plan2.planFingerprint) {
+            throw new Error('Customer/Appointment dry-run fingerprint is not deterministic.');
+          }
+          if (JSON.stringify(plan1.planned || {}) !== JSON.stringify(plan2.planned || {})) {
+            throw new Error('Customer/Appointment dry-run operation summary is not deterministic.');
+          }
+
+          console.log('READ_ONLY=true');
+          console.log('SAFE_FOR_BACKFILL=true');
+          console.log(`CUSTOMER_TOTAL=${Number(readiness?.coverage?.customers?.total || 0)}`);
+          console.log(`CUSTOMER_UNOWNED=${Number(readiness?.coverage?.customers?.unowned || 0)}`);
+          console.log(`APPOINTMENT_TOTAL=${Number(readiness?.coverage?.appointments?.total || 0)}`);
+          console.log(`APPOINTMENT_UNOWNED_BUSINESS=${Number(readiness?.coverage?.appointments?.unownedBusiness || 0)}`);
+          console.log(`APPOINTMENT_UNOWNED_LOCATION=${Number(readiness?.coverage?.appointments?.unownedLocation || 0)}`);
+          console.log(`PLAN_FINGERPRINT=${plan1.planFingerprint}`);
+          console.log('PLAN_DETERMINISTIC=true');
+          console.log('[PASS] Customer/Appointment readiness and deterministic zero-write plan completed.');
+          NODE
+
+      - name: Upload readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-customer-appointment-readiness-${{ github.run_id }}
+          path: readiness-evidence
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          rm -f -- "${SSH_PRIVATE_KEY_PATH:-}" "${SSH_KNOWN_HOSTS_PATH:-}"
