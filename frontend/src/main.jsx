@@ -11,6 +11,7 @@ import { FeatureControlProvider } from "./context/FeatureControlContext.jsx";
 
 import "./index.css";
 import "./styles/salonTheme.css";
+import "./styles/aiibpTokens.generated.css";
 import "./commerce.css";
 import "./styles/managementExperience.css";
 import "./styles/commerceExperience.css";

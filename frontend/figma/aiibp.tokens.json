@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 1,
+  "figmaFileKey": "roTSaBJuQTYNJpBInNahXQ",
+  "generatedCss": "src/styles/aiibpTokens.generated.css",
+  "collections": [
+    {
+      "name": "AIIBP Primitives",
+      "figmaId": "VariableCollectionId:2:2",
+      "mode": {
+        "name": "Value",
+        "figmaId": "2:0"
+      }
+    },
+    {
+      "name": "AIIBP Semantics",
+      "figmaId": "VariableCollectionId:2:3",
+      "mode": {
+        "name": "Light",
+        "figmaId": "2:1"
+      }
+    },
+    {
+      "name": "AIIBP Layout",
+      "figmaId": "VariableCollectionId:2:4",
+      "mode": {
+        "name": "Value",
+        "figmaId": "2:2"
+      }
+    }
+  ],
+  "tokens": [
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:5",
+      "name": "palette/background",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-background",
+      "scopes": [],
+      "value": "#fbfaf7"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:6",
+      "name": "palette/white",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-white",
+      "scopes": [],
+      "value": "#ffffff"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:7",
+      "name": "palette/black",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-black",
+      "scopes": [],
+      "value": "#111110"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:8",
+      "name": "palette/text",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-text",
+      "scopes": [],
+      "value": "#1b1b1a"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:9",
+      "name": "palette/text-muted",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-text-muted",
+      "scopes": [],
+      "value": "#676762"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:10",
+      "name": "palette/gold",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-gold",
+      "scopes": [],
+      "value": "#d8b84a"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:11",
+      "name": "palette/gold-dark",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-gold-dark",
+      "scopes": [],
+      "value": "#8a6b16"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:12",
+      "name": "palette/sand-100",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-sand-100",
+      "scopes": [],
+      "value": "#f7f0df"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:13",
+      "name": "palette/sand-200",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-sand-200",
+      "scopes": [],
+      "value": "#eadbbd"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:14",
+      "name": "palette/grey-100",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-grey-100",
+      "scopes": [],
+      "value": "#f5f5f3"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:15",
+      "name": "palette/grey-200",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-grey-200",
+      "scopes": [],
+      "value": "#e6e6e2"
+    },
+    {
+      "collection": "AIIBP Primitives",
+      "figmaId": "VariableID:2:16",
+      "name": "palette/grey-800",
+      "type": "COLOR",
+      "cssVar": "--aiibp-palette-grey-800",
+      "scopes": [],
+      "value": "#292927"
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:17",
+      "name": "color/bg/page",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-bg-page",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "value": {"alias": "palette/background"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:18",
+      "name": "color/bg/surface",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-bg-surface",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "value": {"alias": "palette/white"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:19",
+      "name": "color/bg/subtle",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-bg-subtle",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "value": {"alias": "palette/grey-100"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:20",
+      "name": "color/bg/accent-soft",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-bg-accent-soft",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL"],
+      "value": {"alias": "palette/sand-100"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:21",
+      "name": "color/text/primary",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-text-primary",
+      "scopes": ["TEXT_FILL"],
+      "value": {"alias": "palette/text"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:22",
+      "name": "color/text/secondary",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-text-secondary",
+      "scopes": ["TEXT_FILL"],
+      "value": {"alias": "palette/text-muted"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:23",
+      "name": "color/text/inverse",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-text-inverse",
+      "scopes": ["TEXT_FILL"],
+      "value": {"alias": "palette/white"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:24",
+      "name": "color/accent/default",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-accent-default",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR"],
+      "value": {"alias": "palette/gold"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:25",
+      "name": "color/accent/strong",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-accent-strong",
+      "scopes": ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL", "STROKE_COLOR"],
+      "value": {"alias": "palette/gold-dark"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:26",
+      "name": "color/border/default",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-border-default",
+      "scopes": ["STROKE_COLOR"],
+      "value": {"alias": "palette/sand-200"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:27",
+      "name": "color/status/success",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-status-success",
+      "scopes": ["SHAPE_FILL", "TEXT_FILL"],
+      "value": {"alias": "palette/gold-dark"}
+    },
+    {
+      "collection": "AIIBP Semantics",
+      "figmaId": "VariableID:2:28",
+      "name": "color/status/critical",
+      "type": "COLOR",
+      "cssVar": "--aiibp-color-status-critical",
+      "scopes": ["SHAPE_FILL", "TEXT_FILL"],
+      "value": {"alias": "palette/grey-800"}
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:29",
+      "name": "spacing/2xs",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-2xs",
+      "scopes": ["GAP"],
+      "value": 4,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:30",
+      "name": "spacing/xs",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-xs",
+      "scopes": ["GAP"],
+      "value": 8,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:31",
+      "name": "spacing/sm",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-sm",
+      "scopes": ["GAP"],
+      "value": 12,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:32",
+      "name": "spacing/md",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-md",
+      "scopes": ["GAP"],
+      "value": 16,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:33",
+      "name": "spacing/lg",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-lg",
+      "scopes": ["GAP"],
+      "value": 24,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:34",
+      "name": "spacing/xl",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-space-xl",
+      "scopes": ["GAP"],
+      "value": 32,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:35",
+      "name": "radius/small",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-radius-small",
+      "scopes": ["CORNER_RADIUS"],
+      "value": 3,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:36",
+      "name": "radius/medium",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-radius-medium",
+      "scopes": ["CORNER_RADIUS"],
+      "value": 6,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:37",
+      "name": "radius/large",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-radius-large",
+      "scopes": ["CORNER_RADIUS"],
+      "value": 9,
+      "unit": "px"
+    },
+    {
+      "collection": "AIIBP Layout",
+      "figmaId": "VariableID:2:38",
+      "name": "radius/full",
+      "type": "FLOAT",
+      "cssVar": "--aiibp-radius-full",
+      "scopes": ["CORNER_RADIUS"],
+      "value": 999,
+      "unit": "px"
+    }
+  ]
+}
