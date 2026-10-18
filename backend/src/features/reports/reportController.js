@@ -2,19 +2,20 @@ import * as service from "./reportService.js";
 
 export async function summary(req, res) {
   res.json(
-    await service.reportSummary(req.query)
+    await service.reportSummary(
+      req.query,
+      req.effectiveAuthority
+    )
   );
 }
 
 export async function appointmentsCsv(req, res) {
   const csv = await service.appointmentsCsv(
-    req.query
+    req.query,
+    req.effectiveAuthority
   );
 
-  res.setHeader(
-    "Content-Type",
-    "text/csv; charset=utf-8"
-  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader(
     "Content-Disposition",
     'attachment; filename="salonai-appointments.csv"'
@@ -24,13 +25,11 @@ export async function appointmentsCsv(req, res) {
 
 export async function communicationsCsv(req, res) {
   const csv = await service.communicationsCsv(
-    req.query
+    req.query,
+    req.effectiveAuthority
   );
 
-  res.setHeader(
-    "Content-Type",
-    "text/csv; charset=utf-8"
-  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader(
     "Content-Disposition",
     'attachment; filename="salonai-communications.csv"'
@@ -39,8 +38,10 @@ export async function communicationsCsv(req, res) {
 }
 
 export async function workbook(req, res) {
-  const buffer =
-    await service.managementWorkbook(req.query);
+  const buffer = await service.managementWorkbook(
+    req.query,
+    req.effectiveAuthority
+  );
 
   res.setHeader(
     "Content-Type",
