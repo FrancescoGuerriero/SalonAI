@@ -1,0 +1,182 @@
+name: SalonAI Production Communications Tenant Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Expected live application release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    name: Audit communications ownership readiness
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Validate expected release tag
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Run read-only communications readiness and deterministic plan
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 readiness-evidence
+          evidence="readiness-evidence/communications-tenant-readiness.txt"
+          readiness="$RUNNER_TEMP/communications-readiness.json"
+          plan1="$RUNNER_TEMP/communications-plan-1.json"
+          plan2="$RUNNER_TEMP/communications-plan-2.json"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo "SalonAI production communications tenant readiness"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: $EXPECTED_RELEASE_TAG"
+            echo
+            echo "=== Runtime identity ==="
+          } | tee "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkCommunicationTenantReadiness.js' \
+            > "$readiness"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCommunicationTenantBackfill.js' \
+            > "$plan1"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planCommunicationTenantBackfill.js' \
+            > "$plan2"
+
+          node - "$readiness" "$plan1" "$plan2" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [readinessPath, plan1Path, plan2Path] = process.argv.slice(2);
+          const readiness = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+          const plan1 = JSON.parse(fs.readFileSync(plan1Path, 'utf8'));
+          const plan2 = JSON.parse(fs.readFileSync(plan2Path, 'utf8'));
+
+          if (readiness.readOnly !== true || readiness.writesPerformed !== false) {
+            throw new Error('Communications readiness did not prove read-only execution.');
+          }
+          if (readiness.executable !== true || Number(readiness?.summary?.blockerCount || 0) !== 0) {
+            throw new Error('Communications ownership readiness is blocked.');
+          }
+          if (!/^[a-f0-9]{64}$/.test(String(readiness.planFingerprint || ''))) {
+            throw new Error('Communications readiness fingerprint is invalid.');
+          }
+
+          for (const plan of [plan1, plan2]) {
+            if (plan.readOnly !== true || plan.writesPerformed !== false || plan.executable !== true) {
+              throw new Error('Communications plan is not a safe read-only executable plan.');
+            }
+            if (Number(plan?.summary?.blockerCount || 0) !== 0) {
+              throw new Error('Communications plan contains blockers.');
+            }
+            if (!/^[a-f0-9]{64}$/.test(String(plan.planFingerprint || ''))) {
+              throw new Error('Communications plan fingerprint is invalid.');
+            }
+            if (Number(plan?.summary?.operationCount || 0) !== Number(plan?.rollback?.operationCount || 0)) {
+              throw new Error('Communications plan operation/rollback counts do not match.');
+            }
+          }
+
+          if (
+            readiness.planFingerprint !== plan1.planFingerprint ||
+            plan1.planFingerprint !== plan2.planFingerprint ||
+            Number(plan1?.summary?.operationCount || 0) !== Number(plan2?.summary?.operationCount || 0) ||
+            Number(plan1?.rollback?.operationCount || 0) !== Number(plan2?.rollback?.operationCount || 0)
+          ) {
+            throw new Error('Communications dry-run plan is not deterministic.');
+          }
+
+          console.log('READ_ONLY=true');
+          console.log(`EXECUTABLE=${readiness.executable}`);
+          console.log(`PLAN_OPERATION_COUNT=${Number(plan1?.summary?.operationCount || 0)}`);
+          console.log(`PLAN_ROLLBACK_COUNT=${Number(plan1?.rollback?.operationCount || 0)}`);
+          console.log(`PLAN_FINGERPRINT=${plan1.planFingerprint}`);
+          console.log(`INDEX_CUTOVER_REQUIRED=${Boolean(readiness.indexCutoverRequired)}`);
+          console.log('PLAN_DETERMINISTIC=true');
+          console.log('[PASS] Communications readiness and deterministic zero-write plan completed.');
+          NODE
+
+      - name: Upload readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-communications-readiness-${{ github.run_id }}
+          path: readiness-evidence
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          rm -f -- "${SSH_PRIVATE_KEY_PATH:-}" "${SSH_KNOWN_HOSTS_PATH:-}"
