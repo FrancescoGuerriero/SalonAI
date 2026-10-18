@@ -3,6 +3,20 @@ import mongoose from "mongoose";
 const customerContactLogSchema =
   new mongoose.Schema(
     {
+      // Transitional #309 ownership. Business is trusted tenant provenance;
+      // location is optional because some communications are business-wide.
+      business: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
       customer: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Customer",
@@ -95,6 +109,12 @@ const customerContactLogSchema =
 
 customerContactLogSchema.index({
   customer: 1,
+  createdAt: -1,
+});
+
+customerContactLogSchema.index({
+  business: 1,
+  location: 1,
   createdAt: -1,
 });
 
