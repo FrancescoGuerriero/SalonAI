@@ -26,6 +26,13 @@ const money = (value) =>
     ) || 0
   );
 
+const appointmentOccurrence = (
+  item
+) =>
+  item.startsAt ||
+  item.appointmentDate ||
+  null;
+
 export async function buildManagementCopilotPayload(
   options = {}
 ) {
@@ -94,14 +101,25 @@ export async function buildManagementCopilotPayload(
   const rows =
     await Appointment.find({
       ...tenantFilter,
-      createdAt: {
-        $gte:
-          previousStart,
-        $lte: end,
-      },
+      $or: [
+        {
+          startsAt: {
+            $gte:
+              previousStart,
+            $lte: end,
+          },
+        },
+        {
+          appointmentDate: {
+            $gte:
+              previousStart,
+            $lte: end,
+          },
+        },
+      ],
     })
       .select(
-        "status appointmentStatus totalPrice total amount price service appointmentDate date scheduledAt createdAt"
+        "status appointmentStatus totalPrice total amount price service startsAt appointmentDate"
       )
       .lean()
       .exec();
@@ -113,15 +131,22 @@ export async function buildManagementCopilotPayload(
     const selected =
       rows.filter(
         (item) => {
-          const date =
-            new Date(
-              item.appointmentDate ||
-                item.date ||
-                item.scheduledAt ||
-                item.createdAt
+          const occurrence =
+            appointmentOccurrence(
+              item
             );
+          const date =
+            occurrence
+              ? new Date(
+                  occurrence
+                )
+              : null;
 
           return (
+            date &&
+            !Number.isNaN(
+              date.getTime()
+            ) &&
             date >= start &&
             date <= finish
           );
