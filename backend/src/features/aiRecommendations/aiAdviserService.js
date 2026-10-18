@@ -39,6 +39,9 @@ function metricSummary(
   ).map(
     (metric) => ({
       key: metric.key,
+      version:
+        metric.version ||
+        "unversioned",
       label:
         metric.label,
       value:
@@ -51,6 +54,9 @@ function metricSummary(
       area:
         metric.area ||
         "",
+      definition:
+        metric.evidence ||
+        null,
     })
   );
 }
@@ -119,6 +125,8 @@ function userPrompt({
         payload.period_label,
       asOfDate:
         payload.as_of_date,
+      timeBasis:
+        payload.time_basis,
       metrics:
         metricSummary(
           payload
@@ -286,6 +294,17 @@ export async function askSalonAiAdviser({
           text(contextPath),
         aggregateOnly:
           true,
+        metricDefinitions:
+          metricSummary(
+            payload
+          ).map(
+            (metric) => ({
+              key:
+                metric.key,
+              version:
+                metric.version,
+            })
+          ),
       },
     });
 
@@ -316,6 +335,8 @@ export async function askSalonAiAdviser({
         payload.period_label,
       asOfDate:
         payload.as_of_date,
+      timeBasis:
+        payload.time_basis,
       metrics:
         metricSummary(
           payload
