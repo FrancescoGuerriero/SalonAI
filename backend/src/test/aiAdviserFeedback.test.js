@@ -93,7 +93,11 @@ test("Adviser feedback persistence is constrained to the authenticated inference
   );
   assert.match(
     adviser,
-    /actorUserId:[\s\S]*?user\?\._id/
+    /Authenticated user identity is required for AI AgentRun provenance/
+  );
+  assert.match(
+    adviser,
+    /actorUserId:[\s\S]*?user\._id/
   );
   assert.match(
     schema,
