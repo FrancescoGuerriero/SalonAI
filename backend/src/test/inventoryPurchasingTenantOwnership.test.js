@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import Product from "../features/commerce/Product.js";
@@ -9,6 +10,7 @@ import {
   assertInventoryResourceWithinScope,
   inventoryBusinessFilter,
   inventoryLocationFilter,
+  resolveInventoryAuthority,
   stripInventoryOwnershipInput,
 } from "../features/inventoryPurchasing/services/ownershipScope.js";
 import {
@@ -19,6 +21,14 @@ import {
   assertInventoryPurchasingApplyAuthorization,
   INVENTORY_PURCHASING_BACKFILL_CONFIRMATION,
 } from "../../scripts/applyInventoryPurchasingTenantBackfill.js";
+
+const businessA = "507f1f77bcf86cd799439011";
+const locationA = "507f1f77bcf86cd799439012";
+const locationB = "507f1f77bcf86cd799439013";
+
+function source(relativePath) {
+  return readFileSync(new URL(relativePath, import.meta.url), "utf8");
+}
 
 test("inventory purchasing models expose transitional Business/Location ownership", () => {
   for (const Model of [Product, Supplier, SupplierProduct, PurchaseOrder]) {
@@ -48,8 +58,8 @@ test("inventory domain declares tenant-local uniqueness indexes", () => {
 
 test("unowned canonical single-location records produce deterministic ownership operations", () => {
   const input = {
-    business: { _id: "507f1f77bcf86cd799439011" },
-    location: { _id: "507f1f77bcf86cd799439012" },
+    business: { _id: businessA },
+    location: { _id: locationA },
     products: [
       {
         _id: "507f1f77bcf86cd799439020",
@@ -57,9 +67,7 @@ test("unowned canonical single-location records produce deterministic ownership 
         sku: "SKU-1",
       },
     ],
-    suppliers: [
-      { _id: "507f1f77bcf86cd799439021", code: "DAV" },
-    ],
+    suppliers: [{ _id: "507f1f77bcf86cd799439021", code: "DAV" }],
     supplierProducts: [
       {
         _id: "507f1f77bcf86cd799439031",
@@ -91,12 +99,12 @@ test("unowned canonical single-location records produce deterministic ownership 
 
 test("foreign tenant/location ownership fails closed", () => {
   const plan = buildInventoryPurchasingOwnershipPlan({
-    business: { _id: "507f1f77bcf86cd799439011" },
-    location: { _id: "507f1f77bcf86cd799439012" },
+    business: { _id: businessA },
+    location: { _id: locationA },
     products: [
       {
         _id: "507f1f77bcf86cd799439020",
-        business: "507f1f77bcf86cd799439011",
+        business: businessA,
         location: "507f1f77bcf86cd799439098",
         slug: "shampoo",
         sku: "SKU-1",
@@ -112,7 +120,7 @@ test("foreign tenant/location ownership fails closed", () => {
     purchaseOrders: [
       {
         _id: "507f1f77bcf86cd799439041",
-        business: "507f1f77bcf86cd799439011",
+        business: businessA,
         location: "507f1f77bcf86cd799439098",
         supplier: "507f1f77bcf86cd799439021",
         orderNumber: "PO-1",
@@ -125,27 +133,70 @@ test("foreign tenant/location ownership fails closed", () => {
   assert.ok(plan.blockers.some((item) => item.type === "foreign-location-ownership"));
 });
 
-test("inventory scope helpers use only trusted tenant context", () => {
-  const context = {
-    businessId: "507f1f77bcf86cd799439011",
-    locationId: "507f1f77bcf86cd799439012",
+test("inventory scope helpers use trusted selected-location authority", () => {
+  const authority = {
+    businessId: businessA,
+    locationId: locationA,
+    locationAccessMode: "selected",
+    allowedLocationIds: [locationA],
   };
 
-  assert.deepEqual(inventoryBusinessFilter(context), {
-    business: context.businessId,
-  });
-  assert.deepEqual(inventoryLocationFilter(context), {
-    business: context.businessId,
-    location: context.locationId,
+  assert.deepEqual(inventoryBusinessFilter(authority), { business: businessA });
+  assert.deepEqual(inventoryLocationFilter(authority), {
+    business: businessA,
+    location: locationA,
   });
   assert.equal(
     assertInventoryResourceWithinScope(
-      { business: context.businessId, location: context.locationId },
-      context,
+      { business: businessA, location: locationA },
+      authority,
       { requireLocation: true }
     ),
     true
   );
+  assert.throws(() =>
+    assertInventoryResourceWithinScope(
+      { business: businessA, location: locationB },
+      authority,
+      { requireLocation: true }
+    )
+  );
+});
+
+test("inventory aggregate scope is bounded to allowed locations", () => {
+  const authority = {
+    businessId: businessA,
+    locationId: null,
+    locationAccessMode: "selected",
+    allowedLocationIds: [locationA, locationB],
+  };
+
+  assert.deepEqual(resolveInventoryAuthority(authority), {
+    businessId: businessA,
+    selectedLocationId: null,
+    allLocations: false,
+    allowedLocationIds: [locationA, locationB],
+    scopeMode: "allowed-locations",
+  });
+  assert.deepEqual(inventoryLocationFilter(authority), {
+    business: businessA,
+    location: { $in: [locationA, locationB] },
+  });
+});
+
+test("inventory scope fails closed without authorised locations", () => {
+  assert.throws(
+    () =>
+      resolveInventoryAuthority({
+        businessId: businessA,
+        locationAccessMode: "selected",
+        allowedLocationIds: [],
+      }),
+    (error) => error?.code === "INVENTORY_LOCATION_SCOPE_EMPTY"
+  );
+});
+
+test("client-supplied tenant ownership fields are stripped", () => {
   assert.deepEqual(
     stripInventoryOwnershipInput({
       name: "Supplier",
@@ -157,6 +208,40 @@ test("inventory scope helpers use only trusted tenant context", () => {
     }),
     { name: "Supplier" }
   );
+});
+
+test("canonical inventory routes resolve trusted tenant and effective authority before permissions", () => {
+  const routeFiles = [
+    "../features/inventoryPurchasing/routes/supplierRoutes.js",
+    "../features/inventoryPurchasing/routes/purchaseOrderRoutes.js",
+    "../features/inventoryPurchasing/routes/inventoryPurchasingRoutes.js",
+  ];
+
+  for (const routeFile of routeFiles) {
+    const routes = source(routeFile);
+    assert.match(routes, /workforcePublicTenantContextMiddleware/);
+    assert.match(routes, /trustedTenantContextMiddleware/);
+    assert.match(routes, /effectiveAuthorityMiddleware/);
+    assert.match(
+      routes,
+      /router\.use\([\s\S]*protect,[\s\S]*workforcePublicTenantContextMiddleware,[\s\S]*trustedTenantContextMiddleware,[\s\S]*effectiveAuthorityMiddleware[\s\S]*\)/
+    );
+  }
+});
+
+test("purchase-order runtime code scopes reads and cannot let request body replace trusted context", () => {
+  const controller = source(
+    "../features/inventoryPurchasing/controllers/purchaseOrderController.js"
+  );
+  const service = source(
+    "../features/inventoryPurchasing/services/purchaseOrderService.js"
+  );
+
+  assert.match(controller, /inventoryLocationFilter\(request\.effectiveAuthority\)/);
+  assert.match(controller, /\.\.\.request\.body,[\s\S]*purchaseOrderId: request\.params\.purchaseOrderId,[\s\S]*effectiveAuthority: request\.effectiveAuthority/);
+  assert.match(service, /business: authority\.businessId/);
+  assert.match(service, /location: authority\.selectedLocationId/);
+  assert.match(service, /Product\.findOne\(\{[\s\S]*business: order\.business,[\s\S]*location: order\.location/);
 });
 
 test("guarded apply requires exact confirmation and reviewed fingerprint", () => {
