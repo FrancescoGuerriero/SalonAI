@@ -106,6 +106,6 @@ test("legacy unscoped no-show snapshot deletion is blocked at the model boundary
   );
   assert.match(
     source,
-    /filter\?\.task === "no_show_prediction"/[\s\S]*?!filter\?\.business/
+    /filter\?\.task === "no_show_prediction"[\s\S]*?!filter\?\.business/
   );
 });
