@@ -172,7 +172,7 @@ test("Adviser evaluation exposes aggregate evidence only and never enables autom
   );
 });
 
-test("Adviser evaluation endpoint remains permission-governed and aggregate-only", async () => {
+test("Adviser evaluation endpoint uses trusted tenant authority before aggregate query", async () => {
   const routes =
     await readFile(
       new URL(
@@ -192,11 +192,15 @@ test("Adviser evaluation endpoint remains permission-governed and aggregate-only
 
   assert.match(
     routes,
-    /\/adviser\/evaluation/
+    /"\/adviser\/evaluation"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?getEvaluation/
   );
   assert.match(
-    routes,
-    /evaluation"[\s\S]*?"ai:use"/
+    service,
+    /buildAiTenantFilter/
+  );
+  assert.match(
+    service,
+    /\$match:[\s\S]*?\.\.\.tenantFilter[\s\S]*?capability:/
   );
   assert.doesNotMatch(
     service,
@@ -205,5 +209,9 @@ test("Adviser evaluation endpoint remains permission-governed and aggregate-only
   assert.match(
     service,
     /aggregateOnly/
+  );
+  assert.match(
+    service,
+    /tenantScoped/
   );
 });
