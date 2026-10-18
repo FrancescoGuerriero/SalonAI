@@ -7,6 +7,7 @@ import {
   requireAnyPermission,
   requirePermissions,
 } from "../../../middleware/permissionMiddleware.js";
+import { apiRateLimiter } from "../../../middleware/securityMiddleware.js";
 import {
   workforcePublicTenantContextMiddleware,
 } from "../../../middleware/workforceTenantMiddleware.js";
@@ -31,6 +32,7 @@ const readInventory = requireAnyPermission("inventory:read", "inventory:manage")
 const manageInventory = requirePermissions("inventory:manage");
 
 router.use(
+  apiRateLimiter,
   protect,
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
