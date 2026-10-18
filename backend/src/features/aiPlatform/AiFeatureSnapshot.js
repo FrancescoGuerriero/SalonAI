@@ -5,6 +5,24 @@ const { Schema } = mongoose;
 const aiFeatureSnapshotSchema =
   new Schema(
     {
+      business: {
+        type: Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
+      vertical: {
+        type: String,
+        trim: true,
+        default: "",
+        index: true,
+      },
       task: {
         type: String,
         required: true,
@@ -110,6 +128,8 @@ const aiFeatureSnapshotSchema =
 
 aiFeatureSnapshotSchema.index(
   {
+    business: 1,
+    location: 1,
     task: 1,
     entityType: 1,
     entityKey: 1,
@@ -121,6 +141,13 @@ aiFeatureSnapshotSchema.index(
     unique: true,
   }
 );
+
+aiFeatureSnapshotSchema.index({
+  business: 1,
+  location: 1,
+  task: 1,
+  asOf: -1,
+});
 
 const AiFeatureSnapshot =
   mongoose.models
