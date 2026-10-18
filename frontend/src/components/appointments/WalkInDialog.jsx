@@ -48,11 +48,14 @@ function entityName(entity, fallback = "") {
   );
 }
 
-function errorText(error) {
+function errorText(
+  error,
+  fallback
+) {
   return (
     error?.response?.data?.message ||
     error?.message ||
-    "The walk-in could not be created."
+    fallback
   );
 }
 
@@ -121,8 +124,16 @@ export default function WalkInDialog({
     setSaving,
   ] = useState(false);
   const [
-    error,
-    setError,
+    optionError,
+    setOptionError,
+  ] = useState("");
+  const [
+    searchError,
+    setSearchError,
+  ] = useState("");
+  const [
+    submitError,
+    setSubmitError,
   ] = useState("");
 
   useEffect(() => {
@@ -138,7 +149,7 @@ export default function WalkInDialog({
 
     async function loadOptions() {
       setLoading(true);
-      setError("");
+      setOptionError("");
 
       try {
         const [
@@ -166,6 +177,7 @@ export default function WalkInDialog({
 
         setStylists(nextStylists);
         setServices(nextServices);
+        setOptionError("");
         setForm((current) => ({
           ...current,
           stylist:
@@ -183,8 +195,11 @@ export default function WalkInDialog({
         }));
       } catch (requestError) {
         if (active) {
-          setError(
-            errorText(requestError)
+          setOptionError(
+            errorText(
+              requestError,
+              "Stylist and service options could not be loaded. Close and reopen the dialog or try again."
+            )
           );
         }
       } finally {
@@ -213,6 +228,7 @@ export default function WalkInDialog({
 
     if (query.length < 2) {
       setCustomers([]);
+      setSearchError("");
       return undefined;
     }
 
@@ -220,7 +236,7 @@ export default function WalkInDialog({
     const timer = window.setTimeout(
       async () => {
         setSearching(true);
-        setError("");
+        setSearchError("");
 
         try {
           const result =
@@ -238,11 +254,16 @@ export default function WalkInDialog({
                 ]
               )
             );
+            setSearchError("");
           }
         } catch (requestError) {
           if (active) {
-            setError(
-              errorText(requestError)
+            setCustomers([]);
+            setSearchError(
+              errorText(
+                requestError,
+                "Customers could not be searched. Try again."
+              )
             );
           }
         } finally {
@@ -280,7 +301,7 @@ export default function WalkInDialog({
       ...current,
       [field]: value,
     }));
-    setError("");
+    setSubmitError("");
   }
 
   async function submit(event) {
@@ -292,7 +313,7 @@ export default function WalkInDialog({
       !form.service ||
       !form.startsAt
     ) {
-      setError(
+      setSubmitError(
         "Customer, stylist, service and arrival time are required."
       );
       return;
@@ -306,14 +327,14 @@ export default function WalkInDialog({
         startsAt.getTime()
       )
     ) {
-      setError(
+      setSubmitError(
         "Arrival time is invalid."
       );
       return;
     }
 
     setSaving(true);
-    setError("");
+    setSubmitError("");
 
     try {
       const response =
@@ -337,8 +358,11 @@ export default function WalkInDialog({
       );
       onClose?.();
     } catch (requestError) {
-      setError(
-        errorText(requestError)
+      setSubmitError(
+        errorText(
+          requestError,
+          "The walk-in could not be created."
+        )
       );
     } finally {
       setSaving(false);
@@ -402,12 +426,21 @@ export default function WalkInDialog({
           onSubmit={submit}
           className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5"
         >
-          {error ? (
+          {optionError ? (
             <div
               role="alert"
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
             >
-              {error}
+              {optionError}
+            </div>
+          ) : null}
+
+          {submitError ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
+            >
+              {submitError}
             </div>
           ) : null}
 
@@ -438,10 +471,20 @@ export default function WalkInDialog({
               ) : null}
             </div>
 
+            {searchError ? (
+              <p
+                role="alert"
+                className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800"
+              >
+                {searchError}
+              </p>
+            ) : null}
+
             {customerSearch.trim().length >=
               2 ? (
               <div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-stone-200 bg-stone-50 p-2">
-                {customers.length === 0 &&
+                {!searchError &&
+                customers.length === 0 &&
                 !searching ? (
                   <p className="px-2 py-3 text-sm text-stone-600">
                     No matching customer found. Add the customer first from the Customers workflow.
@@ -613,7 +656,11 @@ export default function WalkInDialog({
             type="submit"
             form="walk-in-form"
             disabled={
-              saving || loading
+              saving ||
+              loading ||
+              Boolean(optionError) ||
+              stylists.length === 0 ||
+              services.length === 0
             }
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300 disabled:opacity-50"
           >
