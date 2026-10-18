@@ -20,6 +20,7 @@ import * as controller from "./staffRotaController.js";
 
 const router = express.Router();
 const manageRota = requirePermissions("employee:schedule:update");
+const viewRota = requirePermissions("employee:schedule:view");
 
 const rotaTenantAuthority = [
   workforcePublicTenantContextMiddleware,
@@ -30,23 +31,19 @@ const rotaTenantAuthority = [
 const scopedExistingShiftMutation = [
   ...rotaTenantAuthority,
   manageRota,
-  asyncHandler(
-    requireScopedRotaShiftMutation
-  ),
+  asyncHandler(requireScopedRotaShiftMutation),
 ];
 
 router.get(
   "/week",
+  ...rotaTenantAuthority,
+  viewRota,
   asyncHandler(controller.week)
 );
 
-/*
- * Shift creation is intentionally not wired to the existing-record authority
- * guard. createStaffShift() must first gain atomic trusted Business/locationRef
- * stamping for StaffShift + StaffAttendance.
- */
 router.post(
   "/shifts",
+  ...rotaTenantAuthority,
   manageRota,
   asyncHandler(controller.createShift)
 );
@@ -63,12 +60,9 @@ router.delete(
   asyncHandler(controller.deleteShift)
 );
 
-/*
- * Publish-week remains on the legacy service until its bulk update can be
- * bounded to trusted Business/locationRef ownership.
- */
 router.post(
   "/weeks/publish",
+  ...rotaTenantAuthority,
   manageRota,
   asyncHandler(controller.publishWeek)
 );
