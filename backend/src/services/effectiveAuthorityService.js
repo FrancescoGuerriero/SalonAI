@@ -4,8 +4,10 @@ import {
 } from "../constants/permissions.js";
 import {
   isBuiltInStaffRoleKey,
-  resolveStaffRole,
 } from "./staffRoleRegistryService.js";
+import {
+  resolveTenantStaffRole,
+} from "./tenantStaffRoleRegistryService.js";
 import {
   PERMISSION_SCOPE_CLASSES,
   permissionScope,
@@ -195,7 +197,7 @@ export async function resolveEffectiveAuthority({
   user,
   tenantContext,
   roleResolver =
-    resolveStaffRole,
+    resolveTenantStaffRole,
 }) {
   if (
     !user ||
@@ -350,7 +352,6 @@ export function hasLocationAuthority(
     )
   );
 }
-
 
 export function hasBusinessResourceAuthority(
   authority,
