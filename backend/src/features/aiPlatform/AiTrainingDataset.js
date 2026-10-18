@@ -27,6 +27,56 @@ const aiTrainingDatasetSchema =
         required: true,
         trim: true,
       },
+      scope: {
+        mode: {
+          type: String,
+          enum: [
+            "unassigned",
+            "single_business",
+            "cross_business_deidentified",
+            "platform_global",
+          ],
+          default: "unassigned",
+          index: true,
+        },
+        business: {
+          type: Schema.Types.ObjectId,
+          ref: "Business",
+          default: null,
+          index: true,
+        },
+        location: {
+          type: Schema.Types.ObjectId,
+          ref: "Location",
+          default: null,
+          index: true,
+        },
+        verticalId: {
+          type: String,
+          trim: true,
+          default: "",
+          index: true,
+        },
+        source: {
+          type: String,
+          enum: [
+            "legacy_unassigned",
+            "trusted_runtime",
+            "governed_builder",
+          ],
+          default: "legacy_unassigned",
+        },
+        crossBusinessApproved: {
+          type: Boolean,
+          default: false,
+        },
+        approvalReference: {
+          type: String,
+          trim: true,
+          default: "",
+          maxlength: 500,
+        },
+      },
       status: {
         type: String,
         enum: [
@@ -144,6 +194,20 @@ aiTrainingDatasetSchema.index(
     unique: true,
   }
 );
+
+aiTrainingDatasetSchema.index({
+  "scope.business": 1,
+  task: 1,
+  status: 1,
+  createdAt: -1,
+});
+
+aiTrainingDatasetSchema.index({
+  "scope.verticalId": 1,
+  task: 1,
+  status: 1,
+  createdAt: -1,
+});
 
 const AiTrainingDataset =
   mongoose.models
