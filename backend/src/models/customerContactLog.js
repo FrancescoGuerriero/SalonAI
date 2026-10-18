@@ -3,6 +3,20 @@ import mongoose from "mongoose";
 const customerContactLogSchema =
   new mongoose.Schema(
     {
+      // Transitional #309 ownership. Business is trusted tenant provenance;
+      // location is optional because some communications are business-wide.
+      business: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
       customer: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Customer",
@@ -29,13 +43,7 @@ const customerContactLogSchema =
       },
       channel: {
         type: String,
-        enum: [
-          "email",
-          "sms",
-          "phone",
-          "whatsapp",
-          "in_app",
-        ],
+        enum: ["email", "sms", "phone", "whatsapp", "in_app"],
         required: true,
         index: true,
       },
@@ -44,35 +52,15 @@ const customerContactLogSchema =
         enum: ["outbound", "inbound"],
         default: "outbound",
       },
-      subject: {
-        type: String,
-        default: "",
-        trim: true,
-      },
-      message: {
-        type: String,
-        default: "",
-      },
+      subject: { type: String, default: "", trim: true },
+      message: { type: String, default: "" },
       status: {
         type: String,
-        enum: [
-          "draft",
-          "queued",
-          "sent",
-          "delivered",
-          "opened",
-          "responded",
-          "failed",
-          "cancelled",
-        ],
+        enum: ["draft", "queued", "sent", "delivered", "opened", "responded", "failed", "cancelled"],
         default: "draft",
         index: true,
       },
-      recipient: {
-        type: String,
-        default: "",
-        trim: true,
-      },
+      recipient: { type: String, default: "", trim: true },
       externalMessageId: String,
       failureReason: String,
       sentAt: Date,
@@ -88,21 +76,14 @@ const customerContactLogSchema =
         default: {},
       },
     },
-    {
-      timestamps: true,
-    }
+    { timestamps: true }
   );
 
-customerContactLogSchema.index({
-  customer: 1,
-  createdAt: -1,
-});
+customerContactLogSchema.index({ customer: 1, createdAt: -1 });
+customerContactLogSchema.index({ business: 1, location: 1, createdAt: -1 });
 
 const CustomerContactLog =
   mongoose.models.CustomerContactLog ||
-  mongoose.model(
-    "CustomerContactLog",
-    customerContactLogSchema
-  );
+  mongoose.model("CustomerContactLog", customerContactLogSchema);
 
 export default CustomerContactLog;
