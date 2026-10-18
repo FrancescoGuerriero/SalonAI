@@ -23,14 +23,17 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-function isObjectId(value) {
-  return /^[a-f\d]{24}$/i.test(text(value));
-}
-
 function scopeFilter(request, { allowBusinessWide = true } = {}) {
   return communicationAggregateAuthorityFilter(request.communicationScope, {
     includeBusinessWide: allowBusinessWide,
   });
+}
+
+function asNonDisclosingLookupError(error) {
+  if (error?.name === "CastError" || error?.name === "BSONError") {
+    return notFound();
+  }
+  return error;
 }
 
 async function attachScopedObjectIdResource({
@@ -41,13 +44,11 @@ async function attachScopedObjectIdResource({
   allowBusinessWide = true,
   requireSelectedLocation = false,
 }) {
-  const id = text(rawId);
-  if (!isObjectId(id)) {
-    throw notFound();
-  }
-
   const resource = await Model.findOne({
-    $and: [scopeFilter(request, { allowBusinessWide }), { _id: id }],
+    $and: [
+      scopeFilter(request, { allowBusinessWide }),
+      { _id: text(rawId) },
+    ],
   });
 
   if (!resource) {
@@ -88,7 +89,7 @@ export async function scopedCampaignResource(request, response, next) {
     });
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
@@ -106,7 +107,7 @@ export async function scopedTemplateResource(request, response, next) {
     });
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
@@ -116,13 +117,8 @@ export async function scopedTemplateMutationResource(request, response, next) {
 
 export async function scopedTemplateSlugResource(request, response, next) {
   try {
-    const slug = text(request.params?.slug);
-    if (!slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(slug) || slug.length > 120) {
-      throw notFound();
-    }
-
     const resource = await CommunicationTemplate.findOne({
-      $and: [scopeFilter(request), { slug }],
+      $and: [scopeFilter(request), { slug: text(request.params?.slug) }],
     });
 
     if (!resource) {
@@ -133,7 +129,7 @@ export async function scopedTemplateSlugResource(request, response, next) {
     request.communicationTemplate = resource;
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
@@ -141,33 +137,42 @@ export async function scopedScheduledCampaignResource(request, response, next) {
   return scopedCampaignResource(request, response, next);
 }
 
-function deliveryIdentifierConditions(identifier) {
-  const value = text(identifier);
-  if (!value || value.length > 256) {
-    return [];
+async function findScopedDeliveryByPublicIdentifier(request, rawIdentifier) {
+  const identifier = text(rawIdentifier);
+  return MessageDelivery.findOne({
+    $and: [
+      scopeFilter(request),
+      {
+        $or: [
+          { deliveryId: identifier },
+          { providerMessageId: identifier },
+        ],
+      },
+    ],
+  });
+}
+
+async function findScopedDeliveryByMongoId(request, rawIdentifier) {
+  try {
+    return await MessageDelivery.findOne({
+      $and: [scopeFilter(request), { _id: text(rawIdentifier) }],
+    });
+  } catch (error) {
+    if (error?.name === "CastError" || error?.name === "BSONError") {
+      return null;
+    }
+    throw error;
   }
-
-  const conditions = [
-    { deliveryId: value },
-    { providerMessageId: value },
-  ];
-
-  if (isObjectId(value)) {
-    conditions.unshift({ _id: value });
-  }
-
-  return conditions;
 }
 
 async function attachScopedDelivery(request, rawIdentifier) {
-  const conditions = deliveryIdentifierConditions(rawIdentifier);
-  if (conditions.length === 0) {
-    throw notFound();
-  }
-
-  const resource = await MessageDelivery.findOne({
-    $and: [scopeFilter(request), { $or: conditions }],
-  });
+  const byPublicIdentifier = await findScopedDeliveryByPublicIdentifier(
+    request,
+    rawIdentifier
+  );
+  const resource =
+    byPublicIdentifier ||
+    (await findScopedDeliveryByMongoId(request, rawIdentifier));
 
   if (!resource) {
     throw notFound();
@@ -182,19 +187,17 @@ export async function scopedDeliveryResource(request, response, next) {
     await attachScopedDelivery(request, request.params?.identifier);
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
 export async function scopedProviderDeliveryResource(request, response, next) {
   try {
-    const providerMessageId = text(request.params?.providerMessageId);
-    if (!providerMessageId || providerMessageId.length > 256) {
-      throw notFound();
-    }
-
     const resource = await MessageDelivery.findOne({
-      $and: [scopeFilter(request), { providerMessageId }],
+      $and: [
+        scopeFilter(request),
+        { providerMessageId: text(request.params?.providerMessageId) },
+      ],
     });
 
     if (!resource) {
@@ -205,22 +208,19 @@ export async function scopedProviderDeliveryResource(request, response, next) {
     request.messageDelivery = resource;
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
 export async function scopedRecipientResource(request, response, next) {
   try {
-    const recipientId = text(request.params?.recipientId);
-    const campaignId = text(request.params?.campaignId);
-    if (!isObjectId(recipientId) || !isObjectId(campaignId)) {
-      throw notFound();
-    }
-
     const recipient = await CommunicationCampaignRecipient.findOne({
       $and: [
         scopeFilter(request),
-        { _id: recipientId, campaign: campaignId },
+        {
+          _id: text(request.params?.recipientId),
+          campaign: text(request.params?.campaignId),
+        },
       ],
     });
 
@@ -232,7 +232,7 @@ export async function scopedRecipientResource(request, response, next) {
     request.communicationRecipient = recipient;
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
@@ -243,18 +243,22 @@ export async function scopedScheduledCommunicationResource(
 ) {
   try {
     const campaignId = text(request.params?.campaignId);
-    if (!isObjectId(campaignId)) {
-      throw notFound();
-    }
+    let scheduled = null;
 
-    const scheduled = await ScheduledCommunication.findOne({
-      $and: [
-        scopeFilter(request),
-        {
-          $or: [{ _id: campaignId }, { campaign: campaignId }],
-        },
-      ],
-    });
+    try {
+      scheduled = await ScheduledCommunication.findOne({
+        $and: [
+          scopeFilter(request),
+          {
+            $or: [{ _id: campaignId }, { campaign: campaignId }],
+          },
+        ],
+      });
+    } catch (error) {
+      if (error?.name !== "CastError" && error?.name !== "BSONError") {
+        throw error;
+      }
+    }
 
     if (scheduled) {
       assertCommunicationAuthorityResource(scheduled, request.communicationScope);
@@ -270,7 +274,7 @@ export async function scopedScheduledCommunicationResource(
     });
     return next();
   } catch (error) {
-    return next(error);
+    return next(asNonDisclosingLookupError(error));
   }
 }
 
