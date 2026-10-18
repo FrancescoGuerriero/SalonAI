@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import AiInferenceLog from "../aiPlatform/AiInferenceLog.js";
 import {
   buildAiTenantFilter,
@@ -367,6 +369,39 @@ function metricAccumulator() {
   };
 }
 
+function aggregateTenantFilter(
+  scope
+) {
+  const filter = {
+    business:
+      new mongoose.Types.ObjectId(
+        scope.businessId
+      ),
+  };
+
+  if (scope.locationId) {
+    filter.location =
+      new mongoose.Types.ObjectId(
+        scope.locationId
+      );
+  } else if (
+    scope.locationAccessMode ===
+    "selected"
+  ) {
+    filter.location = {
+      $in:
+        scope.allowedLocationIds.map(
+          (id) =>
+            new mongoose.Types.ObjectId(
+              id
+            )
+        ),
+    };
+  }
+
+  return filter;
+}
+
 export async function getAdviserEvaluation({
   periodDays =
     DEFAULT_PERIOD_DAYS,
@@ -380,13 +415,16 @@ export async function getAdviserEvaluation({
 } = {}) {
   const {
     scope,
-    filter: tenantFilter,
   } = buildAiTenantFilter({
     businessId,
     locationId,
     locationAccessMode,
     allowedLocationIds,
   });
+  const tenantFilter =
+    aggregateTenantFilter(
+      scope
+    );
   const safePeriodDays =
     clampAdviserEvaluationPeriodDays(
       periodDays
