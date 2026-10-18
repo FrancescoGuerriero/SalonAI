@@ -1,10 +1,23 @@
+import sys
+import types
+
 import pytest
+
+
+# The generic AI-service CI intentionally installs only the runtime/test
+# dependencies. Keep these governance tests independent of optional ML
+# packages; the dedicated AI training workflow exercises the real core.
+core_stub = types.ModuleType("train_no_show_core")
+core_stub.TASK = "appointment_no_show_48h"
+core_stub.FEATURE_VERSION = "no-show-v1"
+core_stub.load_dataset = lambda *_args, **_kwargs: (None, None)
+core_stub.main = lambda: None
+sys.modules["train_no_show_core"] = core_stub
 
 import train_no_show as guarded_trainer
 
 
 BUSINESS = "507f1f77bcf86cd799439011"
-OTHER_BUSINESS = "507f191e810c19729de860ea"
 LOCATION = "507f1f77bcf86cd799439012"
 
 
