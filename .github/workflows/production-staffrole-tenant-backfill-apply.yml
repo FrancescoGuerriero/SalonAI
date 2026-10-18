@@ -1,0 +1,260 @@
+name: SalonAI Production StaffRole Tenant Backfill Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_release_tag:
+        description: Exact live application release reviewed during readiness
+        required: true
+        type: string
+      reviewed_plan_fingerprint:
+        description: Reviewed 64-character SHA-256 StaffRole dry-run fingerprint
+        required: true
+        type: string
+      confirm_apply:
+        description: Type APPLY_STAFF_ROLE_TENANT_BACKFILL to authorize the guarded production write
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply reviewed StaffRole ownership backfill
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Validate explicit production authorization inputs
+        shell: bash
+        env:
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+          CONFIRM_APPLY: ${{ inputs.confirm_apply }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$REVIEWED_PLAN_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$CONFIRM_APPLY" == "APPLY_STAFF_ROLE_TENANT_BACKFILL" ]]
+
+      - name: Configure strict SSH transport
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in PRODUCTION_HOST PRODUCTION_USER PRODUCTION_SSH_KEY PRODUCTION_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Required production secret is missing: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" == "salonai-deploy" ]]
+
+          ssh_directory="$RUNNER_TEMP/salonai-ssh"
+          install -d -m 0700 "$ssh_directory"
+          private_key="$ssh_directory/production-key"
+          known_hosts="$ssh_directory/known_hosts"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" > "$private_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$known_hosts"
+          chmod 0600 "$private_key" "$known_hosts"
+          ssh-keygen -y -P "" -f "$private_key" >/dev/null
+          ssh-keygen -F "$PRODUCTION_HOST" -f "$known_hosts" >/dev/null
+          {
+            echo "SSH_PRIVATE_KEY_PATH=$private_key"
+            echo "SSH_KNOWN_HOSTS_PATH=$known_hosts"
+          } >> "$GITHUB_ENV"
+
+      - name: Re-prove release, readiness and reviewed fingerprint immediately before apply
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          EXPECTED_RELEASE_TAG: ${{ inputs.expected_release_tag }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 migration-evidence
+          evidence="migration-evidence/staffrole-tenant-backfill.txt"
+          readiness="$RUNNER_TEMP/staffrole-preflight-readiness.json"
+          plan1="$RUNNER_TEMP/staffrole-preflight-plan-1.json"
+          plan2="$RUNNER_TEMP/staffrole-preflight-plan-2.json"
+
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          {
+            echo "SalonAI guarded production StaffRole tenant backfill"
+            echo "UTC timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Expected release: $EXPECTED_RELEASE_TAG"
+          } | tee "$evidence"
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail
+             test "$(id -un)" = "salonai-deploy"
+             test -d /opt/salonai
+             docker inspect salonai-backend >/dev/null
+             docker exec salonai-backend node -e "console.log(\"APP_VERSION=\" + process.env.APP_VERSION)"' \
+            | tee -a "$evidence"
+          grep -Fx "APP_VERSION=$EXPECTED_RELEASE_TAG" "$evidence" >/dev/null
+
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkStaffRoleTenantReadiness.js' \
+            > "$readiness"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planStaffRoleTenantBackfill.js' \
+            > "$plan1"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/planStaffRoleTenantBackfill.js' \
+            > "$plan2"
+
+          node - "$readiness" "$plan1" "$plan2" "$REVIEWED_PLAN_FINGERPRINT" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [readinessPath, plan1Path, plan2Path, reviewedFingerprint] = process.argv.slice(2);
+          const readiness = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+          const plan1 = JSON.parse(fs.readFileSync(plan1Path, 'utf8'));
+          const plan2 = JSON.parse(fs.readFileSync(plan2Path, 'utf8'));
+          if (readiness.readOnly !== true || readiness.databaseWrites !== false || readiness.safeForBusinessBackfill !== true) {
+            throw new Error('StaffRole production readiness is no longer safe.');
+          }
+          const blockerTypes = readiness?.summary?.blockerTypes || {};
+          if (Object.values(blockerTypes).some((value) => Number(value) !== 0)) {
+            throw new Error('StaffRole readiness contains blockers.');
+          }
+          for (const plan of [plan1, plan2]) {
+            if (plan.readOnly !== true || plan.writesPerformed !== false || plan.safeForBusinessBackfill !== true) {
+              throw new Error('StaffRole preflight plan is not a safe zero-write plan.');
+            }
+            if (!/^[a-f0-9]{64}$/.test(String(plan.fingerprint || ''))) {
+              throw new Error('StaffRole plan fingerprint is invalid.');
+            }
+            if (Number(plan.operationCount) !== Number(plan.rollbackCount)) {
+              throw new Error('StaffRole operation/rollback parity failed.');
+            }
+          }
+          if (plan1.fingerprint !== plan2.fingerprint || plan1.operationCount !== plan2.operationCount || plan1.rollbackCount !== plan2.rollbackCount) {
+            throw new Error('StaffRole plan changed between immediate preflight runs.');
+          }
+          if (plan1.fingerprint !== reviewedFingerprint) {
+            throw new Error('StaffRole plan no longer matches the reviewed fingerprint.');
+          }
+          console.log('PREFLIGHT_READ_ONLY=true');
+          console.log(`PLAN_OPERATION_COUNT=${Number(plan1.operationCount)}`);
+          console.log(`PLAN_ROLLBACK_COUNT=${Number(plan1.rollbackCount)}`);
+          console.log(`PLAN_FINGERPRINT=${plan1.fingerprint}`);
+          console.log('PLAN_MATCHES_REVIEWED_FINGERPRINT=true');
+          NODE
+
+      - name: Apply exactly the reviewed StaffRole plan transactionally
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+          REVIEWED_PLAN_FINGERPRINT: ${{ inputs.reviewed_plan_fingerprint }}
+        run: |
+          set -euo pipefail
+          apply_result="$RUNNER_TEMP/staffrole-apply-result.json"
+          evidence="migration-evidence/staffrole-tenant-backfill.txt"
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+
+          ssh "${ssh_options[@]}" "$target" \
+            "set -euo pipefail; docker exec -e STAFF_ROLE_TENANT_BACKFILL_CONFIRM=APPLY_STAFF_ROLE_TENANT_BACKFILL -e STAFF_ROLE_TENANT_BACKFILL_PLAN_FINGERPRINT=$REVIEWED_PLAN_FINGERPRINT salonai-backend node scripts/applyStaffRoleTenantBackfill.js --apply" \
+            > "$apply_result"
+
+          node - "$apply_result" "$REVIEWED_PLAN_FINGERPRINT" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const [resultPath, reviewedFingerprint] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+          if (result.applied !== true || result.reviewedFingerprint !== reviewedFingerprint) {
+            throw new Error('StaffRole apply did not confirm the reviewed plan.');
+          }
+          if (Number(result.remainingUnowned) !== 0 || result.migrationAuditRecorded !== true) {
+            throw new Error('StaffRole apply postflight/audit verification failed.');
+          }
+          if (Number(result.appliedCount) !== Number(result?.rollback?.operationCount)) {
+            throw new Error('StaffRole apply/rollback parity failed.');
+          }
+          console.log('APPLIED=true');
+          console.log(`APPLIED_COUNT=${Number(result.appliedCount)}`);
+          console.log('REMAINING_UNOWNED=0');
+          console.log('MIGRATION_AUDIT_RECORDED=true');
+          console.log('ROLLBACK_PARITY=true');
+          NODE
+
+      - name: Re-run StaffRole readiness postflight
+        shell: bash
+        env:
+          PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+          PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          set -euo pipefail
+          postflight="$RUNNER_TEMP/staffrole-postflight.json"
+          evidence="migration-evidence/staffrole-tenant-backfill.txt"
+          ssh_options=(
+            -i "$SSH_PRIVATE_KEY_PATH"
+            -o BatchMode=yes
+            -o ConnectTimeout=15
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$SSH_KNOWN_HOSTS_PATH"
+          )
+          target="$PRODUCTION_USER@$PRODUCTION_HOST"
+          ssh "${ssh_options[@]}" "$target" \
+            'set -euo pipefail; docker exec salonai-backend node scripts/checkStaffRoleTenantReadiness.js' \
+            > "$postflight"
+
+          node - "$postflight" <<'NODE' | tee -a "$evidence"
+          const fs = require('fs');
+          const readiness = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (readiness.readOnly !== true || readiness.databaseWrites !== false || readiness.safeForBusinessBackfill !== true) {
+            throw new Error('StaffRole postflight readiness failed.');
+          }
+          if (Number(readiness?.summary?.unowned || 0) !== 0 || Number(readiness?.summary?.foreignOwned || 0) !== 0) {
+            throw new Error('StaffRole postflight still contains unowned or conflicting roles.');
+          }
+          console.log('POSTFLIGHT_READ_ONLY=true');
+          console.log('POSTFLIGHT_UNOWNED=0');
+          console.log('POSTFLIGHT_FOREIGN_OWNED=0');
+          console.log('[PASS] Guarded StaffRole production backfill completed with zero-unowned postflight.');
+          NODE
+
+      - name: Upload sanitised migration evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: salonai-production-staffrole-backfill-${{ github.run_id }}
+          path: migration-evidence
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Remove transient SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          rm -f -- "${SSH_PRIVATE_KEY_PATH:-}" "${SSH_KNOWN_HOSTS_PATH:-}"
