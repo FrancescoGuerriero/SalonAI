@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const campaignSchema = new mongoose.Schema(
   {
+    // Transitional #309 Business ownership for report-safe campaign totals.
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -104,6 +111,12 @@ const campaignSchema = new mongoose.Schema(
 campaignSchema.index({
   status: 1,
   scheduledFor: 1,
+});
+
+campaignSchema.index({
+  business: 1,
+  status: 1,
+  createdAt: -1,
 });
 
 const Campaign =
