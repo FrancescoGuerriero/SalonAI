@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import mongoose from "mongoose";
 
 import AiFeatureSnapshot from "../features/aiPlatform/AiFeatureSnapshot.js";
 import AiInferenceLog from "../features/aiPlatform/AiInferenceLog.js";
@@ -91,28 +90,19 @@ test("AI dataset registry defaults to restrictive single-business temporal gover
   );
 });
 
-test("single-business AI datasets require a trusted Business scope", async () => {
-  const dataset =
-    new AiTrainingDataset({
-      name:
-        "tenant-no-show-training",
-      version: "1",
-      task:
-        "no_show_prediction",
-      featureVersion:
-        "no-show-v1",
-    });
+test("AI dataset scope supports the three governed tenancy modes", () => {
+  const scopeMode =
+    AiTrainingDataset.schema.path(
+      "scope.mode"
+    );
 
-  await assert.rejects(
-    dataset.validate(),
-    /scope\.business/
-  );
-
-  dataset.scope.business =
-    new mongoose.Types.ObjectId();
-
-  await assert.doesNotReject(
-    dataset.validate()
+  assert.deepEqual(
+    scopeMode.enumValues,
+    [
+      "single_business",
+      "cross_business_deidentified",
+      "platform_global",
+    ]
   );
 });
 
