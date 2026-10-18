@@ -65,6 +65,13 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   { value: "notification:manage", label: "Manage notification centre", group: "Communications" },
   { value: "push:manage", label: "Manage push notifications", group: "Communications" },
 
+  { value: "consultation:read", label: "View consultations", group: "Consultations" },
+  { value: "consultation:create", label: "Start consultations", group: "Consultations" },
+  { value: "consultation:update", label: "Update consultations", group: "Consultations" },
+  { value: "consultation:review", label: "Review consultations", group: "Consultations" },
+  { value: "consultation:approve", label: "Approve consultation decisions", group: "Consultations" },
+  { value: "consultation:assign", label: "Assign consultations to staff", group: "Consultations" },
+
   { value: "loyalty:manage", label: "Manage loyalty programme", group: "Customer growth" },
   { value: "gift-card:manage", label: "Manage gift cards", group: "Customer growth" },
   { value: "referral:manage", label: "Manage referrals", group: "Customer growth" },
