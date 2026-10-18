@@ -1,0 +1,203 @@
+name: Figma React Design System
+
+on:
+  pull_request:
+    paths:
+      - "frontend/figma/**"
+      - "frontend/figma.config.json"
+      - "frontend/scripts/figma-sync.mjs"
+      - "frontend/scripts/figma-identity-guard.mjs"
+      - "frontend/src/styles/aiibpTokens.generated.css"
+      - "frontend/src/components/**/*.figma.ts"
+      - "frontend/src/main.jsx"
+      - "frontend/package.json"
+      - ".github/workflows/figma-react-sync.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/figma/**"
+      - "frontend/figma.config.json"
+      - "frontend/scripts/figma-sync.mjs"
+      - "frontend/scripts/figma-identity-guard.mjs"
+      - "frontend/src/styles/aiibpTokens.generated.css"
+      - "frontend/src/components/**/*.figma.ts"
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Operation to run"
+        required: true
+        default: "validate"
+        type: choice
+        options:
+          - validate
+          - pull
+          - push
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'validate')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Validate synchronized token contract
+        run: node frontend/scripts/figma-sync.mjs check
+
+      - name: Validate Code Connect templates
+        run: >-
+          npx --yes --package=@figma/code-connect@2.0.0
+          figma connect parse
+          --config frontend/figma.config.json
+          --exit-on-unreadable-files
+          > /tmp/figma-code-connect.json
+
+  pull-from-figma:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Check Figma automation secret
+        id: figma
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -n "${FIGMA_ACCESS_TOKEN}" ]]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "FIGMA_ACCESS_TOKEN is not configured; remote Figma pull is skipped." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Pull Figma variables and regenerate React tokens
+        if: steps.figma.outputs.enabled == 'true'
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        run: |
+          node frontend/scripts/figma-identity-guard.mjs
+          node frontend/scripts/figma-sync.mjs pull
+          node frontend/scripts/figma-sync.mjs check
+          node frontend/scripts/figma-sync.mjs remote-check
+
+      - name: Open or update Figma token synchronization PR
+        if: steps.figma.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if git diff --quiet -- frontend/figma/aiibp.tokens.json frontend/src/styles/aiibpTokens.generated.css; then
+            echo "Figma variables already match the repository manifest." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          BRANCH="automation/figma-token-sync"
+          gh auth setup-git
+          git config user.name "salonai-figma-sync[bot]"
+          git config user.email "salonai-figma-sync[bot]@users.noreply.github.com"
+          git fetch origin "${BRANCH}" || true
+          git switch -C "${BRANCH}"
+          git add frontend/figma/aiibp.tokens.json frontend/src/styles/aiibpTokens.generated.css
+          git commit -m "DEV2: sync Figma design tokens to React"
+          git push --force-with-lease origin "HEAD:${BRANCH}"
+
+          EXISTING="$(gh pr list --base main --head "${BRANCH}" --state open --json url --jq '.[0].url // empty')"
+          if [[ -z "${EXISTING}" ]]; then
+            gh pr create \
+              --base main \
+              --head "${BRANCH}" \
+              --title "DEV2: synchronize Figma design tokens to React" \
+              --body "Automated reviewed Figma → React token synchronization for #449. This PR contains design-token manifest/CSS changes only; it does not change runtime business authority."
+          else
+            echo "Updated existing synchronization PR: ${EXISTING}" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+  publish-to-figma:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'push')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Check Figma automation secret
+        id: figma
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -n "${FIGMA_ACCESS_TOKEN}" ]]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "FIGMA_ACCESS_TOKEN is not configured; code → Figma publication is skipped." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Validate token contract
+        if: steps.figma.outputs.enabled == 'true'
+        run: node frontend/scripts/figma-sync.mjs check
+
+      - name: Push approved token state to Figma
+        if: steps.figma.outputs.enabled == 'true'
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        run: |
+          node frontend/scripts/figma-identity-guard.mjs
+          node frontend/scripts/figma-sync.mjs push
+          node frontend/scripts/figma-sync.mjs remote-check
+
+      - name: Publish Code Connect mappings
+        if: steps.figma.outputs.enabled == 'true'
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        run: >-
+          npx --yes --package=@figma/code-connect@2.0.0
+          figma connect publish
+          --config frontend/figma.config.json
+          --exit-on-unreadable-files
+          --force

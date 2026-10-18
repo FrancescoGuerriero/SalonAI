@@ -21,6 +21,13 @@
     "figma:capture": "playwright test e2e/figma-capture.spec.js --project=chromium-desktop --workers=1",
     "figma:capture:headed": "playwright test e2e/figma-capture.spec.js --project=chromium-desktop --workers=1 --headed",
     "figma:auth-check": "playwright test e2e/figma-auth-check.spec.js --project=chromium-desktop --workers=1",
+    "figma:generate": "node scripts/figma-sync.mjs generate",
+    "figma:check": "node scripts/figma-sync.mjs check",
+    "figma:pull": "node scripts/figma-sync.mjs pull",
+    "figma:push": "node scripts/figma-sync.mjs push",
+    "figma:remote-check": "node scripts/figma-sync.mjs remote-check",
+    "figma:code-connect:validate": "npx --yes --package=@figma/code-connect@2.0.0 figma connect parse --config figma.config.json",
+    "figma:code-connect:publish": "npx --yes --package=@figma/code-connect@2.0.0 figma connect publish --config figma.config.json --exit-on-unreadable-files --force",
     "ai:production-diagnostic": "playwright test e2e/ai-production-diagnostic.spec.js --project=chromium-desktop --workers=1"
   },
   "dependencies": {

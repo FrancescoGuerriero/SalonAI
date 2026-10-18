@@ -1,0 +1,16 @@
+{
+  "codeConnect": {
+    "include": [
+      "figma/code-connect/**/*.figma.ts"
+    ],
+    "exclude": [
+      "node_modules/**",
+      "dist/**",
+      "coverage/**"
+    ],
+    "label": "React",
+    "language": "jsx",
+    "defaultBranch": "main",
+    "interactiveSetupFigmaFileUrl": "https://www.figma.com/design/roTSaBJuQTYNJpBInNahXQ/AIIBP-Design-System"
+  }
+}
