@@ -2,13 +2,10 @@ import express from "express";
 
 import {
   cancelCampaign,
-  createCampaign,
   duplicateCampaign,
   getCampaign,
-  getCampaignSummary,
   getRecipient,
   launchCampaign,
-  listCampaigns,
   listRecipients,
   pauseCampaign,
   prepareRecipients,
@@ -20,14 +17,34 @@ import {
   scheduleCampaign,
   updateCampaign,
 } from "../controllers/communicationCampaignController.js";
+import {
+  createScopedCampaign,
+  getScopedCampaignSummary,
+  listScopedCampaigns,
+} from "../controllers/communicationTenantController.js";
 
 import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  communicationEffectiveScopeMiddleware,
+  scopedCampaignMutationResource,
+  scopedCampaignResource,
+  scopedRecipientResource,
+} from "../middleware/communicationTenantMiddleware.js";
+import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   requireAnyPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 
 const router = express.Router();
 
@@ -44,11 +61,20 @@ const manageCommunications =
 
 /*
 |--------------------------------------------------------------------------
-| Authentication and authorisation
+| Trusted tenant/effective-authority chain
 |--------------------------------------------------------------------------
+|
+| The existing communications permission catalogue remains authoritative.
+| This chain only binds those permissions to the trusted Business/Location
+| scope supplied by the AIIBP tenancy contract.
 */
-
-router.use(protect);
+router.use(
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  communicationEffectiveScopeMiddleware
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -56,48 +82,28 @@ router.use(protect);
 |--------------------------------------------------------------------------
 */
 
-/**
- * Preview an audience before saving a campaign.
- *
- * POST /api/communication-campaigns/preview
- */
 router.post(
   "/preview",
   manageCommunications,
   previewNewCampaignAudience
 );
 
-/**
- * Retrieve campaign statistics and analytics.
- *
- * GET /api/communication-campaigns/summary
- */
 router.get(
   "/summary",
   readCommunications,
-  getCampaignSummary
+  getScopedCampaignSummary
 );
 
-/**
- * Create a communication campaign.
- *
- * POST /api/communication-campaigns
- */
 router.post(
   "/",
   manageCommunications,
-  createCampaign
+  createScopedCampaign
 );
 
-/**
- * List communication campaigns.
- *
- * GET /api/communication-campaigns
- */
 router.get(
   "/",
   readCommunications,
-  listCampaigns
+  listScopedCampaigns
 );
 
 /*
@@ -106,50 +112,31 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Preview the audience of an existing campaign.
- *
- * POST
- * /api/communication-campaigns/:campaignId/audience/preview
- */
 router.post(
   "/:campaignId/audience/preview",
+  scopedCampaignMutationResource,
   manageCommunications,
   previewExistingCampaignAudience
 );
 
-/**
- * Generate personalised campaign-recipient records.
- *
- * POST
- * /api/communication-campaigns/:campaignId/recipients/prepare
- */
 router.post(
   "/:campaignId/recipients/prepare",
+  scopedCampaignMutationResource,
   manageCommunications,
   prepareRecipients
 );
 
-/**
- * List campaign recipients.
- *
- * GET
- * /api/communication-campaigns/:campaignId/recipients
- */
 router.get(
   "/:campaignId/recipients",
+  scopedCampaignResource,
   readCommunications,
   listRecipients
 );
 
-/**
- * Retrieve one campaign recipient.
- *
- * GET
- * /api/communication-campaigns/:campaignId/recipients/:recipientId
- */
 router.get(
   "/:campaignId/recipients/:recipientId",
+  scopedCampaignResource,
+  scopedRecipientResource,
   readCommunications,
   getRecipient
 );
@@ -160,74 +147,44 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Queue a campaign for immediate delivery.
- *
- * POST
- * /api/communication-campaigns/:campaignId/launch
- */
 router.post(
   "/:campaignId/launch",
+  scopedCampaignMutationResource,
   manageCommunications,
   launchCampaign
 );
 
-/**
- * Schedule a campaign for future delivery.
- *
- * POST
- * /api/communication-campaigns/:campaignId/schedule
- */
 router.post(
   "/:campaignId/schedule",
+  scopedCampaignMutationResource,
   manageCommunications,
   scheduleCampaign
 );
 
-/**
- * Pause a queued or processing campaign.
- *
- * POST
- * /api/communication-campaigns/:campaignId/pause
- */
 router.post(
   "/:campaignId/pause",
+  scopedCampaignMutationResource,
   manageCommunications,
   pauseCampaign
 );
 
-/**
- * Resume a paused campaign.
- *
- * POST
- * /api/communication-campaigns/:campaignId/resume
- */
 router.post(
   "/:campaignId/resume",
+  scopedCampaignMutationResource,
   manageCommunications,
   resumeCampaign
 );
 
-/**
- * Cancel a campaign.
- *
- * POST
- * /api/communication-campaigns/:campaignId/cancel
- */
 router.post(
   "/:campaignId/cancel",
+  scopedCampaignMutationResource,
   manageCommunications,
   cancelCampaign
 );
 
-/**
- * Recalculate campaign delivery statistics.
- *
- * POST
- * /api/communication-campaigns/:campaignId/delivery-counts/refresh
- */
 router.post(
   "/:campaignId/delivery-counts/refresh",
+  scopedCampaignMutationResource,
   manageCommunications,
   refreshDeliveryCounts
 );
@@ -238,47 +195,30 @@ router.post(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Duplicate a campaign as a new draft.
- *
- * POST
- * /api/communication-campaigns/:campaignId/duplicate
- */
 router.post(
   "/:campaignId/duplicate",
+  scopedCampaignMutationResource,
   manageCommunications,
   duplicateCampaign
 );
 
-/**
- * Retrieve one campaign.
- *
- * GET /api/communication-campaigns/:campaignId
- */
 router.get(
   "/:campaignId",
+  scopedCampaignResource,
   readCommunications,
   getCampaign
 );
 
-/**
- * Update an editable campaign.
- *
- * PATCH /api/communication-campaigns/:campaignId
- */
 router.patch(
   "/:campaignId",
+  scopedCampaignMutationResource,
   manageCommunications,
   updateCampaign
 );
 
-/**
- * Delete a draft, failed or cancelled campaign.
- *
- * DELETE /api/communication-campaigns/:campaignId
- */
 router.delete(
   "/:campaignId",
+  scopedCampaignMutationResource,
   manageCommunications,
   removeCampaign
 );
