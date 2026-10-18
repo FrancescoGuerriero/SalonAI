@@ -5,6 +5,24 @@ const { Schema } = mongoose;
 const aiInferenceLogSchema =
   new Schema(
     {
+      business: {
+        type: Schema.Types.ObjectId,
+        ref: "Business",
+        default: undefined,
+        index: true,
+      },
+      location: {
+        type: Schema.Types.ObjectId,
+        ref: "Location",
+        default: undefined,
+        index: true,
+      },
+      vertical: {
+        type: String,
+        trim: true,
+        default: "",
+        index: true,
+      },
       capability: {
         type: String,
         required: true,
@@ -124,11 +142,14 @@ const aiInferenceLogSchema =
   );
 
 aiInferenceLogSchema.index({
+  business: 1,
+  location: 1,
   capability: 1,
   requestedAt: -1,
 });
 
 aiInferenceLogSchema.index({
+  business: 1,
   capability: 1,
   entityType: 1,
   entityKey: 1,
@@ -136,6 +157,7 @@ aiInferenceLogSchema.index({
 });
 
 aiInferenceLogSchema.index({
+  business: 1,
   capability: 1,
   outcomeObservedAt: 1,
   requestedAt: -1,
