@@ -28,6 +28,15 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _require_sha256(value: Any, field_name: str) -> str:
+    digest = _text(value).lower()
+    if not _SHA256_PATTERN.fullmatch(digest):
+        raise ArtifactCompatibilityError(
+            f"{field_name} must be a SHA-256 digest."
+        )
+    return digest
+
+
 def _dataset_scope(dataset: Mapping[str, Any]) -> dict[str, Any]:
     scope = dict(dataset.get("scope") or {})
     business = _text(scope.get("business"))
@@ -56,6 +65,29 @@ def _dataset_scope(dataset: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _dataset_lineage(dataset: Mapping[str, Any]) -> dict[str, Any]:
+    lineage = dict(dataset.get("lineage") or {})
+    builder_version = _text(lineage.get("builderVersion"))
+    source_collections = sorted(
+        {
+            _text(value)
+            for value in lineage.get("sourceCollections") or []
+            if _text(value)
+        }
+    )
+
+    if not builder_version or not source_collections:
+        raise ArtifactCompatibilityError(
+            "Model artifacts require dataset builder and source-collection lineage."
+        )
+
+    return {
+        "builderVersion": builder_version,
+        "gitCommit": _text(lineage.get("gitCommit")),
+        "sourceCollections": source_collections,
+    }
+
+
 def build_model_artifact_manifest(
     *,
     model_name: str,
@@ -78,7 +110,6 @@ def build_model_artifact_manifest(
         )
 
     dataset_scope = _dataset_scope(dataset)
-    lineage = dict(dataset.get("lineage") or {})
     manifest = {
         "schemaVersion": MANIFEST_SCHEMA_VERSION,
         "model": {
@@ -94,19 +125,15 @@ def build_model_artifact_manifest(
             "name": _text(dataset.get("name")),
             "version": _text(dataset.get("version")),
             "id": _text(dataset.get("_id")),
-            "schemaHash": _text(dataset.get("schemaHash")),
-            "dataHash": _text(dataset.get("dataHash")),
-            "lineage": {
-                "builderVersion": _text(lineage.get("builderVersion")),
-                "gitCommit": _text(lineage.get("gitCommit")),
-                "sourceCollections": sorted(
-                    {
-                        _text(value)
-                        for value in lineage.get("sourceCollections") or []
-                        if _text(value)
-                    }
-                ),
-            },
+            "schemaHash": _require_sha256(
+                dataset.get("schemaHash"),
+                "Dataset schemaHash",
+            ),
+            "dataHash": _require_sha256(
+                dataset.get("dataHash"),
+                "Dataset dataHash",
+            ),
+            "lineage": _dataset_lineage(dataset),
             "scope": dataset_scope,
         },
         "artifact": {
@@ -146,6 +173,7 @@ def validate_model_artifact_manifest(
     dataset = dict(manifest.get("dataset") or {})
     artifact = dict(manifest.get("artifact") or {})
     scope = dict(dataset.get("scope") or {})
+    lineage = dict(dataset.get("lineage") or {})
 
     if not _text(model.get("name")) or not _text(model.get("version")):
         raise ArtifactCompatibilityError("Model identity is incomplete.")
@@ -161,6 +189,8 @@ def validate_model_artifact_manifest(
         raise ArtifactCompatibilityError(
             "Model lifecycle is not eligible for governed evaluation."
         )
+    if not _text(model.get("algorithm")):
+        raise ArtifactCompatibilityError("Model algorithm is missing.")
 
     if (
         not _text(dataset.get("name"))
@@ -175,6 +205,15 @@ def validate_model_artifact_manifest(
     ):
         raise ArtifactCompatibilityError(
             "Model dataset version is incompatible with the requested dataset."
+        )
+
+    _require_sha256(dataset.get("schemaHash"), "Dataset schemaHash")
+    _require_sha256(dataset.get("dataHash"), "Dataset dataHash")
+    if not _text(lineage.get("builderVersion")) or not list(
+        lineage.get("sourceCollections") or []
+    ):
+        raise ArtifactCompatibilityError(
+            "Model artifact dataset lineage is incomplete."
         )
 
     if scope.get("mode") != "single_business" or scope.get("deidentified") is not True:
