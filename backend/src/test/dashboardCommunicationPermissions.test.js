@@ -62,23 +62,35 @@ test("campaign and template reads are separated from management actions", async 
       routes,
       /requirePermissions\(\s*"communications:manage"\s*\)/
     );
+    assert.match(
+      routes,
+      /trustedTenantContextMiddleware/
+    );
+    assert.match(
+      routes,
+      /effectiveAuthorityMiddleware/
+    );
+    assert.match(
+      routes,
+      /communicationEffectiveScopeMiddleware/
+    );
   }
 
   assert.match(
     campaign,
-    /router\.get\(\s*"\/",\s*readCommunications,\s*listCampaigns/s
+    /router\.get\(\s*"\/",\s*readCommunications,\s*listScopedCampaigns/s
   );
   assert.match(
     campaign,
-    /router\.post\(\s*"\/",\s*manageCommunications,\s*createCampaign/s
+    /router\.post\(\s*"\/",\s*manageCommunications,\s*communicationReferenceScopeMiddleware,\s*createScopedCampaign/s
   );
   assert.match(
     template,
-    /router\.get\(\s*"\/",\s*readCommunications,\s*communicationTemplateController\.listCommunicationTemplates/s
+    /router\.get\(\s*"\/",\s*readCommunications,\s*listScopedTemplates/s
   );
   assert.match(
     template,
-    /router\.post\(\s*"\/",\s*manageCommunications,\s*communicationTemplateController\.createCommunicationTemplate/s
+    /router\.post\(\s*"\/",\s*manageCommunications,\s*createScopedTemplate/s
   );
 });
 
@@ -307,8 +319,8 @@ test("Twilio delivery status webhook remains outside staff JWT permission gates"
       '"/webhooks/twilio/status"'
     );
   const protectIndex =
-    delivery.indexOf(
-      "router.use(protect)"
+    delivery.search(
+      /router\.use\(\s*protect/
     );
 
   assert.ok(
