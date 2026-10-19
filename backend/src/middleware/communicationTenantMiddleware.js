@@ -1,11 +1,11 @@
+import mongoose from "mongoose";
+
 import CommunicationCampaign from "../models/CommunicationCampaign.js";
 import CommunicationCampaignRecipient from "../models/CommunicationCampaignRecipient.js";
 import CommunicationTemplate from "../models/CommunicationTemplate.js";
 import MessageDelivery from "../models/MessageDelivery.js";
-import ScheduledCommunication from "../features/scheduler/ScheduledCommunication.js";
 
 import {
-  assertCommunicationAuthorityResource,
   buildCommunicationEffectiveScope,
   communicationAggregateAuthorityFilter,
   sanitizeCommunicationPayload,
@@ -23,10 +23,39 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+function requiredText(value, { maximumLength = 255 } = {}) {
+  const candidate = text(value);
+  if (!candidate || candidate.length > maximumLength) {
+    throw notFound();
+  }
+  return candidate;
+}
+
+function requiredObjectId(value) {
+  const candidate = requiredText(value, { maximumLength: 64 });
+  if (!mongoose.isValidObjectId(candidate)) {
+    throw notFound();
+  }
+  return candidate;
+}
+
 function scopeFilter(request, { allowBusinessWide = true } = {}) {
   return communicationAggregateAuthorityFilter(request.communicationScope, {
     includeBusinessWide: allowBusinessWide,
   });
+}
+
+function scopedFilter(request, resourceFilter, options = {}) {
+  return {
+    $and: [scopeFilter(request, options), resourceFilter],
+  };
+}
+
+function requireScopedResource(resource) {
+  if (!resource) {
+    throw notFound();
+  }
+  return resource;
 }
 
 function asNonDisclosingLookupError(error) {
@@ -42,22 +71,17 @@ async function attachScopedObjectIdResource({
   rawId,
   attachAs,
   allowBusinessWide = true,
-  requireSelectedLocation = false,
 }) {
-  const resource = await Model.findOne({
-    $and: [
-      scopeFilter(request, { allowBusinessWide }),
-      { _id: text(rawId) },
-    ],
-  });
-
-  // Always execute the trusted authority assertion. The assertion already
-  // handles a missing resource as a non-disclosing 404, so user-controlled
-  // identifiers never determine whether the security check runs.
-  assertCommunicationAuthorityResource(resource, request.communicationScope, {
-    allowBusinessWide,
-    requireSelectedLocation,
-  });
+  const resourceId = requiredObjectId(rawId);
+  const resource = requireScopedResource(
+    await Model.findOne(
+      scopedFilter(
+        request,
+        { _id: resourceId },
+        { allowBusinessWide }
+      )
+    )
+  );
 
   request[attachAs] = resource;
   return resource;
@@ -116,11 +140,13 @@ export async function scopedTemplateMutationResource(request, response, next) {
 
 export async function scopedTemplateSlugResource(request, response, next) {
   try {
-    const resource = await CommunicationTemplate.findOne({
-      $and: [scopeFilter(request), { slug: text(request.params?.slug) }],
-    });
+    const slug = requiredText(request.params?.slug, { maximumLength: 160 });
+    const resource = requireScopedResource(
+      await CommunicationTemplate.findOne(
+        scopedFilter(request, { slug })
+      )
+    );
 
-    assertCommunicationAuthorityResource(resource, request.communicationScope);
     request.communicationTemplate = resource;
     return next();
   } catch (error) {
@@ -132,45 +158,25 @@ export async function scopedScheduledCampaignResource(request, response, next) {
   return scopedCampaignResource(request, response, next);
 }
 
-async function findScopedDeliveryByPublicIdentifier(request, rawIdentifier) {
-  const identifier = text(rawIdentifier);
-  return MessageDelivery.findOne({
-    $and: [
-      scopeFilter(request),
-      {
-        $or: [
-          { deliveryId: identifier },
-          { providerMessageId: identifier },
-        ],
-      },
-    ],
-  });
-}
-
-async function findScopedDeliveryByMongoId(request, rawIdentifier) {
-  try {
-    return await MessageDelivery.findOne({
-      $and: [scopeFilter(request), { _id: text(rawIdentifier) }],
-    });
-  } catch (error) {
-    if (error?.name === "CastError" || error?.name === "BSONError") {
-      return null;
-    }
-    throw error;
-  }
-}
-
 async function attachScopedDelivery(request, rawIdentifier) {
-  const byPublicIdentifier = await findScopedDeliveryByPublicIdentifier(
-    request,
-    rawIdentifier
-  );
-  const resource =
-    byPublicIdentifier ||
-    (await findScopedDeliveryByMongoId(request, rawIdentifier));
+  const identifier = requiredText(rawIdentifier, { maximumLength: 255 });
+  const identifiers = [
+    { deliveryId: identifier },
+    { providerMessageId: identifier },
+  ];
 
-  assertCommunicationAuthorityResource(resource, request.communicationScope);
+  if (mongoose.isValidObjectId(identifier)) {
+    identifiers.push({ _id: identifier });
+  }
+
+  const resource = requireScopedResource(
+    await MessageDelivery.findOne(
+      scopedFilter(request, { $or: identifiers })
+    )
+  );
+
   request.messageDelivery = resource;
+  return resource;
 }
 
 export async function scopedDeliveryResource(request, response, next) {
@@ -184,14 +190,15 @@ export async function scopedDeliveryResource(request, response, next) {
 
 export async function scopedProviderDeliveryResource(request, response, next) {
   try {
-    const resource = await MessageDelivery.findOne({
-      $and: [
-        scopeFilter(request),
-        { providerMessageId: text(request.params?.providerMessageId) },
-      ],
+    const providerMessageId = requiredText(request.params?.providerMessageId, {
+      maximumLength: 255,
     });
+    const resource = requireScopedResource(
+      await MessageDelivery.findOne(
+        scopedFilter(request, { providerMessageId })
+      )
+    );
 
-    assertCommunicationAuthorityResource(resource, request.communicationScope);
     request.messageDelivery = resource;
     return next();
   } catch (error) {
@@ -201,17 +208,17 @@ export async function scopedProviderDeliveryResource(request, response, next) {
 
 export async function scopedRecipientResource(request, response, next) {
   try {
-    const recipient = await CommunicationCampaignRecipient.findOne({
-      $and: [
-        scopeFilter(request),
-        {
-          _id: text(request.params?.recipientId),
-          campaign: text(request.params?.campaignId),
-        },
-      ],
-    });
+    const recipientId = requiredObjectId(request.params?.recipientId);
+    const campaignId = requiredObjectId(request.params?.campaignId);
+    const recipient = requireScopedResource(
+      await CommunicationCampaignRecipient.findOne(
+        scopedFilter(request, {
+          _id: recipientId,
+          campaign: campaignId,
+        })
+      )
+    );
 
-    assertCommunicationAuthorityResource(recipient, request.communicationScope);
     request.communicationRecipient = recipient;
     return next();
   } catch (error) {
@@ -225,35 +232,17 @@ export async function scopedScheduledCommunicationResource(
   next
 ) {
   try {
-    const campaignId = text(request.params?.campaignId);
-    let scheduled = null;
+    const campaignId = requiredObjectId(request.params?.campaignId);
+    const campaign = requireScopedResource(
+      await CommunicationCampaign.findOne(
+        scopedFilter(request, { _id: campaignId })
+      )
+    );
 
-    try {
-      scheduled = await ScheduledCommunication.findOne({
-        $and: [
-          scopeFilter(request),
-          {
-            $or: [{ _id: campaignId }, { campaign: campaignId }],
-          },
-        ],
-      });
-    } catch (error) {
-      if (error?.name !== "CastError" && error?.name !== "BSONError") {
-        throw error;
-      }
-    }
-
-    if (scheduled) {
-      assertCommunicationAuthorityResource(scheduled, request.communicationScope);
-      request.scheduledCommunication = scheduled;
-      return next();
-    }
-
-    const campaign = await CommunicationCampaign.findOne({
-      $and: [scopeFilter(request), { _id: campaignId }],
-    });
-
-    assertCommunicationAuthorityResource(campaign, request.communicationScope);
+    // Downstream scheduling services operate on CommunicationCampaign IDs.
+    // Replace the request value with the canonical ID returned by the trusted,
+    // tenant-scoped lookup so subsequent operations consume the authorised key.
+    request.params.campaignId = String(campaign._id);
     request.communicationCampaign = campaign;
     return next();
   } catch (error) {
