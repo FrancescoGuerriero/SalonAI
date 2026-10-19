@@ -22,10 +22,10 @@ DATASET_ID = "64f000000000000000000101"
 def governed_dataset() -> dict:
     return {
         "_id": DATASET_ID,
-        "name": "no-show-training",
+        "name": "salonai-no-show",
         "version": "2026-10-19.v1",
-        "schemaHash": "schema-sha256",
-        "dataHash": "data-sha256",
+        "schemaHash": "a" * 64,
+        "dataHash": "b" * 64,
         "scope": {
             "mode": "single_business",
             "business": BUSINESS_ID,
@@ -64,11 +64,23 @@ def build_manifest(tmp_path: Path, **overrides) -> dict:
     return build_model_artifact_manifest(**values)
 
 
+def validate(manifest: dict) -> None:
+    validate_model_artifact_manifest(
+        manifest,
+        expected_task="no_show_risk",
+        expected_feature_version="no-show-features.v1",
+        expected_dataset_version="2026-10-19.v1",
+        expected_business=BUSINESS_ID,
+    )
+
+
 def test_manifest_captures_tenant_safe_provenance_and_artifact_digest(tmp_path: Path):
     manifest = build_manifest(tmp_path)
 
     assert manifest["schemaVersion"] == MANIFEST_SCHEMA_VERSION
     assert manifest["model"]["lifecycle"] == "candidate"
+    assert manifest["dataset"]["schemaHash"] == "a" * 64
+    assert manifest["dataset"]["dataHash"] == "b" * 64
     assert manifest["dataset"]["scope"] == {
         "mode": "single_business",
         "business": BUSINESS_ID,
@@ -110,13 +122,7 @@ def test_manifest_compatibility_rejects_model_contract_mismatch(
     manifest["model"][field] = value
 
     with pytest.raises(ArtifactCompatibilityError, match=message):
-        validate_model_artifact_manifest(
-            manifest,
-            expected_task="no_show_risk",
-            expected_feature_version="no-show-features.v1",
-            expected_dataset_version="2026-10-19.v1",
-            expected_business=BUSINESS_ID,
-        )
+        validate(manifest)
 
 
 def test_manifest_compatibility_rejects_cross_business_artifact(tmp_path: Path):
@@ -124,13 +130,27 @@ def test_manifest_compatibility_rejects_cross_business_artifact(tmp_path: Path):
     manifest["dataset"]["scope"]["business"] = "64f000000000000000000099"
 
     with pytest.raises(ArtifactCompatibilityError, match="different Business scope"):
-        validate_model_artifact_manifest(
-            manifest,
-            expected_task="no_show_risk",
-            expected_feature_version="no-show-features.v1",
-            expected_dataset_version="2026-10-19.v1",
-            expected_business=BUSINESS_ID,
-        )
+        validate(manifest)
+
+
+@pytest.mark.parametrize("field", ["schemaHash", "dataHash"])
+def test_manifest_rejects_missing_or_invalid_dataset_hashes(
+    tmp_path: Path,
+    field: str,
+):
+    manifest = build_manifest(tmp_path)
+    manifest["dataset"][field] = "not-a-sha256"
+
+    with pytest.raises(ArtifactCompatibilityError, match=field):
+        validate(manifest)
+
+
+def test_manifest_rejects_incomplete_dataset_lineage(tmp_path: Path):
+    manifest = build_manifest(tmp_path)
+    manifest["dataset"]["lineage"]["sourceCollections"] = []
+
+    with pytest.raises(ArtifactCompatibilityError, match="lineage is incomplete"):
+        validate(manifest)
 
 
 def test_manifest_rejects_invalid_or_missing_artifact_checksum(tmp_path: Path):
@@ -138,12 +158,7 @@ def test_manifest_rejects_invalid_or_missing_artifact_checksum(tmp_path: Path):
     manifest["artifact"]["sha256"] = "not-a-sha256"
 
     with pytest.raises(ArtifactCompatibilityError, match="checksum"):
-        validate_model_artifact_manifest(
-            manifest,
-            expected_task="no_show_risk",
-            expected_feature_version="no-show-features.v1",
-            expected_business=BUSINESS_ID,
-        )
+        validate(manifest)
 
 
 def test_manifest_round_trip_is_deterministic_json(tmp_path: Path):
