@@ -87,36 +87,36 @@ router.get(
 
 router.get(
   "/:campaignId",
-  scopedScheduledCommunicationResource,
   readCommunications,
+  scopedScheduledCommunicationResource,
   getScheduledCommunication
 );
 
 router.patch(
   "/:campaignId/schedule",
-  scopedScheduledCommunicationResource,
   manageCommunications,
+  scopedScheduledCommunicationResource,
   scheduleCampaign
 );
 
 router.patch(
   "/:campaignId/reschedule",
-  scopedScheduledCommunicationResource,
   manageCommunications,
+  scopedScheduledCommunicationResource,
   rescheduleCampaign
 );
 
 router.patch(
   "/:campaignId/unschedule",
-  scopedScheduledCommunicationResource,
   manageCommunications,
+  scopedScheduledCommunicationResource,
   unscheduleCampaign
 );
 
 router.patch(
   "/:campaignId/cancel",
-  scopedScheduledCommunicationResource,
   manageCommunications,
+  scopedScheduledCommunicationResource,
   cancelScheduledCampaign
 );
 
