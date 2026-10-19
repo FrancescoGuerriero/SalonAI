@@ -51,10 +51,9 @@ async function attachScopedObjectIdResource({
     ],
   });
 
-  if (!resource) {
-    throw notFound();
-  }
-
+  // Always execute the trusted authority assertion. The assertion already
+  // handles a missing resource as a non-disclosing 404, so user-controlled
+  // identifiers never determine whether the security check runs.
   assertCommunicationAuthorityResource(resource, request.communicationScope, {
     allowBusinessWide,
     requireSelectedLocation,
@@ -121,10 +120,6 @@ export async function scopedTemplateSlugResource(request, response, next) {
       $and: [scopeFilter(request), { slug: text(request.params?.slug) }],
     });
 
-    if (!resource) {
-      throw notFound();
-    }
-
     assertCommunicationAuthorityResource(resource, request.communicationScope);
     request.communicationTemplate = resource;
     return next();
@@ -174,10 +169,6 @@ async function attachScopedDelivery(request, rawIdentifier) {
     byPublicIdentifier ||
     (await findScopedDeliveryByMongoId(request, rawIdentifier));
 
-  if (!resource) {
-    throw notFound();
-  }
-
   assertCommunicationAuthorityResource(resource, request.communicationScope);
   request.messageDelivery = resource;
 }
@@ -200,10 +191,6 @@ export async function scopedProviderDeliveryResource(request, response, next) {
       ],
     });
 
-    if (!resource) {
-      throw notFound();
-    }
-
     assertCommunicationAuthorityResource(resource, request.communicationScope);
     request.messageDelivery = resource;
     return next();
@@ -223,10 +210,6 @@ export async function scopedRecipientResource(request, response, next) {
         },
       ],
     });
-
-    if (!recipient) {
-      throw notFound();
-    }
 
     assertCommunicationAuthorityResource(recipient, request.communicationScope);
     request.communicationRecipient = recipient;
@@ -266,12 +249,12 @@ export async function scopedScheduledCommunicationResource(
       return next();
     }
 
-    await attachScopedObjectIdResource({
-      request,
-      Model: CommunicationCampaign,
-      rawId: campaignId,
-      attachAs: "communicationCampaign",
+    const campaign = await CommunicationCampaign.findOne({
+      $and: [scopeFilter(request), { _id: campaignId }],
     });
+
+    assertCommunicationAuthorityResource(campaign, request.communicationScope);
+    request.communicationCampaign = campaign;
     return next();
   } catch (error) {
     return next(asNonDisclosingLookupError(error));
