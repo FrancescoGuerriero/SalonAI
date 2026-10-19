@@ -89,15 +89,15 @@ router.get(
 
 router.get(
   "/slug/:slug",
-  scopedTemplateSlugResource,
   readCommunications,
+  scopedTemplateSlugResource,
   communicationTemplateController.getCommunicationTemplateBySlug
 );
 
 router.get(
   "/:templateId",
-  scopedTemplateResource,
   readCommunications,
+  scopedTemplateResource,
   communicationTemplateController.getCommunicationTemplate
 );
 
@@ -109,36 +109,36 @@ router.get(
 
 router.patch(
   "/:templateId",
-  scopedTemplateMutationResource,
   manageCommunications,
+  scopedTemplateMutationResource,
   communicationTemplateController.updateCommunicationTemplate
 );
 
 router.patch(
   "/:templateId/status",
-  scopedTemplateMutationResource,
   manageCommunications,
+  scopedTemplateMutationResource,
   communicationTemplateController.setCommunicationTemplateStatus
 );
 
 router.post(
   "/:templateId/render",
-  scopedTemplateResource,
   readCommunications,
+  scopedTemplateResource,
   communicationTemplateController.renderCommunicationTemplate
 );
 
 router.post(
   "/:templateId/duplicate",
-  scopedTemplateMutationResource,
   manageCommunications,
+  scopedTemplateMutationResource,
   communicationTemplateController.duplicateCommunicationTemplate
 );
 
 router.delete(
   "/:templateId",
-  scopedTemplateMutationResource,
   manageCommunications,
+  scopedTemplateMutationResource,
   communicationTemplateController.deleteCommunicationTemplate
 );
 
