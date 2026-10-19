@@ -5,6 +5,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  communicationReferenceScopeMiddleware,
+} from "../middleware/communicationReferenceScopeMiddleware.js";
+import {
   buildCommunicationEffectiveScope,
   communicationAggregateAuthorityFilter,
   sanitizeCommunicationPayload,
@@ -19,6 +22,35 @@ function source(relativePath) {
     path.join(backendRoot, relativePath),
     "utf8"
   );
+}
+
+async function runReferenceScope(body) {
+  let captured;
+  await communicationReferenceScopeMiddleware(
+    {
+      body,
+      communicationScope: {
+        businessId: "64f000000000000000000001",
+        scopeMode: "business-wide",
+      },
+    },
+    {},
+    (error) => {
+      captured = error;
+    }
+  );
+  return captured;
+}
+
+function assertPermissionBeforeResource(text, permission, resource, route) {
+  const routeIndex = text.indexOf(`"${route}"`);
+  assert.ok(routeIndex >= 0, `${route} must exist`);
+
+  const permissionIndex = text.indexOf(permission, routeIndex);
+  const resourceIndex = text.indexOf(resource, routeIndex);
+
+  assert.ok(permissionIndex > routeIndex, `${route} must apply ${permission}`);
+  assert.ok(resourceIndex > permissionIndex, `${route} must resolve ${resource} only after ${permission}`);
 }
 
 test("communications scope fails closed without trusted Business authority", () => {
@@ -89,6 +121,25 @@ test("client supplied communications ownership cannot grant authority", () => {
   assert.deepEqual(payload.metadata, { safe: true });
 });
 
+test("communication reference scope rejects supplied malformed identifiers instead of treating them as absent", async () => {
+  for (const body of [
+    { campaignId: "not-an-object-id" },
+    { templateId: "" },
+    { customerId: null },
+    { audience: { customerIds: ["64f000000000000000000021", "bad"] } },
+    { audience: { excludedCustomerIds: "64f000000000000000000022" } },
+  ]) {
+    const error = await runReferenceScope(body);
+    assert.equal(error?.code, "COMMUNICATION_RESOURCE_NOT_FOUND");
+    assert.equal(error?.statusCode, 404);
+  }
+});
+
+test("communication reference scope permits genuinely absent optional references without database lookups", async () => {
+  const error = await runReferenceScope({ subject: "No optional references" });
+  assert.equal(error, undefined);
+});
+
 test("interactive communication routes resolve trusted tenant and effective authority before canonical permissions", () => {
   for (const relativePath of [
     "src/routes/communicationCampaignRoutes.js",
@@ -111,6 +162,70 @@ test("interactive communication routes resolve trusted tenant and effective auth
       `${relativePath} must not introduce a second communications RBAC namespace`
     );
   }
+});
+
+test("communication permissions execute before request-controlled resource resolution", () => {
+  const campaigns = source("src/routes/communicationCampaignRoutes.js");
+  assertPermissionBeforeResource(
+    campaigns,
+    "manageCommunications",
+    "communicationReferenceScopeMiddleware",
+    "/preview"
+  );
+  assertPermissionBeforeResource(
+    campaigns,
+    "manageCommunications",
+    "scopedCampaignMutationResource",
+    "/:campaignId/audience/preview"
+  );
+  assertPermissionBeforeResource(
+    campaigns,
+    "readCommunications",
+    "scopedCampaignResource",
+    "/:campaignId/recipients"
+  );
+
+  const templates = source("src/routes/communicationTemplateRoutes.js");
+  assertPermissionBeforeResource(
+    templates,
+    "readCommunications",
+    "scopedTemplateSlugResource",
+    "/slug/:slug"
+  );
+  assertPermissionBeforeResource(
+    templates,
+    "manageCommunications",
+    "scopedTemplateMutationResource",
+    "/:templateId/status"
+  );
+
+  const scheduled = source("src/routes/scheduledCommunicationRoutes.js");
+  assertPermissionBeforeResource(
+    scheduled,
+    "readCommunications",
+    "scopedScheduledCommunicationResource",
+    "/:campaignId"
+  );
+  assertPermissionBeforeResource(
+    scheduled,
+    "manageCommunications",
+    "scopedScheduledCommunicationResource",
+    "/:campaignId/reschedule"
+  );
+
+  const deliveries = source("src/routes/messageDeliveryRoutes.js");
+  assertPermissionBeforeResource(
+    deliveries,
+    "manageCommunications",
+    "communicationReferenceScopeMiddleware",
+    "/send"
+  );
+  assertPermissionBeforeResource(
+    deliveries,
+    "readCommunications",
+    "scopedDeliveryResource",
+    "/deliveries/:identifier"
+  );
 });
 
 test("communications collection reads and resource mutations are data scoped", () => {
