@@ -31,7 +31,13 @@ def sha256_file(path: str | Path) -> str:
 def _dataset_scope(dataset: Mapping[str, Any]) -> dict[str, Any]:
     scope = dict(dataset.get("scope") or {})
     business = _text(scope.get("business"))
-    locations = sorted({_text(value) for value in scope.get("locations") or [] if _text(value)})
+    locations = sorted(
+        {
+            _text(value)
+            for value in scope.get("locations") or []
+            if _text(value)
+        }
+    )
 
     if scope.get("mode") != "single_business" or not business:
         raise ArtifactCompatibilityError(
@@ -71,6 +77,8 @@ def build_model_artifact_manifest(
             "Training may only emit experiment or candidate artifacts."
         )
 
+    dataset_scope = _dataset_scope(dataset)
+    lineage = dict(dataset.get("lineage") or {})
     manifest = {
         "schemaVersion": MANIFEST_SCHEMA_VERSION,
         "model": {
@@ -86,9 +94,20 @@ def build_model_artifact_manifest(
             "name": _text(dataset.get("name")),
             "version": _text(dataset.get("version")),
             "id": _text(dataset.get("_id")),
-            "preprocessingHash": _text(dataset.get("preprocessingHash")),
-            "sourceFingerprintHash": _text(dataset.get("sourceFingerprintHash")),
-            "scope": _dataset_scope(dataset),
+            "schemaHash": _text(dataset.get("schemaHash")),
+            "dataHash": _text(dataset.get("dataHash")),
+            "lineage": {
+                "builderVersion": _text(lineage.get("builderVersion")),
+                "gitCommit": _text(lineage.get("gitCommit")),
+                "sourceCollections": sorted(
+                    {
+                        _text(value)
+                        for value in lineage.get("sourceCollections") or []
+                        if _text(value)
+                    }
+                ),
+            },
+            "scope": dataset_scope,
         },
         "artifact": {
             "file": artifact.name,
@@ -105,7 +124,7 @@ def build_model_artifact_manifest(
         expected_task=task,
         expected_feature_version=feature_version,
         expected_dataset_version=_text(dataset.get("version")),
-        expected_business=_dataset_scope(dataset)["business"],
+        expected_business=dataset_scope["business"],
     )
     return manifest
 
@@ -119,7 +138,9 @@ def validate_model_artifact_manifest(
     expected_business: str | None = None,
 ) -> None:
     if manifest.get("schemaVersion") != MANIFEST_SCHEMA_VERSION:
-        raise ArtifactCompatibilityError("Unsupported model artifact manifest schema.")
+        raise ArtifactCompatibilityError(
+            "Unsupported model artifact manifest schema."
+        )
 
     model = dict(manifest.get("model") or {})
     dataset = dict(manifest.get("dataset") or {})
@@ -129,30 +150,56 @@ def validate_model_artifact_manifest(
     if not _text(model.get("name")) or not _text(model.get("version")):
         raise ArtifactCompatibilityError("Model identity is incomplete.")
     if _text(model.get("task")) != _text(expected_task):
-        raise ArtifactCompatibilityError("Model task is incompatible with the activation contract.")
+        raise ArtifactCompatibilityError(
+            "Model task is incompatible with the activation contract."
+        )
     if _text(model.get("featureVersion")) != _text(expected_feature_version):
-        raise ArtifactCompatibilityError("Model feature schema is incompatible with the activation contract.")
+        raise ArtifactCompatibilityError(
+            "Model feature schema is incompatible with the activation contract."
+        )
     if _text(model.get("lifecycle")) not in _ALLOWED_LIFECYCLES:
-        raise ArtifactCompatibilityError("Model lifecycle is not eligible for governed evaluation.")
+        raise ArtifactCompatibilityError(
+            "Model lifecycle is not eligible for governed evaluation."
+        )
 
-    if not _text(dataset.get("name")) or not _text(dataset.get("version")) or not _text(dataset.get("id")):
-        raise ArtifactCompatibilityError("Training dataset provenance is incomplete.")
-    if expected_dataset_version and _text(dataset.get("version")) != _text(expected_dataset_version):
-        raise ArtifactCompatibilityError("Model dataset version is incompatible with the requested dataset.")
+    if (
+        not _text(dataset.get("name"))
+        or not _text(dataset.get("version"))
+        or not _text(dataset.get("id"))
+    ):
+        raise ArtifactCompatibilityError(
+            "Training dataset provenance is incomplete."
+        )
+    if expected_dataset_version and _text(dataset.get("version")) != _text(
+        expected_dataset_version
+    ):
+        raise ArtifactCompatibilityError(
+            "Model dataset version is incompatible with the requested dataset."
+        )
 
     if scope.get("mode") != "single_business" or scope.get("deidentified") is not True:
-        raise ArtifactCompatibilityError("Model artifact dataset scope is not tenant-safe.")
+        raise ArtifactCompatibilityError(
+            "Model artifact dataset scope is not tenant-safe."
+        )
     business = _text(scope.get("business"))
     if not business:
-        raise ArtifactCompatibilityError("Model artifact is missing trusted Business provenance.")
+        raise ArtifactCompatibilityError(
+            "Model artifact is missing trusted Business provenance."
+        )
     if expected_business and business != _text(expected_business):
-        raise ArtifactCompatibilityError("Model artifact belongs to a different Business scope.")
+        raise ArtifactCompatibilityError(
+            "Model artifact belongs to a different Business scope."
+        )
 
     digest = _text(artifact.get("sha256"))
     if not _SHA256_PATTERN.fullmatch(digest):
-        raise ArtifactCompatibilityError("Model artifact checksum is invalid or missing.")
+        raise ArtifactCompatibilityError(
+            "Model artifact checksum is invalid or missing."
+        )
     if not _text(artifact.get("file")):
-        raise ArtifactCompatibilityError("Model artifact filename is missing.")
+        raise ArtifactCompatibilityError(
+            "Model artifact filename is missing."
+        )
 
 
 def write_model_artifact_manifest(
