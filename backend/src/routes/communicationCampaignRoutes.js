@@ -87,8 +87,8 @@ router.use(
 
 router.post(
   "/preview",
-  communicationReferenceScopeMiddleware,
   manageCommunications,
+  communicationReferenceScopeMiddleware,
   previewNewCampaignAudience
 );
 
@@ -100,8 +100,8 @@ router.get(
 
 router.post(
   "/",
-  communicationReferenceScopeMiddleware,
   manageCommunications,
+  communicationReferenceScopeMiddleware,
   createScopedCampaign
 );
 
@@ -119,30 +119,30 @@ router.get(
 
 router.post(
   "/:campaignId/audience/preview",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   previewExistingCampaignAudience
 );
 
 router.post(
   "/:campaignId/recipients/prepare",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   prepareRecipients
 );
 
 router.get(
   "/:campaignId/recipients",
-  scopedCampaignResource,
   readCommunications,
+  scopedCampaignResource,
   listRecipients
 );
 
 router.get(
   "/:campaignId/recipients/:recipientId",
+  readCommunications,
   scopedCampaignResource,
   scopedRecipientResource,
-  readCommunications,
   getRecipient
 );
 
@@ -154,43 +154,43 @@ router.get(
 
 router.post(
   "/:campaignId/launch",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   launchCampaign
 );
 
 router.post(
   "/:campaignId/schedule",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   scheduleCampaign
 );
 
 router.post(
   "/:campaignId/pause",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   pauseCampaign
 );
 
 router.post(
   "/:campaignId/resume",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   resumeCampaign
 );
 
 router.post(
   "/:campaignId/cancel",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   cancelCampaign
 );
 
 router.post(
   "/:campaignId/delivery-counts/refresh",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   refreshDeliveryCounts
 );
 
@@ -202,30 +202,30 @@ router.post(
 
 router.post(
   "/:campaignId/duplicate",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   duplicateCampaign
 );
 
 router.get(
   "/:campaignId",
-  scopedCampaignResource,
   readCommunications,
+  scopedCampaignResource,
   getCampaign
 );
 
 router.patch(
   "/:campaignId",
+  manageCommunications,
   scopedCampaignMutationResource,
   communicationReferenceScopeMiddleware,
-  manageCommunications,
   updateCampaign
 );
 
 router.delete(
   "/:campaignId",
-  scopedCampaignMutationResource,
   manageCommunications,
+  scopedCampaignMutationResource,
   removeCampaign
 );
 
