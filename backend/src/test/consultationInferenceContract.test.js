@@ -216,34 +216,35 @@ test("Node rejects AI responses that disagree with deterministic booking block",
 });
 
 
-test("consultation client refuses unsafe constraints before calling Python", async () => {
+test("consultation client refuses unsafe constraints before calling Python", () => {
   let called = false;
 
-  await assert.rejects(
-    getConsultationAssistance(
-      {
-        capability:
-          "consultation_assistance",
-        tenantContext: {
-          businessId: "business-1",
-          locationId: "location-1",
+  assert.throws(
+    () =>
+      getConsultationAssistance(
+        {
+          capability:
+            "consultation_assistance",
+          tenantContext: {
+            businessId: "business-1",
+            locationId: "location-1",
+          },
+          constraints: {
+            humanReviewRequired: true,
+            canonicalWritesAllowed: true,
+            medicalDiagnosisAllowed: false,
+            safetyRuleOverrideAllowed: false,
+          },
         },
-        constraints: {
-          humanReviewRequired: true,
-          canonicalWritesAllowed: true,
-          medicalDiagnosisAllowed: false,
-          safetyRuleOverrideAllowed: false,
-        },
-      },
-      {
-        fetchImpl: async () => {
-          called = true;
-          throw new Error(
-            "must not be called"
-          );
-        },
-      }
-    ),
+        {
+          fetchImpl: async () => {
+            called = true;
+            throw new Error(
+              "must not be called"
+            );
+          },
+        }
+      ),
     (error) => {
       assert.equal(
         error.code,
