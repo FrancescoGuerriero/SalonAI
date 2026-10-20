@@ -14,6 +14,29 @@ from typing import Any
 
 SNAPSHOT_SCHEMA_VERSION = "consultation-dataset-snapshot-v1"
 RECORD_SCHEMA_VERSION = "consultation-learning-v1"
+ALLOWED_SOURCE_KINDS = {
+    "synthetic",
+    "test-fixture",
+    "approved-governed-export",
+}
+ALLOWED_USE_POLICIES = {
+    "evaluation-only",
+    "research-development",
+}
+MANIFEST_PRIVACY_FALSE_FIELDS = (
+    "rawCustomerIdentifiersIncluded",
+    "rawAppointmentIdentifiersIncluded",
+    "rawConversationIdentifiersIncluded",
+    "rawTranscriptIncluded",
+    "freeTextNotesIncluded",
+)
+RECORD_PRIVACY_FALSE_FIELDS = (
+    "customerIdentifierIncluded",
+    "appointmentIdentifierIncluded",
+    "conversationIdentifierIncluded",
+    "rawTranscriptIncluded",
+    "freeTextNotesIncluded",
+)
 
 
 class ConsultationDatasetError(ValueError):
@@ -48,6 +71,17 @@ def consultation_dataset_fingerprint(snapshot: dict[str, Any]) -> str:
     return sha256(_stable_json(payload).encode("utf-8")).hexdigest()
 
 
+def _require_privacy_false(
+    privacy: dict[str, Any],
+    fields: tuple[str, ...],
+    message: str,
+) -> None:
+    if not isinstance(privacy, dict):
+        raise ConsultationDatasetError(message)
+    if any(privacy.get(field) is not False for field in fields):
+        raise ConsultationDatasetError(message)
+
+
 def validate_consultation_dataset_snapshot(
     snapshot: dict[str, Any],
 ) -> dict[str, Any]:
@@ -67,27 +101,51 @@ def validate_consultation_dataset_snapshot(
         raise ConsultationDatasetError("unsupported record schema version")
     if manifest.get("fingerprintAlgorithm") != "sha256":
         raise ConsultationDatasetError("unsupported fingerprint algorithm")
+    if not isinstance(manifest.get("datasetVersion"), str) or not manifest[
+        "datasetVersion"
+    ].strip():
+        raise ConsultationDatasetError("datasetVersion is required")
     if manifest.get("trainingAuthorised") is not False:
         raise ConsultationDatasetError("snapshot must not authorise model training")
 
-    source = manifest.get("source") or {}
+    source = manifest.get("source")
+    if not isinstance(source, dict) or source.get("kind") not in ALLOWED_SOURCE_KINDS:
+        raise ConsultationDatasetError("snapshot source kind is not supported")
     if source.get("directProductionDatabaseAccess") is not False:
         raise ConsultationDatasetError(
             "snapshot must prove that direct production database access was not used"
         )
+    if (
+        source.get("kind") == "approved-governed-export"
+        and not str(source.get("approvalReference") or "").strip()
+    ):
+        raise ConsultationDatasetError(
+            "approved governed export requires an approval reference"
+        )
 
-    privacy = manifest.get("privacy") or {}
-    required_false = (
-        "rawCustomerIdentifiersIncluded",
-        "rawAppointmentIdentifiersIncluded",
-        "rawConversationIdentifiersIncluded",
-        "rawTranscriptIncluded",
-        "freeTextNotesIncluded",
-    )
-    if privacy.get("pseudonymisedKeysOnly") is not True:
+    if manifest.get("usePolicy") not in ALLOWED_USE_POLICIES:
+        raise ConsultationDatasetError("snapshot use policy is not supported")
+
+    privacy = manifest.get("privacy")
+    if not isinstance(privacy, dict) or privacy.get("pseudonymisedKeysOnly") is not True:
         raise ConsultationDatasetError("snapshot must use pseudonymised keys")
-    if any(privacy.get(field) is not False for field in required_false):
-        raise ConsultationDatasetError("snapshot privacy boundary is not satisfied")
+    _require_privacy_false(
+        privacy,
+        MANIFEST_PRIVACY_FALSE_FIELDS,
+        "snapshot privacy boundary is not satisfied",
+    )
+
+    statistics = manifest.get("statistics")
+    if not isinstance(statistics, dict):
+        raise ConsultationDatasetError("snapshot statistics are required")
+    if statistics.get("eligibleRecords") != len(records):
+        raise ConsultationDatasetError("snapshot eligible-record count is inconsistent")
+    input_sessions = statistics.get("inputSessions")
+    excluded_sessions = statistics.get("excludedSessions")
+    if not isinstance(input_sessions, int) or not isinstance(excluded_sessions, int):
+        raise ConsultationDatasetError("snapshot session counts are invalid")
+    if input_sessions - excluded_sessions != len(records):
+        raise ConsultationDatasetError("snapshot session counts are inconsistent")
 
     expected = consultation_dataset_fingerprint(snapshot)
     if manifest.get("fingerprint") != expected:
@@ -115,11 +173,11 @@ def validate_consultation_dataset_snapshot(
             raise ConsultationDatasetError(
                 f"records[{index}] exposes forbidden identifiers or free text"
             )
-        record_privacy = record.get("privacy") or {}
-        if any(value is not False for value in record_privacy.values()):
-            raise ConsultationDatasetError(
-                f"records[{index}] violates the learning-record privacy contract"
-            )
+        _require_privacy_false(
+            record.get("privacy"),
+            RECORD_PRIVACY_FALSE_FIELDS,
+            f"records[{index}] violates the learning-record privacy contract",
+        )
 
     return snapshot
 
