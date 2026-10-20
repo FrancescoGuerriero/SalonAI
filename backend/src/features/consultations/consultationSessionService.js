@@ -75,6 +75,19 @@ const ASSISTABLE_SESSION_STATUSES = new Set([
   "awaiting_review",
 ]);
 
+const REVIEW_ASSIGNABLE_STATUSES = new Set([
+  "draft",
+  "in_progress",
+  "awaiting_review",
+  "more_information_required",
+  "in_person_required",
+]);
+
+const REVIEWABLE_SESSION_STATUSES = new Set([
+  "awaiting_review",
+  "in_person_required",
+]);
+
 const REVIEW_DECISIONS = new Set([
   "approved",
   "modified",
@@ -206,6 +219,26 @@ export function assertConsultationAssistable(status) {
     throw serviceError(
       "AI assistance cannot run against a finalised consultation session.",
       "CONSULTATION_AI_SESSION_FINALISED",
+      409
+    );
+  }
+}
+
+export function assertConsultationReviewAssignable(status) {
+  if (!REVIEW_ASSIGNABLE_STATUSES.has(status)) {
+    throw serviceError(
+      "A finalised consultation cannot be assigned for review.",
+      "CONSULTATION_REVIEW_FINALISED",
+      409
+    );
+  }
+}
+
+export function assertConsultationReviewable(status) {
+  if (!REVIEWABLE_SESSION_STATUSES.has(status)) {
+    throw serviceError(
+      "This consultation is not currently awaiting human review.",
+      "CONSULTATION_NOT_AWAITING_REVIEW",
       409
     );
   }
@@ -382,13 +415,7 @@ export async function assignConsultationReviewer(sessionId, reviewerId, request)
     request.effectiveAuthority,
     { mutation: true }
   );
-  if (["closed", "archived"].includes(session.status)) {
-    throw serviceError(
-      "A finalised consultation cannot be assigned for review.",
-      "CONSULTATION_REVIEW_FINALISED",
-      409
-    );
-  }
+  assertConsultationReviewAssignable(session.status);
   const membership = await assertScopedConsultationReviewer(
     reviewerId,
     request.effectiveAuthority
@@ -436,6 +463,7 @@ export async function reviewConsultationSession(sessionId, payload, request) {
     request.effectiveAuthority,
     { mutation: true }
   );
+  assertConsultationReviewable(session.status);
   const decision = text(payload?.decision, "decision", 80);
   if (!REVIEW_DECISIONS.has(decision)) {
     throw serviceError(
@@ -507,7 +535,17 @@ export async function approveConsultationForBooking(sessionId, payload, request)
 }
 
 export function consultationInferenceEnabled(environment = process.env) {
-  return String(environment.CONSULTATION_AI_INFERENCE_ENABLED || "")
+  const enabled = String(environment.CONSULTATION_AI_INFERENCE_ENABLED || "")
+    .trim()
+    .toLowerCase() === "true";
+  if (!enabled) return false;
+
+  const production = String(environment.NODE_ENV || "")
+    .trim()
+    .toLowerCase() === "production";
+  if (!production) return true;
+
+  return String(environment.CONSULTATION_AI_PRODUCTION_APPROVED || "")
     .trim()
     .toLowerCase() === "true";
 }
@@ -584,6 +622,8 @@ export default {
   assertAssignedReviewer,
   assertConsultationAssistable,
   assertConsultationEditable,
+  assertConsultationReviewable,
+  assertConsultationReviewAssignable,
   assertConsultationTransition,
   consultationInferenceEnabled,
   createConsultationSession,
