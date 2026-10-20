@@ -15,6 +15,20 @@ const ALLOWED_USE_POLICIES = new Set([
   "evaluation-only",
   "research-development",
 ]);
+const MANIFEST_PRIVACY_FALSE_FIELDS = [
+  "rawCustomerIdentifiersIncluded",
+  "rawAppointmentIdentifiersIncluded",
+  "rawConversationIdentifiersIncluded",
+  "rawTranscriptIncluded",
+  "freeTextNotesIncluded",
+];
+const RECORD_PRIVACY_FALSE_FIELDS = [
+  "customerIdentifierIncluded",
+  "appointmentIdentifierIncluded",
+  "conversationIdentifierIncluded",
+  "rawTranscriptIncluded",
+  "freeTextNotesIncluded",
+];
 
 function contractError(message, code = "INVALID_CONSULTATION_DATASET_SNAPSHOT") {
   const error = new Error(message);
@@ -35,6 +49,7 @@ function text(value, field, maxLength = 200) {
 }
 
 function stableValue(value) {
+  if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === "object") {
     return Object.fromEntries(
@@ -87,6 +102,23 @@ function validateUsePolicy(value) {
     throw contractError("usePolicy is not supported.");
   }
   return usePolicy;
+}
+
+function manifestPrivacyValid(privacy) {
+  return Boolean(
+    privacy &&
+      privacy.pseudonymisedKeysOnly === true &&
+      MANIFEST_PRIVACY_FALSE_FIELDS.every((field) => privacy[field] === false)
+  );
+}
+
+function recordPrivacyValid(record) {
+  const privacy = record?.privacy;
+  return Boolean(
+    record?.schemaVersion === RECORD_SCHEMA_VERSION &&
+      privacy &&
+      RECORD_PRIVACY_FALSE_FIELDS.every((field) => privacy[field] === false)
+  );
 }
 
 export function buildConsultationDatasetSnapshot(
@@ -151,7 +183,9 @@ export function buildConsultationDatasetSnapshot(
       eligibleRecords: records.length,
       excludedSessions: sessions.length - records.length,
       exclusionReasons: Object.freeze(
-        Object.fromEntries(Object.entries(exclusionReasons).sort(([a], [b]) => a.localeCompare(b)))
+        Object.fromEntries(
+          Object.entries(exclusionReasons).sort(([a], [b]) => a.localeCompare(b))
+        )
       ),
     }),
     privacy: Object.freeze({
@@ -177,8 +211,31 @@ export function verifyConsultationDatasetSnapshot(snapshot = {}) {
   if (manifest.snapshotSchemaVersion !== SNAPSHOT_SCHEMA_VERSION) return false;
   if (manifest.recordSchemaVersion !== RECORD_SCHEMA_VERSION) return false;
   if (manifest.fingerprintAlgorithm !== "sha256") return false;
+  if (typeof manifest.datasetVersion !== "string" || !manifest.datasetVersion.trim()) {
+    return false;
+  }
   if (manifest.trainingAuthorised !== false) return false;
+  if (!ALLOWED_SOURCE_KINDS.has(manifest.source?.kind)) return false;
   if (manifest.source?.directProductionDatabaseAccess !== false) return false;
+  if (
+    manifest.source?.kind === "approved-governed-export" &&
+    !String(manifest.source?.approvalReference || "").trim()
+  ) {
+    return false;
+  }
+  if (!ALLOWED_USE_POLICIES.has(manifest.usePolicy)) return false;
+  if (!manifestPrivacyValid(manifest.privacy)) return false;
+  if (!records.every(recordPrivacyValid)) return false;
+
+  const statistics = manifest.statistics || {};
+  if (statistics.eligibleRecords !== records.length) return false;
+  if (
+    Number.isInteger(statistics.inputSessions) &&
+    Number.isInteger(statistics.excludedSessions) &&
+    statistics.inputSessions - statistics.excludedSessions !== records.length
+  ) {
+    return false;
+  }
 
   const payload = {
     snapshotSchemaVersion: manifest.snapshotSchemaVersion,
