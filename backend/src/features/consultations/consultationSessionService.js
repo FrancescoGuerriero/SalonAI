@@ -68,6 +68,13 @@ const EDITABLE_SESSION_STATUSES = new Set([
   "more_information_required",
 ]);
 
+const ASSISTABLE_SESSION_STATUSES = new Set([
+  "draft",
+  "in_progress",
+  "more_information_required",
+  "awaiting_review",
+]);
+
 const REVIEW_DECISIONS = new Set([
   "approved",
   "modified",
@@ -194,6 +201,29 @@ export function assertConsultationEditable(status) {
   }
 }
 
+export function assertConsultationAssistable(status) {
+  if (!ASSISTABLE_SESSION_STATUSES.has(status)) {
+    throw serviceError(
+      "AI assistance cannot run against a finalised consultation session.",
+      "CONSULTATION_AI_SESSION_FINALISED",
+      409
+    );
+  }
+}
+
+export function assertAssignedReviewer(assignedReviewer, currentReviewer) {
+  if (
+    assignedReviewer &&
+    String(assignedReviewer) !== String(currentReviewer || "")
+  ) {
+    throw serviceError(
+      "This consultation is assigned to a different reviewer.",
+      "CONSULTATION_ASSIGNED_TO_OTHER_REVIEWER",
+      409
+    );
+  }
+}
+
 function actorId(request) {
   return request?.user?._id || request?.user?.id || null;
 }
@@ -207,6 +237,11 @@ function applyAssessment(session) {
     evaluatedAt: new Date(),
   };
   return assessment;
+}
+
+function markPartialHumanLabel(session, labelledAt = new Date()) {
+  session.learning.labelState = "partial";
+  session.learning.labelledAt = labelledAt;
 }
 
 export async function listConsultationSessions(query, authority) {
@@ -347,6 +382,13 @@ export async function assignConsultationReviewer(sessionId, reviewerId, request)
     request.effectiveAuthority,
     { mutation: true }
   );
+  if (["closed", "archived"].includes(session.status)) {
+    throw serviceError(
+      "A finalised consultation cannot be assigned for review.",
+      "CONSULTATION_REVIEW_FINALISED",
+      409
+    );
+  }
   const membership = await assertScopedConsultationReviewer(
     reviewerId,
     request.effectiveAuthority
@@ -403,11 +445,14 @@ export async function reviewConsultationSession(sessionId, payload, request) {
   }
 
   const reviewer = actorId(request);
+  assertAssignedReviewer(session.review?.reviewer, reviewer);
+  const reviewedAt = new Date();
   session.review.reviewer = reviewer;
   session.review.decision = decision;
   session.review.notes = text(payload?.notes || "", "notes", 3000);
-  session.review.reviewedAt = new Date();
+  session.review.reviewedAt = reviewedAt;
   session.review.corrections = sanitizeCorrections(payload?.corrections, reviewer);
+  markPartialHumanLabel(session, reviewedAt);
 
   const statusByDecision = {
     approved: "approved",
@@ -421,7 +466,7 @@ export async function reviewConsultationSession(sessionId, payload, request) {
     session.status = assertConsultationTransition(session.status, nextStatus);
   }
   if (decision === "declined") {
-    session.closedAt = new Date();
+    session.closedAt = reviewedAt;
     session.outcome.finalDecision = "declined";
   }
 
@@ -444,17 +489,19 @@ export async function approveConsultationForBooking(sessionId, payload, request)
     );
   }
 
+  const reviewedAt = new Date();
   session.review.reviewer = actorId(request);
   session.review.decision = "approved";
-  session.review.reviewedAt = new Date();
+  session.review.reviewedAt = reviewedAt;
   session.review.notes = text(payload?.notes || session.review.notes || "", "notes", 3000);
+  markPartialHumanLabel(session, reviewedAt);
 
   if (session.status !== "approved") {
     session.status = assertConsultationTransition(session.status, "approved");
   }
   session.status = assertConsultationTransition(session.status, "booking_ready");
   session.outcome.finalDecision = "booking_ready";
-  session.completedAt = new Date();
+  session.completedAt = reviewedAt;
   await session.save();
   return session;
 }
@@ -479,6 +526,14 @@ export async function requestSessionAssistance(sessionId, request) {
     request.effectiveAuthority,
     { mutation: true }
   );
+  assertConsultationAssistable(session.status);
+  if (session.review?.decision) {
+    throw serviceError(
+      "AI assistance cannot replace or supersede a recorded human review decision.",
+      "CONSULTATION_AI_REVIEW_ALREADY_RECORDED",
+      409
+    );
+  }
   if (session.governance?.dataProcessingConsent !== true) {
     throw serviceError(
       "Recorded data-processing consent is required before AI assistance can run.",
@@ -526,6 +581,8 @@ export async function requestSessionAssistance(sessionId, request) {
 export default {
   approveConsultationForBooking,
   assignConsultationReviewer,
+  assertAssignedReviewer,
+  assertConsultationAssistable,
   assertConsultationEditable,
   assertConsultationTransition,
   consultationInferenceEnabled,
