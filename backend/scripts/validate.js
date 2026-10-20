@@ -1,29 +1,77 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-function runNode(args, label) {
-  const result = spawnSync(process.execPath, args, {
-    cwd: process.cwd(),
-    stdio: "inherit",
-    shell: false,
-  });
+const OUTPUT_TAIL_LIMIT = 12_000;
 
-  if (result.error) {
-    console.error(`[FAIL] ${label}: ${result.error.message}`);
-    process.exit(1);
-  }
-
-  if (result.status !== 0) {
-    console.error(`[FAIL] ${label} exited with code ${result.status}.`);
-    process.exit(result.status ?? 1);
-  }
-
-  console.log(`[PASS] ${label}`);
+function appendTail(current, chunk) {
+  const combined = `${current}${chunk}`;
+  return combined.length <= OUTPUT_TAIL_LIMIT
+    ? combined
+    : combined.slice(-OUTPUT_TAIL_LIMIT);
 }
 
-runNode(["scripts/checkSource.js"], "Backend syntax check");
+function githubAnnotationText(value) {
+  return String(value ?? "")
+    .replaceAll("%", "%25")
+    .replaceAll("\r", "%0D")
+    .replaceAll("\n", "%0A");
+}
+
+async function runNode(args, label) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd: process.cwd(),
+      shell: false,
+      stdio: ["inherit", "pipe", "pipe"],
+    });
+
+    let outputTail = "";
+
+    child.stdout.on("data", (chunk) => {
+      process.stdout.write(chunk);
+      outputTail = appendTail(outputTail, chunk.toString());
+    });
+
+    child.stderr.on("data", (chunk) => {
+      process.stderr.write(chunk);
+      outputTail = appendTail(outputTail, chunk.toString());
+    });
+
+    child.once("error", (error) => {
+      reject(new Error(`[FAIL] ${label}: ${error.message}`));
+    });
+
+    child.once("close", (code, signal) => {
+      if (code === 0) {
+        console.log(`[PASS] ${label}`);
+        resolve();
+        return;
+      }
+
+      const termination = signal
+        ? `signal ${signal}`
+        : `code ${code ?? "unknown"}`;
+      const detail = outputTail.trim() || "No child-process output was captured.";
+      const failure = new Error(
+        `[FAIL] ${label} exited with ${termination}.\n${detail}`
+      );
+      reject(failure);
+    });
+  }).catch((error) => {
+    const message = error?.message || String(error);
+    if (process.env.GITHUB_ACTIONS === "true") {
+      console.error(
+        `::error title=${githubAnnotationText(label)}::${githubAnnotationText(message)}`
+      );
+    }
+    console.error(message);
+    process.exit(1);
+  });
+}
+
+await runNode(["scripts/checkSource.js"], "Backend syntax check");
 
 try {
   await import(pathToFileURL(path.resolve("src/app.js")).href);
@@ -45,6 +93,9 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-runNode(["--test", ...testFiles], `Backend test suite (${testFiles.length} files)`);
+await runNode(
+  ["--test", ...testFiles],
+  `Backend test suite (${testFiles.length} files)`
+);
 
 console.log("[PASS] Backend validation completed.");

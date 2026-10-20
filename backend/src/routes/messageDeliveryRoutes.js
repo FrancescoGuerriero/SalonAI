@@ -2,29 +2,48 @@ import express from "express";
 
 import {
   cancelDelivery,
-  getCampaignSummary,
   getConfiguration,
   getDelivery,
   getProviderStatus,
-  listDeliveries,
   receiveTwilioStatusWebhook,
   retryDelivery,
-  retryDueDeliveries,
-  sendMessage,
-  sendMessageBatch,
   verifyAllChannels,
   verifyChannel,
 } from "../controllers/messageDeliveryController.js";
+import {
+  getScopedCampaignDeliverySummary,
+  listScopedDeliveries,
+  retryScopedDueDeliveries,
+  sendScopedMessage,
+  sendScopedMessageBatch,
+} from "../controllers/communicationTenantController.js";
 
 import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  communicationReferenceScopeMiddleware,
+} from "../middleware/communicationReferenceScopeMiddleware.js";
+import {
+  communicationEffectiveScopeMiddleware,
+  scopedCampaignResource,
+  scopedDeliveryResource,
+  scopedProviderDeliveryResource,
+} from "../middleware/communicationTenantMiddleware.js";
+import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   requireAnyPermission,
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
-
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../middleware/workforceTenantMiddleware.js";
 import twilioWebhookProtection from "../middleware/twilioWebhookMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 
 const router = express.Router();
 
@@ -40,17 +59,9 @@ const manageCommunications =
   );
 
 /*
- * Twilio sends status callbacks as
- * application/x-www-form-urlencoded.
- *
- * The request body must be parsed before
- * signature verification because all
- * received form parameters are included
- * in Twilio's signature calculation.
- *
- * This public route is placed before the
- * SalonAI JWT middleware because Twilio
- * cannot provide an application token.
+ * Provider callbacks stay outside SalonAI staff/JWT RBAC. Their provider
+ * signature remains the authentication boundary; the callback updates the
+ * already-owned canonical MessageDelivery record selected by provider ID.
  */
 router.post(
   "/webhooks/twilio/status",
@@ -63,15 +74,17 @@ router.post(
 );
 
 /*
- * All remaining message-delivery routes
- * require an authenticated SalonAI
- * management account.
+ * Interactive management routes compose the existing communications
+ * permission model with trusted Business/Location effective authority.
  */
-router.use(protect);
+router.use(
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  communicationEffectiveScopeMiddleware
+);
 
-/*
- * Configuration and provider checks.
- */
 router.get(
   "/configuration",
   readCommunications,
@@ -90,73 +103,64 @@ router.post(
   verifyChannel
 );
 
-/*
- * Send and record messages.
- */
 router.post(
   "/send",
   manageCommunications,
-  sendMessage
+  communicationReferenceScopeMiddleware,
+  sendScopedMessage
 );
 
 router.post(
   "/send-batch",
   manageCommunications,
-  sendMessageBatch
+  communicationReferenceScopeMiddleware,
+  sendScopedMessageBatch
 );
 
-/*
- * Process retryable deliveries whose
- * scheduled retry time has arrived.
- *
- * This route must remain before the
- * dynamic delivery identifier route.
- */
 router.post(
   "/deliveries/retries/process-due",
   manageCommunications,
-  retryDueDeliveries
+  retryScopedDueDeliveries
 );
 
-/*
- * Delivery reporting.
- */
 router.get(
   "/deliveries",
   readCommunications,
-  listDeliveries
+  listScopedDeliveries
 );
 
 router.get(
   "/campaigns/:campaignId/summary",
   readCommunications,
-  getCampaignSummary
+  scopedCampaignResource,
+  getScopedCampaignDeliverySummary
 );
 
 router.get(
   "/provider-status/:channel/:providerMessageId",
   readCommunications,
+  scopedProviderDeliveryResource,
   getProviderStatus
 );
 
-/*
- * Individual delivery management.
- */
 router.get(
   "/deliveries/:identifier",
   readCommunications,
+  scopedDeliveryResource,
   getDelivery
 );
 
 router.post(
   "/deliveries/:identifier/retry",
   manageCommunications,
+  scopedDeliveryResource,
   retryDelivery
 );
 
 router.patch(
   "/deliveries/:identifier/cancel",
   manageCommunications,
+  scopedDeliveryResource,
   cancelDelivery
 );
 
