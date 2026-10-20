@@ -56,6 +56,12 @@ const STATUS_TRANSITIONS = Object.freeze({
   archived: new Set(),
 });
 
+const EDITABLE_SESSION_STATUSES = new Set([
+  "draft",
+  "in_progress",
+  "more_information_required",
+]);
+
 const REVIEW_DECISIONS = new Set([
   "approved",
   "modified",
@@ -140,6 +146,13 @@ export function sanitizeConsultationResponses(responses = []) {
         "INVALID_CONSULTATION_INPUT"
       );
     }
+    const answeredAt = response.answeredAt ? new Date(response.answeredAt) : new Date();
+    if (Number.isNaN(answeredAt.getTime())) {
+      throw serviceError(
+        `responses[${index}].answeredAt must be a valid date.`,
+        "INVALID_CONSULTATION_INPUT"
+      );
+    }
     return {
       key: text(response.key, `responses[${index}].key`, 120),
       value: safeScalar(response.value ?? null, `responses[${index}].value`),
@@ -148,7 +161,7 @@ export function sanitizeConsultationResponses(responses = []) {
       )
         ? response.source
         : "staff",
-      answeredAt: response.answeredAt ? new Date(response.answeredAt) : new Date(),
+      answeredAt,
     };
   });
 }
@@ -163,6 +176,16 @@ export function assertConsultationTransition(currentStatus, nextStatus) {
     );
   }
   return nextStatus;
+}
+
+export function assertConsultationEditable(status) {
+  if (!EDITABLE_SESSION_STATUSES.has(status)) {
+    throw serviceError(
+      "Reviewed, booking-ready, booked, closed or archived consultations cannot be edited through the generic update workflow.",
+      "CONSULTATION_REVIEW_REQUIRED_FOR_EDIT",
+      409
+    );
+  }
 }
 
 function actorId(request) {
@@ -269,6 +292,8 @@ export async function updateConsultationSession(sessionId, payload, request) {
     request.effectiveAuthority,
     { mutation: true }
   );
+
+  assertConsultationEditable(session.status);
 
   if (payload?.customerId || payload?.business || payload?.location) {
     throw serviceError(
@@ -495,6 +520,7 @@ export async function requestSessionAssistance(sessionId, request) {
 export default {
   approveConsultationForBooking,
   assignConsultationReviewer,
+  assertConsultationEditable,
   assertConsultationTransition,
   consultationInferenceEnabled,
   createConsultationSession,
