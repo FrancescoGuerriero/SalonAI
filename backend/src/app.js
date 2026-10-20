@@ -10,6 +10,7 @@ import futureFeatureRoutes from "./features/futureFeatureRoutes.js";
 import commerceRoutes from "./features/commerce/commerceRoutes.js";
 import commerceWebhookRoutes from "./features/commerce/commerceWebhookRoutes.js";
 import chatbotRoutes from "./features/chatbot/chatbotRoutes.js";
+import consultationSessionRoutes from "./features/consultations/consultationSessionRoutes.js";
 import customerExperienceRoutes from "./features/customerExperience/customerExperienceRoutes.js";
 import dataImportRoutes from "./features/dataImport/dataImportRoutes.js";
 import servicePackageCustomerRoutes from "./features/servicePackages/servicePackageCustomerRoutes.js";
@@ -336,6 +337,11 @@ app.use(
 app.use(
   "/api/customer-contacts",
   customerContactRoutes
+);
+
+app.use(
+  "/api/consultations",
+  consultationSessionRoutes
 );
 
 /*
