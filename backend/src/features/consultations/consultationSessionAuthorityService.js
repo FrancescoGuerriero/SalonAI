@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 
 import BusinessMembership from "../../models/BusinessMembership.js";
 import Customer from "../../models/customer.js";
+import {
+  resolveTenantStaffRole,
+} from "../../services/tenantStaffRoleRegistryService.js";
 import ConsultationSession from "./ConsultationSession.js";
 
 const { ObjectId } = mongoose.Types;
@@ -215,7 +218,9 @@ export async function assertScopedConsultationReviewer(
     user,
     business,
     status: "active",
-  }).select("user business locationAccessMode locations status");
+  }).select(
+    "user business roleKey locationAccessMode locations status"
+  );
 
   const canAccessLocation = Boolean(
     membership &&
@@ -231,6 +236,22 @@ export async function assertScopedConsultationReviewer(
       "The requested reviewer was not found.",
       "RESOURCE_NOT_FOUND",
       404
+    );
+  }
+
+  const role = await resolveTenantStaffRole(membership.roleKey, {
+    businessId: business,
+    activeOnly: true,
+  });
+  if (
+    !role ||
+    !Array.isArray(role.permissions) ||
+    !role.permissions.includes("consultation:review")
+  ) {
+    throw authorityError(
+      "The requested reviewer is not authorised to review consultations.",
+      "CONSULTATION_REVIEWER_NOT_AUTHORISED",
+      409
     );
   }
 
