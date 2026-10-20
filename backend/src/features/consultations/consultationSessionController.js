@@ -9,6 +9,27 @@ import {
   updateConsultationSession,
 } from "./consultationSessionService.js";
 
+const GENERIC_UPDATE_STATUSES = new Set([
+  "in_progress",
+  "awaiting_review",
+  "archived",
+]);
+
+export function assertGenericConsultationUpdate(payload = {}) {
+  if (payload.status === undefined) return;
+  if (
+    typeof payload.status !== "string" ||
+    !GENERIC_UPDATE_STATUSES.has(payload.status.trim())
+  ) {
+    const error = new Error(
+      "This consultation status can only be changed through its dedicated review or approval workflow."
+    );
+    error.code = "CONSULTATION_STATUS_REQUIRES_DEDICATED_WORKFLOW";
+    error.statusCode = 409;
+    throw error;
+  }
+}
+
 export async function list(request, response) {
   const result = await listConsultationSessions(
     request.query || {},
@@ -38,6 +59,7 @@ export async function create(request, response) {
 }
 
 export async function update(request, response) {
+  assertGenericConsultationUpdate(request.body || {});
   const session = await updateConsultationSession(
     request.params.consultationId,
     request.body || {},
