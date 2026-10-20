@@ -41,6 +41,7 @@ const STATUS_TRANSITIONS = Object.freeze({
     "more_information_required",
     "in_person_required",
     "approved",
+    "closed",
     "archived",
   ]),
   more_information_required: new Set([
@@ -48,7 +49,12 @@ const STATUS_TRANSITIONS = Object.freeze({
     "awaiting_review",
     "archived",
   ]),
-  in_person_required: new Set(["awaiting_review", "approved", "archived"]),
+  in_person_required: new Set([
+    "awaiting_review",
+    "approved",
+    "closed",
+    "archived",
+  ]),
   approved: new Set(["booking_ready", "closed", "archived"]),
   booking_ready: new Set(["booked", "closed", "archived"]),
   booked: new Set(["closed"]),
