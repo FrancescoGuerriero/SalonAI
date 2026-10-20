@@ -19,6 +19,12 @@ import {
   sanitizeCommunicationPayload,
   trustedCommunicationOwnership,
 } from "../services/communicationEffectiveAuthorityService.js";
+import {
+  buildCommunicationCampaignFilter,
+  buildCommunicationDeliveryFilter,
+  buildCommunicationTemplateFilter,
+  communicationObjectId,
+} from "../services/communicationQueryFilterService.js";
 
 const MAX_BATCH_SIZE = 1000;
 const DEFAULT_LIMIT = 20;
@@ -42,110 +48,17 @@ function booleanValue(value, fallback = false) {
   return fallback;
 }
 
-function escapeRegex(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function combineScope(scopeFilter, filter = {}) {
+  if (filter.$text) {
+    return {
+      ...scopeFilter,
+      ...filter,
+    };
+  }
+
   return {
     $and: [scopeFilter, filter],
   };
-}
-
-function campaignFilter(query = {}) {
-  const filter = {};
-  const search = text(query.search);
-  if (search) {
-    const expression = new RegExp(escapeRegex(search), "i");
-    filter.$or = [
-      { name: expression },
-      { description: expression },
-      { subject: expression },
-      { body: expression },
-    ];
-  }
-  if (query.status) filter.status = text(query.status);
-  if (query.campaignType) filter.campaignType = text(query.campaignType);
-  if (query.channel) filter.channel = text(query.channel);
-  if (query.sendMode) filter["schedule.mode"] = text(query.sendMode);
-  if (query.createdBy) filter.createdBy = query.createdBy;
-
-  const createdAt = {};
-  if (query.startDate) {
-    const start = new Date(query.startDate);
-    if (!Number.isNaN(start.getTime())) createdAt.$gte = start;
-  }
-  if (query.endDate) {
-    const end = new Date(query.endDate);
-    if (!Number.isNaN(end.getTime())) {
-      end.setHours(23, 59, 59, 999);
-      createdAt.$lte = end;
-    }
-  }
-  if (Object.keys(createdAt).length > 0) filter.createdAt = createdAt;
-  return filter;
-}
-
-function templateFilter(query = {}) {
-  const filter = {};
-  const search = text(query.search);
-  if (search) {
-    const expression = new RegExp(escapeRegex(search), "i");
-    filter.$or = [
-      { name: expression },
-      { description: expression },
-      { subject: expression },
-      { body: expression },
-      { tags: expression },
-    ];
-  }
-  if (query.campaignType) filter.campaignType = text(query.campaignType);
-  if (query.channel) filter.channel = text(query.channel);
-  if (query.createdBy) filter.createdBy = query.createdBy;
-  if (query.tag) filter.tags = text(query.tag).toLowerCase();
-  if (query.active !== undefined) {
-    filter.active = booleanValue(query.active, true);
-  }
-  if (query.isSystemTemplate !== undefined) {
-    filter.isSystemTemplate = booleanValue(query.isSystemTemplate, false);
-  }
-  return filter;
-}
-
-function deliveryFilter(query = {}) {
-  const filter = {};
-  if (query.campaignId) filter.campaign = query.campaignId;
-  if (query.customerId) filter.customer = query.customerId;
-  if (query.channel) filter.channel = text(query.channel).toLowerCase();
-  if (query.status) filter.status = text(query.status).toLowerCase();
-  if (query.provider) filter.provider = text(query.provider).toLowerCase();
-  if (query.mode) filter.mode = text(query.mode).toLowerCase();
-  if (query.retryable !== undefined) {
-    filter["retry.retryable"] = booleanValue(query.retryable, false);
-  }
-  const createdAt = {};
-  if (query.createdFrom) {
-    const from = new Date(query.createdFrom);
-    if (!Number.isNaN(from.getTime())) createdAt.$gte = from;
-  }
-  if (query.createdTo) {
-    const to = new Date(query.createdTo);
-    if (!Number.isNaN(to.getTime())) createdAt.$lte = to;
-  }
-  if (Object.keys(createdAt).length > 0) filter.createdAt = createdAt;
-
-  const search = text(query.search);
-  if (search) {
-    const expression = new RegExp(escapeRegex(search), "i");
-    filter.$or = [
-      { deliveryId: expression },
-      { providerMessageId: expression },
-      { "recipient.email": expression },
-      { "recipient.phone": expression },
-      { "recipient.name": expression },
-    ];
-  }
-  return filter;
 }
 
 function userId(request) {
@@ -206,7 +119,10 @@ export async function listScopedCampaigns(request, response, next) {
     const limit = integer(request.query.limit, 12, MAX_LIMIT);
     const skip = (page - 1) * limit;
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, campaignFilter(request.query));
+    const match = combineScope(
+      scope,
+      buildCommunicationCampaignFilter(request.query)
+    );
     const [campaigns, total] = await Promise.all([
       CommunicationCampaign.find(match)
         .populate("template", "name slug channel campaignType active")
@@ -236,7 +152,10 @@ export async function listScopedCampaigns(request, response, next) {
 export async function getScopedCampaignSummary(request, response, next) {
   try {
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, campaignFilter(request.query));
+    const match = combineScope(
+      scope,
+      buildCommunicationCampaignFilter(request.query)
+    );
     const [statusRows, channelRows, typeRows, total, upcomingScheduled] =
       await Promise.all([
         CommunicationCampaign.aggregate([
@@ -264,7 +183,9 @@ export async function getScopedCampaignSummary(request, response, next) {
       ]);
 
     const toMap = (rows) =>
-      Object.fromEntries(rows.map((row) => [String(row._id || "unknown"), row.count]));
+      Object.fromEntries(
+        rows.map((row) => [String(row._id || "unknown"), row.count])
+      );
 
     return response.status(200).json({
       success: true,
@@ -301,7 +222,10 @@ export async function listScopedTemplates(request, response, next) {
     const limit = integer(request.query.limit, 12, MAX_LIMIT);
     const skip = (page - 1) * limit;
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, templateFilter(request.query));
+    const match = combineScope(
+      scope,
+      buildCommunicationTemplateFilter(request.query)
+    );
     const [templates, total] = await Promise.all([
       CommunicationTemplate.find(match)
         .populate("createdBy", "name firstName lastName email")
@@ -330,10 +254,13 @@ export async function listScopedTemplates(request, response, next) {
 export async function getScopedTemplateSummary(request, response, next) {
   try {
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, templateFilter(request.query));
+    const queryFilter = buildCommunicationTemplateFilter(request.query);
+    const match = combineScope(scope, queryFilter);
     const [total, active, channels, campaignTypes] = await Promise.all([
       CommunicationTemplate.countDocuments(match),
-      CommunicationTemplate.countDocuments(combineScope(scope, { ...templateFilter(request.query), active: true })),
+      CommunicationTemplate.countDocuments(
+        combineScope(scope, { ...queryFilter, active: true })
+      ),
       CommunicationTemplate.aggregate([
         { $match: match },
         { $group: { _id: "$channel", count: { $sum: 1 } } },
@@ -349,8 +276,12 @@ export async function getScopedTemplateSummary(request, response, next) {
         total,
         active,
         inactive: Math.max(0, total - active),
-        channels: Object.fromEntries(channels.map((row) => [String(row._id || "unknown"), row.count])),
-        campaignTypes: Object.fromEntries(campaignTypes.map((row) => [String(row._id || "unknown"), row.count])),
+        channels: Object.fromEntries(
+          channels.map((row) => [String(row._id || "unknown"), row.count])
+        ),
+        campaignTypes: Object.fromEntries(
+          campaignTypes.map((row) => [String(row._id || "unknown"), row.count])
+        ),
       },
     });
   } catch (error) {
@@ -364,8 +295,12 @@ export async function listScopedDeliveries(request, response, next) {
     const limit = integer(request.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
     const skip = (page - 1) * limit;
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, deliveryFilter(request.query));
-    const sortDirection = text(request.query.sortDirection).toLowerCase() === "asc" ? 1 : -1;
+    const match = combineScope(
+      scope,
+      buildCommunicationDeliveryFilter(request.query)
+    );
+    const sortDirection =
+      text(request.query.sortDirection).toLowerCase() === "asc" ? 1 : -1;
     const [deliveries, total] = await Promise.all([
       MessageDelivery.find(match)
         .sort({ createdAt: sortDirection, _id: sortDirection })
@@ -393,12 +328,19 @@ export async function listScopedDeliveries(request, response, next) {
 export async function getScopedCampaignDeliverySummary(request, response, next) {
   try {
     const scope = communicationAggregateAuthorityFilter(request.communicationScope);
-    const match = combineScope(scope, { campaign: request.params.campaignId });
+    const campaign = communicationObjectId(
+      request.params.campaignId,
+      "campaignId"
+    );
+    const match = combineScope(scope, { campaign });
     const rows = await MessageDelivery.aggregate([
       { $match: match },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
-    const statusCounts = rows.map((row) => ({ status: row._id, count: row.count }));
+    const statusCounts = rows.map((row) => ({
+      status: row._id,
+      count: row.count,
+    }));
     const total = statusCounts.reduce((sum, row) => sum + row.count, 0);
     return response.status(200).json({
       success: true,
@@ -478,7 +420,9 @@ export async function sendScopedMessage(request, response, next) {
 
 export async function sendScopedMessageBatch(request, response, next) {
   try {
-    const messages = Array.isArray(request.body?.messages) ? request.body.messages : [];
+    const messages = Array.isArray(request.body?.messages)
+      ? request.body.messages
+      : [];
     if (messages.length === 0 || messages.length > MAX_BATCH_SIZE) {
       const error = new Error(
         messages.length === 0
@@ -486,7 +430,10 @@ export async function sendScopedMessageBatch(request, response, next) {
           : `The message batch cannot contain more than ${MAX_BATCH_SIZE} messages.`
       );
       error.statusCode = 400;
-      error.code = messages.length === 0 ? "EMPTY_MESSAGE_BATCH" : "MESSAGE_BATCH_TOO_LARGE";
+      error.code =
+        messages.length === 0
+          ? "EMPTY_MESSAGE_BATCH"
+          : "MESSAGE_BATCH_TOO_LARGE";
       throw error;
     }
 
@@ -535,7 +482,9 @@ export async function sendScopedMessageBatch(request, response, next) {
 
 export async function retryScopedDueDeliveries(request, response, next) {
   try {
-    const dueBefore = request.body?.dueBefore ? new Date(request.body.dueBefore) : new Date();
+    const dueBefore = request.body?.dueBefore
+      ? new Date(request.body.dueBefore)
+      : new Date();
     if (Number.isNaN(dueBefore.getTime())) {
       const error = new Error("dueBefore must be a valid date.");
       error.statusCode = 400;
@@ -566,12 +515,19 @@ export async function retryScopedDueDeliveries(request, response, next) {
           retryDelayMs: request.body?.retryDelayMs,
           deferRetries: true,
         });
-        results.push({ success: true, deliveryId: String(record._id), result });
+        results.push({
+          success: true,
+          deliveryId: String(record._id),
+          result,
+        });
       } catch (error) {
         results.push({
           success: false,
           deliveryId: String(record._id),
-          error: { message: error.message, code: error.code || "DELIVERY_RETRY_FAILED" },
+          error: {
+            message: error.message,
+            code: error.code || "DELIVERY_RETRY_FAILED",
+          },
         });
       }
     }
