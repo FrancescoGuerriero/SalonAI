@@ -1,5 +1,8 @@
 from fastapi import APIRouter
 
+from app.api.routes.consultation import (
+    router as consultation_router,
+)
 from app.api.routes.customer_segmentation import (
     router as customer_segmentation_router,
 )
@@ -44,6 +47,11 @@ api_router.include_router(
 # Authenticated AI capability endpoints.
 api_router.include_router(
     haircare_router,
+    prefix="/api/v1",
+)
+
+api_router.include_router(
+    consultation_router,
     prefix="/api/v1",
 )
 
