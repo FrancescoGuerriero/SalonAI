@@ -27,6 +27,11 @@ export async function approveConsultation(consultationId, payload = {}) {
   return response.data?.consultation;
 }
 
+export async function bookConsultation(consultationId, payload) {
+  const response = await API.post(`${BASE}/${consultationId}/book`, payload);
+  return response.data;
+}
+
 export async function assignConsultationReviewer(consultationId, reviewerId) {
   const response = await API.post(`${BASE}/${consultationId}/assign`, {
     reviewerId,
@@ -42,6 +47,7 @@ export async function updateConsultation(consultationId, payload) {
 export default {
   approveConsultation,
   assignConsultationReviewer,
+  bookConsultation,
   getConsultation,
   listConsultations,
   requestConsultationAssistance,

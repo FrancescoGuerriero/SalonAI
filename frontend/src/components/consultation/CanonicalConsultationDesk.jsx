@@ -2,11 +2,20 @@ import { RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import consultationService from "../../Services/consultationService.js";
+import serviceService from "../../Services/serviceService.js";
+import stylistService from "../../Services/stylistService.js";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 import ConsultationReviewWorkspace from "./ConsultationReviewWorkspace.jsx";
 
 const idOf = (value) => String(value?._id ?? value?.id ?? value ?? "");
+const EMPTY_BOOKING = {
+  serviceId: "",
+  stylistId: "",
+  appointmentDate: "",
+  appointmentTime: "",
+  totalPrice: "",
+};
 
 function formatStatus(value) {
   return String(value || "unknown")
@@ -34,17 +43,41 @@ function statusCanApprove(status) {
   return ["awaiting_review", "in_person_required", "approved"].includes(status);
 }
 
+function serviceLabel(service) {
+  return service?.name || service?.title || `Service ${idOf(service).slice(-6)}`;
+}
+
+function stylistLabel(stylist) {
+  return (
+    stylist?.name ||
+    [stylist?.firstName, stylist?.lastName].filter(Boolean).join(" ") ||
+    `Stylist ${idOf(stylist).slice(-6)}`
+  );
+}
+
+function normaliseStylists(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.stylists)) return value.stylists;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
 export default function CanonicalConsultationDesk() {
   const { user } = useAuth();
   const canRead = hasPermission(user, "consultation:read");
   const canReview = hasPermission(user, "consultation:review");
   const canApprove = hasPermission(user, "consultation:approve");
+  const canBook = canApprove && hasPermission(user, "appointment:create");
   const canAssist =
     hasPermission(user, "consultation:update") && hasPermission(user, "ai:use");
 
   const [sessions, setSessions] = useState([]);
   const [selectedId, setSelectedId] = useState("");
+  const [services, setServices] = useState([]);
+  const [stylists, setStylists] = useState([]);
+  const [booking, setBooking] = useState(EMPTY_BOOKING);
   const [loading, setLoading] = useState(false);
+  const [bookingOptionsLoading, setBookingOptionsLoading] = useState(false);
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -75,10 +108,68 @@ export default function CanonicalConsultationDesk() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!canBook) return undefined;
+    let active = true;
+    serviceService
+      .getServices()
+      .then((rows) => {
+        if (active) setServices(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (active) setServices([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [canBook]);
+
   const selected = useMemo(
     () => sessions.find((item) => idOf(item) === selectedId) || null,
     [sessions, selectedId]
   );
+
+  useEffect(() => {
+    setBooking({
+      ...EMPTY_BOOKING,
+      serviceId: idOf(selected?.outcome?.recommendedService),
+      stylistId: idOf(selected?.outcome?.recommendedStylist),
+    });
+  }, [selectedId, selected?.outcome?.recommendedService, selected?.outcome?.recommendedStylist]);
+
+  useEffect(() => {
+    if (!canBook || !booking.serviceId) {
+      setStylists([]);
+      return undefined;
+    }
+
+    let active = true;
+    setBookingOptionsLoading(true);
+    stylistService
+      .getBookingStylists(booking.serviceId)
+      .then((value) => {
+        if (!active) return;
+        const next = normaliseStylists(value);
+        setStylists(next);
+        setBooking((current) => ({
+          ...current,
+          stylistId:
+            current.stylistId && next.some((item) => idOf(item) === current.stylistId)
+              ? current.stylistId
+              : "",
+        }));
+      })
+      .catch(() => {
+        if (active) setStylists([]);
+      })
+      .finally(() => {
+        if (active) setBookingOptionsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [booking.serviceId, canBook]);
 
   const run = useCallback(
     async (actionId, action, successMessage) => {
@@ -109,6 +200,28 @@ export default function CanonicalConsultationDesk() {
     [load]
   );
 
+  async function submitBooking(event) {
+    event.preventDefault();
+    if (!selected || !canBook) return;
+
+    await run(
+      "book",
+      async () => {
+        const result = await consultationService.bookConsultation(idOf(selected), {
+          serviceId: booking.serviceId,
+          stylistId: booking.stylistId,
+          appointmentDate: booking.appointmentDate,
+          appointmentTime: booking.appointmentTime,
+          ...(booking.totalPrice !== ""
+            ? { totalPrice: Number(booking.totalPrice) }
+            : {}),
+        });
+        return result?.consultation;
+      },
+      "Appointment created from the approved consultation."
+    );
+  }
+
   if (!canRead) {
     return null;
   }
@@ -128,9 +241,11 @@ export default function CanonicalConsultationDesk() {
         },
         {
           label: "Booking readiness",
-          value: selected.deterministicAssessment?.bookingBlocked
-            ? "Blocked by deterministic rules"
-            : "No deterministic booking block",
+          value: selected.outcome?.bookingConverted
+            ? "Converted to appointment"
+            : selected.deterministicAssessment?.bookingBlocked
+              ? "Blocked by deterministic rules"
+              : "No deterministic booking block",
         },
       ]
     : [];
@@ -250,6 +365,9 @@ export default function CanonicalConsultationDesk() {
     });
   }
 
+  const selectedService = services.find((item) => idOf(item) === booking.serviceId) || null;
+  const showBookingForm = selected?.status === "booking_ready" && !selected?.outcome?.bookingConverted;
+
   return (
     <section className="experience-management-panel" aria-busy={loading || Boolean(busyAction)}>
       <header>
@@ -315,6 +433,134 @@ export default function CanonicalConsultationDesk() {
             actions={actions}
             busyAction={busyAction}
           />
+
+          {showBookingForm ? (
+            canBook ? (
+              <form
+                className="mt-5 grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 md:grid-cols-2"
+                onSubmit={submitBooking}
+              >
+                <div className="md:col-span-2">
+                  <h3 className="text-base font-bold text-stone-900">Create appointment</h3>
+                  <p className="mt-1 text-sm text-stone-600">
+                    This writes through the canonical appointment service and records the resulting appointment on the consultation.
+                  </p>
+                </div>
+                <label className="text-sm font-bold text-stone-700">
+                  Service
+                  <select
+                    className="mt-1 w-full"
+                    required
+                    value={booking.serviceId}
+                    disabled={Boolean(busyAction)}
+                    onChange={(event) =>
+                      setBooking((current) => ({
+                        ...current,
+                        serviceId: event.target.value,
+                        stylistId: "",
+                        totalPrice: "",
+                      }))
+                    }
+                  >
+                    <option value="">Choose a service</option>
+                    {services
+                      .filter((service) => service.active !== false)
+                      .map((service) => (
+                        <option key={idOf(service)} value={idOf(service)}>
+                          {serviceLabel(service)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="text-sm font-bold text-stone-700">
+                  Stylist
+                  <select
+                    className="mt-1 w-full"
+                    required
+                    value={booking.stylistId}
+                    disabled={!booking.serviceId || bookingOptionsLoading || Boolean(busyAction)}
+                    onChange={(event) =>
+                      setBooking((current) => ({ ...current, stylistId: event.target.value }))
+                    }
+                  >
+                    <option value="">
+                      {bookingOptionsLoading ? "Loading stylists…" : "Choose a stylist"}
+                    </option>
+                    {stylists.map((stylist) => (
+                      <option key={idOf(stylist)} value={idOf(stylist)}>
+                        {stylistLabel(stylist)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm font-bold text-stone-700">
+                  Date
+                  <input
+                    className="mt-1 w-full"
+                    type="date"
+                    required
+                    value={booking.appointmentDate}
+                    disabled={Boolean(busyAction)}
+                    onChange={(event) =>
+                      setBooking((current) => ({
+                        ...current,
+                        appointmentDate: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-bold text-stone-700">
+                  Time
+                  <input
+                    className="mt-1 w-full"
+                    type="time"
+                    required
+                    value={booking.appointmentTime}
+                    disabled={Boolean(busyAction)}
+                    onChange={(event) =>
+                      setBooking((current) => ({
+                        ...current,
+                        appointmentTime: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                {selectedService?.priceOnConsultation === true ? (
+                  <label className="text-sm font-bold text-stone-700 md:col-span-2">
+                    Agreed total price
+                    <input
+                      className="mt-1 w-full"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      value={booking.totalPrice}
+                      disabled={Boolean(busyAction)}
+                      onChange={(event) =>
+                        setBooking((current) => ({
+                          ...current,
+                          totalPrice: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                ) : null}
+                <div className="md:col-span-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="app-button app-button-primary"
+                    disabled={Boolean(busyAction) || bookingOptionsLoading}
+                  >
+                    Create appointment
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="experience-message mt-4" role="status">
+                Appointment creation permission is required to convert this approved consultation into a booking.
+              </div>
+            )
+          ) : null}
         </div>
       ) : (
         <div className="experience-empty mt-4">

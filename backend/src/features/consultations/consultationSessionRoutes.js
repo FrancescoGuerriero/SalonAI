@@ -68,6 +68,12 @@ router.post(
 );
 
 router.post(
+  "/:consultationId/book",
+  requirePermissions("consultation:approve", "appointment:create"),
+  asyncHandler(controller.book)
+);
+
+router.post(
   "/:consultationId/assist",
   requirePermissions("consultation:update", "ai:use"),
   asyncHandler(controller.assist)

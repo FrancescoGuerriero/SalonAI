@@ -8,6 +8,9 @@ import {
   reviewConsultationSession,
   updateConsultationSession,
 } from "./consultationSessionService.js";
+import {
+  convertConsultationToBooking,
+} from "./consultationBookingService.js";
 
 const GENERIC_UPDATE_STATUSES = new Set([
   "in_progress",
@@ -111,6 +114,23 @@ export async function approve(request, response) {
   });
 }
 
+export async function book(request, response) {
+  const result = await convertConsultationToBooking(
+    request.params.consultationId,
+    request.body || {},
+    request
+  );
+  return response.status(result.duplicate ? 200 : 201).json({
+    success: true,
+    duplicate: result.duplicate,
+    message: result.duplicate
+      ? "The consultation appointment already exists."
+      : "Appointment created from the approved consultation.",
+    consultation: result.consultation,
+    appointment: result.appointment,
+  });
+}
+
 export async function assist(request, response) {
   const session = await requestSessionAssistance(
     request.params.consultationId,
@@ -127,6 +147,7 @@ export default {
   approve,
   assignReviewer,
   assist,
+  book,
   create,
   getById,
   list,
