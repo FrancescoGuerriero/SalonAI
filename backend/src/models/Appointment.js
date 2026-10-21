@@ -7,6 +7,9 @@ import {
 import {
   observeNoShowOutcomeForAppointment,
 } from "../features/aiPlatform/noShowInferenceLedgerService.js";
+import {
+  observeConsultationOutcomeForAppointment,
+} from "../features/consultations/consultationOutcomeObservationService.js";
 
 import {
   combineSalonDateAndTime,
@@ -385,6 +388,7 @@ const appointmentSchema =
           "phone",
           "walk_in",
           "management",
+          "consultation",
           "import",
         ],
         default: "website",
@@ -934,19 +938,19 @@ appointmentSchema.post(
 
 /*
 |--------------------------------------------------------------------------
-| AI outcome observation
+| AI and consultation outcome observation
 |--------------------------------------------------------------------------
 |
 | Appointment state remains canonical. Once a visit reaches a terminal
-| state, attach that observed result to any prior governed no-show
-| inferences for the same appointment. Ledger linkage is evaluation-only
-| and must never turn a committed appointment mutation into an API failure.
+| state, attach observed results to prior governed AI evidence and any
+| linked consultation. Evaluation linkage must never turn a committed
+| appointment mutation into an API failure.
 |
 */
 
 appointmentSchema.post(
   "save",
-  async function linkNoShowOutcome(
+  async function linkObservedOutcomes(
     document
   ) {
     if (
@@ -968,6 +972,17 @@ appointmentSchema.post(
     } catch (error) {
       console.error(
         "No-show inference outcome linkage failed:",
+        error
+      );
+    }
+
+    try {
+      await observeConsultationOutcomeForAppointment(
+        document
+      );
+    } catch (error) {
+      console.error(
+        "Consultation outcome linkage failed:",
         error
       );
     }

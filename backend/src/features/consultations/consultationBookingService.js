@@ -239,16 +239,36 @@ function appointmentMatchesConsultation(appointment, consultation) {
   );
 }
 
+function recommendationAcceptance(consultation, serviceId, stylistId) {
+  const recommendedService = idText(consultation?.outcome?.recommendedService);
+  const recommendedStylist = idText(consultation?.outcome?.recommendedStylist);
+
+  if (!recommendedService && !recommendedStylist) {
+    return null;
+  }
+
+  return (
+    (!recommendedService || recommendedService === idText(serviceId)) &&
+    (!recommendedStylist || recommendedStylist === idText(stylistId))
+  );
+}
+
 function applyBookingOutcome(consultation, appointment, serviceId, stylistId, now) {
   if (!consultation.appointment) {
     consultation.appointment = appointment._id;
   }
+
+  const acceptedRecommendation = recommendationAcceptance(
+    consultation,
+    serviceId,
+    stylistId
+  );
+
   consultation.status = "booked";
   consultation.outcome.finalDecision = "booked";
-  consultation.outcome.recommendedService = serviceId;
-  consultation.outcome.recommendedStylist = stylistId;
   consultation.outcome.resultingAppointment = appointment._id;
   consultation.outcome.bookingConverted = true;
+  consultation.outcome.customerAcceptedRecommendation = acceptedRecommendation;
   consultation.outcome.observedAt = now;
   if (consultation.learning?.labelState === "unlabelled") {
     consultation.learning.labelState = "partial";
