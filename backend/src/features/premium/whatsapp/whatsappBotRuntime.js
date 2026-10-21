@@ -6,6 +6,10 @@ import {
   getWhatsAppBotConfig,
   processWhatsAppBotMessage,
 } from "./whatsappBotOrchestrator.js";
+import {
+  processActiveWhatsAppConsultationTurn,
+  startWhatsAppConsultationFromConversation,
+} from "./whatsappConsultationService.js";
 
 
 const conversationQueues =
@@ -62,6 +66,10 @@ export async function runWhatsAppBotRuntimeMessage(
       process.env,
     processMessage =
       processWhatsAppBotMessage,
+    processConsultation =
+      null,
+    startConsultation =
+      null,
     deliverReply =
       deliverWhatsAppBotReply,
     markDeliveryFailure =
@@ -83,14 +91,93 @@ export async function runWhatsAppBotRuntimeMessage(
     };
   }
 
-  const result =
-    await processMessage(
-      item,
-      {
-        environment,
-        now,
-      }
+  /*
+   * Keep existing isolated runtime tests and downstream callers free from
+   * database access when they inject a custom message processor. Production
+   * defaults activate the canonical consultation interceptor automatically.
+   */
+  const consultationProcessor =
+    processConsultation ||
+    (
+      processMessage ===
+      processWhatsAppBotMessage
+        ? processActiveWhatsAppConsultationTurn
+        : async () => null
     );
+
+  const consultationStarter =
+    startConsultation ||
+    (
+      processMessage ===
+      processWhatsAppBotMessage
+        ? startWhatsAppConsultationFromConversation
+        : async () => null
+    );
+
+  let result =
+    await consultationProcessor(
+      item,
+      { now }
+    );
+
+  if (!result) {
+    result =
+      await processMessage(
+        item,
+        {
+          environment,
+          now,
+        }
+      );
+
+    if (
+      result?.serviceRequiresConsultation ===
+      true
+    ) {
+      try {
+        const consultation =
+          await consultationStarter({
+            conversationId:
+              item.conversationId,
+          });
+
+        if (
+          consultation?.started &&
+          consultation?.reply
+        ) {
+          result = {
+            ...result,
+            processed: true,
+            handoff: false,
+            consultationStarted:
+              true,
+            consultationId:
+              consultation.consultationId,
+            reply:
+              consultation.reply,
+          };
+        }
+      } catch (error) {
+        console.error(
+          "WhatsApp consultation start failed; preserving human handoff.",
+          {
+            conversationId:
+              compactText(
+                item?.conversationId,
+                120
+              ),
+            code:
+              compactText(
+                error?.code ||
+                  error?.name ||
+                  "WHATSAPP_CONSULTATION_START_ERROR",
+                120
+              ),
+          }
+        );
+      }
+    }
+  }
 
   if (
     !result?.processed ||
@@ -143,10 +230,8 @@ export async function runWhatsAppBotRuntimeMessage(
       });
     } catch {
       /*
-       * The original delivery failure remains
-       * authoritative. A secondary persistence
-       * failure must not trigger another outbound
-       * attempt.
+       * The original delivery failure remains authoritative. A secondary
+       * persistence failure must not trigger another outbound attempt.
        */
     }
 
