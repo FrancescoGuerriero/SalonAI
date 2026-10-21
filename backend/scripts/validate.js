@@ -93,9 +93,11 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-await runNode(
-  ["--test", ...testFiles],
-  `Backend test suite (${testFiles.length} files)`
-);
+for (const testFile of testFiles) {
+  await runNode(
+    ["--test", testFile],
+    `Backend diagnostic test (${testFile})`
+  );
+}
 
-console.log("[PASS] Backend validation completed.");
+console.log("[PASS] Backend diagnostic validation completed.");
