@@ -11,6 +11,9 @@ import {
 import {
   convertConsultationToBooking,
 } from "./consultationBookingService.js";
+import {
+  setConsultationRecommendation,
+} from "./consultationRecommendationService.js";
 
 const GENERIC_UPDATE_STATUSES = new Set([
   "in_progress",
@@ -88,6 +91,19 @@ export async function assignReviewer(request, response) {
   });
 }
 
+export async function recommend(request, response) {
+  const session = await setConsultationRecommendation(
+    request.params.consultationId,
+    request.body || {},
+    request
+  );
+  return response.status(200).json({
+    success: true,
+    message: "Consultation recommendation saved successfully.",
+    consultation: session,
+  });
+}
+
 export async function review(request, response) {
   const session = await reviewConsultationSession(
     request.params.consultationId,
@@ -151,6 +167,7 @@ export default {
   create,
   getById,
   list,
+  recommend,
   review,
   update,
 };

@@ -56,6 +56,12 @@ router.post(
 );
 
 router.post(
+  "/:consultationId/recommendation",
+  requirePermissions("consultation:review"),
+  asyncHandler(controller.recommend)
+);
+
+router.post(
   "/:consultationId/review",
   requirePermissions("consultation:review"),
   asyncHandler(controller.review)

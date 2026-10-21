@@ -17,6 +17,14 @@ export async function requestConsultationAssistance(consultationId) {
   return response.data?.consultation;
 }
 
+export async function setConsultationRecommendation(consultationId, payload) {
+  const response = await API.post(
+    `${BASE}/${consultationId}/recommendation`,
+    payload
+  );
+  return response.data?.consultation;
+}
+
 export async function reviewConsultation(consultationId, payload) {
   const response = await API.post(`${BASE}/${consultationId}/review`, payload);
   return response.data?.consultation;
@@ -52,5 +60,6 @@ export default {
   listConsultations,
   requestConsultationAssistance,
   reviewConsultation,
+  setConsultationRecommendation,
   updateConsultation,
 };

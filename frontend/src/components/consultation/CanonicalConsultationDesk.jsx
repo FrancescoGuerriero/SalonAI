@@ -43,6 +43,10 @@ function statusCanApprove(status) {
   return ["awaiting_review", "in_person_required", "approved"].includes(status);
 }
 
+function statusCanRecommend(status) {
+  return ["awaiting_review", "in_person_required", "approved", "booking_ready"].includes(status);
+}
+
 function serviceLabel(service) {
   return service?.name || service?.title || `Service ${idOf(service).slice(-6)}`;
 }
@@ -70,6 +74,7 @@ export default function CanonicalConsultationDesk() {
   const canBook = canApprove && hasPermission(user, "appointment:create");
   const canAssist =
     hasPermission(user, "consultation:update") && hasPermission(user, "ai:use");
+  const needsServiceOptions = canReview || canBook;
 
   const [sessions, setSessions] = useState([]);
   const [selectedId, setSelectedId] = useState("");
@@ -109,7 +114,7 @@ export default function CanonicalConsultationDesk() {
   }, [load]);
 
   useEffect(() => {
-    if (!canBook) return undefined;
+    if (!needsServiceOptions) return undefined;
     let active = true;
     serviceService
       .getServices()
@@ -122,7 +127,7 @@ export default function CanonicalConsultationDesk() {
     return () => {
       active = false;
     };
-  }, [canBook]);
+  }, [needsServiceOptions]);
 
   const selected = useMemo(
     () => sessions.find((item) => idOf(item) === selectedId) || null,
@@ -138,7 +143,7 @@ export default function CanonicalConsultationDesk() {
   }, [selectedId, selected?.outcome?.recommendedService, selected?.outcome?.recommendedStylist]);
 
   useEffect(() => {
-    if (!canBook || !booking.serviceId) {
+    if (!needsServiceOptions || !booking.serviceId) {
       setStylists([]);
       return undefined;
     }
@@ -169,7 +174,7 @@ export default function CanonicalConsultationDesk() {
     return () => {
       active = false;
     };
-  }, [booking.serviceId, canBook]);
+  }, [booking.serviceId, needsServiceOptions]);
 
   const run = useCallback(
     async (actionId, action, successMessage) => {
@@ -199,6 +204,21 @@ export default function CanonicalConsultationDesk() {
     },
     [load]
   );
+
+  async function submitRecommendation(event) {
+    event.preventDefault();
+    if (!selected || !canReview) return;
+
+    await run(
+      "recommendation",
+      () =>
+        consultationService.setConsultationRecommendation(idOf(selected), {
+          recommendedServiceId: booking.serviceId,
+          recommendedStylistId: booking.stylistId,
+        }),
+      "Consultation recommendation saved."
+    );
+  }
 
   async function submitBooking(event) {
     event.preventDefault();
@@ -366,6 +386,11 @@ export default function CanonicalConsultationDesk() {
   }
 
   const selectedService = services.find((item) => idOf(item) === booking.serviceId) || null;
+  const showRecommendationForm =
+    selected &&
+    canReview &&
+    statusCanRecommend(selected.status) &&
+    !selected.outcome?.bookingConverted;
   const showBookingForm = selected?.status === "booking_ready" && !selected?.outcome?.bookingConverted;
 
   return (
@@ -433,6 +458,75 @@ export default function CanonicalConsultationDesk() {
             actions={actions}
             busyAction={busyAction}
           />
+
+          {showRecommendationForm ? (
+            <form
+              className="mt-5 grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 md:grid-cols-2"
+              onSubmit={submitRecommendation}
+            >
+              <div className="md:col-span-2">
+                <h3 className="text-base font-bold text-stone-900">Human recommendation</h3>
+                <p className="mt-1 text-sm text-stone-600">
+                  Record the service and optional stylist recommended by the authorised reviewer. These fields remain separate from AI advice and are used later to compare the recommendation with the actual booking outcome.
+                </p>
+              </div>
+              <label className="text-sm font-bold text-stone-700">
+                Recommended service
+                <select
+                  className="mt-1 w-full"
+                  required
+                  value={booking.serviceId}
+                  disabled={Boolean(busyAction)}
+                  onChange={(event) =>
+                    setBooking((current) => ({
+                      ...current,
+                      serviceId: event.target.value,
+                      stylistId: "",
+                      totalPrice: "",
+                    }))
+                  }
+                >
+                  <option value="">Choose a service</option>
+                  {services
+                    .filter((service) => service.active !== false)
+                    .map((service) => (
+                      <option key={idOf(service)} value={idOf(service)}>
+                        {serviceLabel(service)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="text-sm font-bold text-stone-700">
+                Recommended stylist
+                <select
+                  className="mt-1 w-full"
+                  value={booking.stylistId}
+                  disabled={!booking.serviceId || bookingOptionsLoading || Boolean(busyAction)}
+                  onChange={(event) =>
+                    setBooking((current) => ({ ...current, stylistId: event.target.value }))
+                  }
+                >
+                  <option value="">
+                    {bookingOptionsLoading ? "Loading stylists…" : "No specific stylist"}
+                  </option>
+                  {stylists.map((stylist) => (
+                    <option key={idOf(stylist)} value={idOf(stylist)}>
+                      {stylistLabel(stylist)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="md:col-span-2 flex justify-end">
+                <button
+                  type="submit"
+                  className="app-button app-button-secondary"
+                  disabled={Boolean(busyAction) || bookingOptionsLoading || !booking.serviceId}
+                >
+                  Save recommendation
+                </button>
+              </div>
+            </form>
+          ) : null}
 
           {showBookingForm ? (
             canBook ? (
