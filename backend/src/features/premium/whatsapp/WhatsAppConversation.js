@@ -166,7 +166,10 @@ const automationSchema = new Schema(
   {
     mode: {
       type: String,
-      enum: ["bot", "human"],
+      // "bot" remains valid for existing booking conversations. New
+      // consultation-aware orchestration can distinguish general AI,
+      // canonical booking, consultation and explicit human ownership.
+      enum: ["bot", "ai", "booking", "consultation", "human"],
       default: "bot",
     },
 
@@ -300,6 +303,13 @@ const whatsappConversationSchema = new Schema(
     bookingSession: {
       type: bookingSessionSchema,
       default: () => ({}),
+    },
+
+    activeConsultationId: {
+      type: Schema.Types.ObjectId,
+      ref: "ConsultationSession",
+      default: null,
+      index: true,
     },
 
     automation: {
