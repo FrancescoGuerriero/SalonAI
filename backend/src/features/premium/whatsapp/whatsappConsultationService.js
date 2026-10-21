@@ -1,8 +1,9 @@
 import Customer from "../../../models/customer.js";
 import ConsultationSession from "../../consultations/ConsultationSession.js";
 import {
-  evaluateHairColourConsultation,
-} from "../../consultations/hairColourConsultationRules.js";
+  evaluateConsultationDefinition,
+  requireConsultationDefinition,
+} from "../../consultations/consultationDefinitionRegistry.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
 
 const QUESTION_ORDER = Object.freeze([
@@ -73,8 +74,19 @@ export function consultationConsentDecision(value) {
   return "unknown";
 }
 
-export function nextWhatsAppConsultationQuestion(features = {}) {
-  const assessment = evaluateHairColourConsultation(features);
+export function nextWhatsAppConsultationQuestion(
+  features = {},
+  {
+    consultationType = "hair-colour-chemical",
+    definitionVersion = "1",
+  } = {}
+) {
+  requireConsultationDefinition(consultationType, definitionVersion);
+  const assessment = evaluateConsultationDefinition({
+    consultationType,
+    definitionVersion,
+    features,
+  });
   const field = QUESTION_ORDER.find((key) =>
     assessment.missingFields.includes(key)
   );
@@ -85,14 +97,23 @@ export function nextWhatsAppConsultationQuestion(features = {}) {
 }
 
 function applyAssessment(session) {
-  const assessment = evaluateHairColourConsultation(
-    session.structuredFeatures || {}
-  );
+  const assessment = evaluateConsultationDefinition({
+    consultationType: session.consultationType,
+    definitionVersion: session.definitionVersion,
+    features: session.structuredFeatures || {},
+  });
   session.deterministicAssessment = {
     ...assessment,
     evaluatedAt: new Date(),
   };
   return assessment;
+}
+
+function nextSessionQuestion(session) {
+  return nextWhatsAppConsultationQuestion(session.structuredFeatures || {}, {
+    consultationType: session.consultationType,
+    definitionVersion: session.definitionVersion,
+  });
 }
 
 async function loadScopedConversation(conversationId) {
@@ -152,14 +173,18 @@ export async function startWhatsAppConsultationFromConversation({
   }
 
   if (!session) {
+    const definition = requireConsultationDefinition(
+      "hair-colour-chemical",
+      "1"
+    );
     session = new ConsultationSession({
       business: conversation.business,
       location: conversation.location,
       customer: customer._id,
       sourceConversation: conversation._id,
       channel: "whatsapp",
-      consultationType: "hair-colour-chemical",
-      definitionVersion: "1",
+      consultationType: definition.id,
+      definitionVersion: definition.version,
       status: "draft",
       responses: [],
       structuredFeatures: {},
@@ -187,7 +212,7 @@ export async function startWhatsAppConsultationFromConversation({
     started: true,
     consultationId: session._id,
     reply: session.governance?.dataProcessingConsent
-      ? nextWhatsAppConsultationQuestion(session.structuredFeatures)?.question ||
+      ? nextSessionQuestion(session)?.question ||
         "Your consultation answers are complete and ready for salon review."
       : consentPrompt(),
   });
@@ -266,7 +291,7 @@ export async function processActiveWhatsAppConsultationTurn(
     conversation.automation.lastAction = "collect_consultation_answer";
     await conversation.save();
 
-    const next = nextWhatsAppConsultationQuestion(session.structuredFeatures);
+    const next = nextSessionQuestion(session);
     return Object.freeze({
       processed: true,
       handoff: false,
@@ -274,7 +299,7 @@ export async function processActiveWhatsAppConsultationTurn(
     });
   }
 
-  const next = nextWhatsAppConsultationQuestion(session.structuredFeatures);
+  const next = nextSessionQuestion(session);
   if (!next) {
     closeToHumanReview(conversation, session);
     await session.save();
@@ -320,7 +345,7 @@ export async function processActiveWhatsAppConsultationTurn(
     processed: true,
     handoff: false,
     reply:
-      nextWhatsAppConsultationQuestion(session.structuredFeatures)?.question ||
+      nextSessionQuestion(session)?.question ||
       "Your consultation answers are ready for review.",
   });
 }
