@@ -1,7 +1,9 @@
 import ConsultationSession from "./ConsultationSession.js";
 import {
-  evaluateHairColourConsultation,
-} from "./hairColourConsultationRules.js";
+  allowedConsultationFeatureKeys,
+  evaluateConsultationDefinition,
+  requireConsultationDefinition,
+} from "./consultationDefinitionRegistry.js";
 import {
   requestConsultationInference,
 } from "./consultationInferenceService.js";
@@ -12,27 +14,6 @@ import {
   findScopedConsultation,
   trustedConsultationOwnership,
 } from "./consultationSessionAuthorityService.js";
-
-const ALLOWED_FEATURES = new Set([
-  "hairType",
-  "texturePattern",
-  "density",
-  "strandThickness",
-  "length",
-  "porosity",
-  "hairCondition",
-  "naturalColour",
-  "currentColour",
-  "greyPercentage",
-  "colourHistory",
-  "bleachHistory",
-  "previousTreatments",
-  "maintenancePreference",
-  "budgetRange",
-  "sensitivities",
-  "patchTestRequired",
-  "desiredOutcome",
-]);
 
 const STATUS_TRANSITIONS = Object.freeze({
   draft: new Set(["in_progress", "archived"]),
@@ -141,7 +122,11 @@ function safeScalar(value, field) {
   );
 }
 
-export function sanitizeConsultationFeatures(features = {}) {
+export function sanitizeConsultationFeatures(
+  features = {},
+  consultationType = "hair-colour-chemical",
+  definitionVersion = "1"
+) {
   if (!features || typeof features !== "object" || Array.isArray(features)) {
     throw serviceError(
       "structuredFeatures must be an object.",
@@ -149,9 +134,13 @@ export function sanitizeConsultationFeatures(features = {}) {
     );
   }
 
+  const allowedFeatures = allowedConsultationFeatureKeys(
+    consultationType,
+    definitionVersion
+  );
   const result = {};
   for (const [key, value] of Object.entries(features)) {
-    if (!ALLOWED_FEATURES.has(key)) continue;
+    if (!allowedFeatures.has(key)) continue;
     result[key] = safeScalar(value, `structuredFeatures.${key}`);
   }
   return result;
@@ -262,9 +251,11 @@ function actorId(request) {
 }
 
 function applyAssessment(session) {
-  const assessment = evaluateHairColourConsultation(
-    session.structuredFeatures || {}
-  );
+  const assessment = evaluateConsultationDefinition({
+    consultationType: session.consultationType,
+    definitionVersion: session.definitionVersion,
+    features: session.structuredFeatures || {},
+  });
   session.deterministicAssessment = {
     ...assessment,
     evaluatedAt: new Date(),
@@ -313,16 +304,20 @@ export async function createConsultationSession(payload, request) {
     "consultationType",
     120
   );
-  if (consultationType !== "hair-colour-chemical") {
-    throw serviceError(
-      "Only the hair-colour-chemical consultation definition is active in this phase.",
-      "CONSULTATION_DEFINITION_NOT_ACTIVE",
-      409
-    );
-  }
+  const requestedDefinitionVersion = text(
+    payload?.definitionVersion || "",
+    "definitionVersion",
+    40
+  );
+  const definition = requireConsultationDefinition(
+    consultationType,
+    requestedDefinitionVersion
+  );
 
   const structuredFeatures = sanitizeConsultationFeatures(
-    payload?.structuredFeatures || {}
+    payload?.structuredFeatures || {},
+    definition.id,
+    definition.version
   );
   const responses = sanitizeConsultationResponses(payload?.responses || []);
   const dataProcessingConsent =
@@ -340,8 +335,8 @@ export async function createConsultationSession(payload, request) {
     channel: ["web", "mobile", "whatsapp", "staff"].includes(payload?.channel)
       ? payload.channel
       : "staff",
-    consultationType,
-    definitionVersion: "1",
+    consultationType: definition.id,
+    definitionVersion: definition.version,
     status: responses.length || Object.keys(structuredFeatures).length
       ? "in_progress"
       : "draft",
@@ -379,7 +374,9 @@ export async function updateConsultationSession(sessionId, payload, request) {
 
   if (payload?.structuredFeatures !== undefined) {
     session.structuredFeatures = sanitizeConsultationFeatures(
-      payload.structuredFeatures
+      payload.structuredFeatures,
+      session.consultationType,
+      session.definitionVersion
     );
   }
   if (payload?.responses !== undefined) {
