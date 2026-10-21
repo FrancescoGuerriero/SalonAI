@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertAssignedReviewer,
   assertConsultationAssistable,
+  sanitizeConsultationFeatures,
 } from "../features/consultations/consultationSessionService.js";
 
 const REVIEWER_A = "64f000000000000000000010";
@@ -45,4 +46,38 @@ test("AI assistance is restricted to non-finalised pre-decision sessions", () =>
         error?.statusCode === 409
     );
   }
+});
+
+test("consultation feature sanitisation is scoped by registered definition", () => {
+  assert.deepEqual(
+    sanitizeConsultationFeatures(
+      {
+        desiredOutcome: "lighter blonde",
+        hairCondition: "healthy",
+        unknownFutureVerticalField: "must not leak through",
+      },
+      "hair-colour-chemical",
+      "1"
+    ),
+    {
+      desiredOutcome: "lighter blonde",
+      hairCondition: "healthy",
+    }
+  );
+});
+
+test("consultation feature sanitisation fails closed for inactive definitions", () => {
+  assert.throws(
+    () => sanitizeConsultationFeatures({}, "spa-treatment", "1"),
+    (error) =>
+      error?.code === "CONSULTATION_DEFINITION_NOT_ACTIVE" &&
+      error?.statusCode === 409
+  );
+
+  assert.throws(
+    () => sanitizeConsultationFeatures({}, "hair-colour-chemical", "999"),
+    (error) =>
+      error?.code === "CONSULTATION_DEFINITION_NOT_ACTIVE" &&
+      error?.statusCode === 409
+  );
 });
