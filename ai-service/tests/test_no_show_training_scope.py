@@ -1,3 +1,7 @@
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+from types import SimpleNamespace
 import sys
 import types
 
@@ -10,6 +14,7 @@ import pytest
 core_stub = types.ModuleType("train_no_show_core")
 core_stub.TASK = "appointment_no_show_48h"
 core_stub.FEATURE_VERSION = "no-show-v1"
+core_stub.MODEL_NAME = "salonai-no-show-risk-ml"
 core_stub.load_dataset = lambda *_args, **_kwargs: (None, None)
 core_stub.main = lambda: None
 sys.modules["train_no_show_core"] = core_stub
@@ -21,11 +26,17 @@ BUSINESS = "507f1f77bcf86cd799439011"
 LOCATION = "507f1f77bcf86cd799439012"
 
 
+class FakeUpdateResult:
+    def __init__(self, matched_count=1):
+        self.matched_count = matched_count
+
+
 class FakeCollection:
     def __init__(self, *, document=None, counts=None):
         self.document = document
         self.counts = list(counts or [])
         self.queries = []
+        self.updates = []
 
     def find_one(self, query):
         self.queries.append(query)
@@ -37,16 +48,29 @@ class FakeCollection:
             return 0
         return self.counts.pop(0)
 
+    def update_one(self, query, update):
+        self.updates.append((query, update))
+        return FakeUpdateResult()
+
 
 class FakeDatabase:
-    def __init__(self, dataset, snapshot_counts):
+    def __init__(self, dataset, snapshot_counts, model_version=None):
         self.collections = {
             "aitrainingdatasets": FakeCollection(document=dataset),
             "aifeaturesnapshots": FakeCollection(counts=snapshot_counts),
+            "aimodelversions": FakeCollection(document=model_version),
         }
 
     def __getitem__(self, name):
         return self.collections[name]
+
+
+class FakeClient:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
 
 
 def frozen_dataset(*, locations=None):
@@ -57,6 +81,13 @@ def frozen_dataset(*, locations=None):
         "status": "frozen",
         "task": guarded_trainer.core.TASK,
         "featureVersion": guarded_trainer.core.FEATURE_VERSION,
+        "schemaHash": "a" * 64,
+        "dataHash": "b" * 64,
+        "lineage": {
+            "builderVersion": "no-show-v1-tenant-scoped-v1",
+            "gitCommit": "abc123",
+            "sourceCollections": ["appointments"],
+        },
         "scope": {
             "mode": "single_business",
             "business": BUSINESS,
@@ -138,3 +169,89 @@ def test_scope_guard_requires_explicit_single_business_deidentified_dataset():
 
     with pytest.raises(RuntimeError, match="deidentified"):
         guarded_trainer._trusted_single_business_scope(dataset)
+
+
+def test_governed_manifest_is_written_and_attached_to_existing_model_registry(
+    tmp_path: Path,
+    monkeypatch,
+):
+    dataset = frozen_dataset(locations=[LOCATION])
+    model_version = {
+        "_id": "model-version-id",
+        "name": guarded_trainer.core.MODEL_NAME,
+        "version": "model-v1",
+        "task": guarded_trainer.core.TASK,
+        "featureVersion": guarded_trainer.core.FEATURE_VERSION,
+        "lifecycle": "candidate",
+        "trainingDataset": dataset["_id"],
+        "algorithm": "logistic_regression",
+        "thresholds": {"operational": 0.42},
+        "createdAt": datetime(2026, 10, 19, 15, 0, tzinfo=timezone.utc),
+    }
+    database = FakeDatabase(dataset, [], model_version=model_version)
+    client = FakeClient()
+
+    monkeypatch.setattr(
+        guarded_trainer.core,
+        "mongo_database",
+        lambda: (client, database),
+        raising=False,
+    )
+
+    artifact_dir = tmp_path / "v1" / "model-v1"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "model.joblib").write_bytes(b"governed-model")
+
+    args = SimpleNamespace(
+        artifact_dir=str(tmp_path),
+        dataset_version="v1",
+        model_version="model-v1",
+    )
+    manifest_path = guarded_trainer._write_governed_manifest(args)
+
+    assert client.closed is True
+    assert manifest_path == artifact_dir / "model.manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["model"]["lifecycle"] == "candidate"
+    assert manifest["dataset"]["scope"]["business"] == BUSINESS
+    assert manifest["dataset"]["scope"]["locations"] == [LOCATION]
+    assert len(manifest["artifact"]["sha256"]) == 64
+
+    updates = database["aimodelversions"].updates
+    assert len(updates) == 1
+    query, update = updates[0]
+    assert query["_id"] == model_version["_id"]
+    assert query["lifecycle"] == {"$in": ["experiment", "candidate"]}
+    governance = update["$set"]["metadata.governance"]
+    assert governance["manifestSchemaVersion"] == "salonai.model-artifact.v1"
+    assert governance["manifestUri"] == str(manifest_path)
+    assert governance["dataset"]["dataHash"] == "b" * 64
+
+
+def test_governed_manifest_refuses_registry_states_outside_training_lifecycle(
+    tmp_path: Path,
+    monkeypatch,
+):
+    dataset = frozen_dataset()
+    database = FakeDatabase(dataset, [], model_version=None)
+    client = FakeClient()
+
+    monkeypatch.setattr(
+        guarded_trainer.core,
+        "mongo_database",
+        lambda: (client, database),
+        raising=False,
+    )
+
+    args = SimpleNamespace(
+        artifact_dir=str(tmp_path),
+        dataset_version="v1",
+        model_version="model-v1",
+    )
+
+    with pytest.raises(RuntimeError, match="experiment/candidate registry entry"):
+        guarded_trainer._write_governed_manifest(args)
+
+    model_query = database["aimodelversions"].queries[0]
+    assert model_query["lifecycle"] == {"$in": ["experiment", "candidate"]}
+    assert client.closed is True

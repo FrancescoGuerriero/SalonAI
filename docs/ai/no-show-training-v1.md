@@ -27,9 +27,9 @@ v1 also excludes the current appointment status.
 
 Historical customer outcomes are counted only when their terminal outcome was already observed by the target appointment's snapshot timestamp.
 
-## Materialise a dataset
+## Materialise a tenant-scoped dataset
 
-Configure a dedicated pseudonym key. Do not reuse the JWT/OAuth secrets.
+Configure a dedicated pseudonym key. Do not reuse JWT/OAuth secrets. A trusted Business ObjectId is mandatory; global/unscoped dataset builds are not permitted by this entry point. An optional Location ObjectId may narrow the dataset further and is verified as belonging to the Business.
 
 PowerShell example:
 
@@ -39,16 +39,22 @@ $env:AI_DATASET_PSEUDONYM_KEY = "<dedicated-random-secret-at-least-32-characters
 cd backend
 
 # Read-only preview. No AI dataset rows are changed.
-npm run ai:dataset:no-show -- --dataset-version=v1
+npm run ai:dataset:no-show -- --dataset-version=v1 --business-id=<trusted-business-object-id>
 
-# Freeze the dataset only after the dry-run summary is acceptable.
-npm run ai:dataset:no-show -- --dataset-version=v1 --apply --confirm=build-no-show-training-dataset
+# Optional single-location preview.
+npm run ai:dataset:no-show -- --dataset-version=v1 --business-id=<trusted-business-object-id> --location-id=<trusted-location-object-id>
+
+# Freeze only after the dry-run summary has been reviewed.
+npm run ai:dataset:no-show -- --dataset-version=v1 --business-id=<trusted-business-object-id> --apply --confirm=build-no-show-training-dataset
 ```
 
-The dry-run summary includes a deterministic freeze-readiness report with the total label distribution and completed/no-show counts for each temporal train/validation/test split.
+The dry-run summary includes Business/Location scope, deterministic schema/data hashes, temporal split evidence and a freeze-readiness report with total label distribution and completed/no-show counts for each train/validation/test split.
 
 The apply command refuses to freeze a dataset when:
 
+- the Business is missing or invalid;
+- a requested Location is not owned by that Business;
+- the dataset name/version conflicts with a differently scoped historical dataset;
 - there are fewer than 30 eligible resolved observations;
 - train, validation or test is empty;
 - any temporal split contains only completed labels or only no-show labels.
@@ -57,7 +63,7 @@ These checks mirror the minimum structural requirements of the Python training p
 
 A dataset below 100 observations is explicitly marked with a small-dataset warning. Severe overall class imbalance is also reported as a warning for evaluation review rather than silently treated as reliable evidence.
 
-The frozen data is stored in `AiFeatureSnapshot` and registered in `AiTrainingDataset`, including the split label distribution and readiness evidence used at freeze time.
+The frozen data is stored in `AiFeatureSnapshot` and registered in `AiTrainingDataset`. The registry retains trusted single-Business scope, optional Location scope, schema/data hashes, source-collection lineage, builder version, split label distribution and readiness evidence.
 
 ## Training environment
 
@@ -79,9 +85,11 @@ The training environment currently pins:
 - PyMongo 4.18.1
 - joblib 1.6.0
 
-The runtime requirements are also installed so the evaluation can call the exact current SalonAI rules implementation.
+The runtime requirements are also installed so evaluation can call the exact current SalonAI rules implementation.
 
 ## Train and evaluate
+
+Training reads only a previously frozen governed dataset. The wrapper verifies that every selected feature snapshot remains inside the dataset's trusted Business and optional Location scope before the core trainer runs.
 
 ```powershell
 $env:MONGODB_URI = "<controlled-training-database-uri>"
@@ -103,7 +111,7 @@ It is also evaluated against the application's actual `salonai-no-show-risk-rule
 
 A learned model receives `candidate` lifecycle status only when its test PR-AUC is higher than the current rules baseline **and** its Brier score is no worse. Otherwise it remains an `experiment`.
 
-Candidate does not mean production approved.
+Training may emit only `experiment` or `candidate`. It cannot emit `approved` or `production`, and candidate does not mean production approved.
 
 ## Metrics
 
@@ -120,7 +128,7 @@ The experiment records:
 
 For imbalanced no-show prediction, PR-AUC and calibration are important; raw accuracy is not used as the primary selection metric.
 
-## Artifacts
+## Governed artifacts
 
 Generated model artifacts and metrics are written under:
 
@@ -128,20 +136,44 @@ Generated model artifacts and metrics are written under:
 
 This directory is ignored by Git.
 
-The MongoDB `AiModelVersion` registry stores the model metadata and artifact reference. A later controlled artifact store will replace local artifact paths for production model promotion.
+Each completed experiment/candidate now produces:
+
+- `model.joblib` — serialized learned pipeline and evaluation metadata;
+- `metrics.json` — evaluation evidence;
+- `model.manifest.json` — deterministic governance/compatibility evidence.
+
+The manifest binds the artifact to:
+
+- manifest schema version;
+- model name/version, task, feature schema, algorithm and lifecycle;
+- selected operational threshold;
+- exact frozen dataset id/version;
+- dataset schema SHA-256 and data SHA-256;
+- trusted Business and allowed Location provenance;
+- dataset builder/source-collection lineage;
+- model-artifact SHA-256 checksum;
+- rules-baseline gate result.
+
+The existing MongoDB `AiModelVersion` registry remains authoritative. No second model registry is introduced. The registry's existing `metadata` field records the manifest URI, artifact checksum and dataset governance evidence for later activation checks.
+
+A later controlled artifact store may replace local artifact paths for production promotion, but it must preserve the same manifest and integrity contract.
 
 ## Production promotion
 
 Do not change production inference from the rules model until a separate promotion step verifies:
 
-1. frozen dataset lineage;
-2. test-set evidence;
-3. calibration and operational threshold;
-4. subgroup/data-quality diagnostics;
-5. model artifact integrity;
-6. rollback to rules;
-7. inference/outcome logging;
-8. approved model lifecycle transition.
+1. frozen dataset lineage and tenant scope;
+2. dataset schema/data hashes;
+3. model manifest schema and artifact checksum;
+4. task and feature-schema compatibility;
+5. test-set evidence;
+6. calibration and operational threshold;
+7. subgroup/data-quality diagnostics;
+8. rollback to rules;
+9. tenant-aware inference/outcome logging;
+10. explicit approved model lifecycle transition.
+
+Production promotion and inference activation are separate controlled operations. The training command does not perform either action.
 
 ## Adviser model evidence
 
@@ -157,6 +189,6 @@ Only governed evaluation evidence is exposed:
 - whether the learned model beat the rules benchmark under the experiment gate;
 - declared limitations.
 
-Artifact paths, training dataset identifiers and internal model metadata are not exposed through the Adviser context.
+Artifact paths, checksums, training dataset identifiers and internal governance metadata are not exposed through the Adviser context.
 
 A model with `experiment`, `candidate` or `approved` lifecycle remains explicitly labelled **not active in production**. The Adviser may describe its evaluation evidence, but this integration does not promote the model, change the production no-show predictor or introduce an automatic promotion path.

@@ -3,20 +3,27 @@ from __future__ import annotations
 """Tenant-scope guard for the governed no-show trainer.
 
 The training implementation lives in ``train_no_show_core.py``. This entry
-point deliberately validates the frozen AiTrainingDataset governance scope and
-proves that every matching feature snapshot belongs to that same trusted
-Business (and, when configured, allowed Location set) before delegating to the
-trainer. Direct raw-production collection training is not permitted.
+point validates the frozen AiTrainingDataset governance scope and proves that
+every matching feature snapshot belongs to that same trusted Business (and,
+when configured, allowed Location set) before delegating to the trainer.
+Direct raw-production collection training is not permitted.
 
-The delegated core intentionally preserves the v1 evaluation contract:
-``predict_no_shows`` and the ``salonai-no-show-risk-rules-v1`` baseline,
-``beats_rules_baseline`` promotion evidence, ``average_precision_score`` and
-``brier_score_loss`` model-quality measurements.
+After training, experiment/candidate artifacts receive a deterministic
+``model.manifest.json`` that binds the serialized model to its tenant scope,
+frozen dataset hashes, lineage, task, feature schema and artifact checksum.
+This wrapper never promotes or activates a model for production inference.
 """
 
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import train_no_show_core as core
+
+from app.governance.model_artifact import (
+    build_model_artifact_manifest,
+    write_model_artifact_manifest,
+)
 
 
 _ORIGINAL_LOAD_DATASET = core.load_dataset
@@ -111,12 +118,122 @@ def load_tenant_scoped_dataset(database, dataset_version: str):
     return loaded_dataset, frame
 
 
+def _iso_datetime(value: Any) -> str:
+    if isinstance(value, datetime):
+        candidate = value
+        if candidate.tzinfo is None:
+            candidate = candidate.replace(tzinfo=timezone.utc)
+        return candidate.astimezone(timezone.utc).isoformat()
+    return str(value or datetime.now(timezone.utc).isoformat())
+
+
+def _write_governed_manifest(args) -> Path:
+    client, database = core.mongo_database()
+
+    try:
+        dataset = database["aitrainingdatasets"].find_one(
+            _dataset_selector(args.dataset_version)
+        )
+        if not dataset:
+            raise RuntimeError(
+                "Frozen no-show training dataset disappeared before artifact governance."
+            )
+
+        model_version = database["aimodelversions"].find_one(
+            {
+                "name": core.MODEL_NAME,
+                "version": args.model_version,
+                "task": core.TASK,
+                "featureVersion": core.FEATURE_VERSION,
+                "lifecycle": {"$in": ["experiment", "candidate"]},
+                "trainingDataset": dataset["_id"],
+            }
+        )
+        if not model_version:
+            raise RuntimeError(
+                "Governed experiment/candidate registry entry was not found after training."
+            )
+
+        artifact_dir = (
+            Path(args.artifact_dir)
+            / args.dataset_version
+            / args.model_version
+        )
+        artifact_path = artifact_dir / "model.joblib"
+        manifest_path = artifact_dir / "model.manifest.json"
+
+        thresholds = dict(model_version.get("thresholds") or {})
+        threshold = thresholds.get("operational")
+        if threshold is None:
+            raise RuntimeError(
+                "Trained model is missing its operational evaluation threshold."
+            )
+
+        manifest = build_model_artifact_manifest(
+            model_name=model_version["name"],
+            model_version=model_version["version"],
+            task=model_version["task"],
+            feature_version=model_version["featureVersion"],
+            dataset=dataset,
+            algorithm=model_version.get("algorithm") or "",
+            lifecycle=model_version["lifecycle"],
+            selected_threshold=float(threshold),
+            artifact_path=artifact_path,
+            beats_rules_baseline=model_version["lifecycle"] == "candidate",
+            created_at=_iso_datetime(model_version.get("createdAt")),
+        )
+        write_model_artifact_manifest(manifest, manifest_path)
+
+        governance_metadata = {
+            "manifestSchemaVersion": manifest["schemaVersion"],
+            "manifestUri": str(manifest_path),
+            "artifactSha256": manifest["artifact"]["sha256"],
+            "dataset": {
+                "id": manifest["dataset"]["id"],
+                "version": manifest["dataset"]["version"],
+                "schemaHash": manifest["dataset"]["schemaHash"],
+                "dataHash": manifest["dataset"]["dataHash"],
+                "scope": manifest["dataset"]["scope"],
+                "lineage": manifest["dataset"]["lineage"],
+            },
+        }
+
+        update_result = database["aimodelversions"].update_one(
+            {
+                "_id": model_version["_id"],
+                "lifecycle": {"$in": ["experiment", "candidate"]},
+            },
+            {
+                "$set": {
+                    "metadata.governance": governance_metadata,
+                    "updatedAt": datetime.now(timezone.utc),
+                }
+            },
+        )
+        if update_result.matched_count != 1:
+            raise RuntimeError(
+                "Model registry state changed before governance metadata could be attached."
+            )
+
+        return manifest_path
+    finally:
+        client.close()
+
+
 def main() -> None:
+    # Parse once before delegation so the same immutable identifiers are used
+    # to locate the post-training artifact. core.main() parses the same argv.
+    args = core.parse_args()
+
     # The core training/evaluation pipeline remains authoritative. Only its
     # dataset loader is replaced, so algorithm evaluation and registry output
     # cannot bypass the tenant-governance preflight above.
     core.load_dataset = load_tenant_scoped_dataset
     core.main()
+
+    # This attaches reproducibility/compatibility evidence only. Production
+    # approval, promotion and inference activation are intentionally absent.
+    _write_governed_manifest(args)
 
 
 if __name__ == "__main__":
