@@ -262,6 +262,24 @@ const automationSchema = new Schema(
 
 const whatsappConversationSchema = new Schema(
   {
+    // Provider webhooks do not carry application authentication. When an
+    // explicit provider-destination binding exists, trusted tenant ownership
+    // is stamped server-side here. Legacy unbound conversations remain valid
+    // until their channel is configured.
+    business: {
+      type: Schema.Types.ObjectId,
+      ref: "Business",
+      default: null,
+      index: true,
+    },
+
+    location: {
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      default: null,
+      index: true,
+    },
+
     customer: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
@@ -369,6 +387,13 @@ const whatsappConversationSchema = new Schema(
 );
 
 whatsappConversationSchema.index({
+  phone: 1,
+  lastMessageAt: -1,
+});
+
+whatsappConversationSchema.index({
+  business: 1,
+  location: 1,
   phone: 1,
   lastMessageAt: -1,
 });

@@ -14,6 +14,9 @@ import {
 import {
   queueWhatsAppBotMessage,
 } from "./whatsappBotRuntime.js";
+import {
+  resolveWhatsAppTenantContext,
+} from "./whatsappTenantContextService.js";
 
 function createHttpError(
   message,
@@ -43,11 +46,22 @@ async function existingMessage(
   }).select("_id");
 }
 
+function tenantScope(tenantContext) {
+  return tenantContext
+    ? {
+        business: tenantContext.business,
+        location: tenantContext.location,
+      }
+    : {};
+}
+
 export function buildReusableWhatsAppConversationFilter(
-  phone
+  phone,
+  tenantContext = null
 ) {
   return {
     phone,
+    ...tenantScope(tenantContext),
 
     "bookingSession.appointmentId":
       null,
@@ -68,7 +82,8 @@ export function buildReusableWhatsAppConversationFilter(
 
 
 async function saveIncomingMessage(
-  incoming
+  incoming,
+  tenantContext = null
 ) {
   const duplicate =
     await existingMessage(
@@ -85,19 +100,22 @@ async function saveIncomingMessage(
 
   const now =
     new Date();
+  const scope =
+    tenantScope(tenantContext);
 
   const latestConversation =
     await WhatsAppConversation
       .findOne({
         phone:
           incoming.phone,
+        ...scope,
       })
       .sort({
         lastMessageAt: -1,
         createdAt: -1,
       })
       .select(
-        "_id customer displayName " +
+        "_id business location customer displayName " +
         "bookingSession.appointmentId " +
         "bookingSession.confirmed " +
         "bookingSession.confirmationState " +
@@ -108,18 +126,17 @@ async function saveIncomingMessage(
   let conversation = null;
 
   /*
-   * Only the latest conversation may be reused.
-   *
-   * An older unfinished conversation must never
-   * be revived after a newer booking has already
-   * completed.
+   * Only the latest conversation in the trusted channel scope may be reused.
+   * An older unfinished conversation must never be revived after a newer
+   * booking has already completed.
    */
   if (latestConversation) {
     conversation =
       await WhatsAppConversation.findOneAndUpdate(
         {
           ...buildReusableWhatsAppConversationFilter(
-            incoming.phone
+            incoming.phone,
+            tenantContext
           ),
 
           _id:
@@ -127,6 +144,7 @@ async function saveIncomingMessage(
         },
       {
         $set: {
+          ...scope,
           ...(incoming.displayName
             ? {
                 displayName:
@@ -174,21 +192,14 @@ async function saveIncomingMessage(
   }
 
   /*
-   * A completed booking belongs to its historical
-   * WhatsApp conversation.
-   *
-   * The next inbound customer message starts a new
-   * conversation so:
-   *
-   * - bot ownership starts cleanly;
-   * - the previous appointment remains linked to
-   *   its original conversation;
-   * - the new booking receives a new conversation
-   *   id and therefore a new idempotency key.
+   * A completed booking belongs to its historical WhatsApp conversation.
+   * The next inbound customer message starts a new conversation with the
+   * same trusted channel ownership when a provider binding is configured.
    */
   if (!conversation) {
     conversation =
       await WhatsAppConversation.create({
+        ...scope,
         customer:
           latestConversation?.customer ||
           null,
@@ -266,9 +277,8 @@ export async function verifyWebhookSubscription(
   }
 
   /*
-   * Meta documents hub.challenge as a numeric
-   * verification challenge. Convert it to a number
-   * before reflecting it so arbitrary request text
+   * Meta documents hub.challenge as a numeric verification challenge.
+   * Convert it to a number before reflecting it so arbitrary request text
    * can never reach the HTTP response body.
    */
   const challengeText =
@@ -333,9 +343,8 @@ export async function receiveWebhook(
   }
 
   /*
-   * Twilio sends outbound message status callbacks
-   * to the same public webhook endpoint used for
-   * inbound WhatsApp messages.
+   * Twilio sends outbound message status callbacks to the same public
+   * webhook endpoint used for inbound WhatsApp messages.
    */
   const deliveryStatus =
     normaliseWhatsAppWebhookDeliveryStatus(
@@ -383,13 +392,9 @@ export async function receiveWebhook(
     );
 
   /*
-   * Meta also sends delivery/read/status callbacks
-   * to the same webhook. These remain valid events
-   * even when they contain no inbound text message.
-   *
-   * Unsupported Twilio callback types are also
-   * acknowledged safely so Twilio does not retry
-   * them unnecessarily.
+   * Meta also sends delivery/read/status callbacks to the same webhook.
+   * Unsupported callback types are acknowledged safely so providers do not
+   * retry them unnecessarily.
    */
   if (
     messages.length === 0
@@ -402,6 +407,11 @@ export async function receiveWebhook(
     });
   }
 
+  const tenantContext =
+    await resolveWhatsAppTenantContext(
+      request
+    );
+
   let processed = 0;
   let duplicates = 0;
   let conversationId =
@@ -413,7 +423,8 @@ export async function receiveWebhook(
   ) {
     const result =
       await saveIncomingMessage(
-        incoming
+        incoming,
+        tenantContext
       );
 
     conversationId =
@@ -427,11 +438,9 @@ export async function receiveWebhook(
       processed += 1;
 
       /*
-       * Automation is scheduled only after the
-       * signed inbound message has been safely
-       * persisted and deduplicated. The queue is
-       * deliberately not awaited so provider
-       * webhook acknowledgement remains prompt.
+       * Automation is scheduled only after the signed inbound message has
+       * been safely persisted and deduplicated. The queue is deliberately
+       * not awaited so provider webhook acknowledgement remains prompt.
        */
       void queueWhatsAppBotMessage({
         conversationId:
