@@ -30,3 +30,29 @@ test("WhatsApp consultation questions follow deterministic required-field order"
 
   assert.equal(next, null);
 });
+
+test("WhatsApp consultation assessment is definition/version scoped and fails closed", () => {
+  assert.throws(
+    () =>
+      nextWhatsAppConsultationQuestion(
+        {},
+        {
+          consultationType: "spa-skin-consultation",
+          definitionVersion: "1",
+        }
+      ),
+    (error) => error?.code === "CONSULTATION_DEFINITION_NOT_ACTIVE"
+  );
+
+  assert.throws(
+    () =>
+      nextWhatsAppConsultationQuestion(
+        {},
+        {
+          consultationType: "hair-colour-chemical",
+          definitionVersion: "999",
+        }
+      ),
+    (error) => error?.code === "CONSULTATION_DEFINITION_NOT_ACTIVE"
+  );
+});
