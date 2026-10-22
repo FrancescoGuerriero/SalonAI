@@ -69,5 +69,6 @@ router.post(
 );
 router.get("/health", read, asyncHandler(controller.health));
 router.get("/events", read, asyncHandler(controller.eventCatalogue));
+router.get("/scopes", read, asyncHandler(controller.scopeCatalogue));
 
 export default router;
