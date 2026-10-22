@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildResumeWhatsAppBotMutation,
   isExpiredUnconfirmedWhatsAppBooking,
+  resolveWhatsAppResumeMode,
 } from "../features/premium/whatsapp/whatsappHandoffService.js";
 
 function conversation(overrides = {}) {
@@ -298,6 +299,91 @@ test(
         "automation.handoffRequested"
       ],
       false
+    );
+  }
+);
+
+test(
+  "collectable scoped consultation resumes directly into consultation mode",
+  () => {
+    const current = conversation({
+      activeConsultationId: "consultation-1",
+    });
+    const consultationSession = {
+      _id: "consultation-1",
+      status: "more_information_required",
+    };
+
+    assert.equal(
+      resolveWhatsAppResumeMode(current, consultationSession),
+      "consultation"
+    );
+
+    const mutation = buildResumeWhatsAppBotMutation(current, {
+      now: new Date("2030-06-01T09:30:00.000Z"),
+      consultationSession,
+    });
+
+    assert.equal(mutation.resumeMode, "consultation");
+    assert.equal(
+      mutation.update.$set["automation.mode"],
+      "consultation"
+    );
+    assert.equal(
+      mutation.update.$set["automation.lastAction"],
+      "resume_consultation"
+    );
+    assert.equal(
+      mutation.update.$set["automation.lastIntent"],
+      "consultation"
+    );
+  }
+);
+
+test(
+  "consultations awaiting or beyond human review do not re-enter automated collection",
+  () => {
+    const current = conversation({
+      activeConsultationId: "consultation-1",
+    });
+
+    for (const status of [
+      "awaiting_review",
+      "in_person_required",
+      "approved",
+      "booking_ready",
+      "booked",
+      "closed",
+      "archived",
+    ]) {
+      const consultationSession = {
+        _id: "consultation-1",
+        status,
+      };
+
+      assert.equal(
+        resolveWhatsAppResumeMode(current, consultationSession),
+        "bot",
+        status
+      );
+    }
+  }
+);
+
+test(
+  "mismatched or missing consultation evidence fails closed to generic bot mode",
+  () => {
+    const current = conversation({
+      activeConsultationId: "consultation-1",
+    });
+
+    assert.equal(resolveWhatsAppResumeMode(current, null), "bot");
+    assert.equal(
+      resolveWhatsAppResumeMode(current, {
+        _id: "consultation-2",
+        status: "in_progress",
+      }),
+      "bot"
     );
   }
 );
