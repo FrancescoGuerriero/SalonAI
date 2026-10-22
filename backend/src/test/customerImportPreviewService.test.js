@@ -28,6 +28,35 @@ test("customer import CSV normalises supported fields and fails marketing consen
   assert.match(rows[0].warnings.join(" "), /explicit SalonAI consent evidence/i);
 });
 
+test("customer import preview stages historical service and appointment evidence without creating canonical records", () => {
+  const preview = previewCustomerImportCsv(
+    [
+      "first_name,last_name,email,last_service,last_appointment_date",
+      "Annie,Easley,annie@example.com,Full Colour,2026-01-12T10:30:00Z",
+    ].join("\n"),
+    { sourceName: "legacy-history.csv" }
+  );
+
+  assert.equal(preview.rows[0].historical.serviceName, "Full Colour");
+  assert.equal(preview.rows[0].historical.appointmentAt, "2026-01-12T10:30:00.000Z");
+  assert.equal(preview.rows[0].historical.canonicalServiceId, "");
+  assert.equal(preview.rows[0].historical.canonicalAppointmentId, "");
+  assert.equal(preview.governance.historicalMappingRequiresCanonicalResolution, true);
+  assert.match(preview.rows[0].warnings.join(" "), /canonical Service\/Appointment resolution/i);
+});
+
+test("customer import preview rejects invalid historical appointment dates", () => {
+  const preview = previewCustomerImportCsv(
+    [
+      "first_name,last_name,email,historical_service,historical_appointment_date",
+      "Mary,Jackson,mary@example.com,Highlights,not-a-date",
+    ].join("\n")
+  );
+
+  assert.equal(preview.errorRowCount, 1);
+  assert.match(preview.rows[0].errors.join(" "), /historical appointment date is invalid/i);
+});
+
 test("customer import preview detects staged and existing-customer collisions without writing", () => {
   const preview = previewCustomerImportCsv(
     [
