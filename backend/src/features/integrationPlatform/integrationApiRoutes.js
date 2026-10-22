@@ -14,6 +14,7 @@ import {
 } from "./integrationScopeCatalogue.js";
 
 const router = express.Router();
+const API_ROOT = "/api/future/integrations/v1";
 
 router.use(asyncHandler(authenticateIntegrationApp));
 
@@ -32,9 +33,9 @@ router.get(
       },
       ratePolicy: request.integrationAuth.ratePolicy,
       endpoints: {
-        scopeCatalogue: "/api/integrations/v1/scopes",
-        eventCatalogue: "/api/integrations/v1/events",
-        connectorHealth: "/api/integrations/v1/health",
+        scopeCatalogue: `${API_ROOT}/scopes`,
+        eventCatalogue: `${API_ROOT}/events`,
+        connectorHealth: `${API_ROOT}/health`,
       },
     });
   }
