@@ -24,6 +24,52 @@ const HAIR_COLOUR_FEATURES = Object.freeze([
   "desiredOutcome",
 ]);
 
+const HAIR_COLOUR_QUESTIONS = Object.freeze([
+  Object.freeze({
+    field: "desiredOutcome",
+    prompt: "What result would you like to achieve with your hair colour?",
+  }),
+  Object.freeze({
+    field: "currentColour",
+    prompt: "What is your current hair colour?",
+  }),
+  Object.freeze({
+    field: "naturalColour",
+    prompt:
+      "What is your natural hair colour or natural base, if you know it? Reply UNKNOWN if you are not sure.",
+  }),
+  Object.freeze({
+    field: "colourHistory",
+    prompt:
+      "Has your hair been coloured before? Please briefly describe the colour history, or reply NONE.",
+  }),
+  Object.freeze({
+    field: "bleachHistory",
+    prompt:
+      "Has your hair been bleached or lightened before? Please briefly describe it, or reply NONE.",
+  }),
+  Object.freeze({
+    field: "hairCondition",
+    prompt:
+      "How would you describe the current condition of your hair, for example healthy, dry, damaged or fragile?",
+  }),
+  Object.freeze({
+    field: "length",
+    prompt:
+      "Approximately how long is your hair, for example very short, short, medium, long or very long?",
+  }),
+  Object.freeze({
+    field: "density",
+    prompt:
+      "How would you describe your hair density, for example fine, medium or thick?",
+  }),
+  Object.freeze({
+    field: "sensitivities",
+    prompt:
+      "Do you have any known scalp or skin sensitivities relevant to hair colouring? Reply NONE if not.",
+  }),
+]);
+
 const DEFINITIONS = Object.freeze({
   "hair-colour-chemical": Object.freeze({
     id: "hair-colour-chemical",
@@ -31,6 +77,7 @@ const DEFINITIONS = Object.freeze({
     vertical: "salon",
     active: true,
     featureKeys: HAIR_COLOUR_FEATURES,
+    questions: HAIR_COLOUR_QUESTIONS,
     humanReviewRequired: true,
     media: Object.freeze({
       enabled: true,
@@ -100,6 +147,25 @@ export function allowedConsultationFeatureKeys(
   );
 }
 
+export function nextConsultationDefinitionQuestion({
+  consultationType,
+  definitionVersion = "",
+  features = {},
+} = {}) {
+  const definition = requireConsultationDefinition(
+    consultationType,
+    definitionVersion
+  );
+  const question = (definition.questions || []).find(
+    ({ field }) => !String(features?.[field] ?? "").trim()
+  );
+  if (!question) return null;
+  return Object.freeze({
+    field: question.field,
+    question: question.prompt,
+  });
+}
+
 export function evaluateConsultationDefinition({
   consultationType,
   definitionVersion = "",
@@ -126,5 +192,6 @@ export default {
   evaluateConsultationDefinition,
   getConsultationDefinition,
   listConsultationDefinitions,
+  nextConsultationDefinitionQuestion,
   requireConsultationDefinition,
 };
