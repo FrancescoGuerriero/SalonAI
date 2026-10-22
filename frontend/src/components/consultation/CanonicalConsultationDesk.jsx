@@ -6,6 +6,7 @@ import serviceService from "../../Services/serviceService.js";
 import stylistService from "../../Services/stylistService.js";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
+import ConsultationModificationForm from "./ConsultationModificationForm.jsx";
 import ConsultationReviewWorkspace from "./ConsultationReviewWorkspace.jsx";
 
 const idOf = (value) => String(value?._id ?? value?.id ?? value ?? "");
@@ -431,6 +432,7 @@ export default function CanonicalConsultationDesk() {
     canReview &&
     statusCanRecommend(selected.status) &&
     !selected.outcome?.bookingConverted;
+  const showModificationForm = selected && canReview && statusNeedsReview(selected.status);
   const showBookingForm = selected?.status === "booking_ready" && !selected?.outcome?.bookingConverted;
 
   return (
@@ -498,6 +500,25 @@ export default function CanonicalConsultationDesk() {
             actions={actions}
             busyAction={busyAction}
           />
+
+          {showModificationForm ? (
+            <ConsultationModificationForm
+              consultation={selected}
+              busy={Boolean(busyAction)}
+              onSubmit={(correction) =>
+                run(
+                  "review-modified",
+                  () =>
+                    consultationService.reviewConsultation(idOf(selected), {
+                      decision: "modified",
+                      notes: "Approved with a documented reviewer correction.",
+                      corrections: [correction],
+                    }),
+                  "Human review approved with a documented modification."
+                )
+              }
+            />
+          ) : null}
 
           {showRecommendationForm ? (
             <form
