@@ -1,5 +1,9 @@
 import * as service from "./integrationPlatformService.js";
 import {
+  integrationScopeCatalogue,
+  normaliseIntegrationScopes,
+} from "./integrationScopeCatalogue.js";
+import {
   createServiceError,
 } from "../../shared/serviceError.js";
 
@@ -29,6 +33,14 @@ function body(request) {
     : {};
 }
 
+function appPayload(request) {
+  const payload = { ...body(request) };
+  if (payload.scopes !== undefined) {
+    payload.scopes = normaliseIntegrationScopes(payload.scopes);
+  }
+  return payload;
+}
+
 export async function apps(request, response) {
   response.json({
     items: await service.listIntegrationApps(request.query || {}, {
@@ -39,7 +51,7 @@ export async function apps(request, response) {
 
 export async function createApp(request, response) {
   response.status(201).json(
-    await service.createIntegrationApp(body(request), {
+    await service.createIntegrationApp(appPayload(request), {
       businessId: businessId(request),
       ownerUser: actorId(request),
     })
@@ -50,7 +62,7 @@ export async function updateApp(request, response) {
   response.json(
     await service.updateIntegrationApp(
       request.params.appId,
-      body(request),
+      appPayload(request),
       { businessId: businessId(request) }
     )
   );
@@ -165,6 +177,12 @@ export async function eventCatalogue(_request, response) {
   });
 }
 
+export async function scopeCatalogue(_request, response) {
+  response.json({
+    items: integrationScopeCatalogue(),
+  });
+}
+
 export default {
   apps,
   connections,
@@ -178,6 +196,7 @@ export default {
   issueCredential,
   replayDelivery,
   revokeCredential,
+  scopeCatalogue,
   subscriptions,
   updateApp,
   updateSubscription,
