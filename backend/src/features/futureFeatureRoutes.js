@@ -19,6 +19,7 @@ import loyaltyRoutes from "./loyalty/loyaltyRoutes.js";
 import membershipRoutes from "./memberships/membershipRoutes.js";
 import integrationApiRoutes from "./integrationPlatform/integrationApiRoutes.js";
 import integrationPlatformRoutes from "./integrationPlatform/integrationPlatformRoutes.js";
+import leadRoutes from "./leads/leadRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
 import securityRoutes from "./security/securityRoutes.js";
@@ -99,6 +100,10 @@ router.use(
 router.use(
   "/integrations",
   integrationPlatformRoutes
+);
+router.use(
+  "/leads",
+  leadRoutes
 );
 
 /*

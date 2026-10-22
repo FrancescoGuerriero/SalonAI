@@ -12,6 +12,12 @@ export const DOMAIN_EVENT_CATALOGUE = Object.freeze({
   "membership.collection_failed": Object.freeze({ versions: Object.freeze(["1"]) }),
   "membership.benefit_issued": Object.freeze({ versions: Object.freeze(["1"]) }),
   "membership.benefit_redeemed": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.captured": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.updated": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.scored": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.opportunity_created": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.converted": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "opportunity.updated": Object.freeze({ versions: Object.freeze(["1"]) }),
   "order.completed": Object.freeze({ versions: Object.freeze(["1"]) }),
 });
 
