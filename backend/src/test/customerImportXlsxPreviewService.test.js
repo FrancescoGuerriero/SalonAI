@@ -44,6 +44,24 @@ test("XLSX customer import stages first worksheet rows through the governed prev
   assert.match(preview.rows[0].warnings.join(" "), /explicit SalonAI consent evidence/i);
 });
 
+test("XLSX customer import stages Date cells and historical service labels as unresolved evidence", async () => {
+  const appointmentDate = new Date("2025-11-08T13:45:00Z");
+  const buffer = await workbookBuffer([
+    ["First Name", "Last Name", "Email", "Last Service", "Last Appointment Date"],
+    ["Mae", "Jemison", "mae@example.com", "Balayage", appointmentDate],
+  ]);
+
+  const preview = await previewCustomerImportXlsx(buffer, {
+    sourceName: "legacy-history.xlsx",
+  });
+
+  assert.equal(preview.rows[0].historical.serviceName, "Balayage");
+  assert.equal(preview.rows[0].historical.appointmentAt, appointmentDate.toISOString());
+  assert.equal(preview.rows[0].historical.canonicalServiceId, "");
+  assert.equal(preview.rows[0].historical.canonicalAppointmentId, "");
+  assert.equal(preview.governance.historicalMappingRequiresCanonicalResolution, true);
+});
+
 test("XLSX customer import rejects missing identity headers and empty workbooks", async () => {
   const missingNames = await workbookBuffer([
     ["Email", "Phone"],
