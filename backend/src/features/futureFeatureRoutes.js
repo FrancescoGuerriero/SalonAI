@@ -17,6 +17,7 @@ import reportRoutes from "./reports/reportRoutes.js";
 import revenueForecastRoutes from "./revenueForecasting/revenueForecastRoutes.js";
 import loyaltyRoutes from "./loyalty/loyaltyRoutes.js";
 import membershipRoutes from "./memberships/membershipRoutes.js";
+import integrationApiRoutes from "./integrationPlatform/integrationApiRoutes.js";
 import integrationPlatformRoutes from "./integrationPlatform/integrationPlatformRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
@@ -50,6 +51,16 @@ import { auditFutureWrites } from "./security/writeAudit.js";
 import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
+
+/*
+ * External integration applications authenticate with their own rotating
+ * service credentials. Keep this versioned API before staff/JWT protection;
+ * every nested route applies integration credential, scope and app-rate checks.
+ */
+router.use(
+  "/integrations/v1",
+  integrationApiRoutes
+);
 
 router.use(protect);
 router.use(auditFutureWrites);
