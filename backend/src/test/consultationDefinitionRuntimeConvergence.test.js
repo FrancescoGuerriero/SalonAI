@@ -25,6 +25,25 @@ test("WhatsApp runtime uses the registered active consultation definition", () =
   });
 });
 
+test("registered Hair Colour questions are definition-owned and use allowed feature keys", () => {
+  const definition = requireConsultationDefinition("hair-colour-chemical", "1");
+  const allowed = new Set(definition.featureKeys);
+  const questionFields = definition.questions.map(({ field }) => field);
+
+  assert.deepEqual(questionFields, [
+    "desiredOutcome",
+    "currentColour",
+    "naturalColour",
+    "colourHistory",
+    "bleachHistory",
+    "hairCondition",
+    "length",
+    "density",
+    "sensitivities",
+  ]);
+  assert.ok(questionFields.every((field) => allowed.has(field)));
+});
+
 test("future consultation definitions remain inactive until explicitly registered", () => {
   assert.equal(getConsultationDefinition("spa-skin-consultation", "1"), null);
   assert.throws(
