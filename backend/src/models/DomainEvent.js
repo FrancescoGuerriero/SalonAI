@@ -16,6 +16,7 @@ const domainEventSchema = new Schema(
     correlationId: { type: String, trim: true, default: "", maxlength: 160, index: true },
     causationId: { type: String, trim: true, default: "", maxlength: 160 },
     projectedAt: { type: Date, default: null, index: true },
+    workflowDispatchedAt: { type: Date, default: null, index: true },
     metadata: { type: Schema.Types.Mixed, default: () => ({}) },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
@@ -23,6 +24,7 @@ const domainEventSchema = new Schema(
 
 domainEventSchema.index({ business: 1, occurredAt: 1, _id: 1 });
 domainEventSchema.index({ business: 1, type: 1, version: 1, occurredAt: 1 });
+domainEventSchema.index({ workflowDispatchedAt: 1, occurredAt: 1, _id: 1 });
 
 export default (
   mongoose.models.DomainEvent ||

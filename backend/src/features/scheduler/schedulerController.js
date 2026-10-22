@@ -1,4 +1,7 @@
 import * as service from "./schedulerService.js";
+import {
+  processWorkflowTick,
+} from "../workflows/workflowEngineService.js";
 
 export async function list(req, res) {
   res.json({
@@ -10,11 +13,18 @@ export async function list(req, res) {
 
 export async function process(req, res) {
   const limit = Number(req.body.limit) || 25;
+  const boundedLimit = Math.min(Math.max(1, limit), 100);
+
+  const workflows = await processWorkflowTick({
+    eventLimit: boundedLimit,
+    runLimit: boundedLimit,
+  });
 
   res.json({
     items: await service.processBatch(
-      Math.min(limit, 100)
+      boundedLimit
     ),
+    workflows,
   });
 }
 
