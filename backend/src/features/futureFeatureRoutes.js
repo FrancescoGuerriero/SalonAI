@@ -16,6 +16,7 @@ import aiRoutes from "./ai/aiRoutes.js";
 import reportRoutes from "./reports/reportRoutes.js";
 import revenueForecastRoutes from "./revenueForecasting/revenueForecastRoutes.js";
 import loyaltyRoutes from "./loyalty/loyaltyRoutes.js";
+import membershipRoutes from "./memberships/membershipRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
 import securityRoutes from "./security/securityRoutes.js";
@@ -78,6 +79,10 @@ router.use(
   "/service-trials",
   requireFeature("service-trials"),
   serviceTrialRoutes
+);
+router.use(
+  "/memberships",
+  membershipRoutes
 );
 
 /*
