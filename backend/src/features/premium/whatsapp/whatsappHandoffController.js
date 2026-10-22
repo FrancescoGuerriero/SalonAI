@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import ConsultationSession from "../../consultations/ConsultationSession.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
 import {
   buildResumeWhatsAppBotMutation,
@@ -31,6 +32,28 @@ function assertConversationId(value) {
   return value;
 }
 
+async function loadScopedActiveConsultation(conversation) {
+  if (
+    !conversation?.activeConsultationId ||
+    !conversation?.business ||
+    !conversation?.location ||
+    !conversation?.customer
+  ) {
+    return null;
+  }
+
+  return ConsultationSession.findOne({
+    _id: conversation.activeConsultationId,
+    business: conversation.business,
+    location: conversation.location,
+    customer: conversation.customer,
+    sourceConversation: conversation._id,
+    channel: "whatsapp",
+  })
+    .select("_id status")
+    .lean();
+}
+
 export async function resumeWhatsAppBot(
   request,
   response
@@ -53,9 +76,13 @@ export async function resumeWhatsAppBot(
     );
   }
 
+  const consultationSession =
+    await loadScopedActiveConsultation(current);
+
   const mutation =
     buildResumeWhatsAppBotMutation(
-      current
+      current,
+      { consultationSession }
     );
 
   const updated =
@@ -111,6 +138,7 @@ export async function resumeWhatsAppBot(
   return response.json({
     success: true,
     resumed: true,
+    resumeMode: mutation.resumeMode,
     staleBookingReset:
       mutation.staleBookingReset,
     conversation: updated,
