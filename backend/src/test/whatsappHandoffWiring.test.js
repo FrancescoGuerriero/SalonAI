@@ -64,12 +64,27 @@ test(
 
     assert.match(
       controller,
+      /ConsultationSession\.findOne\(\{[\s\S]*business:\s*conversation\.business[\s\S]*location:\s*conversation\.location[\s\S]*customer:\s*conversation\.customer[\s\S]*sourceConversation:\s*conversation\._id[\s\S]*channel:\s*"whatsapp"/
+    );
+
+    assert.match(
+      controller,
+      /buildResumeWhatsAppBotMutation\([\s\S]*current[\s\S]*consultationSession/
+    );
+
+    assert.match(
+      controller,
       /findOneAndUpdate\(/
     );
 
     assert.match(
       controller,
       /returnDocument:\s*"after"/
+    );
+
+    assert.match(
+      controller,
+      /resumeMode:\s*mutation\.resumeMode/
     );
   }
 );
