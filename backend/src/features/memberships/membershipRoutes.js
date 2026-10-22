@@ -5,13 +5,16 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import {
+  benefitBalances,
   collectContract,
   contract,
   contracts,
   createContract,
   createPlan,
   freezeContract,
+  issueBenefits,
   plans,
+  redeemBenefit,
   resumeContract,
   updateContract,
   updatePlan,
@@ -61,6 +64,21 @@ router.post(
   "/contracts/:id/collections",
   requirePermissions("customer:update"),
   asyncHandler(collectContract)
+);
+router.get(
+  "/contracts/:id/benefits",
+  requirePermissions("customer:read"),
+  asyncHandler(benefitBalances)
+);
+router.post(
+  "/contracts/:id/benefits/issue",
+  requirePermissions("customer:update"),
+  asyncHandler(issueBenefits)
+);
+router.post(
+  "/contracts/:id/benefits/:benefitKey/redeem",
+  requirePermissions("customer:update"),
+  asyncHandler(redeemBenefit)
 );
 
 export default router;

@@ -11,6 +11,11 @@ import {
   updateMembershipPlan,
 } from "./membershipService.js";
 import {
+  issueMembershipBenefits,
+  membershipBenefitBalances,
+  redeemMembershipBenefit,
+} from "./membershipBenefitService.js";
+import {
   createServiceError,
 } from "../../shared/serviceError.js";
 
@@ -27,6 +32,15 @@ function businessId(request) {
     );
   }
   return value;
+}
+
+function actor(request) {
+  return String(
+    request.user?._id ||
+    request.user?.id ||
+    request.user?.email ||
+    "system"
+  );
 }
 
 function body(request) {
@@ -117,14 +131,48 @@ export async function collectContract(request, response) {
   );
 }
 
+export async function benefitBalances(request, response) {
+  response.json({
+    items: await membershipBenefitBalances(request.params.id, {
+      businessId: businessId(request),
+    }),
+  });
+}
+
+export async function issueBenefits(request, response) {
+  response.status(201).json({
+    items: await issueMembershipBenefits(request.params.id, body(request), {
+      businessId: businessId(request),
+      actor: actor(request),
+    }),
+  });
+}
+
+export async function redeemBenefit(request, response) {
+  response.status(201).json(
+    await redeemMembershipBenefit(
+      request.params.id,
+      request.params.benefitKey,
+      body(request),
+      {
+        businessId: businessId(request),
+        actor: actor(request),
+      }
+    )
+  );
+}
+
 export default {
+  benefitBalances,
   collectContract,
   contract,
   contracts,
   createContract,
   createPlan,
   freezeContract,
+  issueBenefits,
   plans,
+  redeemBenefit,
   resumeContract,
   updateContract,
   updatePlan,

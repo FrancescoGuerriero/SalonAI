@@ -11,6 +11,38 @@ export const MEMBERSHIP_CONTRACT_STATUSES = Object.freeze([
   "expired",
 ]);
 
+const benefitWalletSchema = new Schema(
+  {
+    key: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      maxlength: 120,
+    },
+    instrument: {
+      type: Schema.Types.ObjectId,
+      ref: "StoredValueInstrument",
+      required: true,
+    },
+    unit: {
+      type: String,
+      enum: ["money", "quantity", "points"],
+      required: true,
+    },
+    currency: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      maxlength: 3,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
 const membershipContractSchema = new Schema(
   {
     business: {
@@ -69,11 +101,17 @@ const membershipContractSchema = new Schema(
       min: 0,
       default: 0,
     },
+    // Compatibility pointer for older single-benefit consumers. New membership
+    // benefit state lives in benefitWallets and the immutable stored-value ledger.
     benefitInstrument: {
       type: Schema.Types.ObjectId,
       ref: "StoredValueInstrument",
       default: null,
       index: true,
+    },
+    benefitWallets: {
+      type: [benefitWalletSchema],
+      default: [],
     },
     familyMemberCustomers: {
       type: [{ type: Schema.Types.ObjectId, ref: "Customer" }],
@@ -122,6 +160,11 @@ membershipContractSchema.index({
   business: 1,
   customer: 1,
   status: 1,
+});
+
+membershipContractSchema.index({
+  business: 1,
+  "benefitWallets.instrument": 1,
 });
 
 membershipContractSchema.index(
