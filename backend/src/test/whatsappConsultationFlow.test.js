@@ -13,22 +13,70 @@ test("WhatsApp consultation requires explicit consent language", () => {
   assert.equal(consultationConsentDecision("tell me more"), "unknown");
 });
 
-test("WhatsApp consultation questions follow deterministic required-field order", () => {
+test("WhatsApp consultation questions follow the registered Hair Colour v1 sequence", () => {
   assert.deepEqual(nextWhatsAppConsultationQuestion({}), {
     field: "desiredOutcome",
     question: "What result would you like to achieve with your hair colour?",
   });
 
+  assert.deepEqual(
+    nextWhatsAppConsultationQuestion({
+      desiredOutcome: "lighter blonde",
+      currentColour: "dark blonde",
+    }),
+    {
+      field: "naturalColour",
+      question:
+        "What is your natural hair colour or natural base, if you know it? Reply UNKNOWN if you are not sure.",
+    }
+  );
+
   const next = nextWhatsAppConsultationQuestion({
     desiredOutcome: "lighter blonde",
     currentColour: "dark blonde",
-    hairCondition: "healthy",
+    naturalColour: "medium brown",
     colourHistory: "none",
     bleachHistory: "none",
+    hairCondition: "healthy",
+    length: "long",
+    density: "medium",
     sensitivities: "none",
   });
 
   assert.equal(next, null);
+});
+
+test("Hair Colour v1 still collects registered enrichment fields when safety-required fields are prefilled", () => {
+  const safetyComplete = {
+    desiredOutcome: "copper",
+    currentColour: "brown",
+    hairCondition: "healthy",
+    colourHistory: "none",
+    bleachHistory: "none",
+    sensitivities: "none",
+  };
+
+  assert.equal(
+    nextWhatsAppConsultationQuestion(safetyComplete)?.field,
+    "naturalColour"
+  );
+
+  assert.equal(
+    nextWhatsAppConsultationQuestion({
+      ...safetyComplete,
+      naturalColour: "brown",
+    })?.field,
+    "length"
+  );
+
+  assert.equal(
+    nextWhatsAppConsultationQuestion({
+      ...safetyComplete,
+      naturalColour: "brown",
+      length: "medium",
+    })?.field,
+    "density"
+  );
 });
 
 test("WhatsApp consultation assessment is definition/version scoped and fails closed", () => {
