@@ -17,6 +17,9 @@ import {
   summary,
 } from "./appointmentManagementController.js";
 import {
+  createSequencedAppointment,
+} from "./sequenceBookingController.js";
+import {
   createWalkIn,
   walkInQueue,
 } from "./walkInController.js";
@@ -92,6 +95,19 @@ router.post(
     "created"
   ),
   asyncHandler(create)
+);
+
+router.post(
+  "/sequence",
+  requirePermissions(
+    "appointment:create"
+  ),
+  appointmentLifecycleNotification(
+    "created"
+  ),
+  asyncHandler(
+    createSequencedAppointment
+  )
 );
 
 /*
