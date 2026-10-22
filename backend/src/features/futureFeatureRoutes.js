@@ -17,6 +17,7 @@ import reportRoutes from "./reports/reportRoutes.js";
 import revenueForecastRoutes from "./revenueForecasting/revenueForecastRoutes.js";
 import loyaltyRoutes from "./loyalty/loyaltyRoutes.js";
 import membershipRoutes from "./memberships/membershipRoutes.js";
+import integrationPlatformRoutes from "./integrationPlatform/integrationPlatformRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
 import securityRoutes from "./security/securityRoutes.js";
@@ -83,6 +84,10 @@ router.use(
 router.use(
   "/memberships",
   membershipRoutes
+);
+router.use(
+  "/integrations",
+  integrationPlatformRoutes
 );
 
 /*
