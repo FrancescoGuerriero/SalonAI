@@ -13,6 +13,7 @@ import {
 } from "./sequenceReservationPlan.js";
 import BookingResource from "./BookingResource.js";
 import BookingResourceReservation from "./BookingResourceReservation.js";
+import ProviderOccupancyReservation from "./ProviderOccupancyReservation.js";
 import ServiceSequence from "./ServiceSequence.js";
 import {
   formatSalonTime,
@@ -47,19 +48,6 @@ function resourceKey(kind, key) {
   return `${String(kind || "").trim()}:${String(key || "").trim().toLowerCase()}`;
 }
 
-function minuteOfDay(time) {
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(time || "").trim());
-  if (!match) {
-    throw serviceError(
-      "appointmentTime must use HH:mm format.",
-      "INVALID_SEQUENCE_BOOKING_TIME",
-      400,
-      { field: "appointmentTime" }
-    );
-  }
-  return Number(match[1]) * 60 + Number(match[2]);
-}
-
 function sequenceDateAndTime(payload = {}) {
   if (payload.startsAt) {
     const startsAt = new Date(payload.startsAt);
@@ -89,9 +77,9 @@ function requiredResourcePairs(sequence) {
 
   for (const step of sequence?.steps || []) {
     for (const requirement of step?.resourceRequirements || []) {
-      const key = resourceKey(requirement.kind, requirement.resourceKey);
-      if (!seen.has(key)) {
-        seen.add(key);
+      const compoundKey = resourceKey(requirement.kind, requirement.resourceKey);
+      if (!seen.has(compoundKey)) {
+        seen.add(compoundKey);
         pairs.push({
           kind: requirement.kind,
           key: String(requirement.resourceKey || "").trim().toLowerCase(),
@@ -142,7 +130,9 @@ async function busyReservations(resourceIds, startsAt, endsAt, session) {
 
   if (reservations.length === 0) return [];
 
-  const appointmentIds = [...new Set(reservations.map((item) => String(item.appointment)))];
+  const appointmentIds = [
+    ...new Set(reservations.map((item) => String(item.appointment))),
+  ];
   const activeAppointments = await Appointment.find({
     _id: { $in: appointmentIds },
     status: { $nin: ["cancelled", "no_show"] },
@@ -151,7 +141,9 @@ async function busyReservations(resourceIds, startsAt, endsAt, session) {
     .session(session)
     .lean();
 
-  const activeIds = new Set(activeAppointments.map((item) => String(item._id)));
+  const activeIds = new Set(
+    activeAppointments.map((item) => String(item._id))
+  );
   return reservations.filter((item) => activeIds.has(String(item.appointment)));
 }
 
@@ -189,12 +181,14 @@ export async function createSequencedManagedAppointment(
 ) {
   const sequenceId = objectId(payload.serviceSequence, "serviceSequence");
   const serviceId = objectId(payload.service, "service");
+  const stylistId = objectId(payload.stylist, "stylist");
   const locationId = objectId(payload.location, "location", { required: false });
 
   const databaseSession = await mongoose.startSession();
   let appointmentId = null;
   let sequenceSummary = null;
   let reservationSummary = [];
+  let providerReservationSummary = [];
 
   try {
     await databaseSession.withTransaction(async () => {
@@ -279,6 +273,7 @@ export async function createSequencedManagedAppointment(
           ...payload,
           duration: plan.totalDurationMinutes,
           endsAt: plan.endsAt,
+          providerWindows: plan.providerWindows,
         },
         {
           actor,
@@ -292,15 +287,52 @@ export async function createSequencedManagedAppointment(
 
       appointmentId = appointment._id;
 
+      const createdProviderReservations = await ProviderOccupancyReservation.create(
+        plan.providerWindows.map((window) => ({
+          business: sequence.business || undefined,
+          location: locationId || undefined,
+          appointment: appointment._id,
+          serviceSequence: sequence._id,
+          stylist: stylistId,
+          segmentOrder: window.segmentOrder,
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+        })),
+        { session: databaseSession }
+      );
+
+      providerReservationSummary = createdProviderReservations.map((reservation) => ({
+        id: String(reservation._id),
+        stylist: String(reservation.stylist),
+        segmentOrder: reservation.segmentOrder,
+        startsAt: reservation.startsAt,
+        endsAt: reservation.endsAt,
+      }));
+
       if (plan.reservations.length > 0) {
         const resourcesByKey = new Map(
-          resources.map((resource) => [resourceKey(resource.kind, resource.key), resource])
+          resources.map((resource) => [
+            resourceKey(resource.kind, resource.key),
+            resource,
+          ])
         );
 
         const reservationDocuments = plan.reservations.map((reservation) => {
-          const resource = resourcesByKey.get(
-            resourceKey(reservation.kind, resourceKey)
+          const compoundKey = resourceKey(
+            reservation.kind,
+            reservation.resourceKey
           );
+          const resource = resourcesByKey.get(compoundKey);
+
+          if (!resource) {
+            throw serviceError(
+              `Required booking resource ${compoundKey} disappeared during booking.`,
+              "BOOKING_RESOURCE_NOT_FOUND",
+              409,
+              { field: "serviceSequence" }
+            );
+          }
+
           return {
             business: sequence.business || undefined,
             location: locationId,
@@ -308,9 +340,9 @@ export async function createSequencedManagedAppointment(
             serviceSequence: sequence._id,
             resource: resource._id,
             kind: reservation.kind,
-            resourceKey: resourceKey,
-            segmentOrder: resourcd.segmentOrder,
-            segmentType: resourcd.segmentType,
+            resourceKey: reservation.resourceKey,
+            segmentOrder: reservation.segmentOrder,
+            segmentType: reservation.segmentType,
             startsAt: reservation.startsAt,
             endsAt: reservation.endsAt,
             quantity: reservation.quantity,
@@ -326,6 +358,8 @@ export async function createSequencedManagedAppointment(
           resource: String(reservation.resource),
           kind: reservation.kind,
           resourceKey: reservation.resourceKey,
+          segmentOrder: reservation.segmentOrder,
+          segmentType: reservation.segmentType,
           startsAt: reservation.startsAt,
           endsAt: reservation.endsAt,
           quantity: reservation.quantity,
@@ -355,6 +389,7 @@ export async function createSequencedManagedAppointment(
   return {
     appointment: await getManagedAppointment(appointmentId),
     serviceSequence: sequenceSummary,
+    providerReservations: providerReservationSummary,
     resourceReservations: reservationSummary,
   };
 }

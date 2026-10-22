@@ -26,6 +26,7 @@ export async function createSequencedAppointment(request, response) {
     message: "Sequenced appointment created successfully.",
     appointment: serialise(result.appointment),
     serviceSequence: result.serviceSequence,
+    providerReservations: result.providerReservations,
     resourceReservations: result.resourceReservations,
   });
 }

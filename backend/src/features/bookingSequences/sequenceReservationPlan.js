@@ -41,6 +41,22 @@ function resourceKey(kind, key) {
   return `${String(kind || "").trim()}:${String(key || "").trim().toLowerCase()}`;
 }
 
+function segmentWindow(dateKey, segment) {
+  return Object.freeze({
+    segmentOrder: segment.order,
+    startsAt: combineSalonDateAndTime(
+      dateKey,
+      minutesToTime(segment.startMinutes),
+      { dateField: "appointmentDate", timeField: "appointmentTime" }
+    ),
+    endsAt: combineSalonDateAndTime(
+      dateKey,
+      minutesToTime(segment.endMinutes),
+      { dateField: "appointmentDate", timeField: "appointmentTime" }
+    ),
+  });
+}
+
 export function buildSequenceReservationPlan({
   sequence,
   date,
@@ -56,6 +72,18 @@ export function buildSequenceReservationPlan({
     throw planError(
       "A service sequence must finish before the end of the salon calendar day.",
       "SEQUENCE_CROSSES_CALENDAR_DAY",
+      "serviceSequence"
+    );
+  }
+
+  const providerWindows = timeline.segments
+    .filter((segment) => segment.providerRequired)
+    .map((segment) => segmentWindow(dateKey, segment));
+
+  if (providerWindows.length === 0) {
+    throw planError(
+      "A sequenced appointment requires at least one provider-required service segment.",
+      "SEQUENCE_PROVIDER_SEGMENT_REQUIRED",
       "serviceSequence"
     );
   }
@@ -95,6 +123,7 @@ export function buildSequenceReservationPlan({
         );
       }
 
+      const window = segmentWindow(dateKey, segment);
       reservations.push(
         Object.freeze({
           resourceId: String(resource._id || resource.id || "").trim(),
@@ -102,16 +131,8 @@ export function buildSequenceReservationPlan({
           resourceKey: String(requirement.resourceKey).trim().toLowerCase(),
           segmentOrder: segment.order,
           segmentType: segment.type,
-          startsAt: combineSalonDateAndTime(
-            dateKey,
-            minutesToTime(segment.startMinutes),
-            { dateField: "appointmentDate", timeField: "appointmentTime" }
-          ),
-          endsAt: combineSalonDateAndTime(
-            dateKey,
-            minutesToTime(segment.endMinutes),
-            { dateField: "appointmentDate", timeField: "appointmentTime" }
-          ),
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
           quantity,
         })
       );
@@ -132,6 +153,7 @@ export function buildSequenceReservationPlan({
       timeField: "appointmentTime",
     }),
     totalDurationMinutes: timeline.totalDurationMinutes,
+    providerWindows: Object.freeze(providerWindows),
     reservations: Object.freeze(reservations),
   });
 }
