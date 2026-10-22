@@ -5,7 +5,6 @@ import {
   getMembershipContract,
   listMembershipContracts,
   listMembershipPlans,
-  recordMembershipCollection,
   resumeMembershipContract,
   updateMembershipContract,
   updateMembershipPlan,
@@ -15,6 +14,9 @@ import {
   membershipBenefitBalances,
   redeemMembershipBenefit,
 } from "./membershipBenefitService.js";
+import {
+  recordMembershipCollectionAndRefreshBenefits,
+} from "./membershipCollectionOrchestrator.js";
 import {
   createServiceError,
 } from "../../shared/serviceError.js";
@@ -124,11 +126,18 @@ export async function resumeContract(request, response) {
 }
 
 export async function collectContract(request, response) {
-  response.status(201).json(
-    await recordMembershipCollection(request.params.id, body(request), {
+  const result = await recordMembershipCollectionAndRefreshBenefits(
+    request.params.id,
+    body(request),
+    {
       businessId: businessId(request),
-    })
+      actor: actor(request),
+    }
   );
+
+  response
+    .status(result.benefitRefresh?.status === "pending" ? 202 : 201)
+    .json(result);
 }
 
 export async function benefitBalances(request, response) {

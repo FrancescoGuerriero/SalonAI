@@ -11,6 +11,7 @@ import {
 } from "../../platform/finance/storedValueLedger.js";
 import {
   buildMembershipBenefitPosting,
+  calculateMembershipRollover,
   membershipAccessState,
 } from "../../platform/memberships/membershipContract.js";
 import {
@@ -128,7 +129,20 @@ async function membershipProgram(contract, session = null) {
   );
 }
 
+function assertBenefitMatchesProgram(benefit, program) {
+  if (benefit.unit !== program.unit) {
+    throw createServiceError(
+      `Membership benefit ${benefit.key} uses ${benefit.unit}, but its stored-value programme uses ${program.unit}.`,
+      409,
+      { field: "benefits" }
+    );
+  }
+}
+
 async function ensureBenefitInstrument(contract, benefit, session = null) {
+  const program = await membershipProgram(contract, session);
+  assertBenefitMatchesProgram(benefit, program);
+
   const existingWallet = (contract.benefitWallets || []).find(
     (wallet) => wallet.key === benefit.key
   );
@@ -141,10 +155,18 @@ async function ensureBenefitInstrument(contract, benefit, session = null) {
     });
     if (session) query = query.session(session);
     const instrument = await query;
-    if (instrument) return instrument;
+    if (instrument) {
+      if (instrument.unit !== benefit.unit) {
+        throw createServiceError(
+          `Membership benefit ${benefit.key} cannot change unit after value has been issued.`,
+          409,
+          { field: "benefits" }
+        );
+      }
+      return { instrument, program };
+    }
   }
 
-  const program = await membershipProgram(contract, session);
   const reference = instrumentReference(contract._id, benefit.key);
   const filter = {
     business: contract.business,
@@ -181,7 +203,7 @@ async function ensureBenefitInstrument(contract, benefit, session = null) {
   const instrument = await query;
 
   const wallets = Array.isArray(contract.benefitWallets)
-    ? contract.benefitWallets
+    ? [...contract.benefitWallets]
     : [];
   const index = wallets.findIndex((wallet) => wallet.key === benefit.key);
   const wallet = {
@@ -200,7 +222,7 @@ async function ensureBenefitInstrument(contract, benefit, session = null) {
   }
 
   await contract.save(session ? { session } : undefined);
-  return instrument;
+  return { instrument, program };
 }
 
 async function ledgerBalance(instrumentId, session = null) {
@@ -218,7 +240,9 @@ async function persistPosting(posting, session = null) {
   });
   if (session) existingQuery = existingQuery.session(session);
   const existing = await existingQuery.lean();
-  if (existing) return existing;
+  if (existing) {
+    return { entry: existing, created: false };
+  }
 
   const document = {
     business: posting.businessId,
@@ -242,11 +266,17 @@ async function persistPosting(posting, session = null) {
     metadata: posting.metadata,
   };
 
+  let created;
   if (session) {
-    const [created] = await StoredValueLedgerEntry.create([document], { session });
-    return created.toObject();
+    [created] = await StoredValueLedgerEntry.create([document], { session });
+  } else {
+    created = await StoredValueLedgerEntry.create(document);
   }
-  return (await StoredValueLedgerEntry.create(document)).toObject();
+
+  return {
+    entry: created.toObject(),
+    created: true,
+  };
 }
 
 async function postBenefitEvent({
@@ -260,8 +290,11 @@ async function postBenefitEvent({
   occurredAt = new Date(),
   session = null,
 }) {
-  const program = await membershipProgram(contract, session);
-  const instrument = await ensureBenefitInstrument(contract, benefit, session);
+  const { instrument, program } = await ensureBenefitInstrument(
+    contract,
+    benefit,
+    session
+  );
   const currentBalance = await ledgerBalance(instrument._id, session);
 
   if (eventType === "redeem" && currentBalance < amount) {
@@ -286,12 +319,13 @@ async function postBenefitEvent({
     });
   }
 
+  const negativeEvent = ["redeem", "expire"].includes(eventType);
   const posting = buildMembershipBenefitPosting({
     contract: contractInput(contract),
     programId: String(program._id),
     instrumentId: String(instrument._id),
     eventType,
-    delta: eventType === "redeem" ? -Math.abs(amount) : Math.abs(amount),
+    delta: negativeEvent ? -Math.abs(amount) : Math.abs(amount),
     unit: benefit.unit,
     currency: contract.plan.currency,
     locationId,
@@ -301,15 +335,19 @@ async function postBenefitEvent({
     occurredAt,
   });
 
-  const entry = await persistPosting(posting, session);
+  const persisted = await persistPosting(posting, session);
   const balance = await ledgerBalance(instrument._id, session);
+
+  const cacheUpdate = {
+    $set: { cachedBalance: balance },
+  };
+  if (persisted.created) {
+    cacheUpdate.$inc = { cacheRevision: 1 };
+  }
 
   await StoredValueInstrument.updateOne(
     { _id: instrument._id },
-    {
-      $set: { cachedBalance: balance },
-      $inc: { cacheRevision: 1 },
-    },
+    cacheUpdate,
     session ? { session } : undefined
   );
 
@@ -318,7 +356,8 @@ async function postBenefitEvent({
     instrumentId: String(instrument._id),
     unit: benefit.unit,
     currency: benefit.unit === "money" ? contract.plan.currency : "",
-    entry,
+    entry: persisted.entry,
+    created: persisted.created,
     balance,
   };
 }
@@ -331,7 +370,7 @@ export async function membershipBenefitBalances(
   const results = [];
 
   for (const benefit of contract.plan?.benefits || []) {
-    const instrument = await ensureBenefitInstrument(contract, benefit);
+    const { instrument } = await ensureBenefitInstrument(contract, benefit);
     results.push({
       benefitKey: benefit.key,
       allowance: benefit.allowance,
@@ -345,47 +384,108 @@ export async function membershipBenefitBalances(
   return results;
 }
 
-export async function issueMembershipBenefits(
+export async function refreshMembershipBenefitsForCycle(
   contractId,
   payload = {},
-  { businessId, actor = "system" } = {}
+  {
+    businessId,
+    actor = "system",
+    session = null,
+  } = {}
 ) {
-  const contract = await loadContract(contractId, businessId);
-  const access = membershipAccessState(contractInput(contract), payload.occurredAt || new Date());
+  const contract = await loadContract(contractId, businessId, session);
+  const occurredAt = payload.occurredAt || new Date();
+  const access = membershipAccessState(contractInput(contract), occurredAt);
   if (!access.usable) {
     throw createServiceError(
-      `Membership benefits cannot be issued while contract is ${access.reason}.`,
+      `Membership benefits cannot be refreshed while contract is ${access.reason}.`,
       409
     );
   }
 
-  const cycleKey = text(payload.cycleKey || contract.nextCollectionAt || contract.startsAt);
+  const cycleKey = text(
+    payload.cycleKey || contract.lastCollectionAt || contract.startsAt
+  );
   if (!cycleKey) {
-    throw createServiceError("A membership benefit cycle key is required.", 400, {
-      field: "cycleKey",
-    });
-  }
-
-  const results = [];
-  for (const benefit of contract.plan?.benefits || []) {
-    if (Number(benefit.allowance) <= 0) continue;
-    results.push(
-      await postBenefitEvent({
-        contract,
-        benefit,
-        eventType: "issue",
-        amount: benefit.allowance,
-        locationId: payload.locationId || contract.homeLocation || "",
-        idempotencyKey:
-          text(payload.idempotencyPrefix) ||
-          `membership:${contract._id}:benefit:${benefit.key}:issue:${cycleKey}`,
-        actor,
-        occurredAt: payload.occurredAt || new Date(),
-      })
+    throw createServiceError(
+      "A membership benefit cycle key is required.",
+      400,
+      { field: "cycleKey" }
     );
   }
 
+  const prefix = text(payload.idempotencyPrefix) || `membership:${contract._id}:benefit`;
+  const results = [];
+
+  for (const benefit of contract.plan?.benefits || []) {
+    const allowance = Math.max(0, Number(benefit.allowance) || 0);
+    const { instrument } = await ensureBenefitInstrument(contract, benefit, session);
+    const currentBalance = Math.max(0, await ledgerBalance(instrument._id, session));
+    const rollover = calculateMembershipRollover({
+      unused: currentBalance,
+      newAllowance: allowance,
+      rolloverEnabled: benefit.rolloverEnabled,
+      rolloverLimit: benefit.rolloverLimit,
+    });
+    const expiryAmount = Math.max(0, currentBalance - rollover.rolled);
+    const events = [];
+
+    if (expiryAmount > 0) {
+      events.push(
+        await postBenefitEvent({
+          contract,
+          benefit,
+          eventType: "expire",
+          amount: expiryAmount,
+          locationId: payload.locationId || contract.homeLocation || "",
+          idempotencyKey: `${prefix}:${benefit.key}:expire:${cycleKey}`,
+          actor,
+          occurredAt,
+          session,
+        })
+      );
+    }
+
+    if (allowance > 0) {
+      events.push(
+        await postBenefitEvent({
+          contract,
+          benefit,
+          eventType: "issue",
+          amount: allowance,
+          locationId: payload.locationId || contract.homeLocation || "",
+          idempotencyKey: `${prefix}:${benefit.key}:issue:${cycleKey}`,
+          actor,
+          occurredAt,
+          session,
+        })
+      );
+    }
+
+    results.push({
+      benefitKey: benefit.key,
+      rolled: rollover.rolled,
+      expired: expiryAmount,
+      issued: allowance,
+      openingBalance: rollover.openingBalance,
+      balance: await ledgerBalance(instrument._id, session),
+      events,
+    });
+  }
+
   return results;
+}
+
+export async function issueMembershipBenefits(
+  contractId,
+  payload = {},
+  options = {}
+) {
+  return refreshMembershipBenefitsForCycle(
+    contractId,
+    payload,
+    options
+  );
 }
 
 export async function redeemMembershipBenefit(
@@ -395,7 +495,10 @@ export async function redeemMembershipBenefit(
   { businessId, actor = "system" } = {}
 ) {
   const contract = await loadContract(contractId, businessId);
-  const access = membershipAccessState(contractInput(contract), payload.occurredAt || new Date());
+  const access = membershipAccessState(
+    contractInput(contract),
+    payload.occurredAt || new Date()
+  );
   if (!access.usable) {
     throw createServiceError(
       `Membership benefits cannot be redeemed while contract is ${access.reason}.`,
@@ -439,4 +542,5 @@ export default {
   issueMembershipBenefits,
   membershipBenefitBalances,
   redeemMembershipBenefit,
+  refreshMembershipBenefitsForCycle,
 };
