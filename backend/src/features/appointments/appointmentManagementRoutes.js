@@ -18,6 +18,7 @@ import {
 } from "./appointmentManagementController.js";
 import {
   createSequencedAppointment,
+  rescheduleSequencedAppointment,
 } from "./sequenceBookingController.js";
 import {
   createWalkIn,
@@ -84,7 +85,6 @@ function requireStatusPermission(
         request.requestId,
     });
 }
-
 
 router.post(
   "/",
@@ -228,6 +228,17 @@ router.get(
     "appointment:read"
   ),
   asyncHandler(getAppointment)
+);
+
+router.patch(
+  "/:id/sequence-reschedule",
+  requirePermissions(
+    "appointment:update"
+  ),
+  appointmentLifecycleNotification("rescheduled"),
+  asyncHandler(
+    rescheduleSequencedAppointment
+  )
 );
 
 router.patch(

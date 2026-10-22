@@ -1,6 +1,9 @@
 import {
   createSequencedManagedAppointment,
 } from "../bookingSequences/sequencedAppointmentService.js";
+import {
+  rescheduleSequencedManagedAppointment,
+} from "../bookingSequences/sequenceRescheduleService.js";
 
 function body(request) {
   return request.body && typeof request.body === "object" && !Array.isArray(request.body)
@@ -15,6 +18,15 @@ function serialise(value) {
   return value;
 }
 
+function payload(result) {
+  return {
+    appointment: serialise(result.appointment),
+    serviceSequence: result.serviceSequence,
+    providerReservations: result.providerReservations,
+    resourceReservations: result.resourceReservations,
+  };
+}
+
 export async function createSequencedAppointment(request, response) {
   const result = await createSequencedManagedAppointment(body(request), {
     actor: request.user || null,
@@ -24,13 +36,27 @@ export async function createSequencedAppointment(request, response) {
   return response.status(201).json({
     success: true,
     message: "Sequenced appointment created successfully.",
-    appointment: serialise(result.appointment),
-    serviceSequence: result.serviceSequence,
-    providerReservations: result.providerReservations,
-    resourceReservations: result.resourceReservations,
+    ...payload(result),
+  });
+}
+
+export async function rescheduleSequencedAppointment(request, response) {
+  const result = await rescheduleSequencedManagedAppointment(
+    request.params?.id,
+    body(request),
+    {
+      actor: request.user || null,
+    }
+  );
+
+  return response.status(200).json({
+    success: true,
+    message: "Sequenced appointment rescheduled successfully.",
+    ...payload(result),
   });
 }
 
 export default {
   createSequencedAppointment,
+  rescheduleSequencedAppointment,
 };
