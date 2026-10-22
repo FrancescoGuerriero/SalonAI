@@ -23,7 +23,6 @@ const CHANNELS = Object.freeze({
   },
   phone: {
     recipient: "phone",
-    unsubscribed: "smsUnsubscribed",
   },
   in_app: {
     recipient: "_id",
