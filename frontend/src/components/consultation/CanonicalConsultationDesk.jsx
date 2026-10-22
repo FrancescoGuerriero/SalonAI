@@ -39,6 +39,16 @@ function statusCanAssist(status) {
   return ["draft", "in_progress", "more_information_required", "awaiting_review"].includes(status);
 }
 
+function statusCanAssign(status) {
+  return [
+    "draft",
+    "in_progress",
+    "awaiting_review",
+    "more_information_required",
+    "in_person_required",
+  ].includes(status);
+}
+
 function statusCanApprove(status) {
   return ["awaiting_review", "in_person_required", "approved"].includes(status);
 }
@@ -68,9 +78,11 @@ function normaliseStylists(value) {
 
 export default function CanonicalConsultationDesk() {
   const { user } = useAuth();
+  const currentUserId = idOf(user);
   const canRead = hasPermission(user, "consultation:read");
   const canReview = hasPermission(user, "consultation:review");
   const canApprove = hasPermission(user, "consultation:approve");
+  const canAssign = hasPermission(user, "consultation:assign");
   const canBook = canApprove && hasPermission(user, "appointment:create");
   const canAssist =
     hasPermission(user, "consultation:update") && hasPermission(user, "ai:use");
@@ -255,9 +267,11 @@ export default function CanonicalConsultationDesk() {
           label: "Human review",
           value: selected.review?.decision
             ? formatStatus(selected.review.decision)
-            : selected.review?.reviewer
-              ? "Assigned"
-              : "Not decided",
+            : idOf(selected.review?.reviewer) === currentUserId && currentUserId
+              ? "Assigned to you"
+              : selected.review?.reviewer
+                ? "Assigned"
+                : "Not decided",
         },
         {
           label: "Booking readiness",
@@ -303,6 +317,32 @@ export default function CanonicalConsultationDesk() {
     : null;
 
   const actions = [];
+  if (
+    selected &&
+    canAssign &&
+    currentUserId &&
+    statusCanAssign(selected.status) &&
+    idOf(selected.review?.reviewer) !== currentUserId
+  ) {
+    const isReassignment = Boolean(selected.review?.reviewer);
+    actions.push({
+      id: "assign-reviewer",
+      label: isReassignment ? "Reassign to me" : "Assign to me",
+      onRequest: () =>
+        run(
+          "assign-reviewer",
+          () =>
+            consultationService.assignConsultationReviewer(
+              idOf(selected),
+              currentUserId
+            ),
+          isReassignment
+            ? "Consultation reassigned to you."
+            : "Consultation assigned to you."
+        ),
+    });
+  }
+
   if (
     selected &&
     canAssist &&
