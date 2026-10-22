@@ -2,33 +2,10 @@ import Customer from "../../../models/customer.js";
 import ConsultationSession from "../../consultations/ConsultationSession.js";
 import {
   evaluateConsultationDefinition,
+  nextConsultationDefinitionQuestion,
   requireConsultationDefinition,
 } from "../../consultations/consultationDefinitionRegistry.js";
 import WhatsAppConversation from "./WhatsAppConversation.js";
-
-const QUESTION_ORDER = Object.freeze([
-  "desiredOutcome",
-  "currentColour",
-  "hairCondition",
-  "colourHistory",
-  "bleachHistory",
-  "sensitivities",
-]);
-
-const QUESTIONS = Object.freeze({
-  desiredOutcome:
-    "What result would you like to achieve with your hair colour?",
-  currentColour:
-    "What is your current hair colour?",
-  hairCondition:
-    "How would you describe the current condition of your hair, for example healthy, dry, damaged or fragile?",
-  colourHistory:
-    "Has your hair been coloured before? Please briefly describe the colour history, or reply NONE.",
-  bleachHistory:
-    "Has your hair been bleached or lightened before? Please briefly describe it, or reply NONE.",
-  sensitivities:
-    "Do you have any known scalp or skin sensitivities relevant to hair colouring? Reply NONE if not.",
-});
 
 const CONSENT_WORDS = new Set([
   "consent",
@@ -81,19 +58,11 @@ export function nextWhatsAppConsultationQuestion(
     definitionVersion = "1",
   } = {}
 ) {
-  requireConsultationDefinition(consultationType, definitionVersion);
-  const assessment = evaluateConsultationDefinition({
+  return nextConsultationDefinitionQuestion({
     consultationType,
     definitionVersion,
     features,
   });
-  const field = QUESTION_ORDER.find((key) =>
-    assessment.missingFields.includes(key)
-  );
-
-  return field
-    ? Object.freeze({ field, question: QUESTIONS[field] })
-    : null;
 }
 
 function applyAssessment(session) {
@@ -258,7 +227,6 @@ export async function processActiveWhatsAppConsultationTurn(
 
   if (session.governance?.dataProcessingConsent !== true) {
     const decision = consultationConsentDecision(message);
-
     if (decision === "declined") {
       session.status = "archived";
       session.closedAt = now;
@@ -301,6 +269,21 @@ export async function processActiveWhatsAppConsultationTurn(
 
   const next = nextSessionQuestion(session);
   if (!next) {
+    const assessment = applyAssessment(session);
+    if (!assessment.complete) {
+      conversation.automation.mode = "human";
+      conversation.automation.handoffRequested = true;
+      conversation.automation.handoffReason = "consultation_definition_incomplete";
+      conversation.automation.lastAction = "handoff";
+      await session.save();
+      await conversation.save();
+      return Object.freeze({
+        processed: true,
+        handoff: true,
+        reply: "I could not safely complete the consultation questions, so the salon team will help you.",
+      });
+    }
+
     closeToHumanReview(conversation, session);
     await session.save();
     await conversation.save();
@@ -322,8 +305,10 @@ export async function processActiveWhatsAppConsultationTurn(
     answeredAt: now,
   });
   const assessment = applyAssessment(session);
+  const remainingQuestion = nextSessionQuestion(session);
+  const readyForReview = assessment.complete && !remainingQuestion;
 
-  if (assessment.complete) {
+  if (readyForReview) {
     closeToHumanReview(conversation, session);
   } else {
     session.status = "in_progress";
@@ -333,7 +318,7 @@ export async function processActiveWhatsAppConsultationTurn(
   await session.save();
   await conversation.save();
 
-  if (assessment.complete) {
+  if (readyForReview) {
     return Object.freeze({
       processed: true,
       handoff: true,
@@ -345,7 +330,7 @@ export async function processActiveWhatsAppConsultationTurn(
     processed: true,
     handoff: false,
     reply:
-      nextSessionQuestion(session)?.question ||
+      remainingQuestion?.question ||
       "Your consultation answers are ready for review.",
   });
 }
