@@ -17,6 +17,14 @@ export const INTEGRATION_SCOPES = Object.freeze([
 ]);
 
 const SCOPE_SET = new Set(INTEGRATION_SCOPES);
+const SCOPE_DOMAIN_SET = new Set(
+  INTEGRATION_SCOPES.map((scope) => scope.split(":")[0])
+);
+
+function wildcardScopeSupported(scope) {
+  if (!scope.endsWith(":*")) return false;
+  return SCOPE_DOMAIN_SET.has(scope.slice(0, -2));
+}
 
 export function normaliseIntegrationScopes(scopes = []) {
   const values = [
@@ -30,8 +38,8 @@ export function normaliseIntegrationScopes(scopes = []) {
   const invalid = values.filter(
     (scope) =>
       scope !== "*" &&
-      !scope.endsWith(":*") &&
-      !SCOPE_SET.has(scope)
+      !SCOPE_SET.has(scope) &&
+      !wildcardScopeSupported(scope)
   );
 
   if (invalid.length > 0) {
