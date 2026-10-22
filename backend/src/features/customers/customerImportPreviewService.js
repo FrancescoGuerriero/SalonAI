@@ -29,6 +29,14 @@ function normalisePhone(value) {
   return hasLeadingPlus && digits ? `+${digits}` : digits;
 }
 
+function normaliseHistoricalAppointmentAt(value) {
+  const text = compactText(value, 80);
+  if (!text) return { value: "", valid: true };
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return { value: "", valid: false };
+  return { value: date.toISOString(), valid: true };
+}
+
 function csvRows(text) {
   const source = String(text ?? "");
   const rows = [];
@@ -105,6 +113,14 @@ const FIELD_ALIASES = Object.freeze({
   sms_marketing_consent: "smsMarketingConsent",
   marketing_whatsapp_consent: "whatsappMarketingConsent",
   whatsapp_marketing_consent: "whatsappMarketingConsent",
+  historical_service: "historicalServiceName",
+  historical_service_name: "historicalServiceName",
+  last_service: "historicalServiceName",
+  service_name: "historicalServiceName",
+  historical_appointment_date: "historicalAppointmentAt",
+  historical_appointment_at: "historicalAppointmentAt",
+  last_appointment_date: "historicalAppointmentAt",
+  appointment_date: "historicalAppointmentAt",
 });
 
 function mappedHeaders(headerRow) {
@@ -131,12 +147,22 @@ function normaliseRow(raw = {}, rowNumber) {
   const lastName = compactText(raw.lastName, 50);
   const email = normaliseEmail(raw.email);
   const phone = normalisePhone(raw.phone);
+  const historicalServiceName = compactText(raw.historicalServiceName, 200);
+  const historicalAppointment = normaliseHistoricalAppointmentAt(raw.historicalAppointmentAt);
   const warnings = [];
   const errors = [];
 
   if (!firstName) errors.push("firstName is required");
   if (!lastName) errors.push("lastName is required");
   if (!email && !phone) warnings.push("no email or phone supplied");
+  if (!historicalAppointment.valid) {
+    errors.push("historical appointment date is invalid");
+  }
+  if (historicalServiceName || historicalAppointment.value) {
+    warnings.push(
+      "historical service/appointment evidence requires canonical Service/Appointment resolution before apply"
+    );
+  }
 
   const sourceClaimsMarketingConsent =
     truthyConsent(raw.emailMarketingConsent) ||
@@ -172,6 +198,12 @@ function normaliseRow(raw = {}, rowNumber) {
         consentSource: "",
       },
     },
+    historical: Object.freeze({
+      serviceName: historicalServiceName,
+      appointmentAt: historicalAppointment.value,
+      canonicalServiceId: "",
+      canonicalAppointmentId: "",
+    }),
     identifiers: Object.freeze({ email, phone }),
     sourceClaimsMarketingConsent,
     warnings,
@@ -261,6 +293,12 @@ export function buildCustomerImportPreview(
   const canonicalRows = rows.map((row) => ({
     rowNumber: row.rowNumber,
     customer: row.customer,
+    historical: row.historical || {
+      serviceName: "",
+      appointmentAt: "",
+      canonicalServiceId: "",
+      canonicalAppointmentId: "",
+    },
     warnings: [...new Set(row.warnings)].sort(),
     errors: [...new Set(row.errors)].sort(),
   }));
@@ -284,6 +322,7 @@ export function buildCustomerImportPreview(
       databaseWritesAllowed: false,
       administratorApprovalRequiredBeforeApply: true,
       tenantOwnershipMustBeResolvedAtApply: true,
+      historicalMappingRequiresCanonicalResolution: true,
       marketingConsentImported: false,
       trainingEligibilityInferred: false,
     }),
