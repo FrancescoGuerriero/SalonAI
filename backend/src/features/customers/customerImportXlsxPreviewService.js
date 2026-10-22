@@ -40,12 +40,21 @@ const FIELD_ALIASES = Object.freeze({
   sms_marketing_consent: "smsMarketingConsent",
   marketing_whatsapp_consent: "whatsappMarketingConsent",
   whatsapp_marketing_consent: "whatsappMarketingConsent",
+  historical_service: "historicalServiceName",
+  historical_service_name: "historicalServiceName",
+  last_service: "historicalServiceName",
+  service_name: "historicalServiceName",
+  historical_appointment_date: "historicalAppointmentAt",
+  historical_appointment_at: "historicalAppointmentAt",
+  last_appointment_date: "historicalAppointmentAt",
+  appointment_date: "historicalAppointmentAt",
 });
 
 function cellText(cell) {
   if (!cell) return "";
   const value = cell.value;
   if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") {
     if ("text" in value) return String(value.text ?? "");
     if ("result" in value) return String(value.result ?? "");
