@@ -218,7 +218,7 @@ export async function syncGoogleBusinessProfileReviews(
   do {
     const url = new URL(`${GBP_REVIEW_BASE}/${parent}/reviews`);
     url.searchParams.set("pageSize", String(pageSize));
-    url.searchParams.set("orderBy", "update_time desc");
+    url.searchParams.set("orderBy", "updateTime desc");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
     const { body } = await requestJson(url.toString(), {
       method: "GET",
