@@ -56,14 +56,19 @@ test("Stage 4 reputation responses are human-governed", () => {
   assert.doesNotMatch(service, /openai|generateResponse|sentimentModel/i);
 });
 
-test("Stage 4 household relationships fail closed on private-data sharing", () => {
+test("Stage 4 household relationships fail closed and deduplicate customer pairs", () => {
   const model = source("../features/customerRelationships/CustomerRelationship.js");
   const service = source("../features/customerRelationships/customerRelationshipService.js");
+  assert.match(model, /pairKey/);
+  assert.match(model, /unique: true/);
   assert.match(model, /appointments:\s*\{ type: Boolean, default: false \}/);
   assert.match(model, /loyalty:\s*\{ type: Boolean, default: false \}/);
   assert.match(model, /wallet:\s*\{ type: Boolean, default: false \}/);
+  assert.match(service, /relationshipPairKey/);
+  assert.match(service, /\.sort\(\)\.join\(":"\)/);
   assert.match(service, /sharing: \{ appointments: false, loyalty: false, wallet: false, communications: false \}/);
   assert.match(service, /same business context/);
+  assert.match(service, /error\?\.code === 11000/);
 });
 
 test("Stage 4 customer-experience router consolidates new domains", () => {
