@@ -23,6 +23,14 @@ router.get(
   asyncHandler(controller.jobs)
 );
 
+router
+  .route("/:id/executions")
+  .get(asyncHandler(controller.executions))
+  .post(
+    requirePermissions("communications:manage"),
+    asyncHandler(controller.createExecution)
+  );
+
 router.post(
   "/:id/schedule",
   requirePermissions("communications:manage"),
