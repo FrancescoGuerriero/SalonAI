@@ -16,9 +16,15 @@ import {
 import {
   Link,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 
-import { createAppointment } from "../Services/appointmentApi.js";
+import {
+  attributeBookingRecoveryAppointment,
+  createAppointment,
+  resumeBookingRecoveryIntent,
+  saveBookingRecoveryIntent,
+} from "../Services/appointmentApi.js";
 import stylistService from "../Services/stylistService.js";
 import BookingProgress from "../components/customer/BookingProgress.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -70,6 +76,7 @@ export default function Booking() {
   const setBooking = bookingContext?.setBooking;
   const clearBooking = bookingContext?.clearBooking;
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +85,12 @@ export default function Booking() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
   const [availabilityVersion, setAvailabilityVersion] = useState(0);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoveryRestored, setRecoveryRestored] = useState(false);
+  const [recoveryToken, setRecoveryToken] = useState(
+    () => searchParams.get("recovery") || ""
+  );
 
   const today = useMemo(() => toDateInputValue(new Date()), []);
   const maximumDate = useMemo(() => {
@@ -90,6 +103,87 @@ export default function Booking() {
   const appointmentDate = booking?.appointmentDate || "";
   const serviceId = booking?.service?._id || "";
   const stylistId = booking?.stylist?._id || "";
+
+  useEffect(() => {
+    if (!recoveryToken || recoveryRestored) {
+      return undefined;
+    }
+
+    let active = true;
+
+    async function restoreRecoveryIntent() {
+      try {
+        setRecoveryLoading(true);
+        setRecoveryError("");
+        const { data } = await resumeBookingRecoveryIntent(recoveryToken);
+        if (!active) return;
+
+        setBooking((current) => ({
+          ...current,
+          service: data?.service || current?.service || null,
+          stylist: data?.stylist || current?.stylist || null,
+          appointmentDate:
+            data?.appointmentDate || current?.appointmentDate || "",
+          appointmentTime:
+            data?.appointmentTime || current?.appointmentTime || "",
+        }));
+        setRecoveryRestored(true);
+        setSearchParams({}, { replace: true });
+      } catch (requestError) {
+        if (!active) return;
+        console.error("Unable to restore booking recovery", requestError);
+        setRecoveryError(
+          requestError.response?.data?.message ||
+            "This booking recovery link is no longer available. You can start a new booking instead."
+        );
+        setRecoveryToken("");
+        setSearchParams({}, { replace: true });
+      } finally {
+        if (active) setRecoveryLoading(false);
+      }
+    }
+
+    restoreRecoveryIntent();
+    return () => {
+      active = false;
+    };
+  }, [
+    recoveryRestored,
+    recoveryToken,
+    setBooking,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    if (
+      recoveryLoading ||
+      completedBooking ||
+      (!serviceId && !stylistId && !appointmentDate && !booking?.appointmentTime)
+    ) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveBookingRecoveryIntent({
+        service: serviceId || null,
+        stylist: stylistId || null,
+        appointmentDate,
+        appointmentTime: booking?.appointmentTime || "",
+      }).catch((requestError) => {
+        // Recovery persistence must never block the booking UI itself.
+        console.error("Unable to persist booking recovery intent", requestError);
+      });
+    }, 750);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    appointmentDate,
+    booking?.appointmentTime,
+    completedBooking,
+    recoveryLoading,
+    serviceId,
+    stylistId,
+  ]);
 
   useEffect(() => {
     if (!appointmentDate || !serviceId || !stylistId) {
@@ -226,14 +320,26 @@ export default function Booking() {
         appointmentDate: booking.appointmentDate,
         appointmentTime: booking.appointmentTime,
       });
+      const appointmentId =
+        data?.appointment?._id || data?.appointment?.id || data?._id || data?.id;
+
+      if (recoveryToken && appointmentId) {
+        try {
+          await attributeBookingRecoveryAppointment(recoveryToken, appointmentId);
+          setRecoveryToken("");
+        } catch (attributionError) {
+          // The appointment is already canonical and successful. Attribution
+          // is deliberately best-effort and must not roll back the booking.
+          console.error("Unable to attribute recovered booking", attributionError);
+        }
+      }
 
       setCompletedBooking({
         ...booking,
         reference:
           data?.appointment?.reference ||
           data?.reference ||
-          data?.appointment?._id ||
-          data?._id,
+          appointmentId,
       });
 
       clearBooking();
@@ -329,10 +435,27 @@ export default function Booking() {
     );
   }
 
+  if (recoveryLoading) {
+    return (
+      <main className="customer-page">
+        <div className="customer-page-container">
+          <p className="booking-availability-state" role="status">
+            Restoring your booking…
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   if (!booking?.service || !booking?.stylist) {
     return (
       <main className="customer-page">
         <div className="customer-page-container">
+          {recoveryError ? (
+            <Alert type="error" title="Booking could not be restored">
+              {recoveryError}
+            </Alert>
+          ) : null}
           <EmptyState
             icon={CalendarCheck}
             title="Booking details are incomplete"
@@ -392,6 +515,13 @@ export default function Booking() {
             {error ? (
               <Alert type="error" title="Booking not completed">
                 {error}
+              </Alert>
+            ) : null}
+
+            {recoveryRestored ? (
+              <Alert type="success" title="Booking restored">
+                We restored your previous booking selections. Availability is
+                checked again before confirmation.
               </Alert>
             ) : null}
 

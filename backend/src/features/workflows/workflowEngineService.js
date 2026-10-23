@@ -1,6 +1,7 @@
 import os from "node:os";
 import mongoose from "mongoose";
 
+import AbandonedBookingIntent from "../../models/AbandonedBookingIntent.js";
 import Customer from "../../models/customer.js";
 import DomainEvent from "../../models/DomainEvent.js";
 import TriggerDefinition from "../../models/TriggerDefinition.js";
@@ -17,6 +18,12 @@ import {
   scoreLead,
   setLeadNurture,
 } from "../leads/leadService.js";
+import {
+  processBookingRecoveryTick,
+} from "../bookingRecovery/bookingRecoveryService.js";
+import {
+  bookingRecoveryUrl,
+} from "../bookingRecovery/bookingRecoveryToken.js";
 import {
   domainEventDefinition,
 } from "../integrationPlatform/domainEventCatalogue.js";
@@ -487,6 +494,104 @@ async function executeCommunicationAction(run, workflow, action) {
   ).toObject();
 }
 
+async function executeBookingRecoveryAction(run, workflow, action) {
+  const configuration = action.configuration || {};
+  const intentId =
+    resolveConfigurationValue(
+      configuration,
+      "intentId",
+      "intentIdPath",
+      run.context
+    ) || valueAtPath(run.context, "event.payload.intentId");
+  objectId(intentId, "bookingRecoveryIntent");
+
+  const intent = assertFound(
+    await AbandonedBookingIntent.findOne({
+      _id: intentId,
+      business: run.business,
+      status: "abandoned",
+      recoverableUntil: { $gt: new Date() },
+    }).populate("customer"),
+    "Recoverable abandoned booking intent not found."
+  );
+  const customer = intent.customer;
+  if (!customer || String(customer.business || "") !== String(run.business)) {
+    throw createServiceError(
+      "Booking recovery communication requires a tenant-owned customer.",
+      409,
+      { code: "BOOKING_RECOVERY_CUSTOMER_NOT_TENANT_OWNED" }
+    );
+  }
+
+  const channel = text(configuration.channel || "email").toLowerCase();
+  const classification = text(
+    configuration.classification ||
+      intent.communicationClassification ||
+      workflow.policy?.communicationClassification ||
+      "marketing"
+  ).toLowerCase();
+  const policy = assertWorkflowCommunicationAllowed(customer, {
+    channel,
+    classification,
+    allowedChannels: workflow.policy?.allowedChannels || [],
+  });
+  const executionKey = `workflow:${run._id}:action:${action.key}`;
+  const existing = await ScheduledCommunication.findOne({
+    business: run.business,
+    "metadata.workflowExecutionKey": executionKey,
+  }).lean();
+  if (existing) return existing;
+
+  const recoveryUrl = bookingRecoveryUrl(intent);
+  const recoveryContext = {
+    ...run.context,
+    bookingRecovery: {
+      intentId: String(intent._id),
+      recoveryUrl,
+      recoverableUntil: intent.recoverableUntil,
+      appointmentDate: intent.appointmentDate || "",
+      appointmentTime: intent.appointmentTime || "",
+    },
+  };
+  const message = interpolateWorkflowText(
+    configuration.message ||
+      "You can return to your booking here: {{bookingRecovery.recoveryUrl}}",
+    recoveryContext
+  );
+  const subject = interpolateWorkflowText(
+    configuration.subject || "Complete your booking",
+    recoveryContext
+  );
+
+  return (
+    await ScheduledCommunication.create({
+      business: run.business,
+      location: intent.location || undefined,
+      customer: customer._id,
+      communicationType: "general",
+      channel: policy.channel,
+      recipient: policy.recipient,
+      subject,
+      message,
+      scheduledFor: new Date(
+        Date.now() + Math.max(0, Number(configuration.delaySeconds) || 0) * 1000
+      ),
+      status: "queued",
+      metadata: {
+        workflowExecutionKey: executionKey,
+        workflowRunId: String(run._id),
+        workflowId: String(workflow._id),
+        workflowKey: workflow.key,
+        actionKey: action.key,
+        sourceEventId: run.sourceEventId,
+        classification: policy.classification,
+        bookingRecoveryIntentId: String(intent._id),
+        recoverableUntil: intent.recoverableUntil,
+      },
+    })
+  ).toObject();
+}
+
 async function executeRegisteredAction(run, workflow, action) {
   const configuration = action.configuration || {};
   const leadId = resolveConfigurationValue(
@@ -559,6 +664,8 @@ async function executeRegisteredAction(run, workflow, action) {
       );
     case "communication.enqueue":
       return executeCommunicationAction(run, workflow, action);
+    case "booking_recovery.enqueue":
+      return executeBookingRecoveryAction(run, workflow, action);
     default:
       throw createServiceError(
         `Workflow action type ${action.actionType} is not executable.`,
@@ -758,13 +865,20 @@ export async function processDueWorkflowRuns({ limit = 50 } = {}) {
 }
 
 export async function processWorkflowTick(options = {}) {
+  const bookingRecovery = await processBookingRecoveryTick({
+    inactivityMinutes: options.bookingRecoveryInactivityMinutes,
+    recoveryHours: options.bookingRecoveryHours,
+    abandonLimit: options.bookingRecoveryLimit || options.eventLimit || 25,
+    eventLimit: options.bookingRecoveryLimit || options.eventLimit || 25,
+    expireLimit: options.bookingRecoveryExpireLimit || 100,
+  });
   const events = await processPendingWorkflowEvents({
     limit: options.eventLimit || 25,
   });
   const dueRuns = await processDueWorkflowRuns({
     limit: options.runLimit || 50,
   });
-  return { events, dueRuns };
+  return { bookingRecovery, events, dueRuns };
 }
 
 export async function listWorkflowRuns(query = {}, { businessId } = {}) {

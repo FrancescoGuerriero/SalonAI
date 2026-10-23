@@ -13,6 +13,7 @@ import {
 import {
   appointmentLifecycleNotification,
 } from "../features/appointments/appointmentLifecycleNotificationMiddleware.js";
+import bookingRecoveryRoutes from "../features/bookingRecovery/bookingRecoveryRoutes.js";
 import { requireFeature } from "../services/featureControlService.js";
 
 const router = express.Router();
@@ -35,6 +36,12 @@ function requireOnlineBookingForCustomer(request, response, next) {
 }
 
 router.use(protect);
+
+router.use(
+  "/recovery",
+  requireOnlineBookingForCustomer,
+  bookingRecoveryRoutes
+);
 
 router.get(
   "/",

@@ -10,6 +10,7 @@ export const WORKFLOW_ACTION_TYPES = Object.freeze([
   "lead.score",
   "lead.nurture",
   "communication.enqueue",
+  "booking_recovery.enqueue",
 ]);
 
 const workflowActionSchema = new Schema(
