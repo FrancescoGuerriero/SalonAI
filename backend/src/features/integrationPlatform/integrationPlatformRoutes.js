@@ -5,6 +5,7 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
+import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
 import * as controller from "./integrationPlatformController.js";
 
 const router = express.Router();
@@ -14,6 +15,11 @@ const write = requirePermissions("feature-control:update");
 router.use(
   "/marketplace",
   partnerMarketplaceRoutes
+);
+
+router.use(
+  "/marketing-data",
+  marketingDataCoreRoutes
 );
 
 router.get("/apps", read, asyncHandler(controller.apps));
