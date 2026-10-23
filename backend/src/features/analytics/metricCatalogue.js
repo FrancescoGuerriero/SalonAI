@@ -1,4 +1,4 @@
-const METRIC_DEFINITION_VERSION = "2.0.0";
+const METRIC_DEFINITION_VERSION = "2.1.0";
 
 function freezeArray(values = []) {
   return Object.freeze([...values]);
@@ -83,9 +83,16 @@ export const OPERATIONAL_METRIC_KEYS = Object.freeze([
   "conversion-rate",
 ]);
 
+export const COMMERCE_METRIC_KEYS = Object.freeze([
+  "payment-link-conversion-rate",
+  "membership-collection-failure-rate",
+  "membership-collection-recovery-rate",
+]);
+
 export const CANONICAL_METRIC_KEYS = Object.freeze([
   ...APPOINTMENT_METRIC_KEYS,
   ...OPERATIONAL_METRIC_KEYS,
+  ...COMMERCE_METRIC_KEYS,
 ]);
 
 const definitions = {
@@ -238,6 +245,73 @@ const definitions = {
     formula: "successful_conversions / eligible_opportunities * 100",
     presentationArea: "marketing",
   }),
+  "payment-link-conversion-rate": metricDefinition({
+    key: "payment-link-conversion-rate",
+    label: "Payment-link conversion rate",
+    domain: "commerce",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["appointment:payment:manage", "reports:read"],
+    sourceModel: "Payment",
+    sourceFields: [
+      "sourceType",
+      "sourceId",
+      "purpose",
+      "status",
+      "provider",
+      "checkoutUrl",
+      "createdAt",
+      "paidAt",
+    ],
+    numeratorMeaning: "Provider-hosted payment requests that reconcile to a succeeded/paid canonical Payment.",
+    denominatorMeaning: "Distinct eligible payment requests created for the selected cohort and period.",
+    formula: "paid_payment_requests / eligible_payment_requests * 100",
+    presentationArea: "commerce",
+  }),
+  "membership-collection-failure-rate": metricDefinition({
+    key: "membership-collection-failure-rate",
+    label: "Membership collection failure rate",
+    domain: "membership",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["reports:read"],
+    sourceModel: "CollectionAttempt / MembershipContract",
+    sourceFields: [
+      "membershipContract",
+      "dueAt",
+      "attemptedAt",
+      "attemptNumber",
+      "status",
+      "failureCode",
+      "nextRetryAt",
+    ],
+    numeratorMeaning: "Membership collection cycles whose first attempted collection failed.",
+    denominatorMeaning: "Membership collection cycles with an attempted first collection in the selected cohort and period.",
+    formula: "failed_first_collection_cycles / attempted_collection_cycles * 100",
+    presentationArea: "membership",
+  }),
+  "membership-collection-recovery-rate": metricDefinition({
+    key: "membership-collection-recovery-rate",
+    label: "Membership collection recovery rate",
+    domain: "membership",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["reports:read"],
+    sourceModel: "CollectionAttempt / MembershipContract",
+    sourceFields: [
+      "membershipContract",
+      "dueAt",
+      "attemptedAt",
+      "attemptNumber",
+      "status",
+      "failureCode",
+      "nextRetryAt",
+    ],
+    numeratorMeaning: "Previously failed membership collection cycles that subsequently succeeded within the governed retry lifecycle.",
+    denominatorMeaning: "Membership collection cycles that experienced at least one failed attempt and remained eligible for retry.",
+    formula: "recovered_failed_collection_cycles / retry_eligible_failed_collection_cycles * 100",
+    presentationArea: "membership",
+  }),
 };
 
 export const METRIC_DEFINITIONS = Object.freeze(definitions);
@@ -281,6 +355,7 @@ export function metricDefinitionEvidence(key) {
 export default {
   APPOINTMENT_METRIC_KEYS,
   OPERATIONAL_METRIC_KEYS,
+  COMMERCE_METRIC_KEYS,
   CANONICAL_METRIC_KEYS,
   METRIC_DEFINITIONS,
   getMetricDefinition,
