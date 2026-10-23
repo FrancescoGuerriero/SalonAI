@@ -2,6 +2,22 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
+const credentialBindingSchema = new Schema(
+  {
+    role: {
+      type: String,
+      enum: ["access_token", "refresh_token", "client_secret", "api_key"],
+      required: true,
+    },
+    credential: {
+      type: Schema.Types.ObjectId,
+      ref: "CredentialVersion",
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
 const integrationConnectionSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -15,6 +31,7 @@ const integrationConnectionSchema = new Schema(
       index: true,
     },
     scopes: { type: [String], default: [] },
+    credentialBindings: { type: [credentialBindingSchema], default: [] },
     externalAccountReferenceHash: { type: String, trim: true, lowercase: true, default: "", maxlength: 128 },
     connectedAt: { type: Date, default: null },
     disconnectedAt: { type: Date, default: null },
@@ -29,6 +46,7 @@ integrationConnectionSchema.index(
   { business: 1, app: 1, provider: 1, connectionKey: 1 },
   { unique: true }
 );
+integrationConnectionSchema.index({ business: 1, provider: 1, status: 1, lastSyncAt: 1 });
 
 export default (
   mongoose.models.IntegrationConnection ||
