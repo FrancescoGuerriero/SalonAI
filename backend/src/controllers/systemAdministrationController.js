@@ -1,6 +1,8 @@
 import SystemSetting from "../models/SystemSetting.js";
 import AuditLog from "../models/AuditLog.js";
+import Business from "../models/Business.js";
 import DeadLetterRecord from "../models/DeadLetterRecord.js";
+import Location from "../models/Location.js";
 import { recordAuditEvent } from "../services/auditService.js";
 import {
   featureSettingKey,
@@ -11,6 +13,9 @@ import {
 import {
   buildSocialAuthReadinessReport,
 } from "../features/socialAuth/socialAuthReadinessService.js";
+import {
+  resolvePersistedConfiguration,
+} from "../platform/configuration/configurationValueService.js";
 
 export async function listSettings(req, res) {
   const settings = await SystemSetting.find()
@@ -138,6 +143,72 @@ export async function resetFeatureControl(req, res) {
       source: "code-default",
       updatedAt: null,
       updatedBy: null,
+    },
+  });
+}
+
+export async function getConfigurationStudio(req, res) {
+  const businessId = String(req.tenantContext?.businessId || "").trim();
+
+  if (!businessId) {
+    const error = new Error("A trusted business context is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const business = await Business.findById(businessId)
+    .select("name slug businessType")
+    .lean();
+
+  if (!business) {
+    const error = new Error("Business not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const locationId = String(req.tenantContext?.locationId || "").trim();
+  const location = locationId
+    ? await Location.findOne({
+        _id: locationId,
+        business: businessId,
+        status: "active",
+      }).lean()
+    : null;
+
+  const configuration = await resolvePersistedConfiguration({
+    businessId,
+    businessType: business.businessType,
+    location,
+  });
+
+  res.json({
+    success: true,
+    configurationStudio: {
+      business: {
+        id: String(business._id),
+        name: business.name,
+        slug: business.slug,
+        businessType: business.businessType,
+      },
+      location: location
+        ? {
+            id: String(location._id),
+            name: location.name,
+            slug: location.slug,
+          }
+        : null,
+      effective: configuration.value,
+      provenance: configuration.provenance,
+      provenanceDetails: configuration.provenanceDetails,
+      locks: configuration.locks,
+      blockedOverrides: configuration.blockedOverrides,
+      revisions: configuration.revisions,
+      scopeChain: configuration.scopeChain,
+      sourceValues: configuration.sourceValues,
+      compatibility: {
+        legacySystemSettingsRemainAuthoritative: true,
+        automaticMigrationEnabled: false,
+      },
     },
   });
 }
