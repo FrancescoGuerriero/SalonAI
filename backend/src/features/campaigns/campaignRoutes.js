@@ -31,6 +31,26 @@ router
     asyncHandler(controller.createExecution)
   );
 
+router
+  .route("/:id/publications")
+  .get(asyncHandler(controller.publications))
+  .post(
+    requirePermissions("communications:manage"),
+    asyncHandler(controller.createPublication)
+  );
+
+router.post(
+  "/:id/publications/:publicationId/queue",
+  requirePermissions("communications:manage"),
+  asyncHandler(controller.queuePublication)
+);
+
+router.post(
+  "/:id/publications/:publicationId/publish",
+  requirePermissions("communications:manage"),
+  asyncHandler(controller.publishPublication)
+);
+
 router.post(
   "/:id/schedule",
   requirePermissions("communications:manage"),
