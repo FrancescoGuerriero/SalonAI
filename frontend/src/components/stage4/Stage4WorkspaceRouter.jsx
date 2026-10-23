@@ -6,6 +6,7 @@ import CustomerRelationshipsPage from "../../pages/CustomerRelationshipsPage.jsx
 import ReputationHubPage from "../../pages/ReputationHubPage.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
+import Stage5WorkspaceRouter from "../stage5/Stage5WorkspaceRouter.jsx";
 
 function AccessDenied() {
   return (
@@ -46,5 +47,9 @@ export default function Stage4WorkspaceRouter({ pathname, children }) {
       : <AccessDenied />;
   }
 
-  return children;
+  return (
+    <Stage5WorkspaceRouter pathname={pathname}>
+      {children}
+    </Stage5WorkspaceRouter>
+  );
 }

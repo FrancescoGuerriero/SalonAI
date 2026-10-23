@@ -6,6 +6,15 @@ import {
 import {
   createServiceError,
 } from "../../shared/serviceError.js";
+import {
+  listMetricDefinitions,
+} from "../analytics/metricCatalogue.js";
+import {
+  API_RATE_LIMIT_CONTRACT_VERSION,
+} from "./integrationApiAuth.js";
+import {
+  marketingConnectorCatalogue,
+} from "./marketingConnectorCatalogue.js";
 
 function businessId(request) {
   const value =
@@ -183,6 +192,37 @@ export async function scopeCatalogue(_request, response) {
   });
 }
 
+export async function stage5ContractCatalogue(_request, response) {
+  const metrics = listMetricDefinitions();
+  const events = service.integrationEventCatalogue();
+  const scopes = integrationScopeCatalogue();
+  const marketing = marketingConnectorCatalogue();
+
+  response.json({
+    contractVersion: "1.0.0",
+    rateLimit: {
+      version: API_RATE_LIMIT_CONTRACT_VERSION,
+      headers: [
+        "X-RateLimit-Policy-Version",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "Retry-After",
+      ],
+    },
+    metrics,
+    events,
+    scopes,
+    marketing,
+    observability: {
+      connectorHealthEndpoint: "/api/integration-platform/health",
+      webhookDeliveriesEndpoint: "/api/integration-platform/webhook-deliveries",
+      marketingOverviewEndpoint: "/api/integration-platform/marketing-data/overview",
+      marketingRunsEndpoint: "/api/integration-platform/marketing-data/runs",
+    },
+  });
+}
+
 export default {
   apps,
   connections,
@@ -197,6 +237,7 @@ export default {
   replayDelivery,
   revokeCredential,
   scopeCatalogue,
+  stage5ContractCatalogue,
   subscriptions,
   updateApp,
   updateSubscription,

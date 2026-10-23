@@ -9,6 +9,7 @@ import {
 } from "../../shared/serviceError.js";
 
 const API_CREDENTIAL_TYPES = ["api_key", "service_key"];
+export const API_RATE_LIMIT_CONTRACT_VERSION = "1.0.0";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -149,7 +150,9 @@ export async function authenticateIntegrationApp(request, response, next) {
       windowSeconds: app.ratePolicy?.windowSeconds,
       now,
     });
+    const ratePolicyVersion = text(app.ratePolicy?.version) || API_RATE_LIMIT_CONTRACT_VERSION;
 
+    response.setHeader("X-RateLimit-Policy-Version", ratePolicyVersion);
     response.setHeader("X-RateLimit-Limit", String(rate.limit));
     response.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     response.setHeader(
@@ -167,6 +170,7 @@ export async function authenticateIntegrationApp(request, response, next) {
         success: false,
         code: "INTEGRATION_RATE_LIMIT_EXCEEDED",
         message: "Integration app rate limit exceeded.",
+        ratePolicyVersion,
         retryAfter,
       });
     }
@@ -180,6 +184,7 @@ export async function authenticateIntegrationApp(request, response, next) {
       credentialVersion: credential.version,
       scopes: Object.freeze([...(app.scopes || [])]),
       ratePolicy: Object.freeze({
+        version: ratePolicyVersion,
         requests: rate.limit,
         windowSeconds: Number(app.ratePolicy?.windowSeconds || 60),
       }),
@@ -225,6 +230,7 @@ export function requireIntegrationScopes(...requiredScopes) {
 }
 
 export default Object.freeze({
+  API_RATE_LIMIT_CONTRACT_VERSION,
   authenticateIntegrationApp,
   hasIntegrationScope,
   requireIntegrationScopes,

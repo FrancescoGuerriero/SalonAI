@@ -5,6 +5,7 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
+import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
 import * as controller from "./integrationPlatformController.js";
 
 const router = express.Router();
@@ -16,6 +17,12 @@ router.use(
   partnerMarketplaceRoutes
 );
 
+router.use(
+  "/marketing-data",
+  marketingDataCoreRoutes
+);
+
+router.get("/stage-5-contract", read, asyncHandler(controller.stage5ContractCatalogue));
 router.get("/apps", read, asyncHandler(controller.apps));
 router.post("/apps", write, asyncHandler(controller.createApp));
 router.patch("/apps/:appId", write, asyncHandler(controller.updateApp));
