@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import Customer from "../../models/customer.js";
 import Appointment from "../../models/Appointment.js";
 import CustomerSegment from "./CustomerSegment.js";
@@ -11,6 +13,16 @@ import {
   paginationResult,
 } from "../../shared/pagination.js";
 import { userId } from "../../shared/modelHelpers.js";
+
+function businessId(value) {
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(
+      "A trusted active business is required for segment operations.",
+      400
+    );
+  }
+  return value;
+}
 
 function compare(actual, operator, expected) {
   switch (operator) {
@@ -45,103 +57,63 @@ function compare(actual, operator, expected) {
 }
 
 function daysSince(value) {
-  if (!value) {
-    return 99999;
-  }
-
+  if (!value) return 99999;
   return Math.max(
     0,
-    Math.floor(
-      (Date.now() - new Date(value).getTime()) /
-        86400000
-    )
+    Math.floor((Date.now() - new Date(value).getTime()) / 86400000)
   );
 }
 
 async function customerAnalytics(customerIds) {
-  const appointmentMetrics =
-    await Appointment.aggregate([
-      {
-        $match: {
-          customer: {
-            $in: customerIds,
+  const appointmentMetrics = await Appointment.aggregate([
+    {
+      $match: {
+        customer: { $in: customerIds },
+      },
+    },
+    {
+      $group: {
+        _id: "$customer",
+        appointmentCount: {
+          $sum: {
+            $cond: [
+              { $not: { $in: ["$status", ["cancelled", "no_show"]] } },
+              1,
+              0,
+            ],
           },
         },
-      },
-      {
-        $group: {
-          _id: "$customer",
-          appointmentCount: {
-            $sum: {
-              $cond: [
-                {
-                  $not: {
-                    $in: [
-                      "$status",
-                      ["cancelled", "no_show"],
-                    ],
-                  },
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          totalSpend: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: ["$status", "completed"],
-                },
-                {
-                  $ifNull: [
-                    "$totalPrice",
-                    {
-                      $ifNull: ["$price", 0],
-                    },
-                  ],
-                },
-                0,
-              ],
-            },
-          },
-          lastAppointmentAt: {
-            $max: {
-              $cond: [
-                {
-                  $not: {
-                    $in: [
-                      "$status",
-                      ["cancelled", "no_show"],
-                    ],
-                  },
-                },
-                "$appointmentDate",
-                null,
-              ],
-            },
-          },
-          serviceCounts: {
-            $push: "$service",
-          },
-          stylistCounts: {
-            $push: "$stylist",
+        totalSpend: {
+          $sum: {
+            $cond: [
+              { $eq: ["$status", "completed"] },
+              { $ifNull: ["$totalPrice", { $ifNull: ["$price", 0] }] },
+              0,
+            ],
           },
         },
+        lastAppointmentAt: {
+          $max: {
+            $cond: [
+              { $not: { $in: ["$status", ["cancelled", "no_show"]] } },
+              "$appointmentDate",
+              null,
+            ],
+          },
+        },
+        serviceCounts: { $push: "$service" },
+        stylistCounts: { $push: "$stylist" },
       },
-    ]);
+    },
+  ]);
 
-  const tagAssignments =
-    await CustomerTagAssignment.find({
-      customer: {
-        $in: customerIds,
-      },
-    })
-      .populate("tag", "name label")
-      .lean();
+  const tagAssignments = await CustomerTagAssignment.find({
+    customer: { $in: customerIds },
+  })
+    .populate("tag", "name label")
+    .lean();
 
   const tagsByCustomer = new Map();
-
   for (const assignment of tagAssignments) {
     const key = String(assignment.customer);
     const values = tagsByCustomer.get(key) || [];
@@ -154,21 +126,16 @@ async function customerAnalytics(customerIds) {
   }
 
   const metricsByCustomer = new Map();
-
   for (const metric of appointmentMetrics) {
     metricsByCustomer.set(String(metric._id), {
       ...metric,
-      daysSinceLastAppointment: daysSince(
-        metric.lastAppointmentAt
-      ),
-      tags:
-        tagsByCustomer.get(String(metric._id)) || [],
+      daysSinceLastAppointment: daysSince(metric.lastAppointmentAt),
+      tags: tagsByCustomer.get(String(metric._id)) || [],
     });
   }
 
   for (const id of customerIds) {
     const key = String(id);
-
     if (!metricsByCustomer.has(key)) {
       metricsByCustomer.set(key, {
         appointmentCount: 0,
@@ -187,20 +154,15 @@ async function customerAnalytics(customerIds) {
 
 function mostFrequent(values = []) {
   const counts = new Map();
-
   for (const value of values.filter(Boolean)) {
     const key = String(value);
     counts.set(key, (counts.get(key) || 0) + 1);
   }
-
-  return [...counts.entries()].sort(
-    (a, b) => b[1] - a[1]
-  )[0]?.[0];
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
 function matchesRule(customer, metrics, rule) {
   let actual;
-
   switch (rule.field) {
     case "appointmentCount":
       actual = metrics.appointmentCount;
@@ -218,45 +180,77 @@ function matchesRule(customer, metrics, rule) {
       actual = mostFrequent(metrics.stylistCounts);
       break;
     case "tag":
-      return metrics.tags.some((tag) =>
-        compare(tag, rule.operator, rule.value)
-      );
+      return metrics.tags.some((tag) => compare(tag, rule.operator, rule.value));
     case "createdAt":
       actual = customer.createdAt;
       break;
     default:
       return false;
   }
-
   return compare(actual, rule.operator, rule.value);
 }
 
-export async function createSegment(payload, user) {
-  if (!String(payload.name || "").trim()) {
+async function validatedStaticCustomers(values, tenantBusinessId) {
+  const ids = Array.isArray(values) ? [...new Set(values.map(String))] : [];
+  if (ids.length === 0) return [];
+
+  if (ids.some((id) => !mongoose.isValidObjectId(id))) {
+    throw createServiceError("staticCustomers contains an invalid customer identifier.", 400, {
+      field: "staticCustomers",
+    });
+  }
+
+  const owned = await Customer.find({
+    _id: { $in: ids },
+    business: tenantBusinessId,
+    status: { $ne: "deleted" },
+  })
+    .select("_id")
+    .lean();
+
+  if (owned.length !== ids.length) {
     throw createServiceError(
-      "Segment name is required.",
-      400
+      "Every static segment customer must belong to the active business.",
+      409,
+      { code: "SEGMENT_CUSTOMER_TENANCY_MISMATCH" }
     );
   }
 
+  return owned.map((customer) => customer._id);
+}
+
+async function segmentForBusiness(id, tenantBusinessId, { lean = false } = {}) {
+  businessId(tenantBusinessId);
+  if (!mongoose.isValidObjectId(id)) {
+    throw createServiceError("Customer segment identifier is invalid.", 400);
+  }
+  let query = CustomerSegment.findOne({
+    _id: id,
+    business: tenantBusinessId,
+  });
+  if (lean) query = query.lean();
+  return assertFound(await query, "Customer segment not found.");
+}
+
+export async function createSegment(payload, user, { businessId: tenantBusinessId } = {}) {
+  businessId(tenantBusinessId);
+  if (!String(payload.name || "").trim()) {
+    throw createServiceError("Segment name is required.", 400);
+  }
+
+  const staticCustomers = await validatedStaticCustomers(
+    payload.staticCustomers,
+    tenantBusinessId
+  );
+
   const segment = await CustomerSegment.create({
+    business: tenantBusinessId,
     name: String(payload.name).trim(),
-    description: String(
-      payload.description || ""
-    ).trim(),
+    description: String(payload.description || "").trim(),
     matchMode: payload.matchMode || "all",
-    rules: Array.isArray(payload.rules)
-      ? payload.rules
-      : [],
-    staticCustomers: Array.isArray(
-      payload.staticCustomers
-    )
-      ? payload.staticCustomers
-      : [],
-    active:
-      payload.active === undefined
-        ? true
-        : Boolean(payload.active),
+    rules: Array.isArray(payload.rules) ? payload.rules : [],
+    staticCustomers,
+    active: payload.active === undefined ? true : Boolean(payload.active),
     createdBy: userId(user),
     updatedBy: userId(user),
   });
@@ -264,15 +258,13 @@ export async function createSegment(payload, user) {
   return segment.toObject();
 }
 
-export async function listSegments(query = {}) {
-  const { page, limit, skip } =
-    paginationFromQuery(query);
-
-  const match = {};
+export async function listSegments(query = {}, { businessId: tenantBusinessId } = {}) {
+  businessId(tenantBusinessId);
+  const { page, limit, skip } = paginationFromQuery(query);
+  const match = { business: tenantBusinessId };
 
   if (query.active !== undefined) {
-    match.active =
-      String(query.active).toLowerCase() === "true";
+    match.active = String(query.active).toLowerCase() === "true";
   }
 
   const [items, total] = await Promise.all([
@@ -286,21 +278,26 @@ export async function listSegments(query = {}) {
 
   return {
     items,
-    pagination: paginationResult(
-      page,
-      limit,
-      total
-    ),
+    pagination: paginationResult(page, limit, total),
   };
 }
 
-export async function getSegment(id) {
+export async function getSegment(id, { businessId: tenantBusinessId } = {}) {
+  businessId(tenantBusinessId);
+  if (!mongoose.isValidObjectId(id)) {
+    throw createServiceError("Customer segment identifier is invalid.", 400);
+  }
+
   return assertFound(
-    await CustomerSegment.findById(id)
-      .populate(
-        "staticCustomers",
-        "firstName lastName fullName name email phone phoneNumber mobile"
-      )
+    await CustomerSegment.findOne({
+      _id: id,
+      business: tenantBusinessId,
+    })
+      .populate({
+        path: "staticCustomers",
+        match: { business: tenantBusinessId, status: { $ne: "deleted" } },
+        select: "firstName lastName fullName name email phone phoneNumber mobile",
+      })
       .lean(),
     "Customer segment not found."
   );
@@ -309,36 +306,37 @@ export async function getSegment(id) {
 export async function updateSegment(
   id,
   payload,
-  user
+  user,
+  { businessId: tenantBusinessId } = {}
 ) {
-  const segment = assertFound(
-    await CustomerSegment.findById(id),
-    "Customer segment not found."
-  );
+  const segment = await segmentForBusiness(id, tenantBusinessId);
 
-  for (const field of [
-    "name",
-    "description",
-    "matchMode",
-    "rules",
-    "staticCustomers",
-    "active",
-  ]) {
-    if (payload[field] !== undefined) {
-      segment[field] = payload[field];
-    }
+  for (const field of ["name", "description", "matchMode", "rules", "active"]) {
+    if (payload[field] !== undefined) segment[field] = payload[field];
+  }
+
+  if (payload.staticCustomers !== undefined) {
+    segment.staticCustomers = await validatedStaticCustomers(
+      payload.staticCustomers,
+      tenantBusinessId
+    );
   }
 
   segment.updatedBy = userId(user);
   await segment.save();
-
   return segment.toObject();
 }
 
-export async function deleteSegment(id) {
-  const result =
-    await CustomerSegment.findByIdAndDelete(id);
+export async function deleteSegment(id, { businessId: tenantBusinessId } = {}) {
+  businessId(tenantBusinessId);
+  if (!mongoose.isValidObjectId(id)) {
+    throw createServiceError("Customer segment identifier is invalid.", 400);
+  }
 
+  const result = await CustomerSegment.findOneAndDelete({
+    _id: id,
+    business: tenantBusinessId,
+  });
   assertFound(result, "Customer segment not found.");
 
   return {
@@ -351,36 +349,32 @@ export async function previewSegment(
   id,
   {
     limit = 500,
+    businessId: tenantBusinessId,
   } = {}
 ) {
-  const segment = await getSegment(id);
+  businessId(tenantBusinessId);
+  const segment = await getSegment(id, { businessId: tenantBusinessId });
 
-  const customers = await Customer.find({})
+  const customers = await Customer.find({
+    business: tenantBusinessId,
+    status: { $ne: "deleted" },
+  })
     .select(
       "firstName lastName fullName name email phone phoneNumber mobile createdAt"
     )
     .limit(Math.min(Number(limit) || 500, 5000))
     .lean();
 
-  const analytics = await customerAnalytics(
-    customers.map((customer) => customer._id)
-  );
-
+  const analytics = await customerAnalytics(customers.map((customer) => customer._id));
   const staticSet = new Set(
-    (segment.staticCustomers || []).map((customer) =>
-      String(customer._id || customer)
-    )
+    (segment.staticCustomers || []).map((customer) => String(customer._id || customer))
   );
 
   const matches = customers.filter((customer) => {
-    const metrics = analytics.get(
-      String(customer._id)
-    );
-
+    const metrics = analytics.get(String(customer._id));
     const ruleResults = segment.rules.map((rule) =>
       matchesRule(customer, metrics, rule)
     );
-
     const rulesMatch =
       ruleResults.length === 0
         ? true
@@ -389,12 +383,8 @@ export async function previewSegment(
           : ruleResults.every(Boolean);
 
     if (staticSet.size > 0) {
-      return (
-        staticSet.has(String(customer._id)) ||
-        rulesMatch
-      );
+      return staticSet.has(String(customer._id)) || rulesMatch;
     }
-
     return rulesMatch;
   });
 
