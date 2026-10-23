@@ -53,6 +53,15 @@ test("Stage 5 Marketing Data Core persists raw and normalised lineage", async ()
   assert.match(service, /counters\.reconciled/);
 });
 
+test("Stage 5 failed raw records are explicit and retryable instead of falsely reconciled", async () => {
+  const service = await source("../features/integrationPlatform/marketingDataCoreService.js");
+  assert.match(service, /reconciliationStatus: "failed"/);
+  assert.match(service, /reconciliationMessage: message/);
+  assert.match(service, /raw\.reconciliationStatus = "pending"/);
+  assert.match(service, /MarketingNormalisedRecord\.findOne/);
+  assert.doesNotMatch(service, /if \(raw\) \{\s*counters\.reconciled \+= 1;\s*continue;/);
+});
+
 test("Stage 5 source onboarding never accepts embedded provider secrets", async () => {
   const service = await source("../features/integrationPlatform/marketingDataCoreService.js");
   assert.match(service, /FORBIDDEN_CONFIG_KEY/);
