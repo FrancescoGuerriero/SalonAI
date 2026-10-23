@@ -58,6 +58,11 @@ tenant.post(
   requirePermissions("feature-control:update"),
   asyncHandler(controller.prepareInstallation)
 );
+tenant.post(
+  "/installations/:installationId/reconcile",
+  requirePermissions("feature-control:update"),
+  asyncHandler(controller.reconcileInstallation)
+);
 
 router.use(tenant);
 
