@@ -69,6 +69,17 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "consultation:approve",
   "consultation:assign",
 
+  "clinical:record:read",
+  "clinical:record:write",
+  "clinical:record:sign",
+  "clinical:consent:read",
+  "clinical:consent:manage",
+  "clinical:credential:read",
+  "clinical:credential:manage",
+  "clinical:media:read",
+  "clinical:media:manage",
+  "clinical:eligibility:manage",
+
   "loyalty:manage",
   "gift-card:manage",
   "referral:manage",
@@ -104,6 +115,7 @@ export const NON_DELEGABLE_EMPLOYEE_PERMISSIONS =
     "employee:delete",
     "employee:role:update",
     "employee:permissions:update",
+    "clinical:eligibility:manage",
   ]);
 
 const NON_DELEGABLE_EMPLOYEE_PERMISSION_SET =

@@ -22,6 +22,7 @@ import integrationPlatformRoutes from "./integrationPlatform/integrationPlatform
 import leadRoutes from "./leads/leadRoutes.js";
 import workflowRoutes from "./workflows/workflowRoutes.js";
 import settlementRoutes from "./finance/settlementRoutes.js";
+import clinicalRoutes from "./clinical/clinicalRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
 import securityRoutes from "./security/securityRoutes.js";
@@ -114,6 +115,10 @@ router.use(
 router.use(
   "/settlements",
   settlementRoutes
+);
+router.use(
+  "/clinical",
+  clinicalRoutes
 );
 
 /*
