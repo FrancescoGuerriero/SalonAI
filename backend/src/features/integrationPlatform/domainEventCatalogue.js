@@ -17,6 +17,7 @@ export const DOMAIN_EVENT_CATALOGUE = Object.freeze({
   "lead.scored": Object.freeze({ versions: Object.freeze(["1"]) }),
   "lead.opportunity_created": Object.freeze({ versions: Object.freeze(["1"]) }),
   "lead.converted": Object.freeze({ versions: Object.freeze(["1"]) }),
+  "lead.booking_attributed": Object.freeze({ versions: Object.freeze(["1"]) }),
   "opportunity.updated": Object.freeze({ versions: Object.freeze(["1"]) }),
   "booking.abandoned": Object.freeze({ versions: Object.freeze(["1"]) }),
   "booking.recovered": Object.freeze({ versions: Object.freeze(["1"]) }),
