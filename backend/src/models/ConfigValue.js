@@ -108,7 +108,7 @@ const configValueSchema = new Schema(
   }
 );
 
-configValueSchema.pre("validate", function validateScope(next) {
+configValueSchema.pre("validate", function validateScope() {
   if (this.scopeType === "platform") {
     this.business = null;
     this.scopeKey = "platform";
@@ -129,8 +129,6 @@ configValueSchema.pre("validate", function validateScope(next) {
       "effectiveTo must be later than effectiveFrom."
     );
   }
-
-  next();
 });
 
 configValueSchema.index(
