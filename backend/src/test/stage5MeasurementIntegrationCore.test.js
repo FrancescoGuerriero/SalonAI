@@ -80,6 +80,18 @@ test("Stage 5 sync contract includes preview scheduled incremental backfill and 
   assert.match(service, /runMarketingDataSource/);
 });
 
+test("Stage 5 failure recovery retries only failed or partial runs", async () => {
+  const [recovery, routes] = await Promise.all([
+    source("../features/integrationPlatform/marketingDataRecoveryService.js"),
+    source("../features/integrationPlatform/marketingDataCoreRoutes.js"),
+  ]);
+  assert.match(recovery, /\["failed", "partial"\]/);
+  assert.match(recovery, /retryOf: prior\._id/);
+  assert.match(recovery, /attempt: Number\(prior\.attempt/);
+  assert.match(recovery, /runMarketingDataSource/);
+  assert.match(routes, /\/runs\/:runId\/retry/);
+});
+
 test("Stage 5 technical SEO crawler is bounded and rejects unsafe origins", async () => {
   const crawler = await source("../features/integrationPlatform/technicalSeoCrawler.js");
   assert.match(crawler, /MAX_RESPONSE_BYTES/);
