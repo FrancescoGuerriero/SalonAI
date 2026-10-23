@@ -20,6 +20,9 @@ test(
     const controller = await source(
       "../features/appointments/customerBookingController.js"
     );
+    const legacyController = await source(
+      "../controllers/appointmentController.js"
+    );
 
     assert.match(
       route,
@@ -56,6 +59,15 @@ test(
     );
     assert.doesNotMatch(
       creation,
+      /Appointment\.create\(/
+    );
+
+    assert.doesNotMatch(
+      legacyController,
+      /export async function createAppointment\s*\(/
+    );
+    assert.doesNotMatch(
+      legacyController,
       /Appointment\.create\(/
     );
   }
