@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import MeasurementIntegrationCorePage from "../../pages/MeasurementIntegrationCorePage.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
@@ -13,9 +14,11 @@ function AccessDenied() {
 }
 
 export default function Stage5WorkspaceRouter({ pathname, children }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   if (pathname === "/admin/system/measurement-core") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
     return hasPermission(user, "feature-control:read")
       ? <MeasurementIntegrationCorePage />
       : <AccessDenied />;
