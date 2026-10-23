@@ -22,6 +22,7 @@ router.use(
   marketingDataCoreRoutes
 );
 
+router.get("/stage-5-contract", read, asyncHandler(controller.stage5ContractCatalogue));
 router.get("/apps", read, asyncHandler(controller.apps));
 router.post("/apps", write, asyncHandler(controller.createApp));
 router.patch("/apps/:appId", write, asyncHandler(controller.updateApp));
