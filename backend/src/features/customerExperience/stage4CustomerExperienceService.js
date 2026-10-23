@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import AbandonedBookingIntent from "../../models/AbandonedBookingIntent.js";
 import Appointment from "../../models/Appointment.js";
 import Customer from "../../models/customer.js";
@@ -5,6 +7,12 @@ import { changeAppointmentStatus } from "../appointments/appointmentManagementSe
 import { recordDomainEvent } from "../integrationPlatform/webhookProjectionService.js";
 import CustomerExperienceProfile from "./CustomerExperienceProfile.js";
 import ReputationResponse from "../reputation/ReputationResponse.js";
+import {
+  externalReputationOverview,
+  ingestExternalReviews,
+  ingestListingSnapshots,
+  updateExternalReputationResponse,
+} from "../reputation/reputationHubService.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 function text(value, max = 2000) {
@@ -21,6 +29,17 @@ function identifier(value) {
 
 function businessId(request) {
   return request?.effectiveAuthority?.businessId || request?.tenantContext?.businessId || undefined;
+}
+
+function activeBusinessId(request) {
+  const value = businessId(request);
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(
+      "A trusted active business is required for reputation operations.",
+      400
+    );
+  }
+  return value;
 }
 
 function appointmentStart(appointment) {
@@ -104,7 +123,7 @@ export async function checkInCustomerAppointment(appointmentId, request) {
 export async function bookingRecoveryMetrics(request) {
   const match = {};
   const business = businessId(request);
-  if (business) match.business = business;
+  if (business) match.business = new mongoose.Types.ObjectId(business);
 
   const grouped = await AbandonedBookingIntent.aggregate([
     { $match: match },
@@ -135,91 +154,206 @@ export async function bookingRecoveryMetrics(request) {
 
 function flattenReviews(profiles, responsesByReview) {
   return profiles.flatMap((profile) =>
-    (profile.reviews || []).map((review) => {
-      const response = responsesByReview.get(String(review._id));
-      return {
-        id: review._id,
-        profileId: profile._id,
-        customer: profile.user,
-        appointment: review.appointment,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        status: review.status,
-        createdAt: review.createdAt,
-        businessResponse: response
-          ? {
-              responseText: response.responseText,
-              responseStatus: response.responseStatus,
-              moderationNote: response.moderationNote,
-              respondedAt: response.respondedAt,
-              respondedBy: response.respondedBy,
-            }
-          : null,
-      };
-    })
+    (profile.reviews || [])
+      .filter((review) => review.appointment)
+      .map((review) => {
+        const response = responsesByReview.get(String(review._id));
+        return {
+          id: review._id,
+          profileId: profile._id,
+          customer: profile.user,
+          appointment: review.appointment,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          status: review.status,
+          createdAt: review.createdAt,
+          businessResponse: response
+            ? {
+                responseText: response.responseText,
+                responseStatus: response.responseStatus,
+                moderationNote: response.moderationNote,
+                respondedAt: response.respondedAt,
+                respondedBy: response.respondedBy,
+              }
+            : null,
+        };
+      })
   );
 }
 
-export async function reputationOverview(request) {
-  const profiles = await CustomerExperienceProfile.find({ "reviews.0": { $exists: true } })
+async function internalReputationOverview(request) {
+  const business = activeBusinessId(request);
+  const appointments = await Appointment.find({ business })
+    .select("_id")
+    .lean();
+  const appointmentIds = appointments.map((appointment) => appointment._id);
+  if (!appointmentIds.length) {
+    return {
+      reviews: [],
+      summary: {
+        total: 0,
+        averageRating: 0,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        statusCounts: { pending: 0, published: 0, rejected: 0 },
+      },
+    };
+  }
+
+  const profiles = await CustomerExperienceProfile.find({
+    "reviews.appointment": { $in: appointmentIds },
+  })
     .select("user reviews")
     .populate("user", "name email")
     .populate({
       path: "reviews.appointment",
+      match: { business },
       select: "startsAt appointmentDate appointmentTime status business",
       populate: { path: "service", select: "name" },
     })
     .lean();
 
-  const reviewIds = profiles.flatMap((profile) => (profile.reviews || []).map((review) => review._id));
-  const responses = await ReputationResponse.find({ reviewId: { $in: reviewIds } }).lean();
-  const responsesByReview = new Map(responses.map((entry) => [String(entry.reviewId), entry]));
-  let reviews = flattenReviews(profiles, responsesByReview);
-
-  const business = businessId(request);
-  if (business) {
-    reviews = reviews.filter((review) => String(review.appointment?.business || "") === String(business));
-  }
+  const reviewIds = profiles.flatMap((profile) =>
+    (profile.reviews || [])
+      .filter((review) => review.appointment)
+      .map((review) => review._id)
+  );
+  const responses = reviewIds.length
+    ? await ReputationResponse.find({
+        reviewId: { $in: reviewIds },
+        $or: [
+          { business },
+          { business: { $exists: false } },
+          { business: null },
+        ],
+      }).lean()
+    : [];
+  const responsesByReview = new Map(
+    responses.map((entry) => [String(entry.reviewId), entry])
+  );
+  const reviews = flattenReviews(profiles, responsesByReview);
 
   const published = reviews.filter((review) => review.status === "published");
   const averageRating = published.length
-    ? Number((published.reduce((sum, review) => sum + Number(review.rating || 0), 0) / published.length).toFixed(2))
+    ? Number(
+        (
+          published.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          published.length
+        ).toFixed(2)
+      )
     : 0;
-  const ratingDistribution = Object.fromEntries([1, 2, 3, 4, 5].map((rating) => [rating, published.filter((review) => review.rating === rating).length]));
-  const statusCounts = Object.fromEntries(["pending", "published", "rejected"].map((status) => [status, reviews.filter((review) => review.status === status).length]));
+  const ratingDistribution = Object.fromEntries(
+    [1, 2, 3, 4, 5].map((rating) => [
+      rating,
+      published.filter((review) => review.rating === rating).length,
+    ])
+  );
+  const statusCounts = Object.fromEntries(
+    ["pending", "published", "rejected"].map((status) => [
+      status,
+      reviews.filter((review) => review.status === status).length,
+    ])
+  );
 
-  return { reviews, summary: { total: reviews.length, averageRating, ratingDistribution, statusCounts } };
+  return {
+    reviews,
+    summary: {
+      total: reviews.length,
+      averageRating,
+      ratingDistribution,
+      statusCounts,
+    },
+  };
+}
+
+export async function reputationOverview(request) {
+  const business = activeBusinessId(request);
+  const [internal, external] = await Promise.all([
+    internalReputationOverview(request),
+    externalReputationOverview(request.query || {}, { businessId: business }),
+  ]);
+
+  const internalPublished = internal.reviews.filter(
+    (review) => review.status === "published"
+  );
+  const externalActive = external.reviews.filter(
+    (review) => review.status === "active"
+  );
+  const combined = [...internalPublished, ...externalActive];
+  const combinedAverageRating = combined.length
+    ? Number(
+        (
+          combined.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
+          combined.length
+        ).toFixed(2)
+      )
+    : 0;
+
+  return {
+    reviews: internal.reviews,
+    summary: internal.summary,
+    externalReviews: external.reviews,
+    listings: external.listings,
+    externalSummary: external.summary,
+    combinedSummary: {
+      total: combined.length,
+      internalPublished: internalPublished.length,
+      externalActive: externalActive.length,
+      averageRating: combinedAverageRating,
+      ratingDistribution: Object.fromEntries(
+        [1, 2, 3, 4, 5].map((rating) => [
+          rating,
+          combined.filter((review) => review.rating === rating).length,
+        ])
+      ),
+    },
+  };
 }
 
 export async function updateReputationReview(reviewId, payload, request) {
+  const business = activeBusinessId(request);
   const profile = await CustomerExperienceProfile.findOne({ "reviews._id": reviewId });
   if (!profile) throw createServiceError("Review not found.", 404);
   const review = profile.reviews.id(reviewId);
+  const appointment = await Appointment.findOne({
+    _id: review.appointment,
+    business,
+  })
+    .select("_id business")
+    .lean();
+  if (!appointment) {
+    throw createServiceError("Review not found in the active business.", 404);
+  }
 
   if (payload.status !== undefined) {
     const status = text(payload.status, 20).toLowerCase();
-    if (!["pending", "published", "rejected"].includes(status)) throw createServiceError("Review status is invalid.", 422);
+    if (!["pending", "published", "rejected"].includes(status)) {
+      throw createServiceError("Review status is invalid.", 422);
+    }
     review.status = status;
     await profile.save();
   }
 
   const responseText = text(payload.responseText, 2000);
-  const responseStatus = text(payload.responseStatus, 20).toLowerCase() || (responseText ? "draft" : "none");
+  const responseStatus =
+    text(payload.responseStatus, 20).toLowerCase() ||
+    (responseText ? "draft" : "none");
   if (!["none", "draft", "published", "withdrawn"].includes(responseStatus)) {
     throw createServiceError("Review response status is invalid.", 422);
   }
   if (responseStatus === "published" && (!responseText || review.status !== "published")) {
-    throw createServiceError("A business response can be published only for a published review and must contain text.", 409);
+    throw createServiceError(
+      "A business response can be published only for a published review and must contain text.",
+      409
+    );
   }
 
-  const appointmentBusiness = review.appointment?.business || undefined;
   const response = await ReputationResponse.findOneAndUpdate(
     { reviewId: review._id },
     {
       $set: {
         profile: profile._id,
-        business: businessId(request) || appointmentBusiness,
+        business,
         responseText,
         responseStatus,
         moderationNote: text(payload.moderationNote, 1000),
@@ -235,9 +369,31 @@ export async function updateReputationReview(reviewId, payload, request) {
   return { review, response };
 }
 
+export async function importExternalReviews(payload, request) {
+  return ingestExternalReviews(payload, {
+    businessId: activeBusinessId(request),
+  });
+}
+
+export async function importListingSnapshots(payload, request) {
+  return ingestListingSnapshots(payload, {
+    businessId: activeBusinessId(request),
+  });
+}
+
+export async function updateExternalReviewResponse(reviewId, payload, request) {
+  return updateExternalReputationResponse(reviewId, payload, {
+    businessId: activeBusinessId(request),
+    actorUser: userId(request.user),
+  });
+}
+
 export default {
   bookingRecoveryMetrics,
   checkInCustomerAppointment,
+  importExternalReviews,
+  importListingSnapshots,
   reputationOverview,
+  updateExternalReviewResponse,
   updateReputationReview,
 };
