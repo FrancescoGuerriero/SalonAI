@@ -1,8 +1,26 @@
 import * as service from "./commerceService.js";
 import { refundOrder } from "./orderRefundService.js";
 import {
+  invoicePublicView,
+  issueOrderInvoice,
+} from "./invoiceService.js";
+import {
   hasRequestPermission,
 } from "../../middleware/permissionMiddleware.js";
+
+async function reconcileOrderInvoiceSafely(orderId) {
+  try {
+    return invoicePublicView(
+      await issueOrderInvoice(orderId)
+    );
+  } catch (error) {
+    console.error("Failed to reconcile order invoice after commerce mutation.", {
+      orderId: String(orderId || ""),
+      code: error?.code || "ORDER_INVOICE_RECONCILIATION_FAILED",
+    });
+    return null;
+  }
+}
 
 export function getCommerceConfig(req, res) {
   res.json(service.commerceConfig());
@@ -60,7 +78,6 @@ export async function updateProduct(req, res) {
     ...req.body,
   };
 
-  // Publication and inventory are governed independently from catalogue editing.
   delete payload.active;
   delete payload.stockQuantity;
 
@@ -124,11 +141,28 @@ export async function inventorySummary(req, res) {
 }
 
 export async function createCheckout(req, res) {
-  res.status(201).json(await service.createCheckout(req.body, req.user));
+  const result = await service.createCheckout(req.body, req.user);
+  const invoice =
+    result?.payment?.status === "paid" && result?.order?._id
+      ? await reconcileOrderInvoiceSafely(result.order._id)
+      : null;
+
+  res.status(201).json({
+    ...result,
+    ...(invoice ? { invoice } : {}),
+  });
 }
 
 export async function confirmDemoCheckout(req, res) {
-  res.json(await service.confirmDemoCheckout(req.params.id, req.user));
+  const result = await service.confirmDemoCheckout(req.params.id, req.user);
+  const invoice = result?._id
+    ? await reconcileOrderInvoiceSafely(result._id)
+    : null;
+
+  res.json({
+    ...result,
+    ...(invoice ? { invoice } : {}),
+  });
 }
 
 export async function listMyOrders(req, res) {
@@ -152,7 +186,15 @@ export async function updateOrderStatus(req, res) {
 }
 
 export async function refundOrderPayment(req, res) {
-  res.json(await refundOrder(req.params.id, req.body, req.user));
+  const result = await refundOrder(req.params.id, req.body, req.user);
+  const invoice = result?.order?._id
+    ? await reconcileOrderInvoiceSafely(result.order._id)
+    : null;
+
+  res.json({
+    ...result,
+    ...(invoice ? { invoice } : {}),
+  });
 }
 
 export async function stripeWebhook(req, res) {
