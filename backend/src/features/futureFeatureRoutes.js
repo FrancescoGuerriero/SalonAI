@@ -21,6 +21,7 @@ import integrationApiRoutes from "./integrationPlatform/integrationApiRoutes.js"
 import integrationPlatformRoutes from "./integrationPlatform/integrationPlatformRoutes.js";
 import leadRoutes from "./leads/leadRoutes.js";
 import workflowRoutes from "./workflows/workflowRoutes.js";
+import settlementRoutes from "./finance/settlementRoutes.js";
 import staffRoutes from "./staff/staffRoutes.js";
 import staffRotaRoutes from "./staffRota/staffRotaRoutes.js";
 import securityRoutes from "./security/securityRoutes.js";
@@ -109,6 +110,10 @@ router.use(
 router.use(
   "/workflows",
   workflowRoutes
+);
+router.use(
+  "/settlements",
+  settlementRoutes
 );
 
 /*
