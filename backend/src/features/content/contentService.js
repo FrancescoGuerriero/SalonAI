@@ -95,6 +95,20 @@ function pageQuery(request, extra = {}) {
   return business ? { business, ...extra } : { business: { $exists: false }, ...extra };
 }
 
+async function assertSlugAvailable(slug, request, excludePageId = null) {
+  const conflict = await ContentPage.exists(pageQuery(request, {
+    ...(excludePageId ? { _id: { $ne: excludePageId } } : {}),
+    $or: [
+      { slug },
+      { status: "published", "publishedSnapshot.slug": slug },
+    ],
+  }));
+
+  if (conflict) {
+    throw createServiceError("That content URL is already in use by another working or published page.", 409);
+  }
+}
+
 export async function listContentPages(request) {
   return ContentPage.find(pageQuery(request)).sort({ updatedAt: -1 }).lean();
 }
@@ -104,6 +118,8 @@ export async function createContentPage(payload, request) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     throw createServiceError("Content slug must be URL-safe.", 422);
   }
+  await assertSlugAvailable(slug, request);
+
   const locales = normaliseLocales(payload.locales);
   const page = new ContentPage({
     business: businessId(request),
@@ -127,6 +143,7 @@ export async function updateContentPage(pageId, payload, request) {
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       throw createServiceError("Content slug must be URL-safe.", 422);
     }
+    await assertSlugAvailable(slug, request, page._id);
     page.slug = slug;
   }
   if (payload.defaultLocale !== undefined) page.defaultLocale = text(payload.defaultLocale, 20);
@@ -148,6 +165,8 @@ export async function publishContentPage(pageId, request) {
   const page = await ContentPage.findOne(pageQuery(request, { _id: pageId }));
   if (!page) throw createServiceError("Content page not found.", 404);
   if (!page.locales.length) throw createServiceError("Content cannot be published without a locale.", 409);
+  await assertSlugAvailable(page.slug, request, page._id);
+
   page.status = "published";
   page.publishedVersion = page.currentVersion;
   page.publishedSnapshot = snapshot(page);
