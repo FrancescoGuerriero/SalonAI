@@ -10,6 +10,13 @@ const schema = new Schema(
       default: undefined,
       index: true,
     },
+    pairKey: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+      trim: true,
+    },
     sourceCustomer: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
@@ -50,10 +57,6 @@ const schema = new Schema(
   { timestamps: true, optimisticConcurrency: true }
 );
 
-schema.index(
-  { sourceCustomer: 1, targetCustomer: 1 },
-  { unique: true, partialFilterExpression: { status: { $in: ["pending", "active"] } } }
-);
 schema.index({ targetCustomer: 1, status: 1, createdAt: -1 });
 
 export default mongoose.models.CustomerRelationship ||
