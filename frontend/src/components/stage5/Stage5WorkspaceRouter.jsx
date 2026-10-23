@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import MeasurementIntegrationCorePage from "../../pages/MeasurementIntegrationCorePage.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
+import Stage6WorkspaceRouter from "../stage6/Stage6WorkspaceRouter.jsx";
 
 function AccessDenied() {
   return (
@@ -24,5 +25,9 @@ export default function Stage5WorkspaceRouter({ pathname, children }) {
       : <AccessDenied />;
   }
 
-  return children;
+  return (
+    <Stage6WorkspaceRouter pathname={pathname}>
+      {children}
+    </Stage6WorkspaceRouter>
+  );
 }
