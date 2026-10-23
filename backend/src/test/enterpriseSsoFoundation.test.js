@@ -46,22 +46,44 @@ test("Enterprise SSO routes use trusted tenant authority and existing feature-co
   assert.match(parent, /"\/enterprise-sso"/);
 });
 
-test("Enterprise SSO configuration rejects application-supplied secrets", async () => {
-  const service = await source(
-    "../features/enterpriseSso/enterpriseSsoService.js"
-  );
+test("Enterprise SSO configuration rejects application secrets and uses governed OIDC credentials", async () => {
+  const [model, service] = await Promise.all([
+    source("../models/EnterpriseSsoConnection.js"),
+    source("../features/enterpriseSso/enterpriseSsoService.js"),
+  ]);
 
   assert.match(service, /ENTERPRISE_SSO_SECRET_INPUT_PROHIBITED/);
   assert.match(service, /FORBIDDEN_SECRET_KEYS/);
+  assert.match(model, /credentialVersion:[\s\S]*ref: "CredentialVersion"/);
+  assert.match(service, /CredentialVersion\.findOne/);
+  assert.match(service, /credentialType: "oauth_client_secret"/);
+  assert.match(service, /status: \{ \$in: \["active", "retiring"\] \}/);
   assert.match(service, /runtimeAvailable: false/);
   assert.match(service, /activationAllowed: false/);
   assert.match(service, /providerAccepted: false/);
 });
 
-test("Enterprise SSO foundation exposes no login, callback or activation endpoint yet", async () => {
-  const routes = await source(
-    "../features/enterpriseSso/enterpriseSsoRoutes.js"
+test("Enterprise SSO readiness requires active verified BusinessDomain ownership", async () => {
+  const service = await source(
+    "../features/enterpriseSso/enterpriseSsoService.js"
   );
 
+  assert.match(service, /BusinessDomain\.find/);
+  assert.match(service, /status: "active"/);
+  assert.match(service, /"verification\.verifiedAt": \{ \$ne: null \}/);
+  assert.match(service, /domainsVerified/);
+  assert.match(service, /ENTERPRISE_SSO_CLIENT_TENANT_FORBIDDEN/);
+});
+
+test("Enterprise SSO URLs fail closed and foundation exposes no authentication endpoint", async () => {
+  const [service, routes] = await Promise.all([
+    source("../features/enterpriseSso/enterpriseSsoService.js"),
+    source("../features/enterpriseSso/enterpriseSsoRoutes.js"),
+  ]);
+
+  assert.match(service, /url\.protocol !== "https:"/);
+  assert.match(service, /url\.username/);
+  assert.match(service, /url\.password/);
+  assert.match(service, /url\.hash/);
   assert.doesNotMatch(routes, /\/login|\/callback|\/activate|\/enable/);
 });
