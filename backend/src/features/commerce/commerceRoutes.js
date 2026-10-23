@@ -8,6 +8,10 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./commerceController.js";
+import {
+  createOrderInvoice,
+  readOrderInvoice,
+} from "./invoiceController.js";
 import { requireFeature } from "../../services/featureControlService.js";
 
 const router = express.Router();
@@ -103,6 +107,18 @@ router.post(
   protect,
   requirePermissions("order:refund"),
   asyncHandler(controller.refundOrderPayment)
+);
+router.get(
+  "/orders/:id/invoice",
+  protect,
+  requirePermissions("order:read"),
+  asyncHandler(readOrderInvoice)
+);
+router.post(
+  "/orders/:id/invoice",
+  protect,
+  requirePermissions("order:update"),
+  asyncHandler(createOrderInvoice)
 );
 
 export default router;
