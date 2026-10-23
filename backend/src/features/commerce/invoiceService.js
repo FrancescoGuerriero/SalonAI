@@ -73,6 +73,14 @@ function orderLines(order) {
   });
 }
 
+function orderSubtotal(order) {
+  return money(
+    Number(order.subtotal || 0) +
+      Number(order.appointmentSubtotal || 0) +
+      Number(order.servicePackageSubtotal || 0)
+  );
+}
+
 async function paymentSummary(filter) {
   const payments = await Payment.find(filter).lean();
 
@@ -103,6 +111,21 @@ async function paymentSummary(filter) {
   };
 }
 
+async function orderPaymentSummary(order) {
+  if (order.payment && mongoose.isValidObjectId(order.payment?._id || order.payment)) {
+    return paymentSummary({
+      _id: order.payment?._id || order.payment,
+    });
+  }
+
+  // Legacy fallback: count only the parent order payment, never allocation
+  // payments that are also linked to an Appointment in a mixed cart.
+  return paymentSummary({
+    order: order._id,
+    appointment: { $exists: false },
+  });
+}
+
 function financialStatus({
   total,
   amountPaid,
@@ -117,6 +140,21 @@ function financialStatus({
   if (amountPaid >= total && total > 0) return "paid";
   if (amountPaid > 0) return "partially_paid";
   return "issued";
+}
+
+async function createInvoiceOnce(sourceField, sourceId, data) {
+  const existing = await Invoice.findOne({ [sourceField]: sourceId });
+  if (existing) return existing;
+
+  try {
+    return await Invoice.create(data);
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+
+    const winner = await Invoice.findOne({ [sourceField]: sourceId });
+    if (!winner) throw error;
+    return winner;
+  }
 }
 
 async function persistAppointmentCompatibilityNumber(appointment, invoice) {
@@ -154,6 +192,8 @@ export async function reconcileAppointmentInvoice(invoice, appointment = null) {
   invoice.customer = source.customer?._id || source.customer || invoice.customer;
   invoice.lines = appointmentLines(source);
   invoice.subtotal = total;
+  invoice.discountTotal = 0;
+  invoice.deliveryFee = 0;
   invoice.total = total;
   invoice.amountPaid = amountPaid;
   invoice.amountRefunded = amountRefunded;
@@ -180,13 +220,14 @@ export async function issueAppointmentInvoice(appointmentId, actor = null) {
     "Appointment not found."
   );
 
-  let invoice = await Invoice.findOne({ appointment: appointment._id });
-  if (!invoice) {
-    const total = money(
-      appointment.finalPrice ?? appointment.totalPrice ?? appointment.service?.price ?? 0
-    );
+  const total = money(
+    appointment.finalPrice ?? appointment.totalPrice ?? appointment.service?.price ?? 0
+  );
 
-    invoice = await Invoice.create({
+  const invoice = await createInvoiceOnce(
+    "appointment",
+    appointment._id,
+    {
       business: appointment.business || undefined,
       location: appointment.location || undefined,
       customer: appointment.customer?._id || appointment.customer || undefined,
@@ -201,8 +242,8 @@ export async function issueAppointmentInvoice(appointmentId, actor = null) {
       metadata: {
         bookingSource: appointment.bookingSource || "",
       },
-    });
-  }
+    }
+  );
 
   return reconcileAppointmentInvoice(invoice, appointment);
 }
@@ -222,7 +263,7 @@ export async function reconcileOrderInvoice(invoice, order = null) {
     assertFound(await Order.findById(invoice.order), "Order not found.");
 
   const total = money(source.total);
-  const payments = await paymentSummary({ order: source._id });
+  const payments = await orderPaymentSummary(source);
   const amountPaid = payments.amountPaid;
   const amountRefunded = payments.amountRefunded;
   const balanceDue = money(Math.max(0, total - amountPaid));
@@ -235,7 +276,9 @@ export async function reconcileOrderInvoice(invoice, order = null) {
 
   invoice.customer = source.customer || invoice.customer;
   invoice.lines = orderLines(source);
-  invoice.subtotal = money(source.subtotal ?? total);
+  invoice.subtotal = orderSubtotal(source);
+  invoice.discountTotal = money(source.discountTotal);
+  invoice.deliveryFee = money(source.deliveryFee);
   invoice.total = total;
   invoice.amountPaid = amountPaid;
   invoice.amountRefunded = amountRefunded;
@@ -255,23 +298,26 @@ export async function issueOrderInvoice(orderId, actor = null) {
   objectId(orderId, "order");
   const order = assertFound(await Order.findById(orderId), "Order not found.");
 
-  let invoice = await Invoice.findOne({ order: order._id });
-  if (!invoice) {
-    invoice = await Invoice.create({
+  const invoice = await createInvoiceOnce(
+    "order",
+    order._id,
+    {
       customer: order.customer || undefined,
       order: order._id,
       sourceType: "order",
       currency: order.currency || "GBP",
       lines: orderLines(order),
-      subtotal: money(order.subtotal ?? order.total),
+      subtotal: orderSubtotal(order),
+      discountTotal: money(order.discountTotal),
+      deliveryFee: money(order.deliveryFee),
       total: money(order.total),
       balanceDue: money(order.total),
       issuedBy: actorId(actor),
       metadata: {
         orderNumber: order.orderNumber || "",
       },
-    });
-  }
+    }
+  );
 
   return reconcileOrderInvoice(invoice, order);
 }
@@ -298,6 +344,8 @@ export function invoicePublicView(invoice) {
     currency: value?.currency,
     lines: value?.lines || [],
     subtotal: money(value?.subtotal),
+    discountTotal: money(value?.discountTotal),
+    deliveryFee: money(value?.deliveryFee),
     total: money(value?.total),
     amountPaid: money(value?.amountPaid),
     amountRefunded: money(value?.amountRefunded),
