@@ -22,6 +22,12 @@ const schema = new Schema(
       default: null,
       index: true,
     },
+    customer: {
+      type: Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
+      index: true,
+    },
     provider: {
       type: String,
       required: true,
@@ -45,6 +51,22 @@ const schema = new Schema(
     reviewer: {
       displayName: { type: String, trim: true, default: "", maxlength: 300 },
       externalReferenceHash: { type: String, trim: true, default: "", maxlength: 128 },
+    },
+    linkage: {
+      status: {
+        type: String,
+        enum: ["unlinked", "candidate", "verified", "rejected"],
+        default: "unlinked",
+        index: true,
+      },
+      method: {
+        type: String,
+        enum: ["none", "provider_verified", "manual"],
+        default: "none",
+      },
+      linkedAt: { type: Date, default: null },
+      linkedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+      note: { type: String, trim: true, default: "", maxlength: 1000 },
     },
     rating: {
       type: Number,
@@ -115,6 +137,7 @@ schema.index(
 );
 schema.index({ business: 1, status: 1, reviewedAt: -1 });
 schema.index({ business: 1, location: 1, provider: 1, reviewedAt: -1 });
+schema.index({ business: 1, customer: 1, reviewedAt: -1 });
 
 export default mongoose.models.ExternalReview ||
   mongoose.model("ExternalReview", schema);
