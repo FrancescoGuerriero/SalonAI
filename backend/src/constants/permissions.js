@@ -80,6 +80,9 @@ export const EMPLOYEE_PERMISSIONS = Object.freeze([
   "clinical:media:manage",
   "clinical:eligibility:manage",
 
+  "benchmark:read",
+  "benchmark:manage",
+
   "loyalty:manage",
   "gift-card:manage",
   "referral:manage",
@@ -116,6 +119,7 @@ export const NON_DELEGABLE_EMPLOYEE_PERMISSIONS =
     "employee:role:update",
     "employee:permissions:update",
     "clinical:eligibility:manage",
+    "benchmark:manage",
   ]);
 
 const NON_DELEGABLE_EMPLOYEE_PERMISSION_SET =
