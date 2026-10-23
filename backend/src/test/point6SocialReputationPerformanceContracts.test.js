@@ -41,10 +41,13 @@ test("external reputation and listing records preserve tenant provenance", async
   const response = await source("../features/reputation/ExternalReputationResponse.js");
   const listing = await source("../features/reputation/BusinessListingSnapshot.js");
   const hub = await source("../features/reputation/reputationHubService.js");
+  const linkage = await source("../features/reputation/externalReviewLinkageService.js");
 
   assert.match(review, /business:[\s\S]*?required:\s*true/);
   assert.match(review, /providerPayloadDigest/);
   assert.match(review, /externalReferenceHash/);
+  assert.match(review, /customer:[\s\S]*?ref:\s*"Customer"/);
+  assert.match(review, /linkage:[\s\S]*?"unlinked"[\s\S]*?"verified"/);
   assert.match(review, /business:\s*1, provider:\s*1, externalReviewId:\s*1/);
 
   assert.match(response, /externalReview:[\s\S]*?unique:\s*true/);
@@ -52,10 +55,14 @@ test("external reputation and listing records preserve tenant provenance", async
   assert.match(listing, /externalLocationReference:[\s\S]*?required:\s*true/);
   assert.match(listing, /providerPayloadDigest/);
 
-  assert.match(hub, /business:\s*businessId/);
+  assert.match(hub, /const business = objectId\(businessId, "business"\)/);
   assert.match(hub, /EXTERNAL_REVIEW_RESPONSE_PUBLICATION_GATED/);
   assert.match(hub, /providerPayloadDigest/);
   assert.doesNotMatch(hub, /providerPayload:\s*record\.providerPayload/);
+
+  assert.match(linkage, /Customer\.findOne\(\{[\s\S]*?business:\s*businessId/);
+  assert.match(linkage, /status:\s*\{ \$ne: "deleted" \}/);
+  assert.match(linkage, /method:\s*"manual"/);
 });
 
 test("internal reputation management proves appointment tenancy before mutation", async () => {
