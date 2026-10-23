@@ -167,6 +167,16 @@ export function getAppointmentCommunicationHistory(
   ).then(responseData);
 }
 
+export function createAppointmentPaymentRequest(
+  appointmentId,
+  payload = {}
+) {
+  return API.post(
+    `${BASE_URL}/${appointmentId}/payment-requests`,
+    payload
+  ).then(responseData);
+}
+
 export function createAppointmentPaymentCheckout(
   appointmentId,
   payload = {}
@@ -174,6 +184,22 @@ export function createAppointmentPaymentCheckout(
   return API.post(
     `${BASE_URL}/${appointmentId}/payments/checkout`,
     payload
+  ).then(responseData);
+}
+
+export function getAppointmentInvoice(
+  appointmentId
+) {
+  return API.get(
+    `${BASE_URL}/${appointmentId}/invoice`
+  ).then(responseData);
+}
+
+export function issueAppointmentInvoice(
+  appointmentId
+) {
+  return API.post(
+    `${BASE_URL}/${appointmentId}/invoice`
   ).then(responseData);
 }
 
@@ -244,8 +270,17 @@ const appointmentManagementApi = {
   getCommunicationHistory:
     getAppointmentCommunicationHistory,
 
+  createPaymentRequest:
+    createAppointmentPaymentRequest,
+
   createPaymentCheckout:
     createAppointmentPaymentCheckout,
+
+  getInvoice:
+    getAppointmentInvoice,
+
+  issueInvoice:
+    issueAppointmentInvoice,
 
   confirmDemoPayment:
     confirmDemoAppointmentPayment,
