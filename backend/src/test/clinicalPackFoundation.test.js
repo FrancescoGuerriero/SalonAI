@@ -21,6 +21,18 @@ test("Clinical Pack fails closed without explicit tenant/region/location eligibi
   assert.match(middleware, /CLINICAL_REGION_REQUIRED/);
 });
 
+test("clinical profiles fail closed to the selected home Location", async () => {
+  const [middleware, routes] = await Promise.all([
+    source("../features/clinical/clinicalEligibilityMiddleware.js"),
+    source("../features/clinical/clinicalRoutes.js"),
+  ]);
+
+  assert.match(middleware, /requireClinicalProfileLocation/);
+  assert.match(middleware, /homeLocation:\s*request\.clinicalContext\.locationId/);
+  assert.match(middleware, /CLINICAL_PROFILE_LOCATION_RESTRICTED/);
+  assert.match(routes, /router\.param\([\s\S]*"profileId"[\s\S]*requireClinicalProfileLocation/);
+});
+
 test("clinical permissions are separate and eligibility authority is non-delegable", async () => {
   const permissions = await source("../constants/permissions.js");
 
@@ -67,6 +79,9 @@ test("signed treatment records require human provider scope, current consent and
 
   assert.match(record, /CLINICAL_SIGNATURE_EVIDENCE_REQUIRED/);
   assert.match(record, /SIGNED_TREATMENT_RECORD_IMMUTABLE/);
+  assert.match(record, /TREATMENT_RECORD_QUERY_MUTATION_PROHIBITED/);
+  assert.match(record, /findOneAndUpdate/);
+  assert.match(record, /deleteOne/);
   assert.match(record, /CLINICAL_AI_DRAFT_PROVENANCE_REQUIRED/);
   assert.match(service, /verifiedCredentialForActor/);
   assert.match(service, /clinical_treatment/);
