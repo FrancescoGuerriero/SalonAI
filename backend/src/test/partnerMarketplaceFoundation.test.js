@@ -75,6 +75,7 @@ test("marketplace submission and review remain platform-governed while tenant in
   assert.match(routes, /feature-control:update/);
   assert.match(routes, /"\/submissions\/:appId\/review"/);
   assert.match(routes, /"\/apps\/:appId\/installations"/);
+  assert.match(routes, /"\/installations\/:installationId\/reconcile"/);
 });
 
 test("marketplace installation reuses TenantSubscription and IntegrationApp without provisioning credentials or connections", async () => {
@@ -105,6 +106,23 @@ test("marketplace re-prepare synchronises only clean draft IntegrationApps", asy
   assert.match(service, /integrationApp\.redirectUris =/);
   assert.match(service, /integrationApp\.allowedOrigins =/);
   assert.match(service, /await integrationApp\.save\(\)/);
+});
+
+test("marketplace connection lifecycle is reconciled from canonical Integration Platform evidence only", async () => {
+  const reconciliation = await source(
+    "../features/partnerMarketplace/partnerMarketplaceReconciliationService.js"
+  );
+
+  assert.match(reconciliation, /IntegrationApp\.findOne/);
+  assert.match(reconciliation, /IntegrationConnection\.findOne/);
+  assert.match(reconciliation, /status: "connected"/);
+  assert.match(reconciliation, /integrationApp\.status === "active"/);
+  assert.match(reconciliation, /installation\.status = "connected"/);
+  assert.match(reconciliation, /installation\.status = "suspended"/);
+  assert.match(reconciliation, /connectionAuthority: "integration_platform"/);
+  assert.match(reconciliation, /connectionProvisionedByMarketplace: false/);
+  assert.doesNotMatch(reconciliation, /IntegrationConnection\.(create|findOneAndUpdate|updateOne)/);
+  assert.doesNotMatch(reconciliation, /integrationApp\.save/);
 });
 
 test("marketplace rejects secrets and is mounted inside the existing integration control plane", async () => {
