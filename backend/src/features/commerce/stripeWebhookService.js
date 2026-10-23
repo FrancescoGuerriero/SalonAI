@@ -7,6 +7,9 @@ import {
   reconcileStripeRefund,
 } from "./orderRefundService.js";
 import {
+  issueOrderInvoice,
+} from "./invoiceService.js";
+import {
   notifyOrderPaid,
   notifyOrderRefunded,
   notifySafely,
@@ -18,6 +21,9 @@ import {
 import {
   notifyAppointmentPaymentReceived,
 } from "../appointments/appointmentPaymentNotificationService.js";
+import {
+  reconcileStripeMembershipCollection,
+} from "../memberships/membershipStripeCollectionService.js";
 import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
@@ -43,6 +49,12 @@ const REFUND_EVENT_TYPES =
     "refund.created",
     "refund.updated",
     "refund.failed",
+  ]);
+
+const MEMBERSHIP_COLLECTION_EVENT_TYPES =
+  new Set([
+    "invoice.payment_succeeded",
+    "invoice.payment_failed",
   ]);
 
 function sessionOrderId(
@@ -149,11 +161,6 @@ async function markExpired(
     session.status ||
     "expired";
 
-  /*
-   * Expired Checkout Sessions must release
-   * their reservation so the customer can
-   * start a fresh payment attempt.
-   */
   payment.checkoutReservationKey =
     undefined;
 
@@ -191,11 +198,42 @@ async function processStripeCheckoutEvent(
     event.data?.object ||
     {};
 
+  if (
+    MEMBERSHIP_COLLECTION_EVENT_TYPES.has(
+      type
+    )
+  ) {
+    const reconciliation =
+      await reconcileStripeMembershipCollection(
+        event
+      );
+
+    return {
+      received: true,
+      handled:
+        reconciliation.reconciled === true,
+      eventId:
+        event.id || "",
+      eventType: type,
+      membershipCollection: true,
+      ...reconciliation,
+    };
+  }
+
   if (REFUND_EVENT_TYPES.has(type)) {
     const reconciliation =
       await reconcileStripeRefund(
         object
       );
+
+    if (
+      reconciliation.reconciled &&
+      reconciliation.orderId
+    ) {
+      await issueOrderInvoice(
+        reconciliation.orderId
+      );
+    }
 
     if (
       reconciliation.reconciled &&
@@ -273,6 +311,10 @@ async function processStripeCheckoutEvent(
             session.status ||
             "paid",
         }
+      );
+
+      await issueOrderInvoice(
+        orderId
       );
 
       settled = true;
@@ -458,10 +500,6 @@ export async function handleStripeCheckoutWebhook(
   rawBody,
   signature
 ) {
-  /*
-   * Verify the Stripe signature before accepting
-   * anything into the persistent event ledger.
-   */
   const event =
     constructStripeEvent(
       rawBody,
@@ -473,11 +511,6 @@ export async function handleStripeCheckoutWebhook(
       event
     );
 
-  /*
-   * A previously completed Stripe event is
-   * acknowledged without repeating settlement,
-   * inventory or notification side effects.
-   */
   if (!claim.claimed) {
     return {
       received: true,

@@ -75,6 +75,11 @@ const paymentSchema = new mongoose.Schema(
       ref: "Order",
       index: true,
     },
+    membershipContract: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MembershipContract",
+      index: true,
+    },
     purpose: {
       type: String,
       enum: [

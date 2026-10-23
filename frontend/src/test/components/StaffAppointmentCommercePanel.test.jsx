@@ -4,18 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   getCommunicationHistory,
   sendReminderNow,
-  createPaymentCheckout,
+  createPaymentRequest,
+  issueInvoice,
 } = vi.hoisted(() => ({
   getCommunicationHistory: vi.fn(),
   sendReminderNow: vi.fn(),
-  createPaymentCheckout: vi.fn(),
+  createPaymentRequest: vi.fn(),
+  issueInvoice: vi.fn(),
 }));
 
 vi.mock("../../Services/appointmentManagementApi.js", () => ({
   default: {
     getCommunicationHistory,
     sendReminderNow,
-    createPaymentCheckout,
+    createPaymentRequest,
+    issueInvoice,
   },
 }));
 
@@ -25,14 +28,15 @@ describe("StaffAppointmentCommercePanel", () => {
   beforeEach(() => {
     getCommunicationHistory.mockReset();
     sendReminderNow.mockReset();
-    createPaymentCheckout.mockReset();
+    createPaymentRequest.mockReset();
+    issueInvoice.mockReset();
 
     getCommunicationHistory.mockResolvedValue({
       items: [],
     });
   });
 
-  it("shows staff reminder and payment controls", async () => {
+  it("shows staff reminder, payment-request and invoice controls", async () => {
     render(
       <StaffAppointmentCommercePanel
         appointment={{
@@ -54,6 +58,9 @@ describe("StaffAppointmentCommercePanel", () => {
     expect(
       screen.getByRole("button", { name: /request balance/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /issue invoice/i })
+    ).toBeInTheDocument();
     expect(screen.getByText("£75.00")).toBeInTheDocument();
 
     await waitFor(() => {
@@ -64,7 +71,7 @@ describe("StaffAppointmentCommercePanel", () => {
     });
   });
 
-  it("shows a settled state when nothing is outstanding", async () => {
+  it("shows a settled state and existing invoice number", async () => {
     render(
       <StaffAppointmentCommercePanel
         appointment={{
@@ -72,6 +79,7 @@ describe("StaffAppointmentCommercePanel", () => {
           paymentStatus: "paid",
           amountPaid: 100,
           balanceDue: 0,
+          invoiceNumber: "INV-20261023-ABC123",
           service: {
             name: "Colour Service",
             price: 100,
@@ -82,6 +90,12 @@ describe("StaffAppointmentCommercePanel", () => {
 
     expect(
       screen.getByText(/no payment is currently outstanding/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/INV-20261023-ABC123/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /reconcile invoice/i })
     ).toBeInTheDocument();
 
     await waitFor(() => {

@@ -1,7 +1,7 @@
 import {
-  BellRing,
   CheckCircle2,
   CreditCard,
+  FileText,
   History,
   LoaderCircle,
   MessageCircle,
@@ -88,6 +88,14 @@ export default function StaffAppointmentCommercePanel({
 }) {
   const [hoursBefore, setHoursBefore] = useState(24);
   const [history, setHistory] = useState([]);
+  const [invoice, setInvoice] = useState(
+    appointment?.invoiceNumber
+      ? {
+          invoiceNumber: appointment.invoiceNumber,
+          status: appointment.paymentStatus || "issued",
+        }
+      : null
+  );
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [busyAction, setBusyAction] = useState("");
   const [error, setError] = useState("");
@@ -145,7 +153,7 @@ export default function StaffAppointmentCommercePanel({
     const result = await runAction(
       `payment-${purpose}`,
       () =>
-        appointmentManagementApi.createPaymentCheckout(appointmentId, {
+        appointmentManagementApi.createPaymentRequest(appointmentId, {
           purpose,
         }),
       purpose === "deposit"
@@ -153,9 +161,22 @@ export default function StaffAppointmentCommercePanel({
         : "Balance payment request created and sent."
     );
 
-    const checkoutUrl = result?.payment?.checkoutUrl;
+    const checkoutUrl =
+      result?.paymentRequest?.checkoutUrl || result?.payment?.checkoutUrl;
     if (checkoutUrl) {
       window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  async function issueInvoice() {
+    const result = await runAction(
+      "invoice",
+      () => appointmentManagementApi.issueInvoice(appointmentId),
+      "Invoice issued and reconciled with the current payment state."
+    );
+
+    if (result?.invoice) {
+      setInvoice(result.invoice);
     }
   }
 
@@ -213,7 +234,7 @@ export default function StaffAppointmentCommercePanel({
           <div>
             <h3 className="font-bold text-slate-900">Payment controls</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Checkout creation automatically sends the secure payment link.
+              Secure payment requests reuse the canonical checkout and transactional communication path.
             </p>
           </div>
           <CreditCard size={20} className="text-indigo-600" />
@@ -274,6 +295,33 @@ export default function StaffAppointmentCommercePanel({
             </button>
           </div>
         )}
+
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Invoice</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {invoice?.invoiceNumber
+                  ? `${invoice.invoiceNumber} · ${statusLabel(invoice.status || "issued")}`
+                  : "No canonical invoice has been issued yet."}
+              </p>
+            </div>
+            <FileText size={18} className="text-indigo-600" />
+          </div>
+          <button
+            type="button"
+            disabled={Boolean(busyAction)}
+            onClick={issueInvoice}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            {busyAction === "invoice" ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <FileText size={16} />
+            )}
+            {invoice?.invoiceNumber ? "Reconcile invoice" : "Issue invoice"}
+          </button>
+        </div>
       </section>
 
       {(error || success) && (
