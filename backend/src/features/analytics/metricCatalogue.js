@@ -1,4 +1,4 @@
-const METRIC_DEFINITION_VERSION = "2.1.0";
+const METRIC_DEFINITION_VERSION = "2.2.0";
 
 function freezeArray(values = []) {
   return Object.freeze([...values]);
@@ -89,10 +89,18 @@ export const COMMERCE_METRIC_KEYS = Object.freeze([
   "membership-collection-recovery-rate",
 ]);
 
+export const GROWTH_METRIC_KEYS = Object.freeze([
+  "lead-to-customer-conversion-rate",
+  "lead-to-booking-conversion-rate",
+  "booking-to-payment-conversion-rate",
+  "attributed-net-revenue",
+]);
+
 export const CANONICAL_METRIC_KEYS = Object.freeze([
   ...APPOINTMENT_METRIC_KEYS,
   ...OPERATIONAL_METRIC_KEYS,
   ...COMMERCE_METRIC_KEYS,
+  ...GROWTH_METRIC_KEYS,
 ]);
 
 const definitions = {
@@ -312,6 +320,91 @@ const definitions = {
     formula: "recovered_failed_collection_cycles / retry_eligible_failed_collection_cycles * 100",
     presentationArea: "membership",
   }),
+  "lead-to-customer-conversion-rate": metricDefinition({
+    key: "lead-to-customer-conversion-rate",
+    label: "Lead-to-customer conversion rate",
+    domain: "growth",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["customer:read", "reports:read"],
+    sourceModel: "Lead / Customer",
+    sourceFields: [
+      "Lead.status",
+      "Lead.customer",
+      "Lead.createdAt",
+      "Lead.convertedAt",
+      "Lead.source.channel",
+      "Lead.source.campaign",
+    ],
+    numeratorMeaning: "Captured leads in the selected cohort that are linked to a canonical Customer through the governed conversion workflow.",
+    denominatorMeaning: "Distinct captured leads in the selected cohort.",
+    formula: "converted_leads / captured_leads * 100",
+    presentationArea: "growth",
+  }),
+  "lead-to-booking-conversion-rate": metricDefinition({
+    key: "lead-to-booking-conversion-rate",
+    label: "Lead-to-booking conversion rate",
+    domain: "growth",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["customer:read", "appointment:read", "reports:read"],
+    sourceModel: "Lead / GrowthAttribution / Appointment",
+    sourceFields: [
+      "Lead._id",
+      "Lead.createdAt",
+      "GrowthAttribution.lead",
+      "GrowthAttribution.appointment",
+      "GrowthAttribution.source.channel",
+      "Appointment.status",
+    ],
+    numeratorMeaning: "Captured leads with at least one immutable, non-conflicting booking attribution.",
+    denominatorMeaning: "Distinct captured leads in the selected cohort.",
+    formula: "leads_with_attributed_booking / captured_leads * 100",
+    presentationArea: "growth",
+  }),
+  "booking-to-payment-conversion-rate": metricDefinition({
+    key: "booking-to-payment-conversion-rate",
+    label: "Attributed booking-to-payment conversion rate",
+    domain: "growth",
+    unit: "percent",
+    aggregation: "ratio",
+    requiredPermissions: ["reports:read"],
+    sourceModel: "GrowthAttribution / Payment",
+    sourceFields: [
+      "GrowthAttribution.appointment",
+      "Payment.appointment",
+      "Payment.status",
+      "Payment.amount",
+      "Payment.refundedAmount",
+    ],
+    numeratorMeaning: "Attributed bookings with at least one canonical paid payment record.",
+    denominatorMeaning: "All bookings represented by immutable GrowthAttribution evidence in the selected cohort.",
+    formula: "paid_attributed_bookings / attributed_bookings * 100",
+    presentationArea: "growth",
+  }),
+  "attributed-net-revenue": metricDefinition({
+    key: "attributed-net-revenue",
+    label: "Attributed net revenue",
+    domain: "growth",
+    unit: "GBP",
+    aggregation: "sum",
+    requiredPermissions: ["reports:read"],
+    sourceModel: "GrowthAttribution / Payment",
+    sourceFields: [
+      "GrowthAttribution.lead",
+      "GrowthAttribution.appointment",
+      "GrowthAttribution.source.channel",
+      "GrowthAttribution.source.campaign",
+      "Payment.appointment",
+      "Payment.amount",
+      "Payment.status",
+      "Payment.refundedAmount",
+    ],
+    numeratorMeaning: "Net canonical payment revenue attached to immutably attributed bookings.",
+    denominatorMeaning: "Not applicable to this sum metric.",
+    formula: "sum(max(0, paid_payment_amount - refunded_amount)) for attributed bookings",
+    presentationArea: "growth",
+  }),
 };
 
 export const METRIC_DEFINITIONS = Object.freeze(definitions);
@@ -356,6 +449,7 @@ export default {
   APPOINTMENT_METRIC_KEYS,
   OPERATIONAL_METRIC_KEYS,
   COMMERCE_METRIC_KEYS,
+  GROWTH_METRIC_KEYS,
   CANONICAL_METRIC_KEYS,
   METRIC_DEFINITIONS,
   getMetricDefinition,
