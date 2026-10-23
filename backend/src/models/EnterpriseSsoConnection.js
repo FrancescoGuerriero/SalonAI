@@ -49,6 +49,11 @@ const enterpriseSsoConnectionSchema = new Schema(
     oidc: {
       issuerUrl: { type: String, trim: true, default: "", maxlength: 1000 },
       clientId: { type: String, trim: true, default: "", maxlength: 500 },
+      credentialVersion: {
+        type: Schema.Types.ObjectId,
+        ref: "CredentialVersion",
+        default: null,
+      },
       scopes: {
         type: [String],
         default: ["openid", "profile", "email"],
@@ -73,6 +78,8 @@ const enterpriseSsoConnectionSchema = new Schema(
     },
     readiness: {
       staticConfigurationValid: { type: Boolean, default: false },
+      domainsVerified: { type: Boolean, default: false },
+      credentialReady: { type: Boolean, default: false },
       runtimeAvailable: { type: Boolean, default: false },
       providerAccepted: { type: Boolean, default: false },
       activationAllowed: { type: Boolean, default: false },
