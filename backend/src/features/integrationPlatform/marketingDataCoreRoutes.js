@@ -16,6 +16,7 @@ router.post("/sources", write, asyncHandler(controller.createSource));
 router.patch("/sources/:sourceId", write, asyncHandler(controller.updateSource));
 router.post("/sources/:sourceId/preview", write, asyncHandler(controller.preview));
 router.post("/sources/:sourceId/runs", write, asyncHandler(controller.runSource));
+router.post("/sources/:sourceId/provider-run", write, asyncHandler(controller.runProviderSource));
 router.get("/runs", read, asyncHandler(controller.runs));
 router.post("/runs/:runId/retry", write, asyncHandler(recoveryController.retryRun));
 router.get("/seo-observations", read, asyncHandler(controller.seoObservations));
