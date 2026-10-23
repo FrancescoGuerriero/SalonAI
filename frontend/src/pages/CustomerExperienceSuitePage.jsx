@@ -8,6 +8,7 @@ import {
   Gift,
   Heart,
   HeartHandshake,
+  Link2,
   MessageCircle,
   Palette,
   Scissors,
@@ -73,6 +74,18 @@ const ACCOUNT_TOOLS = [
     title: "My account",
     description: "Appointments, payment balances, orders and customer shortcuts.",
     to: "/account",
+  },
+  {
+    icon: CalendarCheck,
+    title: "Appointment check-in",
+    description: "Tell reception you have arrived using the same canonical appointment used by the salon.",
+    to: "/experience/check-in",
+  },
+  {
+    icon: Link2,
+    title: "Relationships and household",
+    description: "Create explicit household relationships without automatically sharing private or financial information.",
+    to: "/experience/relationships",
   },
   {
     icon: Settings,
