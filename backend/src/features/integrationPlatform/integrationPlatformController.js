@@ -15,6 +15,10 @@ import {
 import {
   marketingConnectorCatalogue,
 } from "./marketingConnectorCatalogue.js";
+import {
+  providerCredentialBindings,
+  storeProviderCredential,
+} from "./providerCredentialService.js";
 
 function businessId(request) {
   const value =
@@ -125,6 +129,27 @@ export async function createConnection(request, response) {
   );
 }
 
+export async function providerCredentials(request, response) {
+  response.json({
+    items: await providerCredentialBindings(
+      request.params.appId,
+      request.params.connectionId,
+      { businessId: businessId(request) }
+    ),
+  });
+}
+
+export async function storeProviderConnectionCredential(request, response) {
+  response.status(201).json(
+    await storeProviderCredential(
+      request.params.appId,
+      request.params.connectionId,
+      body(request),
+      { businessId: businessId(request) }
+    )
+  );
+}
+
 export async function subscriptions(request, response) {
   response.json({
     items: await service.listWebhookSubscriptions(
@@ -199,7 +224,7 @@ export async function stage5ContractCatalogue(_request, response) {
   const marketing = marketingConnectorCatalogue();
 
   response.json({
-    contractVersion: "1.0.0",
+    contractVersion: "1.1.0",
     rateLimit: {
       version: API_RATE_LIMIT_CONTRACT_VERSION,
       headers: [
@@ -214,6 +239,11 @@ export async function stage5ContractCatalogue(_request, response) {
     events,
     scopes,
     marketing,
+    providerCredentials: {
+      bindingRoles: ["access_token", "refresh_token", "client_secret", "api_key"],
+      secretReturned: false,
+      encryptedAtRest: true,
+    },
     observability: {
       connectorHealthEndpoint: "/api/integration-platform/health",
       webhookDeliveriesEndpoint: "/api/integration-platform/webhook-deliveries",
@@ -234,10 +264,12 @@ export default {
   eventCatalogue,
   health,
   issueCredential,
+  providerCredentials,
   replayDelivery,
   revokeCredential,
   scopeCatalogue,
   stage5ContractCatalogue,
+  storeProviderConnectionCredential,
   subscriptions,
   updateApp,
   updateSubscription,
