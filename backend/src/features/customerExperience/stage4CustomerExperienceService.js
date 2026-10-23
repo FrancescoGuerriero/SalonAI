@@ -2,6 +2,7 @@ import AbandonedBookingIntent from "../../models/AbandonedBookingIntent.js";
 import Appointment from "../../models/Appointment.js";
 import Customer from "../../models/customer.js";
 import { changeAppointmentStatus } from "../appointments/appointmentManagementService.js";
+import { recordDomainEvent } from "../integrationPlatform/webhookProjectionService.js";
 import CustomerExperienceProfile from "./CustomerExperienceProfile.js";
 import ReputationResponse from "../reputation/ReputationResponse.js";
 import { createServiceError } from "../../shared/serviceError.js";
@@ -12,6 +13,10 @@ function text(value, max = 2000) {
 
 function userId(user) {
   return user?._id || user?.id;
+}
+
+function identifier(value) {
+  return text(value?._id || value?.id || value, 200);
 }
 
 function businessId(request) {
@@ -63,12 +68,37 @@ export async function checkInCustomerAppointment(appointmentId, request) {
     );
   }
 
-  return changeAppointmentStatus(
+  const changed = await changeAppointmentStatus(
     appointment._id,
     "checked_in",
     { reason: "Customer self-service check-in." },
     { actor: request.user }
   );
+
+  const ownerBusinessId = identifier(changed?.business || appointment.business || businessId(request));
+  if (ownerBusinessId) {
+    await recordDomainEvent({
+      businessId: ownerBusinessId,
+      type: "appointment.status_changed",
+      version: "1",
+      aggregateType: "appointment",
+      aggregateId: identifier(appointment._id),
+      payload: {
+        appointmentId: identifier(appointment._id),
+        locationId: identifier(changed?.location || appointment.location),
+        previousStatus: status,
+        status: "checked_in",
+        channel: "customer_self_service",
+      },
+      source: "customer_check_in",
+      correlationId: identifier(appointment._id),
+      metadata: {
+        actorId: identifier(request.user),
+      },
+    });
+  }
+
+  return changed;
 }
 
 export async function bookingRecoveryMetrics(request) {
