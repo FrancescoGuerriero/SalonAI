@@ -22,6 +22,9 @@ import {
   notifyAppointmentPaymentReceived,
 } from "../appointments/appointmentPaymentNotificationService.js";
 import {
+  reconcileStripeMembershipCollection,
+} from "../memberships/membershipStripeCollectionService.js";
+import {
   constructStripeEvent,
 } from "../../providers/paymentProvider.js";
 import {
@@ -46,6 +49,12 @@ const REFUND_EVENT_TYPES =
     "refund.created",
     "refund.updated",
     "refund.failed",
+  ]);
+
+const MEMBERSHIP_COLLECTION_EVENT_TYPES =
+  new Set([
+    "invoice.payment_succeeded",
+    "invoice.payment_failed",
   ]);
 
 function sessionOrderId(
@@ -189,6 +198,28 @@ async function processStripeCheckoutEvent(
     event.data?.object ||
     {};
 
+  if (
+    MEMBERSHIP_COLLECTION_EVENT_TYPES.has(
+      type
+    )
+  ) {
+    const reconciliation =
+      await reconcileStripeMembershipCollection(
+        event
+      );
+
+    return {
+      received: true,
+      handled:
+        reconciliation.reconciled === true,
+      eventId:
+        event.id || "",
+      eventType: type,
+      membershipCollection: true,
+      ...reconciliation,
+    };
+  }
+
   if (REFUND_EVENT_TYPES.has(type)) {
     const reconciliation =
       await reconcileStripeRefund(
@@ -315,7 +346,7 @@ async function processStripeCheckoutEvent(
             providerIntentId:
               sessionIntentId(
                 session
-            ),
+              ),
             rawStatus:
               session
                 .payment_status ||
