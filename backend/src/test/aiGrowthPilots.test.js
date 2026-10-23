@@ -35,6 +35,10 @@ test("growth pilots consume tenant-owned canonical evidence and create review pr
   assert.match(service, /status:\s*"active"/);
   assert.match(service, /getStoredRetentionPrediction/);
   assert.match(service, /predictRetention/);
+  assert.match(service, /prediction\.risk/);
+  assert.match(service, /risk\.score/);
+  assert.match(service, /AI_RETENTION_PREDICTION_STALE/);
+  assert.match(service, /sourcePredictionId/);
   assert.match(service, /LeadScore\.findOne/);
   assert.match(service, /AiAgentRun\.create/);
   assert.match(service, /AiActionProposal\.create/);
@@ -43,6 +47,7 @@ test("growth pilots consume tenant-owned canonical evidence and create review pr
   assert.match(service, /executionStatus:\s*"blocked"/);
   assert.match(service, /automaticExecution:\s*false/);
 
+  assert.doesNotMatch(service, /boundedNumber\(prediction\.score/);
   assert.doesNotMatch(service, /executeWorkflowRun/);
   assert.doesNotMatch(service, /ScheduledCommunication/);
   assert.doesNotMatch(service, /setLeadNurture/);
