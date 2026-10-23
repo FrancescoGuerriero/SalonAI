@@ -4,6 +4,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import {
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import {
   listAuditLogs,
   listDeadLetters,
@@ -18,6 +19,12 @@ import {
 const router = express.Router();
 
 router.use(protect);
+
+router.use(
+  "/enterprise-sso",
+  enterpriseSsoRoutes
+);
+
 router.get(
   "/features",
   requirePermissions(
