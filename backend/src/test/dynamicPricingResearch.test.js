@@ -74,3 +74,16 @@ test("pricing service rejects personal/customer signals and requires fairness ap
   assert.match(service, /mechanical price sensitivity calculation, not causal uplift evidence/);
   assert.match(service, /No canonical Service price is changed/);
 });
+
+test("price-rule creation ignores client location authority and validates tenant-owned Service references", async () => {
+  const controller = await source(
+    "../features/dynamicPricing/dynamicPricingController.js"
+  );
+
+  assert.match(controller, /delete payload\.location/);
+  assert.match(controller, /tenant\.locationId/);
+  assert.match(controller, /Service\.exists\(\{/);
+  assert.match(controller, /business:\s*tenant\.businessId/);
+  assert.match(controller, /PRICING_RESEARCH_SERVICE_NOT_OWNED/);
+  assert.match(controller, /tenantSafeRulePayload/);
+});
