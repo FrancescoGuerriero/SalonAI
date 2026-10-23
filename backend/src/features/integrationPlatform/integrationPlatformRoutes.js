@@ -4,11 +4,17 @@ import asyncHandler from "../../shared/asyncHandler.js";
 import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
+import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
 import * as controller from "./integrationPlatformController.js";
 
 const router = express.Router();
 const read = requirePermissions("feature-control:read");
 const write = requirePermissions("feature-control:update");
+
+router.use(
+  "/marketplace",
+  partnerMarketplaceRoutes
+);
 
 router.get("/apps", read, asyncHandler(controller.apps));
 router.post("/apps", write, asyncHandler(controller.createApp));
