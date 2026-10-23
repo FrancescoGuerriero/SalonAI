@@ -11,6 +11,12 @@ import {
   updateOpportunity,
 } from "./leadService.js";
 import {
+  attributionForLead,
+  recordAttributionTouch,
+  recordLeadCaptureAttribution,
+  recordLeadConversionAttribution,
+} from "../campaigns/growthCampaignService.js";
+import {
   createServiceError,
 } from "../../shared/serviceError.js";
 
@@ -48,6 +54,25 @@ function body(request) {
     : {};
 }
 
+async function attributionOutcome(operation) {
+  try {
+    const touch = await operation();
+    return {
+      status: touch ? "recorded" : "not_required",
+      touch,
+    };
+  } catch (error) {
+    // Lead/customer mutations are already transactional before attribution is
+    // projected. Never turn a successful canonical mutation into an ambiguous
+    // client retry. Surface the unresolved projection for explicit repair.
+    return {
+      status: "unresolved",
+      code: error.code || "ATTRIBUTION_PROJECTION_FAILED",
+      message: error.message,
+    };
+  }
+}
+
 export async function leads(request, response) {
   response.json({
     items: await listLeads(request.query || {}, {
@@ -65,13 +90,23 @@ export async function lead(request, response) {
 }
 
 export async function capture(request, response) {
-  response.status(201).json(
-    await captureLead(body(request), {
-      businessId: businessId(request),
-      locationId: locationId(request),
-      actorUser: actorUser(request),
+  const tenantBusinessId = businessId(request);
+  const payload = body(request);
+  const result = await captureLead(payload, {
+    businessId: tenantBusinessId,
+    locationId: locationId(request),
+    actorUser: actorUser(request),
+  });
+  const attribution = await attributionOutcome(() =>
+    recordLeadCaptureAttribution(result.lead, payload, {
+      businessId: tenantBusinessId,
     })
   );
+
+  response.status(201).json({
+    ...result,
+    attribution,
+  });
 }
 
 export async function update(request, response) {
@@ -111,21 +146,51 @@ export async function nurture(request, response) {
 }
 
 export async function convert(request, response) {
-  response.status(201).json(
-    await convertLeadToCustomer(request.params.leadId, body(request), {
-      businessId: businessId(request),
-      actorUser: actorUser(request),
+  const tenantBusinessId = businessId(request);
+  const result = await convertLeadToCustomer(request.params.leadId, body(request), {
+    businessId: tenantBusinessId,
+    actorUser: actorUser(request),
+  });
+  const attribution = await attributionOutcome(() =>
+    recordLeadConversionAttribution(result.lead, result.customer, {
+      businessId: tenantBusinessId,
     })
   );
+
+  response.status(201).json({
+    ...result,
+    attribution,
+  });
 }
 
 export async function addOpportunity(request, response) {
-  response.status(201).json(
-    await createOpportunity(request.params.leadId, body(request), {
-      businessId: businessId(request),
-      actorUser: actorUser(request),
-    })
+  const tenantBusinessId = businessId(request);
+  const payload = body(request);
+  const opportunity = await createOpportunity(request.params.leadId, payload, {
+    businessId: tenantBusinessId,
+    actorUser: actorUser(request),
+  });
+  const attribution = await attributionOutcome(() =>
+    recordAttributionTouch(
+      {
+        ...payload.attribution,
+        lead: request.params.leadId,
+        opportunity: opportunity._id,
+        customer: opportunity.customer || undefined,
+        campaign: payload.campaignId || payload.attribution?.campaign,
+        campaignKey: payload.campaignKey || payload.attribution?.campaignKey,
+        touchType: "opportunity",
+        channel: payload.sourceChannel || payload.attribution?.channel || "other",
+        externalReference: payload.attribution?.externalReference,
+      },
+      { businessId: tenantBusinessId }
+    )
   );
+
+  response.status(201).json({
+    opportunity,
+    attribution,
+  });
 }
 
 export async function editOpportunity(request, response) {
@@ -142,8 +207,30 @@ export async function editOpportunity(request, response) {
   );
 }
 
+export async function attribution(request, response) {
+  response.json(
+    await attributionForLead(request.params.leadId, {
+      businessId: businessId(request),
+    })
+  );
+}
+
+export async function addAttribution(request, response) {
+  response.status(201).json(
+    await recordAttributionTouch(
+      {
+        ...body(request),
+        lead: request.params.leadId,
+      },
+      { businessId: businessId(request) }
+    )
+  );
+}
+
 export default {
+  addAttribution,
   addOpportunity,
+  attribution,
   capture,
   convert,
   editOpportunity,
