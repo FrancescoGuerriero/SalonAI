@@ -1,0 +1,389 @@
+import { createHash } from "node:crypto";
+import mongoose from "mongoose";
+
+import Campaign from "./Campaign.js";
+import CampaignExecution from "./CampaignExecution.js";
+import AttributionTouch from "./AttributionTouch.js";
+import { createServiceError } from "../../shared/serviceError.js";
+
+function text(value) {
+  return String(value ?? "").trim();
+}
+
+function lower(value) {
+  return text(value).toLowerCase();
+}
+
+function identifier(value) {
+  return value?._id || value?.id || value || null;
+}
+
+function objectId(value, field, { optional = false } = {}) {
+  if ((value === undefined || value === null || value === "") && optional) return null;
+  const result = identifier(value);
+  if (!mongoose.isValidObjectId(result)) {
+    throw createServiceError(`${field} must be a valid identifier.`, 400, { field });
+  }
+  return result;
+}
+
+function date(value, field, { optional = true } = {}) {
+  if ((value === undefined || value === null || value === "") && optional) return null;
+  const result = new Date(value);
+  if (Number.isNaN(result.getTime())) {
+    throw createServiceError(`${field} must be a valid date.`, 400, { field });
+  }
+  return result;
+}
+
+function slug(value) {
+  return lower(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 140);
+}
+
+function normaliseUtm(payload = {}) {
+  const supplied = payload.utm && typeof payload.utm === "object" ? payload.utm : {};
+  return {
+    source: lower(supplied.source || payload.utmSource),
+    medium: lower(supplied.medium || payload.utmMedium),
+    campaign: text(supplied.campaign || payload.utmCampaign),
+    term: text(supplied.term || payload.utmTerm),
+    content: text(supplied.content || payload.utmContent),
+  };
+}
+
+function stableKey(parts) {
+  return createHash("sha256")
+    .update(parts.map((part) => text(part)).join(":"))
+    .digest("hex");
+}
+
+async function campaignForBusiness(campaignId, businessId) {
+  objectId(businessId, "business");
+  objectId(campaignId, "campaign");
+  const campaign = await Campaign.findOne({
+    _id: campaignId,
+    business: businessId,
+  });
+  if (!campaign) {
+    throw createServiceError("Campaign not found in the active business.", 404);
+  }
+  return campaign;
+}
+
+export async function resolveCampaignAttribution(
+  payload = {},
+  {
+    businessId,
+  } = {}
+) {
+  objectId(businessId, "business");
+  const explicitCampaign = identifier(payload.campaign || payload.campaignId);
+  if (explicitCampaign) {
+    return campaignForBusiness(explicitCampaign, businessId);
+  }
+
+  const utm = normaliseUtm(payload);
+  const campaignKey = slug(payload.campaignKey);
+  const campaignName = text(payload.campaignName || payload.sourceCampaign || utm.campaign);
+
+  const alternatives = [];
+  if (campaignKey) alternatives.push({ campaignKey });
+  if (utm.campaign) alternatives.push({ "utm.campaign": utm.campaign });
+  if (campaignName) alternatives.push({ name: campaignName });
+
+  if (alternatives.length === 0) return null;
+
+  const matches = await Campaign.find({
+    business: businessId,
+    $or: alternatives,
+  })
+    .limit(3)
+    .lean();
+
+  if (matches.length > 1) {
+    throw createServiceError(
+      "Campaign attribution is ambiguous; provide a canonical campaign id or key.",
+      409,
+      { code: "CAMPAIGN_ATTRIBUTION_AMBIGUOUS" }
+    );
+  }
+  return matches[0] || null;
+}
+
+export async function createCampaignExecution(
+  campaignId,
+  payload = {},
+  {
+    businessId,
+    actorUser = null,
+  } = {}
+) {
+  const campaign = await campaignForBusiness(campaignId, businessId);
+  const channel = lower(payload.channel || campaign.channel);
+  const provider = lower(payload.provider);
+  if (!channel || !provider) {
+    throw createServiceError("Campaign execution requires channel and provider.", 400);
+  }
+
+  const allowedChannels = new Set(
+    [campaign.channel, ...(campaign.channels || [])]
+      .map(lower)
+      .filter(Boolean)
+  );
+  if (allowedChannels.size > 0 && !allowedChannels.has(channel)) {
+    throw createServiceError(
+      "Execution channel is not enabled on the master campaign.",
+      409,
+      { code: "CAMPAIGN_CHANNEL_NOT_ENABLED" }
+    );
+  }
+
+  const scheduledFor = date(payload.scheduledFor, "scheduledFor");
+  const idempotencyKey = text(payload.idempotencyKey) || stableKey([
+    businessId,
+    campaign._id,
+    channel,
+    provider,
+    payload.externalReference,
+    scheduledFor?.toISOString() || "draft",
+  ]);
+
+  const execution = await CampaignExecution.findOneAndUpdate(
+    {
+      business: businessId,
+      idempotencyKey,
+    },
+    {
+      $setOnInsert: {
+        business: businessId,
+        campaign: campaign._id,
+        channel,
+        provider,
+        status: lower(payload.status || "draft"),
+        idempotencyKey,
+        externalReference: text(payload.externalReference),
+        scheduledFor,
+        metrics: {
+          attempted: 0,
+          delivered: 0,
+          failed: 0,
+          opens: 0,
+          clicks: 0,
+          conversions: 0,
+          spend: 0,
+          revenue: 0,
+          currency: text(payload.currency || "GBP").toUpperCase(),
+        },
+        metadata: payload.metadata || {},
+        createdBy: objectId(actorUser, "actorUser", { optional: true }),
+        updatedBy: objectId(actorUser, "actorUser", { optional: true }),
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }
+  ).lean();
+
+  return execution;
+}
+
+export async function listCampaignExecutions(
+  campaignId,
+  query = {},
+  {
+    businessId,
+  } = {}
+) {
+  await campaignForBusiness(campaignId, businessId);
+  const match = {
+    business: businessId,
+    campaign: campaignId,
+  };
+  if (query.status) match.status = lower(query.status);
+  if (query.channel) match.channel = lower(query.channel);
+  if (query.provider) match.provider = lower(query.provider);
+
+  return CampaignExecution.find(match)
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(Math.max(1, Math.min(500, Number(query.limit) || 100)))
+    .lean();
+}
+
+export async function recordAttributionTouch(
+  payload = {},
+  {
+    businessId,
+  } = {}
+) {
+  objectId(businessId, "business");
+  const campaign = await resolveCampaignAttribution(payload, { businessId });
+  const lead = objectId(payload.lead || payload.leadId, "lead", { optional: true });
+  const customer = objectId(payload.customer || payload.customerId, "customer", { optional: true });
+  const opportunity = objectId(payload.opportunity || payload.opportunityId, "opportunity", { optional: true });
+  const externalReference = text(payload.externalReference);
+
+  if (!lead && !customer && !opportunity && !externalReference) {
+    throw createServiceError(
+      "Attribution touch requires a lead, customer, opportunity or external reference.",
+      400
+    );
+  }
+
+  const utm = normaliseUtm(payload);
+  const occurredAt = date(payload.occurredAt, "occurredAt") || new Date();
+  const touchType = lower(payload.touchType || "interaction").replaceAll("-", "_");
+  const channel = lower(payload.channel || payload.sourceChannel || "other");
+  const sourceSystem = lower(payload.sourceSystem || payload.system);
+  const medium = lower(payload.medium || payload.sourceMedium || utm.medium);
+  const sourceKey = text(payload.sourceKey) || stableKey([
+    businessId,
+    campaign?._id,
+    lead,
+    customer,
+    opportunity,
+    touchType,
+    channel,
+    sourceSystem,
+    externalReference,
+    utm.campaign,
+  ]);
+
+  return AttributionTouch.findOneAndUpdate(
+    {
+      business: businessId,
+      sourceKey,
+    },
+    {
+      $setOnInsert: {
+        business: businessId,
+        campaign: campaign?._id || null,
+        lead,
+        customer,
+        opportunity,
+        touchType,
+        channel,
+        sourceSystem,
+        medium,
+        externalReference,
+        sourceKey,
+        utm,
+        occurredAt,
+        metadata: payload.metadata || {},
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }
+  ).lean();
+}
+
+export async function recordLeadCaptureAttribution(
+  lead,
+  payload = {},
+  {
+    businessId,
+  } = {}
+) {
+  if (!lead?._id) return null;
+  const source = lead.source || payload.source || {};
+  return recordAttributionTouch(
+    {
+      lead: lead._id,
+      customer: lead.customer || null,
+      touchType: "lead_capture",
+      channel: source.channel || payload.sourceChannel,
+      sourceSystem: source.system || payload.sourceSystem,
+      sourceMedium: source.medium || payload.sourceMedium,
+      sourceCampaign: source.campaign || payload.sourceCampaign,
+      externalReference: source.externalReference || payload.externalReference,
+      campaign: payload.campaignId || payload.campaign,
+      campaignKey: payload.campaignKey,
+      utm: payload.utm,
+      utmSource: payload.utmSource,
+      utmMedium: payload.utmMedium,
+      utmCampaign: payload.utmCampaign,
+      utmTerm: payload.utmTerm,
+      utmContent: payload.utmContent,
+      sourceKey: stableKey([businessId, lead._id, "lead_capture"]),
+      metadata: {
+        origin: "lead_capture",
+      },
+    },
+    { businessId }
+  );
+}
+
+export async function recordLeadConversionAttribution(
+  lead,
+  customer,
+  {
+    businessId,
+  } = {}
+) {
+  if (!lead?._id || !customer?._id) return null;
+  return recordAttributionTouch(
+    {
+      lead: lead._id,
+      customer: customer._id,
+      touchType: "conversion",
+      channel: lead.source?.channel || "other",
+      sourceSystem: lead.source?.system || "",
+      sourceMedium: lead.source?.medium || "",
+      sourceCampaign: lead.source?.campaign || "",
+      externalReference: lead.source?.externalReference || "",
+      sourceKey: stableKey([businessId, lead._id, customer._id, "conversion"]),
+      metadata: {
+        origin: "lead_conversion",
+      },
+    },
+    { businessId }
+  );
+}
+
+export async function attributionForLead(
+  leadId,
+  {
+    businessId,
+  } = {}
+) {
+  objectId(leadId, "lead");
+  objectId(businessId, "business");
+  const touches = await AttributionTouch.find({
+    business: businessId,
+    lead: leadId,
+  })
+    .populate("campaign", "campaignKey name objective channel channels utm status")
+    .sort({ occurredAt: 1, _id: 1 })
+    .lean();
+
+  const conversionIndex = touches.findIndex((touch) => touch.touchType === "conversion");
+  const eligible = conversionIndex >= 0 ? touches.slice(0, conversionIndex) : touches;
+  const firstTouch = eligible[0] || touches[0] || null;
+  const lastTouch = eligible[eligible.length - 1] || firstTouch;
+
+  return {
+    leadId: String(leadId),
+    firstTouch,
+    lastTouch,
+    conversionTouch: conversionIndex >= 0 ? touches[conversionIndex] : null,
+    touchCount: touches.length,
+    touches,
+  };
+}
+
+export default {
+  attributionForLead,
+  createCampaignExecution,
+  listCampaignExecutions,
+  recordAttributionTouch,
+  recordLeadCaptureAttribution,
+  recordLeadConversionAttribution,
+  resolveCampaignAttribution,
+};
