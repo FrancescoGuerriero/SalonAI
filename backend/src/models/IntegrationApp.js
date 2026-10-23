@@ -63,6 +63,7 @@ const integrationAppSchema = new Schema(
       default: [],
     },
     ratePolicy: {
+      version: { type: String, trim: true, default: "1.0.0", maxlength: 40 },
       requests: { type: Number, min: 1, max: 1000000, default: 600 },
       windowSeconds: { type: Number, min: 1, max: 86400, default: 60 },
     },
