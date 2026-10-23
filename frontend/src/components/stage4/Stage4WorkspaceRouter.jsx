@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import CmsPage from "../../pages/CmsPage.jsx";
 import ContentStudioPage from "../../pages/ContentStudioPage.jsx";
 import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
@@ -17,17 +18,22 @@ function AccessDenied() {
 }
 
 export default function Stage4WorkspaceRouter({ pathname, children }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   if (pathname.startsWith("/content/") && pathname.length > "/content/".length) {
     return <CmsPage />;
   }
-  if (pathname === "/experience/check-in") {
-    return <CustomerCheckInPage />;
-  }
-  if (pathname === "/experience/relationships") {
-    return <CustomerRelationshipsPage />;
-  }
+
+  const customerWorkspace = pathname === "/experience/check-in" || pathname === "/experience/relationships";
+  if (customerWorkspace && loading) return null;
+  if (customerWorkspace && !user) return <Navigate replace to="/login" />;
+  if (pathname === "/experience/check-in") return <CustomerCheckInPage />;
+  if (pathname === "/experience/relationships") return <CustomerRelationshipsPage />;
+
+  const managementWorkspace = pathname === "/customer-experience-management/content"
+    || pathname === "/customer-experience-management/reputation";
+  if (managementWorkspace && loading) return null;
+  if (managementWorkspace && !user) return <Navigate replace to="/login" />;
 
   if (pathname === "/customer-experience-management/content") {
     return hasPermission(user, "customer-experience:read")
