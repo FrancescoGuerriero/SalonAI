@@ -10,6 +10,7 @@ import {
   queueSocialPublication,
   socialPublishingStatus,
 } from "./socialPublishingService.js";
+import { campaignPerformance } from "./campaignPerformanceService.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 function businessId(request) {
@@ -70,6 +71,16 @@ export async function preview(req, res) {
     await service.previewCampaign(req.params.id, {
       businessId: businessId(req),
     })
+  );
+}
+
+export async function performance(req, res) {
+  res.json(
+    await campaignPerformance(
+      req.params.id,
+      req.query || {},
+      { businessId: businessId(req) }
+    )
   );
 }
 
