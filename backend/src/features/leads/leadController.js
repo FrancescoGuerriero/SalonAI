@@ -13,6 +13,9 @@ import {
 import {
   createServiceError,
 } from "../../shared/serviceError.js";
+import {
+  normaliseLeadAcquisitionPayload,
+} from "./leadSourceMappingService.js";
 
 function businessId(request) {
   const value =
@@ -66,7 +69,7 @@ export async function lead(request, response) {
 
 export async function capture(request, response) {
   response.status(201).json(
-    await captureLead(body(request), {
+    await captureLead(normaliseLeadAcquisitionPayload(body(request)), {
       businessId: businessId(request),
       locationId: locationId(request),
       actorUser: actorUser(request),
