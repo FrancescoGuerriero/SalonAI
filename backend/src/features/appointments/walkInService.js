@@ -2,6 +2,9 @@ import {
   createServiceError,
 } from "../../shared/serviceError.js";
 import {
+  recordDomainEvent,
+} from "../integrationPlatform/webhookProjectionService.js";
+import {
   createManagedAppointment,
 } from "./appointmentManagementService.js";
 import {
@@ -18,12 +21,96 @@ function normaliseText(value) {
   ).trim();
 }
 
+function identifier(value) {
+  return normaliseText(
+    value?._id ||
+      value?.id ||
+      value
+  );
+}
+
 function frontDeskState(
   status
 ) {
   return queueStateFromAppointmentStatus(
     status
   );
+}
+
+async function recordQueueVisitCreated(
+  appointment,
+  queueVisit,
+  actor = null
+) {
+  const businessId =
+    identifier(
+      queueVisit?.business ||
+        appointment?.business
+    );
+
+  const queueVisitId =
+    identifier(
+      queueVisit?.queueVisitId
+    );
+
+  if (
+    !businessId ||
+    !queueVisitId
+  ) {
+    return null;
+  }
+
+  return recordDomainEvent({
+    businessId,
+    type: "queue.visit_created",
+    version: "1",
+    aggregateType:
+      "queue_visit",
+    aggregateId:
+      queueVisitId,
+    payload: {
+      queueVisitId,
+      appointmentId:
+        identifier(
+          appointment?._id
+        ),
+      locationId:
+        identifier(
+          queueVisit?.location ||
+            appointment?.location
+        ),
+      source:
+        queueVisit?.queueSource ||
+        "walk_in",
+      state:
+        queueVisit?.queueState ||
+        frontDeskState(
+          appointment?.status
+        ),
+      expectedArrivalAt:
+        queueVisit?.expectedArrivalAt ||
+        null,
+      priority:
+        Number(
+          queueVisit?.queuePriority ||
+            0
+        ),
+      partySize:
+        Number(
+          queueVisit?.partySize ||
+            1
+        ),
+    },
+    source: "front_desk",
+    correlationId:
+      identifier(
+        appointment?._id
+      ),
+    metadata: {
+      actorId:
+        identifier(actor),
+    },
+  });
 }
 
 async function createQueueAppointment(
@@ -69,31 +156,40 @@ async function createQueueAppointment(
       }
     );
 
-  return createQueueVisitForAppointment(
+  const queueVisit =
+    await createQueueVisitForAppointment(
+      appointment,
+      {
+        source:
+          queueSource,
+        actor,
+
+        expectedArrivalAt:
+          payload.expectedArrivalAt ||
+          payload.startsAt ||
+          appointment.startsAt,
+
+        priority:
+          payload.priority,
+
+        partySize:
+          payload.partySize,
+
+        notes:
+          normaliseText(
+            payload.queueNotes ||
+              payload.notes
+          ),
+      }
+    );
+
+  await recordQueueVisitCreated(
     appointment,
-    {
-      source:
-        queueSource,
-      actor,
-
-      expectedArrivalAt:
-        payload.expectedArrivalAt ||
-        payload.startsAt ||
-        appointment.startsAt,
-
-      priority:
-        payload.priority,
-
-      partySize:
-        payload.partySize,
-
-      notes:
-        normaliseText(
-          payload.queueNotes ||
-            payload.notes
-        ),
-    }
+    queueVisit,
+    actor
   );
+
+  return queueVisit;
 }
 
 async function createWalkInAppointment(
@@ -142,6 +238,7 @@ export {
   listFrontDeskQueue,
   listWalkInQueue,
   queueProjection,
+  recordQueueVisitCreated,
 };
 
 export default {
