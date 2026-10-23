@@ -33,6 +33,9 @@ router.patch("/management/appointment-requests/:requestId", requirePermissions("
 router.get("/management/overview", requirePermissions("customer-experience:read"), asyncHandler(controller.getManagementOverview));
 router.get("/management/reputation", requirePermissions("customer-experience:read"), asyncHandler(stage4Controller.reputation));
 router.patch("/management/reputation/:reviewId", requirePermissions("customer-experience:manage"), asyncHandler(stage4Controller.updateReputation));
+router.post("/management/reputation/external/import", requirePermissions("customer-experience:manage"), asyncHandler(stage4Controller.importExternalReviews));
+router.patch("/management/reputation/external/:reviewId/response", requirePermissions("customer-experience:manage"), asyncHandler(stage4Controller.updateExternalReputation));
+router.post("/management/reputation/listings/import", requirePermissions("customer-experience:manage"), asyncHandler(stage4Controller.importListingSnapshots));
 router.get("/management/booking-recovery-metrics", requirePermissions("customer-experience:read"), asyncHandler(stage4Controller.recoveryMetrics));
 router.patch("/management/reviews/:reviewId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateReviewStatus));
 router.patch("/management/feedback/:feedbackId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateFeedbackStatus));
