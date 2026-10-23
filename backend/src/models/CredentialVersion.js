@@ -8,7 +8,15 @@ const credentialVersionSchema = new Schema(
     app: { type: Schema.Types.ObjectId, ref: "IntegrationApp", required: true, index: true },
     credentialType: {
       type: String,
-      enum: ["api_key", "service_key", "webhook_signing", "oauth_client_secret"],
+      enum: [
+        "api_key",
+        "service_key",
+        "webhook_signing",
+        "oauth_client_secret",
+        "oauth_access_token",
+        "oauth_refresh_token",
+        "provider_api_key",
+      ],
       required: true,
       index: true,
     },
@@ -42,6 +50,13 @@ credentialVersionSchema.index(
     partialFilterExpression: { keyPrefix: { $type: "string", $gt: "" } },
   }
 );
+credentialVersionSchema.index({
+  business: 1,
+  app: 1,
+  "metadata.connectionId": 1,
+  "metadata.bindingRole": 1,
+  status: 1,
+});
 
 export default (
   mongoose.models.CredentialVersion ||
