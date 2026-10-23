@@ -35,6 +35,18 @@ test("marketplace catalogue records reviewed scopes and commercial metadata with
   assert.equal(app.billingExecutionEnabled, false);
 });
 
+test("marketplace keys leave room for the stable tenant IntegrationApp prefix", async () => {
+  const [model, service] = await Promise.all([
+    source("../models/MarketplaceApp.js"),
+    source("../features/partnerMarketplace/partnerMarketplaceService.js"),
+  ]);
+
+  assert.match(model, /maxlength: 80/);
+  assert.match(service, /\.slice\(0, 80\)/);
+  assert.match(service, /const integrationKey = `marketplace-\$\{app\.key\}`/);
+  assert.doesNotMatch(service, /marketplace-\$\{app\.key\}`\.slice/);
+});
+
 test("tenant marketplace installation is preparation evidence only", async () => {
   const installation = new MarketplaceInstallation({
     business: BUSINESS_ID,
@@ -77,8 +89,22 @@ test("marketplace installation reuses TenantSubscription and IntegrationApp with
   assert.match(service, /MARKETPLACE_ENTITLEMENTS_REQUIRED/);
   assert.match(service, /billingExecutionEnabled: false/);
   assert.match(service, /connectionProvisioned: false/);
-  assert.doesNotMatch(service, /IntegrationConnection\./);
-  assert.doesNotMatch(service, /CredentialVersion\./);
+  assert.doesNotMatch(service, /IntegrationConnection\.create/);
+  assert.doesNotMatch(service, /CredentialVersion\.create/);
+});
+
+test("marketplace re-prepare synchronises only clean draft IntegrationApps", async () => {
+  const service = await source(
+    "../features/partnerMarketplace/partnerMarketplaceService.js"
+  );
+
+  assert.match(service, /CredentialVersion\.exists/);
+  assert.match(service, /IntegrationConnection\.exists/);
+  assert.match(service, /MARKETPLACE_REPREPARE_LOCKED/);
+  assert.match(service, /integrationApp\.scopes = grantedScopes/);
+  assert.match(service, /integrationApp\.redirectUris =/);
+  assert.match(service, /integrationApp\.allowedOrigins =/);
+  assert.match(service, /await integrationApp\.save\(\)/);
 });
 
 test("marketplace rejects secrets and is mounted inside the existing integration control plane", async () => {
