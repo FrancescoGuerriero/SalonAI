@@ -35,6 +35,10 @@ function lower(value) {
   return text(value).toLowerCase();
 }
 
+function identifier(value) {
+  return value?._id || value?.id || value || null;
+}
+
 function requireBusinessId(value) {
   if (!mongoose.isValidObjectId(value)) {
     throw createServiceError(
@@ -52,14 +56,16 @@ function slug(value) {
     .slice(0, 140);
 }
 
-function normaliseUtm(payload = {}, fallbackCampaign = "") {
+function normaliseUtm(payload = {}, fallbackCampaign = "", current = {}) {
   const supplied = payload.utm && typeof payload.utm === "object" ? payload.utm : {};
   return {
-    source: lower(supplied.source || payload.utmSource),
-    medium: lower(supplied.medium || payload.utmMedium),
-    campaign: text(supplied.campaign || payload.utmCampaign || fallbackCampaign),
-    term: text(supplied.term || payload.utmTerm),
-    content: text(supplied.content || payload.utmContent),
+    source: lower(supplied.source ?? payload.utmSource ?? current.source),
+    medium: lower(supplied.medium ?? payload.utmMedium ?? current.medium),
+    campaign: text(
+      supplied.campaign ?? payload.utmCampaign ?? current.campaign ?? fallbackCampaign
+    ),
+    term: text(supplied.term ?? payload.utmTerm ?? current.term),
+    content: text(supplied.content ?? payload.utmContent ?? current.content),
   };
 }
 
@@ -99,13 +105,14 @@ async function campaignForBusiness(id, tenantBusinessId) {
 }
 
 async function templateForBusiness(id, tenantBusinessId) {
-  if (!id) return null;
-  if (!mongoose.isValidObjectId(id)) {
+  const templateId = identifier(id);
+  if (!templateId) return null;
+  if (!mongoose.isValidObjectId(templateId)) {
     throw createServiceError("Communication template identifier is invalid.", 400);
   }
   return assertFound(
     await CommunicationTemplate.findOne({
-      _id: id,
+      _id: templateId,
       $or: [
         { business: tenantBusinessId },
         { business: { $exists: false }, isSystemTemplate: true },
@@ -118,11 +125,11 @@ async function templateForBusiness(id, tenantBusinessId) {
 
 async function validateAudienceReferences(payload, tenantBusinessId) {
   if (payload.segment) {
-    await getSegment(payload.segment, { businessId: tenantBusinessId });
+    await getSegment(identifier(payload.segment), { businessId: tenantBusinessId });
   }
 
   if (Array.isArray(payload.recipients) && payload.recipients.length) {
-    const ids = [...new Set(payload.recipients.map(String))];
+    const ids = [...new Set(payload.recipients.map((value) => String(identifier(value))))];
     if (ids.some((id) => !mongoose.isValidObjectId(id))) {
       throw createServiceError("Campaign recipients contain an invalid customer identifier.", 400);
     }
@@ -143,9 +150,10 @@ async function validateAudienceReferences(payload, tenantBusinessId) {
 
 async function campaignRecipients(campaign, tenantBusinessId) {
   const recipients = new Map();
+  const segmentId = identifier(campaign.segment);
 
-  if (campaign.segment) {
-    const preview = await previewSegment(String(campaign.segment), {
+  if (segmentId) {
+    const preview = await previewSegment(String(segmentId), {
       limit: 5000,
       businessId: tenantBusinessId,
     });
@@ -155,8 +163,11 @@ async function campaignRecipients(campaign, tenantBusinessId) {
   }
 
   if (campaign.recipients?.length) {
+    const recipientIds = campaign.recipients
+      .map(identifier)
+      .filter(Boolean);
     const direct = await Customer.find({
-      _id: { $in: campaign.recipients },
+      _id: { $in: recipientIds },
       business: tenantBusinessId,
       status: { $ne: "deleted" },
     })
@@ -211,7 +222,9 @@ export async function createCampaign(
     channels,
     template: payload.template || undefined,
     segment: payload.segment || undefined,
-    recipients: Array.isArray(payload.recipients) ? payload.recipients : [],
+    recipients: Array.isArray(payload.recipients)
+      ? payload.recipients.map(identifier).filter(Boolean)
+      : [],
     subject: text(payload.subject),
     message: text(payload.message),
     utm: normaliseUtm(payload, campaignKey),
@@ -310,26 +323,22 @@ export async function updateCampaign(
   }
 
   await validateAudienceReferences(payload, tenantBusinessId);
-  if (payload.template !== undefined) {
-    const template = await templateForBusiness(payload.template, tenantBusinessId);
-    const proposedChannel = lower(payload.channel || campaign.channel);
-    if (template && template.channel !== proposedChannel) {
-      throw createServiceError(
-        "The communication template channel must match the campaign primary channel.",
-        409,
-        { code: "CAMPAIGN_TEMPLATE_CHANNEL_MISMATCH" }
-      );
-    }
+  const proposedChannel = lower(payload.channel ?? campaign.channel);
+  const proposedTemplateId =
+    payload.template !== undefined ? payload.template : campaign.template;
+  const template = await templateForBusiness(proposedTemplateId, tenantBusinessId);
+  if (template && template.channel !== proposedChannel) {
+    throw createServiceError(
+      "The communication template channel must match the campaign primary channel.",
+      409,
+      { code: "CAMPAIGN_TEMPLATE_CHANNEL_MISMATCH" }
+    );
   }
 
   for (const field of [
     "name",
-    "campaignType",
-    "objective",
-    "channel",
     "template",
     "segment",
-    "recipients",
     "subject",
     "message",
     "startsAt",
@@ -338,12 +347,23 @@ export async function updateCampaign(
   ]) {
     if (payload[field] !== undefined) campaign[field] = payload[field];
   }
+  if (payload.recipients !== undefined) {
+    campaign.recipients = Array.isArray(payload.recipients)
+      ? payload.recipients.map(identifier).filter(Boolean)
+      : [];
+  }
+  if (payload.campaignType !== undefined) campaign.campaignType = lower(payload.campaignType);
+  if (payload.objective !== undefined) campaign.objective = lower(payload.objective);
+  if (payload.channel !== undefined) campaign.channel = proposedChannel;
 
   if (payload.campaignKey !== undefined || payload.name !== undefined) {
     campaign.campaignKey = slug(payload.campaignKey || campaign.name);
   }
   if (payload.channels !== undefined || payload.channel !== undefined) {
-    campaign.channels = normaliseChannels(campaign.channel, payload.channels ?? campaign.channels);
+    campaign.channels = normaliseChannels(
+      campaign.channel,
+      payload.channels ?? campaign.channels
+    );
   }
   if (
     payload.utm !== undefined ||
@@ -353,7 +373,19 @@ export async function updateCampaign(
     payload.utmTerm !== undefined ||
     payload.utmContent !== undefined
   ) {
-    campaign.utm = normaliseUtm(payload, campaign.campaignKey);
+    campaign.utm = normaliseUtm(
+      payload,
+      campaign.campaignKey,
+      campaign.utm?.toObject?.() || campaign.utm || {}
+    );
+  }
+
+  if (
+    SCHEDULED_COMMUNICATION_CHANNELS.has(campaign.channel) &&
+    !text(campaign.message) &&
+    !campaign.template
+  ) {
+    throw createServiceError("A campaign message or template is required.", 400);
   }
 
   campaign.updatedBy = userId(user);
@@ -365,13 +397,6 @@ export async function previewCampaign(id, { businessId: tenantBusinessId } = {})
   const campaign = await getCampaign(id, { businessId: tenantBusinessId });
   const recipients = await campaignRecipients(campaign, tenantBusinessId);
   const template = campaign.template?._id ? campaign.template : null;
-
-  if (campaign.template && !template) {
-    throw createServiceError(
-      "Campaign template is unavailable in the active business.",
-      409
-    );
-  }
 
   const examples = recipients.slice(0, 10).map((customer) => {
     const context = buildCustomerContext(customer);
