@@ -12,6 +12,7 @@ import {
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
   requireClinicalEligibility,
+  requireClinicalProfileLocation,
 } from "./clinicalEligibilityMiddleware.js";
 import * as controller from "./clinicalController.js";
 
@@ -34,6 +35,10 @@ router.put(
 );
 
 router.use(asyncHandler(requireClinicalEligibility));
+router.param(
+  "profileId",
+  asyncHandler(requireClinicalProfileLocation)
+);
 
 router.get(
   "/profiles",
