@@ -11,7 +11,7 @@ import {
 const ReceptionWorkspace = lazy(
   () =>
     import(
-      "../components/appointments/ReceptionWorkspace.jsx"
+      "../components/appointments/UnifiedReceptionWorkspace.jsx"
     )
 );
 
