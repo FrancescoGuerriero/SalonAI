@@ -18,6 +18,9 @@ import {
   recordMembershipCollectionAndRefreshBenefits,
 } from "./membershipCollectionOrchestrator.js";
 import {
+  projectStoredValueSettlement,
+} from "../finance/settlementService.js";
+import {
   createServiceError,
 } from "../../shared/serviceError.js";
 
@@ -158,17 +161,38 @@ export async function issueBenefits(request, response) {
 }
 
 export async function redeemBenefit(request, response) {
-  response.status(201).json(
-    await redeemMembershipBenefit(
-      request.params.id,
-      request.params.benefitKey,
-      body(request),
-      {
-        businessId: businessId(request),
-        actor: actor(request),
-      }
-    )
+  const activeBusinessId = businessId(request);
+  const redemption = await redeemMembershipBenefit(
+    request.params.id,
+    request.params.benefitKey,
+    body(request),
+    {
+      businessId: activeBusinessId,
+      actor: actor(request),
+    }
   );
+
+  /*
+   * Stored-value ledger evidence remains the source of truth. Re-project on
+   * idempotent retries as well as first writes so a transient projection
+   * failure can heal without posting a second redemption. The projector is
+   * reconciliation-only and cannot initiate money movement.
+   */
+  const settlement =
+    redemption.unit === "money" && redemption.entry?._id
+      ? await projectStoredValueSettlement(redemption.entry._id, {
+          businessId: activeBusinessId,
+        })
+      : {
+          projected: false,
+          reason: "non-money-unit",
+        };
+
+  response.status(201).json({
+    ...redemption,
+    settlement,
+    paymentExecutionAllowed: false,
+  });
 }
 
 export default {
