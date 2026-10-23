@@ -5,9 +5,15 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./leadController.js";
+import * as attributionController from "./growthAttributionController.js";
 
 const router = express.Router();
 
+router.get(
+  "/attribution/summary",
+  requirePermissions("reports:read"),
+  asyncHandler(attributionController.summary)
+);
 router.get(
   "/",
   requirePermissions("customer:read"),
@@ -57,6 +63,21 @@ router.patch(
   "/:leadId/opportunities/:opportunityId",
   requirePermissions("customer:update"),
   asyncHandler(controller.editOpportunity)
+);
+router.get(
+  "/:leadId/attribution",
+  requirePermissions("reports:read"),
+  asyncHandler(attributionController.leadAttribution)
+);
+router.post(
+  "/:leadId/attribution/reconcile",
+  requirePermissions("customer:update"),
+  asyncHandler(attributionController.reconcile)
+);
+router.post(
+  "/:leadId/attribution/appointments/:appointmentId",
+  requirePermissions("customer:update"),
+  asyncHandler(attributionController.linkAppointment)
 );
 
 export default router;
