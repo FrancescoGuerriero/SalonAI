@@ -1,3 +1,6 @@
+import mongoose from "mongoose";
+
+import Service from "../../models/service.js";
 import * as service from "./dynamicPricingService.js";
 import {
   createServiceError,
@@ -38,6 +41,41 @@ function body(request) {
     : {};
 }
 
+async function tenantSafeRulePayload(request) {
+  const tenant = context(request);
+  const payload = { ...body(request) };
+
+  // Location authority is server-trusted only. A caller may not attach a
+  // research rule to an arbitrary Location identifier through the request body.
+  delete payload.location;
+  if (tenant.locationId) payload.location = tenant.locationId;
+
+  if (payload.service !== undefined && payload.service !== null && payload.service !== "") {
+    if (!mongoose.isValidObjectId(payload.service)) {
+      throw createServiceError("service must be a valid identifier.", 400, {
+        field: "service",
+      });
+    }
+    const ownedService = await Service.exists({
+      _id: payload.service,
+      business: tenant.businessId,
+      active: { $ne: false },
+    });
+    if (!ownedService) {
+      throw createServiceError(
+        "Pricing research may reference only a Service owned by the active Business.",
+        404,
+        {
+          code: "PRICING_RESEARCH_SERVICE_NOT_OWNED",
+          field: "service",
+        }
+      );
+    }
+  }
+
+  return { tenant, payload };
+}
+
 export async function recommendations(request, response) {
   const analytics = await service.generateDynamicPricingRecommendations(
     request.query || {},
@@ -54,9 +92,10 @@ export async function rules(request, response) {
 }
 
 export async function createRule(request, response) {
+  const { tenant, payload } = await tenantSafeRulePayload(request);
   return response.status(201).json({
     success: true,
-    rule: await service.createPriceRule(body(request), context(request)),
+    rule: await service.createPriceRule(payload, tenant),
     deployment: {
       allowed: false,
       reason: "PriceRule research does not change canonical Service pricing.",
