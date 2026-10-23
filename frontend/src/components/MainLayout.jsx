@@ -26,6 +26,7 @@ import {
   MANAGEMENT_ROUTE_PATHS,
 } from "./navigation/managementNavigationConfig.js";
 import Seo from "./Seo.jsx";
+import Stage4WorkspaceRouter from "./stage4/Stage4WorkspaceRouter.jsx";
 
 const SalonChatbot = lazy(
   () =>
@@ -169,6 +170,12 @@ export default function MainLayout() {
     };
   }, [mobileOpen]);
 
+  const workspaceOutlet = (
+    <Stage4WorkspaceRouter pathname={location.pathname}>
+      <Outlet />
+    </Stage4WorkspaceRouter>
+  );
+
   return (
     <div className="app-shell">
       <Seo />
@@ -184,7 +191,7 @@ export default function MainLayout() {
       {!management ? (
         <>
           <main className="app-public-main">
-            <Outlet />
+            {workspaceOutlet}
           </main>
 
           {isFeatureEnabled("salon-chatbot") ? (
@@ -299,7 +306,7 @@ export default function MainLayout() {
             </div>
 
             <div className="management-page">
-              <Outlet />
+              {workspaceOutlet}
             </div>
           </section>
 
