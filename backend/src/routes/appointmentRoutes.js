@@ -1,10 +1,12 @@
 import express from "express";
 
 import {
-  createAppointment,
   createAppointmentPaymentCheckout,
   getAppointments,
 } from "../controllers/appointmentController.js";
+import {
+  createCustomerAppointment,
+} from "../features/appointments/customerBookingController.js";
 
 import {
   protect,
@@ -52,7 +54,7 @@ router.post(
   "/",
   requireOnlineBookingForCustomer,
   appointmentLifecycleNotification("created"),
-  createAppointment
+  createCustomerAppointment
 );
 
 router.post(
