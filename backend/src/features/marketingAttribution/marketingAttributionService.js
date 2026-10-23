@@ -2,13 +2,16 @@ import Appointment from "../../models/Appointment.js";
 import RebookingCampaign from "../rebookingCampaigns/RebookingCampaign.js";
 
 import {
+  canonicalMetricEvidence,
+  calculateCanonicalRatio,
+} from "../analytics/operationalMetricCalculator.js";
+import {
   addUtcMonths,
   clampInteger,
   getAppointmentDate,
   getAppointmentValue,
   getEntityId,
   roundMoney,
-  roundNumber,
   startOfUtcMonth,
 } from "../shared/analyticsUtils.js";
 
@@ -40,10 +43,12 @@ function createRecord({ key, name, type }) {
 }
 
 function finaliseRecord(record) {
-  const conversionRate =
-    record.appointments > 0
-      ? (record.completedAppointments / record.appointments) * 100
-      : 0;
+  const conversionRate = calculateCanonicalRatio(
+    "conversion-rate",
+    record.completedAppointments,
+    record.appointments,
+    { decimals: 1 }
+  );
 
   return {
     key: record.key,
@@ -55,7 +60,7 @@ function finaliseRecord(record) {
     noShowAppointments: record.noShowAppointments,
     uniqueCustomers: record.uniqueCustomers.size,
     revenue: roundMoney(record.revenue),
-    conversionRate: roundNumber(conversionRate, 1),
+    conversionRate,
     averageBookingValue:
       record.completedAppointments > 0
         ? roundMoney(record.revenue / record.completedAppointments)
@@ -147,18 +152,9 @@ async function generateMarketingAttribution({ months = 12 } = {}) {
       sourceRecord.uniqueCustomers.add(customerId);
     }
 
-    if (status === "completed") {
-      sourceRecord.completedAppointments += 1;
-    }
-
-    if (status === "cancelled") {
-      sourceRecord.cancelledAppointments += 1;
-    }
-
-    if (status === "no_show") {
-      sourceRecord.noShowAppointments += 1;
-    }
-
+    if (status === "completed") sourceRecord.completedAppointments += 1;
+    if (status === "cancelled") sourceRecord.cancelledAppointments += 1;
+    if (status === "no_show") sourceRecord.noShowAppointments += 1;
     sourceRecord.revenue += revenue;
   }
 
@@ -190,7 +186,6 @@ async function generateMarketingAttribution({ months = 12 } = {}) {
     (total, item) => total + item.appointments,
     0
   );
-
   const campaignRecipients = campaignRecords.reduce(
     (total, item) => total + item.appointments,
     0
@@ -212,26 +207,30 @@ async function generateMarketingAttribution({ months = 12 } = {}) {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
     },
+    metricDefinitions: {
+      conversionRate: canonicalMetricEvidence("conversion-rate"),
+    },
     summary: {
       sourceCount: sources.length,
       campaignCount: campaignRecords.length,
       attributedAppointments,
       completedAppointments,
       attributedRevenue: roundMoney(attributedRevenue),
-      overallConversionRate:
-        attributedAppointments > 0
-          ? roundNumber(
-              (completedAppointments / attributedAppointments) * 100,
-              1
-            )
-          : 0,
+      overallConversionRate: calculateCanonicalRatio(
+        "conversion-rate",
+        completedAppointments,
+        attributedAppointments,
+        { decimals: 1 }
+      ),
       campaignRecipients,
       campaignConversions,
       campaignRevenue: roundMoney(campaignRevenue),
-      campaignConversionRate:
-        campaignRecipients > 0
-          ? roundNumber((campaignConversions / campaignRecipients) * 100, 1)
-          : 0,
+      campaignConversionRate: calculateCanonicalRatio(
+        "conversion-rate",
+        campaignConversions,
+        campaignRecipients,
+        { decimals: 1 }
+      ),
       bestSource: sources[0] || null,
       bestCampaign: campaignRecords[0] || null,
     },

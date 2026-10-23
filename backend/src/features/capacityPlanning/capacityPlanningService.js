@@ -1,6 +1,10 @@
 import Appointment from "../../models/Appointment.js";
 
 import {
+  canonicalMetricEvidence,
+  calculateCanonicalRatio,
+} from "../analytics/operationalMetricCalculator.js";
+import {
   addUtcMonths,
   clampInteger,
   getAppointmentDate,
@@ -82,8 +86,12 @@ async function generateCapacityPlan({ months = 3, weeklyHoursPerStaff = 40 } = {
   const staff = Array.from(staffMap.values())
     .map((record) => {
       const bookedHours = record.bookedMinutes / 60;
-      const utilisationRate =
-        availableHoursPerStaff > 0 ? (bookedHours / availableHoursPerStaff) * 100 : 0;
+      const utilisationRate = calculateCanonicalRatio(
+        "utilisation-rate",
+        bookedHours,
+        availableHoursPerStaff,
+        { decimals: 1 }
+      );
 
       return {
         stylistId: record.stylistId,
@@ -93,7 +101,7 @@ async function generateCapacityPlan({ months = 3, weeklyHoursPerStaff = 40 } = {
         bookedHours: roundNumber(bookedHours, 1),
         availableHours: roundNumber(availableHoursPerStaff, 1),
         spareHours: roundNumber(Math.max(0, availableHoursPerStaff - bookedHours), 1),
-        utilisationRate: roundNumber(utilisationRate, 1),
+        utilisationRate,
         status:
           utilisationRate >= 90
             ? "overloaded"
@@ -119,15 +127,20 @@ async function generateCapacityPlan({ months = 3, weeklyHoursPerStaff = 40 } = {
       endDate: endDate.toISOString(),
       weeklyHoursPerStaff: selectedWeeklyHours,
     },
+    metricDefinitions: {
+      utilisationRate: canonicalMetricEvidence("utilisation-rate"),
+    },
     summary: {
       staffCount: staff.length,
       totalBookedHours: roundNumber(totalBookedHours, 1),
       totalAvailableHours: roundNumber(totalAvailableHours, 1),
       spareHours: roundNumber(Math.max(0, totalAvailableHours - totalBookedHours), 1),
-      utilisationRate:
-        totalAvailableHours > 0
-          ? roundNumber((totalBookedHours / totalAvailableHours) * 100, 1)
-          : 0,
+      utilisationRate: calculateCanonicalRatio(
+        "utilisation-rate",
+        totalBookedHours,
+        totalAvailableHours,
+        { decimals: 1 }
+      ),
       overloadedStaff: staff.filter((item) => item.status === "overloaded").length,
       underusedStaff: staff.filter((item) => item.status === "underused").length,
     },
