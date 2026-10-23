@@ -19,6 +19,16 @@ router.post(
   asyncHandler(controller.capture)
 );
 router.get(
+  "/:leadId/attribution",
+  requirePermissions("customer:read"),
+  asyncHandler(controller.attribution)
+);
+router.post(
+  "/:leadId/attribution",
+  requirePermissions("customer:update"),
+  asyncHandler(controller.addAttribution)
+);
+router.get(
   "/:leadId",
   requirePermissions("customer:read"),
   asyncHandler(controller.lead)
