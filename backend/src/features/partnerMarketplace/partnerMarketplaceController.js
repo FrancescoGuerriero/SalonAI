@@ -1,6 +1,9 @@
 import {
   createServiceError,
 } from "../../shared/serviceError.js";
+import {
+  reconcilePartnerMarketplaceInstallation,
+} from "./partnerMarketplaceReconciliationService.js";
 import * as service from "./partnerMarketplaceService.js";
 
 function requestId(request) {
@@ -85,10 +88,24 @@ export async function prepareInstallation(request, response) {
   );
 }
 
+export async function reconcileInstallation(request, response) {
+  response.json(
+    await reconcilePartnerMarketplaceInstallation(
+      request.params.installationId,
+      {
+        businessId: businessId(request),
+        user: request.user,
+        requestId: requestId(request),
+      }
+    )
+  );
+}
+
 export default {
   catalogue,
   installations,
   prepareInstallation,
+  reconcileInstallation,
   review,
   submissions,
   submit,
