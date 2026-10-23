@@ -3,6 +3,8 @@ import express from "express";
 import asyncHandler from "../../middleware/asyncHandler.js";
 import { protect } from "../../middleware/authMiddleware.js";
 import { requirePermissions } from "../../middleware/permissionMiddleware.js";
+import contentRoutes from "../content/contentRoutes.js";
+import customerRelationshipRoutes from "../customerRelationships/customerRelationshipRoutes.js";
 import * as controller from "./customerExperienceController.js";
 import * as stage4Controller from "./stage4CustomerExperienceController.js";
 import {
@@ -15,6 +17,10 @@ import {
 import { requireFeature } from "../../services/featureControlService.js";
 
 const router = express.Router();
+
+/* Published content is deliberately readable before customer authentication. */
+router.use("/content", contentRoutes);
+router.use("/relationships", customerRelationshipRoutes);
 
 router.use(protect);
 
