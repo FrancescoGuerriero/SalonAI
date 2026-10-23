@@ -253,35 +253,41 @@ export async function recordAttributionTouch(
     utm.campaign,
   ]);
 
-  return AttributionTouch.findOneAndUpdate(
-    {
-      business: businessId,
-      sourceKey,
-    },
-    {
-      $setOnInsert: {
+  const existing = await AttributionTouch.findOne({
+    business: businessId,
+    sourceKey,
+  }).lean();
+  if (existing) return existing;
+
+  const document = {
+    business: businessId,
+    campaign: campaign?._id || null,
+    lead,
+    customer,
+    opportunity,
+    touchType,
+    channel,
+    sourceSystem,
+    medium,
+    externalReference,
+    sourceKey,
+    utm,
+    occurredAt,
+    metadata: payload.metadata || {},
+  };
+
+  try {
+    const created = await AttributionTouch.create(document);
+    return created.toObject();
+  } catch (error) {
+    if (error?.code === 11000) {
+      return AttributionTouch.findOne({
         business: businessId,
-        campaign: campaign?._id || null,
-        lead,
-        customer,
-        opportunity,
-        touchType,
-        channel,
-        sourceSystem,
-        medium,
-        externalReference,
         sourceKey,
-        utm,
-        occurredAt,
-        metadata: payload.metadata || {},
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
+      }).lean();
     }
-  ).lean();
+    throw error;
+  }
 }
 
 export async function recordLeadCaptureAttribution(
