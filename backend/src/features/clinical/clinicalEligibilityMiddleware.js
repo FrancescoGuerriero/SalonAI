@@ -1,4 +1,5 @@
 import ClinicalCapabilityEligibility from "../../models/ClinicalCapabilityEligibility.js";
+import ClinicalProfile from "../../models/ClinicalProfile.js";
 import Location from "../../models/Location.js";
 import {
   createServiceError,
@@ -95,6 +96,41 @@ export async function requireClinicalEligibility(request, _response, next) {
       eligibilityId: String(eligibility._id),
       policyVersion: eligibility.policyVersion,
       jurisdictionReference: eligibility.jurisdictionReference,
+    });
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function requireClinicalProfileLocation(request, _response, next) {
+  try {
+    const profileId = String(request.params?.profileId || "").trim();
+    if (!profileId) return next();
+    if (!request.clinicalContext) {
+      throw createServiceError("Clinical eligibility context is required.", 403);
+    }
+
+    const profile = await ClinicalProfile.findOne({
+      _id: profileId,
+      business: request.clinicalContext.businessId,
+      homeLocation: request.clinicalContext.locationId,
+      status: "active",
+    })
+      .select("_id business customer homeLocation status")
+      .lean();
+    if (!profile) {
+      throw createServiceError(
+        "Clinical profile is not available at the selected Location. Cross-location clinical visibility requires an explicit future sharing policy.",
+        404,
+        { code: "CLINICAL_PROFILE_LOCATION_RESTRICTED" }
+      );
+    }
+
+    request.clinicalProfileAuthority = Object.freeze({
+      profileId: String(profile._id),
+      customerId: String(profile.customer),
+      homeLocationId: String(profile.homeLocation),
     });
     return next();
   } catch (error) {
