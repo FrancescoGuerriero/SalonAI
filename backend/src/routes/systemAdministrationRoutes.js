@@ -2,10 +2,20 @@ import express from "express";
 import asyncHandler from "../middleware/asyncHandler.js";
 import { protect } from "../middleware/authMiddleware.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../platform/tenancy/trustedTenantMiddleware.js";
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import {
+  getConfigurationStudio,
   listAuditLogs,
   listDeadLetters,
   listFeatureControls,
@@ -25,6 +35,18 @@ router.use(
   enterpriseSsoRoutes
 );
 
+router.get(
+  "/configuration-studio",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getConfigurationStudio
+  )
+);
 router.get(
   "/features",
   requirePermissions(
