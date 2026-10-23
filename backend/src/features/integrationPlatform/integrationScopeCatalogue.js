@@ -14,6 +14,8 @@ export const INTEGRATION_SCOPES = Object.freeze([
   "inventory:write",
   "communications:read",
   "communications:write",
+  "lead:read",
+  "lead:write",
 ]);
 
 const SCOPE_SET = new Set(INTEGRATION_SCOPES);
