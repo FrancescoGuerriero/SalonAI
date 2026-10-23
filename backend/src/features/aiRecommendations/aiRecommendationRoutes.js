@@ -65,6 +65,13 @@ import {
 import {
   prepareProposalDraft,
 } from "./aiAdviserProposalPreparationController.js";
+import {
+  observeOutcome as observeWorkforceOutcome,
+  outcomes as workforceOutcomes,
+  proposals as workforceProposals,
+  registry as workforceRegistry,
+  runs as workforceRuns,
+} from "./aiWorkforceGovernanceController.js";
 
 const router = express.Router();
 
@@ -114,9 +121,7 @@ router.get(
 
 router.get(
   "/adviser/proposals",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     listProposals
   )
@@ -124,9 +129,7 @@ router.get(
 
 router.post(
   "/adviser/proposals",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     createProposal
   )
@@ -134,9 +137,7 @@ router.post(
 
 router.patch(
   "/adviser/proposals/:proposalId/review",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     reviewProposal
   )
@@ -144,12 +145,40 @@ router.patch(
 
 router.post(
   "/adviser/proposals/:proposalId/prepare",
-  requirePermissions(
-    "ai:use"
-  ),
+  ...tenantAwareAiChain,
   asyncHandler(
     prepareProposalDraft
   )
+);
+
+router.get(
+  "/workforce/registry",
+  ...tenantAwareAiChain,
+  asyncHandler(workforceRegistry)
+);
+
+router.get(
+  "/workforce/runs",
+  ...tenantAwareAiChain,
+  asyncHandler(workforceRuns)
+);
+
+router.get(
+  "/workforce/proposals",
+  ...tenantAwareAiChain,
+  asyncHandler(workforceProposals)
+);
+
+router.get(
+  "/workforce/outcomes",
+  ...tenantAwareAiChain,
+  asyncHandler(workforceOutcomes)
+);
+
+router.post(
+  "/workforce/proposals/:proposalId/outcomes",
+  ...tenantAwareAiChain,
+  asyncHandler(observeWorkforceOutcome)
 );
 
 router.get(
