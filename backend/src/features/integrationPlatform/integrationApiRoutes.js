@@ -3,6 +3,13 @@ import express from "express";
 import ConnectorHealth from "../../models/ConnectorHealth.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  captureLead,
+  listLeads,
+} from "../leads/leadService.js";
+import {
+  normaliseLeadAcquisitionPayload,
+} from "../leads/leadSourceMappingService.js";
+import {
   authenticateIntegrationApp,
   requireIntegrationScopes,
 } from "./integrationApiAuth.js";
@@ -36,6 +43,7 @@ router.get(
         scopeCatalogue: `${API_ROOT}/scopes`,
         eventCatalogue: `${API_ROOT}/events`,
         connectorHealth: `${API_ROOT}/health`,
+        leads: `${API_ROOT}/leads`,
       },
     });
   }
@@ -78,6 +86,46 @@ router.get(
       version: "1",
       items,
     });
+  })
+);
+
+router.get(
+  "/leads",
+  requireIntegrationScopes("lead:read"),
+  asyncHandler(async (request, response) => {
+    const items = await listLeads(request.query || {}, {
+      businessId: request.integrationAuth.businessId,
+    });
+    response.json({ version: "1", items });
+  })
+);
+
+router.post(
+  "/leads",
+  requireIntegrationScopes("lead:write"),
+  asyncHandler(async (request, response) => {
+    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body)
+      ? request.body
+      : {};
+    const payload = normaliseLeadAcquisitionPayload({
+      ...body,
+      sourceSystem: body.sourceSystem || request.integrationAuth.appKey,
+      metadata: {
+        ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}),
+        integration: {
+          appId: request.integrationAuth.appId,
+          appKey: request.integrationAuth.appKey,
+          credentialId: request.integrationAuth.credentialId,
+          credentialVersion: request.integrationAuth.credentialVersion,
+        },
+      },
+    });
+    const result = await captureLead(payload, {
+      businessId: request.integrationAuth.businessId,
+      locationId: null,
+      actorUser: null,
+    });
+    response.status(201).json({ version: "1", ...result });
   })
 );
 
