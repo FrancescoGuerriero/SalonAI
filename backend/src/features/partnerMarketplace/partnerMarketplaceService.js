@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 
 import AuditLog from "../../models/AuditLog.js";
+import CredentialVersion from "../../models/CredentialVersion.js";
 import IntegrationApp from "../../models/IntegrationApp.js";
+import IntegrationConnection from "../../models/IntegrationConnection.js";
 import MarketplaceApp, {
   MARKETPLACE_BILLING_MODELS,
 } from "../../models/MarketplaceApp.js";
@@ -49,7 +51,7 @@ function slug(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 100);
+    .slice(0, 80);
   if (!result) {
     throw createServiceError("Marketplace app key is required.", 400, {
       field: "key",
@@ -408,7 +410,7 @@ export async function preparePartnerMarketplaceInstallation(
     );
   }
 
-  const integrationKey = `marketplace-${app.key}`.slice(0, 100);
+  const integrationKey = `marketplace-${app.key}`;
   const integrationApp = await IntegrationApp.findOneAndUpdate(
     { business: businessId, key: integrationKey },
     {
@@ -455,6 +457,53 @@ export async function preparePartnerMarketplaceInstallation(
       { code: "MARKETPLACE_INTEGRATION_ALREADY_ACTIVATED" }
     );
   }
+
+  const [credentialExists, connectionExists] = await Promise.all([
+    CredentialVersion.exists({
+      business: businessId,
+      app: integrationApp._id,
+      status: { $in: ["active", "retiring"] },
+    }),
+    IntegrationConnection.exists({
+      business: businessId,
+      app: integrationApp._id,
+      status: { $in: ["pending", "connected", "degraded"] },
+    }),
+  ]);
+  if (credentialExists || connectionExists) {
+    throw createServiceError(
+      "Marketplace scopes or connection profile cannot be re-prepared after integration credentials or connection material exists.",
+      409,
+      { code: "MARKETPLACE_REPREPARE_LOCKED" }
+    );
+  }
+
+  const existingMetadata =
+    integrationApp.metadata &&
+    typeof integrationApp.metadata === "object" &&
+    !Array.isArray(integrationApp.metadata)
+      ? integrationApp.metadata
+      : {};
+  integrationApp.name = app.name;
+  integrationApp.description = app.description || "";
+  if (!integrationApp.ownerUser) integrationApp.ownerUser = actor;
+  integrationApp.environment = "production";
+  integrationApp.scopes = grantedScopes;
+  integrationApp.redirectUris = app.integrationProfile?.redirectUris || [];
+  integrationApp.allowedOrigins = app.integrationProfile?.allowedOrigins || [];
+  integrationApp.ratePolicy = app.integrationProfile?.ratePolicy || {
+    requests: 600,
+    windowSeconds: 60,
+  };
+  integrationApp.metadata = {
+    ...existingMetadata,
+    marketplaceAppId: String(app._id),
+    marketplaceKey: app.key,
+    installationPrepared: true,
+    credentialsProvisioned: false,
+    externalConnectionProvisioned: false,
+  };
+  await integrationApp.save();
 
   const installation = await MarketplaceInstallation.findOneAndUpdate(
     { business: businessId, marketplaceApp: app._id },
