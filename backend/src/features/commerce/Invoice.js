@@ -101,6 +101,16 @@ const invoiceSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    discountTotal: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    deliveryFee: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     total: {
       type: Number,
       min: 0,
