@@ -108,7 +108,7 @@ export default function ContentStudioPage() {
     try {
       if (editingId) {
         await customerExperienceService.updateContentPage(editingId, pagePayload);
-        setMessage("Content draft updated and a new version snapshot was created.");
+        setMessage("Content draft updated and a new version snapshot was created. The current public version is unchanged until you publish.");
       } else {
         await customerExperienceService.createContentPage(pagePayload);
         setMessage("Draft content page created.");
@@ -133,7 +133,7 @@ export default function ContentStudioPage() {
       {error ? <div className="experience-message is-error" role="alert">{error}</div> : null}
       {message ? <div className="experience-message is-success" role="status">{message}</div> : null}
       <section className="experience-management-panel">
-        <header><span>{editingId ? <Pencil size={20}/> : <Plus size={20}/>}</span><div><h2>{editingId ? "Edit content page" : "New content page"}</h2><p>{editingId ? "Saving creates a new version snapshot. Publishing remains a separate approval step." : "Draft first, then explicitly publish after review."}</p></div>{editingId ? <button type="button" className="app-button app-button-secondary app-button-sm" onClick={resetEditor}><X size={15}/>Cancel edit</button> : null}</header>
+        <header><span>{editingId ? <Pencil size={20}/> : <Plus size={20}/>}</span><div><h2>{editingId ? "Edit content page" : "New content page"}</h2><p>{editingId ? "Saving creates a new working version. The last published snapshot remains public until you explicitly publish the update." : "Draft first, then explicitly publish after review."}</p></div>{editingId ? <button type="button" className="app-button app-button-secondary app-button-sm" onClick={resetEditor}><X size={15}/>Cancel edit</button> : null}</header>
         <form className="experience-offer-form" onSubmit={save}>
           <label>Slug<input required disabled={!canManage || busy} value={form.slug} onChange={(e)=>setForm({...form,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,"")})}/></label>
           <label>Locale<input required disabled={!canManage || busy} value={form.defaultLocale} onChange={(e)=>setForm({...form,defaultLocale:e.target.value})}/></label>
@@ -142,13 +142,13 @@ export default function ContentStudioPage() {
           <label className="is-wide">Primary body copy<textarea rows="6" disabled={!canManage || busy} value={form.body} onChange={(e)=>setForm({...form,body:e.target.value})}/><small>Structured image and call-to-action blocks are preserved when routine text and metadata are edited.</small></label>
           <label>SEO title<input disabled={!canManage || busy} value={form.seoTitle} onChange={(e)=>setForm({...form,seoTitle:e.target.value})}/></label>
           <label>SEO description<input disabled={!canManage || busy} value={form.seoDescription} onChange={(e)=>setForm({...form,seoDescription:e.target.value})}/></label>
-          <button disabled={!canManage || busy} className="app-button app-button-primary"><FileText size={17}/>{editingId ? "Save new version" : "Create draft"}</button>
+          <button disabled={!canManage || busy} className="app-button app-button-primary"><FileText size={17}/>{editingId ? "Save working version" : "Create draft"}</button>
         </form>
       </section>
       <section className="experience-management-panel">
-        <header><span><FileText size={20}/></span><div><h2>Managed pages</h2><p>Routine edits create new version snapshots; only explicitly published pages are returned by the public content API.</p></div><b>{pages.length}</b></header>
+        <header><span><FileText size={20}/></span><div><h2>Managed pages</h2><p>Routine edits create new version snapshots; the public API continues serving the last approved published snapshot until the new version is published.</p></div><b>{pages.length}</b></header>
         <div className="experience-management-list is-compact">
-          {pages.map((page)=><article key={page._id}><div><small>v{page.currentVersion} · {page.status}</small><strong>/{page.slug}</strong><p>{page.locales?.map((item)=>item.locale).join(", ") || page.defaultLocale}</p></div><div><button disabled={!canManage||busy} className="app-button app-button-secondary app-button-sm" onClick={()=>editPage(page)}><Pencil size={15}/>Edit</button>{page.status!=="published"?<button disabled={!canManage||busy} className="app-button app-button-primary app-button-sm" onClick={()=>action(()=>customerExperienceService.publishContentPage(page._id),"Content published.")}><Send size={15}/>Publish</button>:null}<button disabled={!canManage||busy} className="app-button app-button-secondary app-button-sm" onClick={()=>action(()=>customerExperienceService.archiveContentPage(page._id),"Content archived.")}><Archive size={15}/>Archive</button></div></article>)}
+          {pages.map((page)=><article key={page._id}><div><small>v{page.currentVersion} · {page.status}{page.hasUnpublishedChanges ? " · unpublished changes" : ""}</small><strong>/{page.slug}</strong><p>{page.locales?.map((item)=>item.locale).join(", ") || page.defaultLocale}</p></div><div><button disabled={!canManage||busy} className="app-button app-button-secondary app-button-sm" onClick={()=>editPage(page)}><Pencil size={15}/>Edit</button>{page.status!=="published"||page.hasUnpublishedChanges?<button disabled={!canManage||busy} className="app-button app-button-primary app-button-sm" onClick={()=>action(()=>customerExperienceService.publishContentPage(page._id),"Content published.")}><Send size={15}/>{page.status === "published" ? "Publish changes" : "Publish"}</button>:null}<button disabled={!canManage||busy} className="app-button app-button-secondary app-button-sm" onClick={()=>action(()=>customerExperienceService.archiveContentPage(page._id),"Content archived.")}><Archive size={15}/>Archive</button></div></article>)}
         </div>
       </section>
     </main>
