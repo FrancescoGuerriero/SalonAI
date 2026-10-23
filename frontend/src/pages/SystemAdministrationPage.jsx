@@ -4,8 +4,10 @@ import {
   Code2,
   History,
   KeyRound,
+  Layers3,
   RefreshCw,
   RotateCcw,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
 } from "lucide-react";
@@ -15,10 +17,41 @@ import useFeatureControls from "../hooks/useFeatureControls.js";
 
 const TABS = [
   ["features", "On/Off Ideas", SlidersHorizontal],
+  ["configuration", "Configuration Studio", Layers3],
   ["settings", "Stored settings", Code2],
   ["health", "System health", Activity],
   ["social-auth", "Sign-in providers", KeyRound],
 ];
+
+function flattenConfiguration(value, prefix = "", items = []) {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      flattenConfiguration(
+        nestedValue,
+        prefix ? `${prefix}.${key}` : key,
+        items
+      );
+    });
+    return items;
+  }
+
+  if (prefix) {
+    items.push({ key: prefix, value });
+  }
+
+  return items;
+}
+
+function displayConfigurationValue(value) {
+  if (value === null) return "Disabled";
+  if (typeof value === "string") return value;
+  if (typeof value === "boolean") return value ? "On" : "Off";
+  return JSON.stringify(value);
+}
 
 function Toggle({ checked, disabled, label, onChange }) {
   return (
@@ -47,6 +80,8 @@ export default function SystemAdministrationPage() {
   const [health, setHealth] = useState(null);
   const [settings, setSettings] = useState([]);
   const [features, setFeatures] = useState([]);
+  const [configurationStudio, setConfigurationStudio] = useState(null);
+  const [configurationSearch, setConfigurationSearch] = useState("");
   const [socialAuth, setSocialAuth] = useState(null);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -61,11 +96,19 @@ export default function SystemAdministrationPage() {
         healthResponse,
         settingsResponse,
         featuresResponse,
+        configurationResponse,
         socialAuthResponse,
       ] = await Promise.all([
         API.get("/health/dependencies"),
         API.get("/system-administration/settings"),
         API.get("/system-administration/features"),
+        API.get(
+          "/system-administration/configuration-studio"
+        ).catch(() => ({
+          data: {
+            configurationStudio: null,
+          },
+        })),
         API.get(
           "/system-administration/social-auth-readiness"
         ).catch(() => ({
@@ -78,6 +121,9 @@ export default function SystemAdministrationPage() {
       setHealth(healthResponse.data);
       setSettings(settingsResponse.data.settings || []);
       setFeatures(featuresResponse.data.features || []);
+      setConfigurationStudio(
+        configurationResponse.data.configurationStudio || null
+      );
       setSocialAuth(
         socialAuthResponse.data.socialAuth || null
       );
@@ -94,6 +140,21 @@ export default function SystemAdministrationPage() {
     () => [...new Set(features.map(({ category }) => category))],
     [features]
   );
+
+  const configurationRows = useMemo(() => {
+    const query = configurationSearch.trim().toLowerCase();
+    const rows = flattenConfiguration(
+      configurationStudio?.effective || {}
+    );
+
+    if (!query) return rows;
+
+    return rows.filter(({ key, value }) =>
+      `${key} ${displayConfigurationValue(value)}`
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [configurationSearch, configurationStudio]);
 
   async function changeFeature(feature, enabled) {
     setBusyId(feature.id);
@@ -275,6 +336,113 @@ export default function SystemAdministrationPage() {
               </section>
             ))}
           </div>
+        ) : null}
+
+        {tab === "configuration" ? (
+          <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Layers3 className="text-amber-600" size={20} />
+                  <h2 className="text-xl font-bold text-black">Configuration Studio</h2>
+                </div>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
+                  View the effective configuration for the active business and see which platform, vertical, business or location scope supplied each value.
+                </p>
+              </div>
+
+              {configurationStudio?.business ? (
+                <div className="rounded-xl border border-black/10 bg-stone-50 px-4 py-3 text-sm">
+                  <p className="font-bold text-black">{configurationStudio.business.name}</p>
+                  <p className="mt-1 text-stone-600">
+                    {configurationStudio.location?.name || "Business-wide configuration"}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            {configurationStudio ? (
+              <>
+                <div className="mt-5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-stone-600">Effective scope chain</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(configurationStudio.scopeChain || []).map((scope) => (
+                      <span
+                        key={`${scope.scopeType}:${scope.scopeKey}`}
+                        className="rounded-full border border-black/10 bg-stone-100 px-3 py-1 text-xs font-semibold text-black"
+                      >
+                        {scope.scope}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-black">
+                  Existing SystemSetting controls remain authoritative while scoped configuration is introduced. No automatic migration is running.
+                </div>
+
+                <label className="mt-5 block max-w-xl">
+                  <span className="text-sm font-semibold text-black">Find a configuration value</span>
+                  <span className="mt-2 flex items-center gap-2 rounded-xl border border-black/15 bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-amber-500">
+                    <Search size={17} className="text-stone-500" />
+                    <input
+                      type="search"
+                      value={configurationSearch}
+                      onChange={(event) => setConfigurationSearch(event.target.value)}
+                      placeholder="Search booking, AI, membership..."
+                      className="w-full border-0 bg-transparent text-sm text-black outline-none placeholder:text-stone-400"
+                    />
+                  </span>
+                </label>
+
+                <div className="mt-5 overflow-hidden rounded-xl border border-black/10">
+                  {configurationRows.length ? (
+                    <div className="divide-y divide-stone-200">
+                      {configurationRows.map(({ key, value }) => {
+                        const provenance = configurationStudio.provenanceDetails?.[key];
+                        return (
+                          <article key={key} className="grid gap-3 bg-white p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center">
+                            <div>
+                              <p className="font-mono text-sm font-semibold text-black">{key}</p>
+                              <p className="mt-1 text-xs text-stone-500">Effective value</p>
+                            </div>
+                            <p className="break-words text-sm font-semibold text-black">
+                              {displayConfigurationValue(value)}
+                            </p>
+                            <span className="w-fit rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-black">
+                              {provenance?.scope || configurationStudio.provenance?.[key] || "default"}
+                            </span>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-stone-50 p-6 text-sm leading-6 text-stone-600">
+                      {configurationSearch
+                        ? "No effective configuration values match this search."
+                        : "No scoped configuration values are active yet. The new hierarchy is ready, while existing stored settings continue to run the application."}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-stone-600">
+                  <span className="rounded-full bg-stone-100 px-3 py-1">
+                    {(configurationStudio.sourceValues || []).length} stored values
+                  </span>
+                  <span className="rounded-full bg-stone-100 px-3 py-1">
+                    {(configurationStudio.blockedOverrides || []).length} blocked overrides
+                  </span>
+                  <span className="rounded-full bg-stone-100 px-3 py-1">
+                    {Object.keys(configurationStudio.locks || {}).length} locked paths
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-black">
+                Configuration Studio could not resolve the active business context. The rest of System Administration remains available.
+              </p>
+            )}
+          </section>
         ) : null}
 
         {tab === "settings" ? (
