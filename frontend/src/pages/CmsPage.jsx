@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import customerExperienceService from "../Services/customerExperienceService.js";
 
 function ContentBlock({ block }) {
@@ -19,15 +19,16 @@ function ContentBlock({ block }) {
 }
 
 export default function CmsPage() {
-  const { slug } = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const slug = decodeURIComponent(location.pathname.replace(/^\/content\//, "").replace(/\/$/, ""));
   const [page, setPage] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     customerExperienceService.getPublishedContentPage(slug, searchParams.get("locale") || undefined)
-      .then((result) => { if (active) setPage(result.page); })
+      .then((result) => { if (active) { setPage(result.page); setError(""); } })
       .catch((requestError) => { if (active) setError(requestError.response?.data?.message || "This content is unavailable."); });
     return () => { active = false; };
   }, [slug, searchParams]);
