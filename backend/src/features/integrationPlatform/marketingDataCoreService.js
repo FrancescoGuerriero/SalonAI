@@ -304,26 +304,48 @@ async function persistBatch(source, run, records, businessId) {
   const errors = [];
 
   for (const record of records) {
+    let raw = null;
     try {
       const externalId = externalIdFor(record, source.fieldCatalogue);
       const payloadHash = recordHash(record);
-      let raw = await MarketingRawRecord.findOne({ business: businessId, source: source._id, externalId, payloadHash });
+      raw = await MarketingRawRecord.findOne({ business: businessId, source: source._id, externalId, payloadHash });
+
       if (raw) {
-        counters.reconciled += 1;
-        continue;
+        const existingNormalised = await MarketingNormalisedRecord.findOne({
+          business: businessId,
+          source: source._id,
+          rawRecord: raw._id,
+        }).select("_id").lean();
+
+        if (raw.reconciliationStatus === "normalised" || existingNormalised) {
+          if (raw.reconciliationStatus !== "normalised") {
+            raw.reconciliationStatus = "normalised";
+            raw.reconciliationMessage = "";
+            raw.run = run._id;
+            await raw.save();
+          }
+          counters.reconciled += 1;
+          continue;
+        }
+
+        raw.run = run._id;
+        raw.reconciliationStatus = "pending";
+        raw.reconciliationMessage = "";
+        await raw.save();
+      } else {
+        raw = await MarketingRawRecord.create({
+          business: businessId,
+          source: source._id,
+          run: run._id,
+          externalId,
+          payloadHash,
+          capturedAt: new Date(),
+          sourceUpdatedAt: safeDate(record.updatedAt || record.modifiedAt, "sourceUpdatedAt"),
+          schemaVersion: source.providerSchemaVersion,
+          payload: record,
+        });
+        counters.rawStored += 1;
       }
-      raw = await MarketingRawRecord.create({
-        business: businessId,
-        source: source._id,
-        run: run._id,
-        externalId,
-        payloadHash,
-        capturedAt: new Date(),
-        sourceUpdatedAt: safeDate(record.updatedAt || record.modifiedAt, "sourceUpdatedAt"),
-        schemaVersion: source.providerSchemaVersion,
-        payload: record,
-      });
-      counters.rawStored += 1;
 
       const normalised = normaliseRecord(record, source, raw);
       await MarketingNormalisedRecord.create({
@@ -334,12 +356,26 @@ async function persistBatch(source, run, records, businessId) {
         ...normalised,
       });
       raw.reconciliationStatus = "normalised";
+      raw.reconciliationMessage = "";
       await raw.save();
       counters.normalised += 1;
       counters.reconciled += 1;
     } catch (error) {
       counters.failed += 1;
-      errors.push(text(error?.message || error, 500));
+      const message = text(error?.message || error, 500);
+      errors.push(message);
+      if (raw?._id) {
+        await MarketingRawRecord.updateOne(
+          { _id: raw._id, business: businessId, source: source._id },
+          {
+            $set: {
+              run: run._id,
+              reconciliationStatus: "failed",
+              reconciliationMessage: message,
+            },
+          }
+        ).catch(() => undefined);
+      }
     }
   }
   return { counters, errors };
