@@ -19,6 +19,12 @@ router.get(
 );
 
 router.get(
+  "/:id/performance",
+  requirePermissions("reports:read"),
+  asyncHandler(controller.performance)
+);
+
+router.get(
   "/:id/jobs",
   asyncHandler(controller.jobs)
 );
