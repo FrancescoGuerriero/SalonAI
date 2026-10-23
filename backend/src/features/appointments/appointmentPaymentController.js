@@ -2,6 +2,9 @@ import {
   confirmDemoAppointmentPayment,
   createAppointmentCheckout,
 } from "./appointmentPaymentService.js";
+import {
+  createAppointmentPaymentRequest,
+} from "./appointmentPaymentRequestService.js";
 
 export async function createCheckout(request, response) {
   const result = await createAppointmentCheckout(
@@ -15,6 +18,22 @@ export async function createCheckout(request, response) {
     message: result.reused
       ? "Existing appointment payment checkout reused."
       : "Appointment payment checkout created successfully.",
+    ...result,
+  });
+}
+
+export async function createPaymentRequest(request, response) {
+  const result = await createAppointmentPaymentRequest(
+    request.params.id,
+    request.body || {},
+    request.user || null
+  );
+
+  return response.status(201).json({
+    success: true,
+    message: result.reused
+      ? "Existing secure payment request reused."
+      : "Secure payment request created and queued through the transactional communication path.",
     ...result,
   });
 }
@@ -35,4 +54,5 @@ export async function confirmDemoPayment(request, response) {
 export default {
   confirmDemoPayment,
   createCheckout,
+  createPaymentRequest,
 };
