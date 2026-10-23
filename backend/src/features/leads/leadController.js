@@ -62,9 +62,8 @@ async function attributionOutcome(operation) {
       touch,
     };
   } catch (error) {
-    // Lead/customer mutations are already transactional before attribution is
-    // projected. Never turn a successful canonical mutation into an ambiguous
-    // client retry. Surface the unresolved projection for explicit repair.
+    // The canonical mutation has already committed. Report projection repair
+    // state instead of encouraging an unsafe retry of that mutation.
     return {
       status: "unresolved",
       code: error.code || "ATTRIBUTION_PROJECTION_FAILED",
@@ -188,7 +187,7 @@ export async function addOpportunity(request, response) {
   );
 
   response.status(201).json({
-    opportunity,
+    ...opportunity,
     attribution,
   });
 }
