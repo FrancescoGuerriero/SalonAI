@@ -11,7 +11,7 @@ import {
   AI_WORKFORCE_ACTIVE_AUTONOMY_CEILING,
 } from "./aiWorkforcePolicy.js";
 import {
-  getBuiltinAiAgentDefinition,
+  listBuiltinAiAgentDefinitions,
 } from "./aiWorkforceBuiltinAgents.js";
 import {
   listAiWorkforceTools,
@@ -106,13 +106,7 @@ export async function getAiWorkforceRegistry({ businessId, effectiveAuthority } 
     .sort({ key: 1, createdAt: -1 })
     .lean();
 
-  let builtinAgents = [];
-  try {
-    builtinAgents = [getBuiltinAiAgentDefinition("business-adviser")];
-  } catch {
-    builtinAgents = [];
-  }
-
+  const builtinAgents = listBuiltinAiAgentDefinitions();
   const byIdentity = new Map();
   for (const agent of [...builtinAgents, ...persistedAgents]) {
     byIdentity.set(`${agent.key}@${agent.version}`, agent);

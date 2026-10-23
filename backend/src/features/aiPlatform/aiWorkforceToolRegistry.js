@@ -19,6 +19,25 @@ const TOOL_DEFINITIONS =
         requiresHumanApproval:
           false,
       }),
+    "service.catalogue.read":
+      Object.freeze({
+        key:
+          "service.catalogue.read",
+        domain:
+          "services",
+        description:
+          "Read the published and bookable service catalogue without changing service state.",
+        requiredPermission:
+          "service:read",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
     "availability.search":
       Object.freeze({
         key:

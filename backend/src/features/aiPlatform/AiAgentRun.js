@@ -5,6 +5,12 @@ import {
 
 const { Schema } = mongoose;
 
+export const AI_AGENT_INITIATOR_TYPES = Object.freeze([
+  "user",
+  "customer_channel",
+  "system",
+]);
+
 const aiAgentRunSchema =
   new Schema(
     {
@@ -40,10 +46,42 @@ const aiAgentRunSchema =
         trim: true,
         maxlength: 80,
       },
+      initiatorType: {
+        type: String,
+        enum: AI_AGENT_INITIATOR_TYPES,
+        default: "user",
+        required: true,
+        index: true,
+      },
       initiatedBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
-        required: true,
+        default: null,
+        required() {
+          return this.initiatorType === "user";
+        },
+        index: true,
+      },
+      customer: {
+        type: Schema.Types.ObjectId,
+        ref: "Customer",
+        default: null,
+        index: true,
+      },
+      channel: {
+        type: String,
+        enum: ["", "whatsapp", "web", "voice", "internal"],
+        default: "",
+        index: true,
+      },
+      channelConversationRef: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: 180,
+        required() {
+          return this.initiatorType === "customer_channel";
+        },
         index: true,
       },
       requestedAutonomy: {
@@ -217,6 +255,13 @@ aiAgentRunSchema.index({
 aiAgentRunSchema.index({
   business: 1,
   status: 1,
+  startedAt: -1,
+});
+
+aiAgentRunSchema.index({
+  business: 1,
+  channel: 1,
+  channelConversationRef: 1,
   startedAt: -1,
 });
 

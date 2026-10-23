@@ -35,6 +35,38 @@ const BUILTIN_AGENTS =
             0,
         },
       }),
+    "ai-receptionist":
+      Object.freeze({
+        key:
+          "ai-receptionist",
+        version:
+          "1",
+        displayName:
+          "AI Receptionist",
+        purpose:
+          "Interpret customer booking and service enquiries on governed channels while deterministic SalonAI services retain booking, consultation and handoff authority.",
+        lifecycle:
+          "active",
+        allowedVerticals: [
+          "salon",
+        ],
+        requiredEntitlement:
+          "whatsapp-booking",
+        allowedTools: [
+          "service.catalogue.read",
+          "availability.search",
+        ],
+        autonomyCeiling:
+          "A0",
+        evaluationSuite: {
+          key:
+            "ai-receptionist-a0-v1",
+          minimumTaskSuccessRate:
+            0.9,
+          maximumPolicyViolationRate:
+            0,
+        },
+      }),
   });
 
 export function getBuiltinAiAgentDefinition(
@@ -69,6 +101,16 @@ export function getBuiltinAiAgentDefinition(
   return definition;
 }
 
+export function listBuiltinAiAgentDefinitions() {
+  return Object.values(BUILTIN_AGENTS).map(
+    (definition) => {
+      validateAgentDefinitionContract(definition);
+      return definition;
+    }
+  );
+}
+
 export default {
   getBuiltinAiAgentDefinition,
+  listBuiltinAiAgentDefinitions,
 };
