@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
@@ -6,14 +6,15 @@ import {
   Clock3,
   CreditCard,
   Gift,
+  MapPin,
   PackageCheck,
   PackagePlus,
+  Repeat2,
   Scissors,
   ShoppingCart,
   Sparkles,
   Star,
   UserRound,
-  MapPin,
 } from "lucide-react";
 
 import useAuth from "../hooks/useAuth.js";
@@ -28,6 +29,7 @@ import AddAppointmentToCalendar from "../components/account/AddAppointmentToCale
 import Alert from "../components/ui/Alert.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
+import { BookingContext } from "../context/BookingContext.jsx";
 import {
   profileInitials,
 } from "../utils/profileMedia.js";
@@ -109,10 +111,28 @@ function canPayAppointment(appointment) {
   );
 }
 
+function canBookAgain(appointment) {
+  const service = appointment?.service;
+  const stylist = appointment?.stylist;
+
+  return Boolean(
+    service?._id &&
+      stylist?._id &&
+      service.active !== false &&
+      service.published !== false &&
+      service.bookable !== false &&
+      stylist.active !== false &&
+      stylist.isActive !== false &&
+      stylist.acceptsAppointments !== false
+  );
+}
+
 export default function CustomerAccountPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addAppointment } = useCart();
+  const bookingContext = useContext(BookingContext);
+  const setBooking = bookingContext?.setBooking;
   const [appointments, setAppointments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -172,6 +192,22 @@ export default function CustomerAccountPage() {
     navigate("/cart");
   }
 
+  function bookAgain(appointment) {
+    if (!canBookAgain(appointment) || !setBooking) {
+      navigate("/booking");
+      return;
+    }
+
+    setBooking({
+      service: appointment.service,
+      stylist: appointment.stylist,
+      appointmentDate: "",
+      appointmentTime: "",
+    });
+
+    navigate("/booking");
+  }
+
   const now = Date.now();
 
   const upcomingAppointments = useMemo(
@@ -190,8 +226,18 @@ export default function CustomerAccountPage() {
     [appointments, now]
   );
 
-  const completedAppointments = appointments.filter((item) =>
-    ["completed", "complete"].includes(String(item?.status).toLowerCase())
+  const completedAppointments = useMemo(
+    () =>
+      appointments
+        .filter((item) =>
+          ["completed", "complete"].includes(String(item?.status).toLowerCase())
+        )
+        .sort(
+          (a, b) =>
+            new Date(appointmentDate(b)).getTime() -
+            new Date(appointmentDate(a)).getTime()
+        ),
+    [appointments]
   );
 
   const totalSpent = orders.reduce(
@@ -328,6 +374,9 @@ export default function CustomerAccountPage() {
                       <AddAppointmentToCalendar
                         appointment={appointment}
                       />
+                      <Link to="/experience/appointments" className="account-text-link">
+                        Request a change <ChevronRight size={15} />
+                      </Link>
                     </div>
                     <span className="account-status">
                       {appointment?.status ?? "pending"}
@@ -369,6 +418,14 @@ export default function CustomerAccountPage() {
               <span>
                 <strong>Manage account</strong>
                 <small>Contact details and home address</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+            <Link to="/experience">
+              <Sparkles size={20} />
+              <span>
+                <strong>Salon experience</strong>
+                <small>Appointments, favourites, reviews, loyalty and messages</small>
               </span>
               <ChevronRight size={18} />
             </Link>
@@ -423,6 +480,75 @@ export default function CustomerAccountPage() {
           </nav>
         </AccountSection>
       </div>
+
+      <AccountSection
+        title="Recent visits"
+        description="Repeat a completed service without rebuilding the booking from scratch."
+        action={
+          <Link to="/experience/reviews" className="account-text-link">
+            Reviews <ChevronRight size={16} />
+          </Link>
+        }
+      >
+        {loading ? (
+          <div className="account-list">
+            <Skeleton />
+          </div>
+        ) : completedAppointments.length ? (
+          <div className="account-list">
+            {completedAppointments.slice(0, 3).map((appointment, index) => {
+              const appointmentId = appointment?._id ?? appointment?.id ?? index;
+              const stylistName =
+                appointment?.stylist?.name ||
+                [appointment?.stylist?.firstName, appointment?.stylist?.lastName]
+                  .filter(Boolean)
+                  .join(" ") ||
+                "Salon stylist";
+
+              return (
+                <article className="account-list-item" key={appointmentId}>
+                  <span className="account-list-icon">
+                    <Scissors size={19} />
+                  </span>
+                  <div className="account-list-copy">
+                    <strong>
+                      {appointment?.service?.name ??
+                        appointment?.serviceName ??
+                        "Salon appointment"}
+                    </strong>
+                    <span>
+                      {formatDate(appointmentDate(appointment))} · {stylistName}
+                    </span>
+                    <small>
+                      {canBookAgain(appointment)
+                        ? "Reuse this service and stylist, then choose a new date and time."
+                        : "This previous combination is no longer directly bookable."}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="app-button app-button-secondary"
+                    onClick={() => bookAgain(appointment)}
+                  >
+                    <Repeat2 size={17} aria-hidden="true" />
+                    {canBookAgain(appointment) ? "Book again" : "New booking"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            title="No completed visits yet"
+            description="Completed salon appointments will appear here for quick rebooking."
+            action={
+              <Link to="/booking" className="app-button app-button-secondary">
+                Book an appointment
+              </Link>
+            }
+          />
+        )}
+      </AccountSection>
 
       <AccountSection
         title="Recent orders"
