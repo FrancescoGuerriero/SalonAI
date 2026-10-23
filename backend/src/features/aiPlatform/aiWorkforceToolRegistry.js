@@ -57,6 +57,63 @@ const TOOL_DEFINITIONS =
         requiresHumanApproval:
           false,
       }),
+    "retention.risk.read":
+      Object.freeze({
+        key:
+          "retention.risk.read",
+        domain:
+          "customer-retention",
+        description:
+          "Read or refresh the canonical tenant-scoped customer retention-risk prediction without enrolling journeys or sending communications.",
+        requiredPermission:
+          "customer:read",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
+    "lead.score.read":
+      Object.freeze({
+        key:
+          "lead.score.read",
+        domain:
+          "crm-lead",
+        description:
+          "Read the latest canonical LeadScore snapshot and lead conversion state without changing CRM data.",
+        requiredPermission:
+          "customer:read",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
+    "workflow.enrolment.propose":
+      Object.freeze({
+        key:
+          "workflow.enrolment.propose",
+        domain:
+          "workflow",
+        description:
+          "Prepare a workflow-enrolment proposal for authorised human review. Approval does not automatically execute the workflow.",
+        requiredPermission:
+          "communications:manage",
+        mutation:
+          false,
+        riskLevel:
+          "medium",
+        maximumAutonomy:
+          "A1",
+        requiresHumanApproval:
+          true,
+      }),
     "appointment.reschedule.propose":
       Object.freeze({
         key:

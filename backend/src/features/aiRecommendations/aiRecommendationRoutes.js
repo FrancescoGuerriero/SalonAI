@@ -66,6 +66,11 @@ import {
   prepareProposalDraft,
 } from "./aiAdviserProposalPreparationController.js";
 import {
+  leadPilot,
+  measurePilot,
+  retentionPilot,
+} from "./aiGrowthPilotController.js";
+import {
   observeOutcome as observeWorkforceOutcome,
   outcomes as workforceOutcomes,
   proposals as workforceProposals,
@@ -173,6 +178,24 @@ router.get(
   "/workforce/outcomes",
   ...tenantAwareAiChain,
   asyncHandler(workforceOutcomes)
+);
+
+router.post(
+  "/workforce/pilots/retention",
+  ...tenantAwareAiChain,
+  asyncHandler(retentionPilot)
+);
+
+router.post(
+  "/workforce/pilots/leads/:leadId",
+  ...tenantAwareAiChain,
+  asyncHandler(leadPilot)
+);
+
+router.post(
+  "/workforce/pilots/proposals/:proposalId/measure",
+  ...tenantAwareAiChain,
+  asyncHandler(measurePilot)
 );
 
 router.post(
