@@ -96,6 +96,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/communications", "Communications", "Review customer contact history", "Mail", false, "communications:read", "communications", SIMPLE],
       ["/communication-templates", "Message templates", "Manage reusable message content", "MessageSquareText", false, "communications:read", "communications", SIMPLE],
       ["/scheduled-communications", "Scheduled messages", "Review future message delivery", "CalendarClock", false, "communications:read", "communications", SIMPLE],
+      ["/growth/leads", "Growth & Lead Conversion", "Manage leads and trace lead-to-booking-to-payment attribution", "Target", false, "customer:read", "", ADVANCED],
       ["/communication-campaigns", "Campaign composer", "Create targeted campaigns", "Megaphone", false, "communications:read", "communications", ADVANCED],
       ["/message-delivery", "Message delivery", "Monitor delivery and retry failures", "Send", false, "communications:read", "communications", ADVANCED],
       ["/rebooking-campaigns", "Rebooking campaigns", "Run targeted rebooking activity", "Megaphone", false, "communications:read", "communications", ADVANCED],
