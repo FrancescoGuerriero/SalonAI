@@ -34,6 +34,11 @@ import {
 
 const DEFAULT_PROPOSAL_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 const PILOT_AGENT_KEYS = new Set(["ai-retention", "ai-lead"]);
+const TERMINAL_LEAD_STATUSES = new Set([
+  "converted",
+  "disqualified",
+  "lost",
+]);
 
 function text(value) {
   return String(value ?? "").trim();
@@ -60,6 +65,10 @@ function boundedNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
   return Math.max(min, Math.min(max, number));
+}
+
+function uniqueEvidence(values = []) {
+  return [...new Set(values.map(text).filter(Boolean))];
 }
 
 function assertTenantAuthority({ businessId, effectiveAuthority }) {
@@ -125,6 +134,39 @@ async function resolveWorkflow(payload, businessId) {
   );
 }
 
+function retentionEvidence(prediction, { requireFresh = false } = {}) {
+  if (!prediction || !prediction.risk) return null;
+  if (requireFresh && prediction.fresh !== true) {
+    throw createServiceError(
+      "The stored retention prediction is stale. Refresh it explicitly before creating a pilot proposal.",
+      409,
+      { code: "AI_RETENTION_PREDICTION_STALE" }
+    );
+  }
+
+  const risk = prediction.risk;
+  const score = Number(risk.score);
+  if (!Number.isFinite(score) || score < 0 || score > 1) {
+    throw createServiceError(
+      "The canonical churn-risk prediction has an invalid score.",
+      409,
+      { code: "AI_RETENTION_RISK_SCORE_INVALID" }
+    );
+  }
+
+  return Object.freeze({
+    score,
+    label: text(risk.label),
+    explanation: text(risk.explanation),
+    predictionId: text(risk._id || risk.id),
+    modelName: text(risk.modelName),
+    modelVersion: text(risk.modelVersion),
+    recommendedChannel: text(prediction.recommendedChannel?.label),
+    recommendedCampaign: text(prediction.recommendedCampaign?.label),
+    expiresAt: prediction.expiresAt || risk.expiresAt || null,
+  });
+}
+
 async function createPilotRun({
   businessId,
   locationId,
@@ -133,7 +175,7 @@ async function createPilotRun({
   agent,
   targetType,
   targetId,
-  toolKeys,
+  tools,
 }) {
   const now = new Date();
   return AiAgentRun.create({
@@ -147,7 +189,7 @@ async function createPilotRun({
     requestedAutonomy: "A1",
     effectiveAutonomy: "A1",
     status: "started",
-    toolInvocations: toolKeys.map(({ tool, autonomy }) => ({
+    toolInvocations: tools.map((tool) => ({
       toolKey: tool.key,
       requiredPermission: tool.requiredPermission,
       riskLevel: tool.riskLevel,
@@ -172,7 +214,7 @@ function completeInvocation(run, toolKey, evidenceRefs = []) {
   if (!invocation) return;
   invocation.status = "completed";
   invocation.completedAt = new Date();
-  invocation.evidenceRefs = [...new Set(evidenceRefs.map(text).filter(Boolean))];
+  invocation.evidenceRefs = uniqueEvidence(evidenceRefs);
 }
 
 function failRun(run, error) {
@@ -181,15 +223,26 @@ function failRun(run, error) {
   run.latencyMs = Math.max(0, run.completedAt.getTime() - run.startedAt.getTime());
   run.metadata = {
     ...(run.metadata || {}),
-    failureCode: text(error?.code || "AI_GROWTH_PILOT_FAILED"),
+    failureCode: text(error?.code || error?.details?.code || "AI_GROWTH_PILOT_FAILED"),
     failureReason: text(error?.message || "AI growth pilot failed.").slice(0, 1000),
   };
   for (const invocation of run.toolInvocations) {
-    if (["allowed", "completed"].includes(invocation.status)) {
-      if (invocation.status !== "completed") invocation.status = "failed";
-      if (!invocation.completedAt) invocation.completedAt = new Date();
-    }
+    if (invocation.status === "allowed") invocation.status = "failed";
+    if (!invocation.completedAt) invocation.completedAt = new Date();
   }
+}
+
+async function finishRun(run, metadata = {}) {
+  run.status = "completed";
+  run.completedAt = new Date();
+  run.latencyMs = Math.max(0, run.completedAt.getTime() - run.startedAt.getTime());
+  run.outcome.taskSuccess = true;
+  run.outcome.policyViolation = false;
+  run.metadata = {
+    ...(run.metadata || {}),
+    ...metadata,
+  };
+  await run.save();
 }
 
 async function createWorkflowProposal({
@@ -216,7 +269,7 @@ async function createWorkflowProposal({
     agentKey: agent.key,
     autonomyLevel: "A1",
     riskLevel: proposalTool.riskLevel,
-    evidenceRefs,
+    evidenceRefs: uniqueEvidence(evidenceRefs),
     rollbackPlan:
       "No automatic execution occurs. Rejecting or allowing this proposal to expire requires no rollback; any later workflow action remains governed by its own controls.",
     createdBy: actorId(user),
@@ -277,19 +330,6 @@ async function auditProposal({ businessId, user, requestId, run, proposal }) {
   });
 }
 
-async function finishRun(run, metadata = {}) {
-  run.status = "completed";
-  run.completedAt = new Date();
-  run.latencyMs = Math.max(0, run.completedAt.getTime() - run.startedAt.getTime());
-  run.outcome.taskSuccess = true;
-  run.outcome.policyViolation = false;
-  run.metadata = {
-    ...(run.metadata || {}),
-    ...metadata,
-  };
-  await run.save();
-}
-
 export async function runRetentionGrowthPilot(
   payload = {},
   {
@@ -327,50 +367,52 @@ export async function runRetentionGrowthPilot(
     agent,
     targetType: "customer",
     targetId: customer._id,
-    toolKeys: [
-      { tool: read.tool, autonomy: "A0" },
-      { tool: propose.tool, autonomy: "A1" },
-    ],
+    tools: [read.tool, propose.tool],
   });
 
   try {
-    const prediction = payload.forcePrediction === true
+    const forcePrediction = payload.forcePrediction === true;
+    const prediction = forcePrediction
       ? await predictRetention(customer._id, { force: true })
       : await getStoredRetentionPrediction(customer._id);
-    if (!prediction) {
+    const evidence = retentionEvidence(prediction, {
+      requireFresh: !forcePrediction,
+    });
+    if (!evidence) {
       throw createServiceError(
-        "A current retention prediction is required. Set forcePrediction=true to refresh it.",
+        "A current canonical churn-risk prediction is required. Set forcePrediction=true to refresh it.",
         409,
         { code: "AI_RETENTION_PREDICTION_REQUIRED" }
       );
     }
 
-    const score = boundedNumber(prediction.score, 0, 0, 1);
     const threshold = boundedNumber(payload.minimumRiskScore, 0.55, 0, 1);
-    const predictionId = prediction._id || prediction.id || "";
-    const evidenceRefs = [
+    const evidenceRefs = uniqueEvidence([
       `customer:${customer._id}`,
-      predictionId ? `retention-prediction:${predictionId}` : "",
-    ].filter(Boolean);
+      evidence.predictionId
+        ? `retention-prediction:${evidence.predictionId}`
+        : "",
+    ]);
     completeInvocation(run, "retention.risk.read", evidenceRefs);
 
-    if (score < threshold) {
+    if (evidence.score < threshold) {
       completeInvocation(run, "workflow.enrolment.propose", [
         `workflow:${workflow._id}`,
       ]);
       await finishRun(run, {
         proposalCreated: false,
         reason: "below_risk_threshold",
-        riskScore: score,
+        riskScore: evidence.score,
         minimumRiskScore: threshold,
+        sourcePredictionId: evidence.predictionId,
         workflowId: String(workflow._id),
       });
       return {
         run: run.toObject(),
         proposal: null,
         assessment: {
-          score,
-          label: prediction.label || "",
+          score: evidence.score,
+          label: evidence.label,
           threshold,
           proposalCreated: false,
         },
@@ -389,13 +431,17 @@ export async function runRetentionGrowthPilot(
       targetId: customer._id,
       summary: `Review retention workflow enrolment for customer ${customer._id}.`,
       rationale:
-        text(prediction.explanation) ||
-        `Canonical retention risk score ${score.toFixed(3)} met the ${threshold.toFixed(3)} pilot threshold.`,
+        evidence.explanation ||
+        `Canonical churn-risk score ${evidence.score.toFixed(3)} met the ${threshold.toFixed(3)} pilot threshold.`,
       proposedChanges: {
         customerId: String(customer._id),
-        riskScore: score,
-        riskLabel: text(prediction.label),
-        sourcePredictionId: predictionId ? String(predictionId) : "",
+        riskScore: evidence.score,
+        riskLabel: evidence.label,
+        sourcePredictionId: evidence.predictionId,
+        modelName: evidence.modelName,
+        modelVersion: evidence.modelVersion,
+        recommendedChannel: evidence.recommendedChannel,
+        recommendedCampaign: evidence.recommendedCampaign,
         communicationAuthority: "workflow_policy_and_consent_required",
       },
       evidenceRefs,
@@ -404,8 +450,9 @@ export async function runRetentionGrowthPilot(
     await auditProposal({ businessId, user, requestId, run, proposal });
     await finishRun(run, {
       proposalCreated: true,
-      riskScore: score,
+      riskScore: evidence.score,
       minimumRiskScore: threshold,
+      sourcePredictionId: evidence.predictionId,
       workflowId: String(workflow._id),
       proposalId: String(proposal._id),
     });
@@ -414,8 +461,8 @@ export async function runRetentionGrowthPilot(
       run: run.toObject(),
       proposal: proposal.toObject(),
       assessment: {
-        score,
-        label: prediction.label || "",
+        score: evidence.score,
+        label: evidence.label,
         threshold,
         proposalCreated: true,
       },
@@ -461,10 +508,7 @@ export async function runLeadGrowthPilot(
     agent,
     targetType: "lead",
     targetId: lead._id,
-    toolKeys: [
-      { tool: read.tool, autonomy: "A0" },
-      { tool: propose.tool, autonomy: "A1" },
-    ],
+    tools: [read.tool, propose.tool],
   });
 
   try {
@@ -479,13 +523,13 @@ export async function runLeadGrowthPilot(
     );
     const score = boundedNumber(snapshot.score, 0, 0, 100);
     const threshold = boundedNumber(payload.minimumLeadScore, 40, 0, 100);
-    const evidenceRefs = [
+    const evidenceRefs = uniqueEvidence([
       `lead:${lead._id}`,
       `lead-score:${snapshot._id}`,
-    ];
+    ]);
     completeInvocation(run, "lead.score.read", evidenceRefs);
 
-    if (["converted", "disqualified", "lost"].includes(lead.status)) {
+    if (TERMINAL_LEAD_STATUSES.has(lead.status)) {
       completeInvocation(run, "workflow.enrolment.propose", [
         `workflow:${workflow._id}`,
       ]);
@@ -668,7 +712,7 @@ export async function measureAiGrowthPilotProposal(
       taskSuccess: converted,
       businessMetricKey: metricKey,
       businessMetricDelta: converted ? 1 : 0,
-      evidenceRefs,
+      evidenceRefs: uniqueEvidence(evidenceRefs),
       note:
         text(payload.note) ||
         (converted
