@@ -1,0 +1,91 @@
+name: Stage 1-6 Regression Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salonai-stage-1-6-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-regression:
+    name: Backend Stage 1-6 regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run complete backend regression suite
+        run: npm test
+        working-directory: backend
+
+  frontend-regression:
+    name: Frontend Stage 1-6 regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend legacy and component regressions
+        run: npm run test:all
+        working-directory: frontend
+
+      - name: Build production frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
+        working-directory: frontend
+
+  stage-1-6-complete:
+    name: Stage 1-6 regression complete
+    if: always()
+    needs: [backend-regression, frontend-regression]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce regression results
+        env:
+          BACKEND_RESULT: ${{ needs.backend-regression.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-regression.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKEND_RESULT" == "success" ]]
+          [[ "$FRONTEND_RESULT" == "success" ]]
+          echo "Stage 1-6 regression gate passed."
