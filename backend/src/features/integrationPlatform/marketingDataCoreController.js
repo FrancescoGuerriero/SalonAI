@@ -1,5 +1,6 @@
 import { createServiceError } from "../../shared/serviceError.js";
 import * as service from "./marketingDataCoreService.js";
+import { runMarketingProviderSource } from "./marketingProviderRunService.js";
 
 function businessId(request) {
   const value = request.effectiveAuthority?.businessId || request.tenantContext?.businessId || null;
@@ -58,6 +59,13 @@ export async function runSource(request, response) {
   }));
 }
 
+export async function runProviderSource(request, response) {
+  response.status(201).json(await runMarketingProviderSource(request.params.sourceId, body(request), {
+    businessId: businessId(request),
+    actor: actor(request),
+  }));
+}
+
 export async function runs(request, response) {
   response.json({ items: await service.listMarketingSyncRuns(request.query || {}, { businessId: businessId(request) }) });
 }
@@ -71,6 +79,7 @@ export default {
   createSource,
   overview,
   preview,
+  runProviderSource,
   runSource,
   runs,
   seoObservations,
