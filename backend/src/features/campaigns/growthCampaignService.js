@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import mongoose from "mongoose";
 
+import Lead from "../../models/Lead.js";
+import Customer from "../../models/customer.js";
+import Opportunity from "../../models/Opportunity.js";
 import Campaign from "./Campaign.js";
 import CampaignExecution from "./CampaignExecution.js";
 import AttributionTouch from "./AttributionTouch.js";
@@ -71,6 +74,74 @@ async function campaignForBusiness(campaignId, businessId) {
     throw createServiceError("Campaign not found in the active business.", 404);
   }
   return campaign;
+}
+
+async function validateAttributionSubjects(
+  { lead, customer, opportunity },
+  businessId
+) {
+  const [leadRecord, customerRecord, opportunityRecord] = await Promise.all([
+    lead
+      ? Lead.findOne({ _id: lead, business: businessId }).select("_id customer").lean()
+      : null,
+    customer
+      ? Customer.findOne({
+          _id: customer,
+          business: businessId,
+          status: { $ne: "deleted" },
+        })
+          .select("_id")
+          .lean()
+      : null,
+    opportunity
+      ? Opportunity.findOne({ _id: opportunity, business: businessId })
+          .select("_id lead customer")
+          .lean()
+      : null,
+  ]);
+
+  if (lead && !leadRecord) {
+    throw createServiceError("Attribution lead not found in the active business.", 404);
+  }
+  if (customer && !customerRecord) {
+    throw createServiceError("Attribution customer not found in the active business.", 404);
+  }
+  if (opportunity && !opportunityRecord) {
+    throw createServiceError("Attribution opportunity not found in the active business.", 404);
+  }
+  if (
+    opportunityRecord?.lead &&
+    lead &&
+    String(opportunityRecord.lead) !== String(lead)
+  ) {
+    throw createServiceError(
+      "Attribution opportunity does not belong to the supplied lead.",
+      409,
+      { code: "ATTRIBUTION_SUBJECT_MISMATCH" }
+    );
+  }
+  if (
+    opportunityRecord?.customer &&
+    customer &&
+    String(opportunityRecord.customer) !== String(customer)
+  ) {
+    throw createServiceError(
+      "Attribution opportunity does not belong to the supplied customer.",
+      409,
+      { code: "ATTRIBUTION_SUBJECT_MISMATCH" }
+    );
+  }
+  if (
+    leadRecord?.customer &&
+    customer &&
+    String(leadRecord.customer) !== String(customer)
+  ) {
+    throw createServiceError(
+      "Attribution customer does not match the canonical customer linked to the lead.",
+      409,
+      { code: "ATTRIBUTION_SUBJECT_MISMATCH" }
+    );
+  }
 }
 
 export async function resolveCampaignAttribution(
@@ -234,6 +305,8 @@ export async function recordAttributionTouch(
     );
   }
 
+  await validateAttributionSubjects({ lead, customer, opportunity }, businessId);
+
   const utm = normaliseUtm(payload);
   const occurredAt = date(payload.occurredAt, "occurredAt") || new Date();
   const touchType = lower(payload.touchType || "interaction").replaceAll("-", "_");
@@ -361,6 +434,13 @@ export async function attributionForLead(
 ) {
   objectId(leadId, "lead");
   objectId(businessId, "business");
+  const lead = await Lead.findOne({ _id: leadId, business: businessId })
+    .select("_id")
+    .lean();
+  if (!lead) {
+    throw createServiceError("Lead not found in the active business.", 404);
+  }
+
   const touches = await AttributionTouch.find({
     business: businessId,
     lead: leadId,
