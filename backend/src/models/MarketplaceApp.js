@@ -24,7 +24,10 @@ const marketplaceAppSchema = new Schema(
       required: true,
       trim: true,
       lowercase: true,
-      maxlength: 100,
+      // Tenant IntegrationApp keys use the stable `marketplace-` prefix and
+      // have a 100-character contract. Keep catalogue keys bounded so the
+      // prefix never requires truncation and cannot create prefix collisions.
+      maxlength: 80,
       unique: true,
       index: true,
     },
