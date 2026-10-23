@@ -13,6 +13,7 @@ export const LEAD_TIMELINE_EVENT_TYPES = Object.freeze([
   "nurture_enrolled",
   "nurture_updated",
   "customer_converted",
+  "booking_attributed",
   "communication",
 ]);
 
