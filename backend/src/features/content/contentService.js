@@ -110,6 +110,7 @@ export async function createContentPage(payload, request) {
     slug,
     defaultLocale: text(payload.defaultLocale, 20) || locales[0].locale,
     locales,
+    hasUnpublishedChanges: true,
     createdBy: actorId(request.user),
     updatedBy: actorId(request.user),
   });
@@ -121,10 +122,18 @@ export async function createContentPage(payload, request) {
 export async function updateContentPage(pageId, payload, request) {
   const page = await ContentPage.findOne(pageQuery(request, { _id: pageId }));
   if (!page) throw createServiceError("Content page not found.", 404);
-  if (payload.slug !== undefined) page.slug = text(payload.slug, 160).toLowerCase();
+  if (payload.slug !== undefined) {
+    const slug = text(payload.slug, 160).toLowerCase();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      throw createServiceError("Content slug must be URL-safe.", 422);
+    }
+    page.slug = slug;
+  }
   if (payload.defaultLocale !== undefined) page.defaultLocale = text(payload.defaultLocale, 20);
   if (payload.locales !== undefined) page.locales = normaliseLocales(payload.locales);
   page.currentVersion += 1;
+  page.hasUnpublishedChanges = true;
+  if (page.status === "archived") page.status = "draft";
   page.updatedBy = actorId(request.user);
   page.versions.push({
     version: page.currentVersion,
@@ -140,6 +149,9 @@ export async function publishContentPage(pageId, request) {
   if (!page) throw createServiceError("Content page not found.", 404);
   if (!page.locales.length) throw createServiceError("Content cannot be published without a locale.", 409);
   page.status = "published";
+  page.publishedVersion = page.currentVersion;
+  page.publishedSnapshot = snapshot(page);
+  page.hasUnpublishedChanges = false;
   page.publishedAt = new Date();
   page.publishedBy = actorId(request.user);
   page.updatedBy = actorId(request.user);
@@ -164,18 +176,30 @@ export async function previewContentPage(pageId, locale, request) {
 
 export async function publishedContentPage(slug, locale, request = null) {
   const page = await ContentPage.findOne(pageQuery(request, {
-    slug: text(slug, 160).toLowerCase(),
     status: "published",
+    "publishedSnapshot.slug": text(slug, 160).toLowerCase(),
+    publishedSnapshot: { $exists: true },
   })).lean();
-  if (!page) throw createServiceError("Published content page not found.", 404);
-  return localisedView(page, locale);
+  if (!page?.publishedSnapshot) throw createServiceError("Published content page not found.", 404);
+
+  return localisedView(
+    {
+      _id: page._id,
+      ...page.publishedSnapshot,
+      status: "published",
+      currentVersion: page.publishedVersion,
+      publishedAt: page.publishedAt,
+    },
+    locale
+  );
 }
 
 export function localisedView(page, requestedLocale) {
   const locale = text(requestedLocale, 20) || page.defaultLocale || "en-GB";
-  const content = page.locales.find((entry) => entry.locale === locale)
-    || page.locales.find((entry) => entry.locale === page.defaultLocale)
-    || page.locales[0];
+  const locales = Array.isArray(page.locales) ? page.locales : [];
+  const content = locales.find((entry) => entry.locale === locale)
+    || locales.find((entry) => entry.locale === page.defaultLocale)
+    || locales[0];
   if (!content) throw createServiceError("Content locale is unavailable.", 404);
   return {
     id: page._id,
