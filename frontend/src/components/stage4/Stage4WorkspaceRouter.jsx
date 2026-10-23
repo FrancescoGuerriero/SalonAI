@@ -1,3 +1,4 @@
+import CmsPage from "../../pages/CmsPage.jsx";
 import ContentStudioPage from "../../pages/ContentStudioPage.jsx";
 import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
 import CustomerRelationshipsPage from "../../pages/CustomerRelationshipsPage.jsx";
@@ -18,6 +19,9 @@ function AccessDenied() {
 export default function Stage4WorkspaceRouter({ pathname, children }) {
   const { user } = useAuth();
 
+  if (pathname.startsWith("/content/") && pathname.length > "/content/".length) {
+    return <CmsPage />;
+  }
   if (pathname === "/experience/check-in") {
     return <CustomerCheckInPage />;
   }
