@@ -6,6 +6,9 @@ import {
 import {
   refreshMembershipBenefitsForCycle,
 } from "./membershipBenefitService.js";
+import {
+  reconcileMembershipRecovery,
+} from "./membershipRecoveryService.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -80,12 +83,18 @@ export async function recordMembershipCollectionAndRefreshBenefits(
       priorAttempt,
       { businessId, actor }
     );
+    const recovery = await reconcileMembershipRecovery(
+      contract,
+      priorAttempt,
+      { businessId }
+    );
 
     return {
       contract,
       collectionAttempt: priorAttempt,
       idempotentReplay: true,
       benefitRefresh,
+      recovery,
     };
   }
 
@@ -101,10 +110,17 @@ export async function recordMembershipCollectionAndRefreshBenefits(
     { businessId, actor }
   );
 
+  const recovery = await reconcileMembershipRecovery(
+    result.contract,
+    result.collectionAttempt,
+    { businessId }
+  );
+
   return {
     ...result,
     idempotentReplay: false,
     benefitRefresh,
+    recovery,
   };
 }
 
