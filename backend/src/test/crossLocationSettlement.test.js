@@ -21,6 +21,20 @@ test("cross-location settlement projects immutable stored-value redemption evide
   assert.match(service, /business:\s*businessId/);
 });
 
+test("canonical membership money redemption automatically projects reconciliation evidence", async () => {
+  const controller = await source(
+    "../features/memberships/membershipController.js"
+  );
+
+  assert.match(controller, /redeemMembershipBenefit/);
+  assert.match(controller, /projectStoredValueSettlement/);
+  assert.match(controller, /redemption\.unit === "money"/);
+  assert.match(controller, /redemption\.entry\?\._id/);
+  assert.match(controller, /businessId:\s*activeBusinessId/);
+  assert.match(controller, /paymentExecutionAllowed:\s*false/);
+  assert.match(controller, /idempotent retries/);
+});
+
 test("cross-location obligation exposes matched payable and receivable without payment execution", async () => {
   const obligation = await source("../models/CrossLocationObligation.js");
   const batch = await source("../models/SettlementBatch.js");
