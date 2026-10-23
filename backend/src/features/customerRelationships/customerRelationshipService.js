@@ -6,6 +6,10 @@ function userId(user) {
   return user?._id || user?.id;
 }
 
+function relationshipPairKey(left, right) {
+  return [String(left), String(right)].sort().join(":");
+}
+
 async function customerForUser(user) {
   if (user?.customerProfile) {
     const linked = await Customer.findOne({
@@ -71,7 +75,8 @@ export async function inviteRelationship(payload, user) {
 
   const target = await Customer.findOne({ email, status: { $ne: "deleted" } });
   if (!target) {
-    // Do not reveal whether arbitrary emails are registered beyond this authenticated customer workflow.
+    // Do not reveal additional account/profile information beyond the minimum
+    // needed by this authenticated relationship-invite workflow.
     throw createServiceError("The relationship invitation could not be created for that customer.", 404);
   }
   if (String(target._id) === String(self._id)) throw createServiceError("You cannot create a relationship with your own profile.", 409);
@@ -79,24 +84,49 @@ export async function inviteRelationship(payload, user) {
     throw createServiceError("Household relationships must belong to the same business context.", 409);
   }
 
-  const existing = await CustomerRelationship.findOne({
-    $or: [
-      { sourceCustomer: self._id, targetCustomer: target._id },
-      { sourceCustomer: target._id, targetCustomer: self._id },
-    ],
-    status: { $in: ["pending", "active"] },
-  });
-  if (existing) throw createServiceError("A relationship between these customers is already pending or active.", 409);
+  const pairKey = relationshipPairKey(self._id, target._id);
+  let relationship = await CustomerRelationship.findOne({ pairKey });
 
-  const relationship = await CustomerRelationship.create({
-    business: self.business || target.business || undefined,
-    sourceCustomer: self._id,
-    targetCustomer: target._id,
-    invitedBy: self._id,
-    relationshipType,
-    // Sharing is fail-closed. The Stage 4 model establishes consented linkage only.
-    sharing: { appointments: false, loyalty: false, wallet: false, communications: false },
-  });
+  if (relationship && ["pending", "active"].includes(relationship.status)) {
+    throw createServiceError("A relationship between these customers is already pending or active.", 409);
+  }
+
+  if (relationship) {
+    relationship.business = self.business || target.business || undefined;
+    relationship.sourceCustomer = self._id;
+    relationship.targetCustomer = target._id;
+    relationship.invitedBy = self._id;
+    relationship.relationshipType = relationshipType;
+    relationship.status = "pending";
+    relationship.acceptedAt = null;
+    relationship.revokedAt = null;
+    relationship.sharing = {
+      appointments: false,
+      loyalty: false,
+      wallet: false,
+      communications: false,
+    };
+    await relationship.save();
+  } else {
+    try {
+      relationship = await CustomerRelationship.create({
+        business: self.business || target.business || undefined,
+        pairKey,
+        sourceCustomer: self._id,
+        targetCustomer: target._id,
+        invitedBy: self._id,
+        relationshipType,
+        // Sharing is fail-closed. The Stage 4 model establishes consented linkage only.
+        sharing: { appointments: false, loyalty: false, wallet: false, communications: false },
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        throw createServiceError("A relationship between these customers is already pending or active.", 409);
+      }
+      throw error;
+    }
+  }
+
   await relationship.populate("targetCustomer", "firstName lastName preferredName");
   return publicRelationship(relationship, self._id);
 }
@@ -129,6 +159,12 @@ export async function revokeRelationship(relationshipId, user) {
   if (!relationship) throw createServiceError("Relationship not found.", 404);
   relationship.status = "revoked";
   relationship.revokedAt = new Date();
+  relationship.sharing = {
+    appointments: false,
+    loyalty: false,
+    wallet: false,
+    communications: false,
+  };
   await relationship.save();
   return relationship;
 }
