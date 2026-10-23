@@ -20,6 +20,8 @@ test("Stage 4 Content Studio supports governed versioned publication", () => {
   assert.match(model, /seoDescription/);
   assert.match(model, /variants/);
   assert.match(service, /Image blocks require a URL and meaningful alternative text/);
+  assert.match(service, /assertSlugAvailable/);
+  assert.match(service, /That content URL is already in use/);
   assert.match(service, /page\.publishedSnapshot = snapshot\(page\)/);
   assert.match(service, /"publishedSnapshot\.slug"/);
   assert.match(service, /page\.hasUnpublishedChanges = true/);
