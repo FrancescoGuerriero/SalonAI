@@ -53,6 +53,16 @@ router.post(
   write,
   asyncHandler(controller.createConnection)
 );
+router.get(
+  "/apps/:appId/connections/:connectionId/provider-credentials",
+  read,
+  asyncHandler(controller.providerCredentials)
+);
+router.post(
+  "/apps/:appId/connections/:connectionId/provider-credentials",
+  write,
+  asyncHandler(controller.storeProviderConnectionCredential)
+);
 
 router.get(
   "/apps/:appId/webhooks",
