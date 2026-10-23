@@ -1,4 +1,4 @@
-import customerRetentionService from "../services/customerRetentionService.js";
+import customerRetentionService from "../services/canonicalCustomerRetentionService.js";
 
 function getPositiveInteger(
   value,

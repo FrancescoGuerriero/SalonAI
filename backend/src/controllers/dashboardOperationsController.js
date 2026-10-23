@@ -1,4 +1,4 @@
-import dashboardOperationsService from "../services/dashboardOperationsService.js";
+import dashboardOperationsService from "../services/canonicalDashboardOperationsService.js";
 
 class DashboardOperationsController {
   async getSnapshot(
