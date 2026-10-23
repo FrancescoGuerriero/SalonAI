@@ -57,6 +57,63 @@ const TOOL_DEFINITIONS =
         requiresHumanApproval:
           false,
       }),
+    "appointment.create.propose":
+      Object.freeze({
+        key:
+          "appointment.create.propose",
+        domain:
+          "appointments",
+        description:
+          "Prepare a structured appointment-creation proposal for authorised human review without creating an Appointment.",
+        requiredPermission:
+          "appointment:create",
+        mutation:
+          false,
+        riskLevel:
+          "medium",
+        maximumAutonomy:
+          "A1",
+        requiresHumanApproval:
+          true,
+      }),
+    "appointment.reschedule.propose":
+      Object.freeze({
+        key:
+          "appointment.reschedule.propose",
+        domain:
+          "appointments",
+        description:
+          "Prepare a structured appointment reschedule proposal for authorised human review.",
+        requiredPermission:
+          "appointment:update",
+        mutation:
+          false,
+        riskLevel:
+          "medium",
+        maximumAutonomy:
+          "A1",
+        requiresHumanApproval:
+          true,
+      }),
+    "appointment.cancel.propose":
+      Object.freeze({
+        key:
+          "appointment.cancel.propose",
+        domain:
+          "appointments",
+        description:
+          "Prepare a structured appointment-cancellation proposal for authorised human review without changing Appointment state.",
+        requiredPermission:
+          "appointment:cancel",
+        mutation:
+          false,
+        riskLevel:
+          "medium",
+        maximumAutonomy:
+          "A1",
+        requiresHumanApproval:
+          true,
+      }),
     "retention.risk.read":
       Object.freeze({
         key:
@@ -105,25 +162,6 @@ const TOOL_DEFINITIONS =
           "Prepare a workflow-enrolment proposal for authorised human review. Approval does not automatically execute the workflow.",
         requiredPermission:
           "communications:manage",
-        mutation:
-          false,
-        riskLevel:
-          "medium",
-        maximumAutonomy:
-          "A1",
-        requiresHumanApproval:
-          true,
-      }),
-    "appointment.reschedule.propose":
-      Object.freeze({
-        key:
-          "appointment.reschedule.propose",
-        domain:
-          "appointments",
-        description:
-          "Prepare a structured appointment reschedule proposal for authorised human review.",
-        requiredPermission:
-          "appointment:update",
         mutation:
           false,
         riskLevel:

@@ -40,11 +40,11 @@ const BUILTIN_AGENTS =
         key:
           "ai-receptionist",
         version:
-          "1",
+          "2",
         displayName:
           "AI Receptionist",
         purpose:
-          "Interpret customer booking and service enquiries on governed channels while deterministic SalonAI services retain booking, consultation and handoff authority.",
+          "Interpret customer booking and service enquiries on governed channels, use canonical read tools, and prepare appointment-task proposals for authorised human review while deterministic SalonAI services retain all booking mutation authority.",
         lifecycle:
           "active",
         allowedVerticals: [
@@ -55,12 +55,15 @@ const BUILTIN_AGENTS =
         allowedTools: [
           "service.catalogue.read",
           "availability.search",
+          "appointment.create.propose",
+          "appointment.reschedule.propose",
+          "appointment.cancel.propose",
         ],
         autonomyCeiling:
-          "A0",
+          "A1",
         evaluationSuite: {
           key:
-            "ai-receptionist-a0-v1",
+            "ai-receptionist-a1-v2",
           minimumTaskSuccessRate:
             0.9,
           maximumPolicyViolationRate:

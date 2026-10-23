@@ -13,6 +13,7 @@ import {
 import {
   completeWhatsAppReceptionistAgentRun,
   failWhatsAppReceptionistAgentRun,
+  proposeWhatsAppReceptionistAppointmentTask,
   startWhatsAppReceptionistAgentRun,
 } from "./whatsappReceptionistAgentRunService.js";
 
@@ -81,6 +82,8 @@ export async function runWhatsAppBotRuntimeMessage(
       defaultMarkDeliveryFailure,
     startAgentRun =
       startWhatsAppReceptionistAgentRun,
+    proposeAppointmentTask =
+      proposeWhatsAppReceptionistAppointmentTask,
     completeAgentRun =
       completeWhatsAppReceptionistAgentRun,
     failAgentRun =
@@ -192,6 +195,64 @@ export async function runWhatsAppBotRuntimeMessage(
         );
 
       if (receptionistRun?._id) {
+        try {
+          const proposed =
+            await proposeAppointmentTask({
+              conversationId:
+                item.conversationId,
+              runId:
+                receptionistRun._id,
+              result,
+              requestId:
+                item.providerMessageId ||
+                item.messageId ||
+                "",
+            });
+
+          if (proposed?.proposal?._id) {
+            result = {
+              ...result,
+              aiProposalId:
+                String(
+                  proposed.proposal._id
+                ),
+              aiProposalActionType:
+                proposed.proposal.actionType,
+              aiProposalPendingReview:
+                proposed.proposal.status ===
+                "pending",
+            };
+          }
+        } catch (error) {
+          /*
+           * The existing deterministic handoff remains authoritative. Failure
+           * to persist an AI review proposal must never prevent the customer
+           * from reaching staff or imply that an Appointment was created.
+           */
+          console.error(
+            "WhatsApp AI Receptionist appointment proposal could not be recorded.",
+            {
+              conversationId:
+                compactText(
+                  item?.conversationId,
+                  120
+                ),
+              agentRunId:
+                compactText(
+                  receptionistRun._id,
+                  120
+                ),
+              code:
+                compactText(
+                  error?.code ||
+                    error?.name ||
+                    "AI_RECEPTIONIST_PROPOSAL_ERROR",
+                  120
+                ),
+            }
+          );
+        }
+
         await completeAgentRun(
           receptionistRun._id,
           result,
@@ -212,7 +273,7 @@ export async function runWhatsAppBotRuntimeMessage(
           aiWorkforceAgent:
             "ai-receptionist",
           aiWorkforceAutonomy:
-            "A0",
+            "A1",
         };
       }
     } catch (error) {
@@ -360,56 +421,20 @@ export async function runWhatsAppBotRuntimeMessage(
 }
 
 
-function deferTurn() {
-  return new Promise(
-    (resolve) => {
-      setImmediate(
-        resolve
-      );
-    }
-  );
-}
-
-
-export function queueWhatsAppBotMessage(
+export async function enqueueWhatsAppBotRuntimeMessage(
   item,
-  {
-    environment =
-      process.env,
-    run =
-      runWhatsAppBotRuntimeMessage,
-  } = {}
+  options = {}
 ) {
-  const config =
-    getWhatsAppBotConfig(
-      environment
-    );
-
-  if (!config.enabled) {
-    return Promise.resolve({
-      processed: false,
-      skipped:
-        "bot_disabled",
-    });
-  }
-
   const key =
     compactText(
-      item?.conversationId,
-      120
+      item?.conversationId ||
+        item?.phone ||
+        "global",
+      200
     );
 
-  if (!key) {
-    return Promise.resolve({
-      processed: false,
-      skipped:
-        "conversation_id_missing",
-    });
-  }
-
   const previous =
-    conversationQueues
-      .get(key) ||
+    conversationQueues.get(key) ||
     Promise.resolve();
 
   const current =
@@ -418,16 +443,23 @@ export function queueWhatsAppBotMessage(
         () => undefined
       )
       .then(
-        deferTurn
-      )
-      .then(
         () =>
-          run(
+          runWhatsAppBotRuntimeMessage(
             item,
-            {
-              environment,
-            }
+            options
           )
+      )
+      .finally(
+        () => {
+          if (
+            conversationQueues.get(key) ===
+            current
+          ) {
+            conversationQueues.delete(
+              key
+            );
+          }
+        }
       );
 
   conversationQueues.set(
@@ -435,44 +467,11 @@ export function queueWhatsAppBotMessage(
     current
   );
 
-  const cleanup = () => {
-    if (
-      conversationQueues
-        .get(key) ===
-      current
-    ) {
-      conversationQueues
-        .delete(key);
-    }
-  };
-
-  current.then(
-    cleanup,
-    (error) => {
-      console.error(
-        "WhatsApp bot queue item failed.",
-        {
-          conversationId:
-            key,
-          code:
-            compactText(
-              error?.code ||
-                error?.name ||
-                "WHATSAPP_BOT_QUEUE_ERROR",
-              120
-            ),
-        }
-      );
-
-      cleanup();
-    }
-  );
-
   return current;
 }
 
 
 export default {
-  queueWhatsAppBotMessage,
+  enqueueWhatsAppBotRuntimeMessage,
   runWhatsAppBotRuntimeMessage,
 };

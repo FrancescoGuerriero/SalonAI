@@ -21,6 +21,13 @@ export const AI_ACTION_EXECUTION_STATUSES =
     "failed",
   ]);
 
+export const AI_ACTION_PROPOSAL_INITIATOR_TYPES =
+  Object.freeze([
+    "user",
+    "customer_channel",
+    "system",
+  ]);
+
 const aiActionProposalSchema =
   new Schema(
     {
@@ -76,11 +83,44 @@ const aiActionProposalSchema =
         maxlength: 2000,
         default: "",
       },
+      initiatorType: {
+        type: String,
+        enum:
+          AI_ACTION_PROPOSAL_INITIATOR_TYPES,
+        default: "user",
+        required: true,
+        index: true,
+      },
       createdBy: {
         type:
           Schema.Types.ObjectId,
         ref: "User",
-        required: true,
+        default: null,
+        required() {
+          return this.initiatorType === "user";
+        },
+        index: true,
+      },
+      customer: {
+        type: Schema.Types.ObjectId,
+        ref: "Customer",
+        default: null,
+        index: true,
+      },
+      channel: {
+        type: String,
+        enum: ["", "whatsapp", "web", "voice", "internal"],
+        default: "",
+        index: true,
+      },
+      channelConversationRef: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: 180,
+        required() {
+          return this.initiatorType === "customer_channel";
+        },
         index: true,
       },
       inferenceId: {
@@ -225,6 +265,13 @@ aiActionProposalSchema.index({
   location: 1,
   agentKey: 1,
   status: 1,
+  createdAt: -1,
+});
+
+aiActionProposalSchema.index({
+  business: 1,
+  channel: 1,
+  channelConversationRef: 1,
   createdAt: -1,
 });
 
