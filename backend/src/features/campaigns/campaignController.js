@@ -3,6 +3,13 @@ import {
   createCampaignExecution,
   listCampaignExecutions,
 } from "./growthCampaignService.js";
+import {
+  createSocialPublication,
+  listSocialPublications,
+  publishSocialPublication,
+  queueSocialPublication,
+  socialPublishingStatus,
+} from "./socialPublishingService.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 function businessId(request) {
@@ -109,6 +116,56 @@ export async function createExecution(req, res) {
     await createCampaignExecution(
       req.params.id,
       req.body || {},
+      {
+        businessId: businessId(req),
+        actorUser: actorUser(req),
+      }
+    )
+  );
+}
+
+export async function publications(req, res) {
+  res.json({
+    items: await listSocialPublications(
+      req.params.id,
+      req.query || {},
+      { businessId: businessId(req) }
+    ),
+    publishing: socialPublishingStatus(),
+  });
+}
+
+export async function createPublication(req, res) {
+  res.status(201).json(
+    await createSocialPublication(
+      req.params.id,
+      req.body || {},
+      {
+        businessId: businessId(req),
+        actorUser: actorUser(req),
+      }
+    )
+  );
+}
+
+export async function queuePublication(req, res) {
+  res.json(
+    await queueSocialPublication(
+      req.params.id,
+      req.params.publicationId,
+      {
+        businessId: businessId(req),
+        actorUser: actorUser(req),
+      }
+    )
+  );
+}
+
+export async function publishPublication(req, res) {
+  res.json(
+    await publishSocialPublication(
+      req.params.id,
+      req.params.publicationId,
       {
         businessId: businessId(req),
         actorUser: actorUser(req),
