@@ -29,7 +29,12 @@ import {
 import {
   confirmDemoPayment,
   createCheckout,
+  createPaymentRequest,
 } from "./appointmentPaymentController.js";
+import {
+  createAppointmentInvoice,
+  readAppointmentInvoice,
+} from "../commerce/invoiceController.js";
 import {
   communicationHistory,
   sendReminderNow,
@@ -304,6 +309,20 @@ router.get(
   asyncHandler(communicationHistory)
 );
 
+/*
+|--------------------------------------------------------------------------
+| Stage 3 commerce: payment requests and invoices
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/:id/payment-requests",
+  requirePermissions(
+    "appointment:payment:manage"
+  ),
+  asyncHandler(createPaymentRequest)
+);
+
 router.post(
   "/:id/payments/checkout",
   requirePermissions(
@@ -318,6 +337,22 @@ router.post(
     "appointment:payment:manage"
   ),
   asyncHandler(confirmDemoPayment)
+);
+
+router.get(
+  "/:id/invoice",
+  requirePermissions(
+    "appointment:read"
+  ),
+  asyncHandler(readAppointmentInvoice)
+);
+
+router.post(
+  "/:id/invoice",
+  requirePermissions(
+    "appointment:payment:manage"
+  ),
+  asyncHandler(createAppointmentInvoice)
 );
 
 export default router;
