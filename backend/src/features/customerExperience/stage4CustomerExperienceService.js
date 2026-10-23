@@ -18,6 +18,15 @@ function businessId(request) {
   return request?.effectiveAuthority?.businessId || request?.tenantContext?.businessId || undefined;
 }
 
+function appointmentStart(appointment) {
+  if (appointment.startsAt) return new Date(appointment.startsAt);
+  if (!appointment.appointmentDate) return new Date(Number.NaN);
+  const date = new Date(appointment.appointmentDate);
+  const [hours, minutes] = String(appointment.appointmentTime || "00:00").split(":").map(Number);
+  date.setHours(hours || 0, minutes || 0, 0, 0);
+  return date;
+}
+
 async function customerForUser(user) {
   if (user?.customerProfile) {
     const linked = await Customer.findOne({ _id: user.customerProfile, status: { $ne: "deleted" } });
@@ -41,7 +50,7 @@ export async function checkInCustomerAppointment(appointmentId, request) {
     throw createServiceError(`A ${status || "current"} appointment cannot be checked in.`, 409);
   }
 
-  const start = new Date(appointment.startsAt || appointment.appointmentDate);
+  const start = appointmentStart(appointment);
   if (!Number.isFinite(start.getTime())) throw createServiceError("Appointment start time is unavailable.", 409);
   const earlyMinutes = Math.max(15, Math.min(240, Number(process.env.CUSTOMER_CHECKIN_EARLY_MINUTES || 120)));
   const lateMinutes = Math.max(15, Math.min(240, Number(process.env.CUSTOMER_CHECKIN_LATE_MINUTES || 60)));
