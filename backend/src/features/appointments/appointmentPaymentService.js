@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import Appointment from "../../models/Appointment.js";
 import Payment from "../commerce/Payment.js";
 import {
+  issueAppointmentInvoice,
+} from "../commerce/invoiceService.js";
+import {
   createAppointmentCheckoutPayment,
   paymentProviderMode,
 } from "../../providers/paymentProvider.js";
@@ -380,12 +383,6 @@ export async function createAppointmentCheckout(
   const payment =
     prepared.payment;
 
-  /*
-   * A completed provider checkout
-   * already exists for this active
-   * reservation. Reuse it instead of
-   * creating another Stripe session.
-   */
   if (
     payment.providerPaymentId ||
     payment.checkoutUrl
@@ -393,25 +390,15 @@ export async function createAppointmentCheckout(
     return {
       appointment:
         appointment.toObject(),
-
       payment:
         payment.toObject(),
-
       reused: true,
-
       requiresDemoConfirmation:
         payment.provider ===
         "console",
     };
   }
 
-  /*
-   * Use values persisted on the
-   * reservation record. Concurrent
-   * callers therefore submit identical
-   * parameters to Stripe even when their
-   * incoming payloads differ.
-   */
   const reservedAmount =
     money(payment.amount);
 
@@ -432,30 +419,22 @@ export async function createAppointmentCheckout(
     await createAppointmentCheckoutPayment(
       {
         appointment,
-
         amount:
           reservedAmount,
-
         purpose:
           reservedPurpose,
-
         customerEmail,
-
         ...urls,
-
         idempotencyKey:
           providerIdempotencyKey(
             payment._id
           ),
-
         metadata: {
           customerId:
             appointment.customer?._id ||
             "",
-
           paymentId:
             String(payment._id),
-
           requestedBy:
             actorId(actor) || "",
         },
@@ -496,13 +475,10 @@ export async function createAppointmentCheckout(
         {
           paymentId:
             payment._id,
-
           providerPaymentId:
             providerResult.providerPaymentId,
-
           providerIntentId:
             providerResult.providerIntentId,
-
           rawStatus:
             providerResult.rawStatus,
         }
@@ -510,10 +486,8 @@ export async function createAppointmentCheckout(
 
     return {
       ...settled,
-
       reused:
         prepared.reused,
-
       requiresDemoConfirmation:
         false,
     };
@@ -529,19 +503,15 @@ export async function createAppointmentCheckout(
           {
             checkoutUrl:
               providerResult.checkoutUrl,
-
             amount:
               reservedAmount,
-
             purpose:
               reservedPurpose ===
               "appointment_deposit"
                 ? "deposit"
                 : "balance",
-
             eventKeySuffix:
               String(payment._id),
-
             actorId:
               actorId(actor),
           }
@@ -551,7 +521,6 @@ export async function createAppointmentCheckout(
           String(
             appointment._id
           ),
-
         paymentId:
           String(
             payment._id
@@ -563,13 +532,10 @@ export async function createAppointmentCheckout(
   return {
     appointment:
       appointment.toObject(),
-
     payment:
       payment.toObject(),
-
     reused:
       prepared.reused,
-
     requiresDemoConfirmation:
       payment.provider ===
       "console",
@@ -604,6 +570,7 @@ export async function settleAppointmentPayment(
   payment = assertFound(payment, "Appointment payment record not found.");
 
   if (payment.status === "paid") {
+    await issueAppointmentInvoice(appointment._id);
     return { appointment: appointment.toObject(), payment: payment.toObject() };
   }
 
@@ -650,6 +617,8 @@ export async function settleAppointmentPayment(
       paymentId: String(payment._id),
     }
   );
+
+  await issueAppointmentInvoice(appointment._id);
 
   return {
     appointment: appointment.toObject(),
