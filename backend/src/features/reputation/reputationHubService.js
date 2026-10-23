@@ -22,7 +22,7 @@ function objectId(value, field, { optional = false } = {}) {
   if (!mongoose.isValidObjectId(candidate)) {
     throw createServiceError(`${field} must be a valid identifier.`, 400, { field });
   }
-  return candidate;
+  return new mongoose.Types.ObjectId(candidate);
 }
 
 function date(value, field, { optional = false } = {}) {
@@ -35,8 +35,9 @@ function date(value, field, { optional = false } = {}) {
 }
 
 function digest(value) {
-  const encoded = JSON.stringify(value ?? {});
-  return createHash("sha256").update(encoded).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(value ?? {}))
+    .digest("hex");
 }
 
 function externalReferenceHash(value) {
@@ -54,41 +55,41 @@ async function provenance(
     provider = "",
   } = {}
 ) {
-  objectId(businessId, "business");
-  const connectionObjectId = objectId(connectionId, "connection", { optional: true });
-  const locationObjectId = objectId(locationId, "location", { optional: true });
+  const business = objectId(businessId, "business");
+  const connection = objectId(connectionId, "connection", { optional: true });
+  const location = objectId(locationId, "location", { optional: true });
 
-  const [connection, location] = await Promise.all([
-    connectionObjectId
+  const [connectionRecord, locationRecord] = await Promise.all([
+    connection
       ? IntegrationConnection.findOne({
-          _id: connectionObjectId,
-          business: businessId,
+          _id: connection,
+          business,
           status: { $ne: "revoked" },
         }).lean()
       : null,
-    locationObjectId
+    location
       ? Location.findOne({
-          _id: locationObjectId,
-          business: businessId,
+          _id: location,
+          business,
           status: { $ne: "archived" },
         }).lean()
       : null,
   ]);
 
-  if (connectionObjectId && !connection) {
+  if (connection && !connectionRecord) {
     throw createServiceError(
       "Reputation provider connection not found in the active business.",
       404
     );
   }
-  if (locationObjectId && !location) {
+  if (location && !locationRecord) {
     throw createServiceError(
       "Reputation location not found in the active business.",
       404
     );
   }
 
-  const resolvedProvider = lower(provider || connection?.provider, 120);
+  const resolvedProvider = lower(provider || connectionRecord?.provider, 120);
   if (!resolvedProvider) {
     throw createServiceError("A reputation provider is required.", 400, {
       field: "provider",
@@ -96,11 +97,9 @@ async function provenance(
   }
 
   return {
-    businessId,
+    business,
     connection,
-    connectionId: connectionObjectId,
     location,
-    locationId: locationObjectId,
     provider: resolvedProvider,
   };
 }
@@ -108,18 +107,18 @@ async function provenance(
 function rating(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 1 || number > 5) {
-    throw createServiceError("External review rating must be between 1 and 5.", 400, {
-      field: "rating",
-    });
+    throw createServiceError(
+      "External review rating must be between 1 and 5.",
+      400,
+      { field: "rating" }
+    );
   }
   return number;
 }
 
 export async function ingestExternalReviews(
   payload = {},
-  {
-    businessId,
-  } = {}
+  { businessId } = {}
 ) {
   const records = Array.isArray(payload.records)
     ? payload.records
@@ -130,7 +129,10 @@ export async function ingestExternalReviews(
     throw createServiceError("At least one external review is required.", 400);
   }
   if (records.length > 5000) {
-    throw createServiceError("External review imports are limited to 5,000 records.", 400);
+    throw createServiceError(
+      "External review imports are limited to 5,000 records.",
+      400
+    );
   }
 
   const source = await provenance({
@@ -148,36 +150,39 @@ export async function ingestExternalReviews(
       1000
     );
     if (!externalReviewId) {
-      throw createServiceError("Every external review requires an externalReviewId.", 400);
+      throw createServiceError(
+        "Every external review requires an externalReviewId.",
+        400
+      );
     }
-    const reviewedAt = date(
-      record.reviewedAt || record.createdAt || record.timestamp,
-      "reviewedAt"
-    );
     const reviewerReference =
       record.reviewer?.externalReference ||
       record.reviewerId ||
       record.authorId ||
       "";
-    const providerPayloadDigest = digest(record.providerPayload ?? record.raw ?? record);
+    const providerPayloadDigest = digest(
+      record.providerPayload ?? record.raw ?? record
+    );
 
     const review = await ExternalReview.findOneAndUpdate(
       {
-        business: businessId,
+        business: source.business,
         provider: source.provider,
         externalReviewId,
       },
       {
         $set: {
-          connection: source.connectionId,
-          location: source.locationId,
+          connection: source.connection,
+          location: source.location,
           externalLocationReference: text(
             record.externalLocationReference || record.locationReference,
             1000
           ),
           reviewer: {
             displayName: text(
-              record.reviewer?.displayName || record.reviewerName || record.authorName,
+              record.reviewer?.displayName ||
+                record.reviewerName ||
+                record.authorName,
               300
             ),
             externalReferenceHash: externalReferenceHash(reviewerReference),
@@ -185,11 +190,15 @@ export async function ingestExternalReviews(
           rating: rating(record.rating),
           title: text(record.title, 500),
           body: text(record.body || record.comment || record.text, 10000),
-          reviewedAt,
+          reviewedAt: date(
+            record.reviewedAt || record.createdAt || record.timestamp,
+            "reviewedAt"
+          ),
           sourceUrl: text(record.sourceUrl || record.url, 3000),
-          status: lower(record.status || "active", 30) === "removed"
-            ? "removed"
-            : "active",
+          status:
+            lower(record.status || "active", 30) === "removed"
+              ? "removed"
+              : "active",
           providerPayloadDigest,
           lastSeenAt: now,
           metadata:
@@ -198,7 +207,7 @@ export async function ingestExternalReviews(
               : {},
         },
         $setOnInsert: {
-          business: businessId,
+          business: source.business,
           provider: source.provider,
           externalReviewId,
           importedAt: now,
@@ -222,9 +231,7 @@ export async function ingestExternalReviews(
 
 export async function ingestListingSnapshots(
   payload = {},
-  {
-    businessId,
-  } = {}
+  { businessId } = {}
 ) {
   const records = Array.isArray(payload.records)
     ? payload.records
@@ -235,7 +242,10 @@ export async function ingestListingSnapshots(
     throw createServiceError("At least one listing snapshot is required.", 400);
   }
   if (records.length > 1000) {
-    throw createServiceError("Listing snapshot imports are limited to 1,000 records.", 400);
+    throw createServiceError(
+      "Listing snapshot imports are limited to 1,000 records.",
+      400
+    );
   }
 
   const source = await provenance({
@@ -257,9 +267,9 @@ export async function ingestListingSnapshots(
       );
     }
     return {
-      business: businessId,
-      connection: source.connectionId,
-      location: source.locationId,
+      business: source.business,
+      connection: source.connection,
+      location: source.location,
       provider: source.provider,
       externalLocationReference,
       observedAt: date(record.observedAt || record.updatedAt, "observedAt"),
@@ -267,14 +277,19 @@ export async function ingestListingSnapshots(
         name: text(record.name || record.listing?.name, 500),
         address: text(record.address || record.listing?.address, 1500),
         phone: text(record.phone || record.listing?.phone, 100),
-        websiteUrl: text(record.websiteUrl || record.listing?.websiteUrl, 3000),
+        websiteUrl: text(
+          record.websiteUrl || record.listing?.websiteUrl,
+          3000
+        ),
         primaryCategory: text(
           record.primaryCategory || record.listing?.primaryCategory,
           300
         ),
         status: lower(record.status || record.listing?.status, 100),
       },
-      providerPayloadDigest: digest(record.providerPayload ?? record.raw ?? record),
+      providerPayloadDigest: digest(
+        record.providerPayload ?? record.raw ?? record
+      ),
       metadata:
         record.metadata && typeof record.metadata === "object"
           ? record.metadata
@@ -300,13 +315,17 @@ export async function updateExternalReputationResponse(
     actorUser = null,
   } = {}
 ) {
-  objectId(externalReviewId, "externalReview");
+  const business = objectId(businessId, "business");
+  const reviewId = objectId(externalReviewId, "externalReview");
   const review = await ExternalReview.findOne({
-    _id: externalReviewId,
-    business: businessId,
+    _id: reviewId,
+    business,
   }).lean();
   if (!review) {
-    throw createServiceError("External review not found in the active business.", 404);
+    throw createServiceError(
+      "External review not found in the active business.",
+      404
+    );
   }
 
   const responseText = text(payload.responseText, 4000);
@@ -322,15 +341,21 @@ export async function updateExternalReputationResponse(
         { code: "EXTERNAL_REVIEW_RESPONSE_PUBLICATION_GATED" }
       );
     }
-    throw createServiceError("External review response status is invalid.", 400);
+    throw createServiceError(
+      "External review response status is invalid.",
+      400
+    );
   }
   if (["draft", "approved"].includes(requestedStatus) && !responseText) {
-    throw createServiceError("A drafted or approved response requires response text.", 400);
+    throw createServiceError(
+      "A drafted or approved response requires response text.",
+      400
+    );
   }
 
   return ExternalReputationResponse.findOneAndUpdate(
     {
-      business: businessId,
+      business,
       externalReview: review._id,
     },
     {
@@ -342,7 +367,7 @@ export async function updateExternalReputationResponse(
         moderatedBy: objectId(actorUser, "actorUser", { optional: true }),
       },
       $setOnInsert: {
-        business: businessId,
+        business,
         externalReview: review._id,
       },
     },
@@ -356,14 +381,15 @@ export async function updateExternalReputationResponse(
 
 export async function externalReputationOverview(
   query = {},
-  {
-    businessId,
-  } = {}
+  { businessId } = {}
 ) {
-  objectId(businessId, "business");
-  const match = { business: businessId };
+  const business = objectId(businessId, "business");
+  const location = query.location
+    ? objectId(query.location, "location")
+    : null;
+  const match = { business };
   if (query.provider) match.provider = lower(query.provider, 120);
-  if (query.location) match.location = objectId(query.location, "location");
+  if (location) match.location = location;
   if (query.status) match.status = lower(query.status, 30);
 
   const reviews = await ExternalReview.find(match)
@@ -372,7 +398,7 @@ export async function externalReputationOverview(
     .lean();
   const responses = reviews.length
     ? await ExternalReputationResponse.find({
-        business: businessId,
+        business,
         externalReview: { $in: reviews.map((review) => review._id) },
       }).lean()
     : [];
@@ -384,8 +410,10 @@ export async function externalReputationOverview(
   const averageRating = active.length
     ? Number(
         (
-          active.reduce((sum, review) => sum + Number(review.rating || 0), 0) /
-          active.length
+          active.reduce(
+            (sum, review) => sum + Number(review.rating || 0),
+            0
+          ) / active.length
         ).toFixed(2)
       )
     : 0;
@@ -397,12 +425,13 @@ export async function externalReputationOverview(
   );
   const providerCounts = {};
   for (const review of active) {
-    providerCounts[review.provider] = (providerCounts[review.provider] || 0) + 1;
+    providerCounts[review.provider] =
+      (providerCounts[review.provider] || 0) + 1;
   }
 
-  const listingMatch = { business: businessId };
+  const listingMatch = { business };
   if (query.provider) listingMatch.provider = lower(query.provider, 120);
-  if (query.location) listingMatch.location = objectId(query.location, "location");
+  if (location) listingMatch.location = location;
   const latestListings = await BusinessListingSnapshot.aggregate([
     { $match: listingMatch },
     { $sort: { observedAt: -1, _id: -1 } },
@@ -432,12 +461,18 @@ export async function externalReputationOverview(
       ratingDistribution,
       providerCounts,
       responseStatusCounts: Object.fromEntries(
-        ["none", "draft", "approved", "published", "withdrawn"].map((status) => [
-          status,
-          status === "none"
-            ? reviews.filter((review) => !responsesByReview.get(String(review._id))).length
-            : responses.filter((response) => response.responseStatus === status).length,
-        ])
+        ["none", "draft", "approved", "published", "withdrawn"].map(
+          (status) => [
+            status,
+            status === "none"
+              ? reviews.filter(
+                  (review) => !responsesByReview.get(String(review._id))
+                ).length
+              : responses.filter(
+                  (response) => response.responseStatus === status
+                ).length,
+          ]
+        )
       ),
     },
   };
