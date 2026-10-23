@@ -35,6 +35,26 @@ export function searchAppointmentCustomers(
   ).then(responseData);
 }
 
+export function createQueueVisit(
+  payload
+) {
+  return API.post(
+    `${BASE_URL}/queue-visits`,
+    payload
+  ).then(responseData);
+}
+
+export function getQueueVisits(
+  params = {}
+) {
+  return API.get(
+    `${BASE_URL}/queue-visits`,
+    {
+      params,
+    }
+  ).then(responseData);
+}
+
 export function createWalkInAppointment(
   payload
 ) {
@@ -184,6 +204,10 @@ const appointmentManagementApi = {
 
   searchCustomers:
     searchAppointmentCustomers,
+
+  createQueueVisit,
+
+  getQueueVisits,
 
   createWalkIn:
     createWalkInAppointment,

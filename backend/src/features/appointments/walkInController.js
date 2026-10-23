@@ -1,5 +1,7 @@
 import {
+  createQueueAppointment,
   createWalkInAppointment,
+  listFrontDeskQueue,
   listWalkInQueue,
 } from "./walkInService.js";
 
@@ -75,12 +77,77 @@ async function walkInQueue(
     });
 }
 
+async function createQueueVisit(
+  request,
+  response
+) {
+  const appointment =
+    await createQueueAppointment(
+      request.body || {},
+      {
+        actor:
+          request.user || null,
+
+        source:
+          request.body
+            ?.queueSource ||
+          request.body
+            ?.arrivalSource ||
+          null,
+      }
+    );
+
+  return response
+    .status(201)
+    .json({
+      success: true,
+      message:
+        "Queue visit created successfully.",
+      appointment:
+        serialise(
+          appointment
+        ),
+    });
+}
+
+async function queueVisits(
+  request,
+  response
+) {
+  const {
+    items,
+    metrics,
+  } =
+    await listFrontDeskQueue(
+      request.query || {}
+    );
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      message:
+        "Front-desk queue retrieved successfully.",
+      items:
+        items.map(
+          serialise
+        ),
+      total:
+        items.length,
+      metrics,
+    });
+}
+
 export {
+  createQueueVisit,
   createWalkIn,
+  queueVisits,
   walkInQueue,
 };
 
 export default {
+  createQueueVisit,
   createWalkIn,
+  queueVisits,
   walkInQueue,
 };

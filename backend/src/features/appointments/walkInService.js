@@ -1,15 +1,16 @@
-import Appointment from "../../models/Appointment.js";
-import {
-  salonDayBounds,
-} from "../../shared/salonTime.js";
 import {
   createServiceError,
 } from "../../shared/serviceError.js";
 import {
-  APPOINTMENT_POPULATE_OPTIONS,
-  TERMINAL_STATUSES,
   createManagedAppointment,
 } from "./appointmentManagementService.js";
+import {
+  createQueueVisitForAppointment,
+  listQueueVisits,
+  normaliseQueueSource,
+  queueProjection,
+  queueStateFromAppointmentStatus,
+} from "./queueVisitService.js";
 
 function normaliseText(value) {
   return String(
@@ -17,118 +18,19 @@ function normaliseText(value) {
   ).trim();
 }
 
-function normaliseBoolean(
-  value,
-  fallback = false
-) {
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-    return fallback;
-  }
-
-  if (
-    typeof value === "boolean"
-  ) {
-    return value;
-  }
-
-  const normalised =
-    normaliseText(value)
-      .toLowerCase();
-
-  if (
-    [
-      "true",
-      "1",
-      "yes",
-      "on",
-    ].includes(normalised)
-  ) {
-    return true;
-  }
-
-  if (
-    [
-      "false",
-      "0",
-      "no",
-      "off",
-    ].includes(normalised)
-  ) {
-    return false;
-  }
-
-  return fallback;
-}
-
 function frontDeskState(
   status
 ) {
-  switch (
-    normaliseText(status)
-      .toLowerCase()
-  ) {
-    case "pending":
-      return "waiting";
-
-    case "confirmed":
-      return "assigned";
-
-    case "checked_in":
-      return "checked_in";
-
-    case "in_progress":
-      return "in_service";
-
-    case "completed":
-      return "completed";
-
-    case "cancelled":
-      return "cancelled";
-
-    case "no_show":
-      return "no_show";
-
-    default:
-      return "waiting";
-  }
+  return queueStateFromAppointmentStatus(
+    status
+  );
 }
 
-function queueProjection(
-  appointment,
-  queuePosition = null
-) {
-  const value =
-    typeof appointment?.toObject ===
-    "function"
-      ? appointment.toObject({
-          virtuals: true,
-        })
-      : {
-          ...appointment,
-        };
-
-  return {
-    ...value,
-    queuePosition,
-    queuedAt:
-      value.createdAt ||
-      value.startsAt ||
-      value.appointmentDate,
-    frontDeskState:
-      frontDeskState(
-        value.status
-      ),
-  };
-}
-
-async function createWalkInAppointment(
+async function createQueueAppointment(
   payload = {},
   {
     actor = null,
+    source = null,
   } = {}
 ) {
   if (
@@ -137,10 +39,18 @@ async function createWalkInAppointment(
     Array.isArray(payload)
   ) {
     throw createServiceError(
-      "Walk-in appointment details are required.",
+      "Queue appointment details are required.",
       400
     );
   }
+
+  const queueSource =
+    normaliseQueueSource(
+      source ||
+        payload.queueSource ||
+        payload.arrivalSource ||
+        "walk_in"
+    );
 
   const appointment =
     await createManagedAppointment(
@@ -150,14 +60,63 @@ async function createWalkInAppointment(
       },
       {
         actor,
+
         bookingSource:
-          "walk_in",
+          queueSource ===
+          "walk_in"
+            ? "walk_in"
+            : "phone",
       }
     );
 
-  return queueProjection(
+  return createQueueVisitForAppointment(
     appointment,
-    null
+    {
+      source:
+        queueSource,
+      actor,
+
+      expectedArrivalAt:
+        payload.expectedArrivalAt ||
+        payload.startsAt ||
+        appointment.startsAt,
+
+      priority:
+        payload.priority,
+
+      partySize:
+        payload.partySize,
+
+      notes:
+        normaliseText(
+          payload.queueNotes ||
+            payload.notes
+        ),
+    }
+  );
+}
+
+async function createWalkInAppointment(
+  payload = {},
+  {
+    actor = null,
+  } = {}
+) {
+  return createQueueAppointment(
+    payload,
+    {
+      actor,
+      source:
+        "walk_in",
+    }
+  );
+}
+
+async function listFrontDeskQueue(
+  query = {}
+) {
+  return listQueueVisits(
+    query
   );
 }
 
@@ -165,83 +124,29 @@ async function listWalkInQueue(
   query = {}
 ) {
   const {
-    start,
-    end,
+    items,
   } =
-    salonDayBounds(
-      query.date ||
-        query.startDate ||
-        new Date()
-    );
+    await listQueueVisits({
+      ...query,
+      source:
+        "walk_in",
+    });
 
-  const includeTerminal =
-    normaliseBoolean(
-      query.includeTerminal,
-      false
-    );
-
-  const match = {
-    bookingSource:
-      "walk_in",
-    $or: [
-      {
-        startsAt: {
-          $gte: start,
-          $lte: end,
-        },
-      },
-      {
-        appointmentDate: {
-          $gte: start,
-          $lte: end,
-        },
-      },
-    ],
-  };
-
-  if (!includeTerminal) {
-    match.status = {
-      $nin:
-        TERMINAL_STATUSES,
-    };
-  }
-
-  const appointments =
-    await Appointment.find(
-      match
-    )
-      .populate(
-        APPOINTMENT_POPULATE_OPTIONS
-      )
-      .sort({
-        createdAt: 1,
-        startsAt: 1,
-        _id: 1,
-      })
-      .lean({
-        virtuals: true,
-      });
-
-  return appointments.map(
-    (
-      appointment,
-      index
-    ) =>
-      queueProjection(
-        appointment,
-        index + 1
-      )
-  );
+  return items;
 }
 
 export {
+  createQueueAppointment,
   createWalkInAppointment,
   frontDeskState,
+  listFrontDeskQueue,
   listWalkInQueue,
   queueProjection,
 };
 
 export default {
+  createQueueAppointment,
   createWalkInAppointment,
+  listFrontDeskQueue,
   listWalkInQueue,
 };

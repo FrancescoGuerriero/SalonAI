@@ -21,7 +21,9 @@ import {
   rescheduleSequencedAppointment,
 } from "./sequenceBookingController.js";
 import {
+  createQueueVisit,
   createWalkIn,
+  queueVisits,
   walkInQueue,
 } from "./walkInController.js";
 import {
@@ -112,9 +114,30 @@ router.post(
 
 /*
 |--------------------------------------------------------------------------
-| Walk-in / front-desk foundation
+| Queue / front-desk foundation
 |--------------------------------------------------------------------------
 */
+
+router.get(
+  "/queue-visits",
+  requirePermissions(
+    "appointment:read"
+  ),
+  asyncHandler(queueVisits)
+);
+
+router.post(
+  "/queue-visits",
+  requirePermissions(
+    "appointment:create"
+  ),
+  appointmentLifecycleNotification(
+    "created"
+  ),
+  asyncHandler(
+    createQueueVisit
+  )
+);
 
 router.get(
   "/walk-ins",

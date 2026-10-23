@@ -17,26 +17,11 @@ async function source(
 }
 
 test(
-  "walk-in creation delegates to the canonical appointment creator",
+  "walk-in and call-ahead creation reuse the canonical appointment creator",
   async () => {
     const service =
       await source(
         "../features/appointments/walkInService.js"
-      );
-
-    const start =
-      service.indexOf(
-        "async function createWalkInAppointment"
-      );
-    const end =
-      service.indexOf(
-        "async function listWalkInQueue",
-        start
-      );
-    const handler =
-      service.slice(
-        start,
-        end
       );
 
     assert.match(
@@ -44,133 +29,161 @@ test(
       /createManagedAppointment/
     );
     assert.match(
-      handler,
-      /createManagedAppointment\(/
+      service,
+      /async function createQueueAppointment/
     );
     assert.match(
-      handler,
+      service,
       /status:\s*"pending"/
     );
     assert.match(
-      handler,
-      /bookingSource:[\s\S]*?"walk_in"/
+      service,
+      /queueSource ===[\s\S]*?"walk_in"[\s\S]*?"walk_in"[\s\S]*?"phone"/
+    );
+    assert.match(
+      service,
+      /createQueueVisitForAppointment/
     );
     assert.doesNotMatch(
-      handler,
+      service,
       /Appointment\.create\(/
     );
-    assert.doesNotMatch(
-      handler,
-      /findConflict\(/
+  }
+);
+
+test(
+  "QueueVisit persists queue metadata without duplicating the appointment lifecycle",
+  async () => {
+    const model =
+      await source(
+        "../features/appointments/QueueVisit.js"
+      );
+
+    assert.match(
+      model,
+      /QUEUE_VISIT_SOURCES/
+    );
+    assert.match(
+      model,
+      /"walk_in"/
+    );
+    assert.match(
+      model,
+      /"call_ahead"/
+    );
+    assert.match(
+      model,
+      /ref:\s*"Appointment"/
+    );
+    assert.match(
+      model,
+      /unique:\s*true/
+    );
+    assert.match(
+      model,
+      /expectedArrivalAt/
+    );
+    assert.match(
+      model,
+      /priority/
     );
     assert.doesNotMatch(
-      handler,
-      /Stylist\.find/
-    );
-    assert.doesNotMatch(
-      handler,
-      /Service\.find/
+      model,
+      /checkedInAt|startedAt|completedAt|cancelledAt|noShowAt/
     );
   }
 );
 
 test(
-  "walk-in queue is a projection of canonical appointments rather than a second queue model",
+  "queue state is derived from canonical appointment status",
   async () => {
     const service =
       await source(
-        "../features/appointments/walkInService.js"
+        "../features/appointments/queueVisitService.js"
       );
 
     assert.match(
       service,
-      /Appointment\.find\(/
-    );
-    assert.match(
-      service,
-      /bookingSource:[\s\S]*?"walk_in"/
-    );
-    assert.match(
-      service,
-      /TERMINAL_STATUSES/
-    );
-    assert.match(
-      service,
-      /createdAt:\s*1/
-    );
-    assert.match(
-      service,
-      /queuePosition,[\s\S]*?index \+ 1/
-    );
-    assert.match(
-      service,
-      /queuedAt:[\s\S]*?value\.createdAt/
-    );
-    assert.doesNotMatch(
-      service,
-      /new Schema\(/
-    );
-    assert.doesNotMatch(
-      service,
-      /mongoose\.model\(/
-    );
-  }
-);
-
-test(
-  "front-desk states derive from existing appointment lifecycle statuses",
-  async () => {
-    const service =
-      await source(
-        "../features/appointments/walkInService.js"
-      );
-
-    const start =
-      service.indexOf(
-        "function frontDeskState"
-      );
-    const end =
-      service.indexOf(
-        "function queueProjection",
-        start
-      );
-    const mapping =
-      service.slice(
-        start,
-        end
-      );
-
-    assert.match(
-      mapping,
-      /case "pending":[\s\S]*?return "waiting"/
-    );
-    assert.match(
-      mapping,
       /case "confirmed":[\s\S]*?return "assigned"/
     );
     assert.match(
-      mapping,
+      service,
       /case "checked_in":[\s\S]*?return "checked_in"/
     );
     assert.match(
-      mapping,
+      service,
       /case "in_progress":[\s\S]*?return "in_service"/
     );
-    assert.doesNotMatch(
+    assert.match(
       service,
-      /WALK_IN_STATUSES/
+      /case "completed":[\s\S]*?return "completed"/
+    );
+    assert.match(
+      service,
+      /case "cancelled":[\s\S]*?return "cancelled"/
+    );
+    assert.match(
+      service,
+      /case "no_show":[\s\S]*?return "no_show"/
+    );
+    assert.match(
+      service,
+      /case "pending":[\s\S]*?return "waiting"/
     );
   }
 );
 
 test(
-  "walk-in routes reuse appointment permissions and lifecycle notification",
+  "queue listing preserves legacy walk-ins and adds queue metrics",
+  async () => {
+    const service =
+      await source(
+        "../features/appointments/queueVisitService.js"
+      );
+
+    assert.match(
+      service,
+      /QueueVisit\.find\(/
+    );
+    assert.match(
+      service,
+      /Appointment\.find\(\{[\s\S]*?bookingSource:[\s\S]*?"walk_in"/
+    );
+    assert.match(
+      service,
+      /averageWaitMinutes/
+    );
+    assert.match(
+      service,
+      /longestWaitMinutes/
+    );
+    assert.match(
+      service,
+      /arrivalVarianceMinutes/
+    );
+    assert.match(
+      service,
+      /serviceDelayMinutes/
+    );
+    assert.match(
+      service,
+      /visitMinutes/
+    );
+  }
+);
+
+test(
+  "walk-in compatibility route and generic queue routes share appointment permissions",
   async () => {
     const routes =
       await source(
         "../features/appointments/appointmentManagementRoutes.js"
       );
 
+    const queueVisits =
+      routes.indexOf(
+        '"/queue-visits"'
+      );
     const walkIns =
       routes.indexOf(
         '"/walk-ins"'
@@ -181,11 +194,23 @@ test(
       );
 
     assert.ok(
-      walkIns >= 0
+      queueVisits >= 0
+    );
+    assert.ok(
+      walkIns > queueVisits
     );
     assert.ok(
       individual > walkIns,
-      "walk-in routes must be registered before the appointment identifier route"
+      "queue routes must be registered before the appointment identifier route"
+    );
+
+    assert.match(
+      routes,
+      /"\/queue-visits"[\s\S]*?"appointment:read"[\s\S]*?queueVisits/
+    );
+    assert.match(
+      routes,
+      /"\/queue-visits"[\s\S]*?"appointment:create"[\s\S]*?appointmentLifecycleNotification\([\s\S]*?"created"[\s\S]*?createQueueVisit/
     );
     assert.match(
       routes,
@@ -193,34 +218,42 @@ test(
     );
     assert.match(
       routes,
-      /"\/walk-ins"[\s\S]*?"appointment:create"[\s\S]*?appointmentLifecycleNotification\([\s\S]*?"created"[\s\S]*?createWalkIn/
+      /"\/walk-ins"[\s\S]*?"appointment:create"[\s\S]*?createWalkIn/
     );
     assert.doesNotMatch(
       routes,
-      /walk_in:read|walk_in:create|front_desk:create/
+      /queue:read|queue:create|front_desk:create/
     );
   }
 );
 
 test(
-  "walk-in lifecycle changes remain on the existing appointment status route",
+  "frontend appointment API exposes generic queue operations without removing walk-in compatibility",
   async () => {
-    const routes =
+    const frontend =
       await source(
-        "../features/appointments/appointmentManagementRoutes.js"
-      );
-    const walkInController =
-      await source(
-        "../features/appointments/walkInController.js"
+        "../../../frontend/src/Services/appointmentManagementApi.js"
       );
 
     assert.match(
-      routes,
-      /"\/:id\/status"[\s\S]*?requireStatusPermission[\s\S]*?status/
+      frontend,
+      /createQueueVisit/
     );
-    assert.doesNotMatch(
-      walkInController,
-      /changeAppointmentStatus|recordStatusChange/
+    assert.match(
+      frontend,
+      /getQueueVisits/
+    );
+    assert.match(
+      frontend,
+      /`?\$\{BASE_URL\}\/queue-visits`?/
+    );
+    assert.match(
+      frontend,
+      /createWalkInAppointment/
+    );
+    assert.match(
+      frontend,
+      /getWalkInQueue/
     );
   }
 );
