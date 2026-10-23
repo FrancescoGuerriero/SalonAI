@@ -123,6 +123,31 @@ treatmentRecordSchema.pre("save", function blockSignedRecordMutation() {
   }
 });
 
+/*
+ * Treatment records must move through the document/service workflow so signed
+ * evidence cannot be bypassed with direct Mongo query updates or deletion.
+ * Draft edits and the signing transition use document.save() in the canonical
+ * clinical service; future corrections require an explicit audited addendum.
+ */
+for (const operation of [
+  "updateOne",
+  "updateMany",
+  "findOneAndUpdate",
+  "replaceOne",
+  "findOneAndReplace",
+  "deleteOne",
+  "deleteMany",
+  "findOneAndDelete",
+]) {
+  treatmentRecordSchema.pre(operation, function blockTreatmentQueryMutation() {
+    const error = new Error(
+      "Treatment records cannot be mutated through direct query operations; use the governed clinical record service."
+    );
+    error.code = "TREATMENT_RECORD_QUERY_MUTATION_PROHIBITED";
+    throw error;
+  });
+}
+
 treatmentRecordSchema.index({ business: 1, clinicalProfile: 1, performedAt: -1 });
 treatmentRecordSchema.index({ business: 1, location: 1, status: 1, performedAt: -1 });
 
