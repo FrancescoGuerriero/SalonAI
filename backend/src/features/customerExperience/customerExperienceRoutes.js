@@ -4,6 +4,7 @@ import asyncHandler from "../../middleware/asyncHandler.js";
 import { protect } from "../../middleware/authMiddleware.js";
 import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./customerExperienceController.js";
+import * as stage4Controller from "./stage4CustomerExperienceController.js";
 import {
   getCommunicationPreferences,
   updateCommunicationPreferences,
@@ -24,6 +25,9 @@ router.patch("/management/offers/:offerId", requirePermissions("customer-experie
 router.get("/management/appointment-requests", requirePermissions("customer-experience:read"), asyncHandler(controller.listAppointmentRequests));
 router.patch("/management/appointment-requests/:requestId", requirePermissions("customer-experience:manage"), asyncHandler(controller.resolveAppointmentRequest));
 router.get("/management/overview", requirePermissions("customer-experience:read"), asyncHandler(controller.getManagementOverview));
+router.get("/management/reputation", requirePermissions("customer-experience:read"), asyncHandler(stage4Controller.reputation));
+router.patch("/management/reputation/:reviewId", requirePermissions("customer-experience:manage"), asyncHandler(stage4Controller.updateReputation));
+router.get("/management/booking-recovery-metrics", requirePermissions("customer-experience:read"), asyncHandler(stage4Controller.recoveryMetrics));
 router.patch("/management/reviews/:reviewId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateReviewStatus));
 router.patch("/management/feedback/:feedbackId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateFeedbackStatus));
 router.patch("/management/consultations/:consultationId", requirePermissions("customer-experience:manage"), asyncHandler(controller.updateConsultationStatus));
@@ -32,6 +36,7 @@ router.get("/me", asyncHandler(controller.getCustomerExperience));
 router.get("/me/communications", asyncHandler(getCommunicationPreferences));
 router.patch("/me/communications", asyncHandler(updateCommunicationPreferences));
 router.patch("/me/consents", asyncHandler(controller.updateConsents));
+router.post("/me/check-in", requireFeature("appointments"), asyncHandler(stage4Controller.checkIn));
 router.post("/me/reviews", requireFeature("reviews"), asyncHandler(controller.addReview));
 router.post("/me/favourites", requireFeature("favourites"), asyncHandler(controller.addFavourite));
 router.delete("/me/favourites/:entryId", requireFeature("favourites"), asyncHandler(controller.removeFavourite));
