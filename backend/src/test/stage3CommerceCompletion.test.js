@@ -34,6 +34,8 @@ test("Stage 3 invoice lifecycle is canonical across appointments and orders", ()
   assert.match(model, /"partially_paid"/);
   assert.match(model, /"partially_refunded"/);
   assert.match(model, /invoiceNumber/);
+  assert.match(model, /discountTotal/);
+  assert.match(model, /deliveryFee/);
   assert.doesNotMatch(model, /\bPAN\b|\bCVV\b|cardNumber|securityCode/i);
 
   assert.match(service, /issueAppointmentInvoice/);
@@ -41,11 +43,21 @@ test("Stage 3 invoice lifecycle is canonical across appointments and orders", ()
   assert.match(service, /paymentSummary/);
   assert.match(service, /amountRefunded/);
   assert.match(service, /persistAppointmentCompatibilityNumber/);
+  assert.match(service, /createInvoiceOnce/);
 
   assert.match(appointmentRoutes, /\/:id\/invoice/);
   assert.match(commerceRoutes, /\/orders\/:id\/invoice/);
   assert.match(commerceRoutes, /requirePermissions\("order:read"\)/);
   assert.match(commerceRoutes, /requirePermissions\("order:update"\)/);
+});
+
+test("order invoice counts the canonical parent payment instead of mixed-cart allocations", () => {
+  const service = source("../features/commerce/invoiceService.js");
+
+  assert.match(service, /async function orderPaymentSummary/);
+  assert.match(service, /_id:\s*order\.payment\?\._id \|\| order\.payment/);
+  assert.match(service, /appointment:\s*\{ \$exists: false \}/);
+  assert.match(service, /orderSubtotal/);
 });
 
 test("Stage 3 invoice reconciliation never executes provider payments", () => {
