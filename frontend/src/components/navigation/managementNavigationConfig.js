@@ -52,6 +52,8 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/retention-predictions", "Retention predictions", "Identify customers at risk", "HeartHandshake", false, "customer:read", "", ADVANCED],
       ["/rebooking-opportunities", "Rebooking opportunities", "Find customers ready to rebook", "CalendarClock", false, "customer:read", "", ADVANCED],
       ["/customer-experience-management", "Experience desk", "Manage reviews and customer requests", "ClipboardList", false, "customer-experience:read", "", ADVANCED],
+      ["/customer-experience-management/reputation", "Reputation Hub", "Moderate verified reviews and salon responses", "Star", false, "customer-experience:read", "", ADVANCED],
+      ["/customer-experience-management/content", "Content Studio", "Create and publish governed public content", "FileText", false, "customer-experience:read", "", ADVANCED],
       ["/loyalty", "Loyalty programme", "Manage points and tiers", "Award", false, "loyalty:manage", "loyalty", ADVANCED],
       ["/gift-cards", "Gift cards", "Issue and redeem gift cards", "Gift", false, "gift-card:manage", "wallet", ADVANCED],
       ["/referrals", "Referral system", "Manage rewards and referral tracking", "Share2", false, "referral:manage", "referrals", ADVANCED],
