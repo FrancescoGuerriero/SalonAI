@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 import AuditLog from "../../models/AuditLog.js";
+import BusinessDomain from "../../models/BusinessDomain.js";
+import CredentialVersion from "../../models/CredentialVersion.js";
 import EnterpriseSsoConnection, {
   ENTERPRISE_SSO_PROTOCOLS,
 } from "../../models/EnterpriseSsoConnection.js";
@@ -28,10 +30,18 @@ function objectId(value, field) {
   return value;
 }
 
+function optionalObjectId(value, field) {
+  if (value === undefined || value === null || value === "") return null;
+  return objectId(value, field);
+}
+
 function actorId(user) {
   const value = user?._id || user?.id || null;
   if (!mongoose.isValidObjectId(value)) {
-    throw createServiceError("An authenticated federation administrator is required.", 401);
+    throw createServiceError(
+      "An authenticated federation administrator is required.",
+      401
+    );
   }
   return value;
 }
@@ -69,10 +79,21 @@ function httpsUrl(value, field, { optional = false } = {}) {
   if (!candidate && optional) return "";
   try {
     const url = new URL(candidate);
-    if (url.protocol !== "https:") throw new Error("https required");
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.hash
+    ) {
+      throw new Error("credential-free https required");
+    }
     return url.toString();
   } catch {
-    throw createServiceError(`${field} must be a valid HTTPS URL.`, 400, { field });
+    throw createServiceError(
+      `${field} must be a credential-free HTTPS URL without a fragment.`,
+      400,
+      { field }
+    );
   }
 }
 
@@ -80,15 +101,21 @@ function domains(value) {
   const items = [
     ...new Set(
       (Array.isArray(value) ? value : [])
-        .map((item) => text(item).toLowerCase())
+        .map((item) => text(item).toLowerCase().replace(/^@+/, "").replace(/\.$/, ""))
         .filter(Boolean)
     ),
   ];
   for (const domain of items) {
-    if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) {
-      throw createServiceError(`Invalid enterprise SSO domain: ${domain}.`, 400, {
-        field: "domains",
-      });
+    if (
+      !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(
+        domain
+      )
+    ) {
+      throw createServiceError(
+        `Invalid enterprise SSO domain: ${domain}.`,
+        400,
+        { field: "domains" }
+      );
     }
   }
   return items;
@@ -110,11 +137,9 @@ function oidcScopes(value, { supplied = false } = {}) {
       field: "oidc.scopes",
     });
   }
-
   const requested = Array.isArray(value)
     ? value.map((item) => text(item)).filter(Boolean)
     : ["profile", "email"];
-
   return [...new Set(["openid", ...requested])];
 }
 
@@ -125,8 +150,15 @@ function normalisePublicConfiguration(payload = {}, selectedProtocol) {
       oidc: {
         issuerUrl: httpsUrl(payload.oidc?.issuerUrl, "oidc.issuerUrl"),
         clientId: text(payload.oidc?.clientId),
+        credentialVersion: optionalObjectId(
+          payload.oidc?.credentialVersion,
+          "oidc.credentialVersion"
+        ),
         scopes: oidcScopes(payload.oidc?.scopes, {
-          supplied: Object.prototype.hasOwnProperty.call(payload.oidc || {}, "scopes"),
+          supplied: Object.prototype.hasOwnProperty.call(
+            payload.oidc || {},
+            "scopes"
+          ),
         }),
       },
       saml: undefined,
@@ -144,21 +176,72 @@ function normalisePublicConfiguration(payload = {}, selectedProtocol) {
   };
 }
 
-function readinessFor(connection) {
+async function tenantDomainsVerified(connection) {
+  const requested = domains(connection.domains || []);
+  if (!requested.length) return false;
+  const records = await BusinessDomain.find({
+    business: connection.business,
+    host: { $in: requested },
+    status: "active",
+    "verification.verifiedAt": { $ne: null },
+  })
+    .select("host")
+    .lean();
+  const verified = new Set(records.map((record) => String(record.host)));
+  return requested.every((domain) => verified.has(domain));
+}
+
+async function oidcCredentialReady(connection) {
+  if (connection.protocol !== "oidc") return true;
+  const credentialId = connection.oidc?.credentialVersion;
+  if (!mongoose.isValidObjectId(credentialId)) return false;
+  const credential = await CredentialVersion.findOne({
+    _id: credentialId,
+    business: connection.business,
+    credentialType: "oauth_client_secret",
+    status: { $in: ["active", "retiring"] },
+  })
+    .select("_id")
+    .lean();
+  return Boolean(credential);
+}
+
+async function readinessFor(connection) {
   const issues = [];
+  const domainsVerified = await tenantDomainsVerified(connection);
   if (!Array.isArray(connection.domains) || connection.domains.length === 0) {
-    issues.push("At least one enterprise email domain must be configured and externally verified before activation.");
+    issues.push(
+      "At least one enterprise email domain must be configured and externally verified before activation."
+    );
+  } else if (!domainsVerified) {
+    issues.push(
+      "Every Enterprise SSO domain must exactly match an active, verified BusinessDomain owned by this Business."
+    );
   }
 
+  const credentialReady = await oidcCredentialReady(connection);
   if (connection.protocol === "oidc") {
-    if (!text(connection.oidc?.issuerUrl)) issues.push("OIDC issuer URL is missing.");
-    if (!text(connection.oidc?.clientId)) issues.push("OIDC client ID is missing.");
+    if (!text(connection.oidc?.issuerUrl)) {
+      issues.push("OIDC issuer URL is missing.");
+    }
+    if (!text(connection.oidc?.clientId)) {
+      issues.push("OIDC client ID is missing.");
+    }
+    if (!credentialReady) {
+      issues.push(
+        "OIDC requires a tenant-owned active oauth_client_secret CredentialVersion."
+      );
+    }
     issues.push(
-      "OIDC runtime/credential integration is not installed; use a vetted OIDC client and governed credential store before activation."
+      "OIDC verification runtime is not installed; use a vetted OIDC client with issuer, audience, nonce, time and signature validation before activation."
     );
   } else {
-    if (!text(connection.saml?.entryPoint)) issues.push("SAML IdP entry point is missing.");
-    if (!text(connection.saml?.idpIssuer)) issues.push("SAML IdP issuer is missing.");
+    if (!text(connection.saml?.entryPoint)) {
+      issues.push("SAML IdP entry point is missing.");
+    }
+    if (!text(connection.saml?.idpIssuer)) {
+      issues.push("SAML IdP issuer is missing.");
+    }
     if (!text(connection.saml?.idpSigningCertificate)) {
       issues.push("SAML IdP signing certificate is missing.");
     }
@@ -166,15 +249,22 @@ function readinessFor(connection) {
       issues.push("SAML service-provider entity ID is missing.");
     }
     issues.push(
-      "SAML runtime/SP signing-key integration is not installed; assertion validation must use a vetted SAML library before activation."
+      "SAML verification runtime/SP signing-key integration is not installed; assertion signature, issuer, audience, recipient and time validation must use a vetted SAML library before activation."
     );
   }
 
-  const staticConfigurationValid =
-    issues.filter((issue) => !issue.includes("runtime/")).length === 0;
+  const runtimeIssueTokens = [
+    "verification runtime is not installed",
+    "verification runtime/SP signing-key integration is not installed",
+  ];
+  const staticConfigurationValid = issues.every((issue) =>
+    runtimeIssueTokens.some((token) => issue.includes(token))
+  );
 
   return {
     staticConfigurationValid,
+    domainsVerified,
+    credentialReady,
     runtimeAvailable: false,
     providerAccepted: false,
     activationAllowed: false,
@@ -190,7 +280,8 @@ function serialise(connection) {
       : { ...(connection || {}) };
   if (value.saml) {
     const certificateConfigured = Boolean(
-      connection?.saml?.idpSigningCertificate || value.saml?.idpSigningCertificate
+      connection?.saml?.idpSigningCertificate ||
+        value.saml?.idpSigningCertificate
     );
     delete value.saml.idpSigningCertificate;
     value.saml.idpSigningCertificateConfigured = certificateConfigured;
@@ -212,6 +303,13 @@ export async function createEnterpriseSsoConnection(
 ) {
   objectId(businessId, "business");
   const actor = actorId(user);
+  if (Object.prototype.hasOwnProperty.call(payload, "business")) {
+    throw createServiceError(
+      "Enterprise SSO tenant ownership is server-controlled.",
+      400,
+      { code: "ENTERPRISE_SSO_CLIENT_TENANT_FORBIDDEN" }
+    );
+  }
   const selectedProtocol = protocol(payload.protocol);
   const displayName = text(payload.displayName);
   const key = slug(payload.key || displayName);
@@ -219,7 +317,10 @@ export async function createEnterpriseSsoConnection(
     throw createServiceError("Enterprise SSO displayName is required.", 400);
   }
 
-  const publicConfig = normalisePublicConfiguration(payload, selectedProtocol);
+  const publicConfig = normalisePublicConfiguration(
+    payload,
+    selectedProtocol
+  );
   const connection = await EnterpriseSsoConnection.create({
     business: businessId,
     key,
@@ -230,6 +331,8 @@ export async function createEnterpriseSsoConnection(
     ...publicConfig,
     readiness: {
       staticConfigurationValid: false,
+      domainsVerified: false,
+      credentialReady: false,
       runtimeAvailable: false,
       providerAccepted: false,
       activationAllowed: false,
@@ -249,7 +352,15 @@ export async function updateEnterpriseSsoConnection(
   { businessId, user } = {}
 ) {
   objectId(connectionId, "enterpriseSsoConnection");
+  objectId(businessId, "business");
   const actor = actorId(user);
+  if (Object.prototype.hasOwnProperty.call(payload, "business")) {
+    throw createServiceError(
+      "Enterprise SSO tenant ownership is server-controlled.",
+      400,
+      { code: "ENTERPRISE_SSO_CLIENT_TENANT_FORBIDDEN" }
+    );
+  }
   const connection = assertFound(
     await EnterpriseSsoConnection.findOne({
       _id: connectionId,
@@ -259,34 +370,63 @@ export async function updateEnterpriseSsoConnection(
   );
   assertNoSecrets(payload);
 
-  if (payload.protocol && protocol(payload.protocol) !== connection.protocol) {
+  if (
+    payload.protocol &&
+    protocol(payload.protocol) !== connection.protocol
+  ) {
     throw createServiceError(
       "Enterprise SSO protocol cannot be changed in place; create a new connection.",
       409
     );
   }
-  if (payload.displayName !== undefined) connection.displayName = text(payload.displayName);
-  if (payload.domains !== undefined) connection.domains = domains(payload.domains);
+  if (payload.displayName !== undefined) {
+    connection.displayName = text(payload.displayName);
+  }
+  if (payload.domains !== undefined) {
+    connection.domains = domains(payload.domains);
+  }
 
   if (connection.protocol === "oidc" && payload.oidc) {
     if (payload.oidc.issuerUrl !== undefined) {
-      connection.oidc.issuerUrl = httpsUrl(payload.oidc.issuerUrl, "oidc.issuerUrl");
+      connection.oidc.issuerUrl = httpsUrl(
+        payload.oidc.issuerUrl,
+        "oidc.issuerUrl"
+      );
     }
-    if (payload.oidc.clientId !== undefined) connection.oidc.clientId = text(payload.oidc.clientId);
+    if (payload.oidc.clientId !== undefined) {
+      connection.oidc.clientId = text(payload.oidc.clientId);
+    }
+    if (payload.oidc.credentialVersion !== undefined) {
+      connection.oidc.credentialVersion = optionalObjectId(
+        payload.oidc.credentialVersion,
+        "oidc.credentialVersion"
+      );
+    }
     if (payload.oidc.scopes !== undefined) {
-      connection.oidc.scopes = oidcScopes(payload.oidc.scopes, { supplied: true });
+      connection.oidc.scopes = oidcScopes(payload.oidc.scopes, {
+        supplied: true,
+      });
     }
   }
   if (connection.protocol === "saml" && payload.saml) {
     if (payload.saml.entryPoint !== undefined) {
-      connection.saml.entryPoint = httpsUrl(payload.saml.entryPoint, "saml.entryPoint");
+      connection.saml.entryPoint = httpsUrl(
+        payload.saml.entryPoint,
+        "saml.entryPoint"
+      );
     }
-    if (payload.saml.idpIssuer !== undefined) connection.saml.idpIssuer = text(payload.saml.idpIssuer);
+    if (payload.saml.idpIssuer !== undefined) {
+      connection.saml.idpIssuer = text(payload.saml.idpIssuer);
+    }
     if (payload.saml.idpSigningCertificate !== undefined) {
-      connection.saml.idpSigningCertificate = text(payload.saml.idpSigningCertificate);
+      connection.saml.idpSigningCertificate = text(
+        payload.saml.idpSigningCertificate
+      );
     }
     if (payload.saml.serviceProviderEntityId !== undefined) {
-      connection.saml.serviceProviderEntityId = text(payload.saml.serviceProviderEntityId);
+      connection.saml.serviceProviderEntityId = text(
+        payload.saml.serviceProviderEntityId
+      );
     }
   }
 
@@ -294,6 +434,8 @@ export async function updateEnterpriseSsoConnection(
   connection.runtimeEnabled = false;
   connection.readiness = {
     staticConfigurationValid: false,
+    domainsVerified: false,
+    credentialReady: false,
     runtimeAvailable: false,
     providerAccepted: false,
     activationAllowed: false,
@@ -310,6 +452,7 @@ export async function checkEnterpriseSsoReadiness(
   { businessId, user, requestId = "" } = {}
 ) {
   objectId(connectionId, "enterpriseSsoConnection");
+  objectId(businessId, "business");
   const actor = actorId(user);
   const connection = assertFound(
     await EnterpriseSsoConnection.findOne({
@@ -319,9 +462,11 @@ export async function checkEnterpriseSsoReadiness(
     "Enterprise SSO connection not found."
   );
 
-  const readiness = readinessFor(connection);
+  const readiness = await readinessFor(connection);
   connection.readiness = readiness;
-  connection.status = readiness.staticConfigurationValid ? "validated" : "draft";
+  connection.status = readiness.staticConfigurationValid
+    ? "validated"
+    : "draft";
   connection.runtimeEnabled = false;
   connection.updatedBy = actor;
   await connection.save();
@@ -336,6 +481,8 @@ export async function checkEnterpriseSsoReadiness(
       protocol: connection.protocol,
       status: connection.status,
       staticConfigurationValid: readiness.staticConfigurationValid,
+      domainsVerified: readiness.domainsVerified,
+      credentialReady: readiness.credentialReady,
       runtimeAvailable: false,
       activationAllowed: false,
     },
