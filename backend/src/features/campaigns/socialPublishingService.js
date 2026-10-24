@@ -20,6 +20,13 @@ const PROVIDERS_BY_CHANNEL = Object.freeze({
   ]),
 });
 
+const REQUIRED_CONNECTION_METADATA_BY_CHANNEL = Object.freeze({
+  facebook: ["pageId"],
+  instagram: ["instagramProfessionalAccountId"],
+  linkedin: ["authorUrn"],
+  google_business_profile: ["accountId", "locationId"],
+});
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -137,6 +144,80 @@ function validateContent(channel, content) {
   }
 }
 
+function validateConnectionCapability(connection, channel, content) {
+  const accessTokenBinding = Array.isArray(connection?.credentialBindings)
+    ? connection.credentialBindings.some(
+        (binding) => lower(binding?.role) === "access_token" && Boolean(binding?.credential)
+      )
+    : false;
+
+  if (!accessTokenBinding) {
+    throw createServiceError(
+      "The social provider connection is missing an access-token credential binding.",
+      409,
+      { code: "SOCIAL_PROVIDER_ACCESS_TOKEN_REQUIRED" }
+    );
+  }
+
+  for (const field of REQUIRED_CONNECTION_METADATA_BY_CHANNEL[channel] || []) {
+    if (!text(connection?.metadata?.[field])) {
+      throw createServiceError(
+        `The social provider connection is missing required ${field} capability metadata.`,
+        409,
+        {
+          code: "SOCIAL_PROVIDER_CAPABILITY_NOT_READY",
+          field,
+          channel,
+        }
+      );
+    }
+  }
+
+  if (
+    channel === "facebook" &&
+    ["video", "document"].includes(content.mediaType)
+  ) {
+    throw createServiceError(
+      "Facebook video/document publishing requires the dedicated asset-upload workflow.",
+      409,
+      { code: "SOCIAL_PROVIDER_MEDIA_WORKFLOW_REQUIRED" }
+    );
+  }
+
+  if (
+    channel === "instagram" &&
+    !["image", "video"].includes(content.mediaType)
+  ) {
+    throw createServiceError(
+      "Instagram publishing requires image or video media.",
+      409,
+      { code: "SOCIAL_PROVIDER_CAPABILITY_NOT_READY" }
+    );
+  }
+
+  if (
+    channel === "linkedin" &&
+    content.mediaType !== "none"
+  ) {
+    throw createServiceError(
+      "LinkedIn media publishing requires a registered LinkedIn media/document asset.",
+      409,
+      { code: "SOCIAL_PROVIDER_MEDIA_WORKFLOW_REQUIRED" }
+    );
+  }
+
+  if (
+    channel === "google_business_profile" &&
+    !["none", "image"].includes(content.mediaType)
+  ) {
+    throw createServiceError(
+      "Google Business Profile publishing currently supports text/link and image publications only.",
+      409,
+      { code: "SOCIAL_PROVIDER_CAPABILITY_NOT_READY" }
+    );
+  }
+}
+
 export async function createSocialPublication(
   campaignId,
   payload = {},
@@ -161,6 +242,7 @@ export async function createSocialPublication(
   const connection = await connectionForBusiness(payload.connection, businessId, channel);
   const content = contentFromPayload(payload);
   validateContent(channel, content);
+  validateConnectionCapability(connection, channel, content);
   const scheduledFor = date(payload.scheduledFor, "scheduledFor");
   const requestedKey = text(payload.idempotencyKey);
   const idempotencyKey = requestedKey || stableKey([
@@ -329,6 +411,7 @@ export async function publishSocialPublication(
     businessId,
     publication.channel
   );
+  validateConnectionCapability(connection, publication.channel, publication.content || {});
   publication.status = "publishing";
   publication.attemptCount += 1;
   publication.lastAttemptAt = new Date();

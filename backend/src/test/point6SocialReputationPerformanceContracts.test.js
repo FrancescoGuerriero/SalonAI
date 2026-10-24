@@ -5,7 +5,7 @@ import test from "node:test";
 const source = (relativePath) =>
   readFile(new URL(relativePath, import.meta.url), "utf8");
 
-test("social publishing is tenant-owned and live-provider gated", async () => {
+test("social publishing is tenant-owned, capability-validated and live-provider gated", async () => {
   const model = await source("../features/campaigns/SocialPublication.js");
   const service = await source("../features/campaigns/socialPublishingService.js");
   const adapters = await source("../features/campaigns/socialProviderAdapters.js");
@@ -20,6 +20,13 @@ test("social publishing is tenant-owned and live-provider gated", async () => {
   assert.match(service, /business:\s*businessId/);
   assert.match(service, /status:\s*\{ \$in: \["connected", "degraded"\] \}/);
   assert.match(service, /CAMPAIGN_CHANNEL_NOT_ENABLED/);
+  assert.match(service, /REQUIRED_CONNECTION_METADATA_BY_CHANNEL/);
+  assert.match(service, /SOCIAL_PROVIDER_ACCESS_TOKEN_REQUIRED/);
+  assert.match(service, /SOCIAL_PROVIDER_CAPABILITY_NOT_READY/);
+  assert.match(
+    service,
+    /validateConnectionCapability\(connection, channel, content\)[\s\S]*?createCampaignExecution/
+  );
 
   assert.match(adapters, /resolveProviderCredential\(connection, "access_token"\)/);
   assert.match(adapters, /META_GRAPH_API_VERSION_REQUIRED/);
