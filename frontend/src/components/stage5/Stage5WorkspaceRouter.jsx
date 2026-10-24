@@ -1,8 +1,10 @@
+import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
-import ConnectedAccountsPage from "../../pages/ConnectedAccountsPage.jsx";
-import MeasurementIntegrationCorePage from "../../pages/MeasurementIntegrationCorePage.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
+
+const ConnectedAccountsPage = lazy(() => import("../../pages/ConnectedAccountsPage.jsx"));
+const MeasurementIntegrationCorePage = lazy(() => import("../../pages/MeasurementIntegrationCorePage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -14,6 +16,10 @@ function AccessDenied({ message }) {
   );
 }
 
+function DeferredWorkspace({ children }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
 export default function Stage5WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
 
@@ -21,7 +27,7 @@ export default function Stage5WorkspaceRouter({ pathname, children }) {
     if (loading) return null;
     if (!user) return <Navigate replace to="/login" />;
     return hasPermission(user, "feature-control:read")
-      ? <MeasurementIntegrationCorePage />
+      ? <DeferredWorkspace><MeasurementIntegrationCorePage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect the Stage 5 measurement and integration core." />;
   }
 
@@ -29,7 +35,7 @@ export default function Stage5WorkspaceRouter({ pathname, children }) {
     if (loading) return null;
     if (!user) return <Navigate replace to="/login" />;
     return hasPermission(user, "feature-control:read")
-      ? <ConnectedAccountsPage />
+      ? <DeferredWorkspace><ConnectedAccountsPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect connected business accounts." />;
   }
 
