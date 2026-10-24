@@ -47,7 +47,7 @@ describe("Stage 1B management presentation", () => {
   });
 
   it("preserves one unique canonical route registry", () => {
-    expect(MANAGEMENT_LINKS).toHaveLength(72);
+    expect(MANAGEMENT_LINKS).toHaveLength(73);
     expect(new Set(MANAGEMENT_ROUTE_PATHS).size).toBe(
       MANAGEMENT_ROUTE_PATHS.length
     );
@@ -79,6 +79,7 @@ describe("Stage 1B management presentation", () => {
     );
 
     expect(screen.getByText("Haircare AI")).toBeInTheDocument();
+    expect(screen.getByText("Connected accounts")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Advanced" })
     ).toHaveAttribute("aria-pressed", "true");

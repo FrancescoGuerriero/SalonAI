@@ -1,13 +1,14 @@
 import { Navigate } from "react-router-dom";
+import ConnectedAccountsPage from "../../pages/ConnectedAccountsPage.jsx";
 import MeasurementIntegrationCorePage from "../../pages/MeasurementIntegrationCorePage.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
-function AccessDenied() {
+function AccessDenied({ message }) {
   return (
     <main className="min-h-screen bg-stone-50 px-4 py-8" id="main-content" tabIndex="-1">
       <div className="mx-auto max-w-4xl rounded-2xl border border-amber-500 bg-amber-50 p-5 text-black" role="alert">
-        You do not have permission to inspect the Stage 5 measurement and integration core.
+        {message}
       </div>
     </main>
   );
@@ -21,7 +22,15 @@ export default function Stage5WorkspaceRouter({ pathname, children }) {
     if (!user) return <Navigate replace to="/login" />;
     return hasPermission(user, "feature-control:read")
       ? <MeasurementIntegrationCorePage />
-      : <AccessDenied />;
+      : <AccessDenied message="You do not have permission to inspect the Stage 5 measurement and integration core." />;
+  }
+
+  if (pathname === "/admin/system/connected-accounts") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <ConnectedAccountsPage />
+      : <AccessDenied message="You do not have permission to inspect connected business accounts." />;
   }
 
   return children;

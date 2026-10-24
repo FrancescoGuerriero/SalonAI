@@ -7,6 +7,7 @@ import {
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
 import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
 import * as controller from "./integrationPlatformController.js";
+import * as connectedAccountsController from "./socialConnectedAccountsController.js";
 
 const router = express.Router();
 const read = requirePermissions("feature-control:read");
@@ -23,6 +24,32 @@ router.use(
 );
 
 router.get("/stage-5-contract", read, asyncHandler(controller.stage5ContractCatalogue));
+
+/*
+|--------------------------------------------------------------------------
+| Tenant connected accounts
+|--------------------------------------------------------------------------
+|
+| This customer-facing management surface intentionally hides IntegrationApp
+| and CredentialVersion implementation details. Provider secrets remain
+| write-only and encrypted by providerCredentialService.
+*/
+router.get(
+  "/connected-accounts",
+  read,
+  asyncHandler(connectedAccountsController.connectedAccounts)
+);
+router.put(
+  "/connected-accounts/:provider",
+  write,
+  asyncHandler(connectedAccountsController.connectAccount)
+);
+router.post(
+  "/connected-accounts/:provider/disconnect",
+  write,
+  asyncHandler(connectedAccountsController.disconnectAccount)
+);
+
 router.get("/apps", read, asyncHandler(controller.apps));
 router.post("/apps", write, asyncHandler(controller.createApp));
 router.patch("/apps/:appId", write, asyncHandler(controller.updateApp));
