@@ -49,7 +49,7 @@ describe(
         const workspace = source(
           "components/appointments/UnifiedReceptionWorkspace.jsx"
         );
-        expect(workspace).toContain("appointmentManagementApi.getQueueVisits");
+        expect(workspace).toMatch(/appointmentManagementApi\s*\.getQueueVisits/);
         expect(workspace).toContain("appointmentManagementApi.getCalendar");
         expect(workspace).toContain("queueAppointmentIds");
         expect(workspace).toContain("appointmentManagementApi.getWalkInQueue");
