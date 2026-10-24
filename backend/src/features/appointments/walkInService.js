@@ -5,8 +5,11 @@ import {
   recordDomainEvent,
 } from "../integrationPlatform/webhookProjectionService.js";
 import {
+  changeAppointmentStatus,
   createManagedAppointment,
+  getManagedAppointment,
 } from "./appointmentManagementService.js";
+import QueueVisit from "./QueueVisit.js";
 import {
   createQueueVisitForAppointment,
   listQueueVisits,
@@ -19,6 +22,12 @@ function normaliseText(value) {
   return String(
     value ?? ""
   ).trim();
+}
+
+function normaliseStatus(value) {
+  return normaliseText(value)
+    .toLowerCase()
+    .replaceAll("-", "_");
 }
 
 function identifier(value) {
@@ -111,6 +120,197 @@ async function recordQueueVisitCreated(
         identifier(actor),
     },
   });
+}
+
+async function recordQueueStatusTransition(
+  appointment,
+  queueVisit,
+  previousStatus,
+  actor = null
+) {
+  const appointmentId =
+    identifier(
+      appointment?._id
+    );
+
+  const queueVisitId =
+    identifier(
+      queueVisit?._id ||
+        queueVisit?.queueVisitId
+    );
+
+  const businessId =
+    identifier(
+      queueVisit?.business ||
+        appointment?.business
+    );
+
+  if (
+    !appointmentId ||
+    !queueVisitId ||
+    !businessId
+  ) {
+    return [];
+  }
+
+  const currentStatus =
+    normaliseStatus(
+      appointment?.status
+    );
+
+  const safePreviousStatus =
+    normaliseStatus(
+      previousStatus
+    );
+
+  if (
+    !currentStatus ||
+    currentStatus ===
+      safePreviousStatus
+  ) {
+    return [];
+  }
+
+  const previousState =
+    frontDeskState(
+      safePreviousStatus
+    );
+
+  const state =
+    frontDeskState(
+      currentStatus
+    );
+
+  if (
+    previousState === state
+  ) {
+    return [];
+  }
+
+  const common = {
+    businessId,
+    version: "1",
+    aggregateType:
+      "queue_visit",
+    aggregateId:
+      queueVisitId,
+    source: "front_desk",
+    correlationId:
+      appointmentId,
+    metadata: {
+      actorId:
+        identifier(actor),
+    },
+  };
+
+  const payload = {
+    queueVisitId,
+    appointmentId,
+    locationId:
+      identifier(
+        queueVisit?.location ||
+          appointment?.location
+      ),
+    source:
+      queueVisit?.source ||
+      queueVisit?.queueSource ||
+      "walk_in",
+    previousStatus:
+      safePreviousStatus,
+    status:
+      currentStatus,
+    previousState,
+    state,
+  };
+
+  const events = [];
+
+  if (
+    state === "checked_in"
+  ) {
+    events.push(
+      await recordDomainEvent({
+        ...common,
+        type:
+          "queue.checked_in",
+        payload,
+      })
+    );
+  }
+
+  events.push(
+    await recordDomainEvent({
+      ...common,
+      type:
+        "queue.state_changed",
+      payload,
+    })
+  );
+
+  return events.filter(Boolean);
+}
+
+async function changeQueueVisitStatusIfPresent(
+  appointmentId,
+  status,
+  details = {},
+  {
+    actor = null,
+  } = {}
+) {
+  const id =
+    identifier(
+      appointmentId
+    );
+
+  if (!id) {
+    throw createServiceError(
+      "An appointment identifier is required.",
+      400,
+      {
+        field:
+          "appointmentId",
+      }
+    );
+  }
+
+  const queueVisit =
+    await QueueVisit.findOne({
+      appointment: id,
+    }).lean({
+      virtuals: true,
+    });
+
+  if (!queueVisit) {
+    return null;
+  }
+
+  const before =
+    await getManagedAppointment(
+      id
+    );
+
+  const previousStatus =
+    before?.status;
+
+  const appointment =
+    await changeAppointmentStatus(
+      id,
+      status,
+      details,
+      {
+        actor,
+      }
+    );
+
+  await recordQueueStatusTransition(
+    appointment,
+    queueVisit,
+    previousStatus,
+    actor
+  );
+
+  return appointment;
 }
 
 async function createQueueAppointment(
@@ -232,16 +432,19 @@ async function listWalkInQueue(
 }
 
 export {
+  changeQueueVisitStatusIfPresent,
   createQueueAppointment,
   createWalkInAppointment,
   frontDeskState,
   listFrontDeskQueue,
   listWalkInQueue,
   queueProjection,
+  recordQueueStatusTransition,
   recordQueueVisitCreated,
 };
 
 export default {
+  changeQueueVisitStatusIfPresent,
   createQueueAppointment,
   createWalkInAppointment,
   listFrontDeskQueue,

@@ -24,6 +24,7 @@ import {
   createQueueVisit,
   createWalkIn,
   queueVisits,
+  updateQueueVisitStatusIfPresent,
   walkInQueue,
 } from "./walkInController.js";
 import {
@@ -282,6 +283,9 @@ router.patch(
   "/:id/status",
   requireStatusPermission,
   appointmentLifecycleNotification("status"),
+  asyncHandler(
+    updateQueueVisitStatusIfPresent
+  ),
   asyncHandler(status)
 );
 

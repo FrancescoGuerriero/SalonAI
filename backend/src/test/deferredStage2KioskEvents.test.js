@@ -37,6 +37,31 @@ test("front-desk queue creation emits a tenant-owned canonical event", async () 
   assert.doesNotMatch(service, /customerEmail|customerPhone/);
 });
 
+test("front-desk queue status transitions emit checked-in and state-changed evidence", async () => {
+  const service = await source(
+    "../features/appointments/walkInService.js"
+  );
+  const controller = await source(
+    "../features/appointments/walkInController.js"
+  );
+  const routes = await source(
+    "../features/appointments/appointmentManagementRoutes.js"
+  );
+
+  assert.match(service, /changeQueueVisitStatusIfPresent/);
+  assert.match(service, /changeAppointmentStatus/);
+  assert.match(service, /type:\s*"queue\.checked_in"/);
+  assert.match(service, /type:\s*"queue\.state_changed"/);
+  assert.match(service, /previousState/);
+  assert.match(service, /previousStatus/);
+  assert.match(service, /aggregateType:\s*"queue_visit"/);
+  assert.match(controller, /updateQueueVisitStatusIfPresent/);
+  assert.match(
+    routes,
+    /appointmentLifecycleNotification\("status"\)[\s\S]*?updateQueueVisitStatusIfPresent[\s\S]*?asyncHandler\(status\)/
+  );
+});
+
 test("customer check-in publishes canonical appointment status evidence", async () => {
   const service = await source(
     "../features/customerExperience/stage4CustomerExperienceService.js"

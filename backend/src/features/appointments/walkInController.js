@@ -1,4 +1,5 @@
 import {
+  changeQueueVisitStatusIfPresent,
   createQueueAppointment,
   createWalkInAppointment,
   listFrontDeskQueue,
@@ -138,10 +139,51 @@ async function queueVisits(
     });
 }
 
+async function updateQueueVisitStatusIfPresent(
+  request,
+  response,
+  next
+) {
+  const appointment =
+    await changeQueueVisitStatusIfPresent(
+      request.params?.id,
+      request.body?.status,
+      {
+        ...(request.body || {}),
+        reason:
+          String(
+            request.body?.reason ||
+              ""
+          ).trim(),
+      },
+      {
+        actor:
+          request.user || null,
+      }
+    );
+
+  if (!appointment) {
+    return next();
+  }
+
+  return response
+    .status(200)
+    .json({
+      success: true,
+      message:
+        "Queue visit appointment status updated successfully.",
+      appointment:
+        serialise(
+          appointment
+        ),
+    });
+}
+
 export {
   createQueueVisit,
   createWalkIn,
   queueVisits,
+  updateQueueVisitStatusIfPresent,
   walkInQueue,
 };
 
@@ -149,5 +191,6 @@ export default {
   createQueueVisit,
   createWalkIn,
   queueVisits,
+  updateQueueVisitStatusIfPresent,
   walkInQueue,
 };
