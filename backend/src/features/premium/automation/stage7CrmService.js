@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import ConsentRecord from "../../../models/ConsentRecord.js";
 import Customer from "../../../models/customer.js";
 import AttributionTouch from "../../campaigns/AttributionTouch.js";
 import RetentionJourneyEnrollment from "./RetentionJourneyEnrollment.js";
@@ -16,6 +17,13 @@ export const CUSTOMER_LIFECYCLE_STATES = Object.freeze([
   "reactivated",
 ]);
 
+const MARKETING_PURPOSES = Object.freeze([
+  "email_marketing",
+  "sms_marketing",
+  "whatsapp_marketing",
+  "push_marketing",
+]);
+
 function crmError(message, statusCode = 400, code = "STAGE7_CRM_ERROR") {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -28,6 +36,104 @@ function daysBetween(earlier, later = new Date()) {
   const start = new Date(earlier);
   if (Number.isNaN(start.getTime())) return null;
   return Math.max(0, Math.floor((later.getTime() - start.getTime()) / 86400000));
+}
+
+function evidenceKey(subjectType, subjectId, purpose) {
+  return `${subjectType}:${String(subjectId || "")}:${purpose}`;
+}
+
+async function loadConsentEvidence(customers = []) {
+  const profileIds = customers.map((customer) => customer?._id).filter(Boolean);
+  const accountIds = customers.map((customer) => customer?.userAccount).filter(Boolean);
+
+  if (!profileIds.length && !accountIds.length) return new Map();
+
+  const alternatives = [];
+  if (profileIds.length) alternatives.push({ customerProfile: { $in: profileIds } });
+  if (accountIds.length) alternatives.push({ customer: { $in: accountIds } });
+
+  const records = await ConsentRecord.aggregate([
+    {
+      $match: {
+        purpose: { $in: MARKETING_PURPOSES },
+        $or: alternatives,
+      },
+    },
+    { $sort: { recordedAt: -1, createdAt: -1, _id: -1 } },
+    {
+      $group: {
+        _id: {
+          customerProfile: "$customerProfile",
+          customer: "$customer",
+          purpose: "$purpose",
+        },
+        granted: { $first: "$granted" },
+        recordedAt: { $first: "$recordedAt" },
+        source: { $first: "$source" },
+      },
+    },
+  ]);
+
+  const evidence = new Map();
+  for (const record of records) {
+    if (record?._id?.customerProfile) {
+      evidence.set(
+        evidenceKey("profile", record._id.customerProfile, record._id.purpose),
+        {
+          granted: record.granted === true,
+          recordedAt: record.recordedAt || null,
+          source: record.source || "",
+        }
+      );
+    }
+    if (record?._id?.customer) {
+      evidence.set(
+        evidenceKey("account", record._id.customer, record._id.purpose),
+        {
+          granted: record.granted === true,
+          recordedAt: record.recordedAt || null,
+          source: record.source || "",
+        }
+      );
+    }
+  }
+  return evidence;
+}
+
+function latestConsent(customer, purpose, evidence = new Map()) {
+  const byProfile = evidence.get(evidenceKey("profile", customer?._id, purpose));
+  const byAccount = customer?.userAccount
+    ? evidence.get(evidenceKey("account", customer.userAccount, purpose))
+    : null;
+
+  if (!byProfile) return byAccount || null;
+  if (!byAccount) return byProfile;
+
+  const profileTime = byProfile.recordedAt ? new Date(byProfile.recordedAt).getTime() : 0;
+  const accountTime = byAccount.recordedAt ? new Date(byAccount.recordedAt).getTime() : 0;
+  return accountTime > profileTime ? byAccount : byProfile;
+}
+
+function effectiveMarketingConsent(customer, evidence = new Map()) {
+  const marketing = customer?.marketing || {};
+  const preferences = customer?.communicationPreferences || {};
+  const emailEvidence = latestConsent(customer, "email_marketing", evidence);
+  const smsEvidence = latestConsent(customer, "sms_marketing", evidence);
+  const whatsappEvidence = latestConsent(customer, "whatsapp_marketing", evidence);
+  const pushEvidence = latestConsent(customer, "push_marketing", evidence);
+
+  return {
+    email: emailEvidence?.granted ?? (marketing.emailConsent === true),
+    sms: smsEvidence?.granted ?? (marketing.smsConsent === true),
+    whatsapp: whatsappEvidence?.granted ?? (marketing.whatsappConsent === true || preferences.whatsappMarketing === true),
+    push: pushEvidence?.granted ?? false,
+    evidence: {
+      email: emailEvidence,
+      sms: smsEvidence,
+      whatsapp: whatsappEvidence,
+      push: pushEvidence,
+    },
+  };
 }
 
 export function deriveCustomerLifecycleState(customer, { now = new Date() } = {}) {
@@ -48,12 +154,17 @@ export function deriveCustomerLifecycleState(customer, { now = new Date() } = {}
   return "active";
 }
 
-export function deriveCustomerSegments(customer, lifecycleState) {
+export function deriveCustomerSegments(
+  customer,
+  lifecycleState,
+  { consentEvidence = new Map() } = {}
+) {
   const segments = new Set([lifecycleState]);
   const visits = Number(customer?.completedAppointmentCount ?? customer?.visitCount ?? 0);
   const totalSpent = Number(customer?.totalSpent ?? 0);
   const preferences = customer?.communicationPreferences || {};
   const marketing = customer?.marketing || {};
+  const effectiveConsent = effectiveMarketingConsent(customer, consentEvidence);
 
   if (visits >= 2) segments.add("repeat_customer");
   if (visits >= 8 || totalSpent >= 1000) segments.add("high_value");
@@ -72,7 +183,7 @@ export function deriveCustomerSegments(customer, lifecycleState) {
     globallyEligible &&
     customer?.email &&
     preferences.emailUnsubscribed !== true &&
-    marketing.emailConsent === true &&
+    effectiveConsent.email === true &&
     marketing.emailSuppressed !== true
   ) {
     segments.add("contactable_email");
@@ -82,7 +193,7 @@ export function deriveCustomerSegments(customer, lifecycleState) {
     globallyEligible &&
     customer?.phone &&
     preferences.smsUnsubscribed !== true &&
-    marketing.smsConsent === true
+    effectiveConsent.sms === true
   ) {
     segments.add("contactable_sms");
   }
@@ -91,9 +202,13 @@ export function deriveCustomerSegments(customer, lifecycleState) {
     globallyEligible &&
     customer?.phone &&
     preferences.whatsappUnsubscribed !== true &&
-    (marketing.whatsappConsent === true || preferences.whatsappMarketing === true)
+    effectiveConsent.whatsapp === true
   ) {
     segments.add("contactable_whatsapp");
+  }
+
+  if (globallyEligible && customer?.userAccount && effectiveConsent.push === true) {
+    segments.add("contactable_push");
   }
 
   return Array.from(segments).sort();
@@ -125,9 +240,8 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
   const businessId = requireRetentionBusinessId(tenantContext);
   const customer = await loadOwnedCustomer(customerId, businessId);
   const lifecycleState = deriveCustomerLifecycleState(customer, { now });
-  const segments = deriveCustomerSegments(customer, lifecycleState);
 
-  const [attributionTouches, journeyEnrollments] = await Promise.all([
+  const [attributionTouches, journeyEnrollments, consentEvidence] = await Promise.all([
     AttributionTouch.find({ business: businessId, customer: customer._id })
       .sort({ occurredAt: -1, _id: -1 })
       .limit(100)
@@ -138,8 +252,11 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
       .limit(50)
       .select("journey trigger status outcome campaign startedAt stoppedAt completedAt executionAuthorised createdAt")
       .lean(),
+    loadConsentEvidence([customer]),
   ]);
 
+  const segments = deriveCustomerSegments(customer, lifecycleState, { consentEvidence });
+  const effectiveConsent = effectiveMarketingConsent(customer, consentEvidence);
   const campaignIds = Array.from(
     new Set(
       attributionTouches
@@ -148,7 +265,6 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
         .map(String)
     )
   );
-
   const conversionTouches = attributionTouches.filter(
     (touch) => touch.touchType === "conversion"
   );
@@ -192,6 +308,7 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
     consent: {
       communicationPreferences: customer.communicationPreferences || {},
       marketing: customer.marketing || {},
+      effectiveMarketing: effectiveConsent,
     },
     attribution: {
       touchCount: attributionTouches.length,
@@ -225,9 +342,11 @@ export async function listCrmSegments({ tenantContext = {}, limit = 100, now = n
     .sort({ updatedAt: -1, _id: -1 })
     .limit(safeLimit)
     .select(
-      "firstName lastName email phone status source tags visitCount completedAppointmentCount cancelledAppointmentCount noShowCount firstVisit lastVisit nextAppointment totalSpent averageSpend loyaltyTier loyaltyPoints membershipStatus communicationPreferences marketing"
+      "userAccount firstName lastName email phone status source tags visitCount completedAppointmentCount cancelledAppointmentCount noShowCount firstVisit lastVisit nextAppointment totalSpent averageSpend loyaltyTier loyaltyPoints membershipStatus communicationPreferences marketing"
     )
     .lean();
+
+  const consentEvidence = await loadConsentEvidence(customers);
 
   return customers.map((customer) => {
     const lifecycleState = deriveCustomerLifecycleState(customer, { now });
@@ -235,7 +354,7 @@ export async function listCrmSegments({ tenantContext = {}, limit = 100, now = n
       customerId: customer._id,
       name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
       lifecycleState,
-      segments: deriveCustomerSegments(customer, lifecycleState),
+      segments: deriveCustomerSegments(customer, lifecycleState, { consentEvidence }),
       totalSpent: Number(customer.totalSpent || 0),
       visits: Number(customer.completedAppointmentCount ?? customer.visitCount ?? 0),
       lastVisit: customer.lastVisit || null,
