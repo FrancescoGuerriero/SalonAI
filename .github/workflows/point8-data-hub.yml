@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/aiBaselineComparisonService.js"
       - "backend/src/features/integrationPlatform/aiCandidateEvaluationService.js"
       - "backend/src/features/integrationPlatform/aiOfflineExperimentService.js"
       - "backend/src/features/integrationPlatform/aiPromotionProposalService.js"
@@ -21,6 +22,7 @@ on:
       - "backend/src/services/marketingDataSyncWorkerService.js"
       - "backend/src/models/AiGatewayInvocation.js"
       - "backend/src/models/AiAdvisoryCandidateEvaluation.js"
+      - "backend/src/models/AiCandidateBaselineComparison.js"
       - "backend/src/models/AiOfflineExperimentRun.js"
       - "backend/src/models/AiPromotionProposalDossier.js"
       - "backend/src/models/DataHub**"
@@ -30,6 +32,7 @@ on:
       - "backend/src/models/MarketingSyncRun.js"
       - "backend/src/models/SeoPageObservation.js"
       - "backend/src/test/stage8AiAdvisoryContracts.test.js"
+      - "backend/src/test/stage8AiBaselineComparisonContracts.test.js"
       - "backend/src/test/stage8AiCandidateEvaluationContracts.test.js"
       - "backend/src/test/stage8AiOfflineExperimentContracts.test.js"
       - "backend/src/test/stage8AiPromotionProposalContracts.test.js"
@@ -56,6 +59,7 @@ on:
       - main
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/aiBaselineComparisonService.js"
       - "backend/src/features/integrationPlatform/aiCandidateEvaluationService.js"
       - "backend/src/features/integrationPlatform/aiOfflineExperimentService.js"
       - "backend/src/features/integrationPlatform/aiPromotionProposalService.js"
@@ -73,6 +77,7 @@ on:
       - "backend/src/services/marketingDataSyncWorkerService.js"
       - "backend/src/models/AiGatewayInvocation.js"
       - "backend/src/models/AiAdvisoryCandidateEvaluation.js"
+      - "backend/src/models/AiCandidateBaselineComparison.js"
       - "backend/src/models/AiOfflineExperimentRun.js"
       - "backend/src/models/AiPromotionProposalDossier.js"
       - "backend/src/models/DataHub**"
@@ -82,6 +87,7 @@ on:
       - "backend/src/models/MarketingSyncRun.js"
       - "backend/src/models/SeoPageObservation.js"
       - "backend/src/test/stage8AiAdvisoryContracts.test.js"
+      - "backend/src/test/stage8AiBaselineComparisonContracts.test.js"
       - "backend/src/test/stage8AiCandidateEvaluationContracts.test.js"
       - "backend/src/test/stage8AiOfflineExperimentContracts.test.js"
       - "backend/src/test/stage8AiPromotionProposalContracts.test.js"
@@ -128,10 +134,11 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run Point 8 Data Hub, Marketing, advisory, evaluation, offline experiment, promotion-planning, location and provider adapter tests
+      - name: Run Point 8 Data Hub, Marketing, advisory, baseline comparison, evaluation, offline experiment, promotion-planning, location and provider adapter tests
         run: >-
           node --test
           src/test/stage8AiAdvisoryContracts.test.js
+          src/test/stage8AiBaselineComparisonContracts.test.js
           src/test/stage8AiCandidateEvaluationContracts.test.js
           src/test/stage8AiOfflineExperimentContracts.test.js
           src/test/stage8AiPromotionProposalContracts.test.js
