@@ -25,7 +25,7 @@ const schema = new Schema(
     },
     status: {
       type: String,
-      enum: ["planned", "rejected", "failed"],
+      enum: ["planned", "advisory_previewed", "rejected", "failed"],
       default: "planned",
       index: true,
     },
