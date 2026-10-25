@@ -41,6 +41,7 @@ const querySchema = new Schema(
 const schema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     key: { type: String, required: true, trim: true, lowercase: true, maxlength: 120 },
     name: { type: String, required: true, trim: true, maxlength: 180 },
     description: { type: String, trim: true, maxlength: 1000, default: "" },
@@ -57,8 +58,7 @@ const schema = new Schema(
   { timestamps: true, optimisticConcurrency: true }
 );
 
-schema.index({ business: 1, key: 1 }, { unique: true });
-schema.index({ business: 1, status: 1, updatedAt: -1 });
+schema.index({ business: 1, location: 1, key: 1 }, { unique: true });
+schema.index({ business: 1, location: 1, status: 1, updatedAt: -1 });
 
-export default mongoose.models.DataHubSavedView ||
-  mongoose.model("DataHubSavedView", schema);
+export default mongoose.models.DataHubSavedView || mongoose.model("DataHubSavedView", schema);
