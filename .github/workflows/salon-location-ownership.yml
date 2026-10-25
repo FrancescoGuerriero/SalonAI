@@ -1,0 +1,75 @@
+name: SALON AI Location Ownership Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/src/models/Lead.js"
+      - "backend/src/models/Opportunity.js"
+      - "backend/src/models/Appointment.js"
+      - "backend/src/models/customer.js"
+      - "backend/src/models/Stylist.js"
+      - "backend/src/models/service.js"
+      - "backend/src/models/LocationServiceOffering.js"
+      - "backend/src/features/leads/**"
+      - "backend/src/features/appointments/**"
+      - "backend/src/controllers/serviceController.js"
+      - "backend/src/services/serviceTenantAuthorityService.js"
+      - "backend/src/platform/services/effectiveServiceConfiguration.js"
+      - "backend/src/test/salonLocationOwnershipContracts.test.js"
+      - "backend/src/test/stage8LocationOwnershipContracts.test.js"
+      - ".github/workflows/salon-location-ownership.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/src/models/Lead.js"
+      - "backend/src/models/Opportunity.js"
+      - "backend/src/models/Appointment.js"
+      - "backend/src/models/customer.js"
+      - "backend/src/models/Stylist.js"
+      - "backend/src/models/service.js"
+      - "backend/src/models/LocationServiceOffering.js"
+      - "backend/src/features/leads/**"
+      - "backend/src/features/appointments/**"
+      - "backend/src/controllers/serviceController.js"
+      - "backend/src/services/serviceTenantAuthorityService.js"
+      - "backend/src/platform/services/effectiveServiceConfiguration.js"
+      - "backend/src/test/salonLocationOwnershipContracts.test.js"
+      - "backend/src/test/stage8LocationOwnershipContracts.test.js"
+      - ".github/workflows/salon-location-ownership.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  location-contracts:
+    name: SALON AI location ownership contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run location ownership contracts
+        run: >-
+          node --test
+          src/test/salonLocationOwnershipContracts.test.js
+          src/test/stage8LocationOwnershipContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
