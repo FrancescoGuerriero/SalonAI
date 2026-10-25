@@ -13,6 +13,8 @@ router.get("/overview", read, asyncHandler(controller.overview));
 router.get("/fields", read, asyncHandler(controller.fields));
 router.post("/query", read, asyncHandler(controller.query));
 router.post("/ai-evidence", read, asyncHandler(controller.aiEvidence));
+router.post("/ai-gateway/evidence", read, asyncHandler(controller.aiGatewayEvidence));
+router.post("/ai-gateway/plan", read, asyncHandler(controller.aiGatewayPlan));
 
 router.get("/saved-views", read, asyncHandler(controller.savedViews));
 router.post("/saved-views", write, asyncHandler(controller.createSavedView));
