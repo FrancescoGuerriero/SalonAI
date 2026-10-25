@@ -12,6 +12,7 @@ const BING_API_ENDPOINT = "https://www.bing.com/webmaster/api.svc/json";
 const BING_TOKEN_ENDPOINT = "https://www.bing.com/webmasters/oauth/token";
 const GOOGLE_ADS_ENDPOINT = "https://googleads.googleapis.com/v26";
 const META_MARKETING_ENDPOINT = "https://graph.facebook.com/v26.0";
+const META_MARKETING_ORIGIN = "https://graph.facebook.com";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
@@ -26,6 +27,11 @@ function positiveInteger(value, fallback, min = 1, max = MAX_PROVIDER_RECORDS) {
   return Number.isFinite(number)
     ? Math.max(min, Math.min(max, Math.floor(number)))
     : fallback;
+}
+
+function finiteNumber(value) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function dateOnly(value, fallback) {
@@ -277,10 +283,10 @@ async function fetchSearchConsole(source, payload = {}) {
     const rows = Array.isArray(body.rows) ? body.rows : [];
     for (const row of rows) {
       const record = {
-        clicks: Number(row.clicks || 0),
-        impressions: Number(row.impressions || 0),
-        ctr: Number(row.ctr || 0),
-        position: Number(row.position || 0),
+        clicks: finiteNumber(row.clicks),
+        impressions: finiteNumber(row.impressions),
+        ctr: finiteNumber(row.ctr),
+        position: finiteNumber(row.position),
       };
       dimensions.forEach((name, index) => { record[name] = row.keys?.[index] ?? ""; });
       records.push(record);
@@ -328,10 +334,10 @@ async function fetchBing(source) {
   const records = rows.slice(0, maxRecords).map((row) => ({
     date: bingDate(row.Date),
     query: text(row.Query, 2000),
-    clicks: Number(row.Clicks || 0),
-    impressions: Number(row.Impressions || 0),
-    averageClickPosition: Number(row.AvgClickPosition || 0),
-    averagePosition: Number(row.AvgImpressionPosition || 0),
+    clicks: finiteNumber(row.Clicks),
+    impressions: finiteNumber(row.Impressions),
+    averageClickPosition: finiteNumber(row.AvgClickPosition),
+    averagePosition: finiteNumber(row.AvgImpressionPosition),
   }));
   return {
     records,
@@ -344,21 +350,16 @@ function digits(value) {
   return text(value, 100).replace(/\D/g, "");
 }
 
-function googleAdsNumber(value) {
-  const number = Number(value ?? 0);
-  return Number.isFinite(number) ? number : 0;
-}
-
 export function normaliseGoogleAdsRow(row = {}) {
   return {
     date: text(row.segments?.date, 20),
     campaignId: text(row.campaign?.id, 200),
     campaignName: text(row.campaign?.name, 1000),
-    impressions: googleAdsNumber(row.metrics?.impressions),
-    clicks: googleAdsNumber(row.metrics?.clicks),
-    spend: googleAdsNumber(row.metrics?.costMicros) / 1_000_000,
-    conversions: googleAdsNumber(row.metrics?.conversions),
-    revenue: googleAdsNumber(row.metrics?.conversionsValue),
+    impressions: finiteNumber(row.metrics?.impressions),
+    clicks: finiteNumber(row.metrics?.clicks),
+    spend: finiteNumber(row.metrics?.costMicros) / 1_000_000,
+    conversions: finiteNumber(row.metrics?.conversions),
+    revenue: finiteNumber(row.metrics?.conversionsValue),
   };
 }
 
@@ -407,11 +408,30 @@ async function fetchGoogleAds(source, payload = {}) {
 }
 
 function metaActionValue(values, keys) {
-  const byType = new Map((Array.isArray(values) ? values : []).map((item) => [String(item?.action_type || ""), Number(item?.value || 0)]));
+  const byType = new Map((Array.isArray(values) ? values : []).map((item) => [String(item?.action_type || ""), finiteNumber(item?.value)]));
   for (const key of keys) {
-    if (byType.has(key) && Number.isFinite(byType.get(key))) return byType.get(key);
+    if (byType.has(key)) return byType.get(key);
   }
   return 0;
+}
+
+function safeMetaNextUrl(value) {
+  const candidate = text(value, 8000);
+  if (!candidate) return null;
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw createServiceError("Meta Ads pagination returned an invalid URL.", 502, {
+      code: "META_PAGINATION_URL_INVALID",
+    });
+  }
+  if (parsed.protocol !== "https:" || parsed.origin !== META_MARKETING_ORIGIN) {
+    throw createServiceError("Meta Ads pagination returned an unexpected origin.", 502, {
+      code: "META_PAGINATION_ORIGIN_INVALID",
+    });
+  }
+  return parsed;
 }
 
 export function normaliseMetaAdsRow(row = {}) {
@@ -425,9 +445,9 @@ export function normaliseMetaAdsRow(row = {}) {
     date: text(row.date_start, 20),
     campaignId: text(row.campaign_id, 200),
     campaignName: text(row.campaign_name, 1000),
-    impressions: Number(row.impressions || 0),
-    clicks: Number(row.clicks || 0),
-    spend: Number(row.spend || 0),
+    impressions: finiteNumber(row.impressions),
+    clicks: finiteNumber(row.clicks),
+    spend: finiteNumber(row.spend),
     conversions: metaActionValue(row.actions, purchaseKeys),
     revenue: metaActionValue(row.action_values, purchaseKeys),
   };
@@ -468,8 +488,7 @@ async function fetchMetaAds(source, payload = {}) {
       records.push(normaliseMetaAdsRow(row));
       if (records.length >= maxRecords) break;
     }
-    const next = text(body.paging?.next, 8000);
-    nextUrl = next ? new URL(next) : null;
+    nextUrl = safeMetaNextUrl(body.paging?.next);
     pageCount += 1;
   }
   return {
