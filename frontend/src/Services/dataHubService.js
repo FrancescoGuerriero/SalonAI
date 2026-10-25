@@ -30,6 +30,11 @@ async function planAiGateway(payload) {
   return (await API.post(`${ROOT}/ai-gateway/plan`, payload)).data;
 }
 
+async function listAiGatewayInvocations(params = {}) {
+  const response = await API.get(`${ROOT}/ai-gateway/invocations`, { params });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
 async function listSavedViews(params = {}) {
   const response = await API.get(`${ROOT}/saved-views`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -77,6 +82,7 @@ export {
   getCatalogue,
   getFields,
   getOverview,
+  listAiGatewayInvocations,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
@@ -96,6 +102,7 @@ export default {
   getCatalogue,
   getFields,
   getOverview,
+  listAiGatewayInvocations,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
