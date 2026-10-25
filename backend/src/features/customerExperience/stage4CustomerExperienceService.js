@@ -31,6 +31,10 @@ function businessId(request) {
   return request?.effectiveAuthority?.businessId || request?.tenantContext?.businessId || undefined;
 }
 
+function locationId(request) {
+  return request?.effectiveAuthority?.locationId || request?.tenantContext?.locationId || undefined;
+}
+
 function activeBusinessId(request) {
   const value = businessId(request);
   if (!mongoose.isValidObjectId(value)) {
@@ -40,6 +44,25 @@ function activeBusinessId(request) {
     );
   }
   return value;
+}
+
+function activeLocationId(request) {
+  const value = locationId(request);
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(
+      "Select a location before using the reputation hub.",
+      400,
+      { code: "LOCATION_REQUIRED" }
+    );
+  }
+  return value;
+}
+
+function reputationAuthority(request) {
+  return {
+    businessId: activeBusinessId(request),
+    locationId: activeLocationId(request),
+  };
 }
 
 function appointmentStart(appointment) {
@@ -183,8 +206,8 @@ function flattenReviews(profiles, responsesByReview) {
 }
 
 async function internalReputationOverview(request) {
-  const business = activeBusinessId(request);
-  const appointments = await Appointment.find({ business })
+  const { businessId: business, locationId: location } = reputationAuthority(request);
+  const appointments = await Appointment.find({ business, location })
     .select("_id")
     .lean();
   const appointmentIds = appointments.map((appointment) => appointment._id);
@@ -207,8 +230,8 @@ async function internalReputationOverview(request) {
     .populate("user", "name email")
     .populate({
       path: "reviews.appointment",
-      match: { business },
-      select: "startsAt appointmentDate appointmentTime status business",
+      match: { business, location },
+      select: "startsAt appointmentDate appointmentTime status business location",
       populate: { path: "service", select: "name" },
     })
     .lean();
@@ -256,6 +279,7 @@ async function internalReputationOverview(request) {
   );
 
   return {
+    locationId: String(location),
     reviews,
     summary: {
       total: reviews.length,
@@ -267,10 +291,10 @@ async function internalReputationOverview(request) {
 }
 
 export async function reputationOverview(request) {
-  const business = activeBusinessId(request);
+  const authority = reputationAuthority(request);
   const [internal, external] = await Promise.all([
     internalReputationOverview(request),
-    externalReputationOverview(request.query || {}, { businessId: business }),
+    externalReputationOverview(request.query || {}, authority),
   ]);
 
   const internalPublished = internal.reviews.filter(
@@ -290,6 +314,7 @@ export async function reputationOverview(request) {
     : 0;
 
   return {
+    locationId: String(authority.locationId),
     reviews: internal.reviews,
     summary: internal.summary,
     externalReviews: external.reviews,
@@ -311,18 +336,19 @@ export async function reputationOverview(request) {
 }
 
 export async function updateReputationReview(reviewId, payload, request) {
-  const business = activeBusinessId(request);
+  const { businessId: business, locationId: location } = reputationAuthority(request);
   const profile = await CustomerExperienceProfile.findOne({ "reviews._id": reviewId });
   if (!profile) throw createServiceError("Review not found.", 404);
   const review = profile.reviews.id(reviewId);
   const appointment = await Appointment.findOne({
     _id: review.appointment,
     business,
+    location,
   })
-    .select("_id business")
+    .select("_id business location")
     .lean();
   if (!appointment) {
-    throw createServiceError("Review not found in the active business.", 404);
+    throw createServiceError("Review not found in the selected location.", 404);
   }
 
   if (payload.status !== undefined) {
@@ -370,20 +396,16 @@ export async function updateReputationReview(reviewId, payload, request) {
 }
 
 export async function importExternalReviews(payload, request) {
-  return ingestExternalReviews(payload, {
-    businessId: activeBusinessId(request),
-  });
+  return ingestExternalReviews(payload, reputationAuthority(request));
 }
 
 export async function importListingSnapshots(payload, request) {
-  return ingestListingSnapshots(payload, {
-    businessId: activeBusinessId(request),
-  });
+  return ingestListingSnapshots(payload, reputationAuthority(request));
 }
 
 export async function updateExternalReviewResponse(reviewId, payload, request) {
   return updateExternalReputationResponse(reviewId, payload, {
-    businessId: activeBusinessId(request),
+    ...reputationAuthority(request),
     actorUser: userId(request.user),
   });
 }
