@@ -22,6 +22,9 @@ router.post("/ai-gateway/candidate-evaluations", aiUse, asyncHandler(controller.
 router.get("/ai-gateway/candidate-evaluations", read, asyncHandler(controller.aiCandidateEvaluations));
 router.get("/ai-gateway/candidate-evaluations/:recordId", read, asyncHandler(controller.aiCandidateEvaluation));
 router.patch("/ai-gateway/candidate-evaluations/:recordId/review", write, asyncHandler(controller.aiCandidateReview));
+router.post("/ai-gateway/offline-experiments", aiUse, asyncHandler(controller.runAiOfflineExperiment));
+router.get("/ai-gateway/offline-experiments", read, asyncHandler(controller.aiOfflineExperiments));
+router.get("/ai-gateway/offline-experiments/:runId", read, asyncHandler(controller.aiOfflineExperiment));
 router.get("/ai-gateway/promotion-proposals", read, asyncHandler(controller.aiPromotionProposals));
 router.post("/ai-gateway/promotion-proposals", write, asyncHandler(controller.createAiPromotionProposal));
 router.get("/ai-gateway/promotion-proposals/:dossierId", read, asyncHandler(controller.aiPromotionProposal));
