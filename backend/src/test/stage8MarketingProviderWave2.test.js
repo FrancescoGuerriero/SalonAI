@@ -72,23 +72,26 @@ test("Failed Stripe charges do not inflate payment count or revenue", () => {
   assert.equal(record.revenue, 0);
 });
 
-test("Shopify executor restricts host and uses read-only orders query", async () => {
+test("Shopify executor restricts host and uses a read-only orders GraphQL query", async () => {
   const adapter = await source("../features/integrationPlatform/marketingCommerceProviderAdapters.js");
   assert.match(adapter, /myshopify\\\.com/);
   assert.match(adapter, /orders\(first: \$first/);
   assert.match(adapter, /sortKey: CREATED_AT/);
   assert.match(adapter, /x-shopify-access-token/);
+  assert.match(adapter, /method: "POST"/);
   assert.doesNotMatch(adapter, /mutation\s+/i);
+  assert.doesNotMatch(adapter, /orderCreate|orderUpdate|refundCreate/i);
 });
 
 test("Stripe executor uses read-only charge listing with bounded created window and cursor pagination", async () => {
   const adapter = await source("../features/integrationPlatform/marketingCommerceProviderAdapters.js");
+  assert.match(adapter, /STRIPE_CHARGES_ENDPOINT = "https:\/\/api\.stripe\.com\/v1\/charges"/);
   assert.match(adapter, /created\[gte\]/);
   assert.match(adapter, /created\[lte\]/);
   assert.match(adapter, /starting_after/);
   assert.match(adapter, /method: "GET"/);
   assert.doesNotMatch(adapter, /\/v1\/refunds/);
-  assert.doesNotMatch(adapter, /method: "POST"/);
+  assert.doesNotMatch(adapter, /\/v1\/payment_intents/);
 });
 
 test("Commerce executors remain behind the existing hard provider execution lock", async () => {
