@@ -252,7 +252,7 @@ function nestedTotal(value) {
   for (const key of ["allPageViews", "allPageClicks", "total", "count", "overallPageViews", "overviewPageViews"]) {
     if (value[key] !== undefined) return nestedTotal(value[key]);
   }
-  return Object.values(value).reduce((sum, item) => sum + (typeof item === "object" ? nestedTotal(item) : 0), 0);
+  return Object.values(value).reduce((sum, item) => sum + nestedTotal(item), 0);
 }
 
 export function normaliseLinkedInPageRow(row = {}) {
