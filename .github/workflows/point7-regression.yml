@@ -48,5 +48,20 @@ jobs:
           src/test/point7CrmRetentionContracts.test.js
           src/test/retentionAutomation.test.js
 
+      - name: Run complete backend regression suite
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee backend-test-output.txt
+
+      - name: Upload backend regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: point7-backend-regression-output
+          path: backend/backend-test-output.txt
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Verify application imports
         run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
