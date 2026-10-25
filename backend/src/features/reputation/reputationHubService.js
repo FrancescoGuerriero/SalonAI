@@ -51,13 +51,13 @@ async function provenance(
   {
     businessId,
     connectionId = null,
-    locationId = null,
+    locationId,
     provider = "",
   } = {}
 ) {
   const business = objectId(businessId, "business");
   const connection = objectId(connectionId, "connection", { optional: true });
-  const location = objectId(locationId, "location", { optional: true });
+  const location = objectId(locationId, "location");
 
   const [connectionRecord, locationRecord] = await Promise.all([
     connection
@@ -67,13 +67,11 @@ async function provenance(
           status: { $ne: "revoked" },
         }).lean()
       : null,
-    location
-      ? Location.findOne({
-          _id: location,
-          business,
-          status: { $ne: "archived" },
-        }).lean()
-      : null,
+    Location.findOne({
+      _id: location,
+      business,
+      status: { $ne: "archived" },
+    }).lean(),
   ]);
 
   if (connection && !connectionRecord) {
@@ -82,10 +80,11 @@ async function provenance(
       404
     );
   }
-  if (location && !locationRecord) {
+  if (!locationRecord) {
     throw createServiceError(
       "Reputation location not found in the active business.",
-      404
+      404,
+      { code: "REPUTATION_LOCATION_NOT_FOUND" }
     );
   }
 
@@ -118,7 +117,7 @@ function rating(value) {
 
 export async function ingestExternalReviews(
   payload = {},
-  { businessId } = {}
+  { businessId, locationId } = {}
 ) {
   const records = Array.isArray(payload.records)
     ? payload.records
@@ -138,7 +137,7 @@ export async function ingestExternalReviews(
   const source = await provenance({
     businessId,
     connectionId: payload.connection,
-    locationId: payload.location,
+    locationId,
     provider: payload.provider,
   });
   const now = new Date();
@@ -167,6 +166,7 @@ export async function ingestExternalReviews(
     const review = await ExternalReview.findOneAndUpdate(
       {
         business: source.business,
+        location: source.location,
         provider: source.provider,
         externalReviewId,
       },
@@ -223,6 +223,7 @@ export async function ingestExternalReviews(
   }
 
   return {
+    locationId: String(source.location),
     provider: source.provider,
     imported: results.length,
     reviews: results,
@@ -231,7 +232,7 @@ export async function ingestExternalReviews(
 
 export async function ingestListingSnapshots(
   payload = {},
-  { businessId } = {}
+  { businessId, locationId } = {}
 ) {
   const records = Array.isArray(payload.records)
     ? payload.records
@@ -251,7 +252,7 @@ export async function ingestListingSnapshots(
   const source = await provenance({
     businessId,
     connectionId: payload.connection,
-    locationId: payload.location,
+    locationId,
     provider: payload.provider,
   });
 
@@ -301,6 +302,7 @@ export async function ingestListingSnapshots(
     ordered: false,
   });
   return {
+    locationId: String(source.location),
     provider: source.provider,
     imported: snapshots.length,
     snapshots: snapshots.map((entry) => entry.toObject()),
@@ -312,18 +314,21 @@ export async function updateExternalReputationResponse(
   payload = {},
   {
     businessId,
+    locationId,
     actorUser = null,
   } = {}
 ) {
   const business = objectId(businessId, "business");
+  const location = objectId(locationId, "location");
   const reviewId = objectId(externalReviewId, "externalReview");
   const review = await ExternalReview.findOne({
     _id: reviewId,
     business,
+    location,
   }).lean();
   if (!review) {
     throw createServiceError(
-      "External review not found in the active business.",
+      "External review not found in the selected location.",
       404
     );
   }
@@ -381,15 +386,12 @@ export async function updateExternalReputationResponse(
 
 export async function externalReputationOverview(
   query = {},
-  { businessId } = {}
+  { businessId, locationId } = {}
 ) {
   const business = objectId(businessId, "business");
-  const location = query.location
-    ? objectId(query.location, "location")
-    : null;
-  const match = { business };
+  const location = objectId(locationId, "location");
+  const match = { business, location };
   if (query.provider) match.provider = lower(query.provider, 120);
-  if (location) match.location = location;
   if (query.status) match.status = lower(query.status, 30);
 
   const reviews = await ExternalReview.find(match)
@@ -429,9 +431,8 @@ export async function externalReputationOverview(
       (providerCounts[review.provider] || 0) + 1;
   }
 
-  const listingMatch = { business };
+  const listingMatch = { business, location };
   if (query.provider) listingMatch.provider = lower(query.provider, 120);
-  if (location) listingMatch.location = location;
   const latestListings = await BusinessListingSnapshot.aggregate([
     { $match: listingMatch },
     { $sort: { observedAt: -1, _id: -1 } },
@@ -449,6 +450,7 @@ export async function externalReputationOverview(
   ]);
 
   return {
+    locationId: String(location),
     reviews: reviews.map((review) => ({
       ...review,
       response: responsesByReview.get(String(review._id)) || null,
