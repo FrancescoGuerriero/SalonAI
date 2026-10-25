@@ -2,11 +2,16 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./leadController.js";
 
 const router = express.Router();
+
+router.use(effectiveAuthorityMiddleware);
 
 router.get(
   "/",
