@@ -52,6 +52,19 @@ async function reviewAiCandidateEvaluation(recordId, payload) {
   return (await API.patch(`${ROOT}/ai-gateway/candidate-evaluations/${encodeURIComponent(recordId)}/review`, payload)).data;
 }
 
+async function runAiOfflineExperiment(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/offline-experiments`, payload)).data;
+}
+
+async function listAiOfflineExperiments(params = {}) {
+  const response = await API.get(`${ROOT}/ai-gateway/offline-experiments`, { params });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
+async function getAiOfflineExperiment(runId) {
+  return (await API.get(`${ROOT}/ai-gateway/offline-experiments/${encodeURIComponent(runId)}`)).data;
+}
+
 async function listAiPromotionProposals(params = {}) {
   const response = await API.get(`${ROOT}/ai-gateway/promotion-proposals`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -115,12 +128,14 @@ export {
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
+  getAiOfflineExperiment,
   getAiPromotionProposal,
   getCatalogue,
   getFields,
   getOverview,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
+  listAiOfflineExperiments,
   listAiPromotionProposals,
   listDestinationRuns,
   listDestinations,
@@ -129,6 +144,7 @@ export {
   previewAiAdvisory,
   previewDestination,
   reviewAiCandidateEvaluation,
+  runAiOfflineExperiment,
   runQuery,
   runSavedView,
   updateAiPromotionProposal,
@@ -143,12 +159,14 @@ export default {
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
+  getAiOfflineExperiment,
   getAiPromotionProposal,
   getCatalogue,
   getFields,
   getOverview,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
+  listAiOfflineExperiments,
   listAiPromotionProposals,
   listDestinationRuns,
   listDestinations,
@@ -157,6 +175,7 @@ export default {
   previewAiAdvisory,
   previewDestination,
   reviewAiCandidateEvaluation,
+  runAiOfflineExperiment,
   runQuery,
   runSavedView,
   updateAiPromotionProposal,
