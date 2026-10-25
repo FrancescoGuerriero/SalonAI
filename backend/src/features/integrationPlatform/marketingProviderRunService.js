@@ -6,11 +6,13 @@ import { createServiceError } from "../../shared/serviceError.js";
 import { fetchMarketingAdvertisingProviderRecords } from "./marketingAdvertisingProviderAdapters.js";
 import { fetchMarketingCommerceProviderRecords } from "./marketingCommerceProviderAdapters.js";
 import { runMarketingDataSource } from "./marketingDataCoreService.js";
+import { fetchMarketingFinalProviderRecords } from "./marketingFinalProviderAdapters.js";
 import { fetchMarketingOrganicProviderRecords } from "./marketingOrganicProviderAdapters.js";
 import { fetchMarketingProviderRecords } from "./marketingProviderAdapters.js";
 
 const ADVERTISING_WAVE3_PROVIDERS = new Set(["linkedin_ads", "microsoft_ads", "tiktok_ads"]);
 const ORGANIC_WAVE4_PROVIDERS = new Set(["facebook_pages", "instagram_organic", "linkedin_pages", "youtube_analytics"]);
+const FINAL_WAVE5_PROVIDERS = new Set(["google_business_profile", "hubspot", "mailchimp"]);
 const COMMERCE_PROVIDERS = new Set(["shopify", "stripe"]);
 const LIVE_PROVIDERS = new Set([
   "ga4",
@@ -20,6 +22,7 @@ const LIVE_PROVIDERS = new Set([
   "meta_ads",
   ...ADVERTISING_WAVE3_PROVIDERS,
   ...ORGANIC_WAVE4_PROVIDERS,
+  ...FINAL_WAVE5_PROVIDERS,
   ...COMMERCE_PROVIDERS,
 ]);
 
@@ -59,9 +62,11 @@ export async function runMarketingProviderSource(
     ? await fetchMarketingAdvertisingProviderRecords(source, payload)
     : ORGANIC_WAVE4_PROVIDERS.has(source.provider)
       ? await fetchMarketingOrganicProviderRecords(source, payload)
-      : COMMERCE_PROVIDERS.has(source.provider)
-        ? await fetchMarketingCommerceProviderRecords(source, payload)
-        : await fetchMarketingProviderRecords(source, payload);
+      : FINAL_WAVE5_PROVIDERS.has(source.provider)
+        ? await fetchMarketingFinalProviderRecords(source, payload)
+        : COMMERCE_PROVIDERS.has(source.provider)
+          ? await fetchMarketingCommerceProviderRecords(source, payload)
+          : await fetchMarketingProviderRecords(source, payload);
   const run = await runMarketingDataSource(
     source._id,
     {
