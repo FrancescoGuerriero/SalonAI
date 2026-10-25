@@ -118,20 +118,18 @@ export async function ensureMarketingSourceForConnection(
 
 export async function pauseMarketingSourceForProvider(
   provider,
-  { businessId, locationId, actor = null } = {}
+  { businessId, actor = null } = {}
 ) {
   objectId(businessId, "business");
-  objectId(locationId, "location");
-  return MarketingDataSource.findOneAndUpdate(
-    { business: businessId, location: locationId, provider, key: `marketing-${provider}` },
+  return MarketingDataSource.updateMany(
+    { business: businessId, provider, key: `marketing-${provider}` },
     {
       $set: {
         status: "paused",
         updatedBy: actorId(actor),
-        lastError: "Provider account disconnected for this location; live execution remains disabled.",
+        lastError: "Shared provider account disconnected; all location-owned sources using it are paused.",
       },
-    },
-    { new: true }
+    }
   );
 }
 
