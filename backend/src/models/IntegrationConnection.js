@@ -2,11 +2,26 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
+export const INTEGRATION_CREDENTIAL_ROLES = Object.freeze([
+  "access_token",
+  "refresh_token",
+  "client_secret",
+  "api_key",
+  "access_token_secret",
+  "consumer_secret",
+  "secret_access_key",
+  "session_token",
+  "private_key",
+  "signing_key",
+  "password",
+  "service_account_json",
+]);
+
 const credentialBindingSchema = new Schema(
   {
     role: {
       type: String,
-      enum: ["access_token", "refresh_token", "client_secret", "api_key"],
+      enum: INTEGRATION_CREDENTIAL_ROLES,
       required: true,
     },
     credential: {
