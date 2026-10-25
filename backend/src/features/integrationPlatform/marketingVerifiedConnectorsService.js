@@ -6,6 +6,7 @@ import IntegrationApp from "../../models/IntegrationApp.js";
 import IntegrationConnection from "../../models/IntegrationConnection.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { storeProviderCredential } from "./providerCredentialService.js";
+import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS } from "./marketingVerifiedConnectorExtensions.js";
 
 const APP_KEY = "marketing-data-connections";
 
@@ -83,6 +84,7 @@ const VERIFIED_CONNECTOR_DEFINITIONS = Object.freeze({
     credentials: [{ key: "authToken", label: "Twilio Auth Token", role: "client_secret", required: true, secret: true }],
     scopes: ["account:read"],
   }),
+  ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS,
 });
 
 function text(value, max = 2000) {
@@ -237,7 +239,7 @@ export async function configureVerifiedMarketingConnector(provider, payload = {}
     ? payload.credentials
     : payload;
   for (const item of definitionValue.credentials) {
-    const secret = text(secretPayload[item.key], 20000);
+    const secret = text(secretPayload[item.key], 50000);
     if (!secret) continue;
     await storeProviderCredential(app._id, connection._id, {
       role: item.role,
