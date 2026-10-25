@@ -5,6 +5,12 @@ import {
   verifyMarketingConnectedAccount as verifyCoreMarketingConnectedAccount,
 } from "./marketingAccountVerificationService.js";
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS } from "./marketingAccountVerificationExtensions.js";
+import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE3 } from "./marketingAccountVerificationExtensionsWave3.js";
+
+const EXTENSION_VERIFIERS = Object.freeze({
+  ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS,
+  ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE3,
+});
 
 function text(value, max = 2000) {
   return String(value ?? "").trim().slice(0, max);
@@ -23,12 +29,12 @@ function safeSummary(value = {}) {
 
 export function marketingAccountVerifierAvailable(provider) {
   const key = text(provider, 100).toLowerCase();
-  return coreVerifierAvailable(key) || Boolean(MARKETING_ACCOUNT_VERIFIER_EXTENSIONS[key]);
+  return coreVerifierAvailable(key) || Boolean(EXTENSION_VERIFIERS[key]);
 }
 
 export async function verifyMarketingConnectedAccount(provider, { businessId } = {}) {
   const key = text(provider, 100).toLowerCase();
-  const extensionVerifier = MARKETING_ACCOUNT_VERIFIER_EXTENSIONS[key];
+  const extensionVerifier = EXTENSION_VERIFIERS[key];
   if (!extensionVerifier) {
     return verifyCoreMarketingConnectedAccount(key, { businessId });
   }
