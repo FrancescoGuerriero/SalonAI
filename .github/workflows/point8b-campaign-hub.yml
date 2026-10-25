@@ -21,7 +21,7 @@ on:
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
-      - "docs/roadmap/stage-8-marketing-provider-catalogue.md"
+      - "docs/roadmap/stage-8-marketing-real-connectors.md"
       - ".github/workflows/point8b-campaign-hub.yml"
   push:
     branches:
@@ -45,7 +45,7 @@ on:
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
-      - "docs/roadmap/stage-8-marketing-provider-catalogue.md"
+      - "docs/roadmap/stage-8-marketing-real-connectors.md"
       - ".github/workflows/point8b-campaign-hub.yml"
 
 permissions:
