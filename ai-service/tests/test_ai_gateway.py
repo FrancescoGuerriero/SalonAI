@@ -36,6 +36,58 @@ def evidence_payload(metadata=None):
     }
 
 
+def advisory_evidence_payload():
+    evidence = evidence_payload()
+    evidence["facts"] = [
+        {
+            "name": "total.recordCount",
+            "value": 42,
+            "dimensions": {"scope": "query_total"},
+        },
+        {
+            "name": "total.revenue",
+            "value": 12000.0,
+            "unit": "GBP",
+            "dimensions": {"scope": "query_total"},
+        },
+        {
+            "name": "clicks",
+            "value": 180,
+            "dimensions": {"provider": "google_ads", "dateBucket": "2026-10-20"},
+        },
+        {
+            "name": "clicks",
+            "value": 90,
+            "dimensions": {"provider": "meta_ads", "dateBucket": "2026-10-20"},
+        },
+        {
+            "name": "conversions",
+            "value": 10,
+            "dimensions": {"provider": "google_ads", "dateBucket": "2026-10-19"},
+        },
+        {
+            "name": "conversions",
+            "value": 15,
+            "dimensions": {"provider": "google_ads", "dateBucket": "2026-10-20"},
+        },
+    ]
+    evidence["provenance"] = [
+        {
+            "source_type": "marketing_data_source",
+            "source_id": "source-google",
+            "provider": "google_ads",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        {
+            "source_type": "marketing_data_source",
+            "source_id": "source-meta",
+            "provider": "meta_ads",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    ]
+    return evidence
+
+
 def test_registry_snapshot_is_mutation_safe_and_fail_closed():
     first = registry_snapshot()
     second = deepcopy(first)
@@ -139,3 +191,55 @@ def test_gateway_evidence_rejects_secret_like_metadata(client, auth_headers):
         },
     )
     assert response.status_code == 422
+
+
+def test_advisory_preview_generates_cited_deterministic_location_recommendations(client, auth_headers):
+    response = client.post(
+        "/api/v1/ai-gateway/advisory-preview",
+        headers=auth_headers,
+        json={
+            "tool_key": "marketing-insights",
+            "requested_action": "recommend",
+            "evidence": advisory_evidence_payload(),
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tool_key"] == "marketing-insights"
+    assert body["location_id"] == "location-001"
+    assert body["deterministic_baseline"] is True
+    assert body["model_inference_executed"] is False
+    assert body["execution_authorised"] is False
+    assert body["external_write_authorised"] is False
+    assert body["human_approval_required"] is True
+    assert body["provenance_source_ids"] == ["source-google", "source-meta"]
+    assert any(item["category"] == "observation" for item in body["items"])
+    assert any(item["category"] == "recommendation" for item in body["items"])
+    assert all(citation["evidence_id"] == "evidence-123" for citation in body["citations"])
+    assert all(item["fact_index"] >= 0 for item in body["citations"])
+
+
+def test_advisory_preview_keeps_forecasting_behind_model_promotion_gate(client, auth_headers):
+    response = client.post(
+        "/api/v1/ai-gateway/advisory-preview",
+        headers=auth_headers,
+        json={
+            "tool_key": "marketing-insights",
+            "requested_action": "forecast",
+            "evidence": advisory_evidence_payload(),
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "AI_ADVISORY_FORECAST_REQUIRES_GOVERNED_MODEL"
+
+
+def test_advisory_preview_requires_service_key(client):
+    response = client.post(
+        "/api/v1/ai-gateway/advisory-preview",
+        json={
+            "tool_key": "marketing-insights",
+            "requested_action": "analyse",
+            "evidence": advisory_evidence_payload(),
+        },
+    )
+    assert response.status_code == 401
