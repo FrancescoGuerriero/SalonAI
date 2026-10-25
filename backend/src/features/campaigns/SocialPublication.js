@@ -17,6 +17,12 @@ const schema = new Schema(
       required: true,
       index: true,
     },
+    location: {
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      required: true,
+      index: true,
+    },
     campaign: {
       type: Schema.Types.ObjectId,
       ref: "Campaign",
@@ -138,10 +144,10 @@ const schema = new Schema(
   }
 );
 
-schema.index({ business: 1, campaign: 1, channel: 1, createdAt: -1 });
-schema.index({ business: 1, status: 1, scheduledFor: 1 });
+schema.index({ business: 1, location: 1, campaign: 1, channel: 1, createdAt: -1 });
+schema.index({ business: 1, location: 1, status: 1, scheduledFor: 1 });
 schema.index(
-  { business: 1, idempotencyKey: 1 },
+  { business: 1, location: 1, idempotencyKey: 1 },
   { unique: true }
 );
 
