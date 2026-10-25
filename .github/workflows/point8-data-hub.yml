@@ -11,6 +11,7 @@ on:
       - "backend/src/features/integrationPlatform/marketingCommerceProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingAdvertisingProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingOrganicProviderAdapters.js"
+      - "backend/src/features/integrationPlatform/marketingFinalProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
@@ -20,6 +21,7 @@ on:
       - "backend/src/test/stage8MarketingProviderWave2.test.js"
       - "backend/src/test/stage8MarketingProviderWave3.test.js"
       - "backend/src/test/stage8MarketingProviderWave4.test.js"
+      - "backend/src/test/stage8MarketingProviderWave5.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
       - "frontend/src/Services/marketingConnectionsService.js"
@@ -41,6 +43,7 @@ on:
       - "backend/src/features/integrationPlatform/marketingCommerceProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingAdvertisingProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingOrganicProviderAdapters.js"
+      - "backend/src/features/integrationPlatform/marketingFinalProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
@@ -50,6 +53,7 @@ on:
       - "backend/src/test/stage8MarketingProviderWave2.test.js"
       - "backend/src/test/stage8MarketingProviderWave3.test.js"
       - "backend/src/test/stage8MarketingProviderWave4.test.js"
+      - "backend/src/test/stage8MarketingProviderWave5.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
       - "frontend/src/Services/marketingConnectionsService.js"
@@ -93,6 +97,7 @@ jobs:
           src/test/stage8MarketingProviderWave2.test.js
           src/test/stage8MarketingProviderWave3.test.js
           src/test/stage8MarketingProviderWave4.test.js
+          src/test/stage8MarketingProviderWave5.test.js
 
       - name: Verify backend source
         run: npm run check
