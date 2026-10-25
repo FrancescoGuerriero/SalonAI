@@ -79,6 +79,14 @@ async function recordJourneyOutcome(enrollmentId, outcome) {
   return response.data;
 }
 
+async function reconcileMembershipRecoveryJourneys({ limit = 100 } = {}) {
+  const response = await API.post(
+    STAGE7_ROOT + "/membership-recovery/reconcile",
+    { limit }
+  );
+  return response.data?.result || null;
+}
+
 async function getCampaignJourneyRevenue({ campaignId = null } = {}) {
   const response = await API.get(
     STAGE7_ROOT + "/measurement/campaign-revenue",
@@ -98,6 +106,7 @@ export {
   listJourneyEnrollments,
   listRetentionJourneys,
   previewRetentionJourney,
+  reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
   updateRetentionJourney,
 };
@@ -111,6 +120,7 @@ export default {
   listJourneyEnrollments,
   listRetentionJourneys,
   previewRetentionJourney,
+  reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
   updateRetentionJourney,
 };
