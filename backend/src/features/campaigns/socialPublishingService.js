@@ -48,6 +48,12 @@ function objectId(value, field, { optional = false } = {}) {
   return id;
 }
 
+function locationAuthority(businessId, locationId) {
+  objectId(businessId, "business");
+  objectId(locationId, "location");
+  return { business: businessId, location: locationId };
+}
+
 function date(value, field, { optional = true } = {}) {
   if ((value === undefined || value === null || value === "") && optional) return null;
   const parsed = new Date(value);
@@ -223,9 +229,11 @@ export async function createSocialPublication(
   payload = {},
   {
     businessId,
+    locationId,
     actorUser = null,
   } = {}
 ) {
+  locationAuthority(businessId, locationId);
   const campaign = await campaignForBusiness(campaignId, businessId);
   const channel = lower(payload.channel);
   const allowedChannels = new Set(
@@ -247,6 +255,7 @@ export async function createSocialPublication(
   const requestedKey = text(payload.idempotencyKey);
   const idempotencyKey = requestedKey || stableKey([
     businessId,
+    locationId,
     campaign._id,
     channel,
     connection._id,
@@ -270,14 +279,15 @@ export async function createSocialPublication(
         connectionId: String(connection._id),
       },
     },
-    { businessId, actorUser }
+    { businessId, locationId, actorUser }
   );
 
   const publication = await SocialPublication.findOneAndUpdate(
-    { business: businessId, idempotencyKey },
+    { business: businessId, location: locationId, idempotencyKey },
     {
       $setOnInsert: {
         business: businessId,
+        location: locationId,
         campaign: campaign._id,
         campaignExecution: execution._id,
         connection: connection._id,
@@ -304,11 +314,13 @@ export async function createSocialPublication(
 export async function listSocialPublications(
   campaignId,
   query = {},
-  { businessId } = {}
+  { businessId, locationId } = {}
 ) {
+  locationAuthority(businessId, locationId);
   const campaign = await campaignForBusiness(campaignId, businessId);
   const match = {
     business: businessId,
+    location: locationId,
     campaign: campaign._id,
   };
   if (query.status) match.status = lower(query.status);
@@ -317,7 +329,7 @@ export async function listSocialPublications(
 
   return SocialPublication.find(match)
     .populate("connection", "provider connectionKey status metadata")
-    .populate("campaignExecution", "status provider metrics scheduledFor completedAt")
+    .populate("campaignExecution", "location status provider metrics scheduledFor completedAt")
     .sort({ scheduledFor: 1, createdAt: -1, _id: -1 })
     .limit(Math.max(1, Math.min(500, Number(query.limit) || 100)))
     .lean();
@@ -328,17 +340,20 @@ export async function queueSocialPublication(
   publicationId,
   {
     businessId,
+    locationId,
     actorUser = null,
   } = {}
 ) {
+  locationAuthority(businessId, locationId);
   await campaignForBusiness(campaignId, businessId);
   objectId(publicationId, "publication");
   const publication = await SocialPublication.findOne({
     _id: publicationId,
     campaign: campaignId,
     business: businessId,
+    location: locationId,
   });
-  if (!publication) throw createServiceError("Social publication not found.", 404);
+  if (!publication) throw createServiceError("Social publication not found in the selected location.", 404);
   if (!["draft", "scheduled", "failed"].includes(publication.status)) {
     throw createServiceError(
       `Social publication cannot be queued from status ${publication.status}.`,
@@ -357,6 +372,7 @@ export async function queueSocialPublication(
       _id: publication.campaignExecution,
       campaign: campaignId,
       business: businessId,
+      location: locationId,
     },
     {
       $set: {
@@ -375,6 +391,7 @@ export async function publishSocialPublication(
   publicationId,
   {
     businessId,
+    locationId,
     actorUser = null,
   } = {}
 ) {
@@ -386,14 +403,16 @@ export async function publishSocialPublication(
     );
   }
 
+  locationAuthority(businessId, locationId);
   await campaignForBusiness(campaignId, businessId);
   objectId(publicationId, "publication");
   const publication = await SocialPublication.findOne({
     _id: publicationId,
     campaign: campaignId,
     business: businessId,
+    location: locationId,
   });
-  if (!publication) throw createServiceError("Social publication not found.", 404);
+  if (!publication) throw createServiceError("Social publication not found in the selected location.", 404);
   if (!["queued", "scheduled", "failed"].includes(publication.status)) {
     throw createServiceError(
       `Social publication cannot be published from status ${publication.status}.`,
@@ -422,6 +441,7 @@ export async function publishSocialPublication(
     {
       _id: publication.campaignExecution,
       business: businessId,
+      location: locationId,
       campaign: campaignId,
     },
     {
@@ -449,6 +469,7 @@ export async function publishSocialPublication(
       {
         _id: publication.campaignExecution,
         business: businessId,
+        location: locationId,
         campaign: campaignId,
       },
       {
@@ -476,6 +497,7 @@ export async function publishSocialPublication(
       {
         _id: publication.campaignExecution,
         business: businessId,
+        location: locationId,
         campaign: campaignId,
       },
       {
