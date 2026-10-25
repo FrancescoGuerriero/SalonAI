@@ -30,11 +30,11 @@ test("Stage 8 Marketing catalogue exposes implemented and roadmap providers", ()
   assert.ok(providers.get("hubspot").scopes.includes("content"));
 
   for (const item of MARKETING_HUB_PROVIDER_EXTENSIONS) {
-    assert.equal(providers.get(item.key).configurable, false, `${item.key} must remain catalogue-only until implemented`);
-    assert.equal(providers.get(item.key).ready, false, `${item.key} must not report ready before implementation`);
+    assert.equal(providers.get(item.key).configurable, false, `${item.key} remains disabled in the legacy catalogue until the verification-aware controller promotes a real connector`);
+    assert.equal(providers.get(item.key).ready, false, `${item.key} must not report ready before verified connection`);
     assert.equal(providers.get(item.key).liveSyncEnabled, false);
   }
-  assert.equal(providers.get("openai_ads").documentationUrl, "https://developers.openai.com/ads/api-overview");
+  assert.equal(providers.get("openai_ads").documentationUrl, "https://developers.openai.com/ads/api-reference/authentication");
   assert.equal(providers.get("openai_ads").implementationStatus, "planned");
   assert.equal(catalogue.liveSyncEnabled, false);
   assert.equal(catalogue.version, "1.1.0");
@@ -78,11 +78,13 @@ test("Marketing connections API is permission protected and mounted under Integr
   assert.match(routes, /feature-control:read/);
   assert.match(routes, /feature-control:update/);
   assert.match(routes, /\/accounts\/:provider/);
+  assert.match(routes, /\/accounts\/:provider\/verify/);
   assert.match(integrationRoutes, /"\/marketing-connections"/);
   assert.match(controller, /effectiveAuthority\?\.businessId/);
   assert.match(controller, /tenantContext\?\.businessId/);
   assert.match(controller, /ensureMarketingSourceForConnection/);
   assert.match(controller, /pauseMarketingSourceForProvider/);
+  assert.match(controller, /verifyMarketingConnectedAccount/);
 });
 
 test("Marketing source provisioning stays ready-only, bridges routing metadata, and keeps execution locked", async () => {
@@ -103,7 +105,7 @@ test("Marketing source provisioning stays ready-only, bridges routing metadata, 
   assert.match(providerRun, /MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED/);
 });
 
-test("Marketing dashboard is routed, displays planned providers safely, and is visible from canonical management navigation", async () => {
+test("Marketing dashboard is routed, displays unavailable providers safely, and is visible from canonical management navigation", async () => {
   const [page, router, navigation, client] = await Promise.all([
     source("../../../frontend/src/pages/MarketingHubPage.jsx"),
     source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"),
@@ -118,6 +120,7 @@ test("Marketing dashboard is routed, displays planned providers safely, and is v
   assert.match(page, /account\.configurable === false/);
   assert.match(page, /Included in the Marketing Hub roadmap/);
   assert.match(client, /\/integration-platform\/marketing-connections/);
+  assert.match(client, /verifyMarketingAccount/);
 });
 
 test("Marketing provider forms include key account identifiers and provider guidance", async () => {
