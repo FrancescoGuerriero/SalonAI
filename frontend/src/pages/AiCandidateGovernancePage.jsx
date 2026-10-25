@@ -1,4 +1,4 @@
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, FileCheck2, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import AiCandidateGovernancePanel from "../components/stage8/AiCandidateGovernancePanel.jsx";
@@ -19,7 +19,10 @@ export default function AiCandidateGovernancePage() {
               <h1 className="mt-2 text-3xl font-bold text-slate-900">Location AI candidate governance</h1>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">Inspect location-owned offline/shadow candidate evaluations, benchmark-suite progress, artifact provenance and human promotion-proposal review state. This workspace cannot activate or promote a production model.</p>
             </div>
-            <Link to="/admin/system/ai-readiness" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700"><ArrowLeft size={16} /> AI readiness</Link>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/system/ai-readiness" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700"><ArrowLeft size={16} /> AI readiness</Link>
+              <Link to="/admin/system/ai-promotion-proposals" className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-700"><FileCheck2 size={16} /> Promotion dossiers</Link>
+            </div>
           </div>
         </section>
 
