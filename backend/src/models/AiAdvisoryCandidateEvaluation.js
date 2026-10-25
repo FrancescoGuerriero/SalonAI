@@ -16,6 +16,19 @@ const metricSchema = new Schema(
   { _id: false }
 );
 
+const promotionReadinessSchema = new Schema(
+  {
+    requiredOfflineCases: { type: Number, min: 1, required: true },
+    qualifyingOfflineCases: { type: Number, min: 0, required: true },
+    minimumRepeatedRunsPerCase: { type: Number, min: 1, required: true },
+    repeatedRunCount: { type: Number, min: 0, required: true },
+    candidateOutputIncludedInRepeatedRuns: { type: Boolean, required: true },
+    repeatedRunEvidenceSufficient: { type: Boolean, required: true },
+    suiteGatePassed: { type: Boolean, required: true },
+  },
+  { _id: false }
+);
+
 const schema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -61,6 +74,7 @@ const schema = new Schema(
     metrics: { type: metricSchema, required: true },
     blockers: { type: [String], default: () => [] },
     qualityGatePassed: { type: Boolean, required: true, index: true },
+    promotionReadiness: { type: promotionReadinessSchema, required: true },
     eligibleForPromotionReview: { type: Boolean, required: true, index: true },
     promotionReviewStatus: {
       type: String,
@@ -83,6 +97,7 @@ schema.index({ business: 1, location: 1, createdAt: -1 });
 schema.index({ business: 1, location: 1, toolKey: 1, createdAt: -1 });
 schema.index({ business: 1, location: 1, candidateKind: 1, promotionReviewStatus: 1, createdAt: -1 });
 schema.index({ business: 1, location: 1, evidenceId: 1, assessmentHash: 1 });
+schema.index({ business: 1, location: 1, "model.artifactSha256": 1, policyVersion: 1, baselineVersion: 1 });
 
 schema.pre("validate", function enforceProductionLock(next) {
   this.productionPromotionAuthorised = false;
