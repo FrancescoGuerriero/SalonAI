@@ -33,6 +33,7 @@ const schema = new Schema(
       required: true,
       index: true,
     },
+    registryVersion: { type: String, trim: true, maxlength: 40, default: "" },
     candidateVersion: { type: String, required: true, trim: true, maxlength: 160 },
     candidateOutputHash: { type: String, required: true, trim: true, maxlength: 64 },
     model: {
@@ -47,6 +48,8 @@ const schema = new Schema(
         default: "",
       },
     },
+    baselineComparisonPassed: { type: Boolean, required: true },
+    artifactPromotionEligible: { type: Boolean, required: true },
     evidenceId: { type: String, required: true, trim: true, maxlength: 64, index: true },
     evidenceContract: { type: String, required: true, trim: true, maxlength: 120 },
     evidenceChecksum: { type: String, required: true, trim: true, maxlength: 64 },
