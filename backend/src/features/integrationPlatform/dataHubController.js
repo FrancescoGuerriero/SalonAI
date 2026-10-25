@@ -1,4 +1,5 @@
 import { createServiceError } from "../../shared/serviceError.js";
+import * as candidateEvaluationService from "./aiCandidateEvaluationService.js";
 import * as gatewayService from "./dataHubAiGatewayService.js";
 import * as service from "./dataHubService.js";
 
@@ -78,6 +79,37 @@ export async function aiGatewayInvocations(request, response) {
   });
 }
 
+export async function aiCandidateEvaluate(request, response) {
+  response.status(201).json(await candidateEvaluationService.evaluateAndRecordCandidate(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
+export async function aiCandidateEvaluations(request, response) {
+  response.json({
+    items: await candidateEvaluationService.listCandidateEvaluations(request.query || {}, scope(request)),
+  });
+}
+
+export async function aiCandidateEvaluation(request, response) {
+  response.json(await candidateEvaluationService.getCandidateEvaluation(
+    request.params.recordId,
+    scope(request)
+  ));
+}
+
+export async function aiCandidateReview(request, response) {
+  response.json(await candidateEvaluationService.reviewCandidateEvaluation(
+    request.params.recordId,
+    body(request),
+    {
+      ...scope(request),
+      actor: actor(request),
+    }
+  ));
+}
+
 export async function savedViews(request, response) {
   response.json({ items: await service.listDataHubSavedViews(request.query || {}, scope(request)) });
 }
@@ -130,6 +162,10 @@ export async function destinationRuns(request, response) {
 }
 
 export default {
+  aiCandidateEvaluate,
+  aiCandidateEvaluation,
+  aiCandidateEvaluations,
+  aiCandidateReview,
   aiEvidence,
   aiGatewayAdvisoryPreview,
   aiGatewayEvidence,
