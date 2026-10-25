@@ -13,6 +13,7 @@ import {
   marketingAccountVerifierAvailable,
   verifyMarketingConnectedAccount,
 } from "./marketingAccountVerificationService.js";
+import { marketingConnectorDefinition } from "./marketingConnectorCatalogue.js";
 import {
   ensureMarketingSourceForConnection,
   pauseMarketingSourceForProvider,
@@ -95,6 +96,14 @@ function mergeByProvider(baseItems, overrideItems, connections = new Map()) {
   return [...byProvider.values()];
 }
 
+function ingestionAdapterAvailable(provider) {
+  try {
+    return marketingConnectorDefinition(provider).liveActivation !== "catalogue_only";
+  } catch {
+    return false;
+  }
+}
+
 export async function catalogue(_request, response) {
   const base = legacyService.marketingConnectedAccountCatalogue();
   response.json({
@@ -160,8 +169,9 @@ export async function configure(request, response) {
         (item) => item.provider === provider
       );
 
+  const supportsIngestion = ingestionAdapterAvailable(provider);
   let source = null;
-  if (verification.verified && account?.connectionId) {
+  if (verification.verified && account?.connectionId && supportsIngestion) {
     source = await ensureMarketingSourceForConnection(provider, account.connectionId, {
       businessId: tenantBusinessId,
       locationId: selectedLocationId,
@@ -179,6 +189,8 @@ export async function configure(request, response) {
     verifiedAt: verification.verifiedAt,
     verification,
     locationId: selectedLocationId,
+    ingestionAdapterAvailable: supportsIngestion,
+    dataHubSourceStatus: supportsIngestion ? "ready_manual" : "account_connected_adapter_pending",
     dataHubSourceId: source?._id || null,
     liveSyncEnabled: false,
   });
@@ -190,7 +202,11 @@ export async function verify(request, response) {
   const verification = await verifyMarketingConnectedAccount(provider, {
     businessId: tenantBusinessId,
   });
-  response.json({ ...verification, liveSyncEnabled: false });
+  response.json({
+    ...verification,
+    ingestionAdapterAvailable: ingestionAdapterAvailable(provider),
+    liveSyncEnabled: false,
+  });
 }
 
 export async function disconnect(request, response) {
