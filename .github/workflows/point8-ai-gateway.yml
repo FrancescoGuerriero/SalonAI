@@ -1,0 +1,56 @@
+name: Point 8 AI Gateway Gate
+
+on:
+  pull_request:
+    paths:
+      - "ai-service/app/governance/ai_registry.py"
+      - "ai-service/app/schemas/ai_gateway.py"
+      - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/api/router.py"
+      - "ai-service/tests/test_ai_gateway.py"
+      - "docs/roadmap/stage-8-ai-gateway-registry.md"
+      - ".github/workflows/point8-ai-gateway.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "ai-service/app/governance/ai_registry.py"
+      - "ai-service/app/schemas/ai_gateway.py"
+      - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/api/router.py"
+      - "ai-service/tests/test_ai_gateway.py"
+      - "docs/roadmap/stage-8-ai-gateway-registry.md"
+      - ".github/workflows/point8-ai-gateway.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ai-gateway-contracts:
+    name: Stage 8 AI Gateway contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: ai-service/requirements.txt
+
+      - name: Install AI-service test dependencies
+        run: pip install -r requirements.txt
+        working-directory: ai-service
+
+      - name: Compile AI-service
+        run: python -m compileall -q app tests
+        working-directory: ai-service
+
+      - name: Run AI Gateway governance tests
+        run: pytest -q tests/test_ai_gateway.py
+        working-directory: ai-service
