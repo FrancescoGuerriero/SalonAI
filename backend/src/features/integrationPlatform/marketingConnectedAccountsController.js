@@ -1,5 +1,9 @@
 import { createServiceError } from "../../shared/serviceError.js";
 import * as service from "./marketingConnectedAccountsService.js";
+import {
+  ensureMarketingSourceForConnection,
+  pauseMarketingSourceForProvider,
+} from "./marketingSourceProvisioningService.js";
 
 function businessId(request) {
   const value = request.effectiveAuthority?.businessId || request.tenantContext?.businessId || null;
@@ -24,18 +28,32 @@ export async function accounts(request, response) {
 }
 
 export async function configure(request, response) {
-  response.json(await service.configureMarketingConnectedAccount(
+  const tenantBusinessId = businessId(request);
+  const actor = actorUser(request);
+  const account = await service.configureMarketingConnectedAccount(
     request.params.provider,
     body(request),
-    { businessId: businessId(request), actorUser: actorUser(request) }
-  ));
+    { businessId: tenantBusinessId, actorUser: actor }
+  );
+  let source = null;
+  if (account.ready && account.connectionId) {
+    source = await ensureMarketingSourceForConnection(account.provider, account.connectionId, {
+      businessId: tenantBusinessId,
+      actor,
+    });
+  }
+  response.json({ ...account, dataHubSourceId: source?._id || null, liveSyncEnabled: false });
 }
 
 export async function disconnect(request, response) {
-  response.json(await service.disconnectMarketingConnectedAccount(
+  const tenantBusinessId = businessId(request);
+  const actor = actorUser(request);
+  const account = await service.disconnectMarketingConnectedAccount(
     request.params.provider,
-    { businessId: businessId(request) }
-  ));
+    { businessId: tenantBusinessId }
+  );
+  await pauseMarketingSourceForProvider(account.provider, { businessId: tenantBusinessId, actor });
+  response.json({ ...account, dataHubSourcePaused: true, liveSyncEnabled: false });
 }
 
 export default { accounts, catalogue, configure, disconnect };
