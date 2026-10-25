@@ -6,13 +6,11 @@ on:
       - "backend/src/features/campaigns/**"
       - "backend/src/features/reputation/**"
       - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
-      - "backend/src/features/integrationPlatform/marketingAccountVerificationService.js"
-      - "backend/src/features/integrationPlatform/marketingAccountVerificationExtensions.js"
+      - "backend/src/features/integrationPlatform/marketingAccountVerification*.js"
       - "backend/src/features/integrationPlatform/marketingAccountVerifierRegistryService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsController.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
-      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorsService.js"
-      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorExtensions.js"
+      - "backend/src/features/integrationPlatform/marketingVerifiedConnector*.js"
       - "backend/src/features/integrationPlatform/marketingHubProviderExtensions.js"
       - "backend/src/features/integrationPlatform/providerCredentialService.js"
       - "backend/src/models/IntegrationConnection.js"
@@ -22,7 +20,7 @@ on:
       - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
       - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
       - "backend/src/test/stage8MarketingRealConnectorContracts.test.js"
-      - "backend/src/test/stage8MarketingVerifiedExtensionContracts.test.js"
+      - "backend/src/test/stage8MarketingVerified*Contracts.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
@@ -35,13 +33,11 @@ on:
       - "backend/src/features/campaigns/**"
       - "backend/src/features/reputation/**"
       - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
-      - "backend/src/features/integrationPlatform/marketingAccountVerificationService.js"
-      - "backend/src/features/integrationPlatform/marketingAccountVerificationExtensions.js"
+      - "backend/src/features/integrationPlatform/marketingAccountVerification*.js"
       - "backend/src/features/integrationPlatform/marketingAccountVerifierRegistryService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsController.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
-      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorsService.js"
-      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorExtensions.js"
+      - "backend/src/features/integrationPlatform/marketingVerifiedConnector*.js"
       - "backend/src/features/integrationPlatform/marketingHubProviderExtensions.js"
       - "backend/src/features/integrationPlatform/providerCredentialService.js"
       - "backend/src/models/IntegrationConnection.js"
@@ -51,7 +47,7 @@ on:
       - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
       - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
       - "backend/src/test/stage8MarketingRealConnectorContracts.test.js"
-      - "backend/src/test/stage8MarketingVerifiedExtensionContracts.test.js"
+      - "backend/src/test/stage8MarketingVerified*Contracts.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
@@ -90,6 +86,8 @@ jobs:
           src/test/stage8bCampaignHubLocationContracts.test.js
           src/test/stage8MarketingRealConnectorContracts.test.js
           src/test/stage8MarketingVerifiedExtensionContracts.test.js
+          src/test/stage8MarketingVerifiedWave3Contracts.test.js
+          src/test/stage8MarketingVerifiedWave4Contracts.test.js
 
       - name: Verify backend source
         run: npm run check
