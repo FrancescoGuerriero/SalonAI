@@ -116,7 +116,7 @@ const CONNECTORS = Object.freeze({
   tiktok_ads: adapterDefinition({ key: "tiktok_ads", label: "TikTok Ads", fields: adFields, scopes: ["reporting"] }),
   facebook_pages: adapterDefinition({ key: "facebook_pages", label: "Facebook Pages", fields: socialFields, scopes: ["pages_read_engagement", "read_insights"] }),
   instagram_organic: adapterDefinition({ key: "instagram_organic", label: "Instagram Organic", fields: socialFields, scopes: ["instagram_basic", "instagram_manage_insights"] }),
-  linkedin_pages: adapterDefinition({ key: "linkedin_pages", label: "LinkedIn Pages", fields: socialFields, scopes: ["r_organization_social"] }),
+  linkedin_pages: adapterDefinition({ key: "linkedin_pages", label: "LinkedIn Pages", fields: socialFields, scopes: ["r_organization_social", "rw_organization_admin"] }),
   google_business_profile: adapterDefinition({
     key: "google_business_profile",
     label: "Google Business Profile",
@@ -147,7 +147,15 @@ const CONNECTORS = Object.freeze({
   }),
   hubspot: adapterDefinition({ key: "hubspot", label: "HubSpot", fields: crmFields, scopes: ["crm.objects.contacts.read", "crm.objects.companies.read", "crm.objects.deals.read"] }),
   mailchimp: adapterDefinition({ key: "mailchimp", label: "Mailchimp", fields: crmFields, scopes: ["marketing:read"] }),
-  youtube_analytics: adapterDefinition({ key: "youtube_analytics", label: "YouTube Analytics", fields: socialFields, scopes: ["https://www.googleapis.com/auth/yt-analytics.readonly"] }),
+  youtube_analytics: adapterDefinition({
+    key: "youtube_analytics",
+    label: "YouTube Analytics",
+    fields: socialFields,
+    scopes: [
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ],
+  }),
   generic: definition({
     key: "generic",
     label: "Generic structured source",
