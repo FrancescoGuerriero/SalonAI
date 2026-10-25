@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import mongoose from "mongoose";
 
 import Customer from "../../../models/customer.js";
+import Campaign from "../../campaigns/Campaign.js";
 import CampaignExecution from "../../campaigns/CampaignExecution.js";
 import RetentionJourney from "./RetentionJourney.js";
 import RetentionJourneyEnrollment from "./RetentionJourneyEnrollment.js";
@@ -19,6 +20,10 @@ function stableKey(parts) {
   return createHash("sha256")
     .update(parts.map((part) => String(part ?? "").trim()).join(":"))
     .digest("hex");
+}
+
+function objectId(value) {
+  return new mongoose.Types.ObjectId(String(value));
 }
 
 async function validateOwnedJourney(journeyId, businessId) {
@@ -66,6 +71,30 @@ async function validateOwnedCustomer(customerId, businessId) {
   return customer;
 }
 
+async function validateOwnedCampaign(campaignId, businessId) {
+  if (!campaignId) return null;
+  if (!mongoose.isValidObjectId(campaignId)) {
+    throw journeyError("Campaign id is invalid.", 400, "CAMPAIGN_ID_INVALID");
+  }
+
+  const campaign = await Campaign.findOne({
+    _id: campaignId,
+    business: businessId,
+  })
+    .select("_id")
+    .lean();
+
+  if (!campaign) {
+    throw journeyError(
+      "Campaign was not found in the active business.",
+      404,
+      "CAMPAIGN_NOT_FOUND"
+    );
+  }
+
+  return campaign._id;
+}
+
 export async function createJourneyEnrollment(
   payload = {},
   { tenantContext = {}, actorId = null } = {}
@@ -96,6 +125,9 @@ export async function createJourneyEnrollment(
     tenantContext,
   });
 
+  const explicitCampaign = await validateOwnedCampaign(payload.campaignId, businessId);
+  const campaign = explicitCampaign || customer360.attribution.latestTouch?.campaign || null;
+
   const stepEvidence = (journey.steps || []).map((step) => ({
     stepOrder: step.order,
     channel: step.channel,
@@ -116,7 +148,7 @@ export async function createJourneyEnrollment(
     outcome: "none",
     lifecycleStateAtEnrollment: customer360.lifecycle.state,
     segmentsAtEnrollment: customer360.segments,
-    campaign: payload.campaignId || customer360.attribution.latestTouch?.campaign || null,
+    campaign,
     executionAuthorised: false,
     stepEvidence,
     createdBy: actorId,
@@ -142,8 +174,18 @@ export async function listJourneyEnrollments(
   const businessId = requireRetentionBusinessId(tenantContext);
   const filter = { business: businessId };
 
-  if (customerId) filter.customer = customerId;
-  if (journeyId) filter.journey = journeyId;
+  if (customerId) {
+    if (!mongoose.isValidObjectId(customerId)) {
+      throw journeyError("Customer id is invalid.", 400, "CRM_CUSTOMER_ID_INVALID");
+    }
+    filter.customer = customerId;
+  }
+  if (journeyId) {
+    if (!mongoose.isValidObjectId(journeyId)) {
+      throw journeyError("Retention journey id is invalid.", 400, "RETENTION_JOURNEY_ID_INVALID");
+    }
+    filter.journey = journeyId;
+  }
   if (status) filter.status = String(status).trim().toLowerCase();
 
   const safeLimit = Math.min(500, Math.max(1, Number.parseInt(limit, 10) || 100));
@@ -205,15 +247,15 @@ export async function campaignJourneyRevenueSummary(
   { tenantContext = {}, campaignId = null } = {}
 ) {
   const businessId = requireRetentionBusinessId(tenantContext);
-  const campaignFilter = { business: businessId };
-  const enrollmentFilter = { business: businessId };
+  const businessObjectId = objectId(businessId);
+  const campaignFilter = { business: businessObjectId };
+  const enrollmentFilter = { business: businessObjectId };
 
   if (campaignId) {
-    if (!mongoose.isValidObjectId(campaignId)) {
-      throw journeyError("Campaign id is invalid.", 400, "CAMPAIGN_ID_INVALID");
-    }
-    campaignFilter.campaign = campaignId;
-    enrollmentFilter.campaign = campaignId;
+    await validateOwnedCampaign(campaignId, businessId);
+    const campaignObjectId = objectId(campaignId);
+    campaignFilter.campaign = campaignObjectId;
+    enrollmentFilter.campaign = campaignObjectId;
   }
 
   const [executionRows, enrollmentRows] = await Promise.all([
