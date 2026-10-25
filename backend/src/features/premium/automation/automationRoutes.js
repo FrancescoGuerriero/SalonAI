@@ -14,9 +14,16 @@ import {
   previewJourney,
   updateJourney,
 } from "./automationController.js";
+import {
+  createEnrollment,
+  getCampaignJourneyRevenue,
+  getCrmSegments,
+  getCustomer360,
+  getEnrollments,
+  updateEnrollmentOutcome,
+} from "./stage7CrmController.js";
 
-const router =
-  express.Router();
+const router = express.Router();
 
 router.use(protect);
 router.use(
@@ -27,32 +34,49 @@ router.use(
 
 router
   .route("/journeys")
-  .get(
-    asyncHandler(
-      listJourneys
-    )
-  )
-  .post(
-    asyncHandler(
-      createJourney
-    )
-  );
+  .get(asyncHandler(listJourneys))
+  .post(asyncHandler(createJourney));
 
 router.get(
   "/journeys/:journeyId/preview",
-  requirePermissions(
-    "customer:read"
-  ),
-  asyncHandler(
-    previewJourney
-  )
+  requirePermissions("customer:read"),
+  asyncHandler(previewJourney)
 );
 
 router.patch(
   "/journeys/:journeyId",
-  asyncHandler(
-    updateJourney
+  asyncHandler(updateJourney)
+);
+
+router.get(
+  "/customers/:customerId/360",
+  requirePermissions("customer:read"),
+  asyncHandler(getCustomer360)
+);
+
+router.get(
+  "/crm/segments",
+  requirePermissions("customer:read"),
+  asyncHandler(getCrmSegments)
+);
+
+router
+  .route("/enrollments")
+  .get(
+    requirePermissions("customer:read"),
+    asyncHandler(getEnrollments)
   )
+  .post(asyncHandler(createEnrollment));
+
+router.patch(
+  "/enrollments/:enrollmentId/outcome",
+  asyncHandler(updateEnrollmentOutcome)
+);
+
+router.get(
+  "/measurement/campaign-revenue",
+  requirePermissions("customer:read"),
+  asyncHandler(getCampaignJourneyRevenue)
 );
 
 export default router;
