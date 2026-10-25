@@ -61,7 +61,20 @@ const schema = new Schema(
         default: "",
       },
     },
+    baselineManifestAssertion: { type: Boolean, default: null },
     baselineComparisonPassed: { type: Boolean, required: true },
+    baselineComparisonSource: {
+      type: String,
+      enum: ["not_applicable", "manifest_declaration", "evidence_derived"],
+      default: "manifest_declaration",
+      index: true,
+    },
+    baselineComparisonEvidence: {
+      type: Schema.Types.ObjectId,
+      ref: "AiBaselineComparisonEvidence",
+      default: null,
+      index: true,
+    },
     artifactPromotionEligible: { type: Boolean, required: true },
     evidenceId: { type: String, required: true, trim: true, maxlength: 64, index: true },
     evidenceContract: { type: String, required: true, trim: true, maxlength: 120 },
@@ -99,10 +112,38 @@ schema.index({ business: 1, location: 1, candidateKind: 1, promotionReviewStatus
 schema.index({ business: 1, location: 1, evidenceId: 1, assessmentHash: 1 });
 schema.index({ business: 1, location: 1, "model.artifactSha256": 1, policyVersion: 1, baselineVersion: 1 });
 
-schema.pre("validate", function enforceProductionLock(next) {
+schema.pre("validate", function enforceGovernanceLocks(next) {
   this.productionPromotionAuthorised = false;
   this.productionInferenceAuthorised = false;
   this.externalWriteAuthorised = false;
+
+  if (this.candidateKind === "deterministic_baseline") {
+    this.baselineComparisonSource = "not_applicable";
+    this.baselineComparisonEvidence = null;
+    this.baselineComparisonPassed = true;
+    this.artifactPromotionEligible = false;
+    this.eligibleForPromotionReview = false;
+    if (!["accepted_for_promotion_proposal", "rejected"].includes(this.promotionReviewStatus)) {
+      this.promotionReviewStatus = "not_eligible";
+    }
+  } else {
+    if (this.baselineManifestAssertion === null || typeof this.baselineManifestAssertion === "undefined") {
+      this.baselineManifestAssertion = this.baselineComparisonPassed === true;
+    }
+    if (this.baselineComparisonSource !== "evidence_derived" || !this.baselineComparisonEvidence) {
+      this.baselineComparisonSource = "manifest_declaration";
+      this.baselineComparisonPassed = false;
+      this.artifactPromotionEligible = false;
+      this.eligibleForPromotionReview = false;
+      if (this.promotionReadiness) {
+        this.promotionReadiness.qualifyingOfflineCases = 0;
+        this.promotionReadiness.suiteGatePassed = false;
+      }
+      if (!["accepted_for_promotion_proposal", "rejected"].includes(this.promotionReviewStatus)) {
+        this.promotionReviewStatus = "not_eligible";
+      }
+    }
+  }
   next();
 });
 

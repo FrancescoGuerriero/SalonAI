@@ -20,8 +20,13 @@ test("offline experiment comparison UI is location-scoped and read-only", async 
   assert.match(client, /listAiOfflineExperiments/);
   assert.match(client, /getAiOfflineExperiment/);
   assert.match(client, /runAiOfflineExperiment/);
+  assert.match(client, /listAiBaselineComparisons/);
+  assert.match(client, /getAiBaselineComparison/);
+  assert.match(client, /createAiBaselineComparison/);
   assert.match(page, /Offline experiment comparison/);
   assert.match(page, /location-owned shadow\/offline model artifacts/);
+  assert.match(page, /Evidence-derived baseline deltas/);
+  assert.match(page, /same location, action, policy and canonical evidence case/);
   assert.match(page, /Production inference disabled/);
   assert.match(page, /Production promotion disabled/);
   assert.match(page, /Deployment disabled/);
@@ -29,7 +34,7 @@ test("offline experiment comparison UI is location-scoped and read-only", async 
   assert.doesNotMatch(page, /Train model|Deploy model|Promote model|Activate model|Run inference|\/train|\/deploy|\/promote|\/activate|\/infer/);
 });
 
-test("offline experiment comparison UI exposes benchmark and quality evidence", async () => {
+test("offline experiment comparison UI exposes benchmark, quality and per-metric baseline evidence", async () => {
   const page = await source("../../../frontend/src/pages/AiOfflineExperimentComparisonPage.jsx");
 
   for (const token of [
@@ -44,6 +49,15 @@ test("offline experiment comparison UI exposes benchmark and quality evidence", 
     "provenanceValidityRate",
     "artifactSha256",
     "candidateVersion",
+    "metricDeltas",
+    "baselineValue",
+    "candidateValue",
+    "nonDegraded",
+    "qualifyingOfflineCases",
+    "requiredOfflineCases",
+    "suiteGatePassed",
+    "repeatedRunEvidenceSufficient",
+    "blockers",
   ]) {
     assert.match(page, new RegExp(token));
   }

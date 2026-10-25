@@ -52,6 +52,19 @@ async function reviewAiCandidateEvaluation(recordId, payload) {
   return (await API.patch(`${ROOT}/ai-gateway/candidate-evaluations/${encodeURIComponent(recordId)}/review`, payload)).data;
 }
 
+async function createAiBaselineComparison(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/baseline-comparisons`, payload)).data;
+}
+
+async function listAiBaselineComparisons(params = {}) {
+  const response = await API.get(`${ROOT}/ai-gateway/baseline-comparisons`, { params });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
+async function getAiBaselineComparison(comparisonId) {
+  return (await API.get(`${ROOT}/ai-gateway/baseline-comparisons/${encodeURIComponent(comparisonId)}`)).data;
+}
+
 async function runAiOfflineExperiment(payload) {
   return (await API.post(`${ROOT}/ai-gateway/offline-experiments`, payload)).data;
 }
@@ -122,9 +135,11 @@ async function listDestinationRuns(params = {}) {
 }
 
 export {
+  createAiBaselineComparison,
   createAiPromotionProposal,
   createDestination,
   createSavedView,
+  getAiBaselineComparison,
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
@@ -133,6 +148,7 @@ export {
   getCatalogue,
   getFields,
   getOverview,
+  listAiBaselineComparisons,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
   listAiOfflineExperiments,
@@ -153,9 +169,11 @@ export {
 };
 
 export default {
+  createAiBaselineComparison,
   createAiPromotionProposal,
   createDestination,
   createSavedView,
+  getAiBaselineComparison,
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
@@ -164,6 +182,7 @@ export default {
   getCatalogue,
   getFields,
   getOverview,
+  listAiBaselineComparisons,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
   listAiOfflineExperiments,
