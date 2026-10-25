@@ -5,6 +5,7 @@ on:
     paths:
       - "backend/src/features/premium/automation/**"
       - "backend/src/test/point7CrmRetentionContracts.test.js"
+      - "backend/src/test/point7MembershipRecoveryBridge.test.js"
       - "backend/src/test/retentionAutomation.test.js"
       - "frontend/src/Services/retentionAutomationService.js"
       - ".github/workflows/point7-regression.yml"
@@ -14,6 +15,7 @@ on:
     paths:
       - "backend/src/features/premium/automation/**"
       - "backend/src/test/point7CrmRetentionContracts.test.js"
+      - "backend/src/test/point7MembershipRecoveryBridge.test.js"
       - "backend/src/test/retentionAutomation.test.js"
       - "frontend/src/Services/retentionAutomationService.js"
       - ".github/workflows/point7-regression.yml"
@@ -46,6 +48,7 @@ jobs:
         run: >-
           node --test
           src/test/point7CrmRetentionContracts.test.js
+          src/test/point7MembershipRecoveryBridge.test.js
           src/test/retentionAutomation.test.js
 
       - name: Run complete backend regression diagnostic
