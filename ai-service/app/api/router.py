@@ -1,5 +1,8 @@
 from fastapi import APIRouter
 
+from app.api.routes.ai_gateway import (
+    router as ai_gateway_router,
+)
 from app.api.routes.consultation import (
     router as consultation_router,
 )
@@ -41,6 +44,13 @@ api_router = APIRouter()
 # Public health and readiness endpoints.
 api_router.include_router(
     health_router
+)
+
+
+# Authenticated AI governance/gateway endpoints.
+api_router.include_router(
+    ai_gateway_router,
+    prefix="/api/v1",
 )
 
 
