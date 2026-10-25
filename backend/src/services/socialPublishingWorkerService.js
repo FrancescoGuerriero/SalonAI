@@ -90,11 +90,22 @@ async function executeWithConcurrency(items, concurrency, mapper) {
 
 async function processPublication(publication) {
   try {
+    if (!publication.location) {
+      return {
+        publicationId: String(publication._id),
+        success: false,
+        error: {
+          code: "SOCIAL_PUBLICATION_LOCATION_REQUIRED",
+          message: "Legacy social publication has no authoritative location and cannot be executed automatically.",
+        },
+      };
+    }
     const result = await publishSocialPublication(
       publication.campaign,
       publication._id,
       {
         businessId: publication.business,
+        locationId: publication.location,
         actorUser: null,
       }
     );
@@ -259,12 +270,12 @@ export async function startSocialPublishingWorker(options = {}) {
   if (config.unrefTimer && typeof state.timer.unref === "function") {
     state.timer.unref();
   }
-
-  let initialCycle = null;
   if (config.runImmediately) {
-    initialCycle = await runSocialPublishingWorkerCycle({
-      ...config,
-      enabled: true,
+    void runSocialPublishingWorkerCycle({ ...config, enabled: true }).catch((error) => {
+      state.lastError = {
+        code: error?.code || "SOCIAL_PUBLISHING_WORKER_ERROR",
+        message: error?.message || String(error),
+      };
     });
   }
 
@@ -273,26 +284,25 @@ export async function startSocialPublishingWorker(options = {}) {
     started: true,
     alreadyRunning: false,
     worker: getSocialPublishingWorkerStatus(),
-    initialCycle,
   };
 }
 
-export async function stopSocialPublishingWorker({ waitForCycle = true } = {}) {
+export async function stopSocialPublishingWorker() {
   state.stopping = true;
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
-  if (waitForCycle && state.currentCyclePromise) {
-    await state.currentCyclePromise.catch(() => undefined);
+  if (state.currentCyclePromise) {
+    try {
+      await state.currentCyclePromise;
+    } catch {
+      // Cycle state already records the failure.
+    }
   }
   state.enabled = false;
   state.started = false;
   state.stopping = false;
   state.stoppedAt = new Date().toISOString();
-  return {
-    success: true,
-    stopped: true,
-    worker: getSocialPublishingWorkerStatus(),
-  };
+  return getSocialPublishingWorkerStatus();
 }
 
 export default {
