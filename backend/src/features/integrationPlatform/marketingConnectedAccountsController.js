@@ -1,3 +1,4 @@
+import IntegrationConnection from "../../models/IntegrationConnection.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import * as legacyService from "./marketingConnectedAccountsService.js";
 import {
@@ -43,7 +44,7 @@ function body(request) {
   return request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body : {};
 }
 
-function governedItem(item) {
+function governedItem(item, connection = null) {
   const verifierAvailable = marketingAccountVerifierAvailable(item.provider);
   if (verifiedMarketingConnectorDefinition(item.provider)) return item;
   if (!item.configurable) return { ...item, verificationAvailable: false };
@@ -52,20 +53,44 @@ function governedItem(item) {
       ...item,
       configurable: false,
       ready: false,
+      verified: false,
       verificationAvailable: false,
       implementationStatus: "verification_adapter_required",
       readiness: "verification_adapter_required",
     };
   }
+  const verificationStatus = connection?.metadata?.verificationStatus || "required";
+  const verified = connection?.status === "connected" && verificationStatus === "verified";
   return {
     ...item,
+    status: connection?.status || item.status,
+    connectedAt: connection?.connectedAt || item.connectedAt,
+    configurable: true,
+    ready: verified,
+    verified,
+    verifiedAt: connection?.metadata?.verifiedAt || null,
     verificationAvailable: true,
-    ready: Boolean(item.ready && item.status === "connected" && item.metadata?.verificationStatus === "verified"),
+    readiness: verified
+      ? "configured"
+      : verificationStatus === "failed"
+        ? "verification_failed"
+        : connection
+          ? "verification_required"
+          : "not_connected",
+    metadata: {
+      ...(item.metadata || {}),
+      verifiedAccount: connection?.metadata?.verifiedAccount || null,
+    },
   };
 }
 
-function mergeByProvider(baseItems, overrideItems) {
-  const byProvider = new Map((baseItems || []).map((item) => [item.provider, governedItem(item)]));
+function mergeByProvider(baseItems, overrideItems, connections = new Map()) {
+  const byProvider = new Map(
+    (baseItems || []).map((item) => [
+      item.provider,
+      governedItem(item, connections.get(item.provider) || null),
+    ])
+  );
   for (const item of overrideItems || []) byProvider.set(item.provider, item);
   return [...byProvider.values()];
 }
@@ -82,14 +107,16 @@ export async function catalogue(_request, response) {
 
 export async function accounts(request, response) {
   const tenantBusinessId = businessId(request);
-  const [base, verified] = await Promise.all([
+  const [base, verified, rawConnections] = await Promise.all([
     legacyService.listMarketingConnectedAccounts({ businessId: tenantBusinessId }),
     listVerifiedMarketingConnectors({ businessId: tenantBusinessId }),
+    IntegrationConnection.find({ business: tenantBusinessId }).select("provider status connectedAt metadata").lean(),
   ]);
+  const connections = new Map(rawConnections.map((connection) => [connection.provider, connection]));
   response.json({
     ...base,
     version: "1.2.0",
-    items: mergeByProvider(base.items, verified),
+    items: mergeByProvider(base.items, verified, connections),
     message: "A provider is Connected only after its credentials pass a real provider account verification request.",
   });
 }
@@ -143,8 +170,13 @@ export async function configure(request, response) {
   }
 
   response.json({
-    ...governedItem(account),
-    verified: verification.verified,
+    ...account,
+    configurable: true,
+    ready: true,
+    verified: true,
+    verificationAvailable: true,
+    readiness: "configured",
+    verifiedAt: verification.verifiedAt,
     verification,
     locationId: selectedLocationId,
     dataHubSourceId: source?._id || null,
