@@ -14,18 +14,19 @@ import {
 
 const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("Facebook Page insights normalise daily views, engagements and page-view evidence", () => {
+test("Facebook Page insights normalise current daily view, reach, engagement and action evidence", () => {
   const records = normaliseFacebookPageInsights([
     { name: "page_media_view", values: [{ value: 1000, end_time: "2026-10-21T00:00:00+0000" }] },
+    { name: "page_total_media_view_unique", values: [{ value: 750, end_time: "2026-10-21T00:00:00+0000" }] },
     { name: "page_post_engagements", values: [{ value: 90, end_time: "2026-10-21T00:00:00+0000" }] },
-    { name: "page_views_total", values: [{ value: 60, end_time: "2026-10-21T00:00:00+0000" }] },
+    { name: "page_total_actions", values: [{ value: 60, end_time: "2026-10-21T00:00:00+0000" }] },
   ], "page-1", "2026-10-20");
   assert.deepEqual(records[0], {
     date: "2026-10-21",
     contentId: "page-1",
     contentType: "facebook_page",
     impressions: 1000,
-    reach: 0,
+    reach: 750,
     engagements: 90,
     clicks: 60,
   });
@@ -82,7 +83,7 @@ test("YouTube Analytics rows normalise daily channel activity", () => {
 
 test("Wave 4 adapters are read-only and use bounded current reporting endpoints", async () => {
   const adapter = await source("../features/integrationPlatform/marketingOrganicProviderAdapters.js");
-  assert.match(adapter, /page_media_view,page_post_engagements,page_views_total/);
+  assert.match(adapter, /page_media_view,page_total_media_view_unique,page_post_engagements,page_total_actions/);
   assert.match(adapter, /views,reach,total_interactions/);
   assert.match(adapter, /organizationPageStatistics/);
   assert.match(adapter, /Linkedin-Version/);
