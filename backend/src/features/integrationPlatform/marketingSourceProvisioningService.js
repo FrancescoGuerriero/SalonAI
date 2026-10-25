@@ -56,12 +56,21 @@ function routingConfig(provider, metadata = {}) {
   return result;
 }
 
+async function preserveLegacyOAuthAlias(connection) {
+  const clientId = String(connection.metadata?.clientId || "").trim();
+  if (!clientId || String(connection.metadata?.oauthClientId || "").trim()) return;
+  connection.metadata = { ...(connection.metadata || {}), oauthClientId: clientId };
+  connection.markModified("metadata");
+  await connection.save();
+}
+
 export async function ensureMarketingSourceForConnection(provider, connectionId, { businessId, actor = null } = {}) {
   objectId(businessId, "business");
   objectId(connectionId, "connection");
   const connection = await IntegrationConnection.findOne({ _id: connectionId, business: businessId, provider });
   if (!connection) throw createServiceError("Marketing connection not found for source provisioning.", 404);
   if (connection.status !== "connected") throw createServiceError("Marketing source provisioning requires a configured connection.", 409);
+  await preserveLegacyOAuthAlias(connection);
   const definition = marketingConnectorDefinition(provider);
   const key = `marketing-${provider}`;
   const values = {
