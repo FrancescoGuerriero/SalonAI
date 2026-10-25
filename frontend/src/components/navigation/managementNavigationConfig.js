@@ -93,6 +93,7 @@ const RAW_MANAGEMENT_SECTIONS = [
     id: "communications-growth",
     label: "Communicate and grow",
     links: [
+      ["/marketing", "Marketing", "Connect marketing accounts and feed the AIIBP Data Hub", "Megaphone", false, "feature-control:read", "", SIMPLE],
       ["/communications", "Communications", "Review customer contact history", "Mail", false, "communications:read", "communications", SIMPLE],
       ["/communication-templates", "Message templates", "Manage reusable message content", "MessageSquareText", false, "communications:read", "communications", SIMPLE],
       ["/scheduled-communications", "Scheduled messages", "Review future message delivery", "CalendarClock", false, "communications:read", "communications", SIMPLE],

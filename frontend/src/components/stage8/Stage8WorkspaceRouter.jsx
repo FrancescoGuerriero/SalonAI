@@ -5,6 +5,7 @@ import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
+const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -22,6 +23,14 @@ function DeferredWorkspace({ children }) {
 
 export default function Stage8WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
+
+  if (pathname === "/marketing") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><MarketingHubPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+  }
 
   if (pathname === "/admin/system/data-hub") {
     if (loading) return null;

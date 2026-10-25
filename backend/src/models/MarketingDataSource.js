@@ -23,6 +23,28 @@ const fieldSchema = new Schema(
   { _id: false }
 );
 
+export const MARKETING_DATA_PROVIDERS = Object.freeze([
+  "ga4",
+  "google_search_console",
+  "bing_webmaster",
+  "google_ads",
+  "meta_ads",
+  "linkedin_ads",
+  "microsoft_ads",
+  "tiktok_ads",
+  "facebook_pages",
+  "instagram_organic",
+  "linkedin_pages",
+  "google_business_profile",
+  "shopify",
+  "stripe",
+  "hubspot",
+  "mailchimp",
+  "youtube_analytics",
+  "generic",
+  "technical_seo",
+]);
+
 const sourceSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -32,7 +54,7 @@ const sourceSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 180 },
     provider: {
       type: String,
-      enum: ["ga4", "google_search_console", "bing_webmaster", "generic", "technical_seo"],
+      enum: MARKETING_DATA_PROVIDERS,
       required: true,
       index: true,
     },

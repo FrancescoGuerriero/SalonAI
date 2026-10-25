@@ -24,6 +24,11 @@ export async function runMarketingProviderSource(
   objectId(businessId, "business");
   const source = await MarketingDataSource.findOne({ _id: sourceId, business: businessId });
   if (!source) throw createServiceError("Marketing data source not found.", 404);
+  if (source.sourceConfig?.liveProviderExecution === false) {
+    throw createServiceError("Live provider retrieval is not authorised for this source.", 409, {
+      code: "MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED",
+    });
+  }
   if (!LIVE_PROVIDERS.has(source.provider)) {
     throw createServiceError(`Provider execution is not supported for source provider: ${source.provider}.`, 409, {
       code: "MARKETING_PROVIDER_EXECUTOR_NOT_AVAILABLE",

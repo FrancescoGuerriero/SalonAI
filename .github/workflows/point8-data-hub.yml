@@ -4,11 +4,18 @@ on:
   pull_request:
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccounts**"
+      - "backend/src/features/integrationPlatform/marketingSourceProvisioningService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectorCatalogue.js"
       - "backend/src/models/DataHub**"
+      - "backend/src/models/MarketingDataSource.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
+      - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/DataHubPage.jsx"
+      - "frontend/src/pages/MarketingHubPage.jsx"
       - "frontend/src/components/stage8/**"
       - "frontend/src/components/stage5/Stage5WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
@@ -18,11 +25,18 @@ on:
       - main
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccounts**"
+      - "backend/src/features/integrationPlatform/marketingSourceProvisioningService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectorCatalogue.js"
       - "backend/src/models/DataHub**"
+      - "backend/src/models/MarketingDataSource.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
+      - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/DataHubPage.jsx"
+      - "frontend/src/pages/MarketingHubPage.jsx"
       - "frontend/src/components/stage8/**"
       - "frontend/src/components/stage5/Stage5WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
@@ -52,8 +66,11 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run Point 8 Data Hub contract tests
-        run: node --test src/test/stage8DataHubContracts.test.js
+      - name: Run Point 8 Data Hub and Marketing contract tests
+        run: >-
+          node --test
+          src/test/stage8DataHubContracts.test.js
+          src/test/stage8MarketingConnectionsContracts.test.js
 
       - name: Verify backend source
         run: npm run check
@@ -79,7 +96,7 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Build Data Hub workspace
+      - name: Build Data Hub and Marketing workspaces
         run: npm run build
         working-directory: frontend
 
