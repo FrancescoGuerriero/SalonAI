@@ -100,6 +100,6 @@ test("Commerce executors remain behind the existing hard provider execution lock
   assert.match(runner, /"shopify"/);
   assert.match(runner, /"stripe"/);
   const lockIndex = runner.indexOf("liveProviderExecution === false");
-  const dispatchIndex = runner.indexOf("fetchMarketingCommerceProviderRecords");
+  const dispatchIndex = runner.indexOf("COMMERCE_PROVIDERS.has(source.provider)");
   assert.ok(lockIndex >= 0 && dispatchIndex > lockIndex, "execution lock must run before commerce provider dispatch");
 });
