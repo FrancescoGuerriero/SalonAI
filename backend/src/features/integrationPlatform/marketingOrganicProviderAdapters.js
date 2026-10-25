@@ -157,8 +157,9 @@ export function normaliseFacebookPageInsights(data = [], pageId = "", fallbackDa
   };
   const mapping = {
     page_media_view: "impressions",
+    page_total_media_view_unique: "reach",
     page_post_engagements: "engagements",
-    page_views_total: "clicks",
+    page_total_actions: "clicks",
   };
   for (const metric of Array.isArray(data) ? data : []) {
     const field = mapping[metric?.name];
@@ -179,7 +180,7 @@ async function fetchFacebookPages(source, payload = {}) {
   const since = Math.floor(new Date(`${startDate}T00:00:00Z`).getTime() / 1000);
   const until = Math.floor(new Date(`${endDate}T23:59:59Z`).getTime() / 1000);
   let nextUrl = new URL(`${META_GRAPH_ORIGIN}/${META_GRAPH_VERSION}/${encodeURIComponent(pageId)}/insights`);
-  nextUrl.searchParams.set("metric", "page_media_view,page_post_engagements,page_views_total");
+  nextUrl.searchParams.set("metric", "page_media_view,page_total_media_view_unique,page_post_engagements,page_total_actions");
   nextUrl.searchParams.set("period", "day");
   nextUrl.searchParams.set("since", String(since));
   nextUrl.searchParams.set("until", String(until));
