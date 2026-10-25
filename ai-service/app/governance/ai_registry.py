@@ -4,7 +4,8 @@ from copy import deepcopy
 from typing import Any
 
 
-REGISTRY_VERSION = "1.1.0"
+REGISTRY_VERSION = "1.2.0"
+ADVISORY_EVALUATION_POLICY_VERSION = "salonai-advisory-evaluation-v1"
 
 
 _TOOL_REGISTRY: tuple[dict[str, Any], ...] = (
@@ -87,8 +88,10 @@ _TOOL_REGISTRY: tuple[dict[str, Any], ...] = (
         "advisoryPreviewSupported": True,
         "advisoryPreviewRoute": "/api/v1/ai-gateway/advisory-preview",
         "advisoryBaseline": "salonai-canonical-adviser-baseline-v1",
+        "advisoryEvaluationPolicy": ADVISORY_EVALUATION_POLICY_VERSION,
         "modelInferenceRequiredForPreview": False,
         "forecastExecutionAuthorised": False,
+        "automaticPromotionAllowed": False,
     },
     {
         "key": "no-show-prediction",
@@ -162,6 +165,8 @@ def registry_snapshot() -> dict[str, Any]:
             "tenantContextRequired": True,
             "provenanceRequired": True,
             "humanApprovalForConsequentialActions": True,
+            "advisoryEvaluationPolicy": ADVISORY_EVALUATION_POLICY_VERSION,
+            "automaticModelPromotionAllowed": False,
             "externalWritesDefault": "disabled",
             "productionModelPromotionDefault": "disabled",
             "trainingDefault": "disabled",
