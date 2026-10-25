@@ -12,7 +12,7 @@ import {
 import {
   marketingAccountVerifierAvailable,
   verifyMarketingConnectedAccount,
-} from "./marketingAccountVerificationService.js";
+} from "./marketingAccountVerifierRegistryService.js";
 import { marketingConnectorDefinition } from "./marketingConnectorCatalogue.js";
 import {
   ensureMarketingSourceForConnection,
