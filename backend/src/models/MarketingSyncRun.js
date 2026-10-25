@@ -5,6 +5,7 @@ const { Schema } = mongoose;
 const syncRunSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     source: { type: Schema.Types.ObjectId, ref: "MarketingDataSource", required: true, index: true },
     runKey: { type: String, required: true, trim: true, maxlength: 180 },
     mode: {
@@ -45,8 +46,7 @@ const syncRunSchema = new Schema(
   { timestamps: true }
 );
 
-syncRunSchema.index({ business: 1, source: 1, runKey: 1 }, { unique: true });
-syncRunSchema.index({ business: 1, source: 1, createdAt: -1 });
+syncRunSchema.index({ business: 1, location: 1, source: 1, runKey: 1 }, { unique: true });
+syncRunSchema.index({ business: 1, location: 1, source: 1, createdAt: -1 });
 
-export default mongoose.models.MarketingSyncRun ||
-  mongoose.model("MarketingSyncRun", syncRunSchema);
+export default mongoose.models.MarketingSyncRun || mongoose.model("MarketingSyncRun", syncRunSchema);
