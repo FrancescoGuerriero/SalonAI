@@ -49,6 +49,17 @@ function requireBusinessId(value) {
   return value;
 }
 
+function requireLocationId(value) {
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(
+      "A trusted active location is required for campaign delivery operations.",
+      400,
+      { code: "LOCATION_REQUIRED" }
+    );
+  }
+  return value;
+}
+
 function slug(value) {
   return lower(value)
     .replace(/[^a-z0-9]+/g, "-")
@@ -420,8 +431,9 @@ export async function previewCampaign(id, { businessId: tenantBusinessId } = {})
 export async function scheduleCampaign(
   id,
   scheduledFor,
-  { businessId: tenantBusinessId } = {}
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
 ) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
   if (["processing", "completed", "cancelled"].includes(campaign.status)) {
     throw createServiceError(
@@ -458,6 +470,7 @@ export async function scheduleCampaign(
     const context = buildCustomerContext(customer);
     jobs.push({
       business: tenantBusinessId,
+      location: tenantLocationId,
       campaign: campaign._id,
       customer: customer._id,
       communicationType: "campaign",
@@ -477,6 +490,7 @@ export async function scheduleCampaign(
 
   await ScheduledCommunication.deleteMany({
     business: tenantBusinessId,
+    location: tenantLocationId,
     campaign: campaign._id,
     status: "queued",
   });
@@ -492,7 +506,11 @@ export async function scheduleCampaign(
   return getCampaign(campaign._id, { businessId: tenantBusinessId });
 }
 
-export async function cancelCampaign(id, { businessId: tenantBusinessId } = {}) {
+export async function cancelCampaign(
+  id,
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
+) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
   if (campaign.status === "completed") {
     throw createServiceError("A completed campaign cannot be cancelled.", 409);
@@ -503,6 +521,7 @@ export async function cancelCampaign(id, { businessId: tenantBusinessId } = {}) 
   await ScheduledCommunication.updateMany(
     {
       business: tenantBusinessId,
+      location: tenantLocationId,
       campaign: campaign._id,
       status: { $in: ["queued", "processing"] },
     },
@@ -514,12 +533,14 @@ export async function cancelCampaign(id, { businessId: tenantBusinessId } = {}) 
 export async function campaignJobs(
   id,
   query = {},
-  { businessId: tenantBusinessId } = {}
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
 ) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
   const { page, limit, skip } = paginationFromQuery(query);
   const match = {
     business: tenantBusinessId,
+    location: tenantLocationId,
     campaign: campaign._id,
   };
   if (query.status) match.status = lower(query.status);
