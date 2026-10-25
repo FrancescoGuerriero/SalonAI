@@ -62,10 +62,12 @@ async function acceptedCandidate(recordId, { businessId, locationId }) {
     || record.eligibleForPromotionReview !== true
     || record.qualityGatePassed !== true
     || record.baselineComparisonPassed !== true
+    || record.baselineComparisonSource !== "evidence_derived"
+    || !record.baselineComparisonEvidence
     || record.artifactPromotionEligible !== true
     || record.promotionReadiness?.suiteGatePassed !== true
   ) {
-    throw createServiceError("Candidate has not passed the complete governance chain required for a promotion proposal dossier.", 409, {
+    throw createServiceError("Candidate has not passed the complete evidence-derived governance chain required for a promotion proposal dossier.", 409, {
       code: "AI_PROMOTION_PROPOSAL_CANDIDATE_NOT_READY",
     });
   }
