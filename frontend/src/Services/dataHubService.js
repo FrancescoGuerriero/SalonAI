@@ -39,6 +39,19 @@ async function listAiGatewayInvocations(params = {}) {
   return Array.isArray(response.data?.items) ? response.data.items : [];
 }
 
+async function listAiCandidateEvaluations(params = {}) {
+  const response = await API.get(`${ROOT}/ai-gateway/candidate-evaluations`, { params });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
+async function getAiCandidateEvaluation(recordId) {
+  return (await API.get(`${ROOT}/ai-gateway/candidate-evaluations/${encodeURIComponent(recordId)}`)).data;
+}
+
+async function reviewAiCandidateEvaluation(recordId, payload) {
+  return (await API.patch(`${ROOT}/ai-gateway/candidate-evaluations/${encodeURIComponent(recordId)}/review`, payload)).data;
+}
+
 async function listSavedViews(params = {}) {
   const response = await API.get(`${ROOT}/saved-views`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -81,11 +94,13 @@ async function listDestinationRuns(params = {}) {
 export {
   createDestination,
   createSavedView,
+  getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
   getCatalogue,
   getFields,
   getOverview,
+  listAiCandidateEvaluations,
   listAiGatewayInvocations,
   listDestinationRuns,
   listDestinations,
@@ -93,6 +108,7 @@ export {
   planAiGateway,
   previewAiAdvisory,
   previewDestination,
+  reviewAiCandidateEvaluation,
   runQuery,
   runSavedView,
   updateDestination,
@@ -102,11 +118,13 @@ export {
 export default {
   createDestination,
   createSavedView,
+  getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
   getCatalogue,
   getFields,
   getOverview,
+  listAiCandidateEvaluations,
   listAiGatewayInvocations,
   listDestinationRuns,
   listDestinations,
@@ -114,6 +132,7 @@ export default {
   planAiGateway,
   previewAiAdvisory,
   previewDestination,
+  reviewAiCandidateEvaluation,
   runQuery,
   runSavedView,
   updateDestination,
