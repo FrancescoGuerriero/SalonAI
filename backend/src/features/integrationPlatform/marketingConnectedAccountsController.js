@@ -1,5 +1,17 @@
 import { createServiceError } from "../../shared/serviceError.js";
-import * as service from "./marketingConnectedAccountsService.js";
+import * as legacyService from "./marketingConnectedAccountsService.js";
+import {
+  configureVerifiedMarketingConnector,
+  disconnectVerifiedMarketingConnector,
+  getVerifiedMarketingConnector,
+  listVerifiedMarketingConnectors,
+  verifiedMarketingConnectorCatalogue,
+  verifiedMarketingConnectorDefinition,
+} from "./marketingVerifiedConnectorsService.js";
+import {
+  marketingAccountVerifierAvailable,
+  verifyMarketingConnectedAccount,
+} from "./marketingAccountVerificationService.js";
 import {
   ensureMarketingSourceForConnection,
   pauseMarketingSourceForProvider,
@@ -31,46 +43,133 @@ function body(request) {
   return request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body : {};
 }
 
+function governedItem(item) {
+  const verifierAvailable = marketingAccountVerifierAvailable(item.provider);
+  if (verifiedMarketingConnectorDefinition(item.provider)) return item;
+  if (!item.configurable) return { ...item, verificationAvailable: false };
+  if (!verifierAvailable) {
+    return {
+      ...item,
+      configurable: false,
+      ready: false,
+      verificationAvailable: false,
+      implementationStatus: "verification_adapter_required",
+      readiness: "verification_adapter_required",
+    };
+  }
+  return {
+    ...item,
+    verificationAvailable: true,
+    ready: Boolean(item.ready && item.status === "connected" && item.metadata?.verificationStatus === "verified"),
+  };
+}
+
+function mergeByProvider(baseItems, overrideItems) {
+  const byProvider = new Map((baseItems || []).map((item) => [item.provider, governedItem(item)]));
+  for (const item of overrideItems || []) byProvider.set(item.provider, item);
+  return [...byProvider.values()];
+}
+
 export async function catalogue(_request, response) {
-  response.json(service.marketingConnectedAccountCatalogue());
+  const base = legacyService.marketingConnectedAccountCatalogue();
+  response.json({
+    ...base,
+    version: "1.2.0",
+    items: mergeByProvider(base.items, verifiedMarketingConnectorCatalogue()),
+    message: "Only connectors with provider-specific credential contracts and live read-only account verification are connectable.",
+  });
 }
 
 export async function accounts(request, response) {
-  response.json(await service.listMarketingConnectedAccounts({ businessId: businessId(request) }));
+  const tenantBusinessId = businessId(request);
+  const [base, verified] = await Promise.all([
+    legacyService.listMarketingConnectedAccounts({ businessId: tenantBusinessId }),
+    listVerifiedMarketingConnectors({ businessId: tenantBusinessId }),
+  ]);
+  response.json({
+    ...base,
+    version: "1.2.0",
+    items: mergeByProvider(base.items, verified),
+    message: "A provider is Connected only after its credentials pass a real provider account verification request.",
+  });
 }
 
 export async function configure(request, response) {
   const tenantBusinessId = businessId(request);
   const selectedLocationId = locationId(request);
   const actor = actorUser(request);
-  const account = await service.configureMarketingConnectedAccount(
-    request.params.provider,
-    body(request),
-    { businessId: tenantBusinessId, actorUser: actor }
-  );
+  const provider = String(request.params.provider || "").trim().toLowerCase();
+
+  if (!marketingAccountVerifierAvailable(provider)) {
+    throw createServiceError(
+      "This provider does not yet have a provider-specific live account verifier and cannot be configured.",
+      409,
+      { code: "MARKETING_PROVIDER_VERIFIER_NOT_AVAILABLE", provider }
+    );
+  }
+
+  const verifiedDefinition = verifiedMarketingConnectorDefinition(provider);
+  const stagedAccount = verifiedDefinition
+    ? await configureVerifiedMarketingConnector(provider, body(request), {
+        businessId: tenantBusinessId,
+        actorUser: actor,
+      })
+    : await legacyService.configureMarketingConnectedAccount(provider, body(request), {
+        businessId: tenantBusinessId,
+        actorUser: actor,
+      });
+
+  if (!stagedAccount.connectionId) {
+    throw createServiceError("Provider credentials were not persisted for verification.", 409);
+  }
+
+  const verification = await verifyMarketingConnectedAccount(provider, {
+    businessId: tenantBusinessId,
+  });
+
+  const account = verifiedDefinition
+    ? await getVerifiedMarketingConnector(provider, { businessId: tenantBusinessId })
+    : (await legacyService.listMarketingConnectedAccounts({ businessId: tenantBusinessId })).items.find(
+        (item) => item.provider === provider
+      );
+
   let source = null;
-  if (account.ready && account.connectionId) {
-    source = await ensureMarketingSourceForConnection(account.provider, account.connectionId, {
+  if (verification.verified && account?.connectionId) {
+    source = await ensureMarketingSourceForConnection(provider, account.connectionId, {
       businessId: tenantBusinessId,
       locationId: selectedLocationId,
       actor,
     });
   }
+
   response.json({
-    ...account,
+    ...governedItem(account),
+    verified: verification.verified,
+    verification,
     locationId: selectedLocationId,
     dataHubSourceId: source?._id || null,
     liveSyncEnabled: false,
   });
 }
 
+export async function verify(request, response) {
+  const tenantBusinessId = businessId(request);
+  const provider = String(request.params.provider || "").trim().toLowerCase();
+  const verification = await verifyMarketingConnectedAccount(provider, {
+    businessId: tenantBusinessId,
+  });
+  response.json({ ...verification, liveSyncEnabled: false });
+}
+
 export async function disconnect(request, response) {
   const tenantBusinessId = businessId(request);
   const actor = actorUser(request);
-  const account = await service.disconnectMarketingConnectedAccount(
-    request.params.provider,
-    { businessId: tenantBusinessId }
-  );
+  const provider = String(request.params.provider || "").trim().toLowerCase();
+  const account = verifiedMarketingConnectorDefinition(provider)
+    ? await disconnectVerifiedMarketingConnector(provider, { businessId: tenantBusinessId })
+    : await legacyService.disconnectMarketingConnectedAccount(provider, {
+        businessId: tenantBusinessId,
+      });
   const paused = await pauseMarketingSourceForProvider(account.provider, {
     businessId: tenantBusinessId,
     actor,
@@ -83,4 +182,4 @@ export async function disconnect(request, response) {
   });
 }
 
-export default { accounts, catalogue, configure, disconnect };
+export default { accounts, catalogue, configure, disconnect, verify };
