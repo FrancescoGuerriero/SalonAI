@@ -1,8 +1,13 @@
-export const MARKETING_CONNECTOR_CATALOGUE_VERSION = "2.0.0";
+import { MARKETING_HUB_PROVIDER_EXTENSIONS } from "./marketingHubProviderExtensions.js";
+
+export const MARKETING_CONNECTOR_CATALOGUE_VERSION = "2.1.0";
 
 function definition(value) {
   return Object.freeze({
     ...value,
+    configurable: value.configurable !== false,
+    availability: value.availability || "implemented",
+    researchRequired: Boolean(value.researchRequired),
     schemaVersion: value.schemaVersion || "1.0.0",
     requiredScopes: Object.freeze([...(value.requiredScopes || [])]),
     checkpointStrategies: Object.freeze([...(value.checkpointStrategies || [])]),
@@ -60,6 +65,22 @@ function adapterDefinition({ key, label, fields, scopes = [] }) {
   });
 }
 
+function plannedDefinition(value) {
+  return definition({
+    key: value.key,
+    label: value.label,
+    category: value.category,
+    entityType: "generic_record",
+    configurable: false,
+    availability: value.researchRequired ? "research_required" : "planned",
+    researchRequired: Boolean(value.researchRequired),
+    liveActivation: "catalogue_only",
+    requiredScopes: [],
+    checkpointStrategies: ["manual"],
+    defaultFields: [],
+  });
+}
+
 const CONNECTORS = Object.freeze({
   ga4: definition({
     key: "ga4",
@@ -110,16 +131,16 @@ const CONNECTORS = Object.freeze({
     ],
   }),
   google_ads: adapterDefinition({ key: "google_ads", label: "Google Ads", fields: adFields, scopes: ["https://www.googleapis.com/auth/adwords"] }),
-  meta_ads: adapterDefinition({ key: "meta_ads", label: "Meta Ads", fields: adFields, scopes: ["ads_read", "read_insights"] }),
+  meta_ads: adapterDefinition({ key: "meta_ads", label: "Facebook Ads (Meta)", fields: adFields, scopes: ["ads_read", "read_insights"] }),
   linkedin_ads: adapterDefinition({ key: "linkedin_ads", label: "LinkedIn Ads", fields: adFields, scopes: ["r_ads", "r_ads_reporting"] }),
-  microsoft_ads: adapterDefinition({ key: "microsoft_ads", label: "Microsoft Advertising", fields: adFields, scopes: ["https://ads.microsoft.com/msads.manage"] }),
+  microsoft_ads: adapterDefinition({ key: "microsoft_ads", label: "Microsoft Ads (Bing Ads)", fields: adFields, scopes: ["https://ads.microsoft.com/msads.manage"] }),
   tiktok_ads: adapterDefinition({ key: "tiktok_ads", label: "TikTok Ads", fields: adFields, scopes: ["reporting"] }),
-  facebook_pages: adapterDefinition({ key: "facebook_pages", label: "Facebook Pages", fields: socialFields, scopes: ["pages_read_engagement", "read_insights"] }),
+  facebook_pages: adapterDefinition({ key: "facebook_pages", label: "Facebook Page Insights (Meta)", fields: socialFields, scopes: ["pages_read_engagement", "read_insights"] }),
   instagram_organic: adapterDefinition({ key: "instagram_organic", label: "Instagram Organic", fields: socialFields, scopes: ["instagram_basic", "instagram_manage_insights"] }),
   linkedin_pages: adapterDefinition({ key: "linkedin_pages", label: "LinkedIn Pages", fields: socialFields, scopes: ["r_organization_social", "rw_organization_admin"] }),
   google_business_profile: adapterDefinition({
     key: "google_business_profile",
-    label: "Google Business Profile",
+    label: "Google My Business / Business Profile",
     fields: [
       dateField,
       { sourceField: "locationId", dataType: "string", role: "identifier", normalisedField: "locationId" },
@@ -154,7 +175,7 @@ const CONNECTORS = Object.freeze({
   mailchimp: adapterDefinition({ key: "mailchimp", label: "Mailchimp", fields: crmFields, scopes: ["marketing:read"] }),
   youtube_analytics: adapterDefinition({
     key: "youtube_analytics",
-    label: "YouTube Analytics",
+    label: "YouTube",
     fields: socialFields,
     scopes: [
       "https://www.googleapis.com/auth/yt-analytics.readonly",
@@ -186,6 +207,9 @@ const CONNECTORS = Object.freeze({
       { sourceField: "noindex", dataType: "boolean", role: "attribute", normalisedField: "noindex" },
     ],
   }),
+  ...Object.fromEntries(
+    MARKETING_HUB_PROVIDER_EXTENSIONS.map((item) => [item.key, plannedDefinition(item)])
+  ),
 });
 
 export function marketingConnectorDefinition(provider) {
