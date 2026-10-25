@@ -6,6 +6,7 @@ import {
 } from "../../middleware/permissionMiddleware.js";
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
 import dataHubRoutes from "./dataHubRoutes.js";
+import marketingConnectedAccountsRoutes from "./marketingConnectedAccountsRoutes.js";
 import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
 import * as controller from "./integrationPlatformController.js";
 import * as connectedAccountsController from "./socialConnectedAccountsController.js";
@@ -27,6 +28,11 @@ router.use(
 router.use(
   "/data-hub",
   dataHubRoutes
+);
+
+router.use(
+  "/marketing-connections",
+  marketingConnectedAccountsRoutes
 );
 
 router.get("/stage-5-contract", read, asyncHandler(controller.stage5ContractCatalogue));
