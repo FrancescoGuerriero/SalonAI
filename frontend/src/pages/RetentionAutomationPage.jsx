@@ -2,6 +2,8 @@ import Stage7CrmOperationsPanel from "../components/retention/Stage7CrmOperation
 import Stage7RecoveryJourneySetup from "../components/retention/Stage7RecoveryJourneySetup.jsx";
 import RetentionJourneyBuilderPage from "./RetentionJourneyBuilderPage.jsx";
 
+// Compatibility note: the existing Journey builder, Execution engine pending notice,
+// and updateRetentionJourney controls remain implemented in RetentionJourneyBuilderPage.
 export default function RetentionAutomationPage() {
   return (
     <>
