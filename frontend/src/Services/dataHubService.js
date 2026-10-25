@@ -52,6 +52,23 @@ async function reviewAiCandidateEvaluation(recordId, payload) {
   return (await API.patch(`${ROOT}/ai-gateway/candidate-evaluations/${encodeURIComponent(recordId)}/review`, payload)).data;
 }
 
+async function listAiPromotionProposals(params = {}) {
+  const response = await API.get(`${ROOT}/ai-gateway/promotion-proposals`, { params });
+  return Array.isArray(response.data?.items) ? response.data.items : [];
+}
+
+async function getAiPromotionProposal(dossierId) {
+  return (await API.get(`${ROOT}/ai-gateway/promotion-proposals/${encodeURIComponent(dossierId)}`)).data;
+}
+
+async function createAiPromotionProposal(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/promotion-proposals`, payload)).data;
+}
+
+async function updateAiPromotionProposal(dossierId, payload) {
+  return (await API.patch(`${ROOT}/ai-gateway/promotion-proposals/${encodeURIComponent(dossierId)}`, payload)).data;
+}
+
 async function listSavedViews(params = {}) {
   const response = await API.get(`${ROOT}/saved-views`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -92,16 +109,19 @@ async function listDestinationRuns(params = {}) {
 }
 
 export {
+  createAiPromotionProposal,
   createDestination,
   createSavedView,
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
+  getAiPromotionProposal,
   getCatalogue,
   getFields,
   getOverview,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
+  listAiPromotionProposals,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
@@ -111,21 +131,25 @@ export {
   reviewAiCandidateEvaluation,
   runQuery,
   runSavedView,
+  updateAiPromotionProposal,
   updateDestination,
   updateSavedView,
 };
 
 export default {
+  createAiPromotionProposal,
   createDestination,
   createSavedView,
   getAiCandidateEvaluation,
   getAiEvidence,
   getAiGatewayEvidence,
+  getAiPromotionProposal,
   getCatalogue,
   getFields,
   getOverview,
   listAiCandidateEvaluations,
   listAiGatewayInvocations,
+  listAiPromotionProposals,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
@@ -135,6 +159,7 @@ export default {
   reviewAiCandidateEvaluation,
   runQuery,
   runSavedView,
+  updateAiPromotionProposal,
   updateDestination,
   updateSavedView,
 };
