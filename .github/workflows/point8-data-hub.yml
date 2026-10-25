@@ -8,12 +8,14 @@ on:
       - "backend/src/features/integrationPlatform/marketingSourceProvisioningService.js"
       - "backend/src/features/integrationPlatform/marketingConnectorCatalogue.js"
       - "backend/src/features/integrationPlatform/marketingProviderAdapters.js"
+      - "backend/src/features/integrationPlatform/marketingCommerceProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
       - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
       - "backend/src/test/stage8MarketingProviderWave1.test.js"
+      - "backend/src/test/stage8MarketingProviderWave2.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
       - "frontend/src/Services/marketingConnectionsService.js"
@@ -32,12 +34,14 @@ on:
       - "backend/src/features/integrationPlatform/marketingSourceProvisioningService.js"
       - "backend/src/features/integrationPlatform/marketingConnectorCatalogue.js"
       - "backend/src/features/integrationPlatform/marketingProviderAdapters.js"
+      - "backend/src/features/integrationPlatform/marketingCommerceProviderAdapters.js"
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
       - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
       - "backend/src/test/stage8MarketingProviderWave1.test.js"
+      - "backend/src/test/stage8MarketingProviderWave2.test.js"
       - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
       - "frontend/src/Services/dataHubService.js"
       - "frontend/src/Services/marketingConnectionsService.js"
@@ -78,6 +82,7 @@ jobs:
           src/test/stage8DataHubContracts.test.js
           src/test/stage8MarketingConnectionsContracts.test.js
           src/test/stage8MarketingProviderWave1.test.js
+          src/test/stage8MarketingProviderWave2.test.js
 
       - name: Verify backend source
         run: npm run check
