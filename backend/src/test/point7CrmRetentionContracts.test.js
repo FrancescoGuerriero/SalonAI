@@ -106,6 +106,11 @@ test("Point 7 retention definitions are business scoped and billing-aware", asyn
   assert.match(model, /business:\s*1,\s*enabled:\s*1/);
   assert.match(facade, /requireRetentionBusinessId/);
   assert.match(facade, /RetentionJourney\.find\(\{\s*business:\s*businessId/);
+  assert.match(
+    facade,
+    /built\.pipeline\[0\]\.\$match\.business\s*=\s*new mongoose\.Types\.ObjectId\(businessId\)/
+  );
+  assert.doesNotMatch(facade, /previewLegacyRetentionJourney/);
   assert.match(facade, /executionAuthorised:\s*false/);
 });
 
@@ -150,6 +155,8 @@ test("Point 7 routes expose CRM, enrolment and campaign-to-revenue reads behind 
     "utf8"
   );
 
+  assert.match(routes, /workforcePublicTenantContextMiddleware/);
+  assert.match(routes, /trustedTenantContextMiddleware/);
   assert.match(routes, /\/customers\/:customerId\/360/);
   assert.match(routes, /\/crm\/segments/);
   assert.match(routes, /\/enrollments/);
