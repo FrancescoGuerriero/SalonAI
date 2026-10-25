@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 
-REGISTRY_VERSION = "1.0.0"
+REGISTRY_VERSION = "1.1.0"
 
 
 _TOOL_REGISTRY: tuple[dict[str, Any], ...] = (
@@ -84,6 +84,11 @@ _TOOL_REGISTRY: tuple[dict[str, Any], ...] = (
         "humanApprovalRequired": True,
         "externalWriteAllowed": False,
         "evidenceContract": "data_hub_evidence_v1",
+        "advisoryPreviewSupported": True,
+        "advisoryPreviewRoute": "/api/v1/ai-gateway/advisory-preview",
+        "advisoryBaseline": "salonai-canonical-adviser-baseline-v1",
+        "modelInferenceRequiredForPreview": False,
+        "forecastExecutionAuthorised": False,
     },
     {
         "key": "no-show-prediction",

@@ -125,7 +125,7 @@ function gatewayConfiguration() {
   const baseUrl = text(process.env.AI_SERVICE_BASE_URL || process.env.AI_SERVICE_URL, 2000).replace(/\/$/, "");
   const serviceKey = text(process.env.AI_SERVICE_SERVICE_KEY || process.env.AI_SERVICE_KEY, 20000);
   if (!baseUrl || !serviceKey) {
-    throw createServiceError("AI Gateway planning is not configured for this environment.", 503, {
+    throw createServiceError("AI Gateway is not configured for this environment.", 503, {
       code: "AI_GATEWAY_NOT_CONFIGURED",
     });
   }
@@ -139,13 +139,24 @@ function gatewayConfiguration() {
   return { baseUrl, serviceKey };
 }
 
+function requestedAction(payload = {}) {
+  return ["analyse", "summarise", "forecast", "recommend"].includes(payload.requestedAction)
+    ? payload.requestedAction
+    : "analyse";
+}
+
 function invocationOutcome(plan = {}, status = "planned", errorCode = "") {
+  const items = Array.isArray(plan.items) ? plan.items : [];
   return {
     status,
     ...(errorCode ? { errorCode: text(errorCode, 120) } : {}),
     registryVersion: text(plan.registry_version || plan.registryVersion, 40),
+    advisoryVersion: text(plan.advisory_version || plan.advisoryVersion, 120),
     toolKey: text(plan.tool_key || plan.toolKey, 120),
     requestedAction: text(plan.requested_action || plan.requestedAction, 40),
+    recommendationCount: items.filter((item) => item?.category === "recommendation").length,
+    deterministicBaseline: Boolean(plan.deterministic_baseline || plan.deterministicBaseline),
+    modelInferenceExecuted: false,
     humanApprovalRequired: plan.human_approval_required !== false && plan.humanApprovalRequired !== false,
     executionAuthorised: false,
     externalWriteAuthorised: false,
@@ -157,7 +168,7 @@ async function recordInvocation({
   locationId,
   actor,
   toolKey,
-  requestedAction,
+  requestedAction: action,
   evidence,
   plan = {},
   status = "planned",
@@ -173,7 +184,7 @@ async function recordInvocation({
     business: businessId,
     location: locationId,
     toolKey,
-    requestedAction,
+    requestedAction: action,
     registryVersion: outcome.registryVersion,
     evidenceId: evidence.evidence_id,
     evidenceContract: evidence.contract,
@@ -191,44 +202,41 @@ async function recordInvocation({
   });
 }
 
-export async function planDataHubAiGateway(payload = {}, { businessId, locationId, actor = null, now = new Date() } = {}) {
-  const evidence = await buildGatewayEvidence(payload, { businessId, locationId, now });
-  const toolKey = text(payload.toolKey || "marketing-insights", 120) || "marketing-insights";
-  const requestedAction = ["analyse", "summarise", "forecast", "recommend"].includes(payload.requestedAction)
-    ? payload.requestedAction
-    : "analyse";
-  const { baseUrl, serviceKey } = gatewayConfiguration();
+async function gatewayPost(path, payload, { baseUrl, serviceKey }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
-    const response = await fetch(`${baseUrl}/api/v1/ai-gateway/plan`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "X-SalonAI-Service-Key": serviceKey,
       },
-      body: JSON.stringify({
-        tool_key: toolKey,
-        requested_action: requestedAction,
-        evidence,
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
     const raw = await response.text();
     let body = {};
     try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: text(raw, 2000) }; }
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function planDataHubAiGateway(payload = {}, { businessId, locationId, actor = null, now = new Date() } = {}) {
+  const evidence = await buildGatewayEvidence(payload, { businessId, locationId, now });
+  const toolKey = text(payload.toolKey || "marketing-insights", 120) || "marketing-insights";
+  const action = requestedAction(payload);
+  const config = gatewayConfiguration();
+  try {
+    const { response, body } = await gatewayPost("/api/v1/ai-gateway/plan", {
+      tool_key: toolKey,
+      requested_action: action,
+      evidence,
+    }, config);
     if (!response.ok) {
-      await recordInvocation({
-        businessId,
-        locationId,
-        actor,
-        toolKey,
-        requestedAction,
-        evidence,
-        plan: body,
-        status: "rejected",
-        errorCode: "AI_GATEWAY_PLAN_FAILED",
-      });
+      await recordInvocation({ businessId, locationId, actor, toolKey, requestedAction: action, evidence, plan: body, status: "rejected", errorCode: "AI_GATEWAY_PLAN_FAILED" });
       throw createServiceError(`AI Gateway planning returned HTTP ${response.status}.`, response.status, {
         code: "AI_GATEWAY_PLAN_FAILED",
         gatewayResponse: body,
@@ -239,7 +247,7 @@ export async function planDataHubAiGateway(payload = {}, { businessId, locationI
       locationId,
       actor,
       toolKey,
-      requestedAction,
+      requestedAction: action,
       evidence,
       plan: body,
       status: "planned",
@@ -255,28 +263,67 @@ export async function planDataHubAiGateway(payload = {}, { businessId, locationI
     };
   } catch (error) {
     if (error?.name === "AbortError") {
-      await recordInvocation({
-        businessId,
-        locationId,
-        actor,
-        toolKey,
-        requestedAction,
-        evidence,
-        status: "failed",
-        errorCode: "AI_GATEWAY_TIMEOUT",
-      });
+      await recordInvocation({ businessId, locationId, actor, toolKey, requestedAction: action, evidence, status: "failed", errorCode: "AI_GATEWAY_TIMEOUT" });
       throw createServiceError("AI Gateway planning timed out.", 504, { code: "AI_GATEWAY_TIMEOUT" });
     }
     throw error;
-  } finally {
-    clearTimeout(timer);
+  }
+}
+
+export async function previewDataHubAiAdvisory(payload = {}, { businessId, locationId, actor = null, now = new Date() } = {}) {
+  const evidence = await buildGatewayEvidence(payload, { businessId, locationId, now });
+  const toolKey = text(payload.toolKey || "marketing-insights", 120) || "marketing-insights";
+  const action = requestedAction(payload);
+  const config = gatewayConfiguration();
+  try {
+    const { response, body } = await gatewayPost("/api/v1/ai-gateway/advisory-preview", {
+      tool_key: toolKey,
+      requested_action: action,
+      evidence,
+    }, config);
+    if (!response.ok) {
+      await recordInvocation({ businessId, locationId, actor, toolKey, requestedAction: action, evidence, plan: body, status: "rejected", errorCode: "AI_ADVISORY_PREVIEW_FAILED" });
+      throw createServiceError(`AI advisory preview returned HTTP ${response.status}.`, response.status, {
+        code: body?.code || body?.detail?.code || "AI_ADVISORY_PREVIEW_FAILED",
+        gatewayResponse: body,
+      });
+    }
+    const invocation = await recordInvocation({
+      businessId,
+      locationId,
+      actor,
+      toolKey,
+      requestedAction: action,
+      evidence,
+      plan: body,
+      status: "advisory_previewed",
+    });
+    return {
+      locationId,
+      evidence,
+      advisory: body,
+      invocationId: invocation._id,
+      deterministicBaseline: true,
+      modelInferenceExecuted: false,
+      inferenceExecuted: false,
+      executionAuthorised: false,
+      externalWriteAuthorised: false,
+      humanApprovalRequired: true,
+      message: "A cited deterministic advisory preview was generated from canonical location-owned evidence. No model inference or external action occurred.",
+    };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      await recordInvocation({ businessId, locationId, actor, toolKey, requestedAction: action, evidence, status: "failed", errorCode: "AI_ADVISORY_TIMEOUT" });
+      throw createServiceError("AI advisory preview timed out.", 504, { code: "AI_ADVISORY_TIMEOUT" });
+    }
+    throw error;
   }
 }
 
 export async function listAiGatewayInvocations(query = {}, { businessId, locationId } = {}) {
   const match = { business: businessId, location: locationId };
   if (query.toolKey) match.toolKey = text(query.toolKey, 120);
-  if (["planned", "rejected", "failed"].includes(query.status)) match.status = query.status;
+  if (["planned", "advisory_previewed", "rejected", "failed"].includes(query.status)) match.status = query.status;
   const limit = Math.min(250, Math.max(1, Number.parseInt(query.limit, 10) || 50));
   return AiGatewayInvocation.find(match)
     .select("location toolKey requestedAction registryVersion evidenceId evidenceContract evidenceChecksum factCount provenanceCount sourceSummary status planOutcome humanApprovalRequired executionAuthorised externalWriteAuthorised inferenceExecuted requestedBy createdAt updatedAt")
@@ -290,4 +337,9 @@ export const AI_GATEWAY_BRIDGE_LIMITS = Object.freeze({
   provenanceLimit: AI_GATEWAY_PROVENANCE_LIMIT,
 });
 
-export default { buildGatewayEvidence, listAiGatewayInvocations, planDataHubAiGateway };
+export default {
+  buildGatewayEvidence,
+  listAiGatewayInvocations,
+  planDataHubAiGateway,
+  previewDataHubAiAdvisory,
+};

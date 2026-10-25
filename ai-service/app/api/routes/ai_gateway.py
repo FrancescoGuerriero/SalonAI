@@ -9,15 +9,41 @@ from app.governance.ai_registry import (
     registry_snapshot,
 )
 from app.schemas.ai_gateway import (
+    GatewayAdvisoryResponse,
     GatewayPlanRequest,
     GatewayPlanResponse,
 )
+from app.services.canonical_adviser import build_canonical_advisory
 
 
 router = APIRouter(
     prefix="/ai-gateway",
     tags=["ai-governance"],
 )
+
+
+def _registered_tool_or_error(payload: GatewayPlanRequest) -> dict:
+    tool = registered_tool(payload.tool_key)
+    if tool is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "AI_TOOL_NOT_REGISTERED",
+                "message": "Requested AI capability is not registered.",
+            },
+        )
+    evidence_contract = str(tool.get("evidenceContract", ""))
+    if evidence_contract != payload.evidence.contract:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "AI_EVIDENCE_CONTRACT_MISMATCH",
+                "message": (
+                    "The requested capability does not accept this evidence contract."
+                ),
+            },
+        )
+    return tool
 
 
 @router.get(
@@ -41,28 +67,8 @@ def plan_gateway_execution(
     request: Request,
 ) -> GatewayPlanResponse:
     request.state.ai_capability = "ai-gateway-plan"
-
-    tool = registered_tool(payload.tool_key)
-    if tool is None:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "code": "AI_TOOL_NOT_REGISTERED",
-                "message": "Requested AI capability is not registered.",
-            },
-        )
-
+    tool = _registered_tool_or_error(payload)
     evidence_contract = str(tool.get("evidenceContract", ""))
-    if evidence_contract != payload.evidence.contract:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "AI_EVIDENCE_CONTRACT_MISMATCH",
-                "message": (
-                    "The requested capability does not accept this evidence contract."
-                ),
-            },
-        )
 
     return GatewayPlanResponse(
         registry_version=REGISTRY_VERSION,
@@ -84,3 +90,38 @@ def plan_gateway_execution(
             "train or promote a model, or perform an external action."
         ),
     )
+
+
+@router.post(
+    "/advisory-preview",
+    response_model=GatewayAdvisoryResponse,
+    dependencies=[Depends(require_service_key)],
+)
+def advisory_preview(
+    payload: GatewayPlanRequest,
+    request: Request,
+) -> GatewayAdvisoryResponse:
+    request.state.ai_capability = "ai-gateway-advisory-preview"
+    tool = _registered_tool_or_error(payload)
+
+    if str(tool.get("key")) != "marketing-insights":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "AI_ADVISORY_BASELINE_NOT_IMPLEMENTED",
+                "message": "The deterministic advisory baseline is currently implemented only for Marketing Insights.",
+            },
+        )
+
+    if payload.requested_action == "forecast":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "AI_ADVISORY_FORECAST_REQUIRES_GOVERNED_MODEL",
+                "message": (
+                    "Forecasting remains planning-only until a governed predictive model has passed baseline comparison and promotion gates."
+                ),
+            },
+        )
+
+    return build_canonical_advisory(payload)

@@ -6,6 +6,7 @@ on:
       - "ai-service/app/governance/ai_registry.py"
       - "ai-service/app/schemas/ai_gateway.py"
       - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/services/canonical_adviser.py"
       - "ai-service/app/api/router.py"
       - "ai-service/tests/test_ai_gateway.py"
       - "docs/roadmap/stage-8-ai-gateway-registry.md"
@@ -17,6 +18,7 @@ on:
       - "ai-service/app/governance/ai_registry.py"
       - "ai-service/app/schemas/ai_gateway.py"
       - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/services/canonical_adviser.py"
       - "ai-service/app/api/router.py"
       - "ai-service/tests/test_ai_gateway.py"
       - "docs/roadmap/stage-8-ai-gateway-registry.md"
@@ -51,6 +53,6 @@ jobs:
         run: python -m compileall -q app tests
         working-directory: ai-service
 
-      - name: Run AI Gateway governance tests
+      - name: Run AI Gateway governance and advisory tests
         run: pytest -q tests/test_ai_gateway.py
         working-directory: ai-service
