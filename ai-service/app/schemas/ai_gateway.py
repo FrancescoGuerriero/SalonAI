@@ -80,3 +80,38 @@ class GatewayPlanResponse(BaseModel):
     external_write_authorised: bool = False
     human_approval_required: bool
     message: str
+
+
+class AdvisoryCitation(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    evidence_id: str = Field(min_length=1, max_length=240)
+    fact_index: int = Field(ge=0)
+    fact_name: str = Field(min_length=1, max_length=120)
+    fact_value: float | int | str | bool | None
+    dimensions: dict[str, str] = Field(default_factory=dict)
+
+
+class AdvisoryItem(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    category: Literal["summary", "observation", "recommendation", "constraint"]
+    priority: Literal["info", "low", "medium", "high"] = "info"
+    title: str = Field(min_length=1, max_length=160)
+    message: str = Field(min_length=1, max_length=1600)
+    citations: list[str] = Field(default_factory=list, max_length=12)
+
+
+class GatewayAdvisoryResponse(BaseModel):
+    advisory_version: str
+    tool_key: str
+    requested_action: Literal["analyse", "summarise", "recommend"]
+    evidence_id: str
+    location_id: str
+    deterministic_baseline: bool = True
+    model_inference_executed: bool = False
+    execution_authorised: bool = False
+    external_write_authorised: bool = False
+    human_approval_required: bool = True
+    items: list[AdvisoryItem] = Field(default_factory=list, max_length=20)
+    citations: list[AdvisoryCitation] = Field(default_factory=list, max_length=60)
+    provenance_source_ids: list[str] = Field(default_factory=list, max_length=200)
+    message: str
