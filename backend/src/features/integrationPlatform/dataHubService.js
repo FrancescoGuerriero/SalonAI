@@ -16,12 +16,7 @@ import { marketingDataConnectorCatalogue } from "./marketingDataCoreService.js";
 export const DATA_HUB_CONTRACT_VERSION = "1.0.0";
 export const DATA_HUB_QUERY_SCAN_LIMIT = 5000;
 
-const ENTITY_TYPES = [
-  "analytics_event",
-  "search_performance",
-  "seo_page",
-  "generic_record",
-];
+const ENTITY_TYPES = ["analytics_event", "search_performance", "seo_page", "generic_record"];
 const DATE_GRAINS = ["none", "day", "week", "month"];
 const VIEW_STATUSES = ["draft", "active", "archived"];
 const DESTINATION_STATUSES = ["draft", "ready", "active", "paused", "error", "archived"];
@@ -89,10 +84,7 @@ function text(value, max = 2000) {
 }
 
 function slug(value) {
-  return text(value, 120)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return text(value, 120).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function objectId(value, field) {
@@ -170,9 +162,7 @@ function fieldRef(value, defaultPrefix = null) {
 
 function outputFieldRef(value) {
   const candidate = text(value, 180);
-  if (candidate === "dateBucket" || candidate === "recordCount" || CALCULATED_METRICS[candidate]) {
-    return candidate;
-  }
+  if (candidate === "dateBucket" || candidate === "recordCount" || CALCULATED_METRICS[candidate]) return candidate;
   return fieldRef(candidate);
 }
 
@@ -212,7 +202,6 @@ export function normaliseDataHubQuery(payload = {}) {
     throw createServiceError("dateRange.from must be before dateRange.to.", 400, { field: "dateRange" });
   }
   const rowLimit = Math.min(1000, Math.max(1, Number.parseInt(payload.rowLimit, 10) || 250));
-
   return {
     sourceIds,
     entityTypes,
@@ -229,9 +218,7 @@ export function normaliseDataHubQuery(payload = {}) {
 function queryDateRange(query, now = new Date()) {
   let from = query.dateRange?.from || null;
   let to = query.dateRange?.to || null;
-  if (!from && query.dateRange?.rollingDays) {
-    from = new Date(now.getTime() - query.dateRange.rollingDays * 86400000);
-  }
+  if (!from && query.dateRange?.rollingDays) from = new Date(now.getTime() - query.dateRange.rollingDays * 86400000);
   if (!from && !to) {
     from = new Date(now.getTime() - 30 * 86400000);
     to = now;
@@ -244,9 +231,7 @@ function nestedValue(record, path) {
   if (path === "sourceKey") return record?.lineage?.sourceKey;
   if (path === "entityType") return record?.entityType;
   if (path === "occurredAt") return record?.occurredAt;
-  return String(path || "")
-    .split(".")
-    .reduce((value, part) => value && typeof value === "object" ? value[part] : undefined, record);
+  return String(path || "").split(".").reduce((value, part) => value && typeof value === "object" ? value[part] : undefined, record);
 }
 
 function scalar(value) {
@@ -257,9 +242,7 @@ function scalar(value) {
 }
 
 function compareFilter(actual, operator, expected) {
-  if (operator === "contains") {
-    return String(actual ?? "").toLowerCase().includes(String(expected ?? "").toLowerCase());
-  }
+  if (operator === "contains") return String(actual ?? "").toLowerCase().includes(String(expected ?? "").toLowerCase());
   if (operator === "in" || operator === "not_in") {
     const list = Array.isArray(expected) ? expected : String(expected ?? "").split(",").map((item) => item.trim());
     const included = list.map(String).includes(String(actual ?? ""));
@@ -315,33 +298,36 @@ function calculatedMetricValue(key, aggregate) {
   return (numerator / denominator) * definition.multiplier;
 }
 
-async function ownedSources(sourceIds, businessId) {
-  const match = { business: businessId };
+async function ownedSources(sourceIds, businessId, locationId) {
+  const match = { business: businessId, location: locationId };
   if (sourceIds.length) match._id = { $in: sourceIds };
   const sources = await MarketingDataSource.find(match)
-    .select("_id key name provider status providerSchemaVersion fieldCatalogue")
+    .select("_id location key name provider status providerSchemaVersion fieldCatalogue")
     .sort({ name: 1, _id: 1 })
     .lean();
   if (sourceIds.length && sources.length !== sourceIds.length) {
-    throw createServiceError("One or more Data Hub sources do not belong to the active business.", 404);
+    throw createServiceError("One or more Data Hub sources do not belong to the active location.", 404);
   }
   return sources;
 }
 
-export async function queryDataHub(payload = {}, { businessId, now = new Date() } = {}) {
+export async function queryDataHub(payload = {}, { businessId, locationId, now = new Date() } = {}) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
   const query = normaliseDataHubQuery(payload);
-  const sources = await ownedSources(query.sourceIds, businessId);
+  const sources = await ownedSources(query.sourceIds, businessId, locationId);
   const sourceIds = sources.map((source) => source._id);
   if (!sourceIds.length) {
     return {
       contractVersion: DATA_HUB_CONTRACT_VERSION,
+      locationId,
       query,
       columns: [],
       rows: [],
       totals: {},
       evidence: {
         deterministic: true,
+        locationId,
         recordsScanned: 0,
         recordsMatched: 0,
         truncatedScan: false,
@@ -352,7 +338,7 @@ export async function queryDataHub(payload = {}, { businessId, now = new Date() 
   }
 
   const dateRange = queryDateRange(query, now);
-  const match = { business: businessId, source: { $in: sourceIds } };
+  const match = { business: businessId, location: locationId, source: { $in: sourceIds } };
   if (query.entityTypes.length) match.entityType = { $in: query.entityTypes };
   if (dateRange.from || dateRange.to) {
     match.occurredAt = {};
@@ -365,8 +351,7 @@ export async function queryDataHub(payload = {}, { businessId, now = new Date() 
     .limit(DATA_HUB_QUERY_SCAN_LIMIT + 1)
     .lean();
   const truncatedScan = scanned.length > DATA_HUB_QUERY_SCAN_LIMIT;
-  const records = scanned.slice(0, DATA_HUB_QUERY_SCAN_LIMIT).filter((record) =>
-    recordMatchesFilters(record, query.filters));
+  const records = scanned.slice(0, DATA_HUB_QUERY_SCAN_LIMIT).filter((record) => recordMatchesFilters(record, query.filters));
 
   const calculatedDependencies = new Set();
   for (const key of query.calculatedMetrics) {
@@ -391,9 +376,7 @@ export async function queryDataHub(payload = {}, { businessId, now = new Date() 
     }
     const group = groups.get(key);
     group.recordCount += 1;
-    for (const name of aggregationMetricNames) {
-      group.metrics[name] += numericMetric(record, name);
-    }
+    for (const name of aggregationMetricNames) group.metrics[name] += numericMetric(record, name);
   }
 
   const rows = Array.from(groups.values())
@@ -425,18 +408,21 @@ export async function queryDataHub(payload = {}, { businessId, now = new Date() 
 
   return {
     contractVersion: DATA_HUB_CONTRACT_VERSION,
+    locationId,
     query: { ...query, dateRange },
     columns,
     rows,
     totals,
     evidence: {
       deterministic: true,
+      locationId,
       recordsScanned: Math.min(scanned.length, DATA_HUB_QUERY_SCAN_LIMIT),
       recordsMatched: records.length,
       truncatedScan,
       rowLimitApplied: rows.length >= query.rowLimit,
       sources: sources.map((source) => ({
         id: source._id,
+        locationId: source.location,
         key: source.key,
         name: source.name,
         provider: source.provider,
@@ -448,10 +434,11 @@ export async function queryDataHub(payload = {}, { businessId, now = new Date() 
   };
 }
 
-export async function dataHubFieldCatalogue({ businessId } = {}) {
+export async function dataHubFieldCatalogue({ businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const sources = await MarketingDataSource.find({ business: businessId })
-    .select("_id key name provider status fieldCatalogue")
+  objectId(locationId, "location");
+  const sources = await MarketingDataSource.find({ business: businessId, location: locationId })
+    .select("_id location key name provider status fieldCatalogue")
     .sort({ name: 1, _id: 1 })
     .lean();
   const fieldMap = new Map();
@@ -471,17 +458,17 @@ export async function dataHubFieldCatalogue({ businessId } = {}) {
       const normalisedName = field.normalisedField || field.sourceField;
       const prefix = field.role === "metric" ? "metrics" : field.role === "dimension" ? "dimensions" : "attributes";
       const path = `${prefix}.${normalisedName}`;
+      const sourceRef = { id: source._id, locationId: source.location, key: source.key, provider: source.provider };
       const existing = fieldMap.get(path);
-      if (existing) {
-        existing.sources.push({ id: source._id, key: source.key, provider: source.provider });
-      } else {
+      if (existing) existing.sources.push(sourceRef);
+      else {
         fieldMap.set(path, {
           path,
           label: field.label || normalisedName,
           role: field.role,
           dataType: field.dataType,
           description: field.description || "",
-          sources: [{ id: source._id, key: source.key, provider: source.provider }],
+          sources: [sourceRef],
         });
       }
     }
@@ -489,6 +476,7 @@ export async function dataHubFieldCatalogue({ businessId } = {}) {
 
   return {
     version: DATA_HUB_CONTRACT_VERSION,
+    locationId,
     sources,
     fields: Array.from(fieldMap.values()).sort((a, b) => a.path.localeCompare(b.path)),
     calculatedMetrics: Object.values(CALCULATED_METRICS),
@@ -500,10 +488,7 @@ export function dataHubCatalogue() {
   return {
     version: DATA_HUB_CONTRACT_VERSION,
     sourceContractVersion: stage5.version,
-    sourceConnectors: stage5.connectors.map((connector) => ({
-      ...connector,
-      availability: "source_contract",
-    })),
+    sourceConnectors: stage5.connectors.map((connector) => ({ ...connector, availability: "source_contract" })),
     plannedSourceBlueprints: PLANNED_SOURCE_BLUEPRINTS,
     destinations: DATA_HUB_DESTINATION_TYPES.map((key) => ({
       key,
@@ -523,6 +508,9 @@ export function dataHubCatalogue() {
     },
     safety: {
       tenantScoped: true,
+      locationOwnedFacts: true,
+      selectedLocationRequired: true,
+      businessWideAggregationExplicitOnly: true,
       deterministicQueries: true,
       externalSecretsInDestinationConfig: false,
       destinationExecutionAuthorised: false,
@@ -531,17 +519,20 @@ export function dataHubCatalogue() {
   };
 }
 
-export async function dataHubOverview({ businessId } = {}) {
+export async function dataHubOverview({ businessId, locationId } = {}) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
+  const scope = { business: businessId, location: locationId };
   const [sources, records, views, destinations, previews] = await Promise.all([
-    MarketingDataSource.countDocuments({ business: businessId, status: { $ne: "archived" } }),
-    MarketingNormalisedRecord.countDocuments({ business: businessId }),
-    DataHubSavedView.countDocuments({ business: businessId, status: { $ne: "archived" } }),
-    DataHubDestinationTask.countDocuments({ business: businessId, status: { $ne: "archived" } }),
-    DataHubDestinationRun.countDocuments({ business: businessId, mode: "preview" }),
+    MarketingDataSource.countDocuments({ ...scope, status: { $ne: "archived" } }),
+    MarketingNormalisedRecord.countDocuments(scope),
+    DataHubSavedView.countDocuments({ ...scope, status: { $ne: "archived" } }),
+    DataHubDestinationTask.countDocuments({ ...scope, status: { $ne: "archived" } }),
+    DataHubDestinationRun.countDocuments({ ...scope, mode: "preview" }),
   ]);
   return {
     version: DATA_HUB_CONTRACT_VERSION,
+    locationId,
     sources,
     normalisedRecords: records,
     savedViews: views,
@@ -551,27 +542,30 @@ export async function dataHubOverview({ businessId } = {}) {
   };
 }
 
-async function assertOwnedQuerySources(query, businessId) {
-  await ownedSources(query.sourceIds, businessId);
+async function assertOwnedQuerySources(query, businessId, locationId) {
+  await ownedSources(query.sourceIds, businessId, locationId);
 }
 
-export async function listDataHubSavedViews(query = {}, { businessId } = {}) {
+export async function listDataHubSavedViews(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.status) match.status = enumValue(query.status, "status", VIEW_STATUSES, "active");
   return DataHubSavedView.find(match).sort({ updatedAt: -1, _id: -1 }).lean();
 }
 
-export async function createDataHubSavedView(payload = {}, { businessId, actor = null } = {}) {
+export async function createDataHubSavedView(payload = {}, { businessId, locationId, actor = null } = {}) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
   const name = text(payload.name, 180);
   const key = slug(payload.key || name);
   if (!name || !key) throw createServiceError("Saved view name is required.", 422);
   const query = normaliseDataHubQuery(payload.query || {});
-  await assertOwnedQuerySources(query, businessId);
+  await assertOwnedQuerySources(query, businessId, locationId);
   try {
     return await DataHubSavedView.create({
       business: businessId,
+      location: locationId,
       key,
       name,
       description: text(payload.description, 1000),
@@ -581,26 +575,26 @@ export async function createDataHubSavedView(payload = {}, { businessId, actor =
       updatedBy: actorId(actor),
     });
   } catch (error) {
-    if (error?.code === 11000) throw createServiceError("A Data Hub saved view with this key already exists.", 409);
+    if (error?.code === 11000) throw createServiceError("A Data Hub saved view with this key already exists for this location.", 409);
     throw error;
   }
 }
 
-async function savedViewForBusiness(viewId, businessId) {
+async function savedViewForLocation(viewId, businessId, locationId) {
   objectId(viewId, "view");
-  const view = await DataHubSavedView.findOne({ _id: viewId, business: businessId });
-  if (!view) throw createServiceError("Data Hub saved view not found.", 404);
+  const view = await DataHubSavedView.findOne({ _id: viewId, business: businessId, location: locationId });
+  if (!view) throw createServiceError("Data Hub saved view not found for this location.", 404);
   return view;
 }
 
-export async function updateDataHubSavedView(viewId, payload = {}, { businessId, actor = null } = {}) {
-  const view = await savedViewForBusiness(viewId, businessId);
+export async function updateDataHubSavedView(viewId, payload = {}, { businessId, locationId, actor = null } = {}) {
+  const view = await savedViewForLocation(viewId, businessId, locationId);
   if (payload.name !== undefined) view.name = text(payload.name, 180) || view.name;
   if (payload.description !== undefined) view.description = text(payload.description, 1000);
   if (payload.status !== undefined) view.status = enumValue(payload.status, "status", VIEW_STATUSES, view.status);
   if (payload.query !== undefined) {
     const query = normaliseDataHubQuery(payload.query || {});
-    await assertOwnedQuerySources(query, businessId);
+    await assertOwnedQuerySources(query, businessId, locationId);
     view.query = query;
   }
   view.updatedBy = actorId(actor) || view.updatedBy;
@@ -608,9 +602,9 @@ export async function updateDataHubSavedView(viewId, payload = {}, { businessId,
   return view;
 }
 
-export async function queryDataHubSavedView(viewId, { businessId, now = new Date() } = {}) {
-  const view = await savedViewForBusiness(viewId, businessId);
-  return queryDataHub(view.query?.toObject ? view.query.toObject() : view.query, { businessId, now });
+export async function queryDataHubSavedView(viewId, { businessId, locationId, now = new Date() } = {}) {
+  const view = await savedViewForLocation(viewId, businessId, locationId);
+  return queryDataHub(view.query?.toObject ? view.query.toObject() : view.query, { businessId, locationId, now });
 }
 
 async function optionalOwnedApp(appId, businessId) {
@@ -645,22 +639,24 @@ function normaliseFieldMapping(values) {
   });
 }
 
-export async function listDataHubDestinationTasks(query = {}, { businessId } = {}) {
+export async function listDataHubDestinationTasks(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.status) match.status = enumValue(query.status, "status", DESTINATION_STATUSES, "active");
   if (query.type) match.type = enumValue(query.type, "type", DATA_HUB_DESTINATION_TYPES, "python");
   return DataHubDestinationTask.find(match)
-    .populate("view", "key name status")
+    .populate("view", "key name status location")
     .populate("app", "key name status")
     .populate("connection", "provider connectionKey status")
     .sort({ updatedAt: -1, _id: -1 })
     .lean();
 }
 
-export async function createDataHubDestinationTask(payload = {}, { businessId, actor = null } = {}) {
+export async function createDataHubDestinationTask(payload = {}, { businessId, locationId, actor = null } = {}) {
   objectId(businessId, "business");
-  const view = await savedViewForBusiness(payload.view, businessId);
+  objectId(locationId, "location");
+  const view = await savedViewForLocation(payload.view, businessId, locationId);
   const app = await optionalOwnedApp(payload.app, businessId);
   const connection = await optionalOwnedConnection(payload.connection, app?._id || null, businessId);
   const name = text(payload.name, 180);
@@ -668,10 +664,10 @@ export async function createDataHubDestinationTask(payload = {}, { businessId, a
   if (!name || !key) throw createServiceError("Destination task name is required.", 422);
   const destinationConfig = safeObject(payload.destinationConfig);
   assertNoSecrets(destinationConfig);
-
   try {
     return await DataHubDestinationTask.create({
       business: businessId,
+      location: locationId,
       view: view._id,
       app: app?._id || null,
       connection: connection?._id || null,
@@ -695,21 +691,21 @@ export async function createDataHubDestinationTask(payload = {}, { businessId, a
       updatedBy: actorId(actor),
     });
   } catch (error) {
-    if (error?.code === 11000) throw createServiceError("A Data Hub destination task with this key already exists.", 409);
+    if (error?.code === 11000) throw createServiceError("A Data Hub destination task with this key already exists for this location.", 409);
     throw error;
   }
 }
 
-async function destinationTaskForBusiness(taskId, businessId) {
+async function destinationTaskForLocation(taskId, businessId, locationId) {
   objectId(taskId, "destination task");
-  const task = await DataHubDestinationTask.findOne({ _id: taskId, business: businessId });
-  if (!task) throw createServiceError("Data Hub destination task not found.", 404);
+  const task = await DataHubDestinationTask.findOne({ _id: taskId, business: businessId, location: locationId });
+  if (!task) throw createServiceError("Data Hub destination task not found for this location.", 404);
   return task;
 }
 
-export async function updateDataHubDestinationTask(taskId, payload = {}, { businessId, actor = null } = {}) {
-  const task = await destinationTaskForBusiness(taskId, businessId);
-  if (payload.view !== undefined) task.view = (await savedViewForBusiness(payload.view, businessId))._id;
+export async function updateDataHubDestinationTask(taskId, payload = {}, { businessId, locationId, actor = null } = {}) {
+  const task = await destinationTaskForLocation(taskId, businessId, locationId);
+  if (payload.view !== undefined) task.view = (await savedViewForLocation(payload.view, businessId, locationId))._id;
   if (payload.name !== undefined) task.name = text(payload.name, 180) || task.name;
   if (payload.description !== undefined) task.description = text(payload.description, 1000);
   if (payload.type !== undefined) task.type = enumValue(payload.type, "type", DATA_HUB_DESTINATION_TYPES, task.type);
@@ -749,13 +745,14 @@ function previewRows(result, task) {
   });
 }
 
-export async function previewDataHubDestinationTask(taskId, { businessId, actor = null, now = new Date() } = {}) {
-  const task = await destinationTaskForBusiness(taskId, businessId);
-  const result = await queryDataHubSavedView(task.view, { businessId, now });
+export async function previewDataHubDestinationTask(taskId, { businessId, locationId, actor = null, now = new Date() } = {}) {
+  const task = await destinationTaskForLocation(taskId, businessId, locationId);
+  const result = await queryDataHubSavedView(task.view, { businessId, locationId, now });
   const rows = previewRows(result, task);
   const checksum = createHash("sha256").update(JSON.stringify(rows)).digest("hex");
   const run = await DataHubDestinationRun.create({
     business: businessId,
+    location: locationId,
     task: task._id,
     view: task.view,
     mode: "preview",
@@ -766,6 +763,7 @@ export async function previewDataHubDestinationTask(taskId, { businessId, actor 
     evidence: {
       destinationType: task.type,
       deterministic: true,
+      locationId,
       sourceCount: result.evidence.sources.length,
       recordsMatched: result.evidence.recordsMatched,
       generatedAt: now,
@@ -779,6 +777,7 @@ export async function previewDataHubDestinationTask(taskId, { businessId, actor 
     run,
     task: {
       id: task._id,
+      locationId,
       key: task.key,
       name: task.name,
       type: task.type,
@@ -791,30 +790,33 @@ export async function previewDataHubDestinationTask(taskId, { businessId, actor 
     rowCount: rows.length,
     checksum,
     evidence: result.evidence,
-    message: "Destination preview generated. No external write was attempted or authorised.",
+    message: "Destination preview generated for the selected location. No external write was attempted or authorised.",
   };
 }
 
-export async function listDataHubDestinationRuns(query = {}, { businessId } = {}) {
+export async function listDataHubDestinationRuns(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.taskId) match.task = objectId(query.taskId, "taskId");
   const limit = Math.min(250, Math.max(1, Number.parseInt(query.limit, 10) || 100));
   return DataHubDestinationRun.find(match)
-    .populate("task", "key name type status")
-    .populate("view", "key name status")
+    .populate("task", "key name type status location")
+    .populate("view", "key name status location")
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit)
     .lean();
 }
 
-export async function buildDataHubAiEvidence(payload = {}, { businessId, now = new Date() } = {}) {
+export async function buildDataHubAiEvidence(payload = {}, { businessId, locationId, now = new Date() } = {}) {
+  objectId(locationId, "location");
   const result = payload.viewId
-    ? await queryDataHubSavedView(payload.viewId, { businessId, now })
-    : await queryDataHub(payload.query || payload, { businessId, now });
+    ? await queryDataHubSavedView(payload.viewId, { businessId, locationId, now })
+    : await queryDataHub(payload.query || payload, { businessId, locationId, now });
   return {
     contract: "aiibp.data-hub.evidence",
     contractVersion: DATA_HUB_CONTRACT_VERSION,
+    locationId,
     generatedAt: now,
     facts: {
       columns: result.columns,
@@ -826,6 +828,8 @@ export async function buildDataHubAiEvidence(payload = {}, { businessId, now = n
       canonicalFactsRequired: true,
       evidenceMustBeCited: true,
       deterministicBaseline: true,
+      locationOwnershipRequired: true,
+      businessWideAggregationRequiresExplicitAuthority: true,
       modelMayRecalculateCanonicalMetrics: false,
       externalWriteActionsAuthorised: false,
       humanApprovalRequiredForConsequentialAction: true,
