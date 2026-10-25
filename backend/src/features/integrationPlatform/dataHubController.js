@@ -10,6 +10,20 @@ function businessId(request) {
   return value;
 }
 
+function locationId(request) {
+  const value = request.effectiveAuthority?.locationId || request.tenantContext?.locationId || null;
+  if (!value) {
+    throw createServiceError("Select a location before using Data Hub or AI evidence.", 400, {
+      code: "LOCATION_REQUIRED",
+    });
+  }
+  return value;
+}
+
+function scope(request) {
+  return { businessId: businessId(request), locationId: locationId(request) };
+}
+
 function actor(request) {
   return request.user || null;
 }
@@ -25,80 +39,78 @@ export async function catalogue(_request, response) {
 }
 
 export async function overview(request, response) {
-  response.json(await service.dataHubOverview({ businessId: businessId(request) }));
+  response.json(await service.dataHubOverview(scope(request)));
 }
 
 export async function fields(request, response) {
-  response.json(await service.dataHubFieldCatalogue({ businessId: businessId(request) }));
+  response.json(await service.dataHubFieldCatalogue(scope(request)));
 }
 
 export async function query(request, response) {
-  response.json(await service.queryDataHub(body(request), { businessId: businessId(request) }));
+  response.json(await service.queryDataHub(body(request), scope(request)));
 }
 
 export async function aiEvidence(request, response) {
-  response.json(await service.buildDataHubAiEvidence(body(request), { businessId: businessId(request) }));
+  response.json(await service.buildDataHubAiEvidence(body(request), scope(request)));
 }
 
 export async function aiGatewayEvidence(request, response) {
-  response.json(await gatewayService.buildGatewayEvidence(body(request), { businessId: businessId(request) }));
+  response.json(await gatewayService.buildGatewayEvidence(body(request), scope(request)));
 }
 
 export async function aiGatewayPlan(request, response) {
-  response.json(await gatewayService.planDataHubAiGateway(body(request), { businessId: businessId(request) }));
+  response.json(await gatewayService.planDataHubAiGateway(body(request), scope(request)));
 }
 
 export async function savedViews(request, response) {
-  response.json({ items: await service.listDataHubSavedViews(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listDataHubSavedViews(request.query || {}, scope(request)) });
 }
 
 export async function createSavedView(request, response) {
   response.status(201).json(await service.createDataHubSavedView(body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function updateSavedView(request, response) {
   response.json(await service.updateDataHubSavedView(request.params.viewId, body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function runSavedView(request, response) {
-  response.json(await service.queryDataHubSavedView(request.params.viewId, {
-    businessId: businessId(request),
-  }));
+  response.json(await service.queryDataHubSavedView(request.params.viewId, scope(request)));
 }
 
 export async function destinations(request, response) {
-  response.json({ items: await service.listDataHubDestinationTasks(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listDataHubDestinationTasks(request.query || {}, scope(request)) });
 }
 
 export async function createDestination(request, response) {
   response.status(201).json(await service.createDataHubDestinationTask(body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function updateDestination(request, response) {
   response.json(await service.updateDataHubDestinationTask(request.params.taskId, body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function previewDestination(request, response) {
   response.json(await service.previewDataHubDestinationTask(request.params.taskId, {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function destinationRuns(request, response) {
-  response.json({ items: await service.listDataHubDestinationRuns(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listDataHubDestinationRuns(request.query || {}, scope(request)) });
 }
 
 export default {
