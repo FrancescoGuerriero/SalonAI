@@ -75,10 +75,9 @@ export async function ensureMarketingSourceForConnection(
   const connection = await IntegrationConnection.findOne({
     _id: connectionId,
     business: businessId,
-    location: locationId,
     provider,
   });
-  if (!connection) throw createServiceError("Marketing connection not found for this location.", 404);
+  if (!connection) throw createServiceError("Marketing connection not found for this business.", 404);
   if (connection.status !== "connected") throw createServiceError("Marketing source provisioning requires a configured connection.", 409);
   await preserveLegacyOAuthAlias(connection);
   const definition = marketingConnectorDefinition(provider);
