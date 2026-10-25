@@ -16,6 +16,7 @@ test("AI candidate evaluation records are location-owned and production locked",
   assert.match(model, /location:\s*\{[\s\S]*?ref:\s*"Location"[\s\S]*?required:\s*true/);
   assert.match(model, /baselineComparisonPassed/);
   assert.match(model, /artifactPromotionEligible/);
+  assert.match(model, /promotionReadiness/);
   assert.match(model, /accepted_for_promotion_proposal/);
   assert.match(model, /productionPromotionAuthorised:\s*\{[\s\S]*?default:\s*false/);
   assert.match(model, /productionInferenceAuthorised:\s*\{[\s\S]*?default:\s*false/);
@@ -47,6 +48,30 @@ test("candidate evaluation verifies canonical evidence fingerprints before calli
   assert.match(service, /\/api\/v1\/ai-gateway\/evaluate-advisory/);
 });
 
+test("promotion review requires the complete policy benchmark suite, not one passing case", async () => {
+  const [model, service] = await Promise.all([
+    source("../models/AiAdvisoryCandidateEvaluation.js"),
+    source("../features/integrationPlatform/aiCandidateEvaluationService.js"),
+  ]);
+
+  assert.match(model, /requiredOfflineCases/);
+  assert.match(model, /qualifyingOfflineCases/);
+  assert.match(model, /minimumRepeatedRunsPerCase/);
+  assert.match(model, /repeatedRunCount/);
+  assert.match(model, /candidateOutputIncludedInRepeatedRuns/);
+  assert.match(model, /repeatedRunEvidenceSufficient/);
+  assert.match(model, /suiteGatePassed/);
+
+  assert.match(service, /policy\.minimumOfflineCases/);
+  assert.match(service, /policy\.minimumRepeatedRunsPerCase/);
+  assert.match(service, /candidateOutputIncludedInRepeatedRuns/);
+  assert.match(service, /repeatedOutputHashes\.length >= minimumRepeatedRunsPerCase/);
+  assert.match(service, /distinct\("evidenceId"/);
+  assert.match(service, /qualifyingOfflineCases >= requiredOfflineCases/);
+  assert.match(service, /suiteGatePassed/);
+  assert.match(service, /full benchmark-suite gates/);
+});
+
 test("candidate review can approve a proposal only, never production promotion", async () => {
   const [controller, routes, service] = await Promise.all([
     source("../features/integrationPlatform/dataHubController.js"),
@@ -66,6 +91,7 @@ test("candidate review can approve a proposal only, never production promotion",
 
   assert.match(service, /eligibleForPromotionReview/);
   assert.match(service, /AI_CANDIDATE_NOT_ELIGIBLE_FOR_PROMOTION_REVIEW/);
+  assert.match(service, /AI_CANDIDATE_REVIEW_ALREADY_FINAL/);
   assert.match(service, /accepted_for_promotion_proposal/);
   assert.match(service, /future promotion proposal only/);
   assert.doesNotMatch(routes, /\/promote|\/activate|\/infer|\/train/);
@@ -81,4 +107,5 @@ test("model candidate kinds fail closed and require governed model artifact prov
   assert.match(service, /AI_MODEL_ARTIFACT_BUSINESS_SCOPE_MISMATCH/);
   assert.match(service, /AI_MODEL_ARTIFACT_LOCATION_SCOPE_MISMATCH/);
   assert.match(service, /AI_MODEL_ARTIFACT_LIFECYCLE_INVALID/);
+  assert.match(service, /AI_CANDIDATE_REPEATED_HASH_INVALID/);
 });
