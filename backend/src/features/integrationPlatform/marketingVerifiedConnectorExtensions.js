@@ -1,4 +1,5 @@
 import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE3 } from "./marketingVerifiedConnectorExtensionsWave3.js";
+import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4 } from "./marketingVerifiedConnectorExtensionsWave4.js";
 
 export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS = Object.freeze({
   pinterest_ads: Object.freeze({
@@ -87,6 +88,7 @@ export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS = Object.freeze({
     scopes: ["api", "openid", "refresh_token"],
   }),
   ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE3,
+  ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4,
 });
 
 export default VERIFIED_MARKETING_CONNECTOR_EXTENSIONS;
