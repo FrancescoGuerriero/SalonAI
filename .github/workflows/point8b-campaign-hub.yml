@@ -1,0 +1,66 @@
+name: Point 8B Campaign Hub Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/features/campaigns/**"
+      - "backend/src/features/reputation/**"
+      - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
+      - "backend/src/features/leads/leadController.js"
+      - "backend/src/services/socialPublishingWorkerService.js"
+      - "backend/src/test/point6CampaignAttributionContracts.test.js"
+      - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
+      - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
+      - "docs/roadmap/stage-8b-campaign-hub-completion.md"
+      - ".github/workflows/point8b-campaign-hub.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/features/campaigns/**"
+      - "backend/src/features/reputation/**"
+      - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
+      - "backend/src/features/leads/leadController.js"
+      - "backend/src/services/socialPublishingWorkerService.js"
+      - "backend/src/test/point6CampaignAttributionContracts.test.js"
+      - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
+      - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
+      - "docs/roadmap/stage-8b-campaign-hub-completion.md"
+      - ".github/workflows/point8b-campaign-hub.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Point 8B location-owned campaign contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run campaign, reputation and 8B contracts
+        run: >-
+          node --test
+          src/test/point6CampaignAttributionContracts.test.js
+          src/test/point6SocialReputationPerformanceContracts.test.js
+          src/test/stage8bCampaignHubLocationContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
