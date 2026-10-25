@@ -122,6 +122,10 @@ schema.pre("validate", function enforceGovernanceLocks(next) {
     this.baselineComparisonEvidence = null;
     this.baselineComparisonPassed = true;
     this.artifactPromotionEligible = false;
+    this.eligibleForPromotionReview = false;
+    if (!["accepted_for_promotion_proposal", "rejected"].includes(this.promotionReviewStatus)) {
+      this.promotionReviewStatus = "not_eligible";
+    }
   } else {
     if (this.baselineManifestAssertion === null || typeof this.baselineManifestAssertion === "undefined") {
       this.baselineManifestAssertion = this.baselineComparisonPassed === true;
@@ -130,6 +134,14 @@ schema.pre("validate", function enforceGovernanceLocks(next) {
       this.baselineComparisonSource = "manifest_declaration";
       this.baselineComparisonPassed = false;
       this.artifactPromotionEligible = false;
+      this.eligibleForPromotionReview = false;
+      if (this.promotionReadiness) {
+        this.promotionReadiness.qualifyingOfflineCases = 0;
+        this.promotionReadiness.suiteGatePassed = false;
+      }
+      if (!["accepted_for_promotion_proposal", "rejected"].includes(this.promotionReviewStatus)) {
+        this.promotionReviewStatus = "not_eligible";
+      }
     }
   }
   next();
