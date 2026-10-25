@@ -8,6 +8,9 @@ on:
       - "backend/src/test/point7MembershipRecoveryBridge.test.js"
       - "backend/src/test/retentionAutomation.test.js"
       - "frontend/src/Services/retentionAutomationService.js"
+      - "frontend/src/pages/RetentionAutomationPage.jsx"
+      - "frontend/src/pages/RetentionJourneyBuilderPage.jsx"
+      - "frontend/src/components/retention/**"
       - ".github/workflows/point7-regression.yml"
   push:
     branches:
@@ -18,6 +21,9 @@ on:
       - "backend/src/test/point7MembershipRecoveryBridge.test.js"
       - "backend/src/test/retentionAutomation.test.js"
       - "frontend/src/Services/retentionAutomationService.js"
+      - "frontend/src/pages/RetentionAutomationPage.jsx"
+      - "frontend/src/pages/RetentionJourneyBuilderPage.jsx"
+      - "frontend/src/components/retention/**"
       - ".github/workflows/point7-regression.yml"
 
 permissions:
@@ -69,3 +75,29 @@ jobs:
 
       - name: Verify application imports
         run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+
+  point7-frontend:
+    name: Point 7 CRM workspace build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build Stage 7 management workspace
+        run: npm run build
+        working-directory: frontend
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
+        working-directory: frontend
