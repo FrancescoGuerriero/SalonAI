@@ -59,12 +59,17 @@ test("Marketing connections API is permission protected and mounted under Integr
   assert.match(controller, /pauseMarketingSourceForProvider/);
 });
 
-test("Marketing source provisioning stays ready-only and does not activate live provider execution", async () => {
-  const provisioning = await source("../features/integrationPlatform/marketingSourceProvisioningService.js");
+test("Marketing source provisioning stays ready-only and provider execution has a hard authorisation lock", async () => {
+  const [provisioning, providerRun] = await Promise.all([
+    source("../features/integrationPlatform/marketingSourceProvisioningService.js"),
+    source("../features/integrationPlatform/marketingProviderRunService.js"),
+  ]);
   assert.match(provisioning, /status: "ready"/);
   assert.match(provisioning, /syncMode: "manual"/);
   assert.match(provisioning, /liveProviderExecution: false/);
   assert.match(provisioning, /status: "paused"/);
+  assert.match(providerRun, /source\.sourceConfig\?\.liveProviderExecution === false/);
+  assert.match(providerRun, /MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED/);
 });
 
 test("Marketing dashboard is routed and visible from canonical management navigation", async () => {
