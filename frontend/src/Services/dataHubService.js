@@ -22,6 +22,14 @@ async function getAiEvidence(payload) {
   return (await API.post(`${ROOT}/ai-evidence`, payload)).data;
 }
 
+async function getAiGatewayEvidence(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/evidence`, payload)).data;
+}
+
+async function planAiGateway(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/plan`, payload)).data;
+}
+
 async function listSavedViews(params = {}) {
   const response = await API.get(`${ROOT}/saved-views`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -65,12 +73,14 @@ export {
   createDestination,
   createSavedView,
   getAiEvidence,
+  getAiGatewayEvidence,
   getCatalogue,
   getFields,
   getOverview,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
+  planAiGateway,
   previewDestination,
   runQuery,
   runSavedView,
@@ -82,12 +92,14 @@ export default {
   createDestination,
   createSavedView,
   getAiEvidence,
+  getAiGatewayEvidence,
   getCatalogue,
   getFields,
   getOverview,
   listDestinationRuns,
   listDestinations,
   listSavedViews,
+  planAiGateway,
   previewDestination,
   runQuery,
   runSavedView,
