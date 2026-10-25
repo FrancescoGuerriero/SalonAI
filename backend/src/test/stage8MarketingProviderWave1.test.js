@@ -65,6 +65,16 @@ test("Meta Ads rows normalise purchase actions without summing overlapping purch
   assert.equal(MARKETING_PROVIDER_ENDPOINTS.metaMarketing, "https://graph.facebook.com/v26.0");
 });
 
+test("Provider row normalisation converts malformed metrics to zero rather than NaN", () => {
+  const google = normaliseGoogleAdsRow({ metrics: { impressions: "invalid", costMicros: "not-a-number" } });
+  const meta = normaliseMetaAdsRow({ impressions: "invalid", clicks: undefined, spend: "bad" });
+  assert.equal(google.impressions, 0);
+  assert.equal(google.spend, 0);
+  assert.equal(meta.impressions, 0);
+  assert.equal(meta.clicks, 0);
+  assert.equal(meta.spend, 0);
+});
+
 test("Wave 1 provider executors remain behind the explicit source execution lock", async () => {
   const [adapters, runner] = await Promise.all([
     source("../features/integrationPlatform/marketingProviderAdapters.js"),
@@ -80,6 +90,14 @@ test("Wave 1 provider executors remain behind the explicit source execution lock
   const lockIndex = runner.indexOf("liveProviderExecution === false");
   const providerIndex = runner.indexOf("LIVE_PROVIDERS.has");
   assert.ok(lockIndex >= 0 && providerIndex > lockIndex, "execution lock must run before provider dispatch");
+});
+
+test("Meta pagination is constrained to the HTTPS graph.facebook.com origin", async () => {
+  const adapters = await source("../features/integrationPlatform/marketingProviderAdapters.js");
+  assert.match(adapters, /META_MARKETING_ORIGIN = "https:\/\/graph\.facebook\.com"/);
+  assert.match(adapters, /parsed\.protocol !== "https:"/);
+  assert.match(adapters, /parsed\.origin !== META_MARKETING_ORIGIN/);
+  assert.match(adapters, /META_PAGINATION_ORIGIN_INVALID/);
 });
 
 test("Wave 1 adapters are read-only provider reporting calls", async () => {
