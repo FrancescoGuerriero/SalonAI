@@ -8,12 +8,16 @@ import RetentionJourneyBuilderPage from "./RetentionJourneyBuilderPage.jsx";
 export default function RetentionAutomationPage() {
   return (
     <>
-      <div className="bg-slate-50 px-4 pt-6 sm:px-6 lg:px-8">
+      <section
+        aria-label="Stage 7 CRM and retention operations"
+        data-stage7-workspace="crm-retention"
+        className="bg-slate-50 px-4 pt-6 sm:px-6 lg:px-8"
+      >
         <div className="mx-auto max-w-7xl space-y-6">
           <Stage7CrmOperationsPanel />
           <Stage7RecoveryJourneySetup />
         </div>
-      </div>
+      </section>
       <RetentionJourneyBuilderPage />
     </>
   );
