@@ -149,8 +149,8 @@ function validateCandidate(candidate, evidenceId, locationId) {
   return sha256(candidate);
 }
 
-function validateModelArtifact(manifest, candidateKind, { businessId, locationId }) {
-  if (candidateKind === "deterministic_baseline") {
+function validateModelArtifact(manifest, kind, { businessId, locationId }) {
+  if (kind === "deterministic_baseline") {
     return {
       model: {},
       baselineComparisonPassed: true,
@@ -189,8 +189,8 @@ function validateModelArtifact(manifest, candidateKind, { businessId, locationId
     });
   }
   const locations = Array.isArray(scope.locations) ? scope.locations.map(String) : [];
-  if (locations.length && !locations.includes(String(locationId))) {
-    throw createServiceError("Model artifact dataset scope does not include the selected location.", 403, {
+  if (!locations.includes(String(locationId))) {
+    throw createServiceError("Model artifact dataset scope must explicitly include the selected location.", 403, {
       code: "AI_MODEL_ARTIFACT_LOCATION_SCOPE_MISMATCH",
     });
   }
@@ -216,9 +216,12 @@ function validateModelArtifact(manifest, candidateKind, { businessId, locationId
 }
 
 function candidateKind(value) {
-  return ["deterministic_baseline", "shadow_model", "offline_model"].includes(value)
-    ? value
-    : "offline_model";
+  if (!["deterministic_baseline", "shadow_model", "offline_model"].includes(value)) {
+    throw createServiceError("Candidate kind is not supported.", 400, {
+      code: "AI_CANDIDATE_KIND_INVALID",
+    });
+  }
+  return value;
 }
 
 function requestedAction(value) {
@@ -278,9 +281,12 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
     toolKey: text(candidate.tool_key || payload.toolKey || "marketing-insights", 120) || "marketing-insights",
     requestedAction: requestedAction(candidate.requested_action || payload.requestedAction),
     candidateKind: kind,
+    registryVersion: text(candidate.registry_version, 40),
     candidateVersion: text(assessment.candidate_version || candidate.advisory_version, 160),
     candidateOutputHash,
     model: artifactAudit.model,
+    baselineComparisonPassed: artifactAudit.baselineComparisonPassed,
+    artifactPromotionEligible: artifactAudit.artifactPromotionEligible,
     evidenceId: evidenceAudit.evidenceId,
     evidenceContract: EVIDENCE_CONTRACT,
     evidenceChecksum: evidenceAudit.evidenceChecksum,
@@ -309,7 +315,7 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
     productionInferenceAuthorised: false,
     externalWriteAuthorised: false,
     message: eligibleForPromotionReview
-      ? "Candidate passed the governed quality and artifact gates and is queued for human promotion-proposal review only. Production promotion and inference remain disabled."
+      ? "Candidate passed the governed quality, baseline and artifact gates and is queued for human promotion-proposal review only. Production promotion and inference remain disabled."
       : "Candidate evaluation was recorded. It is not eligible for promotion review; production promotion and inference remain disabled.",
   };
 }
@@ -325,7 +331,7 @@ export async function listCandidateEvaluations(query = {}, { businessId, locatio
   }
   const limit = Math.min(250, Math.max(1, Number.parseInt(query.limit, 10) || 50));
   return AiAdvisoryCandidateEvaluation.find(match)
-    .select("location toolKey requestedAction candidateKind candidateVersion candidateOutputHash model evidenceId evidenceContract evidenceChecksum factCount provenanceCount policyVersion baselineVersion assessmentHash metrics blockers qualityGatePassed eligibleForPromotionReview promotionReviewStatus reviewerNote reviewedBy reviewedAt requestedBy productionPromotionAuthorised productionInferenceAuthorised externalWriteAuthorised createdAt updatedAt")
+    .select("location toolKey requestedAction candidateKind registryVersion candidateVersion candidateOutputHash model baselineComparisonPassed artifactPromotionEligible evidenceId evidenceContract evidenceChecksum factCount provenanceCount policyVersion baselineVersion assessmentHash metrics blockers qualityGatePassed eligibleForPromotionReview promotionReviewStatus reviewerNote reviewedBy reviewedAt requestedBy productionPromotionAuthorised productionInferenceAuthorised externalWriteAuthorised createdAt updatedAt")
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit)
     .lean();
