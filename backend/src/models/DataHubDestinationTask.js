@@ -32,6 +32,7 @@ const fieldMappingSchema = new Schema(
 const schema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     view: { type: Schema.Types.ObjectId, ref: "DataHubSavedView", required: true, index: true },
     app: { type: Schema.Types.ObjectId, ref: "IntegrationApp", default: null, index: true },
     connection: { type: Schema.Types.ObjectId, ref: "IntegrationConnection", default: null, index: true },
@@ -67,8 +68,7 @@ const schema = new Schema(
   { timestamps: true, optimisticConcurrency: true }
 );
 
-schema.index({ business: 1, key: 1 }, { unique: true });
-schema.index({ business: 1, status: 1, "schedule.nextRunAt": 1 });
+schema.index({ business: 1, location: 1, key: 1 }, { unique: true });
+schema.index({ business: 1, location: 1, status: 1, "schedule.nextRunAt": 1 });
 
-export default mongoose.models.DataHubDestinationTask ||
-  mongoose.model("DataHubDestinationTask", schema);
+export default mongoose.models.DataHubDestinationTask || mongoose.model("DataHubDestinationTask", schema);
