@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 
+import ConsentRecord from "../../../models/ConsentRecord.js";
+import Customer from "../../../models/customer.js";
 import RetentionJourney from "./RetentionJourney.js";
 import {
+  buildInactiveRetentionPreviewPipeline,
+  evaluateRetentionContactReadiness,
   normaliseRetentionJourneyPayload,
-  previewRetentionJourney as previewLegacyRetentionJourney,
 } from "./retentionAutomationService.js";
 
 function serviceError(message, statusCode = 400, code = "RETENTION_STAGE7_ERROR") {
@@ -44,6 +47,45 @@ async function ownedJourney(journeyId, businessId) {
   }
 
   return journey;
+}
+
+function evidenceKey(customerId, purpose) {
+  return `${String(customerId || "")}:${purpose}`;
+}
+
+async function loadStage7ConsentEvidence(items = []) {
+  const accountIds = Array.from(
+    new Set(items.map((item) => item?.userAccount).filter(Boolean).map(String))
+  ).map((id) => new mongoose.Types.ObjectId(id));
+
+  if (!accountIds.length) return new Map();
+
+  const records = await ConsentRecord.aggregate([
+    {
+      $match: {
+        customer: { $in: accountIds },
+        purpose: { $in: ["whatsapp_marketing", "push_marketing"] },
+      },
+    },
+    { $sort: { recordedAt: -1, createdAt: -1, _id: -1 } },
+    {
+      $group: {
+        _id: { customer: "$customer", purpose: "$purpose" },
+        granted: { $first: "$granted" },
+        recordedAt: { $first: "$recordedAt" },
+      },
+    },
+  ]);
+
+  return new Map(
+    records.map((record) => [
+      evidenceKey(record?._id?.customer, record?._id?.purpose),
+      {
+        granted: record?.granted === true,
+        recordedAt: record?.recordedAt || null,
+      },
+    ])
+  );
 }
 
 export async function listStage7RetentionJourneys(tenantContext = {}) {
@@ -89,16 +131,79 @@ export async function updateStage7RetentionJourney(
 
 export async function previewStage7RetentionJourney(
   journeyId,
-  { tenantContext = {}, limit } = {}
+  { tenantContext = {}, limit = 50 } = {}
 ) {
   const businessId = requireRetentionBusinessId(tenantContext);
-  await ownedJourney(journeyId, businessId);
+  const journey = await ownedJourney(journeyId, businessId);
+  const requiredChannels = Array.from(
+    new Set((journey.steps || []).map((step) => step.channel).filter(Boolean))
+  );
+  const previewedAt = new Date();
+  const baseResult = {
+    dryRun: true,
+    communicationQueued: false,
+    executionAuthorised: false,
+    businessId,
+    previewedAt,
+    journey: {
+      _id: journey._id,
+      name: journey.name,
+      trigger: journey.trigger,
+      enabled: journey.enabled === true,
+    },
+    requiredChannels,
+  };
 
-  const preview = await previewLegacyRetentionJourney(journeyId, { limit });
+  if (journey.trigger !== "customer_inactive") {
+    return {
+      ...baseResult,
+      supported: false,
+      candidateCount: 0,
+      returnedCount: 0,
+      truncated: false,
+      items: [],
+      message:
+        "Audience preview is currently implemented only for customer-inactive journeys. No communication was queued.",
+    };
+  }
+
+  const built = buildInactiveRetentionPreviewPipeline({
+    conditions: journey.conditions,
+    now: previewedAt,
+    limit,
+  });
+
+  built.pipeline[0].$match.business = new mongoose.Types.ObjectId(businessId);
+
+  const [result] = await Customer.aggregate(built.pipeline);
+  const rawItems = Array.isArray(result?.items) ? result.items : [];
+  const consentEvidence = await loadStage7ConsentEvidence(rawItems);
+
+  const items = rawItems.map((item) => {
+    const readiness = evaluateRetentionContactReadiness(item, {
+      requiredChannels,
+      consentEvidence,
+    });
+    const {
+      userAccount: _userAccount,
+      communicationPreferences: _communicationPreferences,
+      marketing: _marketing,
+      ...publicItem
+    } = item;
+    return { ...publicItem, readiness };
+  });
+
+  const candidateCount = Number(result?.summary?.[0]?.count) || 0;
 
   return {
-    ...preview,
-    businessId,
-    executionAuthorised: false,
+    ...baseResult,
+    supported: true,
+    conditions: built.conditions,
+    cutoff: built.cutoff,
+    candidateCount,
+    returnedCount: items.length,
+    truncated: candidateCount > items.length,
+    fullyContactReadyCount: items.filter((item) => item.readiness?.fullyReady === true).length,
+    items,
   };
 }
