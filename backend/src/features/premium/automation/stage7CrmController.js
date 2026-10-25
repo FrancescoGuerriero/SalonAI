@@ -8,6 +8,9 @@ import {
   listJourneyEnrollments,
   recordJourneyOutcome,
 } from "./stage7JourneyService.js";
+import {
+  reconcileStage7MembershipRecoveryJourneys,
+} from "./stage7MembershipRecoveryBridge.js";
 
 export async function getCustomer360(req, res) {
   const projection = await buildCustomer360(req.params.customerId, {
@@ -72,6 +75,20 @@ export async function updateEnrollmentOutcome(req, res) {
   return res.json({
     success: true,
     enrollment,
+  });
+}
+
+export async function reconcileMembershipRecoveryJourneys(req, res) {
+  const result = await reconcileStage7MembershipRecoveryJourneys({
+    tenantContext: req.tenantContext || {},
+    actorId: req.user?._id || null,
+    limit: req.body?.limit ?? req.query?.limit,
+  });
+
+  return res.json({
+    success: true,
+    message: "Membership recovery cases reconciled into retention journey evidence. No payment state was changed and no communication was sent.",
+    result,
   });
 }
 
