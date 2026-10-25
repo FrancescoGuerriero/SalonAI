@@ -2,6 +2,7 @@ import express from "express";
 
 import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
+import * as baselineComparisonController from "./aiBaselineComparisonController.js";
 import * as controller from "./dataHubController.js";
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.patch("/ai-gateway/candidate-evaluations/:recordId/review", write, asyncH
 router.post("/ai-gateway/offline-experiments", aiUse, asyncHandler(controller.runAiOfflineExperiment));
 router.get("/ai-gateway/offline-experiments", read, asyncHandler(controller.aiOfflineExperiments));
 router.get("/ai-gateway/offline-experiments/:runId", read, asyncHandler(controller.aiOfflineExperiment));
+router.post("/ai-gateway/baseline-comparisons", aiUse, asyncHandler(baselineComparisonController.create));
+router.get("/ai-gateway/baseline-comparisons", read, asyncHandler(baselineComparisonController.list));
+router.get("/ai-gateway/baseline-comparisons/:comparisonId", read, asyncHandler(baselineComparisonController.get));
 router.get("/ai-gateway/promotion-proposals", read, asyncHandler(controller.aiPromotionProposals));
 router.post("/ai-gateway/promotion-proposals", write, asyncHandler(controller.createAiPromotionProposal));
 router.get("/ai-gateway/promotion-proposals/:dossierId", read, asyncHandler(controller.aiPromotionProposal));
