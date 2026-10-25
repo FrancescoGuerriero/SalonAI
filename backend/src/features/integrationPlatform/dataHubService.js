@@ -31,6 +31,7 @@ const DESTINATION_WRITE_MODES = ["replace", "append", "upsert"];
 const FILTER_OPERATORS = ["eq", "neq", "contains", "gt", "gte", "lt", "lte", "in", "not_in"];
 const FORBIDDEN_CONFIG_KEY = /(secret|password|access[_-]?token|refresh[_-]?token|api[_-]?key|credential|private[_-]?key)/i;
 const FIELD_REF_PATTERN = /^(?:dimensions|metrics|attributes)\.[A-Za-z0-9_-]{1,160}$|^(?:provider|sourceKey|entityType|occurredAt)$/;
+const SPECIAL_FIELD_REFS = new Set(["provider", "sourceKey", "entityType", "occurredAt"]);
 
 const CALCULATED_METRICS = Object.freeze({
   ctr: Object.freeze({ key: "ctr", label: "Click-through rate", numerator: "clicks", denominator: "impressions", multiplier: 100, unit: "percent" }),
@@ -156,7 +157,7 @@ function uniqueStrings(values, maxItems, maxLength = 180) {
 
 function fieldRef(value, defaultPrefix = null) {
   let candidate = text(value, 180);
-  if (candidate && defaultPrefix && !candidate.includes(".")) {
+  if (candidate && defaultPrefix && !candidate.includes(".") && !SPECIAL_FIELD_REFS.has(candidate)) {
     candidate = `${defaultPrefix}.${candidate}`;
   }
   if (!FIELD_REF_PATTERN.test(candidate)) {
@@ -165,6 +166,14 @@ function fieldRef(value, defaultPrefix = null) {
     });
   }
   return candidate;
+}
+
+function outputFieldRef(value) {
+  const candidate = text(value, 180);
+  if (candidate === "dateBucket" || candidate === "recordCount" || CALCULATED_METRICS[candidate]) {
+    return candidate;
+  }
+  return fieldRef(candidate);
 }
 
 function normaliseFieldRefs(values, defaultPrefix, maxItems = 20) {
@@ -625,7 +634,7 @@ async function optionalOwnedConnection(connectionId, appId, businessId) {
 function normaliseFieldMapping(values) {
   const seen = new Set();
   return (Array.isArray(values) ? values : []).slice(0, 100).map((mapping) => {
-    const sourceField = fieldRef(mapping?.sourceField);
+    const sourceField = outputFieldRef(mapping?.sourceField);
     const destinationField = text(mapping?.destinationField, 180);
     if (!destinationField || !/^[A-Za-z0-9_.-]{1,180}$/.test(destinationField)) {
       throw createServiceError("Destination field names may only use letters, numbers, dot, dash and underscore.", 400);
