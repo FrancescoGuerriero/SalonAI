@@ -149,6 +149,7 @@ def _reproducible(request: AdvisoryEvaluationRequest) -> bool | None:
 def evaluate_advisory(request: AdvisoryEvaluationRequest) -> AdvisoryEvaluationResponse:
     evidence = request.evidence
     candidate = request.candidate
+    candidate_hash = advisory_output_hash(candidate)
     valid_ids, citation_integrity = _valid_citation_ids(evidence, candidate)
     grounding = _grounding_rate(candidate, valid_ids)
     provenance_validity, provenance_coverage = _provenance_metrics(evidence, candidate)
@@ -201,6 +202,9 @@ def evaluate_advisory(request: AdvisoryEvaluationRequest) -> AdvisoryEvaluationR
 
     assessment_material = {
         "policy": EVALUATION_POLICY_VERSION,
+        "evidenceId": evidence.evidence_id,
+        "locationId": evidence.location_id,
+        "candidateOutputHash": candidate_hash,
         "candidateVersion": candidate.advisory_version,
         "candidateKind": request.candidate_kind,
         "metrics": metrics.model_dump(mode="json"),
