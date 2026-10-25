@@ -106,10 +106,7 @@ const retentionJourneySchema = new Schema(
 );
 
 retentionJourneySchema.index({ business: 1, enabled: 1, trigger: 1, updatedAt: -1 });
-retentionJourneySchema.index(
-  { business: 1, name: 1 },
-  { unique: true }
-);
+retentionJourneySchema.index({ business: 1, name: 1 });
 
 const RetentionJourney =
   mongoose.models.RetentionJourney ||
