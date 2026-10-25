@@ -1,6 +1,7 @@
 import { createServiceError } from "../../shared/serviceError.js";
 import * as candidateEvaluationService from "./aiCandidateEvaluationService.js";
 import * as gatewayService from "./dataHubAiGatewayService.js";
+import * as offlineExperimentService from "./aiOfflineExperimentService.js";
 import * as promotionProposalService from "./aiPromotionProposalService.js";
 import * as service from "./dataHubService.js";
 
@@ -111,6 +112,26 @@ export async function aiCandidateReview(request, response) {
   ));
 }
 
+export async function aiOfflineExperiments(request, response) {
+  response.json({
+    items: await offlineExperimentService.listOfflineExperiments(request.query || {}, scope(request)),
+  });
+}
+
+export async function aiOfflineExperiment(request, response) {
+  response.json(await offlineExperimentService.getOfflineExperiment(
+    request.params.runId,
+    scope(request)
+  ));
+}
+
+export async function runAiOfflineExperiment(request, response) {
+  response.status(201).json(await offlineExperimentService.runOfflineExperiment(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
 export async function aiPromotionProposals(request, response) {
   response.json({
     items: await promotionProposalService.listPromotionProposals(request.query || {}, scope(request)),
@@ -203,6 +224,8 @@ export default {
   aiGatewayEvidence,
   aiGatewayInvocations,
   aiGatewayPlan,
+  aiOfflineExperiment,
+  aiOfflineExperiments,
   aiPromotionProposal,
   aiPromotionProposals,
   catalogue,
@@ -215,6 +238,7 @@ export default {
   overview,
   previewDestination,
   query,
+  runAiOfflineExperiment,
   runSavedView,
   savedViews,
   updateAiPromotionProposal,
