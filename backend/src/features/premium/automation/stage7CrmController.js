@@ -79,11 +79,19 @@ export async function updateEnrollmentOutcome(req, res) {
 }
 
 export async function reconcileMembershipRecoveryJourneys(req, res) {
-  const result = await reconcileStage7MembershipRecoveryJourneys({
+  const rawResult = await reconcileStage7MembershipRecoveryJourneys({
     tenantContext: req.tenantContext || {},
     actorId: req.user?._id || null,
     limit: req.body?.limit ?? req.query?.limit,
   });
+  const result = {
+    ...rawResult,
+    processed: Number(rawResult.casesReviewed || 0),
+    enrolled:
+      Number(rawResult.failedEnrollments || 0) +
+      Number(rawResult.recoveryEnrollments || 0),
+    recovered: Number(rawResult.recoveredExistingEnrollments || 0),
+  };
 
   return res.json({
     success: true,
