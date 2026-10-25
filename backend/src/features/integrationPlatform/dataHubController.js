@@ -65,6 +65,13 @@ export async function aiGatewayPlan(request, response) {
   }));
 }
 
+export async function aiGatewayAdvisoryPreview(request, response) {
+  response.json(await gatewayService.previewDataHubAiAdvisory(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
 export async function aiGatewayInvocations(request, response) {
   response.json({
     items: await gatewayService.listAiGatewayInvocations(request.query || {}, scope(request)),
@@ -124,6 +131,7 @@ export async function destinationRuns(request, response) {
 
 export default {
   aiEvidence,
+  aiGatewayAdvisoryPreview,
   aiGatewayEvidence,
   aiGatewayInvocations,
   aiGatewayPlan,
