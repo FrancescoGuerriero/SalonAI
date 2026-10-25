@@ -1,0 +1,52 @@
+name: Point 7 CRM Retention Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/features/premium/automation/**"
+      - "backend/src/test/point7CrmRetentionContracts.test.js"
+      - "backend/src/test/retentionAutomation.test.js"
+      - "frontend/src/Services/retentionAutomationService.js"
+      - ".github/workflows/point7-regression.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/features/premium/automation/**"
+      - "backend/src/test/point7CrmRetentionContracts.test.js"
+      - "backend/src/test/retentionAutomation.test.js"
+      - "frontend/src/Services/retentionAutomationService.js"
+      - ".github/workflows/point7-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  point7-contracts:
+    name: Point 7 CRM/retention contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 7 CRM and existing retention regression tests
+        run: >-
+          node --test
+          src/test/point7CrmRetentionContracts.test.js
+          src/test/retentionAutomation.test.js
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
