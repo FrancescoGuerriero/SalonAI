@@ -29,7 +29,7 @@ export const MARKETING_HUB_PROVIDER_EXTENSIONS = Object.freeze([
   { key: "mntn", label: "MNTN (mountain.com)", category: "Advertising" },
   { key: "mongodb", label: "MongoDB", category: "Data & warehouse" },
   { key: "mysql", label: "MySQL", category: "Data & warehouse" },
-  { key: "openai_ads", label: "OpenAI Ads / ChatGPT Ads", category: "Advertising", researchRequired: true },
+  { key: "openai_ads", label: "OpenAI Ads / ChatGPT Ads", category: "Advertising", documentationUrl: "https://developers.openai.com/ads/api-overview" },
   { key: "paypal_transactions", label: "PayPal Transaction", category: "Finance & payments" },
   { key: "pinterest_ads", label: "Pinterest Ads", category: "Advertising" },
   { key: "pinterest_organic", label: "Pinterest Organic", category: "Organic social" },
