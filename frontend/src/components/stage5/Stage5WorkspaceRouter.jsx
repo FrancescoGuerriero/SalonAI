@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
+import Stage8WorkspaceRouter from "../stage8/Stage8WorkspaceRouter.jsx";
 
 const ConnectedAccountsPage = lazy(() => import("../../pages/ConnectedAccountsPage.jsx"));
 const MeasurementIntegrationCorePage = lazy(() => import("../../pages/MeasurementIntegrationCorePage.jsx"));
@@ -39,5 +40,9 @@ export default function Stage5WorkspaceRouter({ pathname, children }) {
       : <AccessDenied message="You do not have permission to inspect connected business accounts." />;
   }
 
-  return children;
+  return (
+    <Stage8WorkspaceRouter pathname={pathname}>
+      {children}
+    </Stage8WorkspaceRouter>
+  );
 }

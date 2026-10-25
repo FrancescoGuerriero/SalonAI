@@ -1,0 +1,88 @@
+name: Point 8 AIIBP Data Hub Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/models/DataHub**"
+      - "backend/src/test/stage8DataHubContracts.test.js"
+      - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
+      - "frontend/src/Services/dataHubService.js"
+      - "frontend/src/pages/DataHubPage.jsx"
+      - "frontend/src/components/stage8/**"
+      - "frontend/src/components/stage5/Stage5WorkspaceRouter.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - ".github/workflows/point8-data-hub.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/models/DataHub**"
+      - "backend/src/test/stage8DataHubContracts.test.js"
+      - "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"
+      - "frontend/src/Services/dataHubService.js"
+      - "frontend/src/pages/DataHubPage.jsx"
+      - "frontend/src/components/stage8/**"
+      - "frontend/src/components/stage5/Stage5WorkspaceRouter.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - ".github/workflows/point8-data-hub.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  point8-contracts:
+    name: Point 8 Data Hub contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 8 Data Hub contract tests
+        run: node --test src/test/stage8DataHubContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+
+  point8-frontend:
+    name: Point 8 Data Hub workspace build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build Data Hub workspace
+        run: npm run build
+        working-directory: frontend
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
+        working-directory: frontend

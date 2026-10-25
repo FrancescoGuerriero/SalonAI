@@ -5,6 +5,7 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
+import dataHubRoutes from "./dataHubRoutes.js";
 import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
 import * as controller from "./integrationPlatformController.js";
 import * as connectedAccountsController from "./socialConnectedAccountsController.js";
@@ -21,6 +22,11 @@ router.use(
 router.use(
   "/marketing-data",
   marketingDataCoreRoutes
+);
+
+router.use(
+  "/data-hub",
+  dataHubRoutes
 );
 
 router.get("/stage-5-contract", read, asyncHandler(controller.stage5ContractCatalogue));
