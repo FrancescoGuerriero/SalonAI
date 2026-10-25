@@ -4,6 +4,7 @@ import { Navigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
+const AiCandidateGovernancePage = lazy(() => import("../../pages/AiCandidateGovernancePage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
@@ -47,6 +48,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><AiReadinessPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect AI readiness and planning evidence." />;
+  }
+
+  if (pathname === "/admin/system/ai-candidate-governance") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><AiCandidateGovernancePage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect AI candidate governance records." />;
   }
 
   return children;
