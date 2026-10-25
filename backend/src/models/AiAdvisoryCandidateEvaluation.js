@@ -112,6 +112,19 @@ schema.index({ business: 1, location: 1, candidateKind: 1, promotionReviewStatus
 schema.index({ business: 1, location: 1, evidenceId: 1, assessmentHash: 1 });
 schema.index({ business: 1, location: 1, "model.artifactSha256": 1, policyVersion: 1, baselineVersion: 1 });
 
+function evidenceDerivedPromotionChainComplete(record) {
+  return Boolean(
+    record.qualityGatePassed === true
+    && record.baselineComparisonPassed === true
+    && record.baselineComparisonSource === "evidence_derived"
+    && record.baselineComparisonEvidence
+    && record.artifactPromotionEligible === true
+    && record.promotionReadiness?.repeatedRunEvidenceSufficient === true
+    && record.promotionReadiness?.suiteGatePassed === true
+    && record.eligibleForPromotionReview === true
+  );
+}
+
 schema.pre("validate", function enforceGovernanceLocks(next) {
   this.productionPromotionAuthorised = false;
   this.productionInferenceAuthorised = false;
@@ -139,9 +152,22 @@ schema.pre("validate", function enforceGovernanceLocks(next) {
         this.promotionReadiness.qualifyingOfflineCases = 0;
         this.promotionReadiness.suiteGatePassed = false;
       }
-      if (!["accepted_for_promotion_proposal", "rejected"].includes(this.promotionReviewStatus)) {
+      if (this.promotionReviewStatus === "accepted_for_promotion_proposal") {
+        this.invalidate(
+          "promotionReviewStatus",
+          "Model candidates cannot be accepted for a promotion proposal without evidence-derived baseline comparison."
+        );
+      } else if (this.promotionReviewStatus !== "rejected") {
         this.promotionReviewStatus = "not_eligible";
       }
+    } else if (
+      this.promotionReviewStatus === "accepted_for_promotion_proposal"
+      && !evidenceDerivedPromotionChainComplete(this)
+    ) {
+      this.invalidate(
+        "promotionReviewStatus",
+        "Model candidates cannot be accepted unless the complete evidence-derived promotion-review chain passes."
+      );
     }
   }
   next();
