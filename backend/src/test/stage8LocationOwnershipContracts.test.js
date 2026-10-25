@@ -92,7 +92,7 @@ test("AI Gateway planning creates a location-owned audit record and exposes only
     source("../features/integrationPlatform/dataHubAiGatewayService.js"),
     source("../features/integrationPlatform/dataHubController.js"),
     source("../features/integrationPlatform/dataHubRoutes.js"),
-    source("../../frontend/src/Services/dataHubService.js"),
+    source("../../../frontend/src/Services/dataHubService.js"),
   ]);
   assert.match(model, /business:\s*\{[\s\S]*required:\s*true/);
   assert.match(model, /location:\s*\{[\s\S]*required:\s*true/);
