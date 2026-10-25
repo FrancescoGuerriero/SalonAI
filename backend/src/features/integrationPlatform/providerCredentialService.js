@@ -152,8 +152,20 @@ export async function storeProviderCredential(
 
   setConnectionBinding(connection, role, credential._id);
   if (role === "access_token") connection.tokenExpiresAt = expiresAt;
-  if (connection.status === "pending") connection.status = "connected";
-  if (!connection.connectedAt) connection.connectedAt = new Date();
+
+  // Persisting a secret must never itself prove that the external account is usable.
+  // Verification is performed by the provider-specific account verifier and only a
+  // successful live verification may transition the connection to `connected`.
+  if (!["revoked", "disconnected"].includes(connection.status)) {
+    connection.status = "pending";
+  }
+  connection.connectedAt = null;
+  connection.lastError = "";
+  connection.metadata = {
+    ...(connection.metadata?.toObject?.() || connection.metadata || {}),
+    verificationStatus: "required",
+    verifiedAt: null,
+  };
   await connection.save();
 
   return {
@@ -165,6 +177,7 @@ export async function storeProviderCredential(
       status: connection.status,
       tokenExpiresAt: connection.tokenExpiresAt,
       credentialBindings: connection.credentialBindings,
+      verificationStatus: connection.metadata?.verificationStatus || "required",
     },
     secretStored: true,
     secretReturned: false,
