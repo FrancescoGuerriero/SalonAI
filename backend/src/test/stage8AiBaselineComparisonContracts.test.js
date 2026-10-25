@@ -17,8 +17,14 @@ test("baseline comparison evidence is location-owned, auditable and non-executin
   assert.match(model, /location/);
   assert.match(model, /candidateEvaluation/);
   assert.match(model, /baselineEvaluation/);
+  assert.match(model, /requestedAction/);
+  assert.match(model, /policyVersion/);
   assert.match(model, /comparisonHash/);
   assert.match(model, /metricDeltas/);
+  assert.match(model, /repeatedRunEvidenceSufficient/);
+  assert.match(model, /qualifyingOfflineCases/);
+  assert.match(model, /requiredOfflineCases/);
+  assert.match(model, /suiteGatePassed/);
   assert.match(model, /productionPromotionAuthorised/);
   assert.match(model, /productionInferenceAuthorised/);
   assert.match(model, /deploymentAuthorised/);
@@ -30,13 +36,16 @@ test("baseline comparison evidence is location-owned, auditable and non-executin
   assert.match(service, /candidateKind: "deterministic_baseline"/);
   assert.match(service, /evidenceId: candidate\.evidenceId/);
   assert.match(service, /toolKey: candidate\.toolKey/);
+  assert.match(service, /requestedAction: candidate\.requestedAction/);
+  assert.match(service, /policyVersion: candidate\.policyVersion/);
+  assert.match(service, /baselineVersion: candidate\.baselineVersion/);
   assert.match(service, /candidateVersion: candidate\.baselineVersion/);
 
-  assert.match(routes, /\/ai-gateway\/baseline-comparisons/);
+  assert.match(routes, /\/ai-gateway\/baseline-comparisons", write/);
   assert.match(routes, /baselineComparisonController\.create/);
   assert.match(routes, /baselineComparisonController\.list/);
   assert.match(routes, /baselineComparisonController\.get/);
-  assert.doesNotMatch(routes, /baseline-comparisons.*\/promote|baseline-comparisons.*\/deploy|baseline-comparisons.*\/activate|baseline-comparisons.*\/infer/);
+  assert.doesNotMatch(routes, /baseline-comparisons.*\/promote|baseline-comparisons.*\/deploy|baseline-comparisons.*\/activate|baseline-comparisons.*\/infer|baseline-comparisons.*\/train/);
 });
 
 test("baseline comparison computes explicit direction-aware non-degradation evidence", async () => {
@@ -57,9 +66,37 @@ test("baseline comparison computes explicit direction-aware non-degradation evid
   assert.match(service, /identityNonDegraded/);
   assert.match(service, /safetyNonDegraded/);
   assert.match(service, /reproducibilityNonDegraded/);
+  assert.match(service, /repeatedRunEvidenceSufficient/);
   assert.match(service, /allMetricsNonDegraded/);
-  assert.match(service, /manifestBaselineAssertion && allMetricsNonDegraded/);
+  assert.match(service, /manifestBaselineAssertion[\s\S]*allMetricsNonDegraded[\s\S]*repeatedRunEvidenceSufficient/);
   assert.match(service, /BASELINE_DEGRADATION_/);
   assert.match(service, /BASELINE_REPRODUCIBILITY_NON_DEGRADATION_FAILED/);
-  assert.match(service, /matching deterministic baseline evaluation is required/);
+  assert.match(service, /REPEATED_RUN_EVIDENCE_INSUFFICIENT/);
+  assert.match(service, /matching deterministic baseline evaluation is required for the same location, action, policy and evidence case/);
+});
+
+test("passing baseline evidence attaches to candidate ledger and re-counts only evidence-derived suite cases", async () => {
+  const [candidateModel, service, promotionService] = await Promise.all([
+    source("../models/AiAdvisoryCandidateEvaluation.js"),
+    source("../features/integrationPlatform/aiBaselineComparisonService.js"),
+    source("../features/integrationPlatform/aiPromotionProposalService.js"),
+  ]);
+
+  assert.match(candidateModel, /baselineManifestAssertion/);
+  assert.match(candidateModel, /baselineComparisonSource/);
+  assert.match(candidateModel, /evidence_derived/);
+  assert.match(candidateModel, /baselineComparisonEvidence/);
+  assert.match(candidateModel, /baselineComparisonPassed = false/);
+  assert.match(candidateModel, /artifactPromotionEligible = false/);
+
+  assert.match(service, /candidate\.baselineComparisonSource = "evidence_derived"/);
+  assert.match(service, /candidate\.baselineComparisonEvidence = comparison\._id/);
+  assert.match(service, /baselineComparisonSource: "evidence_derived"/);
+  assert.match(service, /baselineComparisonEvidence: \{ \$ne: null \}/);
+  assert.match(service, /distinct\("evidenceId"/);
+  assert.match(service, /qualifyingOfflineCases >= requiredOfflineCases/);
+  assert.match(service, /candidate\.promotionReviewStatus = eligibleForPromotionReview \? "pending_review" : "not_eligible"/);
+
+  assert.match(promotionService, /baselineComparisonSource !== "evidence_derived"/);
+  assert.match(promotionService, /!record\.baselineComparisonEvidence/);
 });
