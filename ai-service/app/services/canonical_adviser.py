@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Iterable
 
+from app.governance.ai_registry import REGISTRY_VERSION
 from app.schemas.ai_gateway import (
     AdvisoryCitation,
     AdvisoryItem,
@@ -267,6 +268,7 @@ def build_canonical_advisory(payload: GatewayPlanRequest) -> GatewayAdvisoryResp
             source_ids.append(item.source_id)
 
     return GatewayAdvisoryResponse(
+        registry_version=REGISTRY_VERSION,
         advisory_version=ADVISORY_VERSION,
         tool_key=payload.tool_key,
         requested_action=payload.requested_action,
