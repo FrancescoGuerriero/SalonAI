@@ -15,13 +15,16 @@ test("AI candidate evaluation records are location-owned and production locked",
   assert.match(model, /business:\s*\{[\s\S]*?ref:\s*"Business"[\s\S]*?required:\s*true/);
   assert.match(model, /location:\s*\{[\s\S]*?ref:\s*"Location"[\s\S]*?required:\s*true/);
   assert.match(model, /baselineComparisonPassed/);
+  assert.match(model, /baselineComparisonSource/);
+  assert.match(model, /baselineComparisonRecord/);
   assert.match(model, /artifactPromotionEligible/);
   assert.match(model, /promotionReadiness/);
   assert.match(model, /accepted_for_promotion_proposal/);
   assert.match(model, /productionPromotionAuthorised:\s*\{[\s\S]*?default:\s*false/);
   assert.match(model, /productionInferenceAuthorised:\s*\{[\s\S]*?default:\s*false/);
   assert.match(model, /externalWriteAuthorised:\s*\{[\s\S]*?default:\s*false/);
-  assert.match(model, /enforceProductionLock/);
+  assert.match(model, /enforceGovernanceLocks/);
+  assert.match(model, /baselineComparisonSource !== "evidence_derived"/);
 
   assert.match(service, /business:\s*businessId/);
   assert.match(service, /location:\s*locationId/);
