@@ -5,6 +5,7 @@ import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
 const AiCandidateGovernancePage = lazy(() => import("../../pages/AiCandidateGovernancePage.jsx"));
+const AiOfflineExperimentComparisonPage = lazy(() => import("../../pages/AiOfflineExperimentComparisonPage.jsx"));
 const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionProposalPage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
@@ -57,6 +58,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><AiCandidateGovernancePage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect AI candidate governance records." />;
+  }
+
+  if (pathname === "/admin/system/ai-offline-experiments") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><AiOfflineExperimentComparisonPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect offline AI experiment evidence." />;
   }
 
   if (pathname === "/admin/system/ai-promotion-proposals") {

@@ -6,6 +6,7 @@ on:
       - "frontend/src/pages/AiReadinessPage.jsx"
       - "frontend/src/pages/AiCandidateGovernancePage.jsx"
       - "frontend/src/pages/AiPromotionProposalPage.jsx"
+      - "frontend/src/pages/AiOfflineExperimentComparisonPage.jsx"
       - "frontend/src/components/stage8/AiCandidateGovernancePanel.jsx"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
@@ -13,6 +14,7 @@ on:
       - "backend/src/test/stage8AiReadinessUiContracts.test.js"
       - "backend/src/test/stage8AiCandidateGovernanceUiContracts.test.js"
       - "backend/src/test/stage8AiPromotionProposalUiContracts.test.js"
+      - "backend/src/test/stage8AiOfflineExperimentComparisonUiContracts.test.js"
       - ".github/workflows/point8-ai-readiness.yml"
   push:
     branches:
@@ -21,6 +23,7 @@ on:
       - "frontend/src/pages/AiReadinessPage.jsx"
       - "frontend/src/pages/AiCandidateGovernancePage.jsx"
       - "frontend/src/pages/AiPromotionProposalPage.jsx"
+      - "frontend/src/pages/AiOfflineExperimentComparisonPage.jsx"
       - "frontend/src/components/stage8/AiCandidateGovernancePanel.jsx"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
@@ -28,6 +31,7 @@ on:
       - "backend/src/test/stage8AiReadinessUiContracts.test.js"
       - "backend/src/test/stage8AiCandidateGovernanceUiContracts.test.js"
       - "backend/src/test/stage8AiPromotionProposalUiContracts.test.js"
+      - "backend/src/test/stage8AiOfflineExperimentComparisonUiContracts.test.js"
       - ".github/workflows/point8-ai-readiness.yml"
 
 permissions:
@@ -54,11 +58,12 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run AI readiness, candidate governance and promotion dossier contracts
+      - name: Run AI readiness, candidate governance, experiment comparison and promotion dossier contracts
         run: >-
           node --test
           src/test/stage8AiReadinessUiContracts.test.js
           src/test/stage8AiCandidateGovernanceUiContracts.test.js
+          src/test/stage8AiOfflineExperimentComparisonUiContracts.test.js
           src/test/stage8AiPromotionProposalUiContracts.test.js
 
   frontend:

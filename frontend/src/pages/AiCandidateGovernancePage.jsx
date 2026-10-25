@@ -1,4 +1,4 @@
-import { ArrowLeft, FileCheck2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BarChart3, FileCheck2, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import AiCandidateGovernancePanel from "../components/stage8/AiCandidateGovernancePanel.jsx";
@@ -21,6 +21,7 @@ export default function AiCandidateGovernancePage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link to="/admin/system/ai-readiness" className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700"><ArrowLeft size={16} /> AI readiness</Link>
+              <Link to="/admin/system/ai-offline-experiments" className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-bold text-sky-700"><BarChart3 size={16} /> Experiment comparison</Link>
               <Link to="/admin/system/ai-promotion-proposals" className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-bold text-indigo-700"><FileCheck2 size={16} /> Promotion dossiers</Link>
             </div>
           </div>
