@@ -1,0 +1,74 @@
+name: Point 8 AI Readiness UI Gate
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/pages/AiReadinessPage.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - "frontend/src/Services/dataHubService.js"
+      - "backend/src/test/stage8AiReadinessUiContracts.test.js"
+      - ".github/workflows/point8-ai-readiness.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/src/pages/AiReadinessPage.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - "frontend/src/Services/dataHubService.js"
+      - "backend/src/test/stage8AiReadinessUiContracts.test.js"
+      - ".github/workflows/point8-ai-readiness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: AI readiness contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run AI readiness contracts
+        run: node --test src/test/stage8AiReadinessUiContracts.test.js
+
+  frontend:
+    name: AI readiness frontend build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
+        working-directory: frontend
