@@ -101,6 +101,7 @@ class AdvisoryItem(BaseModel):
 
 
 class GatewayAdvisoryResponse(BaseModel):
+    registry_version: str
     advisory_version: str
     tool_key: str
     requested_action: Literal["analyse", "summarise", "recommend"]
