@@ -1,16 +1,14 @@
 import {
-  createRetentionJourney,
-  listRetentionJourneys,
-  previewRetentionJourney,
-  updateRetentionJourney,
-} from "./retentionAutomationService.js";
+  createStage7RetentionJourney,
+  listStage7RetentionJourneys,
+  previewStage7RetentionJourney,
+  updateStage7RetentionJourney,
+} from "./stage7RetentionService.js";
 
-export async function listJourneys(
-  req,
-  res
-) {
-  const journeys =
-    await listRetentionJourneys();
+export async function listJourneys(req, res) {
+  const journeys = await listStage7RetentionJourneys(
+    req.tenantContext || {}
+  );
 
   return res.json({
     success: true,
@@ -18,60 +16,49 @@ export async function listJourneys(
   });
 }
 
-export async function createJourney(
-  req,
-  res
-) {
-  const journey =
-    await createRetentionJourney(
-      req.body,
-      req.user?._id || null
-    );
+export async function createJourney(req, res) {
+  const journey = await createStage7RetentionJourney(
+    req.body,
+    {
+      tenantContext: req.tenantContext || {},
+      actorId: req.user?._id || null,
+    }
+  );
 
-  return res
-    .status(201)
-    .json({
-      success: true,
-      message:
-        "Retention journey created in paused state.",
-      journey,
-    });
-}
-
-export async function updateJourney(
-  req,
-  res
-) {
-  const journey =
-    await updateRetentionJourney(
-      req.params.journeyId,
-      req.body,
-      req.user?._id || null
-    );
-
-  return res.json({
+  return res.status(201).json({
     success: true,
-    message:
-      journey.enabled
-        ? "Retention journey enabled."
-        : "Retention journey saved.",
+    message: "Retention journey created in paused state.",
     journey,
   });
 }
 
+export async function updateJourney(req, res) {
+  const journey = await updateStage7RetentionJourney(
+    req.params.journeyId,
+    req.body,
+    {
+      tenantContext: req.tenantContext || {},
+      actorId: req.user?._id || null,
+    }
+  );
 
-export async function previewJourney(
-  req,
-  res
-) {
-  const preview =
-    await previewRetentionJourney(
-      req.params.journeyId,
-      {
-        limit:
-          req.query.limit,
-      }
-    );
+  return res.json({
+    success: true,
+    message: journey.enabled
+      ? "Retention journey enabled."
+      : "Retention journey saved.",
+    journey,
+  });
+}
+
+export async function previewJourney(req, res) {
+  const preview = await previewStage7RetentionJourney(
+    req.params.journeyId,
+    {
+      tenantContext: req.tenantContext || {},
+      limit: req.query.limit,
+    }
+  );
 
   return res.json({
     success: true,
