@@ -18,6 +18,10 @@ router.post("/ai-gateway/evidence", read, asyncHandler(controller.aiGatewayEvide
 router.post("/ai-gateway/plan", read, asyncHandler(controller.aiGatewayPlan));
 router.post("/ai-gateway/advisory-preview", aiUse, asyncHandler(controller.aiGatewayAdvisoryPreview));
 router.get("/ai-gateway/invocations", read, asyncHandler(controller.aiGatewayInvocations));
+router.post("/ai-gateway/candidate-evaluations", aiUse, asyncHandler(controller.aiCandidateEvaluate));
+router.get("/ai-gateway/candidate-evaluations", read, asyncHandler(controller.aiCandidateEvaluations));
+router.get("/ai-gateway/candidate-evaluations/:recordId", read, asyncHandler(controller.aiCandidateEvaluation));
+router.patch("/ai-gateway/candidate-evaluations/:recordId/review", write, asyncHandler(controller.aiCandidateReview));
 
 router.get("/saved-views", read, asyncHandler(controller.savedViews));
 router.post("/saved-views", write, asyncHandler(controller.createSavedView));
