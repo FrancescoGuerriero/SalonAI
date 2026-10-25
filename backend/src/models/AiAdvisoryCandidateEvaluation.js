@@ -62,6 +62,18 @@ const schema = new Schema(
       },
     },
     baselineComparisonPassed: { type: Boolean, required: true },
+    baselineComparisonSource: {
+      type: String,
+      enum: ["not_applicable", "manifest_declaration", "evidence_derived"],
+      default: "manifest_declaration",
+      index: true,
+    },
+    baselineComparisonRecord: {
+      type: Schema.Types.ObjectId,
+      ref: "AiCandidateBaselineComparison",
+      default: null,
+      index: true,
+    },
     artifactPromotionEligible: { type: Boolean, required: true },
     evidenceId: { type: String, required: true, trim: true, maxlength: 64, index: true },
     evidenceContract: { type: String, required: true, trim: true, maxlength: 120 },
@@ -99,10 +111,20 @@ schema.index({ business: 1, location: 1, candidateKind: 1, promotionReviewStatus
 schema.index({ business: 1, location: 1, evidenceId: 1, assessmentHash: 1 });
 schema.index({ business: 1, location: 1, "model.artifactSha256": 1, policyVersion: 1, baselineVersion: 1 });
 
-schema.pre("validate", function enforceProductionLock(next) {
+schema.pre("validate", function enforceGovernanceLocks(next) {
   this.productionPromotionAuthorised = false;
   this.productionInferenceAuthorised = false;
   this.externalWriteAuthorised = false;
+
+  if (this.candidateKind === "deterministic_baseline") {
+    this.baselineComparisonSource = "not_applicable";
+    this.baselineComparisonRecord = null;
+    this.baselineComparisonPassed = true;
+    this.artifactPromotionEligible = false;
+  } else if (this.baselineComparisonSource !== "evidence_derived" || !this.baselineComparisonRecord) {
+    this.baselineComparisonPassed = false;
+    this.artifactPromotionEligible = false;
+  }
   next();
 });
 
