@@ -6,10 +6,12 @@ import {
 } from "./marketingAccountVerificationService.js";
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS } from "./marketingAccountVerificationExtensions.js";
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE3 } from "./marketingAccountVerificationExtensionsWave3.js";
+import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE4 } from "./marketingAccountVerificationExtensionsWave4.js";
 
 const EXTENSION_VERIFIERS = Object.freeze({
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS,
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE3,
+  ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE4,
 });
 
 function text(value, max = 2000) {
