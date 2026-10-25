@@ -59,7 +59,7 @@ test("Marketing connections API is permission protected and mounted under Integr
   assert.match(controller, /pauseMarketingSourceForProvider/);
 });
 
-test("Marketing source provisioning stays ready-only and provider execution has a hard authorisation lock", async () => {
+test("Marketing source provisioning stays ready-only, bridges routing metadata, and keeps execution locked", async () => {
   const [provisioning, providerRun] = await Promise.all([
     source("../features/integrationPlatform/marketingSourceProvisioningService.js"),
     source("../features/integrationPlatform/marketingProviderRunService.js"),
@@ -67,6 +67,11 @@ test("Marketing source provisioning stays ready-only and provider execution has 
   assert.match(provisioning, /status: "ready"/);
   assert.match(provisioning, /syncMode: "manual"/);
   assert.match(provisioning, /liveProviderExecution: false/);
+  assert.match(provisioning, /ROUTING_FIELDS/);
+  assert.match(provisioning, /propertyId/);
+  assert.match(provisioning, /siteUrl/);
+  assert.match(provisioning, /shopDomain/);
+  assert.match(provisioning, /oauthClientId/);
   assert.match(provisioning, /status: "paused"/);
   assert.match(providerRun, /source\.sourceConfig\?\.liveProviderExecution === false/);
   assert.match(providerRun, /MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED/);
