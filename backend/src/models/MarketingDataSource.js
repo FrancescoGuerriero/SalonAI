@@ -24,40 +24,21 @@ const fieldSchema = new Schema(
 );
 
 export const MARKETING_DATA_PROVIDERS = Object.freeze([
-  "ga4",
-  "google_search_console",
-  "bing_webmaster",
-  "google_ads",
-  "meta_ads",
-  "linkedin_ads",
-  "microsoft_ads",
-  "tiktok_ads",
-  "facebook_pages",
-  "instagram_organic",
-  "linkedin_pages",
-  "google_business_profile",
-  "shopify",
-  "stripe",
-  "hubspot",
-  "mailchimp",
-  "youtube_analytics",
-  "generic",
-  "technical_seo",
+  "ga4", "google_search_console", "bing_webmaster", "google_ads", "meta_ads",
+  "linkedin_ads", "microsoft_ads", "tiktok_ads", "facebook_pages", "instagram_organic",
+  "linkedin_pages", "google_business_profile", "shopify", "stripe", "hubspot",
+  "mailchimp", "youtube_analytics", "generic", "technical_seo",
 ]);
 
 const sourceSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     app: { type: Schema.Types.ObjectId, ref: "IntegrationApp", required: true, index: true },
     connection: { type: Schema.Types.ObjectId, ref: "IntegrationConnection", default: null, index: true },
-    key: { type: String, required: true, trim: true, lowercase: true, maxlength: 120 },
+    key: { type: String, required: true, trim: true, lowercase: true, maxlength: 180 },
     name: { type: String, required: true, trim: true, maxlength: 180 },
-    provider: {
-      type: String,
-      enum: MARKETING_DATA_PROVIDERS,
-      required: true,
-      index: true,
-    },
+    provider: { type: String, enum: MARKETING_DATA_PROVIDERS, required: true, index: true },
     providerSchemaVersion: { type: String, required: true, trim: true, default: "1.0.0" },
     status: {
       type: String,
@@ -65,11 +46,7 @@ const sourceSchema = new Schema(
       default: "draft",
       index: true,
     },
-    syncMode: {
-      type: String,
-      enum: ["manual", "scheduled", "incremental"],
-      default: "manual",
-    },
+    syncMode: { type: String, enum: ["manual", "scheduled", "incremental"], default: "manual" },
     schedule: {
       cadence: { type: String, enum: ["manual", "hourly", "daily", "weekly"], default: "manual" },
       timezone: { type: String, trim: true, maxlength: 80, default: "Europe/London" },
@@ -94,8 +71,7 @@ const sourceSchema = new Schema(
   { timestamps: true, optimisticConcurrency: true }
 );
 
-sourceSchema.index({ business: 1, key: 1 }, { unique: true });
-sourceSchema.index({ business: 1, provider: 1, status: 1 });
+sourceSchema.index({ business: 1, location: 1, key: 1 }, { unique: true });
+sourceSchema.index({ business: 1, location: 1, provider: 1, status: 1 });
 
-export default mongoose.models.MarketingDataSource ||
-  mongoose.model("MarketingDataSource", sourceSchema);
+export default mongoose.models.MarketingDataSource || mongoose.model("MarketingDataSource", sourceSchema);

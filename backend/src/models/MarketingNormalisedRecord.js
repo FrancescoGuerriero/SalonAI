@@ -5,6 +5,7 @@ const { Schema } = mongoose;
 const normalisedRecordSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     source: { type: Schema.Types.ObjectId, ref: "MarketingDataSource", required: true, index: true },
     run: { type: Schema.Types.ObjectId, ref: "MarketingSyncRun", required: true, index: true },
     rawRecord: { type: Schema.Types.ObjectId, ref: "MarketingRawRecord", required: true, index: true },
@@ -32,10 +33,9 @@ const normalisedRecordSchema = new Schema(
 );
 
 normalisedRecordSchema.index(
-  { business: 1, source: 1, rawRecord: 1, schemaVersion: 1 },
+  { business: 1, location: 1, source: 1, rawRecord: 1, schemaVersion: 1 },
   { unique: true }
 );
-normalisedRecordSchema.index({ business: 1, entityType: 1, occurredAt: -1 });
+normalisedRecordSchema.index({ business: 1, location: 1, entityType: 1, occurredAt: -1 });
 
-export default mongoose.models.MarketingNormalisedRecord ||
-  mongoose.model("MarketingNormalisedRecord", normalisedRecordSchema);
+export default mongoose.models.MarketingNormalisedRecord || mongoose.model("MarketingNormalisedRecord", normalisedRecordSchema);

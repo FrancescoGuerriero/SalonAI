@@ -36,12 +36,17 @@ function objectId(value, field) {
 export async function runMarketingProviderSource(
   sourceId,
   payload = {},
-  { businessId, actor = null } = {}
+  { businessId, locationId, actor = null } = {}
 ) {
   objectId(sourceId, "source");
   objectId(businessId, "business");
-  const source = await MarketingDataSource.findOne({ _id: sourceId, business: businessId });
-  if (!source) throw createServiceError("Marketing data source not found.", 404);
+  objectId(locationId, "location");
+  const source = await MarketingDataSource.findOne({
+    _id: sourceId,
+    business: businessId,
+    location: locationId,
+  });
+  if (!source) throw createServiceError("Marketing data source not found for this location.", 404);
   if (source.sourceConfig?.liveProviderExecution === false) {
     throw createServiceError("Live provider retrieval is not authorised for this source.", 409, {
       code: "MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED",
@@ -79,7 +84,7 @@ export async function runMarketingProviderSource(
       retryOf: payload.retryOf,
       attempt: payload.attempt,
     },
-    { businessId, actor }
+    { businessId, locationId, actor }
   );
 
   if (source.connection) {
@@ -91,6 +96,7 @@ export async function runMarketingProviderSource(
 
   return {
     run,
+    locationId: source.location,
     provider: source.provider,
     providerMeta: providerResult.providerMeta,
     retrievedRecords: providerResult.records.length,

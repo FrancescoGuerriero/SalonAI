@@ -8,6 +8,7 @@ def evidence_payload(metadata=None):
     return {
         "contract": "data_hub_evidence_v1",
         "business_id": "business-123",
+        "location_id": "location-001",
         "evidence_id": "evidence-123",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "facts": [
@@ -31,7 +32,7 @@ def evidence_payload(metadata=None):
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
         ],
-        "metadata": metadata or {"view": "marketing-executive"},
+        "metadata": metadata or {"view": "marketing-executive", "locationOwned": True},
     }
 
 
@@ -68,7 +69,7 @@ def test_registry_endpoint_exposes_governed_existing_capabilities(client, auth_h
     assert body["policy"]["canonicalFactsRequired"] is True
 
 
-def test_gateway_plan_accepts_canonical_data_hub_evidence_but_does_not_execute(client, auth_headers):
+def test_gateway_plan_accepts_location_owned_data_hub_evidence_but_does_not_execute(client, auth_headers):
     response = client.post(
         "/api/v1/ai-gateway/plan",
         headers=auth_headers,
@@ -88,6 +89,17 @@ def test_gateway_plan_accepts_canonical_data_hub_evidence_but_does_not_execute(c
     assert body["execution_authorised"] is False
     assert body["external_write_authorised"] is False
     assert body["human_approval_required"] is True
+
+
+def test_gateway_evidence_requires_location_identity(client, auth_headers):
+    evidence = evidence_payload()
+    evidence.pop("location_id")
+    response = client.post(
+        "/api/v1/ai-gateway/plan",
+        headers=auth_headers,
+        json={"tool_key": "marketing-insights", "evidence": evidence},
+    )
+    assert response.status_code == 422
 
 
 def test_gateway_plan_rejects_unregistered_tool(client, auth_headers):

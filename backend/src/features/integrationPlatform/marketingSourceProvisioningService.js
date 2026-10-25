@@ -64,16 +64,26 @@ async function preserveLegacyOAuthAlias(connection) {
   await connection.save();
 }
 
-export async function ensureMarketingSourceForConnection(provider, connectionId, { businessId, actor = null } = {}) {
+export async function ensureMarketingSourceForConnection(
+  provider,
+  connectionId,
+  { businessId, locationId, actor = null } = {}
+) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
   objectId(connectionId, "connection");
-  const connection = await IntegrationConnection.findOne({ _id: connectionId, business: businessId, provider });
-  if (!connection) throw createServiceError("Marketing connection not found for source provisioning.", 404);
+  const connection = await IntegrationConnection.findOne({
+    _id: connectionId,
+    business: businessId,
+    provider,
+  });
+  if (!connection) throw createServiceError("Marketing connection not found for this business.", 404);
   if (connection.status !== "connected") throw createServiceError("Marketing source provisioning requires a configured connection.", 409);
   await preserveLegacyOAuthAlias(connection);
   const definition = marketingConnectorDefinition(provider);
   const key = `marketing-${provider}`;
   const values = {
+    location: locationId,
     app: connection.app,
     connection: connection._id,
     name: definition.label,
@@ -92,18 +102,34 @@ export async function ensureMarketingSourceForConnection(provider, connectionId,
     updatedBy: actorId(actor),
   };
   return MarketingDataSource.findOneAndUpdate(
-    { business: businessId, key },
-    { $set: values, $setOnInsert: { business: businessId, key, createdBy: actorId(actor) } },
+    { business: businessId, location: locationId, key },
+    {
+      $set: values,
+      $setOnInsert: {
+        business: businessId,
+        location: locationId,
+        key,
+        createdBy: actorId(actor),
+      },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 }
 
-export async function pauseMarketingSourceForProvider(provider, { businessId, actor = null } = {}) {
+export async function pauseMarketingSourceForProvider(
+  provider,
+  { businessId, actor = null } = {}
+) {
   objectId(businessId, "business");
-  return MarketingDataSource.findOneAndUpdate(
+  return MarketingDataSource.updateMany(
     { business: businessId, provider, key: `marketing-${provider}` },
-    { $set: { status: "paused", updatedBy: actorId(actor), lastError: "Provider account disconnected; live execution remains disabled." } },
-    { new: true }
+    {
+      $set: {
+        status: "paused",
+        updatedBy: actorId(actor),
+        lastError: "Shared provider account disconnected; all location-owned sources using it are paused.",
+      },
+    }
   );
 }
 

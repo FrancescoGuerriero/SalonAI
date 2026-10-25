@@ -11,6 +11,18 @@ function businessId(request) {
   return value;
 }
 
+function locationId(request) {
+  const value = request.effectiveAuthority?.locationId || request.tenantContext?.locationId || null;
+  if (!value) {
+    throw createServiceError(
+      "Select a location before configuring location-owned marketing data.",
+      400,
+      { code: "LOCATION_REQUIRED" }
+    );
+  }
+  return value;
+}
+
 function actorUser(request) {
   return request.user?._id || request.user?.id || null;
 }
@@ -29,6 +41,7 @@ export async function accounts(request, response) {
 
 export async function configure(request, response) {
   const tenantBusinessId = businessId(request);
+  const selectedLocationId = locationId(request);
   const actor = actorUser(request);
   const account = await service.configureMarketingConnectedAccount(
     request.params.provider,
@@ -39,10 +52,16 @@ export async function configure(request, response) {
   if (account.ready && account.connectionId) {
     source = await ensureMarketingSourceForConnection(account.provider, account.connectionId, {
       businessId: tenantBusinessId,
+      locationId: selectedLocationId,
       actor,
     });
   }
-  response.json({ ...account, dataHubSourceId: source?._id || null, liveSyncEnabled: false });
+  response.json({
+    ...account,
+    locationId: selectedLocationId,
+    dataHubSourceId: source?._id || null,
+    liveSyncEnabled: false,
+  });
 }
 
 export async function disconnect(request, response) {
@@ -52,8 +71,16 @@ export async function disconnect(request, response) {
     request.params.provider,
     { businessId: tenantBusinessId }
   );
-  await pauseMarketingSourceForProvider(account.provider, { businessId: tenantBusinessId, actor });
-  response.json({ ...account, dataHubSourcePaused: true, liveSyncEnabled: false });
+  const paused = await pauseMarketingSourceForProvider(account.provider, {
+    businessId: tenantBusinessId,
+    actor,
+  });
+  response.json({
+    ...account,
+    locationSourcesPaused: paused?.modifiedCount || 0,
+    dataHubSourcePaused: true,
+    liveSyncEnabled: false,
+  });
 }
 
 export default { accounts, catalogue, configure, disconnect };

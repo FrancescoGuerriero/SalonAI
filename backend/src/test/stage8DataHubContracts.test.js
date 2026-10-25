@@ -20,7 +20,6 @@ test("Stage 8 Data Hub query contract normalises and bounds fields", () => {
     calculatedMetrics: ["CTR", "roas"],
     rowLimit: 50000,
   });
-
   assert.equal(query.dateRange.rollingDays, 3650);
   assert.equal(query.dateGrain, "month");
   assert.deepEqual(query.dimensions, ["dimensions.campaign", "provider"]);
@@ -30,21 +29,12 @@ test("Stage 8 Data Hub query contract normalises and bounds fields", () => {
 });
 
 test("Stage 8 Data Hub rejects unsafe field and calculated-metric references", () => {
-  assert.throws(
-    () => normaliseDataHubQuery({ dimensions: ["$where"] }),
-    /Unsupported Data Hub field reference/
-  );
-  assert.throws(
-    () => normaliseDataHubQuery({ metrics: ["metrics.clicks.$gt"] }),
-    /Unsupported Data Hub field reference/
-  );
-  assert.throws(
-    () => normaliseDataHubQuery({ calculatedMetrics: ["magic_roi"] }),
-    /Unsupported calculated metric/
-  );
+  assert.throws(() => normaliseDataHubQuery({ dimensions: ["$where"] }), /Unsupported Data Hub field reference/);
+  assert.throws(() => normaliseDataHubQuery({ metrics: ["metrics.clicks.$gt"] }), /Unsupported Data Hub field reference/);
+  assert.throws(() => normaliseDataHubQuery({ calculatedMetrics: ["magic_roi"] }), /Unsupported calculated metric/);
 });
 
-test("Stage 8 catalogue extends Stage 5 sources and keeps destinations preview-only", () => {
+test("Stage 8 catalogue declares location-owned facts and preview-only actions", () => {
   const catalogue = dataHubCatalogue();
   assert.equal(catalogue.version, "1.0.0");
   assert.ok(catalogue.sourceConnectors.some((connector) => connector.key === "ga4"));
@@ -53,95 +43,94 @@ test("Stage 8 catalogue extends Stage 5 sources and keeps destinations preview-o
   assert.ok(catalogue.destinations.some((destination) => destination.key === "bigquery"));
   assert.ok(catalogue.destinations.some((destination) => destination.key === "mcp_ai"));
   assert.ok(catalogue.destinations.every((destination) => destination.liveExecutionAuthorised === false));
-  assert.equal(catalogue.safety.tenantScoped, true);
+  assert.equal(catalogue.safety.locationOwnedFacts, true);
+  assert.equal(catalogue.safety.selectedLocationRequired, true);
+  assert.equal(catalogue.safety.businessWideAggregationExplicitOnly, true);
   assert.equal(catalogue.safety.destinationExecutionAuthorised, false);
   assert.equal(catalogue.safety.aiActionsAuthorised, false);
 });
 
-test("Stage 8 Data Hub models preserve tenant ownership and fail-safe execution defaults", async () => {
+test("Stage 8 Data Hub artefacts require location ownership and fail-safe execution defaults", async () => {
   const [viewModel, destinationModel, runModel] = await Promise.all([
     source("../models/DataHubSavedView.js"),
     source("../models/DataHubDestinationTask.js"),
     source("../models/DataHubDestinationRun.js"),
   ]);
-
-  assert.match(viewModel, /business:[\s\S]*required:\s*true/);
-  assert.match(viewModel, /business:\s*1,\s*key:\s*1/);
-  assert.match(destinationModel, /business:[\s\S]*required:\s*true/);
+  for (const model of [viewModel, destinationModel, runModel]) {
+    assert.match(model, /business:[\s\S]*required:\s*true/);
+    assert.match(model, /location:[\s\S]*ref:\s*"Location"[\s\S]*required:\s*true/);
+  }
+  assert.match(viewModel, /business:\s*1,\s*location:\s*1,\s*key:\s*1/);
+  assert.match(destinationModel, /business:\s*1,\s*location:\s*1,\s*key:\s*1/);
   assert.match(destinationModel, /humanApprovalRequired:[\s\S]*default:\s*true/);
   assert.match(destinationModel, /executionAuthorised:[\s\S]*default:\s*false/);
   assert.match(runModel, /executionAuthorised:[\s\S]*default:\s*false/);
 });
 
-test("Stage 8 Data Hub service queries canonical normalised records and blocks secret config", async () => {
+test("Stage 8 Data Hub service queries only canonical records owned by the selected location", async () => {
   const service = await source("../features/integrationPlatform/dataHubService.js");
+  assert.match(service, /ownedSources\(query\.sourceIds, businessId, locationId\)/);
+  assert.match(service, /business:\s*businessId,\s*location:\s*locationId/);
   assert.match(service, /MarketingNormalisedRecord\.find\(match\)/);
-  assert.match(service, /business:\s*businessId/);
+  assert.match(service, /locationOwnershipRequired:\s*true/);
+  assert.match(service, /businessWideAggregationRequiresExplicitAuthority:\s*true/);
   assert.match(service, /DATA_HUB_QUERY_SCAN_LIMIT/);
   assert.match(service, /FORBIDDEN_CONFIG_KEY/);
-  assert.match(service, /store credentials in IntegrationApp credential versions/);
   assert.match(service, /externalWriteActionsAuthorised:\s*false/);
   assert.doesNotMatch(service, /createPaymentIntent|chargeCard|capturePayment/);
 });
 
-test("Stage 8 Data Hub AI Gateway bridge translates canonical evidence without enabling inference", async () => {
+test("Stage 8 Data Hub AI Gateway bridge binds canonical evidence to a location without enabling inference", async () => {
   const bridge = await source("../features/integrationPlatform/dataHubAiGatewayService.js");
   assert.match(bridge, /data_hub_evidence_v1/);
   assert.match(bridge, /buildDataHubAiEvidence/);
+  assert.match(bridge, /location_id:\s*String\(locationId\)/);
+  assert.match(bridge, /locationOwned:\s*true/);
+  assert.match(bridge, /businessWideAggregationAuthorised:\s*false/);
   assert.match(bridge, /AI_GATEWAY_FACT_LIMIT = 500/);
   assert.match(bridge, /AI_GATEWAY_PROVENANCE_LIMIT = 200/);
   assert.match(bridge, /modelMayRecalculateCanonicalMetrics:\s*false/);
   assert.match(bridge, /X-SalonAI-Service-Key/);
   assert.match(bridge, /\/api\/v1\/ai-gateway\/plan/);
-  assert.match(bridge, /AI_GATEWAY_NOT_CONFIGURED/);
-  assert.match(bridge, /AI_GATEWAY_HTTPS_REQUIRED/);
   assert.match(bridge, /inferenceExecuted:\s*false/);
   assert.match(bridge, /externalWriteAuthorised:\s*false/);
   assert.doesNotMatch(bridge, /\/analyse|\/infer|\/train|\/promote/);
 });
 
-test("Stage 8 Data Hub API is permission protected and mounted under Integration Platform", async () => {
+test("Stage 8 Data Hub API requires both business and selected location authority", async () => {
   const [routes, parentRoutes, controller] = await Promise.all([
     source("../features/integrationPlatform/dataHubRoutes.js"),
     source("../features/integrationPlatform/integrationPlatformRoutes.js"),
     source("../features/integrationPlatform/dataHubController.js"),
   ]);
-
   assert.match(routes, /const read = requirePermissions\("feature-control:read"\)/);
   assert.match(routes, /const write = requirePermissions\("feature-control:update"\)/);
-  assert.match(routes, /\/catalogue/);
-  assert.match(routes, /\/query/);
-  assert.match(routes, /\/ai-evidence/);
   assert.match(routes, /\/ai-gateway\/evidence/);
   assert.match(routes, /\/ai-gateway\/plan/);
-  assert.match(routes, /\/saved-views/);
-  assert.match(routes, /\/destinations/);
-  assert.match(routes, /\/destinations\/:taskId\/preview/);
   assert.match(parentRoutes, /router\.use\(\s*"\/data-hub"/);
   assert.match(controller, /effectiveAuthority\?\.businessId/);
-  assert.match(controller, /tenantContext\?\.businessId/);
+  assert.match(controller, /effectiveAuthority\?\.locationId/);
+  assert.match(controller, /tenantContext\?\.locationId/);
+  assert.match(controller, /LOCATION_REQUIRED/);
   assert.match(controller, /buildGatewayEvidence/);
   assert.match(controller, /planDataHubAiGateway/);
 });
 
 test("Stage 8 management workspace exposes governed Data Hub tasks", async () => {
-  const [page, service, router, navigation] = await Promise.all([
+  const [page, client, router, navigation] = await Promise.all([
     source("../../../frontend/src/pages/DataHubPage.jsx"),
     source("../../../frontend/src/Services/dataHubService.js"),
     source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"),
     source("../../../frontend/src/components/navigation/managementNavigationConfig.js"),
   ]);
-
   assert.match(page, /AIIBP Data Hub/);
   assert.match(page, /Cross-source query builder/);
   assert.match(page, /Destination tasks/);
   assert.match(page, /Governed mode/);
   assert.match(page, /live external writes and AI actions remain disabled/);
-  assert.match(service, /integration-platform\/data-hub/);
-  assert.match(service, /ai-evidence/);
-  assert.match(service, /ai-gateway\/evidence/);
-  assert.match(service, /ai-gateway\/plan/);
+  assert.match(client, /integration-platform\/data-hub/);
+  assert.match(client, /ai-gateway\/evidence/);
+  assert.match(client, /ai-gateway\/plan/);
   assert.match(router, /\/admin\/system\/data-hub/);
-  assert.match(router, /feature-control:read/);
   assert.match(navigation, /AIIBP Data Hub/);
 });

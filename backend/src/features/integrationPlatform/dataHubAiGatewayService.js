@@ -82,13 +82,14 @@ function gatewayProvenance(evidence) {
   return items;
 }
 
-export async function buildGatewayEvidence(payload = {}, { businessId, now = new Date() } = {}) {
-  const evidence = await buildDataHubAiEvidence(payload, { businessId, now });
+export async function buildGatewayEvidence(payload = {}, { businessId, locationId, now = new Date() } = {}) {
+  const evidence = await buildDataHubAiEvidence(payload, { businessId, locationId, now });
   const facts = gatewayFacts(evidence);
   if (!facts.length) appendFact(facts, fact("total.recordCount", 0, { dimensions: { scope: "query_total" } }));
   const provenance = gatewayProvenance(evidence);
   const fingerprintInput = JSON.stringify({
     businessId: String(businessId),
+    locationId: String(locationId),
     generatedAt: evidence.generatedAt,
     contractVersion: evidence.contractVersion,
     facts,
@@ -97,6 +98,7 @@ export async function buildGatewayEvidence(payload = {}, { businessId, now = new
   return {
     contract: AI_GATEWAY_EVIDENCE_CONTRACT,
     business_id: String(businessId),
+    location_id: String(locationId),
     evidence_id: createHash("sha256").update(fingerprintInput).digest("hex"),
     generated_at: evidence.generatedAt,
     facts,
@@ -104,9 +106,11 @@ export async function buildGatewayEvidence(payload = {}, { businessId, now = new
     metadata: {
       sourceContract: evidence.contract,
       sourceContractVersion: evidence.contractVersion,
+      locationOwned: true,
       deterministic: Boolean(evidence?.provenance?.deterministic),
       recordsMatched: Number(evidence?.provenance?.recordsMatched || 0),
       truncatedScan: Boolean(evidence?.provenance?.truncatedScan),
+      businessWideAggregationAuthorised: false,
       modelMayRecalculateCanonicalMetrics: false,
     },
   };
@@ -130,8 +134,8 @@ function gatewayConfiguration() {
   return { baseUrl, serviceKey };
 }
 
-export async function planDataHubAiGateway(payload = {}, { businessId, now = new Date() } = {}) {
-  const evidence = await buildGatewayEvidence(payload, { businessId, now });
+export async function planDataHubAiGateway(payload = {}, { businessId, locationId, now = new Date() } = {}) {
+  const evidence = await buildGatewayEvidence(payload, { businessId, locationId, now });
   const toolKey = text(payload.toolKey || "marketing-insights", 120) || "marketing-insights";
   const requestedAction = ["analyse", "summarise", "forecast", "recommend"].includes(payload.requestedAction)
     ? payload.requestedAction
@@ -163,11 +167,12 @@ export async function planDataHubAiGateway(payload = {}, { businessId, now = new
       });
     }
     return {
+      locationId,
       evidence,
       plan: body,
       inferenceExecuted: false,
       externalWriteAuthorised: false,
-      message: "Canonical Data Hub evidence was accepted for gateway planning only. No inference or external write was executed by this endpoint.",
+      message: "Canonical location-owned Data Hub evidence was accepted for gateway planning only. No inference or external write was executed by this endpoint.",
     };
   } catch (error) {
     if (error?.name === "AbortError") {

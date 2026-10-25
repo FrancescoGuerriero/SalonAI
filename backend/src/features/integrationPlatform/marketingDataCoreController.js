@@ -10,6 +10,16 @@ function businessId(request) {
   return value;
 }
 
+function locationId(request) {
+  const value = request.effectiveAuthority?.locationId || request.tenantContext?.locationId || null;
+  if (!value) {
+    throw createServiceError("Select a location before using Marketing Data Core.", 400, {
+      code: "LOCATION_REQUIRED",
+    });
+  }
+  return value;
+}
+
 function actor(request) {
   return request.user || null;
 }
@@ -20,58 +30,60 @@ function body(request) {
     : {};
 }
 
+function scope(request) {
+  return { businessId: businessId(request), locationId: locationId(request) };
+}
+
 export async function catalogue(_request, response) {
   response.json(service.marketingDataConnectorCatalogue());
 }
 
 export async function overview(request, response) {
-  response.json(await service.marketingDataOverview({ businessId: businessId(request) }));
+  response.json(await service.marketingDataOverview(scope(request)));
 }
 
 export async function sources(request, response) {
-  response.json({ items: await service.listMarketingDataSources(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listMarketingDataSources(request.query || {}, scope(request)) });
 }
 
 export async function createSource(request, response) {
   response.status(201).json(await service.createMarketingDataSource(body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function updateSource(request, response) {
   response.json(await service.updateMarketingDataSource(request.params.sourceId, body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function preview(request, response) {
-  response.json(await service.previewMarketingData(request.params.sourceId, body(request), {
-    businessId: businessId(request),
-  }));
+  response.json(await service.previewMarketingData(request.params.sourceId, body(request), scope(request)));
 }
 
 export async function runSource(request, response) {
   response.status(201).json(await service.runMarketingDataSource(request.params.sourceId, body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function runProviderSource(request, response) {
   response.status(201).json(await runMarketingProviderSource(request.params.sourceId, body(request), {
-    businessId: businessId(request),
+    ...scope(request),
     actor: actor(request),
   }));
 }
 
 export async function runs(request, response) {
-  response.json({ items: await service.listMarketingSyncRuns(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listMarketingSyncRuns(request.query || {}, scope(request)) });
 }
 
 export async function seoObservations(request, response) {
-  response.json({ items: await service.listSeoObservations(request.query || {}, { businessId: businessId(request) }) });
+  response.json({ items: await service.listSeoObservations(request.query || {}, scope(request)) });
 }
 
 export default {

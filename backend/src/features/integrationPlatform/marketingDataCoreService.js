@@ -167,10 +167,16 @@ async function appForBusiness(appId, businessId) {
   return IntegrationApp.findOne({ _id: appId, business: businessId });
 }
 
-async function sourceForBusiness(sourceId, businessId) {
+async function sourceForLocation(sourceId, businessId, locationId) {
   objectId(sourceId, "source");
-  const source = await MarketingDataSource.findOne({ _id: sourceId, business: businessId });
-  if (!source) throw createServiceError("Marketing data source not found.", 404);
+  objectId(businessId, "business");
+  objectId(locationId, "location");
+  const source = await MarketingDataSource.findOne({
+    _id: sourceId,
+    business: businessId,
+    location: locationId,
+  });
+  if (!source) throw createServiceError("Marketing data source not found for this location.", 404);
   return source;
 }
 
@@ -185,7 +191,10 @@ async function updateHealth(source, businessId, status, values = {}) {
         lastFailureAt: values.lastFailureAt ?? undefined,
         lastError: values.lastError ?? "",
         retryAt: values.retryAt ?? null,
-        metrics: values.metrics || {},
+        metrics: {
+          ...(values.metrics || {}),
+          locationId: String(source.location),
+        },
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -196,8 +205,9 @@ export function marketingDataConnectorCatalogue() {
   return marketingConnectorCatalogue();
 }
 
-export async function createMarketingDataSource(payload = {}, { businessId, actor = null } = {}) {
+export async function createMarketingDataSource(payload = {}, { businessId, locationId, actor = null } = {}) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
   const provider = text(payload.provider, 80).toLowerCase();
   const definition = marketingConnectorDefinition(provider);
   const app = await appForBusiness(payload.app, businessId);
@@ -218,6 +228,7 @@ export async function createMarketingDataSource(payload = {}, { businessId, acto
 
   const source = await MarketingDataSource.create({
     business: businessId,
+    location: locationId,
     app: app._id,
     connection: connection?._id || null,
     key,
@@ -244,9 +255,10 @@ export async function createMarketingDataSource(payload = {}, { businessId, acto
   return source;
 }
 
-export async function listMarketingDataSources(query = {}, { businessId } = {}) {
+export async function listMarketingDataSources(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.provider) match.provider = text(query.provider, 80).toLowerCase();
   if (query.status) match.status = enumValue(query.status, "status", SOURCE_STATUSES, "active");
   return MarketingDataSource.find(match)
@@ -256,8 +268,8 @@ export async function listMarketingDataSources(query = {}, { businessId } = {}) 
     .lean();
 }
 
-export async function updateMarketingDataSource(sourceId, payload = {}, { businessId, actor = null } = {}) {
-  const source = await sourceForBusiness(sourceId, businessId);
+export async function updateMarketingDataSource(sourceId, payload = {}, { businessId, locationId, actor = null } = {}) {
+  const source = await sourceForLocation(sourceId, businessId, locationId);
   if (payload.name !== undefined) source.name = text(payload.name, 180);
   if (payload.status !== undefined) source.status = enumValue(payload.status, "status", SOURCE_STATUSES, source.status);
   if (payload.syncMode !== undefined) source.syncMode = enumValue(payload.syncMode, "syncMode", ["manual", "scheduled", "incremental"], source.syncMode);
@@ -280,8 +292,8 @@ export async function updateMarketingDataSource(sourceId, payload = {}, { busine
   return source;
 }
 
-export async function previewMarketingData(sourceId, payload = {}, { businessId } = {}) {
-  const source = await sourceForBusiness(sourceId, businessId);
+export async function previewMarketingData(sourceId, payload = {}, { businessId, locationId } = {}) {
+  const source = await sourceForLocation(sourceId, businessId, locationId);
   const records = Array.isArray(payload.records) ? payload.records.slice(0, 25) : [];
   if (!records.length) throw createServiceError("Preview requires one or more sample records.", 422);
   source.lastPreviewAt = new Date();
@@ -289,6 +301,7 @@ export async function previewMarketingData(sourceId, payload = {}, { businessId 
 
   return {
     provider: source.provider,
+    locationId: source.location,
     schemaVersion: source.providerSchemaVersion,
     fieldCatalogue: source.fieldCatalogue,
     records: records.map((record) => {
@@ -299,7 +312,7 @@ export async function previewMarketingData(sourceId, payload = {}, { businessId 
   };
 }
 
-async function persistBatch(source, run, records, businessId) {
+async function persistBatch(source, run, records, businessId, locationId) {
   const counters = { fetched: records.length, rawStored: 0, normalised: 0, reconciled: 0, failed: 0 };
   const errors = [];
 
@@ -308,11 +321,18 @@ async function persistBatch(source, run, records, businessId) {
     try {
       const externalId = externalIdFor(record, source.fieldCatalogue);
       const payloadHash = recordHash(record);
-      raw = await MarketingRawRecord.findOne({ business: businessId, source: source._id, externalId, payloadHash });
+      raw = await MarketingRawRecord.findOne({
+        business: businessId,
+        location: locationId,
+        source: source._id,
+        externalId,
+        payloadHash,
+      });
 
       if (raw) {
         const existingNormalised = await MarketingNormalisedRecord.findOne({
           business: businessId,
+          location: locationId,
           source: source._id,
           rawRecord: raw._id,
         }).select("_id").lean();
@@ -335,6 +355,7 @@ async function persistBatch(source, run, records, businessId) {
       } else {
         raw = await MarketingRawRecord.create({
           business: businessId,
+          location: locationId,
           source: source._id,
           run: run._id,
           externalId,
@@ -350,6 +371,7 @@ async function persistBatch(source, run, records, businessId) {
       const normalised = normaliseRecord(record, source, raw);
       await MarketingNormalisedRecord.create({
         business: businessId,
+        location: locationId,
         source: source._id,
         run: run._id,
         rawRecord: raw._id,
@@ -366,7 +388,7 @@ async function persistBatch(source, run, records, businessId) {
       errors.push(message);
       if (raw?._id) {
         await MarketingRawRecord.updateOne(
-          { _id: raw._id, business: businessId, source: source._id },
+          { _id: raw._id, business: businessId, location: locationId, source: source._id },
           {
             $set: {
               run: run._id,
@@ -381,13 +403,14 @@ async function persistBatch(source, run, records, businessId) {
   return { counters, errors };
 }
 
-async function executeSeoScan(source, run, businessId, payload = {}) {
+async function executeSeoScan(source, run, businessId, locationId, payload = {}) {
   const rootUrl = text(payload.rootUrl || source.sourceConfig?.rootUrl, 2000);
   if (!rootUrl) throw createServiceError("Technical SEO source requires sourceConfig.rootUrl or rootUrl.", 422);
   const result = await crawlTechnicalSeo(rootUrl, { maxPages: payload.maxPages || source.sourceConfig?.maxPages || 25 });
 
   await SeoPageObservation.insertMany(result.pages.map((page) => ({
     business: businessId,
+    location: locationId,
     source: source._id,
     run: run._id,
     ...page,
@@ -404,16 +427,17 @@ async function executeSeoScan(source, run, businessId, payload = {}) {
     scannedAt: new Date(),
     issues: page.issues,
   }));
-  return { ...result, batch: await persistBatch(source, run, normalisable, businessId) };
+  return { ...result, batch: await persistBatch(source, run, normalisable, businessId, locationId) };
 }
 
-export async function runMarketingDataSource(sourceId, payload = {}, { businessId, actor = null } = {}) {
-  const source = await sourceForBusiness(sourceId, businessId);
+export async function runMarketingDataSource(sourceId, payload = {}, { businessId, locationId, actor = null } = {}) {
+  const source = await sourceForLocation(sourceId, businessId, locationId);
   if (["paused", "archived"].includes(source.status)) throw createServiceError("Paused or archived sources cannot run.", 409);
   const mode = enumValue(payload.mode, "mode", SYNC_MODES, source.provider === "technical_seo" ? "seo_scan" : source.syncMode || "manual");
   const connector = marketingConnectorDefinition(source.provider);
   const run = await MarketingSyncRun.create({
     business: businessId,
+    location: locationId,
     source: source._id,
     runKey: `${source.key}:${randomUUID()}`,
     mode,
@@ -433,7 +457,7 @@ export async function runMarketingDataSource(sourceId, payload = {}, { businessI
   try {
     let batch;
     if (source.provider === "technical_seo") {
-      const seo = await executeSeoScan(source, run, businessId, payload);
+      const seo = await executeSeoScan(source, run, businessId, locationId, payload);
       batch = seo.batch;
     } else {
       const records = Array.isArray(payload.records) ? payload.records.slice(0, 5000) : [];
@@ -444,7 +468,7 @@ export async function runMarketingDataSource(sourceId, payload = {}, { businessI
           { code: "LIVE_CONNECTOR_NOT_ACTIVATED", provider: source.provider }
         );
       }
-      batch = await persistBatch(source, run, records, businessId);
+      batch = await persistBatch(source, run, records, businessId, locationId);
     }
 
     run.counters = batch.counters;
@@ -500,30 +524,39 @@ export async function runMarketingDataSource(sourceId, payload = {}, { businessI
   }
 }
 
-export async function listMarketingSyncRuns(query = {}, { businessId } = {}) {
+export async function listMarketingSyncRuns(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.source) match.source = objectId(query.source, "source");
   if (query.status) match.status = text(query.status, 40).toLowerCase();
-  return MarketingSyncRun.find(match).populate("source", "key name provider status").sort({ createdAt: -1 }).limit(200).lean();
+  return MarketingSyncRun.find(match).populate("source", "key name provider status location").sort({ createdAt: -1 }).limit(200).lean();
 }
 
-export async function listSeoObservations(query = {}, { businessId } = {}) {
+export async function listSeoObservations(query = {}, { businessId, locationId } = {}) {
   objectId(businessId, "business");
-  const match = { business: businessId };
+  objectId(locationId, "location");
+  const match = { business: businessId, location: locationId };
   if (query.source) match.source = objectId(query.source, "source");
   if (query.run) match.run = objectId(query.run, "run");
   return SeoPageObservation.find(match).sort({ scannedAt: -1, url: 1 }).limit(500).lean();
 }
 
-export async function marketingDataOverview({ businessId } = {}) {
+export async function marketingDataOverview({ businessId, locationId } = {}) {
   objectId(businessId, "business");
+  objectId(locationId, "location");
+  const scope = { business: businessId, location: locationId };
   const [sources, recentRuns, health] = await Promise.all([
-    MarketingDataSource.find({ business: businessId }).sort({ name: 1 }).lean(),
-    MarketingSyncRun.find({ business: businessId }).populate("source", "key name provider").sort({ createdAt: -1 }).limit(25).lean(),
-    ConnectorHealth.find({ business: businessId, componentKey: /^marketing-source:/ }).sort({ updatedAt: -1 }).lean(),
+    MarketingDataSource.find(scope).sort({ name: 1 }).lean(),
+    MarketingSyncRun.find(scope).populate("source", "key name provider location").sort({ createdAt: -1 }).limit(25).lean(),
+    ConnectorHealth.find({
+      business: businessId,
+      componentKey: /^marketing-source:/,
+      "metrics.locationId": String(locationId),
+    }).sort({ updatedAt: -1 }).lean(),
   ]);
   return {
+    locationId,
     catalogue: marketingConnectorCatalogue(),
     sources,
     recentRuns,

@@ -33,6 +33,7 @@ class CanonicalFact(BaseModel):
 class DataHubEvidenceEnvelope(BaseModel):
     contract: Literal["data_hub_evidence_v1"] = "data_hub_evidence_v1"
     business_id: str = Field(min_length=1, max_length=120)
+    location_id: str = Field(min_length=1, max_length=120)
     evidence_id: str = Field(min_length=1, max_length=240)
     generated_at: datetime
     facts: list[CanonicalFact] = Field(min_length=1, max_length=500)

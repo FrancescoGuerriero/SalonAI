@@ -5,6 +5,7 @@ const { Schema } = mongoose;
 const rawRecordSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     source: { type: Schema.Types.ObjectId, ref: "MarketingDataSource", required: true, index: true },
     run: { type: Schema.Types.ObjectId, ref: "MarketingSyncRun", required: true, index: true },
     externalId: { type: String, required: true, trim: true, maxlength: 500 },
@@ -24,8 +25,7 @@ const rawRecordSchema = new Schema(
   { timestamps: true }
 );
 
-rawRecordSchema.index({ business: 1, source: 1, externalId: 1, payloadHash: 1 }, { unique: true });
-rawRecordSchema.index({ business: 1, run: 1, reconciliationStatus: 1 });
+rawRecordSchema.index({ business: 1, location: 1, source: 1, externalId: 1, payloadHash: 1 }, { unique: true });
+rawRecordSchema.index({ business: 1, location: 1, run: 1, reconciliationStatus: 1 });
 
-export default mongoose.models.MarketingRawRecord ||
-  mongoose.model("MarketingRawRecord", rawRecordSchema);
+export default mongoose.models.MarketingRawRecord || mongoose.model("MarketingRawRecord", rawRecordSchema);
