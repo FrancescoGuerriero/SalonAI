@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/aiCandidateEvaluationService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccounts**"
       - "backend/src/features/integrationPlatform/marketingDataCore**"
       - "backend/src/features/integrationPlatform/marketingDataRecoveryService.js"
@@ -17,6 +18,7 @@ on:
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/services/marketingDataSyncWorkerService.js"
       - "backend/src/models/AiGatewayInvocation.js"
+      - "backend/src/models/AiAdvisoryCandidateEvaluation.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
       - "backend/src/models/MarketingRawRecord.js"
@@ -24,6 +26,7 @@ on:
       - "backend/src/models/MarketingSyncRun.js"
       - "backend/src/models/SeoPageObservation.js"
       - "backend/src/test/stage8AiAdvisoryContracts.test.js"
+      - "backend/src/test/stage8AiCandidateEvaluationContracts.test.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
       - "backend/src/test/stage8LocationOwnershipContracts.test.js"
       - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
@@ -47,6 +50,7 @@ on:
       - main
     paths:
       - "backend/src/features/integrationPlatform/dataHub**"
+      - "backend/src/features/integrationPlatform/aiCandidateEvaluationService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccounts**"
       - "backend/src/features/integrationPlatform/marketingDataCore**"
       - "backend/src/features/integrationPlatform/marketingDataRecoveryService.js"
@@ -60,6 +64,7 @@ on:
       - "backend/src/features/integrationPlatform/marketingProviderRunService.js"
       - "backend/src/services/marketingDataSyncWorkerService.js"
       - "backend/src/models/AiGatewayInvocation.js"
+      - "backend/src/models/AiAdvisoryCandidateEvaluation.js"
       - "backend/src/models/DataHub**"
       - "backend/src/models/MarketingDataSource.js"
       - "backend/src/models/MarketingRawRecord.js"
@@ -67,6 +72,7 @@ on:
       - "backend/src/models/MarketingSyncRun.js"
       - "backend/src/models/SeoPageObservation.js"
       - "backend/src/test/stage8AiAdvisoryContracts.test.js"
+      - "backend/src/test/stage8AiCandidateEvaluationContracts.test.js"
       - "backend/src/test/stage8DataHubContracts.test.js"
       - "backend/src/test/stage8LocationOwnershipContracts.test.js"
       - "backend/src/test/stage8MarketingConnectionsContracts.test.js"
@@ -110,10 +116,11 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run Point 8 Data Hub, Marketing, advisory, location and provider adapter tests
+      - name: Run Point 8 Data Hub, Marketing, advisory, evaluation, location and provider adapter tests
         run: >-
           node --test
           src/test/stage8AiAdvisoryContracts.test.js
+          src/test/stage8AiCandidateEvaluationContracts.test.js
           src/test/stage8DataHubContracts.test.js
           src/test/stage8LocationOwnershipContracts.test.js
           src/test/stage8MarketingConnectionsContracts.test.js
