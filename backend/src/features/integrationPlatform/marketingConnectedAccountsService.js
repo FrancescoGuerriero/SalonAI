@@ -154,7 +154,7 @@ const PROVIDERS = Object.freeze({
       credential("accessToken", "OAuth access token", "access_token"),
       credential("refreshToken", "OAuth refresh token", "refresh_token", { required: false }),
     ],
-    scopes: ["r_organization_social"],
+    scopes: ["r_organization_social", "rw_organization_admin"],
   }),
   google_business_profile: provider({
     key: "google_business_profile",
@@ -263,7 +263,10 @@ const PROVIDERS = Object.freeze({
       credential("refreshToken", "OAuth refresh token", "refresh_token"),
       credential("accessToken", "OAuth access token", "access_token", { required: false }),
     ],
-    scopes: ["https://www.googleapis.com/auth/yt-analytics.readonly"],
+    scopes: [
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ],
   }),
 });
 
