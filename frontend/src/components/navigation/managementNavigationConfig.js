@@ -144,7 +144,8 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/admin/system", "On/Off Ideas", "Manage administrator feature controls", "ToggleLeft", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/connected-accounts", "Connected accounts", "Connect Facebook, Instagram, LinkedIn and Google Business Profile", "Link2", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/measurement-core", "Measurement & Integration Core", "Inspect Stage 5 SEO, metrics, connectors and data lineage", "BarChart3", false, "feature-control:read", "", ADVANCED],
-      ["/admin/system/data-hub", "AIIBP Data Hub", "Blend data, build BI views and govern destinations", "Database", false, "feature-control:read", "", ADVANCED],
+      ["/admin/system/data-hub", "AIIBP Data Hub", "Blend location data, build BI views and govern destinations", "Database", false, "feature-control:read", "", ADVANCED],
+      ["/admin/system/ai-readiness", "AI readiness", "Preview location-owned AI evidence and planning audit history", "Sparkles", false, "feature-control:read", "", ADVANCED],
     ],
   },
 ].map((section) => ({
