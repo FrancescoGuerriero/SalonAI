@@ -30,6 +30,12 @@ function objectId(value, field, { optional = false } = {}) {
   return result;
 }
 
+function locationAuthority(businessId, locationId) {
+  objectId(businessId, "business");
+  objectId(locationId, "location");
+  return { business: businessId, location: locationId };
+}
+
 function date(value, field, { optional = true } = {}) {
   if ((value === undefined || value === null || value === "") && optional) return null;
   const result = new Date(value);
@@ -78,11 +84,13 @@ async function campaignForBusiness(campaignId, businessId) {
 
 async function validateAttributionSubjects(
   { lead, customer, opportunity },
-  businessId
+  businessId,
+  locationId
 ) {
+  const authority = locationAuthority(businessId, locationId);
   const [leadRecord, customerRecord, opportunityRecord] = await Promise.all([
     lead
-      ? Lead.findOne({ _id: lead, business: businessId }).select("_id customer").lean()
+      ? Lead.findOne({ _id: lead, ...authority }).select("_id customer location").lean()
       : null,
     customer
       ? Customer.findOne({
@@ -94,20 +102,24 @@ async function validateAttributionSubjects(
           .lean()
       : null,
     opportunity
-      ? Opportunity.findOne({ _id: opportunity, business: businessId })
-          .select("_id lead customer")
+      ? Opportunity.findOne({ _id: opportunity, ...authority })
+          .select("_id lead customer location")
           .lean()
       : null,
   ]);
 
   if (lead && !leadRecord) {
-    throw createServiceError("Attribution lead not found in the active business.", 404);
+    throw createServiceError("Attribution lead not found in the selected location.", 404, {
+      code: "ATTRIBUTION_LOCATION_MISMATCH",
+    });
   }
   if (customer && !customerRecord) {
     throw createServiceError("Attribution customer not found in the active business.", 404);
   }
   if (opportunity && !opportunityRecord) {
-    throw createServiceError("Attribution opportunity not found in the active business.", 404);
+    throw createServiceError("Attribution opportunity not found in the selected location.", 404, {
+      code: "ATTRIBUTION_LOCATION_MISMATCH",
+    });
   }
   if (
     opportunityRecord?.lead &&
@@ -189,9 +201,11 @@ export async function createCampaignExecution(
   payload = {},
   {
     businessId,
+    locationId,
     actorUser = null,
   } = {}
 ) {
+  locationAuthority(businessId, locationId);
   const campaign = await campaignForBusiness(campaignId, businessId);
   const channel = lower(payload.channel || campaign.channel);
   const provider = lower(payload.provider);
@@ -215,6 +229,7 @@ export async function createCampaignExecution(
   const scheduledFor = date(payload.scheduledFor, "scheduledFor");
   const idempotencyKey = text(payload.idempotencyKey) || stableKey([
     businessId,
+    locationId,
     campaign._id,
     channel,
     provider,
@@ -225,11 +240,13 @@ export async function createCampaignExecution(
   const execution = await CampaignExecution.findOneAndUpdate(
     {
       business: businessId,
+      location: locationId,
       idempotencyKey,
     },
     {
       $setOnInsert: {
         business: businessId,
+        location: locationId,
         campaign: campaign._id,
         channel,
         provider,
@@ -268,11 +285,14 @@ export async function listCampaignExecutions(
   query = {},
   {
     businessId,
+    locationId,
   } = {}
 ) {
+  locationAuthority(businessId, locationId);
   await campaignForBusiness(campaignId, businessId);
   const match = {
     business: businessId,
+    location: locationId,
     campaign: campaignId,
   };
   if (query.status) match.status = lower(query.status);
@@ -289,9 +309,10 @@ export async function recordAttributionTouch(
   payload = {},
   {
     businessId,
+    locationId,
   } = {}
 ) {
-  objectId(businessId, "business");
+  locationAuthority(businessId, locationId);
   const campaign = await resolveCampaignAttribution(payload, { businessId });
   const lead = objectId(payload.lead || payload.leadId, "lead", { optional: true });
   const customer = objectId(payload.customer || payload.customerId, "customer", { optional: true });
@@ -305,7 +326,11 @@ export async function recordAttributionTouch(
     );
   }
 
-  await validateAttributionSubjects({ lead, customer, opportunity }, businessId);
+  await validateAttributionSubjects(
+    { lead, customer, opportunity },
+    businessId,
+    locationId
+  );
 
   const utm = normaliseUtm(payload);
   const occurredAt = date(payload.occurredAt, "occurredAt") || new Date();
@@ -315,6 +340,7 @@ export async function recordAttributionTouch(
   const medium = lower(payload.medium || payload.sourceMedium || utm.medium);
   const sourceKey = text(payload.sourceKey) || stableKey([
     businessId,
+    locationId,
     campaign?._id,
     lead,
     customer,
@@ -328,12 +354,14 @@ export async function recordAttributionTouch(
 
   const existing = await AttributionTouch.findOne({
     business: businessId,
+    location: locationId,
     sourceKey,
   }).lean();
   if (existing) return existing;
 
   const document = {
     business: businessId,
+    location: locationId,
     campaign: campaign?._id || null,
     lead,
     customer,
@@ -356,6 +384,7 @@ export async function recordAttributionTouch(
     if (error?.code === 11000) {
       return AttributionTouch.findOne({
         business: businessId,
+        location: locationId,
         sourceKey,
       }).lean();
     }
@@ -368,9 +397,15 @@ export async function recordLeadCaptureAttribution(
   payload = {},
   {
     businessId,
+    locationId,
   } = {}
 ) {
   if (!lead?._id) return null;
+  if (String(lead.location || "") !== String(locationId || "")) {
+    throw createServiceError("Lead attribution must use the selected location.", 409, {
+      code: "ATTRIBUTION_LOCATION_MISMATCH",
+    });
+  }
   const source = lead.source || payload.source || {};
   return recordAttributionTouch(
     {
@@ -390,12 +425,12 @@ export async function recordLeadCaptureAttribution(
       utmCampaign: payload.utmCampaign,
       utmTerm: payload.utmTerm,
       utmContent: payload.utmContent,
-      sourceKey: stableKey([businessId, lead._id, "lead_capture"]),
+      sourceKey: stableKey([businessId, locationId, lead._id, "lead_capture"]),
       metadata: {
         origin: "lead_capture",
       },
     },
-    { businessId }
+    { businessId, locationId }
   );
 }
 
@@ -404,9 +439,15 @@ export async function recordLeadConversionAttribution(
   customer,
   {
     businessId,
+    locationId,
   } = {}
 ) {
   if (!lead?._id || !customer?._id) return null;
+  if (String(lead.location || "") !== String(locationId || "")) {
+    throw createServiceError("Lead conversion attribution must use the selected location.", 409, {
+      code: "ATTRIBUTION_LOCATION_MISMATCH",
+    });
+  }
   return recordAttributionTouch(
     {
       lead: lead._id,
@@ -417,12 +458,12 @@ export async function recordLeadConversionAttribution(
       sourceMedium: lead.source?.medium || "",
       sourceCampaign: lead.source?.campaign || "",
       externalReference: lead.source?.externalReference || "",
-      sourceKey: stableKey([businessId, lead._id, customer._id, "conversion"]),
+      sourceKey: stableKey([businessId, locationId, lead._id, customer._id, "conversion"]),
       metadata: {
         origin: "lead_conversion",
       },
     },
-    { businessId }
+    { businessId, locationId }
   );
 }
 
@@ -430,19 +471,25 @@ export async function attributionForLead(
   leadId,
   {
     businessId,
+    locationId,
   } = {}
 ) {
   objectId(leadId, "lead");
-  objectId(businessId, "business");
-  const lead = await Lead.findOne({ _id: leadId, business: businessId })
+  locationAuthority(businessId, locationId);
+  const lead = await Lead.findOne({
+    _id: leadId,
+    business: businessId,
+    location: locationId,
+  })
     .select("_id")
     .lean();
   if (!lead) {
-    throw createServiceError("Lead not found in the active business.", 404);
+    throw createServiceError("Lead not found in the selected location.", 404);
   }
 
   const touches = await AttributionTouch.find({
     business: businessId,
+    location: locationId,
     lead: leadId,
   })
     .populate("campaign", "campaignKey name objective channel channels utm status")
@@ -456,6 +503,7 @@ export async function attributionForLead(
 
   return {
     leadId: String(leadId),
+    locationId: String(locationId),
     firstTouch,
     lastTouch,
     conversionTouch: conversionIndex >= 0 ? touches[conversionIndex] : null,
