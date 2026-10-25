@@ -5,6 +5,26 @@ import MarketingDataSource from "../../models/MarketingDataSource.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { marketingConnectorDefinition } from "./marketingConnectorCatalogue.js";
 
+const ROUTING_FIELDS = Object.freeze({
+  google_ads: ["clientId", "customerId", "loginCustomerId"],
+  meta_ads: ["appId", "adAccountId", "businessId"],
+  linkedin_ads: ["clientId", "adAccountUrn", "organisationUrn"],
+  microsoft_ads: ["clientId", "accountId", "customerId"],
+  tiktok_ads: ["appId", "advertiserId"],
+  facebook_pages: ["pageId"],
+  instagram_organic: ["instagramProfessionalAccountId", "facebookPageId"],
+  linkedin_pages: ["clientId", "organisationUrn"],
+  google_business_profile: ["clientId", "accountId", "locationId"],
+  ga4: ["clientId", "propertyId"],
+  google_search_console: ["clientId", "siteUrl"],
+  bing_webmaster: ["clientId", "siteUrl"],
+  shopify: ["shopDomain"],
+  stripe: ["accountId"],
+  hubspot: ["portalId"],
+  mailchimp: ["serverPrefix"],
+  youtube_analytics: ["clientId", "channelId"],
+});
+
 function objectId(value, field) {
   if (!mongoose.isValidObjectId(value)) throw createServiceError(`${field} must be a valid identifier.`, 400, { field });
   return value;
@@ -27,6 +47,15 @@ function sourceFields(definition) {
   }));
 }
 
+function routingConfig(provider, metadata = {}) {
+  const result = {};
+  for (const field of ROUTING_FIELDS[provider] || []) {
+    const value = metadata?.[field];
+    if (value !== undefined && value !== null && String(value).trim()) result[field] = String(value).trim();
+  }
+  return result;
+}
+
 export async function ensureMarketingSourceForConnection(provider, connectionId, { businessId, actor = null } = {}) {
   objectId(businessId, "business");
   objectId(connectionId, "connection");
@@ -45,7 +74,11 @@ export async function ensureMarketingSourceForConnection(provider, connectionId,
     syncMode: "manual",
     schedule: { cadence: "manual", timezone: "Europe/London", nextRunAt: null },
     fieldCatalogue: sourceFields(definition),
-    sourceConfig: { managedBy: "marketing_connections_ui", liveProviderExecution: false },
+    sourceConfig: {
+      managedBy: "marketing_connections_ui",
+      liveProviderExecution: false,
+      ...routingConfig(provider, connection.metadata),
+    },
     normalisationConfig: { mappingVersion: "1.0.0" },
     updatedBy: actorId(actor),
   };
