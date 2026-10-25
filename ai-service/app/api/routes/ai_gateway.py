@@ -3,6 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.security import require_service_key
+from app.governance.advisory_evaluation import (
+    AdvisoryEvaluationRequest,
+    AdvisoryEvaluationResponse,
+    evaluate_advisory,
+    evaluation_policy_snapshot,
+)
 from app.governance.ai_registry import (
     REGISTRY_VERSION,
     registered_tool,
@@ -55,6 +61,30 @@ def get_registry(
 ) -> dict:
     request.state.ai_capability = "ai-gateway-registry"
     return registry_snapshot()
+
+
+@router.get(
+    "/advisory-evaluation-policy",
+    dependencies=[Depends(require_service_key)],
+)
+def get_advisory_evaluation_policy(
+    request: Request,
+) -> dict:
+    request.state.ai_capability = "ai-gateway-advisory-evaluation-policy"
+    return evaluation_policy_snapshot()
+
+
+@router.post(
+    "/evaluate-advisory",
+    response_model=AdvisoryEvaluationResponse,
+    dependencies=[Depends(require_service_key)],
+)
+def evaluate_advisory_candidate(
+    payload: AdvisoryEvaluationRequest,
+    request: Request,
+) -> AdvisoryEvaluationResponse:
+    request.state.ai_capability = "ai-gateway-advisory-evaluation"
+    return evaluate_advisory(payload)
 
 
 @router.post(
