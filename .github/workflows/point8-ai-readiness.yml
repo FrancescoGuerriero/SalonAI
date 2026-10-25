@@ -4,20 +4,26 @@ on:
   pull_request:
     paths:
       - "frontend/src/pages/AiReadinessPage.jsx"
+      - "frontend/src/pages/AiCandidateGovernancePage.jsx"
+      - "frontend/src/components/stage8/AiCandidateGovernancePanel.jsx"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/Services/dataHubService.js"
       - "backend/src/test/stage8AiReadinessUiContracts.test.js"
+      - "backend/src/test/stage8AiCandidateGovernanceUiContracts.test.js"
       - ".github/workflows/point8-ai-readiness.yml"
   push:
     branches:
       - main
     paths:
       - "frontend/src/pages/AiReadinessPage.jsx"
+      - "frontend/src/pages/AiCandidateGovernancePage.jsx"
+      - "frontend/src/components/stage8/AiCandidateGovernancePanel.jsx"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/Services/dataHubService.js"
       - "backend/src/test/stage8AiReadinessUiContracts.test.js"
+      - "backend/src/test/stage8AiCandidateGovernanceUiContracts.test.js"
       - ".github/workflows/point8-ai-readiness.yml"
 
 permissions:
@@ -44,8 +50,11 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run AI readiness contracts
-        run: node --test src/test/stage8AiReadinessUiContracts.test.js
+      - name: Run AI readiness and candidate governance contracts
+        run: >-
+          node --test
+          src/test/stage8AiReadinessUiContracts.test.js
+          src/test/stage8AiCandidateGovernanceUiContracts.test.js
 
   frontend:
     name: AI readiness frontend build
