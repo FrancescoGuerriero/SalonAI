@@ -11,6 +11,7 @@ import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE5 } from "./marketingAccountV
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE6 } from "./marketingAccountVerificationExtensionsWave6.js";
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE7 } from "./marketingAccountVerificationExtensionsWave7.js";
 import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE8 } from "./marketingAccountVerificationExtensionsWave8.js";
+import { MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE9 } from "./marketingAccountVerificationExtensionsWave9.js";
 
 const EXTENSION_VERIFIERS = Object.freeze({
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS,
@@ -20,6 +21,7 @@ const EXTENSION_VERIFIERS = Object.freeze({
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE6,
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE7,
   ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE8,
+  ...MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE9,
 });
 
 function text(value, max = 2000) {
