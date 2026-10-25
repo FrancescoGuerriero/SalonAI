@@ -146,6 +146,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/admin/system/measurement-core", "Measurement & Integration Core", "Inspect Stage 5 SEO, metrics, connectors and data lineage", "BarChart3", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/data-hub", "AIIBP Data Hub", "Blend location data, build BI views and govern destinations", "Database", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/ai-readiness", "AI readiness", "Preview location-owned AI evidence and planning audit history", "Sparkles", false, "feature-control:read", "", ADVANCED],
+      ["/admin/system/ai-candidate-governance", "AI candidate governance", "Review location-owned AI candidate evaluation and promotion-readiness evidence", "ShieldCheck", false, "feature-control:read", "", ADVANCED],
     ],
   },
 ].map((section) => ({
