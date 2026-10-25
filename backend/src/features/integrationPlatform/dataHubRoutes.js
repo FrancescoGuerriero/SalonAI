@@ -7,6 +7,7 @@ import * as controller from "./dataHubController.js";
 const router = express.Router();
 const read = requirePermissions("feature-control:read");
 const write = requirePermissions("feature-control:update");
+const aiUse = requirePermissions("ai:use");
 
 router.get("/catalogue", read, asyncHandler(controller.catalogue));
 router.get("/overview", read, asyncHandler(controller.overview));
@@ -15,6 +16,7 @@ router.post("/query", read, asyncHandler(controller.query));
 router.post("/ai-evidence", read, asyncHandler(controller.aiEvidence));
 router.post("/ai-gateway/evidence", read, asyncHandler(controller.aiGatewayEvidence));
 router.post("/ai-gateway/plan", read, asyncHandler(controller.aiGatewayPlan));
+router.post("/ai-gateway/advisory-preview", aiUse, asyncHandler(controller.aiGatewayAdvisoryPreview));
 router.get("/ai-gateway/invocations", read, asyncHandler(controller.aiGatewayInvocations));
 
 router.get("/saved-views", read, asyncHandler(controller.savedViews));
