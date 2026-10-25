@@ -5,6 +5,7 @@ import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
 const AiCandidateGovernancePage = lazy(() => import("../../pages/AiCandidateGovernancePage.jsx"));
+const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionProposalPage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
@@ -56,6 +57,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><AiCandidateGovernancePage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect AI candidate governance records." />;
+  }
+
+  if (pathname === "/admin/system/ai-promotion-proposals") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><AiPromotionProposalPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect AI promotion proposal dossiers." />;
   }
 
   return children;
