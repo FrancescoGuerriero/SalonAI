@@ -1,89 +1,116 @@
 import API from "../api/axios.js";
 
-const BASE_URL =
-  "/retention-automation/journeys";
+const BASE_URL = "/retention-automation/journeys";
+const STAGE7_ROOT = "/retention-automation";
 
 async function listRetentionJourneys() {
-  const response =
-    await API.get(BASE_URL);
-
+  const response = await API.get(BASE_URL);
   return {
-    journeys:
-      Array.isArray(
-        response.data?.journeys
-      )
-        ? response.data.journeys
-        : [],
+    journeys: Array.isArray(response.data?.journeys)
+      ? response.data.journeys
+      : [],
   };
 }
 
-async function createRetentionJourney(
-  payload
-) {
-  const response =
-    await API.post(
-      BASE_URL,
-      payload
-    );
-
+async function createRetentionJourney(payload) {
+  const response = await API.post(BASE_URL, payload);
   return response.data;
 }
 
-
-async function previewRetentionJourney(
-  journeyId,
-  {
-    limit = 50,
-  } = {}
-) {
-  const response =
-    await API.get(
-      BASE_URL +
-        "/" +
-        encodeURIComponent(
-          journeyId
-        ) +
-        "/preview",
-      {
-        params: {
-          limit,
-        },
-      }
-    );
-
-  return (
-    response.data?.preview ||
-    null
+async function previewRetentionJourney(journeyId, { limit = 50 } = {}) {
+  const response = await API.get(
+    BASE_URL + "/" + encodeURIComponent(journeyId) + "/preview",
+    { params: { limit } }
   );
+  return response.data?.preview || null;
 }
 
-async function updateRetentionJourney(
-  journeyId,
-  payload
-) {
-  const response =
-    await API.patch(
-      BASE_URL +
-        "/" +
-        encodeURIComponent(
-          journeyId
-        ),
-      payload
-    );
-
+async function updateRetentionJourney(journeyId, payload) {
+  const response = await API.patch(
+    BASE_URL + "/" + encodeURIComponent(journeyId),
+    payload
+  );
   return response.data;
+}
+
+async function getCustomer360(customerId) {
+  const response = await API.get(
+    STAGE7_ROOT + "/customers/" + encodeURIComponent(customerId) + "/360"
+  );
+  return response.data?.projection || null;
+}
+
+async function listCrmSegments({ limit = 100 } = {}) {
+  const response = await API.get(
+    STAGE7_ROOT + "/crm/segments",
+    { params: { limit } }
+  );
+  return Array.isArray(response.data?.customers)
+    ? response.data.customers
+    : [];
+}
+
+async function listJourneyEnrollments(params = {}) {
+  const response = await API.get(
+    STAGE7_ROOT + "/enrollments",
+    { params }
+  );
+  return Array.isArray(response.data?.enrollments)
+    ? response.data.enrollments
+    : [];
+}
+
+async function createJourneyEnrollment(payload) {
+  const response = await API.post(
+    STAGE7_ROOT + "/enrollments",
+    payload
+  );
+  return response.data;
+}
+
+async function recordJourneyOutcome(enrollmentId, outcome) {
+  const response = await API.patch(
+    STAGE7_ROOT +
+      "/enrollments/" +
+      encodeURIComponent(enrollmentId) +
+      "/outcome",
+    { outcome }
+  );
+  return response.data;
+}
+
+async function getCampaignJourneyRevenue({ campaignId = null } = {}) {
+  const response = await API.get(
+    STAGE7_ROOT + "/measurement/campaign-revenue",
+    { params: campaignId ? { campaignId } : {} }
+  );
+  return Array.isArray(response.data?.rows)
+    ? response.data.rows
+    : [];
 }
 
 export {
+  createJourneyEnrollment,
   createRetentionJourney,
+  getCampaignJourneyRevenue,
+  getCustomer360,
+  listCrmSegments,
+  listJourneyEnrollments,
   listRetentionJourneys,
   previewRetentionJourney,
+  recordJourneyOutcome,
   updateRetentionJourney,
 };
 
 export default {
+  createJourneyEnrollment,
   createRetentionJourney,
+  getCampaignJourneyRevenue,
+  getCustomer360,
+  listCrmSegments,
+  listJourneyEnrollments,
   listRetentionJourneys,
   previewRetentionJourney,
+  recordJourneyOutcome,
   updateRetentionJourney,
 };
