@@ -79,7 +79,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/manage/services", "Salon services", "Manage services and pricing", "Scissors", false, "service:read", "", SIMPLE],
       ["/manage/service-packages", "Service packages", "Create bundles and manage package credits", "PackagePlus", false, "service:read", "", SIMPLE],
       ["/manage/products", "Products", "Manage the retail catalogue and publishing", "Package", false, "product:read", "", SIMPLE],
-      ["/manage/inventory", "Inventory", "Review stock levels and adjustments", "Package", false, "inventory:read", "", SIMPLE],
+      ["/manage/inventory", "Inventory", "Review stock levels and adjustments", "Package", false, "inventory:read", "inventory-purchasing", SIMPLE],
       ["/manage/orders", "Order management", "Manage customer orders and fulfilment", "ClipboardList", false, "order:read", "", SIMPLE],
       ["/suppliers", "Suppliers", "Manage supplier accounts and terms", "Building2", false, "inventory:read", "inventory-purchasing", SIMPLE],
       ["/purchase-orders", "Purchase orders", "Approve and receive purchasing", "ClipboardList", false, "inventory:read", "inventory-purchasing", SIMPLE],
@@ -93,6 +93,7 @@ const RAW_MANAGEMENT_SECTIONS = [
     id: "communications-growth",
     label: "Communicate and grow",
     links: [
+      ["/marketing", "Marketing", "Connect marketing accounts and feed the AIIBP Data Hub", "Megaphone", false, "feature-control:read", "", SIMPLE],
       ["/communications", "Communications", "Review customer contact history", "Mail", false, "communications:read", "communications", SIMPLE],
       ["/communication-templates", "Message templates", "Manage reusable message content", "MessageSquareText", false, "communications:read", "communications", SIMPLE],
       ["/scheduled-communications", "Scheduled messages", "Review future message delivery", "CalendarClock", false, "communications:read", "communications", SIMPLE],
