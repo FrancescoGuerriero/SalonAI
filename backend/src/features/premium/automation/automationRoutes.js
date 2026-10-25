@@ -26,6 +26,7 @@ import {
   getCrmSegments,
   getCustomer360,
   getEnrollments,
+  reconcileMembershipRecoveryJourneys,
   updateEnrollmentOutcome,
 } from "./stage7CrmController.js";
 
@@ -81,6 +82,11 @@ router
 router.patch(
   "/enrollments/:enrollmentId/outcome",
   asyncHandler(updateEnrollmentOutcome)
+);
+
+router.post(
+  "/membership-recovery/reconcile",
+  asyncHandler(reconcileMembershipRecoveryJourneys)
 );
 
 router.get(
