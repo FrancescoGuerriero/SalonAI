@@ -4,30 +4,43 @@ import test from "node:test";
 
 import { marketingConnectedAccountCatalogue } from "../features/integrationPlatform/marketingConnectedAccountsService.js";
 import { marketingConnectorCatalogue } from "../features/integrationPlatform/marketingConnectorCatalogue.js";
+import { MARKETING_HUB_PROVIDER_EXTENSIONS } from "../features/integrationPlatform/marketingHubProviderExtensions.js";
 
 const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("Stage 8 Marketing catalogue exposes all governed provider connection forms", () => {
+const implementedProviders = [
+  "google_ads", "meta_ads", "linkedin_ads", "microsoft_ads", "tiktok_ads",
+  "facebook_pages", "instagram_organic", "linkedin_pages", "google_business_profile",
+  "ga4", "google_search_console", "bing_webmaster", "shopify", "stripe", "hubspot", "mailchimp",
+  "youtube_analytics",
+];
+
+test("Stage 8 Marketing catalogue exposes implemented and roadmap providers", () => {
   const catalogue = marketingConnectedAccountCatalogue();
   const providers = new Map(catalogue.items.map((item) => [item.provider, item]));
-  const expected = [
-    "google_ads", "meta_ads", "linkedin_ads", "microsoft_ads", "tiktok_ads",
-    "facebook_pages", "instagram_organic", "linkedin_pages", "google_business_profile",
-    "ga4", "google_search_console", "bing_webmaster", "shopify", "stripe", "hubspot", "mailchimp",
-    "youtube_analytics",
-  ];
-  for (const key of expected) assert.ok(providers.has(key), `missing ${key}`);
-  assert.equal(providers.size, expected.length);
+  for (const key of implementedProviders) assert.ok(providers.has(key), `missing implemented provider ${key}`);
+  for (const item of MARKETING_HUB_PROVIDER_EXTENSIONS) assert.ok(providers.has(item.key), `missing roadmap provider ${item.key}`);
+  assert.equal(providers.size, implementedProviders.length + MARKETING_HUB_PROVIDER_EXTENSIONS.length);
+
   assert.equal(providers.get("google_ads").credentials.find((item) => item.key === "developerToken")?.role, "api_key");
   assert.equal(providers.get("meta_ads").credentials.find((item) => item.key === "appSecret")?.role, "client_secret");
   assert.equal(providers.get("shopify").credentials.find((item) => item.key === "accessToken")?.role, "access_token");
   assert.equal(providers.get("stripe").credentials.find((item) => item.key === "apiKey")?.role, "api_key");
   assert.equal(providers.get("bing_webmaster").credentials.find((item) => item.key === "refreshToken")?.role, "refresh_token");
   assert.ok(providers.get("hubspot").scopes.includes("content"));
+
+  for (const item of MARKETING_HUB_PROVIDER_EXTENSIONS) {
+    assert.equal(providers.get(item.key).configurable, false, `${item.key} must remain catalogue-only until implemented`);
+    assert.equal(providers.get(item.key).ready, false, `${item.key} must not report ready before implementation`);
+    assert.equal(providers.get(item.key).liveSyncEnabled, false);
+  }
+  assert.equal(providers.get("openai_ads").documentationUrl, "https://developers.openai.com/ads/api-overview");
+  assert.equal(providers.get("openai_ads").implementationStatus, "planned");
   assert.equal(catalogue.liveSyncEnabled, false);
+  assert.equal(catalogue.version, "1.1.0");
 });
 
-test("Marketing source catalogue promotes configured-account providers into Stage 5 lineage contracts", () => {
+test("Marketing source catalogue distinguishes implemented adapters from catalogue-only roadmap entries", () => {
   const catalogue = marketingConnectorCatalogue();
   const byKey = new Map(catalogue.connectors.map((item) => [item.key, item]));
   for (const key of ["google_ads", "meta_ads", "linkedin_ads", "microsoft_ads", "tiktok_ads", "shopify", "stripe", "hubspot", "mailchimp", "youtube_analytics"]) {
@@ -35,17 +48,25 @@ test("Marketing source catalogue promotes configured-account providers into Stag
     assert.equal(byKey.get(key).liveActivation, "adapter_pending_acceptance");
     assert.ok(byKey.get(key).defaultFields.length > 0);
   }
+  for (const item of MARKETING_HUB_PROVIDER_EXTENSIONS) {
+    assert.ok(byKey.has(item.key), `missing roadmap connector ${item.key}`);
+    assert.equal(byKey.get(item.key).liveActivation, "catalogue_only");
+    assert.equal(byKey.get(item.key).configurable, false);
+    assert.equal(byKey.get(item.key).defaultFields.length, 0);
+  }
   assert.ok(byKey.has("bing_webmaster"));
   assert.ok(byKey.get("hubspot").requiredScopes.includes("content"));
-  assert.equal(catalogue.version, "2.0.0");
+  assert.equal(catalogue.version, "2.1.0");
 });
 
-test("Marketing connection service uses the shared provider credential authority", async () => {
+test("Marketing connection service uses the shared provider credential authority and blocks catalogue-only configuration", async () => {
   const service = await source("../features/integrationPlatform/marketingConnectedAccountsService.js");
   assert.match(service, /storeProviderCredential/);
   assert.match(service, /CredentialVersion/);
   assert.match(service, /credentialBindings/);
   assert.match(service, /liveSyncEnabled: false/);
+  assert.match(service, /MARKETING_PROVIDER_NOT_YET_IMPLEMENTED/);
+  assert.match(service, /definition\.configurable/);
 });
 
 test("Marketing connections API is permission protected and mounted under Integration Platform", async () => {
@@ -82,7 +103,7 @@ test("Marketing source provisioning stays ready-only, bridges routing metadata, 
   assert.match(providerRun, /MARKETING_PROVIDER_EXECUTION_NOT_AUTHORISED/);
 });
 
-test("Marketing dashboard is routed and visible from canonical management navigation", async () => {
+test("Marketing dashboard is routed, displays planned providers safely, and is visible from canonical management navigation", async () => {
   const [page, router, navigation, client] = await Promise.all([
     source("../../../frontend/src/pages/MarketingHubPage.jsx"),
     source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"),
@@ -93,6 +114,9 @@ test("Marketing dashboard is routed and visible from canonical management naviga
   assert.match(navigation, /\["\/marketing", "Marketing"/);
   assert.match(page, /Marketing connections/);
   assert.match(page, /Data Hub/);
+  assert.match(page, /Planned provider connectors/);
+  assert.match(page, /account\.configurable === false/);
+  assert.match(page, /Included in the Marketing Hub roadmap/);
   assert.match(client, /\/integration-platform\/marketing-connections/);
 });
 
