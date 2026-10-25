@@ -2,6 +2,7 @@ import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE3 } from "./marketingVerifi
 import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4 } from "./marketingVerifiedConnectorExtensionsWave4.js";
 import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE5 } from "./marketingVerifiedConnectorExtensionsWave5.js";
 import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE6 } from "./marketingVerifiedConnectorExtensionsWave6.js";
+import { VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE8 } from "./marketingVerifiedConnectorExtensionsWave8.js";
 
 export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS = Object.freeze({
   pinterest_ads: Object.freeze({
@@ -93,6 +94,7 @@ export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS = Object.freeze({
   ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4,
   ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE5,
   ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE6,
+  ...VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE8,
 });
 
 export default VERIFIED_MARKETING_CONNECTOR_EXTENSIONS;
