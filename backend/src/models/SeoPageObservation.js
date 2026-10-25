@@ -14,6 +14,7 @@ const issueSchema = new Schema(
 const schema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     source: { type: Schema.Types.ObjectId, ref: "MarketingDataSource", required: true, index: true },
     run: { type: Schema.Types.ObjectId, ref: "MarketingSyncRun", required: true, index: true },
     url: { type: String, required: true, trim: true, maxlength: 2000 },
@@ -35,8 +36,7 @@ const schema = new Schema(
   { timestamps: true }
 );
 
-schema.index({ business: 1, source: 1, run: 1, url: 1 }, { unique: true });
-schema.index({ business: 1, source: 1, scannedAt: -1 });
+schema.index({ business: 1, location: 1, source: 1, run: 1, url: 1 }, { unique: true });
+schema.index({ business: 1, location: 1, source: 1, scannedAt: -1 });
 
-export default mongoose.models.SeoPageObservation ||
-  mongoose.model("SeoPageObservation", schema);
+export default mongoose.models.SeoPageObservation || mongoose.model("SeoPageObservation", schema);
