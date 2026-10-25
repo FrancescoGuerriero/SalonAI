@@ -10,6 +10,9 @@ const GA4_ENDPOINT = "https://analyticsdata.googleapis.com/v1beta";
 const SEARCH_CONSOLE_ENDPOINT = "https://www.googleapis.com/webmasters/v3";
 const BING_API_ENDPOINT = "https://www.bing.com/webmaster/api.svc/json";
 const BING_TOKEN_ENDPOINT = "https://www.bing.com/webmasters/oauth/token";
+const GOOGLE_ADS_ENDPOINT = "https://googleads.googleapis.com/v26";
+const META_MARKETING_ENDPOINT = "https://graph.facebook.com/v26.0";
+const META_MARKETING_ORIGIN = "https://graph.facebook.com";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 3;
@@ -24,6 +27,11 @@ function positiveInteger(value, fallback, min = 1, max = MAX_PROVIDER_RECORDS) {
   return Number.isFinite(number)
     ? Math.max(min, Math.min(max, Math.floor(number)))
     : fallback;
+}
+
+function finiteNumber(value) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function dateOnly(value, fallback) {
@@ -124,7 +132,7 @@ async function connectionForSource(source) {
 }
 
 async function refreshOAuthToken(connection, provider) {
-  const clientId = text(connection.metadata?.oauthClientId, 500);
+  const clientId = text(connection.metadata?.oauthClientId || connection.metadata?.clientId, 500);
   if (!clientId) {
     throw createServiceError("OAuth client ID is missing from connection metadata.", 409, {
       code: "OAUTH_CLIENT_ID_REQUIRED",
@@ -275,10 +283,10 @@ async function fetchSearchConsole(source, payload = {}) {
     const rows = Array.isArray(body.rows) ? body.rows : [];
     for (const row of rows) {
       const record = {
-        clicks: Number(row.clicks || 0),
-        impressions: Number(row.impressions || 0),
-        ctr: Number(row.ctr || 0),
-        position: Number(row.position || 0),
+        clicks: finiteNumber(row.clicks),
+        impressions: finiteNumber(row.impressions),
+        ctr: finiteNumber(row.ctr),
+        position: finiteNumber(row.position),
       };
       dimensions.forEach((name, index) => { record[name] = row.keys?.[index] ?? ""; });
       records.push(record);
@@ -326,10 +334,10 @@ async function fetchBing(source) {
   const records = rows.slice(0, maxRecords).map((row) => ({
     date: bingDate(row.Date),
     query: text(row.Query, 2000),
-    clicks: Number(row.Clicks || 0),
-    impressions: Number(row.Impressions || 0),
-    averageClickPosition: Number(row.AvgClickPosition || 0),
-    averagePosition: Number(row.AvgImpressionPosition || 0),
+    clicks: finiteNumber(row.Clicks),
+    impressions: finiteNumber(row.Impressions),
+    averageClickPosition: finiteNumber(row.AvgClickPosition),
+    averagePosition: finiteNumber(row.AvgImpressionPosition),
   }));
   return {
     records,
@@ -338,11 +346,165 @@ async function fetchBing(source) {
   };
 }
 
+function digits(value) {
+  return text(value, 100).replace(/\D/g, "");
+}
+
+export function normaliseGoogleAdsRow(row = {}) {
+  return {
+    date: text(row.segments?.date, 20),
+    campaignId: text(row.campaign?.id, 200),
+    campaignName: text(row.campaign?.name, 1000),
+    impressions: finiteNumber(row.metrics?.impressions),
+    clicks: finiteNumber(row.metrics?.clicks),
+    spend: finiteNumber(row.metrics?.costMicros) / 1_000_000,
+    conversions: finiteNumber(row.metrics?.conversions),
+    revenue: finiteNumber(row.metrics?.conversionsValue),
+  };
+}
+
+async function fetchGoogleAds(source, payload = {}) {
+  const connection = await connectionForSource(source);
+  const token = await bearerForConnection(connection, "google_ads");
+  const developerToken = (await resolveProviderCredential(connection, "api_key")).secret;
+  const customerId = digits(source.sourceConfig?.customerId);
+  const loginCustomerId = digits(source.sourceConfig?.loginCustomerId);
+  if (!customerId) throw createServiceError("Google Ads sourceConfig.customerId is required.", 422);
+  const { startDate, endDate } = defaultWindow(source, payload);
+  const maxRecords = positiveInteger(source.sourceConfig?.maxRecords, 50000);
+  const query = [
+    "SELECT segments.date, campaign.id, campaign.name,",
+    "metrics.impressions, metrics.clicks, metrics.cost_micros,",
+    "metrics.conversions, metrics.conversions_value",
+    "FROM campaign",
+    `WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`,
+    "ORDER BY segments.date ASC",
+  ].join(" ");
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "developer-token": developerToken,
+    "content-type": "application/json",
+  };
+  if (loginCustomerId) headers["login-customer-id"] = loginCustomerId;
+  const { body } = await requestJson(`${GOOGLE_ADS_ENDPOINT}/customers/${customerId}/googleAds:searchStream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query }),
+  });
+  const batches = Array.isArray(body) ? body : [body];
+  const records = [];
+  for (const batch of batches) {
+    for (const row of Array.isArray(batch?.results) ? batch.results : []) {
+      records.push(normaliseGoogleAdsRow(row));
+      if (records.length >= maxRecords) break;
+    }
+    if (records.length >= maxRecords) break;
+  }
+  return {
+    records,
+    checkpoint: { watermark: new Date(`${endDate}T23:59:59.999Z`) },
+    providerMeta: { customerId, loginCustomerId: loginCustomerId || null, startDate, endDate, rowCount: records.length, apiVersion: "v26" },
+  };
+}
+
+function metaActionValue(values, keys) {
+  const byType = new Map((Array.isArray(values) ? values : []).map((item) => [String(item?.action_type || ""), finiteNumber(item?.value)]));
+  for (const key of keys) {
+    if (byType.has(key)) return byType.get(key);
+  }
+  return 0;
+}
+
+function safeMetaNextUrl(value) {
+  const candidate = text(value, 8000);
+  if (!candidate) return null;
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw createServiceError("Meta Ads pagination returned an invalid URL.", 502, {
+      code: "META_PAGINATION_URL_INVALID",
+    });
+  }
+  if (parsed.protocol !== "https:" || parsed.origin !== META_MARKETING_ORIGIN) {
+    throw createServiceError("Meta Ads pagination returned an unexpected origin.", 502, {
+      code: "META_PAGINATION_ORIGIN_INVALID",
+    });
+  }
+  return parsed;
+}
+
+export function normaliseMetaAdsRow(row = {}) {
+  const purchaseKeys = [
+    "offsite_conversion.fb_pixel_purchase",
+    "omni_purchase",
+    "purchase",
+    "onsite_web_purchase",
+  ];
+  return {
+    date: text(row.date_start, 20),
+    campaignId: text(row.campaign_id, 200),
+    campaignName: text(row.campaign_name, 1000),
+    impressions: finiteNumber(row.impressions),
+    clicks: finiteNumber(row.clicks),
+    spend: finiteNumber(row.spend),
+    conversions: metaActionValue(row.actions, purchaseKeys),
+    revenue: metaActionValue(row.action_values, purchaseKeys),
+  };
+}
+
+async function fetchMetaAds(source, payload = {}) {
+  const connection = await connectionForSource(source);
+  const token = (await resolveProviderCredential(connection, "access_token")).secret;
+  const rawAccountId = text(source.sourceConfig?.adAccountId, 200);
+  const accountId = rawAccountId.startsWith("act_") ? rawAccountId : `act_${digits(rawAccountId)}`;
+  if (!digits(accountId)) throw createServiceError("Meta Ads sourceConfig.adAccountId is required.", 422);
+  const { startDate, endDate } = defaultWindow(source, payload);
+  const maxRecords = positiveInteger(source.sourceConfig?.maxRecords, 50000);
+  const fields = [
+    "date_start",
+    "campaign_id",
+    "campaign_name",
+    "impressions",
+    "clicks",
+    "spend",
+    "actions",
+    "action_values",
+  ].join(",");
+  let nextUrl = new URL(`${META_MARKETING_ENDPOINT}/${accountId}/insights`);
+  nextUrl.searchParams.set("level", "campaign");
+  nextUrl.searchParams.set("time_range", JSON.stringify({ since: startDate, until: endDate }));
+  nextUrl.searchParams.set("time_increment", "1");
+  nextUrl.searchParams.set("fields", fields);
+  nextUrl.searchParams.set("limit", "500");
+  const records = [];
+  let pageCount = 0;
+  while (nextUrl && records.length < maxRecords && pageCount < 500) {
+    const { body } = await requestJson(nextUrl.toString(), {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    for (const row of Array.isArray(body.data) ? body.data : []) {
+      records.push(normaliseMetaAdsRow(row));
+      if (records.length >= maxRecords) break;
+    }
+    nextUrl = safeMetaNextUrl(body.paging?.next);
+    pageCount += 1;
+  }
+  return {
+    records,
+    checkpoint: { watermark: new Date(`${endDate}T23:59:59.999Z`) },
+    providerMeta: { adAccountId: accountId, startDate, endDate, rowCount: records.length, pages: pageCount, apiVersion: "v26.0" },
+  };
+}
+
 export async function fetchMarketingProviderRecords(source, payload = {}) {
   switch (source.provider) {
     case "ga4": return fetchGa4(source, payload);
     case "google_search_console": return fetchSearchConsole(source, payload);
     case "bing_webmaster": return fetchBing(source, payload);
+    case "google_ads": return fetchGoogleAds(source, payload);
+    case "meta_ads": return fetchMetaAds(source, payload);
     default:
       throw createServiceError(`Live retrieval is not implemented for provider: ${source.provider}.`, 409, {
         code: "MARKETING_PROVIDER_EXECUTOR_NOT_AVAILABLE",
@@ -356,9 +518,13 @@ export const MARKETING_PROVIDER_ENDPOINTS = Object.freeze({
   searchConsole: SEARCH_CONSOLE_ENDPOINT,
   bingApi: BING_API_ENDPOINT,
   bingToken: BING_TOKEN_ENDPOINT,
+  googleAds: GOOGLE_ADS_ENDPOINT,
+  metaMarketing: META_MARKETING_ENDPOINT,
 });
 
 export default {
   MARKETING_PROVIDER_ENDPOINTS,
   fetchMarketingProviderRecords,
+  normaliseGoogleAdsRow,
+  normaliseMetaAdsRow,
 };

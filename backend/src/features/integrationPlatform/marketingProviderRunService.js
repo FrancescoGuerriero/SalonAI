@@ -6,7 +6,13 @@ import { createServiceError } from "../../shared/serviceError.js";
 import { runMarketingDataSource } from "./marketingDataCoreService.js";
 import { fetchMarketingProviderRecords } from "./marketingProviderAdapters.js";
 
-const LIVE_PROVIDERS = new Set(["ga4", "google_search_console", "bing_webmaster"]);
+const LIVE_PROVIDERS = new Set([
+  "ga4",
+  "google_search_console",
+  "bing_webmaster",
+  "google_ads",
+  "meta_ads",
+]);
 
 function objectId(value, field) {
   if (!mongoose.isValidObjectId(value)) {
