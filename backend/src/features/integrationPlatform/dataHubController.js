@@ -1,6 +1,7 @@
 import { createServiceError } from "../../shared/serviceError.js";
 import * as candidateEvaluationService from "./aiCandidateEvaluationService.js";
 import * as gatewayService from "./dataHubAiGatewayService.js";
+import * as promotionProposalService from "./aiPromotionProposalService.js";
 import * as service from "./dataHubService.js";
 
 function businessId(request) {
@@ -110,6 +111,37 @@ export async function aiCandidateReview(request, response) {
   ));
 }
 
+export async function aiPromotionProposals(request, response) {
+  response.json({
+    items: await promotionProposalService.listPromotionProposals(request.query || {}, scope(request)),
+  });
+}
+
+export async function aiPromotionProposal(request, response) {
+  response.json(await promotionProposalService.getPromotionProposal(
+    request.params.dossierId,
+    scope(request)
+  ));
+}
+
+export async function createAiPromotionProposal(request, response) {
+  response.status(201).json(await promotionProposalService.createPromotionProposal(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
+export async function updateAiPromotionProposal(request, response) {
+  response.json(await promotionProposalService.updatePromotionProposal(
+    request.params.dossierId,
+    body(request),
+    {
+      ...scope(request),
+      actor: actor(request),
+    }
+  ));
+}
+
 export async function savedViews(request, response) {
   response.json({ items: await service.listDataHubSavedViews(request.query || {}, scope(request)) });
 }
@@ -171,7 +203,10 @@ export default {
   aiGatewayEvidence,
   aiGatewayInvocations,
   aiGatewayPlan,
+  aiPromotionProposal,
+  aiPromotionProposals,
   catalogue,
+  createAiPromotionProposal,
   createDestination,
   createSavedView,
   destinationRuns,
@@ -182,6 +217,7 @@ export default {
   query,
   runSavedView,
   savedViews,
+  updateAiPromotionProposal,
   updateDestination,
   updateSavedView,
 };
