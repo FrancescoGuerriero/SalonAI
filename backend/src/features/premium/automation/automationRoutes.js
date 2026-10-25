@@ -7,6 +7,12 @@ import {
 import {
   requirePermissions,
 } from "../../../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../../../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../../platform/tenancy/trustedTenantMiddleware.js";
 
 import {
   createJourney,
@@ -25,7 +31,11 @@ import {
 
 const router = express.Router();
 
-router.use(protect);
+router.use(
+  protect,
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware
+);
 router.use(
   requirePermissions(
     "retention-automation:manage"
