@@ -117,3 +117,10 @@ test("YouTube OAuth refresh remains in encrypted provider credential authority",
   assert.match(adapter, /storeProviderCredential/);
   assert.match(adapter, /role: "access_token"/);
 });
+
+test("Marketing connection details expose current LinkedIn Page and YouTube reporting scopes", async () => {
+  const service = await source("../features/integrationPlatform/marketingConnectedAccountsService.js");
+  assert.match(service, /rw_organization_admin/);
+  assert.match(service, /https:\/\/www\.googleapis\.com\/auth\/yt-analytics\.readonly/);
+  assert.match(service, /https:\/\/www\.googleapis\.com\/auth\/youtube\.readonly/);
+});
