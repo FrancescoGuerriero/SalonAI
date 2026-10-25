@@ -34,7 +34,7 @@ jobs:
       registry_namespace: ${{ steps.release.outputs.registry_namespace }}
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.release_tag }}
@@ -154,7 +154,7 @@ jobs:
 
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.release_tag }}
@@ -289,7 +289,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout release source
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
