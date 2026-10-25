@@ -19,7 +19,7 @@ const schema = new Schema(
     location: {
       type: Schema.Types.ObjectId,
       ref: "Location",
-      default: null,
+      required: true,
       index: true,
     },
     customer: {
@@ -132,12 +132,12 @@ const schema = new Schema(
 );
 
 schema.index(
-  { business: 1, provider: 1, externalReviewId: 1 },
+  { business: 1, location: 1, provider: 1, externalReviewId: 1 },
   { unique: true }
 );
-schema.index({ business: 1, status: 1, reviewedAt: -1 });
+schema.index({ business: 1, location: 1, status: 1, reviewedAt: -1 });
 schema.index({ business: 1, location: 1, provider: 1, reviewedAt: -1 });
-schema.index({ business: 1, customer: 1, reviewedAt: -1 });
+schema.index({ business: 1, location: 1, customer: 1, reviewedAt: -1 });
 
 export default mongoose.models.ExternalReview ||
   mongoose.model("ExternalReview", schema);
