@@ -59,7 +59,16 @@ export async function aiGatewayEvidence(request, response) {
 }
 
 export async function aiGatewayPlan(request, response) {
-  response.json(await gatewayService.planDataHubAiGateway(body(request), scope(request)));
+  response.json(await gatewayService.planDataHubAiGateway(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
+export async function aiGatewayInvocations(request, response) {
+  response.json({
+    items: await gatewayService.listAiGatewayInvocations(request.query || {}, scope(request)),
+  });
 }
 
 export async function savedViews(request, response) {
@@ -116,6 +125,7 @@ export async function destinationRuns(request, response) {
 export default {
   aiEvidence,
   aiGatewayEvidence,
+  aiGatewayInvocations,
   aiGatewayPlan,
   catalogue,
   createDestination,

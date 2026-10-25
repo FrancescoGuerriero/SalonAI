@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import AiGatewayInvocation from "../../models/AiGatewayInvocation.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { buildDataHubAiEvidence } from "./dataHubService.js";
 
@@ -10,6 +11,10 @@ const DEFAULT_TIMEOUT_MS = 10000;
 
 function text(value, max = 1000) {
   return String(value ?? "").trim().slice(0, max);
+}
+
+function actorId(actor) {
+  return actor?._id || actor?.id || null;
 }
 
 function safeDimensions(value = {}) {
@@ -134,7 +139,59 @@ function gatewayConfiguration() {
   return { baseUrl, serviceKey };
 }
 
-export async function planDataHubAiGateway(payload = {}, { businessId, locationId, now = new Date() } = {}) {
+function invocationOutcome(plan = {}, status = "planned", errorCode = "") {
+  return {
+    status,
+    ...(errorCode ? { errorCode: text(errorCode, 120) } : {}),
+    registryVersion: text(plan.registry_version || plan.registryVersion, 40),
+    toolKey: text(plan.tool_key || plan.toolKey, 120),
+    requestedAction: text(plan.requested_action || plan.requestedAction, 40),
+    humanApprovalRequired: plan.human_approval_required !== false && plan.humanApprovalRequired !== false,
+    executionAuthorised: false,
+    externalWriteAuthorised: false,
+  };
+}
+
+async function recordInvocation({
+  businessId,
+  locationId,
+  actor,
+  toolKey,
+  requestedAction,
+  evidence,
+  plan = {},
+  status = "planned",
+  errorCode = "",
+}) {
+  const evidenceChecksum = createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
+  const sourceSummary = (evidence.provenance || []).slice(0, AI_GATEWAY_PROVENANCE_LIMIT).map((item) => ({
+    sourceId: text(item.source_id, 240),
+    provider: text(item.provider, 80),
+  }));
+  const outcome = invocationOutcome(plan, status, errorCode);
+  return AiGatewayInvocation.create({
+    business: businessId,
+    location: locationId,
+    toolKey,
+    requestedAction,
+    registryVersion: outcome.registryVersion,
+    evidenceId: evidence.evidence_id,
+    evidenceContract: evidence.contract,
+    evidenceChecksum,
+    factCount: evidence.facts.length,
+    provenanceCount: evidence.provenance.length,
+    sourceSummary,
+    status,
+    planOutcome: outcome,
+    humanApprovalRequired: true,
+    executionAuthorised: false,
+    externalWriteAuthorised: false,
+    inferenceExecuted: false,
+    requestedBy: actorId(actor),
+  });
+}
+
+export async function planDataHubAiGateway(payload = {}, { businessId, locationId, actor = null, now = new Date() } = {}) {
   const evidence = await buildGatewayEvidence(payload, { businessId, locationId, now });
   const toolKey = text(payload.toolKey || "marketing-insights", 120) || "marketing-insights";
   const requestedAction = ["analyse", "summarise", "forecast", "recommend"].includes(payload.requestedAction)
@@ -161,21 +218,53 @@ export async function planDataHubAiGateway(payload = {}, { businessId, locationI
     let body = {};
     try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: text(raw, 2000) }; }
     if (!response.ok) {
+      await recordInvocation({
+        businessId,
+        locationId,
+        actor,
+        toolKey,
+        requestedAction,
+        evidence,
+        plan: body,
+        status: "rejected",
+        errorCode: "AI_GATEWAY_PLAN_FAILED",
+      });
       throw createServiceError(`AI Gateway planning returned HTTP ${response.status}.`, response.status, {
         code: "AI_GATEWAY_PLAN_FAILED",
         gatewayResponse: body,
       });
     }
+    const invocation = await recordInvocation({
+      businessId,
+      locationId,
+      actor,
+      toolKey,
+      requestedAction,
+      evidence,
+      plan: body,
+      status: "planned",
+    });
     return {
       locationId,
       evidence,
       plan: body,
+      invocationId: invocation._id,
       inferenceExecuted: false,
       externalWriteAuthorised: false,
-      message: "Canonical location-owned Data Hub evidence was accepted for gateway planning only. No inference or external write was executed by this endpoint.",
+      message: "Canonical location-owned Data Hub evidence was accepted for gateway planning only. The planning event was audited. No inference or external write was executed by this endpoint.",
     };
   } catch (error) {
     if (error?.name === "AbortError") {
+      await recordInvocation({
+        businessId,
+        locationId,
+        actor,
+        toolKey,
+        requestedAction,
+        evidence,
+        status: "failed",
+        errorCode: "AI_GATEWAY_TIMEOUT",
+      });
       throw createServiceError("AI Gateway planning timed out.", 504, { code: "AI_GATEWAY_TIMEOUT" });
     }
     throw error;
@@ -184,9 +273,21 @@ export async function planDataHubAiGateway(payload = {}, { businessId, locationI
   }
 }
 
+export async function listAiGatewayInvocations(query = {}, { businessId, locationId } = {}) {
+  const match = { business: businessId, location: locationId };
+  if (query.toolKey) match.toolKey = text(query.toolKey, 120);
+  if (["planned", "rejected", "failed"].includes(query.status)) match.status = query.status;
+  const limit = Math.min(250, Math.max(1, Number.parseInt(query.limit, 10) || 50));
+  return AiGatewayInvocation.find(match)
+    .select("location toolKey requestedAction registryVersion evidenceId evidenceContract evidenceChecksum factCount provenanceCount sourceSummary status planOutcome humanApprovalRequired executionAuthorised externalWriteAuthorised inferenceExecuted requestedBy createdAt updatedAt")
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(limit)
+    .lean();
+}
+
 export const AI_GATEWAY_BRIDGE_LIMITS = Object.freeze({
   factLimit: AI_GATEWAY_FACT_LIMIT,
   provenanceLimit: AI_GATEWAY_PROVENANCE_LIMIT,
 });
 
-export default { buildGatewayEvidence, planDataHubAiGateway };
+export default { buildGatewayEvidence, listAiGatewayInvocations, planDataHubAiGateway };
