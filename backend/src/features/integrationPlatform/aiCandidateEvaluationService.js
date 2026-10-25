@@ -241,6 +241,35 @@ function metricsFromAssessment(value = {}) {
   };
 }
 
+function repeatedHashes(value) {
+  if (!Array.isArray(value)) return [];
+  const hashes = value.map((item) => text(item, 64).toLowerCase()).slice(0, 20);
+  if (hashes.some((item) => !SHA256_RE.test(item))) {
+    throw createServiceError("Repeated advisory output hashes must be SHA-256 digests.", 400, {
+      code: "AI_CANDIDATE_REPEATED_HASH_INVALID",
+    });
+  }
+  return hashes;
+}
+
+async function qualifyingEvidenceCaseCount(record) {
+  const ids = await AiAdvisoryCandidateEvaluation.distinct("evidenceId", {
+    business: record.business,
+    location: record.location,
+    toolKey: record.toolKey,
+    candidateKind: record.candidateKind,
+    candidateVersion: record.candidateVersion,
+    "model.artifactSha256": record.model?.artifactSha256 || "",
+    policyVersion: record.policyVersion,
+    baselineVersion: record.baselineVersion,
+    qualityGatePassed: true,
+    baselineComparisonPassed: true,
+    artifactPromotionEligible: true,
+    "promotionReadiness.repeatedRunEvidenceSufficient": true,
+  });
+  return ids.length;
+}
+
 export async function evaluateAndRecordCandidate(payload = {}, { businessId, locationId, actor = null } = {}) {
   const evidence = payload.evidence;
   const candidate = payload.candidate;
@@ -248,9 +277,7 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
   const evidenceAudit = validateEvidenceEnvelope(evidence, { businessId, locationId });
   const candidateOutputHash = validateCandidate(candidate, evidenceAudit.evidenceId, locationId);
   const artifactAudit = validateModelArtifact(payload.modelArtifactManifest, kind, { businessId, locationId });
-  const repeatedOutputHashes = Array.isArray(payload.repeatedOutputHashes)
-    ? payload.repeatedOutputHashes.map((item) => text(item, 64).toLowerCase()).filter((item) => SHA256_RE.test(item)).slice(0, 20)
-    : [];
+  const repeatedOutputHashes = repeatedHashes(payload.repeatedOutputHashes);
 
   const config = gatewayConfiguration();
   const [policy, assessment] = await Promise.all([
@@ -266,14 +293,14 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
     }, config),
   ]);
 
+  const requiredOfflineCases = Math.max(1, Number(policy.minimumOfflineCases) || 25);
+  const minimumRepeatedRunsPerCase = Math.max(1, Number(policy.minimumRepeatedRunsPerCase) || 3);
+  const candidateOutputIncludedInRepeatedRuns = repeatedOutputHashes.includes(candidateOutputHash);
+  const repeatedRunEvidenceSufficient = kind !== "deterministic_baseline"
+    && repeatedOutputHashes.length >= minimumRepeatedRunsPerCase
+    && candidateOutputIncludedInRepeatedRuns;
   const qualityGatePassed = assessment.quality_gate_passed === true;
   const evaluatorEligible = assessment.eligible_for_promotion_review === true;
-  const eligibleForPromotionReview = Boolean(
-    evaluatorEligible
-      && artifactAudit.artifactPromotionEligible
-      && kind !== "deterministic_baseline"
-  );
-  const promotionReviewStatus = eligibleForPromotionReview ? "pending_review" : "not_eligible";
 
   const record = await AiAdvisoryCandidateEvaluation.create({
     business: businessId,
@@ -298,16 +325,52 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
     metrics: metricsFromAssessment(assessment.metrics),
     blockers: Array.isArray(assessment.blockers) ? assessment.blockers.map((item) => text(item, 160)).slice(0, 50) : [],
     qualityGatePassed,
-    eligibleForPromotionReview,
-    promotionReviewStatus,
+    promotionReadiness: {
+      requiredOfflineCases,
+      qualifyingOfflineCases: 0,
+      minimumRepeatedRunsPerCase,
+      repeatedRunCount: repeatedOutputHashes.length,
+      candidateOutputIncludedInRepeatedRuns,
+      repeatedRunEvidenceSufficient,
+      suiteGatePassed: false,
+    },
+    eligibleForPromotionReview: false,
+    promotionReviewStatus: "not_eligible",
     requestedBy: actorId(actor),
     productionPromotionAuthorised: false,
     productionInferenceAuthorised: false,
     externalWriteAuthorised: false,
   });
 
+  let qualifyingOfflineCases = 0;
+  let suiteGatePassed = false;
+  if (
+    kind !== "deterministic_baseline"
+    && qualityGatePassed
+    && evaluatorEligible
+    && artifactAudit.artifactPromotionEligible
+    && repeatedRunEvidenceSufficient
+  ) {
+    qualifyingOfflineCases = await qualifyingEvidenceCaseCount(record);
+    suiteGatePassed = qualifyingOfflineCases >= requiredOfflineCases;
+  }
+
+  const eligibleForPromotionReview = Boolean(
+    evaluatorEligible
+      && artifactAudit.artifactPromotionEligible
+      && repeatedRunEvidenceSufficient
+      && suiteGatePassed
+      && kind !== "deterministic_baseline"
+  );
+
+  record.promotionReadiness.qualifyingOfflineCases = qualifyingOfflineCases;
+  record.promotionReadiness.suiteGatePassed = suiteGatePassed;
+  record.eligibleForPromotionReview = eligibleForPromotionReview;
+  record.promotionReviewStatus = eligibleForPromotionReview ? "pending_review" : "not_eligible";
+  await record.save();
+
   return {
-    record,
+    record: record.toObject(),
     baselineComparisonPassed: artifactAudit.baselineComparisonPassed,
     evaluatorEligibleForPromotionReview: evaluatorEligible,
     eligibleForPromotionReview,
@@ -315,8 +378,8 @@ export async function evaluateAndRecordCandidate(payload = {}, { businessId, loc
     productionInferenceAuthorised: false,
     externalWriteAuthorised: false,
     message: eligibleForPromotionReview
-      ? "Candidate passed the governed quality, baseline and artifact gates and is queued for human promotion-proposal review only. Production promotion and inference remain disabled."
-      : "Candidate evaluation was recorded. It is not eligible for promotion review; production promotion and inference remain disabled.",
+      ? "Candidate passed the governed quality, artifact, repeated-run and full benchmark-suite gates and is queued for human promotion-proposal review only. Production promotion and inference remain disabled."
+      : "Candidate evaluation was recorded. Promotion review remains locked until all governed quality, artifact, repeated-run and benchmark-suite requirements are satisfied.",
   };
 }
 
@@ -331,7 +394,7 @@ export async function listCandidateEvaluations(query = {}, { businessId, locatio
   }
   const limit = Math.min(250, Math.max(1, Number.parseInt(query.limit, 10) || 50));
   return AiAdvisoryCandidateEvaluation.find(match)
-    .select("location toolKey requestedAction candidateKind registryVersion candidateVersion candidateOutputHash model baselineComparisonPassed artifactPromotionEligible evidenceId evidenceContract evidenceChecksum factCount provenanceCount policyVersion baselineVersion assessmentHash metrics blockers qualityGatePassed eligibleForPromotionReview promotionReviewStatus reviewerNote reviewedBy reviewedAt requestedBy productionPromotionAuthorised productionInferenceAuthorised externalWriteAuthorised createdAt updatedAt")
+    .select("location toolKey requestedAction candidateKind registryVersion candidateVersion candidateOutputHash model baselineComparisonPassed artifactPromotionEligible evidenceId evidenceContract evidenceChecksum factCount provenanceCount policyVersion baselineVersion assessmentHash metrics blockers qualityGatePassed promotionReadiness eligibleForPromotionReview promotionReviewStatus reviewerNote reviewedBy reviewedAt requestedBy productionPromotionAuthorised productionInferenceAuthorised externalWriteAuthorised createdAt updatedAt")
     .sort({ createdAt: -1, _id: -1 })
     .limit(limit)
     .lean();
@@ -362,6 +425,11 @@ export async function reviewCandidateEvaluation(recordId, payload = {}, { busine
       code: "AI_CANDIDATE_EVALUATION_NOT_FOUND",
     });
   }
+  if (["accepted_for_promotion_proposal", "rejected"].includes(record.promotionReviewStatus)) {
+    throw createServiceError("This AI candidate promotion review is already final.", 409, {
+      code: "AI_CANDIDATE_REVIEW_ALREADY_FINAL",
+    });
+  }
   const decision = payload.decision === "accept" ? "accept" : payload.decision === "reject" ? "reject" : "";
   if (!decision) {
     throw createServiceError("Review decision must be accept or reject.", 400, {
@@ -369,7 +437,7 @@ export async function reviewCandidateEvaluation(recordId, payload = {}, { busine
     });
   }
   if (decision === "accept" && !record.eligibleForPromotionReview) {
-    throw createServiceError("This candidate has not passed the gates required for promotion-proposal review.", 409, {
+    throw createServiceError("This candidate has not passed the full suite required for promotion-proposal review.", 409, {
       code: "AI_CANDIDATE_NOT_ELIGIBLE_FOR_PROMOTION_REVIEW",
     });
   }
