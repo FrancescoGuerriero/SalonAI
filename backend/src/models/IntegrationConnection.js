@@ -21,10 +21,9 @@ const credentialBindingSchema = new Schema(
 const integrationConnectionSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
-    location: { type: Schema.Types.ObjectId, ref: "Location", required: true, index: true },
     app: { type: Schema.Types.ObjectId, ref: "IntegrationApp", required: true, index: true },
     provider: { type: String, required: true, trim: true, lowercase: true, maxlength: 100, index: true },
-    connectionKey: { type: String, required: true, trim: true, lowercase: true, maxlength: 180 },
+    connectionKey: { type: String, required: true, trim: true, lowercase: true, maxlength: 120 },
     status: {
       type: String,
       enum: ["pending", "connected", "degraded", "disconnected", "revoked"],
@@ -44,10 +43,10 @@ const integrationConnectionSchema = new Schema(
 );
 
 integrationConnectionSchema.index(
-  { business: 1, location: 1, app: 1, provider: 1, connectionKey: 1 },
+  { business: 1, app: 1, provider: 1, connectionKey: 1 },
   { unique: true }
 );
-integrationConnectionSchema.index({ business: 1, location: 1, provider: 1, status: 1, lastSyncAt: 1 });
+integrationConnectionSchema.index({ business: 1, provider: 1, status: 1, lastSyncAt: 1 });
 
 export default (
   mongoose.models.IntegrationConnection ||
