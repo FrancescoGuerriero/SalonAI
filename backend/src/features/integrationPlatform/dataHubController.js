@@ -1,4 +1,5 @@
 import { createServiceError } from "../../shared/serviceError.js";
+import * as baselineComparisonService from "./aiBaselineComparisonService.js";
 import * as candidateEvaluationService from "./aiCandidateEvaluationService.js";
 import * as gatewayService from "./dataHubAiGatewayService.js";
 import * as offlineExperimentService from "./aiOfflineExperimentService.js";
@@ -112,6 +113,26 @@ export async function aiCandidateReview(request, response) {
   ));
 }
 
+export async function aiBaselineComparisons(request, response) {
+  response.json({
+    items: await baselineComparisonService.listBaselineComparisons(request.query || {}, scope(request)),
+  });
+}
+
+export async function aiBaselineComparison(request, response) {
+  response.json(await baselineComparisonService.getBaselineComparison(
+    request.params.comparisonId,
+    scope(request)
+  ));
+}
+
+export async function createAiBaselineComparison(request, response) {
+  response.status(201).json(await baselineComparisonService.compareCandidateToBaseline(body(request), {
+    ...scope(request),
+    actor: actor(request),
+  }));
+}
+
 export async function aiOfflineExperiments(request, response) {
   response.json({
     items: await offlineExperimentService.listOfflineExperiments(request.query || {}, scope(request)),
@@ -215,6 +236,8 @@ export async function destinationRuns(request, response) {
 }
 
 export default {
+  aiBaselineComparison,
+  aiBaselineComparisons,
   aiCandidateEvaluate,
   aiCandidateEvaluation,
   aiCandidateEvaluations,
@@ -229,6 +252,7 @@ export default {
   aiPromotionProposal,
   aiPromotionProposals,
   catalogue,
+  createAiBaselineComparison,
   createAiPromotionProposal,
   createDestination,
   createSavedView,
