@@ -6,12 +6,22 @@ on:
       - "backend/src/features/campaigns/**"
       - "backend/src/features/reputation/**"
       - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
+      - "backend/src/features/integrationPlatform/marketingAccountVerificationService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsController.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorsService.js"
+      - "backend/src/features/integrationPlatform/marketingHubProviderExtensions.js"
+      - "backend/src/features/integrationPlatform/providerCredentialService.js"
       - "backend/src/features/leads/leadController.js"
       - "backend/src/services/socialPublishingWorkerService.js"
       - "backend/src/test/point6CampaignAttributionContracts.test.js"
       - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
       - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
+      - "backend/src/test/stage8MarketingRealConnectorContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
+      - "docs/roadmap/stage-8-marketing-provider-catalogue.md"
       - ".github/workflows/point8b-campaign-hub.yml"
   push:
     branches:
@@ -20,12 +30,22 @@ on:
       - "backend/src/features/campaigns/**"
       - "backend/src/features/reputation/**"
       - "backend/src/features/customerExperience/stage4CustomerExperienceService.js"
+      - "backend/src/features/integrationPlatform/marketingAccountVerificationService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsController.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/features/integrationPlatform/marketingVerifiedConnectorsService.js"
+      - "backend/src/features/integrationPlatform/marketingHubProviderExtensions.js"
+      - "backend/src/features/integrationPlatform/providerCredentialService.js"
       - "backend/src/features/leads/leadController.js"
       - "backend/src/services/socialPublishingWorkerService.js"
       - "backend/src/test/point6CampaignAttributionContracts.test.js"
       - "backend/src/test/point6SocialReputationPerformanceContracts.test.js"
       - "backend/src/test/stage8bCampaignHubLocationContracts.test.js"
+      - "backend/src/test/stage8MarketingRealConnectorContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingHubPage.jsx"
       - "docs/roadmap/stage-8b-campaign-hub-completion.md"
+      - "docs/roadmap/stage-8-marketing-provider-catalogue.md"
       - ".github/workflows/point8b-campaign-hub.yml"
 
 permissions:
@@ -33,7 +53,7 @@ permissions:
 
 jobs:
   contracts:
-    name: Point 8B location-owned campaign contracts
+    name: Point 8B location-owned campaign and real connector contracts
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -52,12 +72,13 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run campaign, reputation and 8B contracts
+      - name: Run campaign, reputation and Marketing Hub contracts
         run: >-
           node --test
           src/test/point6CampaignAttributionContracts.test.js
           src/test/point6SocialReputationPerformanceContracts.test.js
           src/test/stage8bCampaignHubLocationContracts.test.js
+          src/test/stage8MarketingRealConnectorContracts.test.js
 
       - name: Verify backend source
         run: npm run check
