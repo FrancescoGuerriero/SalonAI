@@ -122,9 +122,15 @@ schema.pre("validate", function enforceGovernanceLocks(next) {
     this.baselineComparisonEvidence = null;
     this.baselineComparisonPassed = true;
     this.artifactPromotionEligible = false;
-  } else if (this.baselineComparisonSource !== "evidence_derived" || !this.baselineComparisonEvidence) {
-    this.baselineComparisonPassed = false;
-    this.artifactPromotionEligible = false;
+  } else {
+    if (this.baselineManifestAssertion === null || typeof this.baselineManifestAssertion === "undefined") {
+      this.baselineManifestAssertion = this.baselineComparisonPassed === true;
+    }
+    if (this.baselineComparisonSource !== "evidence_derived" || !this.baselineComparisonEvidence) {
+      this.baselineComparisonSource = "manifest_declaration";
+      this.baselineComparisonPassed = false;
+      this.artifactPromotionEligible = false;
+    }
   }
   next();
 });
