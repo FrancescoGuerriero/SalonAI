@@ -9,7 +9,7 @@ import {
   setLeadNurture,
   updateLead,
   updateOpportunity,
-} from "./leadService.js";
+} from "./locationOwnedLeadService.js";
 import {
   attributionForLead,
   recordAttributionTouch,
@@ -35,11 +35,25 @@ function businessId(request) {
 }
 
 function locationId(request) {
-  return (
+  const value =
     request.effectiveAuthority?.locationId ||
     request.tenantContext?.locationId ||
-    null
-  );
+    null;
+  if (!value) {
+    throw createServiceError(
+      "Select a location before using CRM leads and opportunities.",
+      400,
+      { code: "LOCATION_REQUIRED" }
+    );
+  }
+  return value;
+}
+
+function authority(request) {
+  return {
+    businessId: businessId(request),
+    locationId: locationId(request),
+  };
 }
 
 function actorUser(request) {
@@ -62,8 +76,6 @@ async function attributionOutcome(operation) {
       touch,
     };
   } catch (error) {
-    // The canonical mutation has already committed. Report projection repair
-    // state instead of encouraging an unsafe retry of that mutation.
     return {
       status: "unresolved",
       code: error.code || "ATTRIBUTION_PROJECTION_FAILED",
@@ -72,33 +84,32 @@ async function attributionOutcome(operation) {
   }
 }
 
+async function assertLocationLead(request) {
+  return getLeadAggregate(request.params.leadId, authority(request));
+}
+
 export async function leads(request, response) {
   response.json({
-    items: await listLeads(request.query || {}, {
-      businessId: businessId(request),
-    }),
+    items: await listLeads(request.query || {}, authority(request)),
   });
 }
 
 export async function lead(request, response) {
   response.json(
-    await getLeadAggregate(request.params.leadId, {
-      businessId: businessId(request),
-    })
+    await getLeadAggregate(request.params.leadId, authority(request))
   );
 }
 
 export async function capture(request, response) {
-  const tenantBusinessId = businessId(request);
+  const tenantAuthority = authority(request);
   const payload = body(request);
   const result = await captureLead(payload, {
-    businessId: tenantBusinessId,
-    locationId: locationId(request),
+    ...tenantAuthority,
     actorUser: actorUser(request),
   });
   const attribution = await attributionOutcome(() =>
     recordLeadCaptureAttribution(result.lead, payload, {
-      businessId: tenantBusinessId,
+      businessId: tenantAuthority.businessId,
     })
   );
 
@@ -111,7 +122,7 @@ export async function capture(request, response) {
 export async function update(request, response) {
   response.json(
     await updateLead(request.params.leadId, body(request), {
-      businessId: businessId(request),
+      ...authority(request),
       actorUser: actorUser(request),
     })
   );
@@ -120,7 +131,7 @@ export async function update(request, response) {
 export async function timeline(request, response) {
   response.status(201).json(
     await addLeadTimelineEvent(request.params.leadId, body(request), {
-      businessId: businessId(request),
+      ...authority(request),
       actorUser: actorUser(request),
     })
   );
@@ -129,7 +140,7 @@ export async function timeline(request, response) {
 export async function score(request, response) {
   response.status(201).json(
     await scoreLead(request.params.leadId, body(request), {
-      businessId: businessId(request),
+      ...authority(request),
       actorUser: actorUser(request),
     })
   );
@@ -138,21 +149,21 @@ export async function score(request, response) {
 export async function nurture(request, response) {
   response.json(
     await setLeadNurture(request.params.leadId, body(request), {
-      businessId: businessId(request),
+      ...authority(request),
       actorUser: actorUser(request),
     })
   );
 }
 
 export async function convert(request, response) {
-  const tenantBusinessId = businessId(request);
+  const tenantAuthority = authority(request);
   const result = await convertLeadToCustomer(request.params.leadId, body(request), {
-    businessId: tenantBusinessId,
+    ...tenantAuthority,
     actorUser: actorUser(request),
   });
   const attribution = await attributionOutcome(() =>
     recordLeadConversionAttribution(result.lead, result.customer, {
-      businessId: tenantBusinessId,
+      businessId: tenantAuthority.businessId,
     })
   );
 
@@ -163,10 +174,10 @@ export async function convert(request, response) {
 }
 
 export async function addOpportunity(request, response) {
-  const tenantBusinessId = businessId(request);
+  const tenantAuthority = authority(request);
   const payload = body(request);
   const opportunity = await createOpportunity(request.params.leadId, payload, {
-    businessId: tenantBusinessId,
+    ...tenantAuthority,
     actorUser: actorUser(request),
   });
   const attribution = await attributionOutcome(() =>
@@ -182,7 +193,7 @@ export async function addOpportunity(request, response) {
         channel: payload.sourceChannel || payload.attribution?.channel || "other",
         externalReference: payload.attribution?.externalReference,
       },
-      { businessId: tenantBusinessId }
+      { businessId: tenantAuthority.businessId }
     )
   );
 
@@ -199,7 +210,7 @@ export async function editOpportunity(request, response) {
       request.params.opportunityId,
       body(request),
       {
-        businessId: businessId(request),
+        ...authority(request),
         actorUser: actorUser(request),
       }
     )
@@ -207,21 +218,25 @@ export async function editOpportunity(request, response) {
 }
 
 export async function attribution(request, response) {
+  const tenantAuthority = authority(request);
+  await assertLocationLead(request);
   response.json(
     await attributionForLead(request.params.leadId, {
-      businessId: businessId(request),
+      businessId: tenantAuthority.businessId,
     })
   );
 }
 
 export async function addAttribution(request, response) {
+  const tenantAuthority = authority(request);
+  await assertLocationLead(request);
   response.status(201).json(
     await recordAttributionTouch(
       {
         ...body(request),
         lead: request.params.leadId,
       },
-      { businessId: businessId(request) }
+      { businessId: tenantAuthority.businessId }
     )
   );
 }
