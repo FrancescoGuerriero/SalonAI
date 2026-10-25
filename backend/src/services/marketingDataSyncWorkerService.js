@@ -66,24 +66,34 @@ function nextRunAt(cadence, from = new Date()) {
 }
 
 async function processSource(source, now) {
+  if (!source.location) {
+    return {
+      sourceId: String(source._id),
+      success: false,
+      error: {
+        message: "Scheduled marketing source has no location ownership.",
+        code: "MARKETING_SOURCE_LOCATION_REQUIRED",
+      },
+    };
+  }
   try {
     let result;
     if (source.provider === "technical_seo") {
       result = await runMarketingDataSource(
         source._id,
         { mode: "seo_scan" },
-        { businessId: source.business, actor: null }
+        { businessId: source.business, locationId: source.location, actor: null }
       );
     } else {
       result = await runMarketingProviderSource(
         source._id,
         { mode: source.syncMode || "incremental" },
-        { businessId: source.business, actor: null }
+        { businessId: source.business, locationId: source.location, actor: null }
       );
     }
     const completedAt = new Date();
     await MarketingDataSource.updateOne(
-      { _id: source._id, business: source.business },
+      { _id: source._id, business: source.business, location: source.location },
       {
         $set: {
           "schedule.nextRunAt": nextRunAt(source.schedule?.cadence || "daily", completedAt),
@@ -91,15 +101,16 @@ async function processSource(source, now) {
         },
       }
     );
-    return { sourceId: String(source._id), success: true, result };
+    return { sourceId: String(source._id), locationId: String(source.location), success: true, result };
   } catch (error) {
     const retryAt = new Date(now.getTime() + 15 * 60000);
     await MarketingDataSource.updateOne(
-      { _id: source._id, business: source.business },
+      { _id: source._id, business: source.business, location: source.location },
       { $set: { "schedule.nextRunAt": retryAt } }
     ).catch(() => undefined);
     return {
       sourceId: String(source._id),
+      locationId: String(source.location),
       success: false,
       error: {
         message: error?.message || "Marketing sync failed.",
@@ -168,6 +179,7 @@ export async function runMarketingDataSyncWorkerCycle(options = {}) {
     state.cycles += 1;
     state.lastCycleStartedAt = now.toISOString();
     const sources = await MarketingDataSource.find({
+      location: { $ne: null },
       status: "active",
       syncMode: { $in: ["scheduled", "incremental"] },
       "schedule.cadence": { $in: ["hourly", "daily", "weekly"] },
