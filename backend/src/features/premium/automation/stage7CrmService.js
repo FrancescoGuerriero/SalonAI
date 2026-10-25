@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
 
+import Appointment from "../../../models/Appointment.js";
 import ConsentRecord from "../../../models/ConsentRecord.js";
 import Customer from "../../../models/customer.js";
+import CustomerContactLog from "../../../models/customerContactLog.js";
+import AiPrediction from "../../ai/AiPrediction.js";
 import AttributionTouch from "../../campaigns/AttributionTouch.js";
+import CustomerExperienceProfile from "../../customerExperience/CustomerExperienceProfile.js";
+import LoyaltyAccount from "../loyalty/LoyaltyAccount.js";
 import RetentionJourneyEnrollment from "./RetentionJourneyEnrollment.js";
 import { requireRetentionBusinessId } from "./stage7RetentionService.js";
 
@@ -17,7 +22,7 @@ export const CUSTOMER_LIFECYCLE_STATES = Object.freeze([
   "reactivated",
 ]);
 
-const MARKETING_PURPOSES = Object.freeze([
+const CONSENT_PURPOSES = Object.freeze([
   "email_marketing",
   "sms_marketing",
   "whatsapp_marketing",
@@ -38,102 +43,17 @@ function daysBetween(earlier, later = new Date()) {
   return Math.max(0, Math.floor((later.getTime() - start.getTime()) / 86400000));
 }
 
-function evidenceKey(subjectType, subjectId, purpose) {
-  return `${subjectType}:${String(subjectId || "")}:${purpose}`;
+function safeArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
-async function loadConsentEvidence(customers = []) {
-  const profileIds = customers.map((customer) => customer?._id).filter(Boolean);
-  const accountIds = customers.map((customer) => customer?.userAccount).filter(Boolean);
-
-  if (!profileIds.length && !accountIds.length) return new Map();
-
-  const alternatives = [];
-  if (profileIds.length) alternatives.push({ customerProfile: { $in: profileIds } });
-  if (accountIds.length) alternatives.push({ customer: { $in: accountIds } });
-
-  const records = await ConsentRecord.aggregate([
-    {
-      $match: {
-        purpose: { $in: MARKETING_PURPOSES },
-        $or: alternatives,
-      },
-    },
-    { $sort: { recordedAt: -1, createdAt: -1, _id: -1 } },
-    {
-      $group: {
-        _id: {
-          customerProfile: "$customerProfile",
-          customer: "$customer",
-          purpose: "$purpose",
-        },
-        granted: { $first: "$granted" },
-        recordedAt: { $first: "$recordedAt" },
-        source: { $first: "$source" },
-      },
-    },
-  ]);
-
-  const evidence = new Map();
-  for (const record of records) {
-    if (record?._id?.customerProfile) {
-      evidence.set(
-        evidenceKey("profile", record._id.customerProfile, record._id.purpose),
-        {
-          granted: record.granted === true,
-          recordedAt: record.recordedAt || null,
-          source: record.source || "",
-        }
-      );
-    }
-    if (record?._id?.customer) {
-      evidence.set(
-        evidenceKey("account", record._id.customer, record._id.purpose),
-        {
-          granted: record.granted === true,
-          recordedAt: record.recordedAt || null,
-          source: record.source || "",
-        }
-      );
-    }
+function latestBy(items, keyFn) {
+  const map = new Map();
+  for (const item of items || []) {
+    const key = keyFn(item);
+    if (key && !map.has(key)) map.set(key, item);
   }
-  return evidence;
-}
-
-function latestConsent(customer, purpose, evidence = new Map()) {
-  const byProfile = evidence.get(evidenceKey("profile", customer?._id, purpose));
-  const byAccount = customer?.userAccount
-    ? evidence.get(evidenceKey("account", customer.userAccount, purpose))
-    : null;
-
-  if (!byProfile) return byAccount || null;
-  if (!byAccount) return byProfile;
-
-  const profileTime = byProfile.recordedAt ? new Date(byProfile.recordedAt).getTime() : 0;
-  const accountTime = byAccount.recordedAt ? new Date(byAccount.recordedAt).getTime() : 0;
-  return accountTime > profileTime ? byAccount : byProfile;
-}
-
-function effectiveMarketingConsent(customer, evidence = new Map()) {
-  const marketing = customer?.marketing || {};
-  const preferences = customer?.communicationPreferences || {};
-  const emailEvidence = latestConsent(customer, "email_marketing", evidence);
-  const smsEvidence = latestConsent(customer, "sms_marketing", evidence);
-  const whatsappEvidence = latestConsent(customer, "whatsapp_marketing", evidence);
-  const pushEvidence = latestConsent(customer, "push_marketing", evidence);
-
-  return {
-    email: emailEvidence?.granted ?? (marketing.emailConsent === true),
-    sms: smsEvidence?.granted ?? (marketing.smsConsent === true),
-    whatsapp: whatsappEvidence?.granted ?? (marketing.whatsappConsent === true || preferences.whatsappMarketing === true),
-    push: pushEvidence?.granted ?? false,
-    evidence: {
-      email: emailEvidence,
-      sms: smsEvidence,
-      whatsapp: whatsappEvidence,
-      push: pushEvidence,
-    },
-  };
+  return map;
 }
 
 export function deriveCustomerLifecycleState(customer, { now = new Date() } = {}) {
@@ -144,27 +64,23 @@ export function deriveCustomerLifecycleState(customer, { now = new Date() } = {}
   const tier = String(customer?.loyaltyTier || "standard").toLowerCase();
   const tags = new Set((customer?.tags || []).map((tag) => String(tag).toLowerCase()));
 
-  if (tags.has("reactivated")) return "reactivated";
+  if (tags.has("reactivated") || tags.has("recovered")) return "reactivated";
   if (visits <= 0) return "prospect";
   if (daysSinceLastVisit !== null && daysSinceLastVisit >= 120) return "lapsed";
   if (daysSinceLastVisit !== null && daysSinceLastVisit >= 60) return "at_risk";
-  if (["gold", "platinum"].includes(tier) || visits >= 8 || totalSpent >= 1000) return "loyal";
+  if (["gold", "platinum", "vip"].includes(tier) || visits >= 8 || totalSpent >= 1000) return "loyal";
   if (daysSinceFirstVisit !== null && daysSinceFirstVisit <= 45 && visits <= 1) return "new_customer";
   if (visits >= 2) return "repeat";
   return "active";
 }
 
-export function deriveCustomerSegments(
-  customer,
-  lifecycleState,
-  { consentEvidence = new Map() } = {}
-) {
+export function deriveCustomerSegments(customer, lifecycleState, { consent = null } = {}) {
   const segments = new Set([lifecycleState]);
   const visits = Number(customer?.completedAppointmentCount ?? customer?.visitCount ?? 0);
   const totalSpent = Number(customer?.totalSpent ?? 0);
   const preferences = customer?.communicationPreferences || {};
   const marketing = customer?.marketing || {};
-  const effectiveConsent = effectiveMarketingConsent(customer, consentEvidence);
+  const consentState = consent || {};
 
   if (visits >= 2) segments.add("repeat_customer");
   if (visits >= 8 || totalSpent >= 1000) segments.add("high_value");
@@ -178,12 +94,18 @@ export function deriveCustomerSegments(
   const globallyEligible =
     preferences.unsubscribed !== true &&
     preferences.promotionalMessages !== false;
+  const emailGranted = consentState.email_marketing?.granted ?? marketing.emailConsent;
+  const smsGranted = consentState.sms_marketing?.granted ?? marketing.smsConsent;
+  const whatsappGranted =
+    consentState.whatsapp_marketing?.granted ??
+    marketing.whatsappConsent ??
+    preferences.whatsappMarketing;
 
   if (
     globallyEligible &&
     customer?.email &&
     preferences.emailUnsubscribed !== true &&
-    effectiveConsent.email === true &&
+    emailGranted === true &&
     marketing.emailSuppressed !== true
   ) {
     segments.add("contactable_email");
@@ -193,7 +115,7 @@ export function deriveCustomerSegments(
     globallyEligible &&
     customer?.phone &&
     preferences.smsUnsubscribed !== true &&
-    effectiveConsent.sms === true
+    smsGranted === true
   ) {
     segments.add("contactable_sms");
   }
@@ -202,13 +124,9 @@ export function deriveCustomerSegments(
     globallyEligible &&
     customer?.phone &&
     preferences.whatsappUnsubscribed !== true &&
-    effectiveConsent.whatsapp === true
+    whatsappGranted === true
   ) {
     segments.add("contactable_whatsapp");
-  }
-
-  if (globallyEligible && customer?.userAccount && effectiveConsent.push === true) {
-    segments.add("contactable_push");
   }
 
   return Array.from(segments).sort();
@@ -236,12 +154,90 @@ async function loadOwnedCustomer(customerId, businessId) {
   return customer;
 }
 
+async function loadConsentState(customer) {
+  if (!customer?.userAccount) return {};
+  const records = await ConsentRecord.find({
+    customer: customer.userAccount,
+    purpose: { $in: CONSENT_PURPOSES },
+  })
+    .sort({ recordedAt: -1, createdAt: -1, _id: -1 })
+    .select("purpose granted recordedAt source channel")
+    .lean();
+
+  return Object.fromEntries(
+    Array.from(latestBy(records, (record) => record.purpose).entries())
+  );
+}
+
+function deriveNextBestAction({ customer, lifecycleState, predictions = [], consentState = {} }) {
+  const predictionByType = latestBy(predictions, (prediction) => prediction.predictionType);
+  const churn = predictionByType.get("churn_risk") || null;
+  const recommendedCampaign = predictionByType.get("recommended_campaign") || null;
+  const recommendedChannel = predictionByType.get("recommended_channel") || null;
+  const serviceRecommendation = predictionByType.get("service_recommendation") || null;
+  const contactable = deriveCustomerSegments(customer, lifecycleState, { consent: consentState }).filter(
+    (segment) => segment.startsWith("contactable_")
+  );
+
+  let action = "maintain_relationship";
+  let reason = "Customer is active with no urgent deterministic retention condition.";
+
+  if (["past_due", "payment_failed"].includes(String(customer?.membershipStatus || "").toLowerCase())) {
+    action = "membership_recovery";
+    reason = "Membership payment state requires recovery handling through the canonical finance workflow.";
+  } else if (lifecycleState === "lapsed") {
+    action = "lapsed_recovery";
+    reason = "Customer has crossed the deterministic lapsed threshold.";
+  } else if (lifecycleState === "at_risk" || String(churn?.label || "").toLowerCase() === "high") {
+    action = "retention_outreach_review";
+    reason = "Lifecycle or fresh churn evidence indicates elevated retention risk.";
+  } else if (!customer?.nextAppointment && Number(customer?.completedAppointmentCount ?? customer?.visitCount ?? 0) > 0) {
+    action = "rebooking_review";
+    reason = "Customer has visit history but no future appointment recorded.";
+  } else if (lifecycleState === "new_customer") {
+    action = "post_visit_nurture";
+    reason = "New-customer lifecycle supports governed onboarding and follow-up.";
+  }
+
+  return {
+    action,
+    reason,
+    executionAuthorised: false,
+    contactableChannels: contactable.map((segment) => segment.replace("contactable_", "")),
+    aiSignals: {
+      churnRisk: churn,
+      recommendedCampaign,
+      recommendedChannel,
+      serviceRecommendation,
+    },
+  };
+}
+
 export async function buildCustomer360(customerId, { tenantContext = {}, now = new Date() } = {}) {
   const businessId = requireRetentionBusinessId(tenantContext);
   const customer = await loadOwnedCustomer(customerId, businessId);
+  const consentState = await loadConsentState(customer);
   const lifecycleState = deriveCustomerLifecycleState(customer, { now });
+  const segments = deriveCustomerSegments(customer, lifecycleState, { consent: consentState });
 
-  const [attributionTouches, journeyEnrollments, consentEvidence] = await Promise.all([
+  const profileQuery = customer.userAccount
+    ? CustomerExperienceProfile.findOne({ user: customer.userAccount })
+        .populate("walletCards.giftCard", "codeLastFour originalValue balance currency status expiresAt transactions")
+        .lean()
+    : Promise.resolve(null);
+  const loyaltyQuery = customer.userAccount
+    ? LoyaltyAccount.findOne({ customer: customer.userAccount }).lean()
+    : Promise.resolve(null);
+
+  const [
+    attributionTouches,
+    journeyEnrollments,
+    appointments,
+    communications,
+    experienceProfile,
+    loyalty,
+    predictions,
+  ] = await Promise.all([
     AttributionTouch.find({ business: businessId, customer: customer._id })
       .sort({ occurredAt: -1, _id: -1 })
       .limit(100)
@@ -250,24 +246,59 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
     RetentionJourneyEnrollment.find({ business: businessId, customer: customer._id })
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("journey trigger status outcome campaign startedAt stoppedAt completedAt executionAuthorised createdAt")
+      .select("journey trigger triggerReference status outcome campaign startedAt stoppedAt completedAt executionAuthorised stepEvidence createdAt")
       .lean(),
-    loadConsentEvidence([customer]),
+    Appointment.find({ business: businessId, customer: customer._id })
+      .sort({ startsAt: -1, appointmentDate: -1, _id: -1 })
+      .limit(100)
+      .select("stylist service status startsAt endsAt appointmentDate appointmentTime duration price paymentStatus paymentMethod")
+      .populate("service", "name category price duration")
+      .populate("stylist", "name firstName lastName")
+      .lean(),
+    CustomerContactLog.find({ business: businessId, customer: customer._id })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(100)
+      .select("appointment campaignType channel direction subject status sentAt deliveredAt openedAt respondedAt failureReason createdAt metadata")
+      .lean(),
+    profileQuery,
+    loyaltyQuery,
+    AiPrediction.find({
+      customer: customer._id,
+      $or: [{ expiresAt: { $gt: now } }, { expiresAt: null }, { expiresAt: { $exists: false } }],
+    })
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(20)
+      .select("predictionType score label explanation modelName modelVersion expiresAt updatedAt")
+      .lean(),
   ]);
 
-  const segments = deriveCustomerSegments(customer, lifecycleState, { consentEvidence });
-  const effectiveConsent = effectiveMarketingConsent(customer, consentEvidence);
   const campaignIds = Array.from(
-    new Set(
-      attributionTouches
-        .map((touch) => touch.campaign)
-        .filter(Boolean)
-        .map(String)
-    )
+    new Set(attributionTouches.map((touch) => touch.campaign).filter(Boolean).map(String))
   );
-  const conversionTouches = attributionTouches.filter(
-    (touch) => touch.touchType === "conversion"
-  );
+  const conversionTouches = attributionTouches.filter((touch) => touch.touchType === "conversion");
+  const completedAppointments = appointments.filter((appointment) => appointment.status === "completed");
+  const serviceHistory = completedAppointments.map((appointment) => ({
+    appointmentId: appointment._id,
+    service: appointment.service || null,
+    stylist: appointment.stylist || null,
+    occurredAt: appointment.startsAt || appointment.appointmentDate || null,
+    price: Number(appointment.price || 0),
+  }));
+  const consultations = safeArray(experienceProfile?.consultations)
+    .slice()
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 25);
+  const reviews = safeArray(experienceProfile?.reviews)
+    .slice()
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 25);
+  const walletCards = safeArray(experienceProfile?.walletCards).slice(0, 25);
+  const nextBestAction = deriveNextBestAction({
+    customer,
+    lifecycleState,
+    predictions,
+    consentState,
+  });
 
   return {
     customer: {
@@ -294,8 +325,10 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
       visits: Number(customer.completedAppointmentCount ?? customer.visitCount ?? 0),
       totalSpent: Number(customer.totalSpent || 0),
       averageSpend: Number(customer.averageSpend || 0),
-      loyaltyTier: customer.loyaltyTier || "standard",
-      loyaltyPoints: Number(customer.loyaltyPoints || 0),
+      loyaltyTier: customer.loyaltyTier || loyalty?.tier || "standard",
+      loyaltyPoints: Number(customer.loyaltyPoints ?? loyalty?.pointsBalance ?? 0),
+      lifetimePointsEarned: Number(loyalty?.lifetimePointsEarned || 0),
+      lifetimePointsRedeemed: Number(loyalty?.lifetimePointsRedeemed || 0),
       membershipStatus: customer.membershipStatus || "none",
       membershipName: customer.membershipName || "",
     },
@@ -305,10 +338,42 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
       preferredStylist: customer.preferredStylist || null,
       preferredServices: customer.preferredServices || [],
     },
+    appointments: {
+      count: appointments.length,
+      completedCount: completedAppointments.length,
+      recent: appointments,
+      serviceHistory,
+    },
+    consultations: {
+      count: safeArray(experienceProfile?.consultations).length,
+      recent: consultations,
+    },
+    communications: {
+      count: communications.length,
+      recent: communications,
+    },
+    loyalty: {
+      account: loyalty || null,
+      recentTransactions: safeArray(loyalty?.transactions)
+        .slice()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .slice(0, 25),
+    },
+    giftCards: {
+      count: walletCards.length,
+      wallet: walletCards,
+    },
+    reviews: {
+      count: safeArray(experienceProfile?.reviews).length,
+      recent: reviews,
+      averageRating: reviews.length
+        ? Number((reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length).toFixed(2))
+        : null,
+    },
     consent: {
       communicationPreferences: customer.communicationPreferences || {},
       marketing: customer.marketing || {},
-      effectiveMarketing: effectiveConsent,
+      latestEvidence: consentState,
     },
     attribution: {
       touchCount: attributionTouches.length,
@@ -322,12 +387,18 @@ export async function buildCustomer360(customerId, { tenantContext = {}, now = n
       activeEnrolments: journeyEnrollments.filter((item) => ["pending", "active", "paused"].includes(item.status)),
       recentEnrolments: journeyEnrollments,
     },
+    intelligence: {
+      predictions,
+      nextBestAction,
+      advisoryOnly: true,
+    },
     projection: {
       type: "customer_360",
-      version: "1",
+      version: "2",
       businessId,
       generatedAt: now.toISOString(),
       deterministic: true,
+      executionAuthorised: false,
     },
   };
 }
@@ -342,19 +413,38 @@ export async function listCrmSegments({ tenantContext = {}, limit = 100, now = n
     .sort({ updatedAt: -1, _id: -1 })
     .limit(safeLimit)
     .select(
-      "userAccount firstName lastName email phone status source tags visitCount completedAppointmentCount cancelledAppointmentCount noShowCount firstVisit lastVisit nextAppointment totalSpent averageSpend loyaltyTier loyaltyPoints membershipStatus communicationPreferences marketing"
+      "firstName lastName email phone userAccount status source tags visitCount completedAppointmentCount cancelledAppointmentCount noShowCount firstVisit lastVisit nextAppointment totalSpent averageSpend loyaltyTier loyaltyPoints membershipStatus communicationPreferences marketing"
     )
     .lean();
 
-  const consentEvidence = await loadConsentEvidence(customers);
+  const accountIds = customers.map((customer) => customer.userAccount).filter(Boolean);
+  const consentRows = accountIds.length
+    ? await ConsentRecord.find({
+        customer: { $in: accountIds },
+        purpose: { $in: CONSENT_PURPOSES },
+      })
+        .sort({ recordedAt: -1, createdAt: -1, _id: -1 })
+        .select("customer purpose granted recordedAt")
+        .lean()
+    : [];
+  const consentByAccount = new Map();
+  for (const row of consentRows) {
+    const accountKey = String(row.customer || "");
+    if (!consentByAccount.has(accountKey)) consentByAccount.set(accountKey, {});
+    const state = consentByAccount.get(accountKey);
+    if (!state[row.purpose]) state[row.purpose] = row;
+  }
 
   return customers.map((customer) => {
     const lifecycleState = deriveCustomerLifecycleState(customer, { now });
+    const consent = consentByAccount.get(String(customer.userAccount || "")) || {};
     return {
       customerId: customer._id,
       name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+      email: customer.email || "",
+      phone: customer.phone || "",
       lifecycleState,
-      segments: deriveCustomerSegments(customer, lifecycleState, { consentEvidence }),
+      segments: deriveCustomerSegments(customer, lifecycleState, { consent }),
       totalSpent: Number(customer.totalSpent || 0),
       visits: Number(customer.completedAppointmentCount ?? customer.visitCount ?? 0),
       lastVisit: customer.lastVisit || null,
