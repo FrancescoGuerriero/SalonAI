@@ -16,6 +16,7 @@ test("Marketing and BI persistence models require a Location owner", async () =>
     source("../models/DataHubSavedView.js"),
     source("../models/DataHubDestinationTask.js"),
     source("../models/DataHubDestinationRun.js"),
+    source("../models/AiGatewayInvocation.js"),
   ]);
   for (const model of models) {
     assert.match(model, /location:\s*\{[\s\S]*?ref:\s*"Location"[\s\S]*?required:\s*true/);
@@ -83,4 +84,26 @@ test("Data Hub saved views, destinations and AI evidence remain location-bound",
   assert.match(gateway, /businessWideAggregationAuthorised:\s*false/);
   assert.match(gateway, /inferenceExecuted:\s*false/);
   assert.match(gateway, /externalWriteAuthorised:\s*false/);
+});
+
+test("AI Gateway planning creates a location-owned audit record and exposes only location-scoped history", async () => {
+  const [model, gateway, controller, routes, client] = await Promise.all([
+    source("../models/AiGatewayInvocation.js"),
+    source("../features/integrationPlatform/dataHubAiGatewayService.js"),
+    source("../features/integrationPlatform/dataHubController.js"),
+    source("../features/integrationPlatform/dataHubRoutes.js"),
+    source("../../frontend/src/Services/dataHubService.js"),
+  ]);
+  assert.match(model, /business:\s*\{[\s\S]*required:\s*true/);
+  assert.match(model, /location:\s*\{[\s\S]*required:\s*true/);
+  assert.match(model, /executionAuthorised:\s*\{ type:\s*Boolean, default:\s*false \}/);
+  assert.match(model, /externalWriteAuthorised:\s*\{ type:\s*Boolean, default:\s*false \}/);
+  assert.match(model, /inferenceExecuted:\s*\{ type:\s*Boolean, default:\s*false \}/);
+  assert.match(gateway, /AiGatewayInvocation\.create\(\{/);
+  assert.match(gateway, /business:\s*businessId,[\s\S]*location:\s*locationId/);
+  assert.match(gateway, /const match = \{ business:\s*businessId, location:\s*locationId \}/);
+  assert.match(gateway, /requestedBy:\s*actorId\(actor\)/);
+  assert.match(controller, /listAiGatewayInvocations\(request\.query \|\| \{\}, scope\(request\)\)/);
+  assert.match(routes, /router\.get\("\/ai-gateway\/invocations", read/);
+  assert.match(client, /listAiGatewayInvocations/);
 });
