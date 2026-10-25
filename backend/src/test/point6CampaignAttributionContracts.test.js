@@ -20,23 +20,25 @@ test("Point 6 master campaigns are tenant-owned and cross-channel", async () => 
   assert.match(model, /business:\s*1,[\s\S]*?campaignKey:\s*1/);
 
   assert.match(execution, /business:[\s\S]*?required:\s*true/);
+  assert.match(execution, /location:[\s\S]*?required:\s*true/);
   assert.match(execution, /campaign:[\s\S]*?required:\s*true/);
   assert.match(execution, /idempotencyKey:[\s\S]*?required:\s*true/);
   assert.match(execution, /metrics:[\s\S]*?conversions:[\s\S]*?revenue:/);
 });
 
-test("Point 6 attribution is append-only, deduplicated and tenant-safe", async () => {
+test("Point 6 attribution is append-only, deduplicated and location-safe", async () => {
   const model = await source("../features/campaigns/AttributionTouch.js");
   const service = await source("../features/campaigns/growthCampaignService.js");
 
   assert.match(model, /ATTRIBUTION_TOUCH_IMMUTABLE/);
-  assert.match(model, /business:\s*1,[\s\S]*?sourceKey:\s*1/);
+  assert.match(model, /business:\s*1,[\s\S]*?location:\s*1,[\s\S]*?sourceKey:\s*1/);
   assert.match(model, /touchType:[\s\S]*?first_touch[\s\S]*?conversion/);
 
   assert.match(service, /Campaign\.findOne\(\{[\s\S]*?business:\s*businessId/);
-  assert.match(service, /Lead\.findOne\(\{ _id: lead, business: businessId \}/);
+  assert.match(service, /Lead\.findOne\(\{[\s\S]*?\.\.\.authority/);
   assert.match(service, /Customer\.findOne\([\s\S]*?business:\s*businessId/);
-  assert.match(service, /Opportunity\.findOne\(\{ _id: opportunity, business: businessId \}/);
+  assert.match(service, /Opportunity\.findOne\(\{[\s\S]*?\.\.\.authority/);
+  assert.match(service, /ATTRIBUTION_LOCATION_MISMATCH/);
   assert.match(service, /const existing = await AttributionTouch\.findOne/);
   assert.match(service, /AttributionTouch\.create\(document\)/);
   assert.doesNotMatch(
@@ -57,6 +59,7 @@ test("campaign and segment audiences never query customers globally", async () =
   assert.match(campaigns, /business:\s*tenantBusinessId,[\s\S]*?status:\s*\{ \$ne: "deleted" \}/);
   assert.match(campaigns, /CAMPAIGN_RECIPIENT_TENANCY_MISMATCH/);
   assert.match(campaigns, /CAMPAIGN_CHANNEL_REQUIRES_PROVIDER_EXECUTION/);
+  assert.match(campaigns, /CampaignLocationState/);
 
   assert.match(segmentModel, /business:[\s\S]*?ref:\s*"Business"/);
   assert.match(segments, /CustomerSegment\.findOne\(\{[\s\S]*?business:\s*tenantBusinessId/);
@@ -64,7 +67,7 @@ test("campaign and segment audiences never query customers globally", async () =
   assert.match(segments, /SEGMENT_CUSTOMER_TENANCY_MISMATCH/);
 });
 
-test("canonical lead lifecycle records and exposes attribution", async () => {
+test("canonical lead lifecycle records and exposes location-owned attribution", async () => {
   const controller = await source("../features/leads/leadController.js");
   const routes = await source("../features/leads/leadRoutes.js");
 
@@ -73,19 +76,22 @@ test("canonical lead lifecycle records and exposes attribution", async () => {
   assert.match(controller, /touchType:\s*"opportunity"/);
   assert.match(controller, /status:\s*"unresolved"/);
   assert.match(controller, /attributionForLead/);
+  assert.match(controller, /locationId:\s*locationId\(request\)/);
 
   assert.match(routes, /\/:leadId\/attribution/);
   assert.match(routes, /requirePermissions\("customer:read"\)/);
   assert.match(routes, /requirePermissions\("customer:update"\)/);
 });
 
-test("campaign API exposes governed provider executions", async () => {
+test("campaign API exposes governed location-owned provider executions", async () => {
   const controller = await source("../features/campaigns/campaignController.js");
   const routes = await source("../features/campaigns/campaignRoutes.js");
 
   assert.match(controller, /createCampaignExecution/);
   assert.match(controller, /listCampaignExecutions/);
   assert.match(controller, /effectiveAuthority\?\.businessId/);
+  assert.match(controller, /effectiveAuthority\?\.locationId/);
+  assert.match(controller, /LOCATION_REQUIRED/);
   assert.match(routes, /\/:id\/executions/);
   assert.match(routes, /requirePermissions\("communications:manage"\)/);
 });
