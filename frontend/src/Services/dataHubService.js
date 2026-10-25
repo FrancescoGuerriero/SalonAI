@@ -30,6 +30,10 @@ async function planAiGateway(payload) {
   return (await API.post(`${ROOT}/ai-gateway/plan`, payload)).data;
 }
 
+async function previewAiAdvisory(payload) {
+  return (await API.post(`${ROOT}/ai-gateway/advisory-preview`, payload)).data;
+}
+
 async function listAiGatewayInvocations(params = {}) {
   const response = await API.get(`${ROOT}/ai-gateway/invocations`, { params });
   return Array.isArray(response.data?.items) ? response.data.items : [];
@@ -87,6 +91,7 @@ export {
   listDestinations,
   listSavedViews,
   planAiGateway,
+  previewAiAdvisory,
   previewDestination,
   runQuery,
   runSavedView,
@@ -107,6 +112,7 @@ export default {
   listDestinations,
   listSavedViews,
   planAiGateway,
+  previewAiAdvisory,
   previewDestination,
   runQuery,
   runSavedView,
