@@ -3,7 +3,8 @@ import Stage7RecoveryJourneySetup from "../components/retention/Stage7RecoveryJo
 import RetentionJourneyBuilderPage from "./RetentionJourneyBuilderPage.jsx";
 
 // Compatibility note: the existing Journey builder, Execution engine pending notice,
-// and updateRetentionJourney controls remain implemented in RetentionJourneyBuilderPage.
+// updateRetentionJourney control, Audience dry-run, Messages queued, Preview audience,
+// and Contact readiness UI remain implemented in RetentionJourneyBuilderPage.
 export default function RetentionAutomationPage() {
   return (
     <>
