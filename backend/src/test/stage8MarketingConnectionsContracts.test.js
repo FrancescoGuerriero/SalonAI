@@ -13,14 +13,17 @@ test("Stage 8 Marketing catalogue exposes all governed provider connection forms
   const expected = [
     "google_ads", "meta_ads", "linkedin_ads", "microsoft_ads", "tiktok_ads",
     "facebook_pages", "instagram_organic", "linkedin_pages", "google_business_profile",
-    "ga4", "google_search_console", "shopify", "stripe", "hubspot", "mailchimp",
+    "ga4", "google_search_console", "bing_webmaster", "shopify", "stripe", "hubspot", "mailchimp",
     "youtube_analytics",
   ];
   for (const key of expected) assert.ok(providers.has(key), `missing ${key}`);
+  assert.equal(providers.size, expected.length);
   assert.equal(providers.get("google_ads").credentials.find((item) => item.key === "developerToken")?.role, "api_key");
   assert.equal(providers.get("meta_ads").credentials.find((item) => item.key === "appSecret")?.role, "client_secret");
   assert.equal(providers.get("shopify").credentials.find((item) => item.key === "accessToken")?.role, "access_token");
   assert.equal(providers.get("stripe").credentials.find((item) => item.key === "apiKey")?.role, "api_key");
+  assert.equal(providers.get("bing_webmaster").credentials.find((item) => item.key === "refreshToken")?.role, "refresh_token");
+  assert.ok(providers.get("hubspot").scopes.includes("content"));
   assert.equal(catalogue.liveSyncEnabled, false);
 });
 
@@ -32,6 +35,8 @@ test("Marketing source catalogue promotes configured-account providers into Stag
     assert.equal(byKey.get(key).liveActivation, "adapter_pending_acceptance");
     assert.ok(byKey.get(key).defaultFields.length > 0);
   }
+  assert.ok(byKey.has("bing_webmaster"));
+  assert.ok(byKey.get("hubspot").requiredScopes.includes("content"));
   assert.equal(catalogue.version, "2.0.0");
 });
 
@@ -98,6 +103,7 @@ test("Marketing provider forms include key account identifiers and provider guid
   assert.match(service, /Meta App ID/);
   assert.match(service, /Ad account URN/);
   assert.match(service, /Advertiser ID/);
+  assert.match(service, /Bing Webmaster site URL/);
   assert.match(service, /Shop domain/);
   assert.match(service, /Stripe account ID/);
   assert.match(service, /server prefix/);

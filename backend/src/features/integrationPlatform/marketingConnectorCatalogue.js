@@ -145,7 +145,12 @@ const CONNECTORS = Object.freeze({
     ],
     scopes: ["payments:read"],
   }),
-  hubspot: adapterDefinition({ key: "hubspot", label: "HubSpot", fields: crmFields, scopes: ["crm.objects.contacts.read", "crm.objects.companies.read", "crm.objects.deals.read"] }),
+  hubspot: adapterDefinition({
+    key: "hubspot",
+    label: "HubSpot",
+    fields: crmFields,
+    scopes: ["crm.objects.contacts.read", "crm.objects.companies.read", "crm.objects.deals.read", "content"],
+  }),
   mailchimp: adapterDefinition({ key: "mailchimp", label: "Mailchimp", fields: crmFields, scopes: ["marketing:read"] }),
   youtube_analytics: adapterDefinition({
     key: "youtube_analytics",
