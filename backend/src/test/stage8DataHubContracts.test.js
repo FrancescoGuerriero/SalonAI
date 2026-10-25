@@ -84,6 +84,22 @@ test("Stage 8 Data Hub service queries canonical normalised records and blocks s
   assert.doesNotMatch(service, /createPaymentIntent|chargeCard|capturePayment/);
 });
 
+test("Stage 8 Data Hub AI Gateway bridge translates canonical evidence without enabling inference", async () => {
+  const bridge = await source("../features/integrationPlatform/dataHubAiGatewayService.js");
+  assert.match(bridge, /data_hub_evidence_v1/);
+  assert.match(bridge, /buildDataHubAiEvidence/);
+  assert.match(bridge, /AI_GATEWAY_FACT_LIMIT = 500/);
+  assert.match(bridge, /AI_GATEWAY_PROVENANCE_LIMIT = 200/);
+  assert.match(bridge, /modelMayRecalculateCanonicalMetrics:\s*false/);
+  assert.match(bridge, /X-SalonAI-Service-Key/);
+  assert.match(bridge, /\/api\/v1\/ai-gateway\/plan/);
+  assert.match(bridge, /AI_GATEWAY_NOT_CONFIGURED/);
+  assert.match(bridge, /AI_GATEWAY_HTTPS_REQUIRED/);
+  assert.match(bridge, /inferenceExecuted:\s*false/);
+  assert.match(bridge, /externalWriteAuthorised:\s*false/);
+  assert.doesNotMatch(bridge, /\/analyse|\/infer|\/train|\/promote/);
+});
+
 test("Stage 8 Data Hub API is permission protected and mounted under Integration Platform", async () => {
   const [routes, parentRoutes, controller] = await Promise.all([
     source("../features/integrationPlatform/dataHubRoutes.js"),
@@ -96,12 +112,16 @@ test("Stage 8 Data Hub API is permission protected and mounted under Integration
   assert.match(routes, /\/catalogue/);
   assert.match(routes, /\/query/);
   assert.match(routes, /\/ai-evidence/);
+  assert.match(routes, /\/ai-gateway\/evidence/);
+  assert.match(routes, /\/ai-gateway\/plan/);
   assert.match(routes, /\/saved-views/);
   assert.match(routes, /\/destinations/);
   assert.match(routes, /\/destinations\/:taskId\/preview/);
   assert.match(parentRoutes, /router\.use\(\s*"\/data-hub"/);
   assert.match(controller, /effectiveAuthority\?\.businessId/);
   assert.match(controller, /tenantContext\?\.businessId/);
+  assert.match(controller, /buildGatewayEvidence/);
+  assert.match(controller, /planDataHubAiGateway/);
 });
 
 test("Stage 8 management workspace exposes governed Data Hub tasks", async () => {
@@ -119,6 +139,8 @@ test("Stage 8 management workspace exposes governed Data Hub tasks", async () =>
   assert.match(page, /live external writes and AI actions remain disabled/);
   assert.match(service, /integration-platform\/data-hub/);
   assert.match(service, /ai-evidence/);
+  assert.match(service, /ai-gateway\/evidence/);
+  assert.match(service, /ai-gateway\/plan/);
   assert.match(router, /\/admin\/system\/data-hub/);
   assert.match(router, /feature-control:read/);
   assert.match(navigation, /AIIBP Data Hub/);
