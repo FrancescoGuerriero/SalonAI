@@ -1,4 +1,5 @@
 import { createServiceError } from "../../shared/serviceError.js";
+import * as gatewayService from "./dataHubAiGatewayService.js";
 import * as service from "./dataHubService.js";
 
 function businessId(request) {
@@ -37,6 +38,14 @@ export async function query(request, response) {
 
 export async function aiEvidence(request, response) {
   response.json(await service.buildDataHubAiEvidence(body(request), { businessId: businessId(request) }));
+}
+
+export async function aiGatewayEvidence(request, response) {
+  response.json(await gatewayService.buildGatewayEvidence(body(request), { businessId: businessId(request) }));
+}
+
+export async function aiGatewayPlan(request, response) {
+  response.json(await gatewayService.planDataHubAiGateway(body(request), { businessId: businessId(request) }));
 }
 
 export async function savedViews(request, response) {
@@ -94,6 +103,8 @@ export async function destinationRuns(request, response) {
 
 export default {
   aiEvidence,
+  aiGatewayEvidence,
+  aiGatewayPlan,
   catalogue,
   createDestination,
   createSavedView,
