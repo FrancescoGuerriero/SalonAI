@@ -33,6 +33,9 @@ from app.api.routes.no_show_prediction import (
 from app.api.routes.sales_forecasting import (
     router as sales_forecasting_router,
 )
+from app.api.routes.stylist_copilot import (
+    router as stylist_copilot_router,
+)
 from app.api.routes.whatsapp_bot import (
     router as whatsapp_bot_router,
 )
@@ -97,6 +100,11 @@ api_router.include_router(
 
 api_router.include_router(
     management_copilot_router,
+    prefix="/api/v1",
+)
+
+api_router.include_router(
+    stylist_copilot_router,
     prefix="/api/v1",
 )
 
