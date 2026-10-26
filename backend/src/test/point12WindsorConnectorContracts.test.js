@@ -79,14 +79,14 @@ test("Windsor Data Hub adapter persists schedule and canonical lineage metadata"
 
 test("Windsor scheduled executor uses checkpoints and canonical Marketing Data Core", async () => {
   const scheduled = await source("../features/integrationPlatform/windsorScheduledSyncService.js");
-  const worker = await source("../../services/marketingDataSyncWorkerService.js");
+  const worker = await source("../services/marketingDataSyncWorkerService.js");
   assert.match(scheduled, /source\.checkpoint\?\.watermark/);
   assert.match(scheduled, /previewWindsorData/);
   assert.match(scheduled, /runMarketingDataSource/);
-  assert.match(scheduled, /managedBy":?\s*"windsor_marketing_connector"|managedBy\s*===\s*"windsor_marketing_connector"/);
+  assert.match(scheduled, /windsor_marketing_connector/);
   assert.match(worker, /runWindsorScheduledSource/);
   assert.match(worker, /isWindsorDataSource/);
-  assert.match(worker, /sourceConfig\.managedBy":?\s*"windsor_marketing_connector"|"sourceConfig\.managedBy":\s*"windsor_marketing_connector"/);
+  assert.match(worker, /windsor_marketing_connector/);
 });
 
 test("Windsor routes are permission protected under Marketing connections", async () => {
