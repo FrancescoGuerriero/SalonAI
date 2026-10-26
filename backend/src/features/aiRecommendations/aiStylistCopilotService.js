@@ -69,7 +69,7 @@ export async function buildStylistCopilotContext({
     throw error;
   }
 
-  const [consultation, priorAppointments, productOrders, followUpNotes] = await Promise.all([
+  const [consultationCandidate, priorAppointments, productOrders, followUpNotes] = await Promise.all([
     ConsultationSession.findOne({
       business: businessId,
       location: appointment.location,
@@ -124,9 +124,13 @@ export async function buildStylistCopilotContext({
       .exec(),
   ]);
 
-  const consentedSensitiveContext = Boolean(
-    consultation?.governance?.dataProcessingConsent
-  );
+  // Match the existing consultation-inference privacy invariant: consultation
+  // evidence is eligible for AI processing only with explicit processing consent.
+  const consultation =
+    consultationCandidate?.governance?.dataProcessingConsent === true
+      ? consultationCandidate
+      : null;
+  const consentedSensitiveContext = Boolean(consultation);
 
   const hairProfile = customer.hairProfile || {};
   const preferences = [
@@ -253,6 +257,7 @@ export async function buildStylistCopilotContext({
     consent: {
       dataProcessingConsent: consentedSensitiveContext,
       sensitiveContextIncluded: consentedSensitiveContext,
+      consultationIncluded: Boolean(consultation),
     },
     constraints: {
       humanReviewRequired: true,
@@ -297,10 +302,11 @@ export async function generateStylistCopilot({
       advisoryOnly: true,
       humanReviewRequired: true,
       sensitiveContextIncluded: context.consent.sensitiveContextIncluded,
+      consultationIncluded: context.consent.consultationIncluded,
       evidenceRefs: [
         `appointment:${appointmentId}`,
         `customer:${context.customer.id}`,
-        ...(context.consultation ? ["consultation:latest-authorised"] : []),
+        ...(context.consultation ? ["consultation:latest-consented"] : []),
         ...(context.productHistory.length ? ["orders:customer-product-history"] : []),
         ...(context.followUp.length ? ["customer-notes:staff-follow-up"] : []),
       ],
