@@ -28,12 +28,27 @@ test("Stylist Copilot context is canonical, scoped and advisory-only", () => {
   assert.match(service, /Appointment\.findOne/);
   assert.match(service, /Customer\.findOne/);
   assert.match(service, /ConsultationSession\.findOne/);
+  assert.match(service, /Order\.find/);
+  assert.match(service, /CustomerNote\.find/);
+  assert.match(service, /"items\.itemType": "product"/);
+  assert.match(service, /visibility: "staff"/);
   assert.match(service, /status: "completed"/);
   assert.match(service, /dataProcessingConsent/);
   assert.match(service, /canonicalWritesAllowed: false/);
   assert.match(service, /autonomousCustomerMessagingAllowed: false/);
   assert.match(service, /medicalDiagnosisAllowed: false/);
   assert.match(service, /safetyRuleOverrideAllowed: false/);
+});
+
+test("Stylist Copilot Node to Python mapping matches the versioned contract", () => {
+  const client = read("features/aiRecommendations/stylistCopilotAiClient.js");
+  assert.match(client, /definitionVersion: "1"/);
+  assert.match(client, /actorContext:/);
+  assert.match(client, /previousServices:/);
+  assert.match(client, /previousProducts:/);
+  assert.match(client, /followUp:/);
+  assert.match(client, /consentedContextKeys:/);
+  assert.match(client, /constraints: context\.constraints/);
 });
 
 test("Stylist Copilot writes governed inference provenance", () => {
@@ -43,11 +58,14 @@ test("Stylist Copilot writes governed inference provenance", () => {
   assert.match(service, /entityType: "appointment"/);
   assert.match(service, /advisoryOnly: true/);
   assert.match(service, /humanReviewRequired: true/);
+  assert.match(service, /orders:customer-product-history/);
+  assert.match(service, /customer-notes:staff-follow-up/);
 });
 
 test("Node calls only the authenticated governed Python Stylist Copilot endpoint", () => {
   const client = read("features/aiRecommendations/stylistCopilotAiClient.js");
   assert.match(client, /"\/api\/v1\/stylist-copilot\/brief"/);
   assert.match(client, /method: "POST"/);
+  assert.match(client, /body: toPythonPayload\(payload\)/);
   assert.match(client, /authenticated: true/);
 });
