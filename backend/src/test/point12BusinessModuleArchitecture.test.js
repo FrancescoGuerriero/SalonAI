@@ -11,6 +11,9 @@ import {
   resolveBusinessModuleAllocation,
   validateBusinessModuleRegistry,
 } from "../platform/modules/businessModuleRegistry.js";
+import {
+  resolveEffectiveTenantProductComposition,
+} from "../platform/productComposition/tenantProductManifest.js";
 
 const requiredPoint12Packs = [
   "integrations",
@@ -98,4 +101,33 @@ test("module allocation resolves from tenant capability entitlements", () => {
   assert.equal(ai.allocated, false);
   assert.ok(ai.missingCapabilityPacks.includes("ai"));
   assert.ok(ai.missingCapabilityPacks.includes("ai-decision-support"));
+});
+
+test("effective tenant composition exposes module allocation from enabled capability state", () => {
+  const composition = resolveEffectiveTenantProductComposition({
+    manifest: {
+      businessId: "000000000000000000000012",
+      verticalId: "salon",
+      capabilityPackKeys: [
+        "integrations",
+        "crm",
+        "marketing-automation",
+      ],
+    },
+  });
+
+  const marketing = composition.businessModules.find(
+    ({ key }) => key === "marketing-automation"
+  );
+  const integrations = composition.businessModules.find(
+    ({ key }) => key === "integration-hub"
+  );
+  const ai = composition.businessModules.find(
+    ({ key }) => key === "ai-decision-support"
+  );
+
+  assert.equal(integrations.allocated, true);
+  assert.equal(marketing.allocated, true);
+  assert.equal(ai.allocated, false);
+  assert.ok(composition.enabledCapabilityPackKeys.includes("marketing-automation"));
 });
