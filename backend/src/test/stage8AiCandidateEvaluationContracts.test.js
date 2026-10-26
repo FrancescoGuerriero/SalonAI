@@ -28,6 +28,10 @@ test("AI candidate evaluation records are location-owned and production locked",
   assert.match(model, /baselineComparisonSource !== "evidence_derived"/);
   assert.match(model, /promotionReadiness\.qualifyingOfflineCases = 0/);
   assert.match(model, /promotionReadiness\.suiteGatePassed = false/);
+  assert.match(model, /evidenceDerivedPromotionChainComplete/);
+  assert.match(model, /promotionReviewStatus === "accepted_for_promotion_proposal"/);
+  assert.match(model, /cannot be accepted for a promotion proposal without evidence-derived baseline comparison/);
+  assert.match(model, /cannot be accepted unless the complete evidence-derived promotion-review chain passes/);
 
   assert.match(service, /business:\s*businessId/);
   assert.match(service, /location:\s*locationId/);
