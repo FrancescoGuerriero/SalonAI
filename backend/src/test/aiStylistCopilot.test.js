@@ -40,6 +40,15 @@ test("Stylist Copilot context is canonical, scoped and advisory-only", () => {
   assert.match(service, /safetyRuleOverrideAllowed: false/);
 });
 
+test("Stylist Copilot excludes consultation AI context without explicit processing consent", () => {
+  const service = read("features/aiRecommendations/aiStylistCopilotService.js");
+  assert.match(
+    service,
+    /consultationCandidate\?\.governance\?\.dataProcessingConsent === true[\s\S]*?\? consultationCandidate[\s\S]*?: null/
+  );
+  assert.match(service, /const consentedSensitiveContext = Boolean\(consultation\)/);
+});
+
 test("Stylist Copilot Node to Python mapping matches the versioned contract", () => {
   const client = read("features/aiRecommendations/stylistCopilotAiClient.js");
   assert.match(client, /definitionVersion: "1"/);
