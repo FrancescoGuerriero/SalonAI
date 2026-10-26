@@ -5,6 +5,7 @@ import Notification from "../notifications/Notification.js";
 import EmailCampaign from "../emailCampaigns/EmailCampaign.js";
 import RetentionJourney from "../automation/RetentionJourney.js";
 import { buildManagementBiSnapshot } from "../../analytics/managementBiService.js";
+import { analyseManagementBiWithPython } from "../../analytics/managementBiPythonService.js";
 
 export async function getPremiumAnalytics(req, res) {
   const [loyaltyAccounts, giftCards, referrals, notifications, campaigns, journeys] = await Promise.all([
@@ -36,4 +37,14 @@ export async function getManagementBi(req, res) {
     asOfDate: req.query.asOfDate || new Date(),
   });
   return res.status(200).json({ success: true, snapshot });
+}
+
+export async function getManagementPythonAnalysis(req, res) {
+  const result = await analyseManagementBiWithPython({
+    effectiveAuthority: req.effectiveAuthority,
+    actor: req.user,
+    periodDays: req.body?.periodDays ?? req.query.periodDays,
+    asOfDate: req.body?.asOfDate ?? req.query.asOfDate ?? new Date(),
+  });
+  return res.status(200).json({ success: true, ...result });
 }
