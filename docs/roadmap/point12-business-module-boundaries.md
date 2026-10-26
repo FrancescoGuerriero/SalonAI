@@ -1,152 +1,157 @@
-# Point 12 — Business Module Manual Acceptance
+# Point 12 — Business Module Boundaries and Manual Acceptance
 
 ## Purpose
 
-Point 12 packages AIIBP capabilities into distinctive business-facing modules that can be allocated to a Business without exposing internal engines as duplicate products.
+Point 12 packages existing AIIBP capabilities into distinctive business modules that can be allocated to a Business without duplicating canonical authority. Marketing is one business-facing module; Windsor, campaign/attribution and automation engines remain internal implementation capabilities.
 
-The canonical module authority is the existing capability registry:
+## Canonical allocation model
 
-- `backend/src/platform/capabilities/capabilityRegistry.js`
-- `backend/src/platform/capabilities/verticalPackRegistry.js`
-- `docs/architecture/business-module-boundaries.md`
+Use `allocatableCapabilityPackKeys` from the platform/vertical capability registry. Do not expose internal engines such as `marketing-data`, `campaigns-attribution`, `marketing-automation` or the shared `ai` foundation as separate commercial modules.
 
-Internal engines remain installable dependencies, but tenant/business configuration should expose only `allocatableCapabilityPackKeys`.
+Primary business-facing areas include Booking & Operations, Workforce & Staff, Commerce, Inventory & Purchasing, CRM & Customer Intelligence, Communications, Integration Hub, Analytics & BI, Marketing and supported AI assistants. Each capability declares `ownedDomains` and the registry fails if active capabilities claim duplicate canonical domains.
 
-## Core allocation model
+## Marketing boundary
 
-Business-facing modules include Appointments & Booking, Workforce & Staff, Service Catalogue, Commerce, Communications, Calendar Integration, Integration Hub, Analytics & BI, CRM & Customer Intelligence, Marketing, AI Business Adviser, AI Receptionist, AI Retention Manager, AI Stylist Copilot, Memberships, Inventory & Purchasing, Loyalty and vertical-specific specialist modules.
+The business receives **one Marketing module**. It composes:
 
-The key Point 12 rule is:
+- Integration Hub/provider connectivity;
+- Windsor-style Marketing Data ingestion and lineage;
+- CRM audiences/lifecycle/consent evidence;
+- canonical Campaign/CampaignExecution/Attribution;
+- Marketing Automation triggers/approval/scheduling;
+- Communications delivery;
+- Analytics & BI;
+- governed AI recommendations.
 
-**one allocatable Marketing module**
-
-with these internal, non-allocatable engines:
-
-- `marketing-data` — Windsor-style/provider-neutral ingestion, normalisation and lineage;
-- `campaigns-attribution` — canonical campaigns, campaign executions, social publication and deterministic attribution;
-- `marketing-automation` — triggers, approvals, schedules and automation-run orchestration.
-
-The Marketing module composes those engines together with Integration Hub, CRM, Communications and Analytics & BI without duplicating their canonical state.
+The Marketing module does not replace any of those canonical/internal authorities.
 
 ## Manual acceptance checklist
 
-Use a non-production test Business and test Location. Do not enter production provider credentials or activate live sending unless a controlled provider acceptance step has been authorised.
+Use a non-production test Business and test Location. Do not enter production provider credentials unless a controlled provider acceptance test has been authorised.
 
-### A. Module catalogue and allocation
+### A. Business/module allocation
 
-1. Open the tenant/business product composition surface or inspect the resolved vertical composition.
-2. Confirm `allocatableCapabilityPackKeys` includes business-facing modules such as `marketing`, `integrations`, `crm`, `analytics`, `ai-decision-support` and the vertical-appropriate AI assistants.
-3. Confirm internal engines are **not** directly allocatable: `ai`, `marketing-data`, `campaigns-attribution`, `marketing-automation`.
-4. Confirm allocating `marketing` automatically requires its internal dependencies rather than asking the Business to buy/configure them separately.
-5. Confirm disabling/removing `marketing` does not remove unrelated modules such as Appointments, Workforce, Commerce or Integration Hub unless those are separately removed.
+1. Confirm `marketing` is allocatable to a supported Business.
+2. Confirm `marketing-data`, `campaigns-attribution` and `marketing-automation` are internal/non-allocatable.
+3. Confirm shared `ai` is internal/non-allocatable while supported business-facing AI assistants can be allocated separately.
+4. Disable Marketing entitlement and confirm Marketing surfaces are unavailable/clearly not entitled without disabling unrelated Booking/Workforce/Commerce capabilities.
+5. Re-enable Marketing and confirm its internal dependencies resolve without presenting them as duplicate modules.
 
-### B. Integration Hub separation
+### B. Marketing module navigation
 
-1. Allocate/enable `integrations` without `marketing`.
-2. Open provider connection management.
-3. Configure a supported sandbox/test provider.
-4. Confirm credentials are stored securely and are not returned in plaintext after save.
-5. Confirm provider connection/sync status can be inspected without exposing campaign automation controls.
-6. Confirm disconnecting a provider does not delete canonical CRM customers, appointments, campaigns, orders or historical analytics evidence.
+1. Open `/marketing`.
+2. Confirm one Marketing landing workspace appears.
+3. Confirm it links internally to Windsor data connections, Native connections, Sellers, Journeys & automation, Attribution & performance and AI marketing assistance.
+4. Confirm Windsor does not appear as another top-level business module.
 
-**Pass condition:** Integration Hub owns provider connection, credential and sync state only.
+### C. Windsor runtime without configuration
 
-### C. CRM & Customer Intelligence separation
+1. In a non-production environment with no `WINDSOR_API_KEY`, open Windsor data connections.
+2. Confirm the catalogue remains visible for planning/search.
+3. Confirm a clear “Windsor is not configured” state is displayed.
+4. Confirm connection actions cannot succeed without the server-side key.
+5. Confirm the browser never receives the `WINDSOR_API_KEY`.
 
-1. Allocate/enable `crm` without `marketing`.
-2. Open Customer 360/lifecycle/segment views.
-3. Verify deterministic lifecycle and segment evidence can be reviewed independently of campaign execution.
-4. Change test consent/contactability through the canonical customer/consent workflow.
-5. Confirm CRM reflects the change.
-6. Confirm no marketing message is sent merely because a customer enters a segment or lifecycle state.
+### D. Windsor source connection
 
-**Pass condition:** CRM owns customer intelligence/retention definitions and evidence, not campaign sending.
+After configuring a non-production Windsor API key:
 
-### D. Marketing module composition
+1. Search for a supported source such as Google Ads/GA4/HubSpot.
+2. Choose **Connect securely**.
+3. Confirm authorization opens the Windsor/provider flow in a new tab.
+4. Confirm AIIBP does not ask for the provider password.
+5. Complete the provider/Windsor connection with a sandbox/test account.
+6. Return to AIIBP and choose **Check connection**.
+7. Confirm only account IDs connected through that Business authorization session are shown.
+8. Confirm a different Business cannot preview/import/unlink those account IDs.
 
-1. Allocate/enable `marketing` with its required dependencies.
-2. Confirm the Business sees a single Marketing product experience rather than separate Marketing Data, Campaign Attribution and Marketing Automation products.
-3. Open marketing provider/data connections and confirm they use Integration Hub credentials/contracts rather than a second credential store.
-4. Create or inspect a draft campaign or retention journey.
-5. Select an existing CRM audience/segment.
-6. Preview the audience and verify tenant/location scope.
-7. Confirm customers without required channel consent/contactability are excluded or blocked.
-8. Confirm the campaign workflow remains governed: Draft/Preview/Approve/Schedule/Execute/Measure, or the nearest current equivalent where execution is still gated.
-9. Confirm campaign execution/attribution uses canonical `Campaign`/`CampaignExecution`/attribution evidence and does not create another campaign source of truth.
-10. Confirm marketing-data evidence can be consumed without exposing `marketing-data` as a separately allocatable product.
+### E. Sellers — Amazon Seller Central
 
-**Pass condition:** one Marketing module orchestrates existing authorities without recreating them.
+1. Open Marketing → Sellers.
+2. Confirm **Amazon Seller Central (Amazon SP)** is listed under Sellers, not generic advertising.
+3. Connect a permitted test/sandbox seller account through Windsor.
+4. Reconcile the account.
+5. Confirm account name/ID appears only for the active Business.
+6. Preview a bounded read-only data window.
+7. Use **Import to Data Hub** with an active test Location.
+8. Confirm a location-owned Marketing Data Source is created/updated and a sync run records imported raw/normalised evidence.
+9. Confirm no Amazon listing/product write action is exposed.
 
-### E. Communications separation
+### F. Sellers — eBay
 
-1. Allocate/enable Communications independently.
-2. Open templates, scheduled communications and delivery monitoring.
-3. Confirm templates, channel transport, delivery state and retry evidence remain in Communications.
-4. From Marketing, confirm approved campaign actions delegate actual delivery to Communications/provider contracts.
-5. Trigger only an authorised sandbox/test delivery.
-6. Confirm delivery evidence appears in Communications while campaign/journey orchestration remains in Marketing.
+1. Confirm **eBay** is listed under Sellers.
+2. Connect a permitted test seller account through Windsor OAuth.
+3. Reconcile the account and verify Business isolation.
+4. Preview seller data.
+5. Import a bounded window into the active Location Data Hub.
+6. Confirm the Data Hub source retains Windsor/eBay connector and account provenance.
+7. Confirm no listing mutation, payout action or other eBay write operation is exposed.
 
-**Pass condition:** Communications owns message delivery; Marketing owns approved orchestration.
+### G. Windsor Data Hub ingestion
 
-### F. Analytics & BI separation
+1. From a connected Windsor account choose **Import to Data Hub**.
+2. Confirm Location is required.
+3. Confirm the first import is bounded (currently maximum 100 Windsor rows per manual request).
+4. Open the AIIBP Data Hub.
+5. Confirm the Windsor source appears as a canonical Marketing Data Source rather than a separate Windsor-only database.
+6. Confirm raw and normalised record lineage/sync-run evidence is present.
+7. Repeat the same import and confirm canonical deduplication/reconciliation behaviour does not create a competing source definition.
+8. Do not treat this manual bounded import as proof of full historical/backfill support; scheduled/paginated ingestion requires separate acceptance.
 
-1. Allocate/enable Analytics & BI without AI Decision Support.
-2. Review campaign, revenue or operational reporting.
-3. Confirm deterministic metrics are available without AI recommendations.
-4. Confirm reporting cannot execute campaigns or mutate Customer, Appointment, Order, Campaign or Staff canonical records.
+### H. Destinations and AI destinations
 
-**Pass condition:** Analytics & BI is read/evidence authority only.
+1. Search for ChatGPT, Claude, Copilot Agent and Power BI.
+2. Confirm they are labelled as destinations/AI destinations rather than ordinary Marketing data sources.
+3. Confirm the ordinary source Connect/Import workflow is not offered for destination-only entries.
+4. Destination activation must remain a separate governed workflow.
 
-### G. AI Business Adviser / decision support
+### I. Native versus Windsor connections
 
-1. Allocate `ai-decision-support` for a test Business.
-2. Confirm the shared internal `ai` foundation is not separately presented as a commercial module.
-3. Open the Management Copilot/business-adviser surface.
-4. Confirm output is evidence-grounded and human-review/advisory in nature.
-5. Confirm a recommendation does not automatically send marketing, change pricing, alter staff, create bookings, charge customers or mutate canonical state.
-6. Confirm inference/provenance evidence is recorded where the governed AI contract requires it.
+1. Open Native connections and confirm existing provider-specific connections still operate independently.
+2. Confirm the architecture does not create a second native credential store for Windsor.
+3. Where a provider has both Windsor and native support, confirm the UI/product documentation explains the connection mode rather than presenting two business modules.
+4. Native adapters remain appropriate for deeper first-party verification or later governed write operations; Windsor remains broad read/analytics connectivity.
 
-**Pass condition:** AI assists decisions and does not silently become operational authority.
+### J. CRM separation
 
-### H. AI Retention Manager
+1. Open a test customer.
+2. Review Customer 360, lifecycle and deterministic segment membership.
+3. Change test consent/contactability through the canonical customer/consent workflow.
+4. Confirm CRM reflects the change.
+5. Confirm Marketing Automation consumes that state rather than maintaining a second customer-consent authority.
 
-1. Allocate/enable the AI Retention Manager where supported.
-2. Confirm it can recommend audiences, channels or next actions from CRM/BI evidence.
-3. Confirm it cannot directly own or execute a campaign.
-4. Confirm approved execution still passes through the Marketing module and Communications/provider contracts.
+### K. Communications separation
 
-**Pass condition:** AI Retention advises; Marketing executes approved activity.
+1. Review templates and scheduled communications.
+2. Confirm delivery/templates remain owned by Communications.
+3. Confirm Marketing chooses approved audiences/actions but delegates delivery.
+4. Confirm Windsor data import itself never sends a customer message.
 
-### I. AI Stylist Copilot
+### L. Analytics and AI assistance
 
-1. On a Salon business, allocate/enable AI Stylist Copilot.
-2. Open a test appointment-scoped Copilot view.
-3. Confirm recommendations are professional decision support only.
-4. Confirm no autonomous customer message, canonical write, medical diagnosis or safety-rule override occurs.
-5. Confirm Marketing functions are not exposed inside the Stylist Copilot.
+1. Confirm deterministic Marketing/Data Hub metrics are visible to BI/reporting after import.
+2. Open Marketing AI/Business Adviser surfaces.
+3. Confirm AI can explain/recommend from canonical evidence but is labelled advisory/human-reviewed where required.
+4. Confirm AI cannot reveal provider credentials, Windsor API/session tokens, cross-tenant account data or silently execute connector/write actions.
 
-**Pass condition:** professional AI decision support remains separate from marketing and general management AI.
+### M. Disconnect/unlink
 
-### J. AI Receptionist
+1. Disconnect a Windsor account from Business A.
+2. Confirm the unlink operation is constrained to an account ID already bound to Business A.
+3. Confirm Business B cannot unlink Business A's account.
+4. Confirm disconnecting the external account does not delete already-ingested canonical historical Data Hub evidence without a separate explicit data-retention action.
 
-1. Allocate/enable AI Receptionist for a test Business.
-2. Use a sandbox/test conversation.
-3. Confirm the assistant can use only authorised booking/communications tools.
-4. Confirm it cannot expose internal BI dashboards, campaign-building functions or professional Copilot content.
-5. Confirm canonical Appointments/Communications remain authoritative after any approved tool action.
+## Acceptance outcome
 
-**Pass condition:** AI Receptionist is a governed customer-facing assistant, not a management or marketing engine.
+Point 12 connector/module architecture is ready for the later module tidy-up when:
 
-## Non-duplication acceptance
-
-The architecture passes when:
-
-- every active canonical `ownedDomain` has one owner only;
-- internal engines are hidden from tenant allocation when they are dependencies rather than products;
-- `Marketing` is the single business-facing marketing module;
-- provider connections remain owned by Integration Hub;
-- CRM remains customer-intelligence authority;
-- Communications remains delivery authority;
-- Analytics & BI remains deterministic evidence authority;
-- AI assistants remain within their declared advisory/tool-use boundaries;
-- no module recreates another module's canonical database/state/business rules.
+- each business-facing module has a distinctive responsibility;
+- Marketing is a single allocatable module;
+- Windsor/native connection modes do not create duplicate canonical authorities;
+- Business and Location isolation pass;
+- Amazon/eBay seller workflows pass;
+- source authorization, preview, import and unlink are permission/tenant controlled;
+- provider secrets are never exposed to the browser/logs;
+- AI remains advisory around connector/data decisions;
+- Windsor write operations remain disabled unless separately authorised;
+- scheduled/full historical ingestion is not enabled until pagination, windowing, rate limits and retry behaviour are accepted.
