@@ -50,6 +50,36 @@ async function listCrmSegments({ limit = 100 } = {}) {
     : [];
 }
 
+async function listRetentionQueue({ limit = 250, state = "" } = {}) {
+  const response = await API.get(
+    STAGE7_ROOT + "/crm/retention-queue",
+    { params: { limit, ...(state ? { state } : {}) } }
+  );
+  return response.data || { queue: [] };
+}
+
+async function listClientTechnicalRecords(customerId, { limit = 100 } = {}) {
+  const response = await API.get(
+    STAGE7_ROOT +
+      "/crm/customers/" +
+      encodeURIComponent(customerId) +
+      "/technical-records",
+    { params: { limit } }
+  );
+  return response.data || { records: [] };
+}
+
+async function createClientTechnicalRecord(customerId, payload) {
+  const response = await API.post(
+    STAGE7_ROOT +
+      "/crm/customers/" +
+      encodeURIComponent(customerId) +
+      "/technical-records",
+    payload
+  );
+  return response.data?.record || null;
+}
+
 async function listJourneyEnrollments(params = {}) {
   const response = await API.get(
     STAGE7_ROOT + "/enrollments",
@@ -98,13 +128,16 @@ async function getCampaignJourneyRevenue({ campaignId = null } = {}) {
 }
 
 export {
+  createClientTechnicalRecord,
   createJourneyEnrollment,
   createRetentionJourney,
   getCampaignJourneyRevenue,
   getCustomer360,
+  listClientTechnicalRecords,
   listCrmSegments,
   listJourneyEnrollments,
   listRetentionJourneys,
+  listRetentionQueue,
   previewRetentionJourney,
   reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
@@ -112,13 +145,16 @@ export {
 };
 
 export default {
+  createClientTechnicalRecord,
   createJourneyEnrollment,
   createRetentionJourney,
   getCampaignJourneyRevenue,
   getCustomer360,
+  listClientTechnicalRecords,
   listCrmSegments,
   listJourneyEnrollments,
   listRetentionJourneys,
+  listRetentionQueue,
   previewRetentionJourney,
   reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
