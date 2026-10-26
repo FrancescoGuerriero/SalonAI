@@ -38,12 +38,21 @@ test("requested Windsor catalogue is broad and metadata-driven", () => {
   assert.equal(new Set(all.map(({ key }) => key)).size, all.length);
 });
 
-test("Windsor service keeps API key server-side and limits preview", async () => {
+test("Windsor service keeps API key server-side and uses documented query parameters", async () => {
   const service = await source("../features/integrationPlatform/windsorConnectorService.js");
   assert.match(service, /process\.env\.WINDSOR_API_KEY/);
   assert.match(service, /MAX_PREVIEW_ROWS\s*=\s*100/);
   assert.match(service, /WINDSOR_CONNECTOR_IS_DESTINATION/);
   assert.match(service, /WINDSOR_AUTHORIZATION_SESSION_REQUIRED/);
+  assert.match(service, /searchParams\.set\("select_accounts", account\)/);
+  assert.match(service, /searchParams\.set\("_max_rows"/);
+  assert.match(service, /searchParams\.set\("date_from"/);
+  assert.match(service, /searchParams\.set\("date_to"/);
+  assert.match(service, /searchParams\.set\("refresh_since"/);
+  assert.match(service, /searchParams\.set\("refresh_interval"/);
+  assert.match(service, /\/options/);
+  assert.doesNotMatch(service, /searchParams\.set\("account_id", account\)/);
+  assert.doesNotMatch(service, /searchParams\.set\("limit",/);
   assert.doesNotMatch(service, /response\.json\([\s\S]*?WINDSOR_API_KEY/);
 });
 
