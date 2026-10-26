@@ -1,0 +1,60 @@
+name: Point 10 BI Python Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/features/analytics/**"
+      - "backend/src/features/premium/analytics/**"
+      - "backend/src/test/point10BusinessIntelligencePythonContracts.test.js"
+      - "frontend/src/pages/PremiumAnalyticsPage.jsx"
+      - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/governance/ai_registry.py"
+      - "ai-service/app/schemas/management_bi.py"
+      - "ai-service/app/services/management_bi.py"
+      - "docs/roadmap/point-10-business-intelligence-python.md"
+      - ".github/workflows/point10-bi-python.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/src/features/analytics/**"
+      - "backend/src/features/premium/analytics/**"
+      - "backend/src/test/point10BusinessIntelligencePythonContracts.test.js"
+      - "frontend/src/pages/PremiumAnalyticsPage.jsx"
+      - "ai-service/app/api/routes/ai_gateway.py"
+      - "ai-service/app/governance/ai_registry.py"
+      - "ai-service/app/schemas/management_bi.py"
+      - "ai-service/app/services/management_bi.py"
+      - "docs/roadmap/point-10-business-intelligence-python.md"
+      - ".github/workflows/point10-bi-python.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Point 10 governed BI and Python contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run Point 10 contracts
+        working-directory: backend
+        run: node --test src/test/point10BusinessIntelligencePythonContracts.test.js
+      - name: Verify backend source
+        working-directory: backend
+        run: npm run check
+      - name: Verify backend application imports
+        working-directory: backend
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+      - name: Compile governed Python BI sources
+        run: python -m py_compile ai-service/app/schemas/management_bi.py ai-service/app/services/management_bi.py ai-service/app/api/routes/ai_gateway.py ai-service/app/governance/ai_registry.py

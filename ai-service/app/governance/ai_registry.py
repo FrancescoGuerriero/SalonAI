@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 
-REGISTRY_VERSION = "1.2.0"
+REGISTRY_VERSION = "1.3.0"
 ADVISORY_EVALUATION_POLICY_VERSION = "salonai-advisory-evaluation-v1"
 
 
@@ -107,13 +107,17 @@ _TOOL_REGISTRY: tuple[dict[str, Any], ...] = (
     {
         "key": "management-copilot",
         "kind": "tool",
-        "route": "/api/v1/management-copilot",
+        "route": "/api/v1/ai-gateway/management-analysis",
         "domain": "management",
         "authority": "canonical_bi_and_operational_evidence",
         "mode": "advisory",
         "humanApprovalRequired": True,
         "externalWriteAllowed": False,
-        "evidenceContract": "governed_management_evidence",
+        "evidenceContract": "governed_management_evidence_v1",
+        "deterministicStatisticalBaseline": True,
+        "modelInferenceRequired": False,
+        "forecastExecutionAuthorised": False,
+        "automaticPromotionAllowed": False,
     },
     {
         "key": "whatsapp-bot",
@@ -154,8 +158,6 @@ _MODEL_REGISTRY: tuple[dict[str, Any], ...] = (
 
 
 def registry_snapshot() -> dict[str, Any]:
-    """Return a mutation-safe snapshot of the governed AI registry."""
-
     return {
         "version": REGISTRY_VERSION,
         "tools": deepcopy(list(_TOOL_REGISTRY)),
