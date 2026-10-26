@@ -4,6 +4,7 @@ import MarketingDataSource from "../../models/MarketingDataSource.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { runMarketingDataSource } from "./marketingDataCoreService.js";
 import { previewWindsorData } from "./windsorConnectorService.js";
+import { reserveWindsorApiRequest } from "./windsorRateBudgetService.js";
 
 const MAX_SYNC_ROWS = 100;
 
@@ -65,6 +66,7 @@ export async function runWindsorScheduledSource(
   const dateTo = new Date();
   const watermark = source.checkpoint?.watermark ? new Date(source.checkpoint.watermark) : null;
   const hasWatermark = watermark && !Number.isNaN(watermark.getTime());
+  await reserveWindsorApiRequest();
   const result = await previewWindsorData({
     connectorId: source.sourceConfig?.windsorConnectorId,
     accountId: source.sourceConfig?.windsorAccountId,
