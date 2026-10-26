@@ -31,6 +31,15 @@ function safeText(value, max = 500) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+function safeIsoDate(value, field) {
+  const text = safeText(value, 10);
+  if (!text) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    throw createServiceError(`${field} must use YYYY-MM-DD format.`, 400, { field });
+  }
+  return text;
+}
+
 function hash(value) {
   return createHash("sha256").update(String(value || "")).digest("hex");
 }
@@ -204,7 +213,6 @@ export async function generateWindsorAuthorization(productKey) {
     ...info,
     authorizationUrl,
     authorizationSessionHash: hash(accessToken),
-    // Returned only to the trusted server-side controller for encrypted persistence.
     authorizationAccessToken: accessToken,
   };
 }
@@ -256,7 +264,25 @@ export async function getWindsorConnectorFields(connectorId) {
   return requestJson(url);
 }
 
-export async function previewWindsorData({ connectorId, accountId, fields = [], datePreset = "last_7d", limit = 25 }) {
+export async function getWindsorConnectorOptions(connectorId) {
+  const id = safeText(connectorId, 100).toLowerCase();
+  if (!id) throw createServiceError("Windsor connector id is required.", 400);
+  const url = new URL(`${CONNECTORS_BASE}/${encodeURIComponent(id)}/options`);
+  url.searchParams.set("api_key", apiKey());
+  return requestJson(url);
+}
+
+export async function previewWindsorData({
+  connectorId,
+  accountId,
+  fields = [],
+  datePreset = "last_7d",
+  dateFrom = "",
+  dateTo = "",
+  limit = 25,
+  refreshSince = "",
+  refreshInterval = "",
+}) {
   const id = safeText(connectorId, 100).toLowerCase();
   const account = safeText(accountId, 300);
   const selected = [...new Set((Array.isArray(fields) ? fields : []).map((value) => safeText(value, 120)).filter(Boolean))].slice(0, 50);
@@ -268,12 +294,21 @@ export async function previewWindsorData({ connectorId, accountId, fields = [], 
     if (!selected.includes("account_name")) selected.push("account_name");
   }
 
+  const from = safeIsoDate(dateFrom, "dateFrom");
+  const to = safeIsoDate(dateTo, "dateTo");
   const url = new URL(`${CONNECTORS_BASE}/${encodeURIComponent(id)}`);
   url.searchParams.set("api_key", apiKey());
   url.searchParams.set("fields", selected.join(","));
-  url.searchParams.set("date_preset", safeText(datePreset, 50) || "last_7d");
-  url.searchParams.set("account_id", account);
-  url.searchParams.set("limit", String(Math.max(1, Math.min(Number(limit) || 25, MAX_PREVIEW_ROWS))));
+  url.searchParams.set("select_accounts", account);
+  url.searchParams.set("_max_rows", String(Math.max(1, Math.min(Number(limit) || 25, MAX_PREVIEW_ROWS))));
+  if (from) {
+    url.searchParams.set("date_from", from);
+    if (to) url.searchParams.set("date_to", to);
+  } else {
+    url.searchParams.set("date_preset", safeText(datePreset, 50) || "last_7d");
+  }
+  if (refreshSince) url.searchParams.set("refresh_since", safeText(refreshSince, 20));
+  if (refreshInterval) url.searchParams.set("refresh_interval", safeText(refreshInterval, 20));
   return requestJson(url);
 }
 
@@ -282,6 +317,7 @@ export function windsorConnectorRuntimeConfig() {
     configured: Boolean(configuredKey()),
     readOnlyByDefault: true,
     maxPreviewRows: MAX_PREVIEW_ROWS,
+    documentedApiRateLimits: Object.freeze({ requestsPerMinute: 600, requestsPerDay: 10000 }),
   });
 }
 
@@ -289,6 +325,7 @@ export default {
   generateWindsorAuthorization,
   getWindsorConnectInfo,
   getWindsorConnectorFields,
+  getWindsorConnectorOptions,
   listWindsorConnectorAvailability,
   listWindsorLinkedAccounts,
   previewWindsorData,
