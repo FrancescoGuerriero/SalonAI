@@ -1,7 +1,8 @@
-import { Clock3, FlaskConical, Loader2, RefreshCw } from "lucide-react";
+import { Clock3, FlaskConical, Loader2, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  createClientTechnicalRecord,
   listClientTechnicalRecords,
   listRetentionQueue,
 } from "../../Services/retentionAutomationService.js";
@@ -29,14 +30,27 @@ function label(value) {
 
 const FILTERS = ["", "dormant", "overdue", "due", "approaching_due", "booked"];
 
+const EMPTY_TECHNICAL_FORM = {
+  recordType: "general",
+  technicalNotes: "",
+  resultNotes: "",
+  brand: "",
+  shade: "",
+  developer: "",
+  ratio: "",
+};
+
 export default function Stage9CrmRetentionPanel() {
   const [filter, setFilter] = useState("");
   const [queue, setQueue] = useState([]);
   const [queueMeta, setQueueMeta] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedRetention, setSelectedRetention] = useState(null);
   const [technicalRecords, setTechnicalRecords] = useState([]);
+  const [technicalForm, setTechnicalForm] = useState(EMPTY_TECHNICAL_FORM);
   const [loading, setLoading] = useState(true);
   const [technicalLoading, setTechnicalLoading] = useState(false);
+  const [technicalSaving, setTechnicalSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function loadQueue(nextFilter = filter) {
@@ -59,18 +73,51 @@ export default function Stage9CrmRetentionPanel() {
     void loadQueue(filter);
   }, [filter]);
 
-  async function inspectTechnicalHistory(customerId) {
-    setSelectedCustomerId(String(customerId));
+  async function inspectTechnicalHistory(item) {
+    setSelectedRetention(item);
+    setSelectedCustomerId(String(item.customerId));
     setTechnicalLoading(true);
     setError("");
     try {
-      const result = await listClientTechnicalRecords(customerId, { limit: 100 });
+      const result = await listClientTechnicalRecords(item.customerId, { limit: 100 });
       setTechnicalRecords(Array.isArray(result?.records) ? result.records : []);
     } catch (requestError) {
       setTechnicalRecords([]);
       setError(errorMessage(requestError));
     } finally {
       setTechnicalLoading(false);
+    }
+  }
+
+  async function saveTechnicalRecord(event) {
+    event.preventDefault();
+    if (!selectedCustomerId || !selectedRetention?.latestLocationId) return;
+    setTechnicalSaving(true);
+    setError("");
+    try {
+      const formula = [technicalForm.brand, technicalForm.shade, technicalForm.developer, technicalForm.ratio].some(Boolean)
+        ? [{
+            brand: technicalForm.brand,
+            shade: technicalForm.shade,
+            developer: technicalForm.developer,
+            ratio: technicalForm.ratio,
+          }]
+        : [];
+      await createClientTechnicalRecord(selectedCustomerId, {
+        locationId: selectedRetention.latestLocationId,
+        recordType: technicalForm.recordType,
+        technicalNotes: technicalForm.technicalNotes,
+        resultNotes: technicalForm.resultNotes,
+        formula,
+        source: "manual",
+      });
+      setTechnicalForm(EMPTY_TECHNICAL_FORM);
+      const result = await listClientTechnicalRecords(selectedCustomerId, { limit: 100 });
+      setTechnicalRecords(Array.isArray(result?.records) ? result.records : []);
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setTechnicalSaving(false);
     }
   }
 
@@ -189,7 +236,7 @@ export default function Stage9CrmRetentionPanel() {
                     <td className="px-4 py-3">
                       <button
                         type="button"
-                        onClick={() => void inspectTechnicalHistory(item.customerId)}
+                        onClick={() => void inspectTechnicalHistory(item)}
                         className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-xs font-bold text-violet-700"
                       >
                         Technical history
@@ -217,7 +264,61 @@ export default function Stage9CrmRetentionPanel() {
           {technicalLoading ? (
             <div className="p-12 text-center"><Loader2 className="mx-auto animate-spin text-violet-600" /></div>
           ) : selectedCustomerId ? (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-4">
+              <form onSubmit={saveTechnicalRecord} className="space-y-3 rounded-xl border border-violet-200 bg-white p-3">
+                <div className="flex items-center gap-2">
+                  <Plus size={15} className="text-violet-600" />
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Add technical record</p>
+                </div>
+                <select
+                  value={technicalForm.recordType}
+                  onChange={(event) => setTechnicalForm((current) => ({ ...current, recordType: event.target.value }))}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  {['general', 'colour', 'chemical', 'treatment', 'cut', 'consultation'].map((value) => <option key={value} value={value}>{label(value)}</option>)}
+                </select>
+                <textarea
+                  value={technicalForm.technicalNotes}
+                  onChange={(event) => setTechnicalForm((current) => ({ ...current, technicalNotes: event.target.value }))}
+                  rows={3}
+                  placeholder="Technical notes"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <textarea
+                  value={technicalForm.resultNotes}
+                  onChange={(event) => setTechnicalForm((current) => ({ ...current, resultNotes: event.target.value }))}
+                  rows={2}
+                  placeholder="Result / finish notes"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                {technicalForm.recordType === "colour" || technicalForm.recordType === "chemical" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      ["brand", "Brand"],
+                      ["shade", "Shade"],
+                      ["developer", "Developer"],
+                      ["ratio", "Ratio"],
+                    ].map(([field, placeholder]) => (
+                      <input
+                        key={field}
+                        value={technicalForm[field]}
+                        onChange={(event) => setTechnicalForm((current) => ({ ...current, [field]: event.target.value }))}
+                        placeholder={placeholder}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    ))}
+                  </div>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={technicalSaving || !selectedRetention?.latestLocationId}
+                  className="w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  {technicalSaving ? "Saving…" : "Save location-owned technical record"}
+                </button>
+                {!selectedRetention?.latestLocationId ? <p className="text-xs text-amber-700">A trusted location is required before a technical record can be created.</p> : null}
+              </form>
+
               {technicalRecords.map((record) => (
                 <article key={record._id} className="rounded-xl border border-slate-200 bg-white p-3">
                   <div className="flex items-start justify-between gap-3">
@@ -255,7 +356,7 @@ export default function Stage9CrmRetentionPanel() {
             </div>
           ) : (
             <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-              Select a customer from the retention queue to inspect salon technical history.
+              Select a customer from the retention queue to inspect or author salon technical history.
             </p>
           )}
         </section>
