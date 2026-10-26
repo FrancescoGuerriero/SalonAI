@@ -27,13 +27,15 @@ test("Point 10 excludes ambiguous legacy location facts and scopes by effective 
   assert.match(service, /containsCustomerPii:\s*false/);
 });
 
-test("Point 10 management route requires trusted tenant and effective aggregate authority", async () => {
+test("Point 10 routes require trusted tenant, BI authority and AI authority", async () => {
   const routes = await source("../features/premium/analytics/premiumAnalyticsRoutes.js");
   assert.match(routes, /\/management/);
   assert.match(routes, /workforcePublicTenantContextMiddleware/);
   assert.match(routes, /trustedTenantContextMiddleware/);
   assert.match(routes, /effectiveAuthorityMiddleware/);
   assert.match(routes, /requireEffectivePermissions\("premium-analytics:read"\)/);
+  assert.match(routes, /\/management\/python-analysis/);
+  assert.match(routes, /requireEffectivePermissions\("premium-analytics:read", "ai:use"\)/);
 });
 
 test("Point 10 Python analysis consumes canonical evidence only and cannot execute actions", async () => {
@@ -57,12 +59,32 @@ test("Point 10 Python analysis consumes canonical evidence only and cannot execu
   assert.match(registry, /forecastExecutionAuthorised": False/);
 });
 
-test("Point 10 Premium Analytics is a provenance-aware Node-backed BI workspace", async () => {
+test("Point 10 Node Python bridge is single-location, identity-bound and audited", async () => {
+  const bridge = await source("../features/analytics/managementBiPythonService.js");
+  assert.match(bridge, /AiGatewayInvocation/);
+  assert.match(bridge, /POINT10_PYTHON_SINGLE_LOCATION_REQUIRED/);
+  assert.match(bridge, /snapshot\?\.authority\?\.locationIds\?\.length !== 1/);
+  assert.match(bridge, /\/api\/v1\/ai-gateway\/management-analysis/);
+  assert.match(bridge, /X-SalonAI-Service-Key/);
+  assert.match(bridge, /POINT10_AI_IDENTITY_MISMATCH/);
+  assert.match(bridge, /evidence_id: evidence\.evidence_id/);
+  assert.match(bridge, /evidenceChecksum: evidence\.checksum/);
+  assert.match(bridge, /status: "advisory_previewed"/);
+  assert.match(bridge, /modelInferenceExecuted:\s*false/);
+  assert.match(bridge, /executionAuthorised:\s*false/);
+  assert.match(bridge, /externalWriteAuthorised:\s*false/);
+  assert.doesNotMatch(bridge, /MongoClient|Appointment\.find|Customer\.find/);
+});
+
+test("Point 10 Premium Analytics uses Node for governed Python analysis", async () => {
   const page = await source("../../../frontend/src/pages/PremiumAnalyticsPage.jsx");
   assert.match(page, /\/premium-analytics\/management/);
+  assert.match(page, /\/premium-analytics\/management\/python-analysis/);
+  assert.match(page, /Analyse with Python/);
+  assert.match(page, /Governed Python statistical analysis/);
+  assert.match(page, /Audited invocation/);
   assert.match(page, /Metric provenance/);
   assert.match(page, /Authority scope/);
-  assert.match(page, /Python analysis boundary/);
   assert.match(page, /Customer PII included: no/);
   assert.doesNotMatch(page, /AI_SERVICE_BASE_URL|8000|\/api\/v1\/ai-gateway/);
 });

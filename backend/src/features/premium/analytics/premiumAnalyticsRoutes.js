@@ -5,7 +5,7 @@ import { effectiveAuthorityMiddleware, requireEffectivePermissions } from "../..
 import { requirePermissions } from "../../../middleware/permissionMiddleware.js";
 import { workforcePublicTenantContextMiddleware } from "../../../middleware/workforceTenantMiddleware.js";
 import { trustedTenantContextMiddleware } from "../../../platform/tenancy/trustedTenantMiddleware.js";
-import { getManagementBi, getPremiumAnalytics } from "./premiumAnalyticsController.js";
+import { getManagementBi, getManagementPythonAnalysis, getPremiumAnalytics } from "./premiumAnalyticsController.js";
 
 const router = express.Router();
 router.use(protect);
@@ -23,6 +23,15 @@ router.get(
   effectiveAuthorityMiddleware,
   requireEffectivePermissions("premium-analytics:read"),
   asyncHandler(getManagementBi)
+);
+
+router.post(
+  "/management/python-analysis",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requireEffectivePermissions("premium-analytics:read", "ai:use"),
+  asyncHandler(getManagementPythonAnalysis)
 );
 
 export default router;
