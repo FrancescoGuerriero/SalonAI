@@ -42,12 +42,26 @@ export function getWindsorConnectorFields(connector) {
   return API.get(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/fields`).then(responseData);
 }
 
+export function getWindsorConnectorProfiles(connector) {
+  return API.get(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/profiles`).then(responseData);
+}
+
 export function previewWindsorConnector(connector, payload) {
   return API.post(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/preview`, payload).then(responseData);
 }
 
 export function importWindsorConnectorData(connector, payload) {
   return API.post(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/import`, payload).then(responseData);
+}
+
+export function backfillWindsorConnectorData(connector, payload) {
+  return API.post(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/backfill`, payload).then(responseData);
+}
+
+export function getWindsorSellerKpis(connector, { sourceId, profile } = {}) {
+  return API.get(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/seller-kpis`, {
+    params: { sourceId, profile },
+  }).then(responseData);
 }
 
 export function unlinkWindsorAccount(connector, accountId) {
@@ -58,12 +72,15 @@ export function unlinkWindsorAccount(connector, accountId) {
 
 export default {
   authorizeWindsorConnector,
+  backfillWindsorConnectorData,
   configureMarketingAccount,
   disconnectMarketingAccount,
   getMarketingAccounts,
   getMarketingConnectionCatalogue,
   getWindsorCatalogue,
   getWindsorConnectorFields,
+  getWindsorConnectorProfiles,
+  getWindsorSellerKpis,
   importWindsorConnectorData,
   previewWindsorConnector,
   reconcileWindsorConnector,
