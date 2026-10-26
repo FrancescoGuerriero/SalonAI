@@ -9,6 +9,7 @@ import {
   Megaphone,
   MessageSquareText,
   MousePointerClick,
+  Scissors,
 } from "lucide-react";
 
 const FUTURE_PACK_LINKS = [
@@ -59,6 +60,12 @@ const FUTURE_PACK_LINKS = [
     label: "Management Copilot",
     description: "Explainable operational recommendations",
     icon: Bot,
+  },
+  {
+    to: "/stylist-copilot",
+    label: "Stylist Copilot",
+    description: "Appointment-scoped professional decision support",
+    icon: Scissors,
   },
   {
     to: "/executive-command-centre",
