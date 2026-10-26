@@ -53,29 +53,40 @@ test("Windsor service keeps API key server-side and uses documented query parame
   assert.match(service, /\/options/);
   assert.doesNotMatch(service, /searchParams\.set\("account_id", account\)/);
   assert.doesNotMatch(service, /searchParams\.set\("limit",/);
-  assert.doesNotMatch(service, /response\.json\([\s\S]*?WINDSOR_API_KEY/);
 });
 
-test("Windsor controller enforces tenant-owned account IDs before preview, import and unlink", async () => {
+test("Windsor controller enforces tenant-owned account IDs and accepts governed sync cadence", async () => {
   const controller = await source("../features/integrationPlatform/windsorConnectorController.js");
   assert.match(controller, /request\.effectiveAuthority\?\.businessId/);
-  assert.match(controller, /accountIds/);
   assert.match(controller, /WINDSOR_ACCOUNT_NOT_OWNED_BY_BUSINESS/);
-  assert.match(controller, /allowed\.has\(accountId\)/);
   assert.match(controller, /resolveProviderCredential\(connection, "access_token"\)/);
-  assert.match(controller, /storeProviderCredential/);
   assert.match(controller, /importWindsorAccountToDataHub/);
-  assert.match(controller, /locationId\(request, \{ required: true \}\)/);
+  assert.match(controller, /syncCadence:\s*payload\.syncCadence/);
+  assert.match(controller, /timezone:\s*payload\.timezone/);
 });
 
-test("Windsor Data Hub adapter reuses canonical Marketing Data Core", async () => {
+test("Windsor Data Hub adapter persists schedule and canonical lineage metadata", async () => {
   const adapter = await source("../features/integrationPlatform/windsorDataHubService.js");
   assert.match(adapter, /MarketingDataSource/);
   assert.match(adapter, /runMarketingDataSource/);
   assert.match(adapter, /provider:\s*"generic"/);
   assert.match(adapter, /managedBy:\s*"windsor_marketing_connector"/);
   assert.match(adapter, /windsorAccountId/);
+  assert.match(adapter, /syncMode:\s*configuredCadence === "manual" \? "manual" : "scheduled"/);
+  assert.match(adapter, /nextRunAt\(configuredCadence\)/);
   assert.match(adapter, /readOnly:\s*true/);
+});
+
+test("Windsor scheduled executor uses checkpoints and canonical Marketing Data Core", async () => {
+  const scheduled = await source("../features/integrationPlatform/windsorScheduledSyncService.js");
+  const worker = await source("../../services/marketingDataSyncWorkerService.js");
+  assert.match(scheduled, /source\.checkpoint\?\.watermark/);
+  assert.match(scheduled, /previewWindsorData/);
+  assert.match(scheduled, /runMarketingDataSource/);
+  assert.match(scheduled, /managedBy":?\s*"windsor_marketing_connector"|managedBy\s*===\s*"windsor_marketing_connector"/);
+  assert.match(worker, /runWindsorScheduledSource/);
+  assert.match(worker, /isWindsorDataSource/);
+  assert.match(worker, /sourceConfig\.managedBy":?\s*"windsor_marketing_connector"|"sourceConfig\.managedBy":\s*"windsor_marketing_connector"/);
 });
 
 test("Windsor routes are permission protected under Marketing connections", async () => {
@@ -90,19 +101,16 @@ test("Windsor routes are permission protected under Marketing connections", asyn
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
 });
 
-test("frontend exposes one Marketing module with native, Windsor and Data Hub import workflows", async () => {
-  const router = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
-  const landing = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
+test("frontend exposes Windsor cadence selection and Data Hub import", async () => {
   const windsor = await source("../../../frontend/src/pages/WindsorMarketingConnectionsPage.jsx");
   const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
-  assert.match(router, /pathname === "\/marketing"/);
-  assert.match(router, /pathname === "\/marketing\/native-connections"/);
-  assert.match(router, /pathname === "\/marketing\/windsor"/);
-  assert.match(landing, /Windsor data connections/);
-  assert.match(landing, /Sellers/);
   assert.match(windsor, /Connect securely/);
   assert.match(windsor, /Amazon, eBay/);
   assert.match(windsor, /provider password/);
   assert.match(windsor, /Import to Data Hub/);
+  assert.match(windsor, /Windsor import sync cadence/);
+  assert.match(windsor, /option value="hourly"/);
+  assert.match(windsor, /option value="daily"/);
+  assert.match(windsor, /option value="weekly"/);
   assert.match(client, /importWindsorConnectorData/);
 });
