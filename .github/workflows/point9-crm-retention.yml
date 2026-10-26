@@ -1,0 +1,60 @@
+name: Point 9 CRM Retention Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/features/premium/automation/ClientTechnicalServiceRecord.js"
+      - "backend/src/features/premium/automation/stage9Crm*.js"
+      - "backend/src/features/premium/automation/automationRoutes.js"
+      - "backend/src/test/point9CrmRetentionContracts.test.js"
+      - "frontend/src/Services/retentionAutomationService.js"
+      - "frontend/src/components/retention/Stage9CrmRetentionPanel.jsx"
+      - "frontend/src/pages/RetentionAutomationPage.jsx"
+      - "docs/roadmap/point-9-crm-retention.md"
+      - ".github/workflows/point9-crm-retention.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/features/premium/automation/ClientTechnicalServiceRecord.js"
+      - "backend/src/features/premium/automation/stage9Crm*.js"
+      - "backend/src/features/premium/automation/automationRoutes.js"
+      - "backend/src/test/point9CrmRetentionContracts.test.js"
+      - "frontend/src/Services/retentionAutomationService.js"
+      - "frontend/src/components/retention/Stage9CrmRetentionPanel.jsx"
+      - "frontend/src/pages/RetentionAutomationPage.jsx"
+      - "docs/roadmap/point-9-crm-retention.md"
+      - ".github/workflows/point9-crm-retention.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Point 9 location-owned CRM and retention contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 9 contracts
+        run: node --test src/test/point9CrmRetentionContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
