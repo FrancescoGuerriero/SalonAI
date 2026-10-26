@@ -18,8 +18,18 @@ function List({ items = [] }) {
   return (
     <ul className="space-y-2 text-sm text-slate-700">
       {items.map((item, index) => (
-        <li key={`${index}-${String(item).slice(0, 24)}`} className="rounded-lg bg-slate-50 px-3 py-2">
-          {typeof item === "string" ? item : JSON.stringify(item)}
+        <li key={`${index}-${String(item?.title || item).slice(0, 24)}`} className="rounded-lg bg-slate-50 px-3 py-2">
+          {typeof item === "string" ? (
+            item
+          ) : (
+            <div className="space-y-1">
+              <p className="font-medium text-slate-900">{item.title || item.category || "Recommendation"}</p>
+              {item.rationale ? <p>{item.rationale}</p> : null}
+              {item.requiresProfessionalReview ? (
+                <p className="text-xs font-medium text-amber-700">Professional review required</p>
+              ) : null}
+            </div>
+          )}
         </li>
       ))}
     </ul>
@@ -52,9 +62,12 @@ export default function StylistCopilotPage() {
   }
 
   const brief = data?.brief || null;
-  const summaries = brief?.summaries || {};
-  const recommendations = brief?.recommendations || {};
+  const recommendations = brief?.recommendations || [];
   const safety = brief?.safetyBoundary || {};
+
+  function recommendationsFor(category) {
+    return recommendations.filter((item) => item?.category === category);
+  }
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
@@ -94,33 +107,39 @@ export default function StylistCopilotPage() {
 
       {brief ? (
         <>
+          {brief.attentionFlags?.length ? (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <List items={brief.attentionFlags} />
+            </div>
+          ) : null}
+
           <div className="grid gap-4 lg:grid-cols-3">
             <Section title="Pre-appointment brief">
-              <p className="text-sm text-slate-700">{summaries.preAppointment || "No summary available."}</p>
+              <List items={brief.preAppointmentBrief || []} />
             </Section>
             <Section title="Consultation context">
-              <p className="text-sm text-slate-700">{summaries.consultation || "No consultation summary available."}</p>
+              <List items={brief.consultationSummary || []} />
             </Section>
             <Section title="Visit history">
-              <p className="text-sm text-slate-700">{summaries.history || "No history summary available."}</p>
+              <List items={brief.historySummary || []} />
             </Section>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Section title="Consultation prompts">
-              <List items={recommendations.consultationQuestions || []} />
+              <List items={recommendationsFor("consultation")} />
             </Section>
             <Section title="Service context">
-              <List items={recommendations.services || []} />
+              <List items={recommendationsFor("service")} />
             </Section>
             <Section title="Product & aftercare context">
               <List items={[
-                ...(recommendations.products || []),
-                ...(recommendations.aftercare || []),
+                ...recommendationsFor("product"),
+                ...recommendationsFor("aftercare"),
               ]} />
             </Section>
             <Section title="Follow-up & rebooking">
-              <List items={recommendations.followUp || []} />
+              <List items={recommendationsFor("follow-up")} />
             </Section>
           </div>
 
