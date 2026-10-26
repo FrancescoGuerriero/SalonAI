@@ -202,6 +202,8 @@ export async function listPoint9RetentionOpportunities({
           [customer.firstName, customer.lastName].filter(Boolean).join(" "),
         retentionState: retention.retentionState,
         dueAt: retention.dueAt,
+        cadenceDays: retention.cadenceDays,
+        latestLocationId: retention.latestLocationId,
         ...opportunity,
       });
     }
