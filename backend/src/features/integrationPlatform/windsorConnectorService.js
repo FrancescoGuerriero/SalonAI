@@ -11,8 +11,12 @@ const ONBOARD_BASE = "https://onboard.windsor.ai";
 const DEFAULT_TIMEOUT_MS = 20_000;
 const MAX_PREVIEW_ROWS = 100;
 
+function configuredKey() {
+  return String(process.env.WINDSOR_API_KEY || "").trim();
+}
+
 function apiKey() {
-  const value = String(process.env.WINDSOR_API_KEY || "").trim();
+  const value = configuredKey();
   if (!value) {
     throw createServiceError(
       "Windsor integration is not configured for this environment.",
@@ -86,7 +90,18 @@ function flattenConnectorIds(payload) {
   return ids;
 }
 
+function offlineAvailability() {
+  return listWindsorMarketingConnectors().map((entry) => ({
+    ...entry,
+    resolvedConnectorId: entry.key,
+    available: null,
+    discoveryAvailable: false,
+  }));
+}
+
 export async function listWindsorConnectorAvailability() {
+  if (!configuredKey()) return offlineAvailability();
+
   let liveIds = new Set();
   let discoveryAvailable = false;
   try {
@@ -95,13 +110,8 @@ export async function listWindsorConnectorAvailability() {
     const payload = await requestJson(url);
     liveIds = flattenConnectorIds(payload);
     discoveryAvailable = liveIds.size > 0;
-  } catch (error) {
-    if (error?.code !== "WINDSOR_NOT_CONFIGURED") {
-      // Catalogue remains useful during transient Windsor discovery failures.
-      liveIds = new Set();
-    } else {
-      throw error;
-    }
+  } catch {
+    return offlineAvailability();
   }
 
   return listWindsorMarketingConnectors().map((entry) => {
@@ -134,6 +144,11 @@ export async function getWindsorConnectInfo(productKey) {
 
   const availability = await listWindsorConnectorAvailability();
   const live = availability.find((candidate) => candidate.key === entry.key);
+  if (live?.available === false) {
+    throw createServiceError(`${entry.label} is not currently exposed by the configured Windsor connector catalogue.`, 409, {
+      code: "WINDSOR_CONNECTOR_NOT_AVAILABLE",
+    });
+  }
   const connectorId = live?.resolvedConnectorId || entry.key;
   const url = new URL(`${ONBOARD_BASE}/api/mcp/connectors/${encodeURIComponent(connectorId)}/connect-info`);
   url.searchParams.set("api_key", apiKey());
@@ -175,21 +190,35 @@ export async function generateWindsorAuthorization(productKey) {
   }
 
   const parsed = new URL(authorizationUrl);
-  const accessToken = parsed.searchParams.get("access_token") || "";
+  const accessToken = safeText(
+    payload?.access_token || payload?.accessToken || parsed.searchParams.get("access_token"),
+    4000
+  );
+  if (!accessToken) {
+    throw createServiceError("Windsor authorization link did not expose a session token for tenant-safe reconciliation.", 502, {
+      code: "WINDSOR_AUTHORIZATION_SESSION_MISSING",
+    });
+  }
+
   return {
     ...info,
     authorizationUrl,
-    authorizationSessionHash: accessToken ? hash(accessToken) : hash(authorizationUrl),
-    // The raw access token is returned to the controller only for encrypted/session-bound persistence.
+    authorizationSessionHash: hash(accessToken),
+    // Returned only to the trusted server-side controller for encrypted persistence.
     authorizationAccessToken: accessToken,
   };
 }
 
 export async function listWindsorLinkedAccounts({ connectorId = "", accessToken = "" } = {}) {
+  if (!accessToken) {
+    throw createServiceError("A Windsor authorization-session token is required for tenant-scoped reconciliation.", 409, {
+      code: "WINDSOR_AUTHORIZATION_SESSION_REQUIRED",
+    });
+  }
   const url = new URL(`${ONBOARD_BASE}/api/team/co-user-linked-accounts/`);
   url.searchParams.set("api_key", apiKey());
   if (connectorId) url.searchParams.set("ds_id", connectorId);
-  if (accessToken) url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("access_token", accessToken);
   const payload = await requestJson(url);
   const values = Array.isArray(payload)
     ? payload
@@ -206,11 +235,16 @@ export async function listWindsorLinkedAccounts({ connectorId = "", accessToken 
 }
 
 export async function unlinkWindsorLinkedAccount({ connectorId, accountId, accessToken = "" }) {
+  if (!accessToken) {
+    throw createServiceError("A Windsor authorization-session token is required for tenant-scoped unlink.", 409, {
+      code: "WINDSOR_AUTHORIZATION_SESSION_REQUIRED",
+    });
+  }
   const url = new URL(`${ONBOARD_BASE}/api/team/co-user-linked-accounts/`);
   url.searchParams.set("api_key", apiKey());
   url.searchParams.set("ds_id", safeText(connectorId, 100));
   url.searchParams.set("account_id", safeText(accountId, 300));
-  if (accessToken) url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("access_token", accessToken);
   return requestJson(url, { method: "DELETE" });
 }
 
@@ -245,7 +279,7 @@ export async function previewWindsorData({ connectorId, accountId, fields = [], 
 
 export function windsorConnectorRuntimeConfig() {
   return Object.freeze({
-    configured: Boolean(String(process.env.WINDSOR_API_KEY || "").trim()),
+    configured: Boolean(configuredKey()),
     readOnlyByDefault: true,
     maxPreviewRows: MAX_PREVIEW_ROWS,
   });
