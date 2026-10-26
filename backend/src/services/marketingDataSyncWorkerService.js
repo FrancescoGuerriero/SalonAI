@@ -2,9 +2,9 @@ import MarketingDataSource from "../models/MarketingDataSource.js";
 import { runMarketingDataSource } from "../features/integrationPlatform/marketingDataCoreService.js";
 import { runMarketingProviderSource } from "../features/integrationPlatform/marketingProviderRunService.js";
 import {
-  isWindsorDataSource,
-  runWindsorScheduledSource,
-} from "../features/integrationPlatform/windsorScheduledSyncService.js";
+  isManagedDataConnectionSource,
+  runManagedDataConnectionSource,
+} from "../features/integrationPlatform/dataConnectionScheduledSyncService.js";
 
 const DEFAULT_INTERVAL_MS = 300000;
 const MIN_INTERVAL_MS = 30000;
@@ -80,10 +80,11 @@ async function processSource(source, now) {
       },
     };
   }
+
   try {
     let result;
-    if (isWindsorDataSource(source)) {
-      result = await runWindsorScheduledSource(
+    if (isManagedDataConnectionSource(source)) {
+      result = await runManagedDataConnectionSource(
         source._id,
         { businessId: source.business, locationId: source.location, actor: null }
       );
@@ -100,6 +101,7 @@ async function processSource(source, now) {
         { businessId: source.business, locationId: source.location, actor: null }
       );
     }
+
     const completedAt = new Date();
     await MarketingDataSource.updateOne(
       { _id: source._id, business: source.business, location: source.location },
@@ -110,6 +112,7 @@ async function processSource(source, now) {
         },
       }
     );
+
     return {
       sourceId: String(source._id),
       locationId: String(source.location),
@@ -202,9 +205,11 @@ export async function runMarketingDataSyncWorkerCycle(options = {}) {
       "schedule.nextRunAt": { $ne: null, $lte: now },
       $or: [
         { provider: { $in: ["ga4", "google_search_console", "bing_webmaster", "technical_seo"] } },
-        { provider: "generic", "sourceConfig.managedBy": "windsor_marketing_connector" },
+        { provider: "generic", "sourceConfig.managedBy": "aiibp_data_connections" },
       ],
-    }).sort({ "schedule.nextRunAt": 1, _id: 1 }).limit(config.limit);
+    })
+      .sort({ "schedule.nextRunAt": 1, _id: 1 })
+      .limit(config.limit);
 
     const results = await executeWithConcurrency(
       sources,
@@ -252,7 +257,13 @@ export async function startMarketingDataSyncWorker(options = {}) {
   }
   if (!config.enabled && !bool(options.force, false)) {
     state.enabled = false;
-    return { success: true, started: false, alreadyRunning: false, message: "Marketing Data sync worker is disabled.", worker: getMarketingDataSyncWorkerStatus() };
+    return {
+      success: true,
+      started: false,
+      alreadyRunning: false,
+      message: "Marketing Data sync worker is disabled.",
+      worker: getMarketingDataSyncWorkerStatus(),
+    };
   }
 
   state.enabled = true;
@@ -263,7 +274,10 @@ export async function startMarketingDataSyncWorker(options = {}) {
   state.stoppedAt = null;
   state.timer = setInterval(() => {
     void runMarketingDataSyncWorkerCycle({ ...config, enabled: true }).catch((error) => {
-      state.lastError = { message: error?.message || String(error), code: error?.code || "MARKETING_SYNC_WORKER_ERROR" };
+      state.lastError = {
+        message: error?.message || String(error),
+        code: error?.code || "MARKETING_SYNC_WORKER_ERROR",
+      };
     });
   }, config.intervalMs);
   if (config.unrefTimer && typeof state.timer.unref === "function") state.timer.unref();
@@ -272,14 +286,22 @@ export async function startMarketingDataSyncWorker(options = {}) {
   if (config.runImmediately) {
     initialCycle = await runMarketingDataSyncWorkerCycle({ ...config, enabled: true });
   }
-  return { success: true, started: true, alreadyRunning: false, worker: getMarketingDataSyncWorkerStatus(), initialCycle };
+  return {
+    success: true,
+    started: true,
+    alreadyRunning: false,
+    worker: getMarketingDataSyncWorkerStatus(),
+    initialCycle,
+  };
 }
 
 export async function stopMarketingDataSyncWorker({ waitForCycle = true } = {}) {
   state.stopping = true;
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
-  if (waitForCycle && state.currentCyclePromise) await state.currentCyclePromise.catch(() => undefined);
+  if (waitForCycle && state.currentCyclePromise) {
+    await state.currentCyclePromise.catch(() => undefined);
+  }
   state.enabled = false;
   state.started = false;
   state.stopping = false;
