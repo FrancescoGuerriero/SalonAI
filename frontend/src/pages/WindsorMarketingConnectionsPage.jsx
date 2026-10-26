@@ -31,13 +31,12 @@ export default function WindsorMarketingConnectionsPage() {
   const [searchParams] = useSearchParams();
   const canManage = hasPermission(user, "feature-control:update");
   const requestedType = searchParams.get("type");
-  const initialKind = ["seller", "source", "data-platform", "destination", "ai-destination"].includes(requestedType)
-    ? requestedType
-    : "all";
+  const initialKind = ["seller", "source", "data-platform", "destination", "ai-destination"].includes(requestedType) ? requestedType : "all";
   const [items, setItems] = useState([]);
   const [runtime, setRuntime] = useState({ configured: false });
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState(initialKind);
+  const [syncCadence, setSyncCadence] = useState("manual");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -63,8 +62,7 @@ export default function WindsorMarketingConnectionsPage() {
     const q = query.trim().toLowerCase();
     return items.filter((item) => {
       const kindMatch = kind === "all" || item.kind === kind;
-      const queryMatch = !q || [item.label, item.category, item.key]
-        .some((value) => String(value || "").toLowerCase().includes(q));
+      const queryMatch = !q || [item.label, item.category, item.key].some((value) => String(value || "").toLowerCase().includes(q));
       return kindMatch && queryMatch;
     });
   }, [items, kind, query]);
@@ -128,8 +126,13 @@ export default function WindsorMarketingConnectionsPage() {
         fields: ["date", "account_id", "account_name"],
         datePreset: "last_7d",
         limit: 100,
+        syncCadence,
+        timezone: "Europe/London",
       });
-      setNotice(`${item.label}: imported ${payload.importedRecords || 0} records into the active location Data Hub (${payload.status || "complete"}).`);
+      const cadenceNote = payload.syncCadence && payload.syncCadence !== "manual"
+        ? ` Automatic ${payload.syncCadence} sync is scheduled.`
+        : " Sync remains manual.";
+      setNotice(`${item.label}: imported ${payload.importedRecords || 0} records into the active location Data Hub (${payload.status || "complete"}).${cadenceNote}`);
     } catch (importError) {
       setError(errorMessage(importError, `${item.label} data could not be imported into the Data Hub.`));
     } finally { setBusy(""); }
@@ -172,7 +175,7 @@ export default function WindsorMarketingConnectionsPage() {
               Windsor is not configured in this environment. Set the server-side WINDSOR_API_KEY before connection testing.
             </div>
           ) : null}
-          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
+          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-3 text-stone-500" size={18} />
               <span className="sr-only">Search connections</span>
@@ -186,6 +189,15 @@ export default function WindsorMarketingConnectionsPage() {
               <option value="destination">Destinations</option>
               <option value="ai-destination">AI destinations</option>
             </select>
+            <label className="flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2">
+              <span className="text-xs font-semibold text-stone-600">Import sync</span>
+              <select aria-label="Windsor import sync cadence" className="bg-white text-sm font-semibold" onChange={(event) => setSyncCadence(event.target.value)} value={syncCadence}>
+                <option value="manual">Manual</option>
+                <option value="hourly">Hourly</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </label>
           </div>
         </header>
 
@@ -214,9 +226,7 @@ export default function WindsorMarketingConnectionsPage() {
                     </div>
 
                     {isDestination ? (
-                      <p className="mt-4 text-sm leading-6 text-stone-600">
-                        This is treated as a data/AI destination rather than a Marketing source. Destination activation will be configured separately so it cannot be mistaken for a source account.
-                      </p>
+                      <p className="mt-4 text-sm leading-6 text-stone-600">This is treated as a data/AI destination rather than a Marketing source. Destination activation will be configured separately so it cannot be mistaken for a source account.</p>
                     ) : (
                       <>
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -224,20 +234,14 @@ export default function WindsorMarketingConnectionsPage() {
                             {busy === item.key ? <LoaderCircle className="animate-spin" size={16} /> : <ExternalLink size={16} />}
                             {connection.status === "pending" || connection.connected ? "Reconnect" : "Connect securely"}
                           </button>
-                          {(connection.status === "pending" || connection.connected) ? (
-                            <button className="min-h-10 rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm font-semibold disabled:opacity-50" disabled={!canManage || busy === item.key} onClick={() => reconcile(item)} type="button">Check connection</button>
-                          ) : null}
+                          {(connection.status === "pending" || connection.connected) ? <button className="min-h-10 rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm font-semibold disabled:opacity-50" disabled={!canManage || busy === item.key} onClick={() => reconcile(item)} type="button">Check connection</button> : null}
                         </div>
-
                         {connection.accounts?.length ? (
                           <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
                             <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Connected to this business</div>
                             {connection.accounts.map((account) => (
                               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-stone-50 p-3" key={account.accountId}>
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-semibold">{account.accountName || account.accountId}</div>
-                                  <div className="truncate text-xs text-stone-500">{account.accountId}</div>
-                                </div>
+                                <div className="min-w-0"><div className="truncate text-sm font-semibold">{account.accountName || account.accountId}</div><div className="truncate text-xs text-stone-500">{account.accountId}</div></div>
                                 <div className="flex flex-wrap gap-2">
                                   <button className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={Boolean(busy)} onClick={() => previewAccount(item, account)} type="button">Preview</button>
                                   <button className="inline-flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={!canManage || Boolean(busy)} onClick={() => importAccount(item, account)} type="button"><Database size={14} /> Import to Data Hub</button>
@@ -258,10 +262,7 @@ export default function WindsorMarketingConnectionsPage() {
 
         {preview ? (
           <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold">Data preview: {preview.title}</h2>
-              <button className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm" onClick={() => setPreview(null)} type="button">Close</button>
-            </div>
+            <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Data preview: {preview.title}</h2><button className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm" onClick={() => setPreview(null)} type="button">Close</button></div>
             <pre className="mt-4 max-h-[28rem] overflow-auto rounded-xl bg-stone-950 p-4 text-xs text-stone-100">{JSON.stringify(preview.payload?.data ?? preview.payload, null, 2)}</pre>
           </section>
         ) : null}
