@@ -46,27 +46,62 @@ test("Point 9 retention queue is deterministic and does not authorise messaging"
   assert.doesNotMatch(service, /sendEmail|sendSms|sendWhatsApp|publish|charge|paymentIntent/);
 });
 
+test("Point 9 Customer 360 v3 layers technical and retention evidence over Stage 7", async () => {
+  const service = await source("../features/premium/automation/stage9Customer360Service.js");
+
+  assert.match(service, /buildCustomer360/);
+  assert.match(service, /listClientTechnicalRecords/);
+  assert.match(service, /listRetentionQueue/);
+  assert.match(service, /version:\s*"3"/);
+  assert.match(service, /locationAware:\s*true/);
+  assert.match(service, /hairProfile/);
+  assert.match(service, /technicalHistory/);
+  assert.match(service, /opportunities/);
+  assert.match(service, /executionAuthorised:\s*false/);
+});
+
+test("Point 9 opportunity previews support rebooking reactivation birthday referral and loyalty without execution", async () => {
+  const service = await source("../features/premium/automation/stage9Customer360Service.js");
+
+  assert.match(service, /type:\s*state === "dormant" \? "reactivation" : "rebooking"/);
+  assert.match(service, /type:\s*"birthday"/);
+  assert.match(service, /type:\s*"referral"/);
+  assert.match(service, /type:\s*"loyalty"/);
+  assert.match(service, /review_birthday_draft/);
+  assert.match(service, /review_referral_prompt/);
+  assert.match(service, /review_loyalty_value/);
+  assert.doesNotMatch(service, /sendEmail|sendSms|sendWhatsApp|enqueue|publish|charge|paymentIntent/);
+});
+
 test("Point 9 routes require effective authority and customer permissions", async () => {
   const routes = await source("../features/premium/automation/automationRoutes.js");
 
   assert.match(routes, /\/crm\/retention-queue[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
+  assert.match(routes, /\/crm\/opportunities[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
+  assert.match(routes, /\/crm\/customers\/:customerId\/360[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
   assert.match(routes, /\/crm\/customers\/:customerId\/technical-records/);
   assert.match(routes, /effectiveAuthorityMiddleware,[\s\S]*customer:read[\s\S]*getTechnicalRecords/);
   assert.match(routes, /effectiveAuthorityMiddleware,[\s\S]*customer:update[\s\S]*createTechnicalRecord/);
 });
 
-test("Point 9 frontend exposes retention queue and salon technical history", async () => {
+test("Point 9 frontend exposes retention queue salon technical history and Customer 360 v3", async () => {
   const service = await source("../../../frontend/src/Services/retentionAutomationService.js");
   const panel = await source("../../../frontend/src/components/retention/Stage9CrmRetentionPanel.jsx");
+  const customer360 = await source("../../../frontend/src/components/retention/Stage9Customer360Panel.jsx");
   const page = await source("../../../frontend/src/pages/RetentionAutomationPage.jsx");
 
   assert.match(service, /listRetentionQueue/);
   assert.match(service, /listClientTechnicalRecords/);
   assert.match(service, /createClientTechnicalRecord/);
+  assert.match(service, /getPoint9Customer360/);
+  assert.match(service, /listRetentionOpportunities/);
   assert.match(panel, /Rebooking and dormant-client queue/);
   assert.match(panel, /Salon technical history/);
   assert.match(panel, /56-day rebooking interval/);
-  assert.match(panel, /does not authorise outbound retention messaging/);
+  assert.match(customer360, /Customer 360 v3/);
+  assert.match(customer360, /birthday, referral, loyalty and reactivation opportunities/);
+  assert.match(customer360, /Review-only/);
   assert.match(page, /Stage9CrmRetentionPanel/);
+  assert.match(page, /Stage9Customer360Panel/);
   assert.match(page, /data-point9-workspace="original-phase-11"/);
 });
