@@ -4,50 +4,63 @@ Original Phase 14.
 
 ## Decision
 
-Point 12 does not rebuild the existing marketing, CRM, communications, Data Hub, campaign or AI foundations. It composes them into distinct allocatable business modules with explicit authority boundaries.
+Point 12 extends the existing business-facing **Marketing** module. It does not introduce a second marketing product and does not rebuild CRM, Communications, Data Hub, campaign/attribution or AI foundations.
 
-The existing Windsor-style/provider-neutral Marketing Data Core remains inside the Integration Hub responsibility. Marketing Automation consumes that evidence but does not own provider credentials or create a second connector framework.
+The existing first-party Windsor-style/provider-neutral marketing-data capability remains an internal engine. Businesses are allocated the **Marketing** module, while internal dependencies are installed/resolved by the platform.
 
 ## Foundations reused
 
 - Stage 5 Marketing Data Core / Data Hub for provider-neutral ingestion, normalisation and lineage.
-- Stage 6 Campaign, CampaignExecution, social publishing and deterministic attribution.
+- Stage 6 `Campaign`, `CampaignExecution`, social publishing and deterministic attribution.
 - Stage 7 Customer 360, lifecycle, deterministic segmentation, consent-aware journeys and campaign-to-revenue evidence.
 - Communications for templates, delivery, retries and scheduled messages.
+- Integration Hub for external platform connections and credential governance.
 - Analytics & BI for deterministic metrics and reporting.
-- Governed AI platform for advisory recommendations and copilots.
+- Governed AI platform and business-facing AI assistants for advisory recommendations.
 
-## Point 12 module rule
+## Canonical module authority
 
-Every business-facing module must have one distinctive primary responsibility and must be independently allocatable through capability entitlements. Cross-module work uses dependencies and shared contracts rather than duplicated data stores or duplicated business rules.
+Module definitions and non-duplication rules are encoded in:
 
-The canonical catalogue and duplicate-responsibility validator live in:
+- `backend/src/platform/capabilities/capabilityRegistry.js`
+- `backend/src/platform/capabilities/verticalPackRegistry.js`
+- `docs/architecture/business-module-boundaries.md`
 
-`backend/src/platform/modules/businessModuleRegistry.js`
+Every active canonical `ownedDomain` has at most one owner. Tenant/business configuration should expose `allocatableCapabilityPackKeys` rather than internal engines.
 
-Tenant composition exposes resolved module allocation from enabled capability packs. Manual acceptance is recorded in:
+## Marketing composition
 
-`docs/roadmap/point12-business-module-boundaries.md`
+The single business-facing `marketing` module composes three internal, non-allocatable engines:
 
-## Marketing Automation authority
+1. `marketing-data` — Windsor-style/provider-neutral ingestion, normalisation and lineage.
+2. `campaigns-attribution` — campaigns, campaign executions, social publication and deterministic attribution.
+3. `marketing-automation` — triggers, approval policy, scheduling and automation-run evidence.
 
-Marketing Automation owns:
+It also consumes existing authorities:
 
-- campaign definition and orchestration;
-- journey definition and enrolment;
-- audience activation from canonical CRM segments;
-- campaign approval and scheduling;
-- campaign attribution orchestration.
-
-It consumes, but does not own:
-
-- provider connections and credentials — Integration Hub;
-- customer lifecycle, segments, consent/contactability — CRM & Customer Intelligence;
+- provider connections/credentials — Integration Hub;
+- customer lifecycle/segments/retention definitions — CRM & Customer Intelligence;
 - message transport/templates/delivery state — Communications;
 - deterministic metrics — Analytics & BI;
-- recommendations/predictions — AI Decision Support;
-- orders/payments/appointments — their canonical operational domains.
+- recommendations/predictions — AI assistant modules;
+- orders/payments/appointments/staff/services — their canonical operational domains.
+
+## Point 12 implementation direction
+
+New source work should focus on the Marketing module experience and orchestration:
+
+- marketing overview and dependency/readiness state;
+- campaign/journey trigger configuration;
+- audience preview using canonical CRM segments and consent/contactability;
+- approval workflow;
+- schedule controls;
+- execution evidence;
+- attribution/ROI evidence;
+- AI-assisted recommendations that remain advisory;
+- clear links to Integration Hub, Communications, CRM and Analytics without duplicating those functions.
 
 ## Safety boundary
 
-Marketing execution remains human-approved by default. Provider credentials, production sending, autonomous scheduling, model promotion, migrations and production activation remain controlled steps and are not enabled merely by allocating the module.
+Marketing execution remains human-approved by default. Provider credentials, production sending, autonomous scheduling, production data migration, model promotion and production activation remain controlled steps and are not enabled merely by allocating the Marketing module.
+
+Manual acceptance is defined in `docs/roadmap/point12-business-module-boundaries.md`.
