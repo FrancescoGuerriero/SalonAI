@@ -5,6 +5,9 @@ import {
 import {
   getVerticalPackDefinition,
 } from "../capabilities/verticalPackRegistry.js";
+import {
+  resolveBusinessModuleAllocation,
+} from "../modules/businessModuleRegistry.js";
 
 export const TENANT_PRODUCT_MANIFEST_SCHEMA_VERSION = "1";
 
@@ -402,6 +405,23 @@ export function resolveEffectiveTenantProductComposition({
     (state) => Object.freeze({ ...state })
   );
 
+  const enabledCapabilityPackKeys = Object.freeze(
+    capabilities
+      .filter(({ enabled }) => enabled)
+      .map(({ key }) => key)
+  );
+
+  const disabledCapabilityPackKeys = Object.freeze(
+    capabilities
+      .filter(({ enabled }) => !enabled)
+      .map(({ key }) => key)
+  );
+
+  const businessModules = Object.freeze(
+    resolveBusinessModuleAllocation(enabledCapabilityPackKeys)
+      .map((module) => Object.freeze({ ...module }))
+  );
+
   return Object.freeze({
     manifest: normalised,
     vertical: Object.freeze({
@@ -410,16 +430,9 @@ export function resolveEffectiveTenantProductComposition({
       terminology: vertical.terminology,
     }),
     capabilities: Object.freeze(capabilities),
-    enabledCapabilityPackKeys: Object.freeze(
-      capabilities
-        .filter(({ enabled }) => enabled)
-        .map(({ key }) => key)
-    ),
-    disabledCapabilityPackKeys: Object.freeze(
-      capabilities
-        .filter(({ enabled }) => !enabled)
-        .map(({ key }) => key)
-    ),
+    enabledCapabilityPackKeys,
+    disabledCapabilityPackKeys,
+    businessModules,
   });
 }
 
