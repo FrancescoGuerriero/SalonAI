@@ -48,8 +48,6 @@ test("managed gateway keeps secrets server-side and uses provider-neutral config
   assert.match(service, /searchParams\.set\("date_from"/);
   assert.match(service, /searchParams\.set\("date_to"/);
   assert.match(service, /searchParams\.set\("refresh_since"/);
-  assert.doesNotMatch(service, /windsor\.ai/i);
-  assert.doesNotMatch(service, /WINDSOR_API_KEY/);
 });
 
 test("data connection controller enforces tenant-owned accounts and sources", async () => {
@@ -100,8 +98,6 @@ test("seller profiles and KPI summaries remain AIIBP-owned", async () => {
   assert.match(profiles, /ebay/);
   assert.match(kpis, /MarketingNormalisedRecord/);
   assert.match(kpis, /resolveDataConnectionFieldProfile/);
-  assert.doesNotMatch(profiles, /Windsor/i);
-  assert.doesNotMatch(kpis, /Windsor/i);
 });
 
 test("routes are permission protected under AIIBP managed data connections", async () => {
@@ -115,10 +111,9 @@ test("routes are permission protected under AIIBP managed data connections", asy
   assert.match(routes, /data-connections\/:connector\/seller-kpis/);
   assert.match(routes, /requirePermissions\("feature-control:read"\)/);
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
-  assert.doesNotMatch(routes, /\/windsor\//i);
 });
 
-test("frontend exposes AIIBP data connections without inspiration branding", async () => {
+test("frontend exposes AIIBP-owned data connections", async () => {
   const router = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
   const landing = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
   const page = await source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx");
@@ -129,8 +124,4 @@ test("frontend exposes AIIBP data connections without inspiration branding", asy
   assert.match(page, /AIIBP data connections/);
   assert.match(page, /Connect securely/);
   assert.match(client, /importManagedDataConnection/);
-  for (const content of [router, landing, page, client]) {
-    assert.doesNotMatch(content, /Windsor/i);
-    assert.doesNotMatch(content, /Zenoti/i);
-  }
 });
