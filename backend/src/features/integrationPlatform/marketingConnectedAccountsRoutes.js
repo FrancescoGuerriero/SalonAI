@@ -21,8 +21,11 @@ router.get("/windsor/catalogue", read, asyncHandler(windsorController.catalogue)
 router.post("/windsor/:connector/authorize", write, asyncHandler(windsorController.authorize));
 router.post("/windsor/:connector/reconcile", write, asyncHandler(windsorController.reconcile));
 router.get("/windsor/:connector/fields", read, asyncHandler(windsorController.fields));
+router.get("/windsor/:connector/profiles", read, asyncHandler(windsorController.profiles));
 router.post("/windsor/:connector/preview", read, asyncHandler(windsorController.preview));
 router.post("/windsor/:connector/import", write, asyncHandler(windsorController.importToDataHub));
+router.post("/windsor/:connector/backfill", write, asyncHandler(windsorController.backfill));
+router.get("/windsor/:connector/seller-kpis", read, asyncHandler(windsorController.sellerKpis));
 router.delete("/windsor/:connector/accounts/:accountId", write, asyncHandler(windsorController.unlinkAccount));
 
 export default router;
