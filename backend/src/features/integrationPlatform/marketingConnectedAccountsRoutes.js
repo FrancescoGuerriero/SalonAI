@@ -22,6 +22,7 @@ router.post("/windsor/:connector/authorize", write, asyncHandler(windsorControll
 router.post("/windsor/:connector/reconcile", write, asyncHandler(windsorController.reconcile));
 router.get("/windsor/:connector/fields", read, asyncHandler(windsorController.fields));
 router.post("/windsor/:connector/preview", read, asyncHandler(windsorController.preview));
+router.post("/windsor/:connector/import", write, asyncHandler(windsorController.importToDataHub));
 router.delete("/windsor/:connector/accounts/:accountId", write, asyncHandler(windsorController.unlinkAccount));
 
 export default router;
