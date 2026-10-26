@@ -1,6 +1,7 @@
 import Stage7CrmOperationsPanel from "../components/retention/Stage7CrmOperationsPanel.jsx";
 import Stage7RecoveryJourneySetup from "../components/retention/Stage7RecoveryJourneySetup.jsx";
 import Stage9CrmRetentionPanel from "../components/retention/Stage9CrmRetentionPanel.jsx";
+import Stage9Customer360Panel from "../components/retention/Stage9Customer360Panel.jsx";
 import RetentionJourneyBuilderPage from "./RetentionJourneyBuilderPage.jsx";
 
 // Compatibility note: the existing Journey builder, Execution engine pending notice,
@@ -17,6 +18,7 @@ export default function RetentionAutomationPage() {
       >
         <div className="mx-auto max-w-7xl space-y-6">
           <Stage9CrmRetentionPanel />
+          <Stage9Customer360Panel />
           <Stage7CrmOperationsPanel />
           <Stage7RecoveryJourneySetup />
         </div>

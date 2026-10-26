@@ -3,6 +3,10 @@ import {
   listClientTechnicalRecords,
   listRetentionQueue,
 } from "./stage9CrmService.js";
+import {
+  buildPoint9Customer360,
+  listPoint9RetentionOpportunities,
+} from "./stage9Customer360Service.js";
 
 function actorId(request) {
   return request?.user?._id || request?.user?.id || null;
@@ -33,6 +37,24 @@ export async function getRetentionQueue(request, response) {
     effectiveAuthority: request.effectiveAuthority,
     limit: request.query.limit,
     state: request.query.state || "",
+  });
+  response.status(200).json(result);
+}
+
+export async function getPoint9Customer360(request, response) {
+  const projection = await buildPoint9Customer360(request.params.customerId, {
+    tenantContext: request.tenantContext,
+    effectiveAuthority: request.effectiveAuthority,
+  });
+  response.status(200).json({ projection });
+}
+
+export async function getRetentionOpportunities(request, response) {
+  const result = await listPoint9RetentionOpportunities({
+    tenantContext: request.tenantContext,
+    effectiveAuthority: request.effectiveAuthority,
+    type: request.query.type || "",
+    limit: request.query.limit,
   });
   response.status(200).json(result);
 }
