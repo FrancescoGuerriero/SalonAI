@@ -7,6 +7,11 @@ import {
   buildPoint9Customer360,
   listPoint9RetentionOpportunities,
 } from "./stage9Customer360Service.js";
+import {
+  createPoint9CrmActionDraft,
+  listPoint9CrmActionDrafts,
+  updatePoint9CrmActionDraft,
+} from "./stage9CrmActionService.js";
 
 function actorId(request) {
   return request?.user?._id || request?.user?.id || null;
@@ -57,4 +62,35 @@ export async function getRetentionOpportunities(request, response) {
     limit: request.query.limit,
   });
   response.status(200).json(result);
+}
+
+export async function createCrmActionDraft(request, response) {
+  const draft = await createPoint9CrmActionDraft(request.body || {}, {
+    tenantContext: request.tenantContext,
+    effectiveAuthority: request.effectiveAuthority,
+    actorId: actorId(request),
+  });
+  response.status(201).json({ draft });
+}
+
+export async function getCrmActionDrafts(request, response) {
+  const result = await listPoint9CrmActionDrafts({
+    effectiveAuthority: request.effectiveAuthority,
+    customerId: request.query.customerId || "",
+    status: request.query.status || "",
+    limit: request.query.limit,
+  });
+  response.status(200).json(result);
+}
+
+export async function updateCrmActionDraft(request, response) {
+  const draft = await updatePoint9CrmActionDraft(
+    request.params.draftId,
+    request.body || {},
+    {
+      effectiveAuthority: request.effectiveAuthority,
+      actorId: actorId(request),
+    }
+  );
+  response.status(200).json({ draft });
 }

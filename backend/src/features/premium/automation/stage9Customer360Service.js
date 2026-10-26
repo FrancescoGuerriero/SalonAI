@@ -22,6 +22,39 @@ function daysUntilBirthday(dateOfBirth, now = new Date()) {
   return Math.floor((next - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
 }
 
+function consentedMarketingChannels(customer) {
+  const preferences = customer.communicationPreferences || {};
+  const marketing = customer.marketing || {};
+  if (preferences.unsubscribed === true) return [];
+  const channels = [];
+  if (
+    customer.email &&
+    preferences.emailMarketing === true &&
+    preferences.emailUnsubscribed !== true &&
+    marketing.emailConsent === true &&
+    marketing.emailSuppressed !== true
+  ) {
+    channels.push("email");
+  }
+  if (
+    customer.phone &&
+    preferences.smsMarketing === true &&
+    preferences.smsUnsubscribed !== true &&
+    marketing.smsConsent === true
+  ) {
+    channels.push("sms");
+  }
+  if (
+    customer.phone &&
+    preferences.whatsappMarketing === true &&
+    preferences.whatsappUnsubscribed !== true &&
+    marketing.whatsappConsent === true
+  ) {
+    channels.push("whatsapp");
+  }
+  return channels;
+}
+
 function deriveOpportunities({ customer, retention, base360, now }) {
   const opportunities = [];
   const state = retention?.retentionState || null;
@@ -92,7 +125,7 @@ export async function buildPoint9Customer360(
     status: { $ne: "deleted" },
   })
     .select(
-      "dateOfBirth hairProfile bookingPreferences communicationPreferences referralCode referredBy notes photo preferredStylist preferredServices"
+      "dateOfBirth hairProfile bookingPreferences communicationPreferences marketing referralCode referredBy notes photo preferredStylist preferredServices email phone"
     )
     .lean();
 
@@ -117,7 +150,22 @@ export async function buildPoint9Customer360(
 
   const retention =
     retentionQueue.queue.find((item) => idText(item.customerId) === idText(customerId)) || null;
-  const opportunities = deriveOpportunities({ customer, retention, base360, now });
+  const consentedChannels = consentedMarketingChannels(customer);
+  const opportunities = deriveOpportunities({
+    customer,
+    retention,
+    base360: {
+      ...base360,
+      intelligence: {
+        ...base360.intelligence,
+        nextBestAction: {
+          ...base360.intelligence?.nextBestAction,
+          contactableChannels: consentedChannels,
+        },
+      },
+    },
+    now,
+  });
 
   return {
     ...base360,
@@ -175,7 +223,7 @@ export async function listPoint9RetentionOpportunities({
     status: { $ne: "deleted" },
   })
     .select(
-      "firstName lastName preferredName email phone dateOfBirth communicationPreferences referralCode loyaltyPoints"
+      "firstName lastName preferredName email phone dateOfBirth communicationPreferences marketing referralCode loyaltyPoints"
     )
     .lean();
   const customerById = new Map(customers.map((item) => [idText(item._id), item]));
@@ -184,10 +232,7 @@ export async function listPoint9RetentionOpportunities({
   for (const retention of queue.queue) {
     const customer = customerById.get(idText(retention.customerId));
     if (!customer) continue;
-    const contactableChannels = [];
-    if (customer.email && customer.communicationPreferences?.emailUnsubscribed !== true) contactableChannels.push("email");
-    if (customer.phone && customer.communicationPreferences?.smsUnsubscribed !== true) contactableChannels.push("sms");
-    if (customer.phone && customer.communicationPreferences?.whatsappUnsubscribed !== true) contactableChannels.push("whatsapp");
+    const contactableChannels = consentedMarketingChannels(customer);
 
     const base360 = {
       value: { loyaltyPoints: Number(customer.loyaltyPoints || 0) },
@@ -202,6 +247,8 @@ export async function listPoint9RetentionOpportunities({
           [customer.firstName, customer.lastName].filter(Boolean).join(" "),
         retentionState: retention.retentionState,
         dueAt: retention.dueAt,
+        cadenceDays: retention.cadenceDays,
+        latestLocationId: retention.latestLocationId,
         ...opportunity,
       });
     }

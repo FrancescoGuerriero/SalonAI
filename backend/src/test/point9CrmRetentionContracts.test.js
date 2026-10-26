@@ -57,6 +57,7 @@ test("Point 9 Customer 360 v3 layers technical and retention evidence over Stage
   assert.match(service, /hairProfile/);
   assert.match(service, /technicalHistory/);
   assert.match(service, /opportunities/);
+  assert.match(service, /latestLocationId/);
   assert.match(service, /executionAuthorised:\s*false/);
 });
 
@@ -73,18 +74,36 @@ test("Point 9 opportunity previews support rebooking reactivation birthday refer
   assert.doesNotMatch(service, /sendEmail|sendSms|sendWhatsApp|enqueue|publish|charge|paymentIntent/);
 });
 
+test("Point 9 CRM action drafts are location owned and permanently non-executable", async () => {
+  const model = await source("../features/premium/automation/CrmActionDraft.js");
+  const service = await source("../features/premium/automation/stage9CrmActionService.js");
+
+  assert.match(model, /location:[\s\S]*required:\s*true/);
+  assert.match(model, /opportunityType:[\s\S]*rebooking[\s\S]*reactivation[\s\S]*birthday[\s\S]*referral[\s\S]*loyalty/);
+  assert.match(model, /executionAuthorised:[\s\S]*default:\s*false[\s\S]*immutable:\s*true/);
+  assert.match(model, /this\.executionAuthorised = false/);
+  assert.match(service, /POINT9_OPPORTUNITY_NOT_CURRENT/);
+  assert.match(service, /POINT9_ACTION_LOCATION_EVIDENCE_MISMATCH/);
+  assert.match(service, /status:\s*"draft"/);
+  assert.match(service, /"reviewed"/);
+  assert.match(service, /"discarded"/);
+  assert.doesNotMatch(service, /sendEmail|sendSms|sendWhatsApp|enqueue|publish|charge|paymentIntent|providerSend/);
+});
+
 test("Point 9 routes require effective authority and customer permissions", async () => {
   const routes = await source("../features/premium/automation/automationRoutes.js");
 
   assert.match(routes, /\/crm\/retention-queue[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
   assert.match(routes, /\/crm\/opportunities[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
   assert.match(routes, /\/crm\/customers\/:customerId\/360[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read/);
+  assert.match(routes, /\/crm\/action-drafts[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:read[\s\S]*customer:update/);
+  assert.match(routes, /\/crm\/action-drafts\/:draftId[\s\S]*effectiveAuthorityMiddleware[\s\S]*customer:update/);
   assert.match(routes, /\/crm\/customers\/:customerId\/technical-records/);
   assert.match(routes, /effectiveAuthorityMiddleware,[\s\S]*customer:read[\s\S]*getTechnicalRecords/);
   assert.match(routes, /effectiveAuthorityMiddleware,[\s\S]*customer:update[\s\S]*createTechnicalRecord/);
 });
 
-test("Point 9 frontend exposes retention queue salon technical history and Customer 360 v3", async () => {
+test("Point 9 frontend exposes authoring without send execution", async () => {
   const service = await source("../../../frontend/src/Services/retentionAutomationService.js");
   const panel = await source("../../../frontend/src/components/retention/Stage9CrmRetentionPanel.jsx");
   const customer360 = await source("../../../frontend/src/components/retention/Stage9Customer360Panel.jsx");
@@ -95,12 +114,18 @@ test("Point 9 frontend exposes retention queue salon technical history and Custo
   assert.match(service, /createClientTechnicalRecord/);
   assert.match(service, /getPoint9Customer360/);
   assert.match(service, /listRetentionOpportunities/);
+  assert.match(service, /createCrmActionDraft/);
+  assert.match(service, /listCrmActionDrafts/);
+  assert.match(service, /updateCrmActionDraft/);
   assert.match(panel, /Rebooking and dormant-client queue/);
   assert.match(panel, /Salon technical history/);
+  assert.match(panel, /Save location-owned technical record/);
   assert.match(panel, /56-day rebooking interval/);
   assert.match(customer360, /Customer 360 v3/);
-  assert.match(customer360, /birthday, referral, loyalty and reactivation opportunities/);
-  assert.match(customer360, /Review-only/);
+  assert.match(customer360, /Create review draft/);
+  assert.match(customer360, /No send action available/);
+  assert.match(customer360, /Draft-only/);
+  assert.doesNotMatch(customer360, />Send</);
   assert.match(page, /Stage9CrmRetentionPanel/);
   assert.match(page, /Stage9Customer360Panel/);
   assert.match(page, /data-point9-workspace="original-phase-11"/);

@@ -73,6 +73,30 @@ async function listRetentionOpportunities({ limit = 100, type = "" } = {}) {
   return response.data || { opportunities: [] };
 }
 
+async function listCrmActionDrafts(params = {}) {
+  const response = await API.get(
+    STAGE7_ROOT + "/crm/action-drafts",
+    { params }
+  );
+  return response.data || { drafts: [] };
+}
+
+async function createCrmActionDraft(payload) {
+  const response = await API.post(
+    STAGE7_ROOT + "/crm/action-drafts",
+    payload
+  );
+  return response.data?.draft || null;
+}
+
+async function updateCrmActionDraft(draftId, payload) {
+  const response = await API.patch(
+    STAGE7_ROOT + "/crm/action-drafts/" + encodeURIComponent(draftId),
+    payload
+  );
+  return response.data?.draft || null;
+}
+
 async function listClientTechnicalRecords(customerId, { limit = 100 } = {}) {
   const response = await API.get(
     STAGE7_ROOT +
@@ -144,12 +168,14 @@ async function getCampaignJourneyRevenue({ campaignId = null } = {}) {
 
 export {
   createClientTechnicalRecord,
+  createCrmActionDraft,
   createJourneyEnrollment,
   createRetentionJourney,
   getCampaignJourneyRevenue,
   getCustomer360,
   getPoint9Customer360,
   listClientTechnicalRecords,
+  listCrmActionDrafts,
   listCrmSegments,
   listJourneyEnrollments,
   listRetentionJourneys,
@@ -158,17 +184,20 @@ export {
   previewRetentionJourney,
   reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
+  updateCrmActionDraft,
   updateRetentionJourney,
 };
 
 export default {
   createClientTechnicalRecord,
+  createCrmActionDraft,
   createJourneyEnrollment,
   createRetentionJourney,
   getCampaignJourneyRevenue,
   getCustomer360,
   getPoint9Customer360,
   listClientTechnicalRecords,
+  listCrmActionDrafts,
   listCrmSegments,
   listJourneyEnrollments,
   listRetentionJourneys,
@@ -177,5 +206,6 @@ export default {
   previewRetentionJourney,
   reconcileMembershipRecoveryJourneys,
   recordJourneyOutcome,
+  updateCrmActionDraft,
   updateRetentionJourney,
 };

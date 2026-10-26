@@ -1,9 +1,12 @@
-import { Gift, Loader2, RefreshCw, Sparkles, UserRoundSearch } from "lucide-react";
+import { FileEdit, Gift, Loader2, RefreshCw, Sparkles, UserRoundSearch } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
+  createCrmActionDraft,
   getPoint9Customer360,
+  listCrmActionDrafts,
   listRetentionOpportunities,
+  updateCrmActionDraft,
 } from "../../Services/retentionAutomationService.js";
 
 function label(value) {
@@ -20,8 +23,12 @@ export default function Stage9Customer360Panel() {
   const [opportunities, setOpportunities] = useState([]);
   const [projection, setProjection] = useState(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedOpportunity, setSelectedOpportunity] = useState(null);
+  const [channel, setChannel] = useState("in_person");
+  const [drafts, setDrafts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [projectionLoading, setProjectionLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
   const [error, setError] = useState("");
 
   async function loadOpportunities() {
@@ -42,17 +49,59 @@ export default function Stage9Customer360Panel() {
     void loadOpportunities();
   }, []);
 
-  async function inspect(customerId) {
-    setSelectedCustomerId(String(customerId));
+  async function inspect(item) {
+    setSelectedOpportunity(item);
+    setSelectedCustomerId(String(item.customerId));
+    setChannel(item.contactableChannels?.[0] || "in_person");
     setProjectionLoading(true);
     setError("");
     try {
-      setProjection(await getPoint9Customer360(customerId));
+      const [nextProjection, draftResult] = await Promise.all([
+        getPoint9Customer360(item.customerId),
+        listCrmActionDrafts({ customerId: item.customerId, limit: 20 }),
+      ]);
+      setProjection(nextProjection);
+      setDrafts(Array.isArray(draftResult?.drafts) ? draftResult.drafts : []);
     } catch (requestError) {
       setProjection(null);
+      setDrafts([]);
       setError(errorMessage(requestError));
     } finally {
       setProjectionLoading(false);
+    }
+  }
+
+  async function createDraft() {
+    if (!selectedOpportunity?.customerId || !selectedOpportunity?.latestLocationId) return;
+    setDraftLoading(true);
+    setError("");
+    try {
+      await createCrmActionDraft({
+        customerId: selectedOpportunity.customerId,
+        locationId: selectedOpportunity.latestLocationId,
+        opportunityType: selectedOpportunity.type,
+        channel,
+      });
+      const result = await listCrmActionDrafts({ customerId: selectedOpportunity.customerId, limit: 20 });
+      setDrafts(Array.isArray(result?.drafts) ? result.drafts : []);
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setDraftLoading(false);
+    }
+  }
+
+  async function resolveDraft(draftId, status) {
+    setDraftLoading(true);
+    setError("");
+    try {
+      await updateCrmActionDraft(draftId, { status });
+      const result = await listCrmActionDrafts({ customerId: selectedCustomerId, limit: 20 });
+      setDrafts(Array.isArray(result?.drafts) ? result.drafts : []);
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setDraftLoading(false);
     }
   }
 
@@ -79,7 +128,7 @@ export default function Stage9Customer360Panel() {
       </div>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        <strong>Review-only:</strong> these are deterministic CRM opportunities. They create no journey enrolment and send no message until a separately authorised action is taken.
+        <strong>Draft-only:</strong> staff may prepare and review CRM wording, but this workspace has no send or execute endpoint. Draft review never authorises provider delivery.
       </div>
 
       {error ? <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">{error}</div> : null}
@@ -95,10 +144,10 @@ export default function Stage9Customer360Panel() {
               <button
                 type="button"
                 key={`${item.customerId}-${item.type}-${index}`}
-                onClick={() => void inspect(item.customerId)}
+                onClick={() => void inspect(item)}
                 className={
                   "block w-full p-3 text-left hover:bg-violet-50 " +
-                  (selectedCustomerId === String(item.customerId) ? "bg-violet-50" : "bg-white")
+                  (selectedCustomerId === String(item.customerId) && selectedOpportunity?.type === item.type ? "bg-violet-50" : "bg-white")
                 }
               >
                 <div className="flex items-start justify-between gap-3">
@@ -151,6 +200,33 @@ export default function Stage9Customer360Panel() {
                 </p>
               </div>
 
+              {selectedOpportunity ? (
+                <div className="rounded-xl border border-violet-200 bg-white p-3">
+                  <div className="flex items-center gap-2"><FileEdit size={16} className="text-violet-600" /><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Prepare governed draft</p></div>
+                  <p className="mt-2 text-sm font-bold text-slate-900">{label(selectedOpportunity.type)}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <select
+                      value={channel}
+                      onChange={(event) => setChannel(event.target.value)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                      {(selectedOpportunity.contactableChannels || []).map((value) => <option key={value} value={value}>{label(value)}</option>)}
+                      <option value="phone">Phone</option>
+                      <option value="in_person">In person</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => void createDraft()}
+                      disabled={draftLoading || !selectedOpportunity.latestLocationId}
+                      className="rounded-lg bg-violet-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      {draftLoading ? "Preparing…" : "Create review draft"}
+                    </button>
+                  </div>
+                  {!selectedOpportunity.latestLocationId ? <p className="mt-2 text-xs text-amber-700">A location-owned retention record is required before a CRM draft can be created.</p> : null}
+                </div>
+              ) : null}
+
               <div>
                 <div className="flex items-center gap-2"><Sparkles size={16} className="text-violet-600" /><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Review opportunities</p></div>
                 <div className="mt-2 space-y-2">
@@ -161,6 +237,30 @@ export default function Stage9Customer360Panel() {
                       <p className="mt-1 text-[11px] font-semibold text-slate-500">Execution authorised: no</p>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">CRM action drafts</p>
+                <div className="mt-2 space-y-2">
+                  {drafts.map((draft) => (
+                    <article key={draft._id} className="rounded-lg border border-slate-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-sm text-slate-900">{label(draft.opportunityType)} · {label(draft.channel)}</strong>
+                        <span className="text-[11px] font-bold text-slate-500">{label(draft.status)}</span>
+                      </div>
+                      {draft.subject ? <p className="mt-2 text-xs font-bold text-slate-700">{draft.subject}</p> : null}
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-600">{draft.body}</p>
+                      {draft.status === "draft" ? (
+                        <div className="mt-2 flex gap-2">
+                          <button type="button" disabled={draftLoading} onClick={() => void resolveDraft(draft._id, "reviewed")} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">Mark reviewed</button>
+                          <button type="button" disabled={draftLoading} onClick={() => void resolveDraft(draft._id, "discarded")} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">Discard</button>
+                        </div>
+                      ) : null}
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500">No send action available · execution authorised: no</p>
+                    </article>
+                  ))}
+                  {!drafts.length ? <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-500">No CRM drafts for this customer.</p> : null}
                 </div>
               </div>
             </div>
