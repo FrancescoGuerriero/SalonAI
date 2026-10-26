@@ -57,7 +57,7 @@ The server stores:
 - reconciled Windsor account IDs/names;
 - timestamps/status.
 
-Every data preview must prove that the requested Windsor `account_id` exists in the active Business connection metadata. The API must fail closed on an unowned account ID.
+Every data preview, Data Hub import and unlink must prove that the requested Windsor `account_id` exists in the active Business connection metadata. The API fails closed on an unowned account ID.
 
 Different businesses can therefore have completely different connector sets without code forks. Business allocation remains governed by the tenant product/capability configuration; source-account choice remains tenant data.
 
@@ -152,7 +152,7 @@ AppFollow; Google Analytics 4; Microsoft Clarity; Mixpanel; Survey Sparrow; Surv
 
 ChatGPT; Claude; Copilot Agent; Power BI.
 
-## 7. UI contract
+## 7. UI and Data Hub contract
 
 Marketing now has one module landing page with internal workspaces:
 
@@ -173,8 +173,13 @@ The Windsor UI provides:
 - `Check connection` reconciliation;
 - Business-bound account list;
 - read-only data preview;
+- manual `Import to Data Hub` for the active Location;
 - account unlink;
 - explicit unavailable/not-configured states.
+
+The initial import path creates/updates a location-owned canonical `MarketingDataSource` using the existing generic Marketing Data Core contract, then stores Windsor rows through the existing raw/normalised lineage pipeline. It does not create a Windsor-only reporting database.
+
+Initial manual import is deliberately bounded to 100 rows per request while connector-specific field sets, pagination, historical windows and rate-limit behaviour are validated. **This is not yet a claim of complete historical/backfill ingestion.** Scheduled/incremental/backfill execution should reuse the same canonical source after Windsor pagination/window contracts are accepted.
 
 For OAuth connectors, AIIBP must never render a provider-password field. For manual connectors, Windsor's setup screen is preferred so provider API keys/secrets need not be stored in AIIBP.
 
@@ -189,6 +194,8 @@ AI may assist with:
 - data-quality/anomaly explanations;
 - metric interpretation and dashboard summaries;
 - suggesting campaign or commercial actions based on evidence.
+
+The existing Marketing AI/Business Adviser surfaces should consume canonical Data Hub evidence created by the connector pipeline. AI connection help must use connector metadata/status rather than provider secrets.
 
 AI must not:
 
@@ -211,10 +218,11 @@ Before production activation:
 2. Confirm API-key storage is production-secret-manager backed.
 3. Confirm no access-token-bearing Windsor URL is logged by reverse proxy/APM/application logs.
 4. Perform Business A / Business B isolation tests with different Windsor authorisation sessions.
-5. Confirm account unlink cannot cross Business boundaries.
+5. Confirm account preview/import/unlink cannot cross Business boundaries.
 6. Confirm provider terms/required approvals for any connector used commercially.
 7. Confirm privacy/retention policy for source data copied into AIIBP.
 8. Keep all Windsor write-capable actions disabled until separately implemented and approved.
-9. Run manual acceptance from `point12-business-module-boundaries.md` plus seller/Windsor cases.
+9. Validate connector-specific pagination, historical window/backfill and refresh behaviour before scheduled ingestion is enabled.
+10. Run manual acceptance from `point12-business-module-boundaries.md` plus seller/Windsor cases.
 
 No production provider connection, migration, scheduled sync or write action is authorised by this implementation record.
