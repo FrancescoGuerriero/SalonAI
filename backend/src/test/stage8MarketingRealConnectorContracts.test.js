@@ -4,7 +4,10 @@ import test from "node:test";
 
 import { marketingConnectedAccountCatalogue } from "../features/integrationPlatform/marketingConnectedAccountsService.js";
 import { marketingAccountVerifierAvailable } from "../features/integrationPlatform/marketingAccountVerifierRegistryService.js";
-import { verifiedMarketingConnectorDefinition } from "../features/integrationPlatform/marketingVerifiedConnectorsService.js";
+import {
+  verifiedMarketingConnectorCatalogue,
+  verifiedMarketingConnectorDefinition,
+} from "../features/integrationPlatform/marketingVerifiedConnectorsService.js";
 
 const source = (relativePath) => readFile(new URL(relativePath, import.meta.url), "utf8");
 
@@ -108,16 +111,24 @@ test("Wave 10 Exchange Rates and Mixpanel are credential-backed verified connect
   assert.match(verifier, /redirect:\s*"error"/);
 });
 
-test("every catalogue provider exposed as configurable has a registered account verifier", () => {
-  const catalogue = marketingConnectedAccountCatalogue();
-  for (const item of catalogue.items) {
-    if (item.configurable === false) continue;
+test("every connector explicitly advertised as verified has a registered live verifier", () => {
+  for (const item of verifiedMarketingConnectorCatalogue()) {
+    assert.equal(item.configurable, true, `${item.provider} verified connector must be configurable`);
     assert.equal(
       marketingAccountVerifierAvailable(item.provider),
       true,
-      `${item.provider} is configurable but has no registered live verifier`
+      `${item.provider} is advertised as verified but has no registered live verifier`
     );
   }
+});
+
+test("legacy catalogue rows without a verifier are disabled at the public Marketing Hub API boundary", async () => {
+  const controller = await source("../features/integrationPlatform/marketingConnectedAccountsController.js");
+  assert.match(controller, /if \(!verifierAvailable\)/);
+  assert.match(controller, /configurable:\s*false/);
+  assert.match(controller, /implementationStatus:\s*"verification_adapter_required"/);
+  assert.match(controller, /ready:\s*false/);
+  assert.match(controller, /verificationAvailable:\s*false/);
 });
 
 test("sources without an honest connector remain visible but cannot accept credentials", () => {
