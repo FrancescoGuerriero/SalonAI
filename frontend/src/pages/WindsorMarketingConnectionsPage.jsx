@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Database, ExternalLink, LoaderCircle, RefreshCw, Search, Store, Unplug } from "lucide-react";
+import { ExternalLink, LoaderCircle, RefreshCw, Search, Store, Unplug } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import WindsorSourceOperationsPanel from "../components/marketing/WindsorSourceOperationsPanel.jsx";
 import useAuth from "../hooks/useAuth.js";
 import { hasPermission } from "../utils/permissions.js";
 import marketingConnections from "../Services/marketingConnectionsService.js";
@@ -33,10 +34,10 @@ export default function WindsorMarketingConnectionsPage() {
   const requestedType = searchParams.get("type");
   const initialKind = ["seller", "source", "data-platform", "destination", "ai-destination"].includes(requestedType) ? requestedType : "all";
   const [items, setItems] = useState([]);
+  const [sources, setSources] = useState([]);
   const [runtime, setRuntime] = useState({ configured: false });
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState(initialKind);
-  const [syncCadence, setSyncCadence] = useState("manual");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -48,6 +49,7 @@ export default function WindsorMarketingConnectionsPage() {
     try {
       const payload = await marketingConnections.getWindsorCatalogue();
       setItems(Array.isArray(payload?.items) ? payload.items : []);
+      setSources(Array.isArray(payload?.sources) ? payload.sources : []);
       setRuntime(payload?.runtime || { configured: false });
     } catch (loadError) {
       setError(errorMessage(loadError, "Windsor connector catalogue could not be loaded."));
@@ -57,6 +59,12 @@ export default function WindsorMarketingConnectionsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const sourceMap = useMemo(() => {
+    const map = new Map();
+    for (const source of sources) map.set(`${source.productKey}:${source.accountId}`, source);
+    return map;
+  }, [sources]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -106,35 +114,16 @@ export default function WindsorMarketingConnectionsPage() {
   async function previewAccount(item, account) {
     setBusy(`${item.key}:${account.accountId}`); setError(""); setPreview(null);
     try {
+      const profileKey = item.profiles?.find((profile) => profile.isDefault)?.key || "";
       const payload = await marketingConnections.previewWindsorConnector(item.key, {
         accountId: account.accountId,
-        fields: ["date", "account_id", "account_name"],
+        profileKey,
         datePreset: "last_7d",
         limit: 25,
       });
       setPreview({ title: `${item.label} — ${account.accountName || account.accountId}`, payload });
     } catch (previewError) {
       setError(errorMessage(previewError, `${item.label} preview could not be loaded.`));
-    } finally { setBusy(""); }
-  }
-
-  async function importAccount(item, account) {
-    setBusy(`${item.key}:${account.accountId}`); setError(""); setNotice("");
-    try {
-      const payload = await marketingConnections.importWindsorConnectorData(item.key, {
-        accountId: account.accountId,
-        fields: ["date", "account_id", "account_name"],
-        datePreset: "last_7d",
-        limit: 100,
-        syncCadence,
-        timezone: "Europe/London",
-      });
-      const cadenceNote = payload.syncCadence && payload.syncCadence !== "manual"
-        ? ` Automatic ${payload.syncCadence} sync is scheduled.`
-        : " Sync remains manual.";
-      setNotice(`${item.label}: imported ${payload.importedRecords || 0} records into the active location Data Hub (${payload.status || "complete"}).${cadenceNote}`);
-    } catch (importError) {
-      setError(errorMessage(importError, `${item.label} data could not be imported into the Data Hub.`));
     } finally { setBusy(""); }
   }
 
@@ -160,9 +149,9 @@ export default function WindsorMarketingConnectionsPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="text-sm font-semibold text-stone-600">Marketing · Windsor data connections</div>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-950">Connect business data</h1>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-950">Connect and operate business data</h1>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-stone-600">
-                Connect supported marketing, analytics, seller, CRM and business platforms through Windsor. OAuth/manual provider setup happens in Windsor/provider screens; this application never asks for the provider password. Connected account IDs are bound to the active business before data can be previewed or imported into the active location Data Hub.
+                Connect supported marketing, analytics, seller, CRM and business platforms through Windsor. Provider authorization remains hosted by Windsor/provider screens. AIIBP binds linked accounts to the active Business, stores imported evidence in the active Location Data Hub, and keeps provider write actions disabled.
               </p>
             </div>
             <div className="flex gap-2">
@@ -175,7 +164,7 @@ export default function WindsorMarketingConnectionsPage() {
               Windsor is not configured in this environment. Set the server-side WINDSOR_API_KEY before connection testing.
             </div>
           ) : null}
-          <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+          <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-3 text-stone-500" size={18} />
               <span className="sr-only">Search connections</span>
@@ -189,15 +178,6 @@ export default function WindsorMarketingConnectionsPage() {
               <option value="destination">Destinations</option>
               <option value="ai-destination">AI destinations</option>
             </select>
-            <label className="flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2">
-              <span className="text-xs font-semibold text-stone-600">Import sync</span>
-              <select aria-label="Windsor import sync cadence" className="bg-white text-sm font-semibold" onChange={(event) => setSyncCadence(event.target.value)} value={syncCadence}>
-                <option value="manual">Manual</option>
-                <option value="hourly">Hourly</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-              </select>
-            </label>
           </div>
         </header>
 
@@ -226,7 +206,7 @@ export default function WindsorMarketingConnectionsPage() {
                     </div>
 
                     {isDestination ? (
-                      <p className="mt-4 text-sm leading-6 text-stone-600">This is treated as a data/AI destination rather than a Marketing source. Destination activation will be configured separately so it cannot be mistaken for a source account.</p>
+                      <p className="mt-4 text-sm leading-6 text-stone-600">This is a downstream data/AI destination, not a Marketing source. Destination activation is kept separate from source ingestion.</p>
                     ) : (
                       <>
                         <div className="mt-4 flex flex-wrap gap-2">
@@ -236,19 +216,28 @@ export default function WindsorMarketingConnectionsPage() {
                           </button>
                           {(connection.status === "pending" || connection.connected) ? <button className="min-h-10 rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm font-semibold disabled:opacity-50" disabled={!canManage || busy === item.key} onClick={() => reconcile(item)} type="button">Check connection</button> : null}
                         </div>
+
                         {connection.accounts?.length ? (
-                          <div className="mt-4 space-y-2 border-t border-stone-100 pt-4">
+                          <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
                             <div className="text-xs font-semibold uppercase tracking-wide text-stone-500">Connected to this business</div>
-                            {connection.accounts.map((account) => (
-                              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-stone-50 p-3" key={account.accountId}>
-                                <div className="min-w-0"><div className="truncate text-sm font-semibold">{account.accountName || account.accountId}</div><div className="truncate text-xs text-stone-500">{account.accountId}</div></div>
-                                <div className="flex flex-wrap gap-2">
-                                  <button className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={Boolean(busy)} onClick={() => previewAccount(item, account)} type="button">Preview</button>
-                                  <button className="inline-flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={!canManage || Boolean(busy)} onClick={() => importAccount(item, account)} type="button"><Database size={14} /> Import to Data Hub</button>
-                                  <button aria-label={`Disconnect ${account.accountName || account.accountId}`} className="inline-flex items-center rounded-lg border border-stone-300 bg-white px-2.5 py-1.5" disabled={!canManage || Boolean(busy)} onClick={() => unlink(item, account)} type="button"><Unplug size={15} /></button>
+                            {connection.accounts.map((account) => {
+                              const source = sourceMap.get(`${item.key}:${account.accountId}`) || null;
+                              return (
+                                <div className="rounded-xl bg-stone-50 p-3" key={account.accountId}>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="truncate text-sm font-semibold">{account.accountName || account.accountId}</div>
+                                      <div className="truncate text-xs text-stone-500">{account.accountId}</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={Boolean(busy)} onClick={() => previewAccount(item, account)} type="button">Preview</button>
+                                      <button aria-label={`Disconnect ${account.accountName || account.accountId}`} className="inline-flex items-center rounded-lg border border-stone-300 bg-white px-2.5 py-1.5" disabled={!canManage || Boolean(busy)} onClick={() => unlink(item, account)} type="button"><Unplug size={15} /></button>
+                                    </div>
+                                  </div>
+                                  <WindsorSourceOperationsPanel item={item} account={account} source={source} canManage={canManage} onChanged={load} />
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : null}
                       </>
