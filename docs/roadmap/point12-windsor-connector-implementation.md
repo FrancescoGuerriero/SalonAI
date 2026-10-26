@@ -1,228 +1,214 @@
-# Point 12 — Windsor Marketing connector plugin
+# Point 12 — Windsor Marketing connector platform
 
 Date: 26 October 2026  
 Module: Marketing  
-Status: source implementation in progress; production/provider activation not authorised.
+Status: **commercial source baseline complete; manual/live-provider acceptance required before production activation.**
 
 ## 1. Purpose
 
-The Windsor plugin is an internal Marketing-module connection layer for broad read/analytics connectivity. A Business can authorise only the sources it needs, Windsor retrieves provider data, AIIBP binds the resulting Windsor account IDs to that Business, and the Marketing/Data Hub surfaces tenant-scoped evidence for dashboards and governed AI assistance.
+The Windsor integration is an internal Marketing-module connection and data-ingestion capability. A Business enables only the connectors it needs, authorises provider accounts through Windsor/provider-hosted flows, and imports tenant/location-owned evidence into the canonical AIIBP Marketing Data Hub for dashboards, BI and governed AI assistance.
 
-This does **not** replace native AIIBP provider adapters. The two connection modes have different purposes:
+This does **not** replace native AIIBP provider adapters:
 
-- **Windsor** — broad source coverage, read/analytics ingestion, field discovery and rapid SaaS onboarding.
-- **Native AIIBP adapters** — deeper first-party verification/control and any later provider-specific write operations that need AIIBP-owned policy/audit contracts.
+- **Windsor** provides broad read/analytics source coverage and rapid SaaS onboarding.
+- **Native AIIBP adapters** remain appropriate where deeper first-party control or later provider-specific write operations are required.
 
-The UI must present one provider once and identify the available connection mode(s), not duplicate the provider as separate products.
+A provider must appear as one commercial capability with connection mode(s), not as duplicate products.
 
-## 2. Authoritative Windsor implementation documentation
+## 2. Windsor implementation contract
 
-Primary documentation:
+Primary Windsor contracts used by Point 12:
 
-- Connectors API: `https://windsor.ai/api-documentation/`
-- API host: `https://connectors.windsor.ai`
-- Connector discovery: `GET /list_connectors?api_key=...`
-- Field schema: `GET /{connector}/fields?api_key=...`
-- Data query: `GET /{connector}?api_key=...&fields=...`
-- Connection metadata: `GET https://onboard.windsor.ai/api/mcp/connectors/{connector}/connect-info?api_key=...`
-- Single-source co-user authorisation: `GET https://onboard.windsor.ai/api/team/generate-co-user-url/?allowed_sources={connector}&api_key=...`
-- Linked-account reconciliation: `GET https://onboard.windsor.ai/api/team/co-user-linked-accounts/?api_key=...&access_token=...`
-- Account unlink: `DELETE https://onboard.windsor.ai/api/team/co-user-linked-accounts/?api_key=...&ds_id=...&account_id=...&access_token=...`
+- connector discovery: `GET https://connectors.windsor.ai/list_connectors?api_key=...`;
+- field schema: `GET https://connectors.windsor.ai/{connector}/fields?api_key=...`;
+- connector options: `GET https://connectors.windsor.ai/{connector}/options?api_key=...`;
+- data query: `GET https://connectors.windsor.ai/{connector}` with `fields`, `select_accounts`, `_max_rows`, date-window/preset and optional refresh controls;
+- connection metadata: `GET https://onboard.windsor.ai/api/mcp/connectors/{connector}/connect-info?api_key=...`;
+- single-source co-user authorisation: `GET https://onboard.windsor.ai/api/team/generate-co-user-url/`;
+- linked-account reconciliation and unlink through the Windsor team/co-user account endpoints.
 
-`connect-info` is the key UI contract. Windsor returns:
+`WINDSOR_API_KEY` remains server-side. Temporary co-user access tokens are encrypted through the existing provider-credential system. The browser never receives the team API key and AIIBP never asks customers for ordinary provider passwords.
 
-- `auth_type`: `oauth` or `manual`;
-- a temporary `connect_url`;
-- the manual credential-field definitions where applicable;
-- `required` and `sensitive` flags for those fields.
-
-The Windsor URL contains a temporary access token and must be treated as a secret. It must not be written to ordinary application logs or support diagnostics. Sensitive provider fields must never be echoed back after entry.
-
-The Connectors API currently authenticates using the `api_key` query parameter. `WINDSOR_API_KEY` therefore stays server-side; the browser never receives the account API key.
-
-## 3. Multi-tenant SaaS mapping
+## 3. SaaS tenancy and authority
 
 Authorisation is scoped as:
 
-`AIIBP Business -> Windsor authorisation session -> connector -> Windsor account IDs`
+`AIIBP Business -> Windsor authorisation session -> connector -> Windsor account IDs -> AIIBP Location Data Hub source`
 
-The server stores:
+The implementation records Business, optional selected Location, connector, account IDs/names, authorisation/reconciliation timestamps and encrypted session credential evidence.
 
-- Business ID;
-- optional selected Location ID;
-- product connector key;
-- resolved Windsor connector ID;
-- hashed authorisation-session identifier;
-- encrypted temporary co-user access token;
-- reconciled Windsor account IDs/names;
-- timestamps/status.
+Every preview, import, historical backfill, seller KPI read and unlink operation fails closed unless the requested account/source belongs to the active Business and, for Data Hub operations, active Location. Provider data is evidence; AIIBP remains the authority for tenant identity, permissions, canonical business domains and normalized data lineage.
 
-Every data preview, Data Hub import and unlink must prove that the requested Windsor `account_id` exists in the active Business connection metadata. The API fails closed on an unowned account ID.
+## 4. Commercial connector catalogue
 
-Different businesses can therefore have completely different connector sets without code forks. Business allocation remains governed by the tenant product/capability configuration; source-account choice remains tenant data.
+The requested Windsor catalogue is metadata-driven and separates integration roles:
 
-## 4. Sources, sellers and destinations are distinct
+- **Sources:** advertising, analytics, CRM, social, finance and business evidence.
+- **Sellers:** Amazon Seller Central, Amazon Vendor Central, eBay, TikTok Shop and other supported marketplaces.
+- **Data platforms:** warehouse/database/file systems such as BigQuery, Redshift, S3, MongoDB, MySQL, Dataverse and Sheets.
+- **Destinations / AI destinations:** downstream systems such as Power BI, ChatGPT, Claude and Copilot Agent; these are not presented as ordinary Marketing source accounts.
 
-The supplied Windsor list contains different integration roles. They must not appear as one undifferentiated list.
+Runtime Windsor discovery/connect-info remains authoritative for availability/authentication rather than hard-coded credential forms.
 
-### Data sources
+## 5. Amazon Seller Central and eBay commercial profiles
 
-Advertising, analytics, CRM, social, finance and other systems that AIIBP can query for evidence.
-
-### Sellers
-
-Seller/e-commerce operational evidence receives a dedicated Marketing subsection:
-
-- **Amazon Seller Central (Amazon SP)** — Windsor connector `amazon_sp`.
-- **eBay** — Windsor connector `ebay`.
-- Amazon Vendor Central and TikTok Shop may also appear in Sellers where available to the tenant.
-
-### Data platforms
-
-Warehouse/database/file connectors can act as data platforms and may support source and/or destination workflows depending on Windsor capability, for example BigQuery, Redshift, S3, MongoDB, MySQL, Dataverse and Google Sheets.
-
-### Destinations / AI destinations
-
-ChatGPT, Claude, Copilot Agent and Power BI are presented as downstream destinations/analysis surfaces, not as ordinary Marketing source accounts. Destination activation is a separate workflow from source authorisation.
-
-## 5. Seller implementation references
+Point 12 adds curated field/KPI profiles instead of attempting to ingest hundreds of fields by default.
 
 ### Amazon Seller Central (Amazon SP)
 
-Windsor field reference: `https://windsor.ai/data-field/amazon_sp`
+Profiles:
 
-Current Windsor reference exposes 915 fields (394 metrics, 521 dimensions), including order/report evidence. Windsor also documents write-capable listing actions; **AIIBP Point 12 does not enable those write actions**. Seller data is read/analytics by default and any later listing mutation requires a separate permission, approval and audit contract.
-
-If AIIBP later implements a direct Amazon SP-API adapter, use Amazon Selling Partner API developer/app registration and OAuth/LWA requirements rather than asking users for Amazon passwords.
+- **Orders & revenue** — order ID/date, ASIN/product, quantity, item price/tax/currency, status, sales channel and fulfilment channel. KPI projection includes order revenue, distinct orders and units.
+- **FBA inventory health** — SKU/ASIN, fulfilable/reserved/total/unsellable quantities, recent sales/shipments and sell-through. KPI projection includes fulfilable units, 30-day shipped units and sell-through.
 
 ### eBay
 
-Windsor field reference: `https://windsor.ai/data-field/ebay`
+Profiles:
 
-Current Windsor reference exposes 103 fields (43 metrics, 60 dimensions), including orders, order lines, listing traffic and Promoted Listings campaign performance.
+- **Orders & seller proceeds** — order state, totals, seller proceeds, marketplace fees, refunds and buyer geography. KPI projection includes gross sales, seller proceeds, marketplace fees and distinct orders.
+- **Listing traffic & conversion** — impressions, views, click-through, sales conversion and transactions.
+- **Promoted Listings** — campaign, impressions, clicks, attributed sales, ad fees and ROAS.
 
-Official direct-API references for any later native connector:
+Profiles are defaults, not schema authority: live Windsor field discovery remains available and custom fields may be used where appropriate.
 
-- OAuth authorisation: `https://developer.ebay.com/develop/guides/sell/authorization`
-- Sell Finances API: `https://developer.ebay.com/develop/api/sell/finances_api`
+## 6. Data Hub ingestion and scheduling
 
-Direct eBay user data requires OAuth user consent. OAuth tokens/refresh tokens are confidential; provider passwords must not be collected by AIIBP.
+Connected accounts import into existing canonical Marketing Data Core storage:
 
-## 6. Requested connector inventory
+`MarketingDataSource -> MarketingRawRecord -> MarketingNormalisedRecord -> lineage -> sync runs -> connector health`
 
-The product catalogue records the following requested connections. Live Windsor connector IDs/auth requirements are resolved from Windsor discovery/connect-info instead of freezing credential forms in AIIBP.
+No Windsor-only reporting database is introduced.
 
-### CRM, lifecycle and automation
+The customer UI can configure:
 
-ActiveCampaign; Gravity Forms; HubSpot; Klaviyo; MailerSend; Microsoft Dynamics 365; Reply.io; Salesforce; Salesforce Marketing Cloud; Zoho CRM.
+- Manual;
+- Hourly;
+- Daily;
+- Weekly.
 
-### SEO, search and competitive intelligence
+Scheduled Windsor sources reuse the existing `marketingDataSyncWorkerService`. The worker uses the source checkpoint watermark for incremental date windows and the same location ownership, concurrency, retry and health contracts as other Marketing Data sources.
 
-Ahrefs; Bing Webmaster Tools; Google PageSpeed Insights; Google Search Console; Semrush; Yandex Metrica.
+Production worker activation remains an explicit operations step controlled by environment configuration; source support does not silently start a production worker.
 
-### Advertising
+## 7. Historical backfill / high-cardinality safety
 
-Amazon Ads; Amazon DSP; Apple Search Ads; Facebook Ads (Meta); Facebook Lead Ads (Meta); Google Ad Manager; Google Ads; Google Campaign Manager 360 (CM360); Google Display & Video 360 (DV360); Google Search Ads 360 (SA360); LinkedIn Ads; Microsoft Ads (Bing Ads); MNTN; OpenAI Ads / ChatGPT Ads; Pinterest Ads; Quora Ads; Rakuten Advertising; Reddit Ads; Shopee Ads; Snapchat Ads; Spotify Ads; TikTok Ads; Twitter Ads; Yahoo! Japan.
+Because Point 12 does not assume an undocumented general offset/pagination contract, historical import uses **adaptive date slicing**:
 
-### Organic/social/content
+1. a requested historical period is divided into bounded date slices;
+2. each Windsor request is capped at 100 rows;
+3. if a slice reaches the cap, the slice is recursively subdivided;
+4. subdivision stops at one-day windows;
+5. if a one-day window still reaches the cap, the date is recorded in `saturatedDays` and the response returns `complete: false` rather than pretending the history is complete.
 
-Facebook Page Insights (Meta); Instagram Insights; Instagram Public Data; LinkedIn Pages; Pinterest Organic; RSS; Threads; TikTok Organic; Twitter Organic (Legacy); YouTube.
+Commercial guardrails:
 
-### Sellers and marketplaces
+- maximum single backfill range: 366 days;
+- default initial slice: 7 days; configurable up to 31 days;
+- maximum 120 Windsor requests in one backfill operation;
+- backfill preserves the normal incremental-sync checkpoint rather than moving it backwards.
 
-Amazon Seller Central (Amazon SP); Amazon Vendor Central; eBay; Google Merchant Center; Shopify; TikTok Shop; Yotpo.
+A connector/day that remains saturated after one-day slicing requires connector-specific investigation before historical completeness is accepted.
 
-### Finance/payments/commerce
+## 8. Windsor API rate-budget protection
 
-Bling!; Exchange Rates; PayPal Transaction; QuickBooks; Square; Stripe; Xero; Yahoo! Finance Price.
+A persistent Mongo-backed usage budget protects all application instances against exceeding provider-wide usage by accident.
 
-### Data/warehouse/developer platforms
+Documented external ceilings represented in source:
 
-Amazon Redshift; Amazon S3; Amazon SQS; Docker Hub; GitHub; GitLab; Google BigQuery; Google Sheets; Google Webfonts; Microsoft Dataverse; MongoDB; MySQL.
+- 600 requests/minute;
+- 10,000 requests/day.
 
-### Collaboration, communications and work management
+Default AIIBP budgets retain headroom:
 
-Microsoft Teams; Monday; Rocket.Chat; SendGrid; Slack; Twilio; Twilio TaskRouter; Zoom.
+- 540 requests/minute;
+- 9,000 requests/day.
 
-### Product/app analytics and voice of customer
+Optional server overrides:
 
-AppFollow; Google Analytics 4; Microsoft Clarity; Mixpanel; Survey Sparrow; Surveymonkey.
+- `WINDSOR_REQUESTS_PER_MINUTE`;
+- `WINDSOR_REQUESTS_PER_DAY`.
 
-### Destinations / AI analysis surfaces
+Minute/day counters are persistent and TTL-cleaned. Requests fail closed with `WINDSOR_RATE_BUDGET_EXHAUSTED` when a configured budget is exhausted. Import, scheduled sync and historical backfill use the shared budget contract.
 
-ChatGPT; Claude; Copilot Agent; Power BI.
+## 9. Customer UI
 
-## 7. UI and Data Hub contract
+`/marketing` remains the single allocatable Marketing module. Windsor is an internal workspace.
 
-Marketing now has one module landing page with internal workspaces:
+For each connected source account, the customer can:
 
-- Windsor data connections;
-- native connections;
-- Sellers;
-- journeys/automation;
-- attribution/performance;
-- AI marketing assistant.
+- search/filter connectors;
+- securely connect/reconnect through provider-hosted authentication;
+- reconcile/check linked accounts;
+- preview data;
+- choose a curated data profile where available;
+- create/update the active Location Data Hub source;
+- choose manual/hourly/daily/weekly automatic sync;
+- run bounded historical import by date range;
+- see source profile/cadence/status;
+- load seller KPI summaries for seller connectors;
+- disconnect a linked account.
 
-The Windsor UI provides:
+Data Hub source mappings are returned on page reload, so the UI remains operable after the initial import rather than relying on transient browser state.
 
-- connector search/filter;
-- separate Sources, Sellers, Data platforms, Destinations and AI destinations;
-- current connection state;
-- `Connect securely` action;
-- Windsor/provider OAuth/manual hosted setup;
-- `Check connection` reconciliation;
-- Business-bound account list;
-- read-only data preview;
-- manual `Import to Data Hub` for the active Location;
-- account unlink;
-- explicit unavailable/not-configured states.
+## 10. Seller KPI evidence
 
-The initial import path creates/updates a location-owned canonical `MarketingDataSource` using the existing generic Marketing Data Core contract, then stores Windsor rows through the existing raw/normalised lineage pipeline. It does not create a Windsor-only reporting database.
+Seller dashboard summaries consume `MarketingNormalisedRecord`, not a direct live Windsor response. KPI calculation is Business + Location + Data Hub source scoped and uses the selected seller profile.
 
-Initial manual import is deliberately bounded to 100 rows per request while connector-specific field sets, pagination, historical windows and rate-limit behaviour are validated. **This is not yet a claim of complete historical/backfill ingestion.** Scheduled/incremental/backfill execution should reuse the same canonical source after Windsor pagination/window contracts are accepted.
+The initial read model considers up to 10,000 normalized records and reports when that bound is reached so the UI does not imply an unbounded/exhaustive result. This is a commercial acceptance baseline; larger aggregate/materialized views can be introduced later without changing the ingestion authority.
 
-For OAuth connectors, AIIBP must never render a provider-password field. For manual connectors, Windsor's setup screen is preferred so provider API keys/secrets need not be stored in AIIBP.
+## 11. AI assistance boundary
 
-## 8. AI assistance boundary
-
-AI may assist with:
-
-- connector discovery and explaining setup requirements;
-- recommending which data sources are relevant to the Business;
-- detecting missing/broken connections;
-- field selection/mapping suggestions;
-- data-quality/anomaly explanations;
-- metric interpretation and dashboard summaries;
-- suggesting campaign or commercial actions based on evidence.
-
-The existing Marketing AI/Business Adviser surfaces should consume canonical Data Hub evidence created by the connector pipeline. AI connection help must use connector metadata/status rather than provider secrets.
+AI may assist with connector discovery/setup explanation, source recommendation, field/mapping suggestions, connection-health diagnosis, data-quality/anomaly explanation, metric interpretation, seller/marketing summaries and proposed commercial actions.
 
 AI must not:
 
-- obtain or display provider passwords;
-- reveal `WINDSOR_API_KEY` or temporary authorisation tokens;
-- connect/unlink an account without the authorised user action;
-- query a Windsor account not bound to the active Business;
-- execute a Windsor write action automatically;
-- present model output as canonical data.
+- obtain/display provider passwords;
+- reveal Windsor/team/session secrets;
+- cross Business or Location boundaries;
+- connect/unlink an account autonomously;
+- perform Windsor/provider write actions automatically;
+- replace normalized deterministic evidence as the source of truth.
 
-## 9. Environment and production requirements
+Any future write-capable provider workflow requires explicit permission, policy, approval, audit and rollback contracts.
 
-Required server environment variable:
+## 12. Validation
 
-`WINDSOR_API_KEY=<team-owner API key>`
+Dedicated workflow: **Point 12 Marketing Windsor Gate**.
 
-Before production activation:
+The gate validates:
 
-1. Confirm Windsor commercial plan/limits support expected tenants, connector count and refresh cadence.
-2. Confirm API-key storage is production-secret-manager backed.
-3. Confirm no access-token-bearing Windsor URL is logged by reverse proxy/APM/application logs.
-4. Perform Business A / Business B isolation tests with different Windsor authorisation sessions.
-5. Confirm account preview/import/unlink cannot cross Business boundaries.
-6. Confirm provider terms/required approvals for any connector used commercially.
-7. Confirm privacy/retention policy for source data copied into AIIBP.
-8. Keep all Windsor write-capable actions disabled until separately implemented and approved.
-9. Validate connector-specific pagination, historical window/backfill and refresh behaviour before scheduled ingestion is enabled.
-10. Run manual acceptance from `point12-business-module-boundaries.md` plus seller/Windsor cases.
+- distinctive module boundaries;
+- requested connector/seller classification;
+- documented Windsor query parameters;
+- tenant-owned account and source enforcement;
+- curated Amazon/eBay profiles;
+- Data Hub source/profile/schedule contracts;
+- scheduled sync checkpoint and rate-budget integration;
+- persistent provider usage budgeting;
+- adaptive backfill/saturation handling;
+- seller KPI projection from normalized evidence;
+- route permission contracts;
+- frontend commercial operations workflow;
+- backend source/application import checks;
+- production frontend build and bundle budget.
 
-No production provider connection, migration, scheduled sync or write action is authorised by this implementation record.
+At the final Point 12 commercial-readiness head, both backend and frontend jobs of this gate are green.
+
+## 13. Commercial activation checklist
+
+Source development is complete for the acceptance baseline. Before enabling a tenant in production:
+
+1. configure `WINDSOR_API_KEY` through the production secret/environment process;
+2. confirm the commercial Windsor plan and refresh limits for expected tenant/account volumes;
+3. verify access-token-bearing URLs are not captured by application/proxy/APM logs;
+4. perform Business A vs Business B and Location A vs Location B isolation tests;
+5. connect representative live providers, including Amazon Seller Central and eBay where commercially required;
+6. validate returned live field names against curated profiles and adjust mappings if Windsor schema differs;
+7. test preview, source import, scheduled cadence, backfill saturation reporting and disconnect;
+8. validate seller KPI values against provider-native reports for the acceptance period;
+9. confirm source-data privacy/retention and applicable provider terms;
+10. run HCI/accessibility/manual browser acceptance on the Marketing workflow;
+11. only then enable the Marketing Data sync worker for approved production tenants;
+12. retain all provider write-capable actions disabled until a separate approved implementation exists.
+
+**No production Windsor credential, live provider connection, worker activation, production historical backfill or provider write action is performed by this source-development closure.**
