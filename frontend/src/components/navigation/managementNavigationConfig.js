@@ -133,6 +133,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/ai/no-show-predictions", "No-show prediction", "Review booking risk", "CalendarClock", false, "ai:use", "ai-tools", ADVANCED],
       ["/ai/sales-forecasting", "Sales forecasting", "Forecast the revenue outlook", "BadgePoundSterling", false, "ai:use", "ai-tools", ADVANCED],
       ["/management-copilot", "Management copilot", "Review prioritised management actions", "Sparkles", false, "ai:use", "ai-tools", ADVANCED],
+      ["/stylist-copilot", "Stylist copilot", "Prepare appointment-scoped professional decision support", "Scissors", false, "ai:use", "ai-tools", ADVANCED],
     ],
   },
   {
