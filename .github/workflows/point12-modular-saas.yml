@@ -21,7 +21,7 @@ on:
       - "docs/architecture/business-module-boundaries.md"
       - "docs/roadmap/point12-*.md"
       - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
-      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.1.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
       - ".github/workflows/point12-modular-saas.yml"
   push:
     branches:
@@ -45,7 +45,7 @@ on:
       - "docs/architecture/business-module-boundaries.md"
       - "docs/roadmap/point12-*.md"
       - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
-      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.1.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
       - ".github/workflows/point12-modular-saas.yml"
 
 permissions:
