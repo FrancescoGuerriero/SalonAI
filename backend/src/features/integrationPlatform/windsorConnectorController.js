@@ -2,11 +2,10 @@ import mongoose from "mongoose";
 
 import IntegrationApp from "../../models/IntegrationApp.js";
 import IntegrationConnection from "../../models/IntegrationConnection.js";
+import MarketingDataSource from "../../models/MarketingDataSource.js";
 import { createServiceError } from "../../shared/serviceError.js";
-import {
-  resolveProviderCredential,
-  storeProviderCredential,
-} from "./providerCredentialService.js";
+import { resolveProviderCredential, storeProviderCredential } from "./providerCredentialService.js";
+import { runWindsorBackfill } from "./windsorBackfillService.js";
 import {
   generateWindsorAuthorization,
   getWindsorConnectorFields,
@@ -18,6 +17,9 @@ import {
 } from "./windsorConnectorService.js";
 import { windsorMarketingConnector } from "./windsorConnectorCatalogue.js";
 import { importWindsorAccountToDataHub } from "./windsorDataHubService.js";
+import { listWindsorFieldProfiles, resolveWindsorFieldProfile } from "./windsorFieldProfiles.js";
+import { reserveWindsorApiRequest } from "./windsorRateBudgetService.js";
+import { sellerKpiSummary } from "./windsorSellerKpiService.js";
 
 const APP_KEY = "windsor-marketing-connections";
 
@@ -29,7 +31,7 @@ function businessId(request) {
 
 function locationId(request, { required = false } = {}) {
   const value = String(request.effectiveAuthority?.locationId || request.tenantContext?.locationId || "");
-  if (required && !value) throw createServiceError("Select a location before importing Windsor data into the Data Hub.", 400, { code: "LOCATION_REQUIRED" });
+  if (required && !value) throw createServiceError("Select a location before using Windsor Data Hub operations.", 400, { code: "LOCATION_REQUIRED" });
   return value;
 }
 
@@ -97,6 +99,23 @@ function serialiseConnection(entry, connection = null) {
   };
 }
 
+function serialiseSource(source) {
+  return {
+    sourceId: String(source._id),
+    productKey: String(source.sourceConfig?.windsorProductKey || ""),
+    accountId: String(source.sourceConfig?.windsorAccountId || ""),
+    name: source.name,
+    status: source.status,
+    profileKey: source.sourceConfig?.profileKey || "custom",
+    profileLabel: source.sourceConfig?.profileLabel || "Custom fields",
+    cadence: source.schedule?.cadence || "manual",
+    nextRunAt: source.schedule?.nextRunAt || null,
+    lastSyncAt: source.lastSyncAt || null,
+    lastSuccessAt: source.lastSuccessAt || null,
+    lastError: source.lastError || "",
+  };
+}
+
 async function accessTokenFor(connection) {
   if (!connection) throw createServiceError("Windsor authorization session is unavailable.", 409);
   return (await resolveProviderCredential(connection, "access_token")).secret;
@@ -106,6 +125,20 @@ function assertOwnedAccount(connection, accountId) {
   const allowed = new Set((connection.metadata?.accountIds || []).map(String));
   if (!accountId || !allowed.has(accountId)) throw createServiceError("That Windsor account is not connected to the active business.", 403, { code: "WINDSOR_ACCOUNT_NOT_OWNED_BY_BUSINESS" });
   return (connection.metadata?.accounts || []).find((account) => String(account.accountId) === accountId) || null;
+}
+
+async function assertOwnedSource(sourceId, tenantBusinessId, selectedLocationId, key) {
+  if (!mongoose.isValidObjectId(sourceId)) throw createServiceError("sourceId must be a valid identifier.", 400);
+  const source = await MarketingDataSource.findOne({
+    _id: sourceId,
+    business: tenantBusinessId,
+    location: selectedLocationId,
+    provider: "generic",
+    "sourceConfig.managedBy": "windsor_marketing_connector",
+    "sourceConfig.windsorProductKey": key,
+  }).lean();
+  if (!source) throw createServiceError("That Windsor Data Hub source does not belong to this Business, Location and connector.", 403, { code: "WINDSOR_SOURCE_NOT_OWNED_BY_CONTEXT" });
+  return source;
 }
 
 async function reconcileConnection(tenantBusinessId, key, entry) {
@@ -123,11 +156,22 @@ async function reconcileConnection(tenantBusinessId, key, entry) {
 
 export async function catalogue(request, response) {
   const tenantBusinessId = businessId(request);
+  const selectedLocationId = locationId(request);
   const availability = await listWindsorConnectorAvailability();
   const app = await appForBusiness(tenantBusinessId);
-  const connections = app ? await IntegrationConnection.find({ business: tenantBusinessId, app: app._id, provider: { $regex: /^windsor_/ } }).lean() : [];
+  const [connections, sources] = await Promise.all([
+    app ? IntegrationConnection.find({ business: tenantBusinessId, app: app._id, provider: { $regex: /^windsor_/ } }).lean() : [],
+    selectedLocationId && mongoose.isValidObjectId(selectedLocationId)
+      ? MarketingDataSource.find({ business: tenantBusinessId, location: selectedLocationId, provider: "generic", "sourceConfig.managedBy": "windsor_marketing_connector" }).lean()
+      : [],
+  ]);
   const byKey = new Map(connections.map((connection) => [connection.connectionKey, connection]));
-  response.json({ version: "1.0.0", runtime: windsorConnectorRuntimeConfig(), items: availability.map((entry) => ({ ...entry, connection: serialiseConnection(entry, byKey.get(entry.key) || null) })) });
+  response.json({
+    version: "1.1.0",
+    runtime: windsorConnectorRuntimeConfig(),
+    sources: sources.map(serialiseSource),
+    items: availability.map((entry) => ({ ...entry, profiles: listWindsorFieldProfiles(entry.key), connection: serialiseConnection(entry, byKey.get(entry.key) || null) })),
+  });
 }
 
 export async function authorize(request, response) {
@@ -157,8 +201,13 @@ export async function fields(request, response) {
   const tenantBusinessId = businessId(request);
   const { value: key, entry } = productKey(request);
   const { connection } = await connectionForBusiness(tenantBusinessId, key);
-  const connectorId = String(connection.metadata?.connectorId || key);
-  response.json({ provider: key, label: entry.label, connectorId, fields: await getWindsorConnectorFields(connectorId) });
+  response.json({ provider: key, label: entry.label, connectorId: String(connection.metadata?.connectorId || key), profiles: listWindsorFieldProfiles(key), fields: await getWindsorConnectorFields(String(connection.metadata?.connectorId || key)) });
+}
+
+export async function profiles(request, response) {
+  businessId(request);
+  const { value: key, entry } = productKey(request);
+  response.json({ provider: key, label: entry.label, profiles: listWindsorFieldProfiles(key) });
 }
 
 export async function preview(request, response) {
@@ -168,11 +217,12 @@ export async function preview(request, response) {
   const payload = request.body && typeof request.body === "object" ? request.body : {};
   const accountId = String(payload.accountId || "").trim();
   assertOwnedAccount(connection, accountId);
-  const connectorId = String(connection.metadata?.connectorId || key);
-  const data = await previewWindsorData({ connectorId, accountId, fields: payload.fields, datePreset: payload.datePreset, dateFrom: payload.dateFrom, dateTo: payload.dateTo, limit: payload.limit });
+  const profile = resolveWindsorFieldProfile(key, payload.profileKey || "");
+  await reserveWindsorApiRequest();
+  const data = await previewWindsorData({ connectorId: String(connection.metadata?.connectorId || key), accountId, fields: payload.fields?.length ? payload.fields : profile?.fields, datePreset: payload.datePreset, dateFrom: payload.dateFrom, dateTo: payload.dateTo, limit: payload.limit });
   connection.lastSyncAt = new Date();
   await connection.save();
-  response.json({ provider: key, label: entry.label, connectorId, accountId, preview: true, readOnly: true, data });
+  response.json({ provider: key, label: entry.label, accountId, profile: profile ? { key: profile.key, label: profile.label } : null, preview: true, readOnly: true, data });
 }
 
 export async function importToDataHub(request, response) {
@@ -185,15 +235,15 @@ export async function importToDataHub(request, response) {
   const payload = request.body && typeof request.body === "object" ? request.body : {};
   const accountId = String(payload.accountId || "").trim();
   const account = assertOwnedAccount(connection, accountId);
-  const connectorId = String(connection.metadata?.connectorId || key);
   const result = await importWindsorAccountToDataHub({
     connection,
-    connectorId,
+    connectorId: String(connection.metadata?.connectorId || key),
     productKey: key,
     productLabel: entry.label,
     accountId,
     accountName: account?.accountName || accountId,
     fields: payload.fields,
+    profileKey: payload.profileKey || "",
     datePreset: payload.datePreset || "last_7d",
     limit: payload.limit || 100,
     syncCadence: payload.syncCadence || "manual",
@@ -202,7 +252,29 @@ export async function importToDataHub(request, response) {
     locationId: selectedLocationId,
     actor,
   });
-  response.json({ provider: key, label: entry.label, connectorId, accountId, locationId: selectedLocationId, ...result });
+  response.json({ provider: key, label: entry.label, accountId, locationId: selectedLocationId, ...result });
+}
+
+export async function backfill(request, response) {
+  const tenantBusinessId = businessId(request);
+  const selectedLocationId = locationId(request, { required: true });
+  const actor = actorUser(request);
+  const { value: key, entry } = productKey(request);
+  const payload = request.body && typeof request.body === "object" ? request.body : {};
+  const sourceId = String(payload.sourceId || "").trim();
+  await assertOwnedSource(sourceId, tenantBusinessId, selectedLocationId, key);
+  const result = await runWindsorBackfill(sourceId, { dateFrom: payload.dateFrom, dateTo: payload.dateTo, sliceDays: payload.sliceDays, actor }, { businessId: tenantBusinessId, locationId: selectedLocationId });
+  response.json({ provider: key, label: entry.label, locationId: selectedLocationId, ...result });
+}
+
+export async function sellerKpis(request, response) {
+  const tenantBusinessId = businessId(request);
+  const selectedLocationId = locationId(request, { required: true });
+  const { value: key, entry } = productKey(request);
+  if (entry.kind !== "seller") throw createServiceError("Seller KPI summaries are only available for seller connectors.", 409, { code: "WINDSOR_CONNECTOR_NOT_SELLER" });
+  const sourceId = String(request.query.sourceId || "").trim();
+  await assertOwnedSource(sourceId, tenantBusinessId, selectedLocationId, key);
+  response.json({ provider: key, label: entry.label, ...(await sellerKpiSummary(sourceId, { profileKey: request.query.profile || "" }, { businessId: tenantBusinessId, locationId: selectedLocationId })) });
 }
 
 export async function unlinkAccount(request, response) {
@@ -211,9 +283,8 @@ export async function unlinkAccount(request, response) {
   const accountId = String(request.params.accountId || "").trim();
   const { connection } = await connectionForBusiness(tenantBusinessId, key);
   assertOwnedAccount(connection, accountId);
-  const connectorId = String(connection.metadata?.connectorId || key);
-  await unlinkWindsorLinkedAccount({ connectorId, accountId, accessToken: await accessTokenFor(connection) });
+  await unlinkWindsorLinkedAccount({ connectorId: String(connection.metadata?.connectorId || key), accountId, accessToken: await accessTokenFor(connection) });
   response.json(await reconcileConnection(tenantBusinessId, key, entry));
 }
 
-export default { authorize, catalogue, fields, importToDataHub, preview, reconcile, unlinkAccount };
+export default { authorize, backfill, catalogue, fields, importToDataHub, preview, profiles, reconcile, sellerKpis, unlinkAccount };
