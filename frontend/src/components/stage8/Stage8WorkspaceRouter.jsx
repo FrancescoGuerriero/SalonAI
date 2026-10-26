@@ -10,6 +10,8 @@ const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionPropos
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
+const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
+const WindsorMarketingConnectionsPage = lazy(() => import("../../pages/WindsorMarketingConnectionsPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -25,15 +27,27 @@ function DeferredWorkspace({ children }) {
   return <Suspense fallback={null}>{children}</Suspense>;
 }
 
+function MarketingAccess({ children, loading, user }) {
+  if (loading) return null;
+  if (!user) return <Navigate replace to="/login" />;
+  return hasPermission(user, "feature-control:read")
+    ? <DeferredWorkspace>{children}</DeferredWorkspace>
+    : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+}
+
 export default function Stage8WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
 
   if (pathname === "/marketing") {
-    if (loading) return null;
-    if (!user) return <Navigate replace to="/login" />;
-    return hasPermission(user, "feature-control:read")
-      ? <DeferredWorkspace><MarketingHubPage /></DeferredWorkspace>
-      : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+    return <MarketingAccess loading={loading} user={user}><MarketingModulePage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketing/native-connections") {
+    return <MarketingAccess loading={loading} user={user}><MarketingHubPage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketing/windsor") {
+    return <MarketingAccess loading={loading} user={user}><WindsorMarketingConnectionsPage /></MarketingAccess>;
   }
 
   if (pathname === "/admin/system/data-hub") {
