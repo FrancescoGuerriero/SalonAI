@@ -33,11 +33,14 @@ import {
   updateEnrollmentOutcome,
 } from "./stage7CrmController.js";
 import {
+  createCrmActionDraft,
   createTechnicalRecord,
+  getCrmActionDrafts,
   getPoint9Customer360,
   getRetentionOpportunities,
   getRetentionQueue,
   getTechnicalRecords,
+  updateCrmActionDraft,
 } from "./stage9CrmController.js";
 
 const router = express.Router();
@@ -100,6 +103,26 @@ router.get(
   effectiveAuthorityMiddleware,
   requirePermissions("customer:read"),
   asyncHandler(getRetentionOpportunities)
+);
+
+router
+  .route("/crm/action-drafts")
+  .get(
+    effectiveAuthorityMiddleware,
+    requirePermissions("customer:read"),
+    asyncHandler(getCrmActionDrafts)
+  )
+  .post(
+    effectiveAuthorityMiddleware,
+    requirePermissions("customer:update"),
+    asyncHandler(createCrmActionDraft)
+  );
+
+router.patch(
+  "/crm/action-drafts/:draftId",
+  effectiveAuthorityMiddleware,
+  requirePermissions("customer:update"),
+  asyncHandler(updateCrmActionDraft)
 );
 
 router
