@@ -64,8 +64,19 @@ function toPythonPayload(context) {
       completedAt: item.startsAt || "",
       notes: item.notes || "",
     })),
-    previousProducts: [],
-    followUp: [],
+    previousProducts: (context?.productHistory || []).map((item) => ({
+      name: item.name || "Previous product",
+      productName: item.name || "",
+      quantity: item.quantity || 1,
+      purchasedAt: item.purchasedAt || "",
+    })),
+    followUp: (context?.followUp || []).map((item) => ({
+      title: item.title || "Follow-up",
+      summary: item.summary || "",
+      dueAt: item.dueAt || "",
+      completed: Boolean(item.completed),
+      createdAt: item.createdAt || "",
+    })),
     consentedContextKeys: context?.consent?.sensitiveContextIncluded
       ? sensitiveKeys
       : [],
