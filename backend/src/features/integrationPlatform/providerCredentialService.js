@@ -15,6 +15,14 @@ const ROLE_TO_TYPE = Object.freeze({
   refresh_token: "oauth_refresh_token",
   client_secret: "oauth_client_secret",
   api_key: "provider_api_key",
+  access_token_secret: "service_key",
+  consumer_secret: "service_key",
+  secret_access_key: "service_key",
+  session_token: "service_key",
+  private_key: "service_key",
+  signing_key: "webhook_signing",
+  password: "service_key",
+  service_account_json: "service_key",
 });
 
 function text(value, max = 2000) {
@@ -38,7 +46,7 @@ function date(value, field) {
 }
 
 function bindingRole(value) {
-  const role = text(value, 40).toLowerCase().replaceAll("-", "_");
+  const role = text(value, 80).toLowerCase().replaceAll("-", "_");
   if (!ROLE_TO_TYPE[role]) {
     throw createServiceError(
       `role must be one of: ${Object.keys(ROLE_TO_TYPE).join(", ")}.`,
@@ -100,7 +108,7 @@ export async function storeProviderCredential(
   const { connection } = await connectionForBusiness(appId, connectionId, businessId);
   const role = bindingRole(payload.role);
   const credentialType = ROLE_TO_TYPE[role];
-  const secret = text(payload.secret, 20000);
+  const secret = text(payload.secret, 50000);
   if (!secret) {
     throw createServiceError("Provider credential secret is required.", 400, { field: "secret" });
   }
@@ -152,8 +160,17 @@ export async function storeProviderCredential(
 
   setConnectionBinding(connection, role, credential._id);
   if (role === "access_token") connection.tokenExpiresAt = expiresAt;
-  if (connection.status === "pending") connection.status = "connected";
-  if (!connection.connectedAt) connection.connectedAt = new Date();
+
+  if (!["revoked", "disconnected"].includes(connection.status)) {
+    connection.status = "pending";
+  }
+  connection.connectedAt = null;
+  connection.metadata = {
+    ...(connection.metadata?.toObject?.() || connection.metadata || {}),
+    verificationStatus: "required",
+    verifiedAt: null,
+    verifiedAccount: null,
+  };
   await connection.save();
 
   return {
@@ -165,6 +182,7 @@ export async function storeProviderCredential(
       status: connection.status,
       tokenExpiresAt: connection.tokenExpiresAt,
       credentialBindings: connection.credentialBindings,
+      verificationStatus: connection.metadata?.verificationStatus || "required",
     },
     secretStored: true,
     secretReturned: false,
@@ -176,13 +194,14 @@ export async function resolveProviderCredential(
   role,
   { allowExpired = false, markUsed = true } = {}
 ) {
+  const normalisedRole = bindingRole(role);
   const binding = (connection?.credentialBindings || []).find(
-    (item) => item.role === bindingRole(role)
+    (item) => item.role === normalisedRole
   );
   if (!binding?.credential) {
     throw createServiceError(`Provider credential is not bound for role: ${role}.`, 409, {
       code: "PROVIDER_CREDENTIAL_NOT_BOUND",
-      role,
+      role: normalisedRole,
     });
   }
 
@@ -195,14 +214,14 @@ export async function resolveProviderCredential(
   if (!credential) {
     throw createServiceError(`Provider credential is unavailable for role: ${role}.`, 409, {
       code: "PROVIDER_CREDENTIAL_UNAVAILABLE",
-      role,
+      role: normalisedRole,
     });
   }
   const now = new Date();
   if (!allowExpired && credential.expiresAt && credential.expiresAt <= now) {
     throw createServiceError(`Provider credential has expired for role: ${role}.`, 409, {
       code: "PROVIDER_CREDENTIAL_EXPIRED",
-      role,
+      role: normalisedRole,
     });
   }
 

@@ -108,9 +108,7 @@ export async function capture(request, response) {
     actorUser: actorUser(request),
   });
   const attribution = await attributionOutcome(() =>
-    recordLeadCaptureAttribution(result.lead, payload, {
-      businessId: tenantAuthority.businessId,
-    })
+    recordLeadCaptureAttribution(result.lead, payload, tenantAuthority)
   );
 
   response.status(201).json({
@@ -162,9 +160,7 @@ export async function convert(request, response) {
     actorUser: actorUser(request),
   });
   const attribution = await attributionOutcome(() =>
-    recordLeadConversionAttribution(result.lead, result.customer, {
-      businessId: tenantAuthority.businessId,
-    })
+    recordLeadConversionAttribution(result.lead, result.customer, tenantAuthority)
   );
 
   response.status(201).json({
@@ -193,7 +189,7 @@ export async function addOpportunity(request, response) {
         channel: payload.sourceChannel || payload.attribution?.channel || "other",
         externalReference: payload.attribution?.externalReference,
       },
-      { businessId: tenantAuthority.businessId }
+      tenantAuthority
     )
   );
 
@@ -221,9 +217,7 @@ export async function attribution(request, response) {
   const tenantAuthority = authority(request);
   await assertLocationLead(request);
   response.json(
-    await attributionForLead(request.params.leadId, {
-      businessId: tenantAuthority.businessId,
-    })
+    await attributionForLead(request.params.leadId, tenantAuthority)
   );
 }
 
@@ -236,7 +230,7 @@ export async function addAttribution(request, response) {
         ...body(request),
         lead: request.params.leadId,
       },
-      { businessId: tenantAuthority.businessId }
+      tenantAuthority
     )
   );
 }

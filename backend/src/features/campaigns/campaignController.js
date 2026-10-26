@@ -27,6 +27,28 @@ function businessId(request) {
   return value;
 }
 
+function locationId(request) {
+  const value =
+    request.effectiveAuthority?.locationId ||
+    request.tenantContext?.locationId ||
+    null;
+  if (!value) {
+    throw createServiceError(
+      "Select a location before using cross-channel campaign execution, social publishing or performance.",
+      400,
+      { code: "LOCATION_REQUIRED" }
+    );
+  }
+  return value;
+}
+
+function campaignAuthority(request) {
+  return {
+    businessId: businessId(request),
+    locationId: locationId(request),
+  };
+}
+
 function actorUser(request) {
   return request.user?._id || request.user?.id || null;
 }
@@ -79,7 +101,7 @@ export async function performance(req, res) {
     await campaignPerformance(
       req.params.id,
       req.query || {},
-      { businessId: businessId(req) }
+      campaignAuthority(req)
     )
   );
 }
@@ -89,16 +111,14 @@ export async function schedule(req, res) {
     await service.scheduleCampaign(
       req.params.id,
       req.body?.scheduledFor,
-      { businessId: businessId(req) }
+      campaignAuthority(req)
     )
   );
 }
 
 export async function cancel(req, res) {
   res.json(
-    await service.cancelCampaign(req.params.id, {
-      businessId: businessId(req),
-    })
+    await service.cancelCampaign(req.params.id, campaignAuthority(req))
   );
 }
 
@@ -107,7 +127,7 @@ export async function jobs(req, res) {
     await service.campaignJobs(
       req.params.id,
       req.query || {},
-      { businessId: businessId(req) }
+      campaignAuthority(req)
     )
   );
 }
@@ -117,7 +137,7 @@ export async function executions(req, res) {
     items: await listCampaignExecutions(
       req.params.id,
       req.query || {},
-      { businessId: businessId(req) }
+      campaignAuthority(req)
     ),
   });
 }
@@ -128,7 +148,7 @@ export async function createExecution(req, res) {
       req.params.id,
       req.body || {},
       {
-        businessId: businessId(req),
+        ...campaignAuthority(req),
         actorUser: actorUser(req),
       }
     )
@@ -140,7 +160,7 @@ export async function publications(req, res) {
     items: await listSocialPublications(
       req.params.id,
       req.query || {},
-      { businessId: businessId(req) }
+      campaignAuthority(req)
     ),
     publishing: socialPublishingStatus(),
   });
@@ -152,7 +172,7 @@ export async function createPublication(req, res) {
       req.params.id,
       req.body || {},
       {
-        businessId: businessId(req),
+        ...campaignAuthority(req),
         actorUser: actorUser(req),
       }
     )
@@ -165,7 +185,7 @@ export async function queuePublication(req, res) {
       req.params.id,
       req.params.publicationId,
       {
-        businessId: businessId(req),
+        ...campaignAuthority(req),
         actorUser: actorUser(req),
       }
     )
@@ -178,7 +198,7 @@ export async function publishPublication(req, res) {
       req.params.id,
       req.params.publicationId,
       {
-        businessId: businessId(req),
+        ...campaignAuthority(req),
         actorUser: actorUser(req),
       }
     )

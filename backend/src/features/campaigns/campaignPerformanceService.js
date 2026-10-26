@@ -85,6 +85,12 @@ function objectId(value, field) {
   return candidate;
 }
 
+function locationAuthority(businessId, locationId) {
+  objectId(businessId, "business");
+  objectId(locationId, "location");
+  return { business: businessId, location: locationId };
+}
+
 function safeDate(value, field) {
   if (value === undefined || value === null || value === "") return null;
   const parsed = new Date(value);
@@ -152,12 +158,13 @@ async function campaignForBusiness(campaignId, businessId) {
   return campaign;
 }
 
-async function importedMarketingRecords(campaign, businessId, query = {}) {
+async function importedMarketingRecords(campaign, businessId, locationId, query = {}) {
   const aliases = campaignAliases(campaign);
   if (!aliases.length) return [];
 
   const match = {
     business: businessId,
+    location: locationId,
     $or: [
       { "dimensions.utmCampaign": { $in: aliases } },
       { "dimensions.campaign": { $in: aliases } },
@@ -309,25 +316,29 @@ export async function campaignPerformance(
   query = {},
   {
     businessId,
+    locationId,
   } = {}
 ) {
+  locationAuthority(businessId, locationId);
   const campaign = await campaignForBusiness(campaignId, businessId);
   const [executions, touches, marketingRecords] = await Promise.all([
     CampaignExecution.find({
       business: businessId,
+      location: locationId,
       campaign: campaign._id,
     })
-      .select("channel provider status metrics scheduledFor startedAt completedAt")
+      .select("location channel provider status metrics scheduledFor startedAt completedAt")
       .sort({ createdAt: 1, _id: 1 })
       .lean(),
     AttributionTouch.find({
       business: businessId,
+      location: locationId,
       campaign: campaign._id,
     })
-      .select("lead customer opportunity touchType channel occurredAt")
+      .select("location lead customer opportunity touchType channel occurredAt")
       .sort({ occurredAt: 1, _id: 1 })
       .lean(),
-    importedMarketingRecords(campaign, businessId, query),
+    importedMarketingRecords(campaign, businessId, locationId, query),
   ]);
 
   const executionGroups = groupExecutions(executions);
@@ -336,6 +347,7 @@ export async function campaignPerformance(
   const attribution = attributionSummary(touches);
 
   return {
+    locationId: String(locationId),
     campaign: {
       id: campaign._id,
       campaignKey: campaign.campaignKey,
@@ -347,9 +359,9 @@ export async function campaignPerformance(
       status: campaign.status,
     },
     blendPolicy: {
-      version: "1.0.0",
+      version: "1.1.0-location-owned",
       rule:
-        "For each provider and metric, canonical CampaignExecution values are primary. Stage-5 normalised marketing values are used only when that provider has no non-zero primary value for the metric; sources are never blindly summed within the same provider metric.",
+        "For the selected location, canonical CampaignExecution values are primary per provider and metric. Location-owned Stage-5 normalised marketing values are used only when that provider has no non-zero primary value for the metric; sources are never blindly summed within the same provider metric.",
       importedCampaignAliases: campaignAliases(campaign),
     },
     blended: {
@@ -362,6 +374,7 @@ export async function campaignPerformance(
     calculatedFields: calculatedFields(blended.totals, attribution),
     calculatedFieldDefinitions: CAMPAIGN_CALCULATED_FIELDS,
     lineage: {
+      locationOwnershipRequired: true,
       campaignExecutionModel: "CampaignExecution",
       attributionModel: "AttributionTouch",
       importedMarketingModel: "MarketingNormalisedRecord",

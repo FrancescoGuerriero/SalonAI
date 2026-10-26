@@ -18,6 +18,10 @@ export function configureMarketingAccount(provider, payload) {
   return API.put(`${BASE_URL}/accounts/${encodeURIComponent(provider)}`, payload).then(responseData);
 }
 
+export function verifyMarketingAccount(provider) {
+  return API.post(`${BASE_URL}/accounts/${encodeURIComponent(provider)}/verify`).then(responseData);
+}
+
 export function disconnectMarketingAccount(provider) {
   return API.post(`${BASE_URL}/accounts/${encodeURIComponent(provider)}/disconnect`).then(responseData);
 }
@@ -27,4 +31,5 @@ export default {
   disconnectMarketingAccount,
   getMarketingAccounts,
   getMarketingConnectionCatalogue,
+  verifyMarketingAccount,
 };

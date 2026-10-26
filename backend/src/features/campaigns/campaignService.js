@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import Customer from "../../models/customer.js";
 import Campaign, { CAMPAIGN_CHANNELS } from "./Campaign.js";
+import CampaignLocationState from "./CampaignLocationState.js";
 import CommunicationTemplate from "../../models/CommunicationTemplate.js";
 import ScheduledCommunication from "../scheduler/ScheduledCommunication.js";
 import { getSegment, previewSegment } from "../segments/segmentService.js";
@@ -44,6 +45,17 @@ function requireBusinessId(value) {
     throw createServiceError(
       "A trusted active business is required for campaign operations.",
       400
+    );
+  }
+  return value;
+}
+
+function requireLocationId(value) {
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(
+      "A trusted active location is required for campaign delivery operations.",
+      400,
+      { code: "LOCATION_REQUIRED" }
     );
   }
   return value;
@@ -420,15 +432,10 @@ export async function previewCampaign(id, { businessId: tenantBusinessId } = {})
 export async function scheduleCampaign(
   id,
   scheduledFor,
-  { businessId: tenantBusinessId } = {}
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
 ) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
-  if (["processing", "completed", "cancelled"].includes(campaign.status)) {
-    throw createServiceError(
-      `Campaign cannot be scheduled from status ${campaign.status}.`,
-      409
-    );
-  }
   if (!SCHEDULED_COMMUNICATION_CHANNELS.has(campaign.channel)) {
     throw createServiceError(
       "This campaign channel must be scheduled through a governed provider execution.",
@@ -437,7 +444,19 @@ export async function scheduleCampaign(
     );
   }
 
-  const runAt = new Date(scheduledFor || campaign.scheduledFor);
+  const currentState = await CampaignLocationState.findOne({
+    business: tenantBusinessId,
+    location: tenantLocationId,
+    campaign: campaign._id,
+  }).lean();
+  if (["processing", "completed"].includes(currentState?.status)) {
+    throw createServiceError(
+      `Campaign cannot be scheduled in this location from status ${currentState.status}.`,
+      409
+    );
+  }
+
+  const runAt = new Date(scheduledFor || currentState?.scheduledFor || campaign.scheduledFor);
   if (Number.isNaN(runAt.getTime())) {
     throw createServiceError("A valid scheduledFor date is required.", 400);
   }
@@ -458,6 +477,7 @@ export async function scheduleCampaign(
     const context = buildCustomerContext(customer);
     jobs.push({
       business: tenantBusinessId,
+      location: tenantLocationId,
       campaign: campaign._id,
       customer: customer._id,
       communicationType: "campaign",
@@ -477,54 +497,110 @@ export async function scheduleCampaign(
 
   await ScheduledCommunication.deleteMany({
     business: tenantBusinessId,
+    location: tenantLocationId,
     campaign: campaign._id,
     status: "queued",
   });
   if (jobs.length) await ScheduledCommunication.insertMany(jobs, { ordered: false });
 
-  campaign.status = "scheduled";
-  campaign.scheduledFor = runAt;
-  campaign.recipientCount = jobs.length;
-  campaign.sentCount = 0;
-  campaign.failedCount = 0;
-  await campaign.save();
+  const locationState = await CampaignLocationState.findOneAndUpdate(
+    {
+      business: tenantBusinessId,
+      location: tenantLocationId,
+      campaign: campaign._id,
+    },
+    {
+      $set: {
+        status: "scheduled",
+        scheduledFor: runAt,
+        recipientCount: jobs.length,
+        sentCount: 0,
+        failedCount: 0,
+        lastScheduledAt: new Date(),
+        cancelledAt: null,
+      },
+      $setOnInsert: {
+        business: tenantBusinessId,
+        location: tenantLocationId,
+        campaign: campaign._id,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
 
-  return getCampaign(campaign._id, { businessId: tenantBusinessId });
+  return {
+    campaign: await getCampaign(campaign._id, { businessId: tenantBusinessId }),
+    locationState,
+  };
 }
 
-export async function cancelCampaign(id, { businessId: tenantBusinessId } = {}) {
+export async function cancelCampaign(
+  id,
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
+) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
-  if (campaign.status === "completed") {
-    throw createServiceError("A completed campaign cannot be cancelled.", 409);
+  const currentState = await CampaignLocationState.findOne({
+    business: tenantBusinessId,
+    location: tenantLocationId,
+    campaign: campaign._id,
+  });
+  if (currentState?.status === "completed") {
+    throw createServiceError("A completed location campaign execution cannot be cancelled.", 409);
   }
 
-  campaign.status = "cancelled";
-  await campaign.save();
   await ScheduledCommunication.updateMany(
     {
       business: tenantBusinessId,
+      location: tenantLocationId,
       campaign: campaign._id,
       status: { $in: ["queued", "processing"] },
     },
     { $set: { status: "cancelled", lockedAt: null, lockedBy: "" } }
   );
-  return campaign.toObject();
+
+  const locationState = await CampaignLocationState.findOneAndUpdate(
+    {
+      business: tenantBusinessId,
+      location: tenantLocationId,
+      campaign: campaign._id,
+    },
+    {
+      $set: {
+        status: "cancelled",
+        cancelledAt: new Date(),
+      },
+      $setOnInsert: {
+        business: tenantBusinessId,
+        location: tenantLocationId,
+        campaign: campaign._id,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  return {
+    campaign: campaign.toObject(),
+    locationState,
+  };
 }
 
 export async function campaignJobs(
   id,
   query = {},
-  { businessId: tenantBusinessId } = {}
+  { businessId: tenantBusinessId, locationId: tenantLocationId } = {}
 ) {
+  requireLocationId(tenantLocationId);
   const campaign = await campaignForBusiness(id, tenantBusinessId);
   const { page, limit, skip } = paginationFromQuery(query);
   const match = {
     business: tenantBusinessId,
+    location: tenantLocationId,
     campaign: campaign._id,
   };
   if (query.status) match.status = lower(query.status);
 
-  const [items, total] = await Promise.all([
+  const [items, total, locationState] = await Promise.all([
     ScheduledCommunication.find(match)
       .populate({
         path: "customer",
@@ -536,7 +612,16 @@ export async function campaignJobs(
       .limit(limit)
       .lean(),
     ScheduledCommunication.countDocuments(match),
+    CampaignLocationState.findOne({
+      business: tenantBusinessId,
+      location: tenantLocationId,
+      campaign: campaign._id,
+    }).lean(),
   ]);
 
-  return { items, pagination: paginationResult(page, limit, total) };
+  return {
+    items,
+    locationState,
+    pagination: paginationResult(page, limit, total),
+  };
 }

@@ -6,6 +6,7 @@ import IntegrationApp from "../../models/IntegrationApp.js";
 import IntegrationConnection from "../../models/IntegrationConnection.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { storeProviderCredential } from "./providerCredentialService.js";
+import { MARKETING_HUB_PROVIDER_EXTENSIONS } from "./marketingHubProviderExtensions.js";
 
 const MARKETING_CONNECTIONS_APP_KEY = "marketing-data-connections";
 
@@ -20,9 +21,27 @@ function credential(key, label, role, { placeholder = "", help = "", required = 
 function provider(value) {
   return Object.freeze({
     ...value,
+    configurable: value.configurable !== false,
+    implementationStatus: value.implementationStatus || "configurable",
+    researchRequired: Boolean(value.researchRequired),
     fields: Object.freeze(value.fields || []),
     credentials: Object.freeze(value.credentials || []),
     scopes: Object.freeze(value.scopes || []),
+  });
+}
+
+function plannedProvider(value) {
+  return provider({
+    ...value,
+    configurable: false,
+    implementationStatus: value.researchRequired ? "research_required" : "planned",
+    description:
+      value.description ||
+      `Catalogue entry for ${value.label}. A governed API/auth adapter and controlled acceptance are required before this provider can be configured or synchronised.`,
+    documentationUrl: value.documentationUrl || "",
+    fields: [],
+    credentials: [],
+    scopes: [],
   });
 }
 
@@ -48,7 +67,7 @@ const PROVIDERS = Object.freeze({
   }),
   meta_ads: provider({
     key: "meta_ads",
-    label: "Meta Ads",
+    label: "Facebook Ads (Meta)",
     category: "Advertising",
     description: "Import Facebook and Instagram advertising performance from the Meta Marketing API.",
     documentationUrl: "https://developers.facebook.com/docs/marketing-apis/",
@@ -83,9 +102,9 @@ const PROVIDERS = Object.freeze({
   }),
   microsoft_ads: provider({
     key: "microsoft_ads",
-    label: "Microsoft Advertising",
+    label: "Microsoft Ads (Bing Ads)",
     category: "Advertising",
-    description: "Import Microsoft Advertising (Bing Ads) campaign, spend and conversion reporting.",
+    description: "Import Microsoft Advertising campaign, spend and conversion reporting.",
     documentationUrl: "https://learn.microsoft.com/advertising/guides/authentication-oauth-quick-start",
     fields: [
       field("clientId", "Application / client ID"),
@@ -118,7 +137,7 @@ const PROVIDERS = Object.freeze({
   }),
   facebook_pages: provider({
     key: "facebook_pages",
-    label: "Facebook Pages",
+    label: "Facebook Page Insights (Meta)",
     category: "Organic social",
     description: "Import Page reach, engagement, audience and content performance.",
     documentationUrl: "https://developers.facebook.com/docs/graph-api/",
@@ -158,7 +177,7 @@ const PROVIDERS = Object.freeze({
   }),
   google_business_profile: provider({
     key: "google_business_profile",
-    label: "Google Business Profile",
+    label: "Google My Business / Business Profile",
     category: "Local & reputation",
     description: "Import Google Business Profile location and performance information.",
     documentationUrl: "https://developers.google.com/my-business/content/basic-setup",
@@ -268,7 +287,7 @@ const PROVIDERS = Object.freeze({
   }),
   youtube_analytics: provider({
     key: "youtube_analytics",
-    label: "YouTube Analytics",
+    label: "YouTube",
     category: "Organic social",
     description: "Import channel, video, audience and engagement analytics from YouTube.",
     documentationUrl: "https://developers.google.com/youtube/analytics/quickstart/web-app",
@@ -286,6 +305,9 @@ const PROVIDERS = Object.freeze({
       "https://www.googleapis.com/auth/youtube.readonly",
     ],
   }),
+  ...Object.fromEntries(
+    MARKETING_HUB_PROVIDER_EXTENSIONS.map((item) => [item.key, plannedProvider(item)])
+  ),
 });
 
 function text(value, max = 2000) {
@@ -327,6 +349,9 @@ function storedRoles(connection) {
 }
 
 function readiness(definition, connection) {
+  if (!definition.configurable) {
+    return { ready: false, missingFields: [], missingCredentials: [] };
+  }
   const roles = storedRoles(connection);
   const missingFields = definition.fields.filter((item) => item.required && !text(connection?.metadata?.[item.key], 1000)).map((item) => item.key);
   const missingCredentials = definition.credentials.filter((item) => item.required && !roles.has(item.role)).map((item) => item.key);
@@ -337,11 +362,14 @@ function readiness(definition, connection) {
 
 function serialise(definition, connection = null) {
   const state = readiness(definition, connection);
-  let readinessState = "not_connected";
-  if (connection) {
-    if (["disconnected", "revoked"].includes(connection.status)) readinessState = "disconnected";
-    else if (state.ready) readinessState = "configured";
-    else readinessState = "needs_attention";
+  let readinessState = definition.implementationStatus;
+  if (definition.configurable) {
+    readinessState = "not_connected";
+    if (connection) {
+      if (["disconnected", "revoked"].includes(connection.status)) readinessState = "disconnected";
+      else if (state.ready) readinessState = "configured";
+      else readinessState = "needs_attention";
+    }
   }
   const metadata = { displayName: text(connection?.metadata?.displayName, 180) };
   for (const item of definition.fields) metadata[item.key] = text(connection?.metadata?.[item.key], 1000);
@@ -351,6 +379,9 @@ function serialise(definition, connection = null) {
     category: definition.category,
     description: definition.description,
     documentationUrl: definition.documentationUrl,
+    configurable: definition.configurable,
+    implementationStatus: definition.implementationStatus,
+    researchRequired: definition.researchRequired,
     fields: definition.fields.map((item) => ({ ...item })),
     credentials: definition.credentials.map((item) => ({ ...item, stored: storedRoles(connection).has(item.role) })),
     scopes: [...definition.scopes],
@@ -389,7 +420,7 @@ async function marketingApp(businessId, ownerUser = null, { create = false } = {
 }
 
 export function marketingConnectedAccountCatalogue() {
-  return { version: "1.0.0", liveSyncEnabled: false, items: Object.values(PROVIDERS).map((item) => serialise(item)) };
+  return { version: "1.1.0", liveSyncEnabled: false, items: Object.values(PROVIDERS).map((item) => serialise(item)) };
 }
 
 export async function listMarketingConnectedAccounts({ businessId } = {}) {
@@ -397,15 +428,28 @@ export async function listMarketingConnectedAccounts({ businessId } = {}) {
   const connections = app ? await IntegrationConnection.find({ business: businessId, app: app._id, provider: { $in: Object.keys(PROVIDERS) } }).lean() : [];
   const byProvider = new Map(connections.map((connection) => [connection.provider, connection]));
   return {
-    version: "1.0.0",
+    version: "1.1.0",
     liveSyncEnabled: false,
-    message: "Connections may be configured now. Live provider sync remains disabled until each adapter passes controlled acceptance.",
+    message: "Implemented connections may be configured now. Planned providers are visible in the Marketing Hub but remain disabled until their governed adapters pass controlled acceptance.",
     items: Object.values(PROVIDERS).map((definition) => serialise(definition, byProvider.get(definition.key) || null)),
   };
 }
 
 export async function configureMarketingConnectedAccount(providerKey, payload = {}, { businessId, actorUser = null } = {}) {
   const definition = providerDefinition(providerKey);
+  if (!definition.configurable) {
+    throw createServiceError(
+      `${definition.label} is listed in the Marketing Hub but its governed connector is not yet available for configuration.`,
+      409,
+      {
+        code: definition.researchRequired
+          ? "MARKETING_PROVIDER_RESEARCH_REQUIRED"
+          : "MARKETING_PROVIDER_NOT_YET_IMPLEMENTED",
+        provider: definition.key,
+        implementationStatus: definition.implementationStatus,
+      }
+    );
+  }
   const app = await marketingApp(businessId, actorUser, { create: true });
   const metadata = metadataFor(definition, payload);
   const missingFields = definition.fields.filter((item) => item.required && !metadata[item.key]);
@@ -457,6 +501,12 @@ export async function configureMarketingConnectedAccount(providerKey, payload = 
 
 export async function disconnectMarketingConnectedAccount(providerKey, { businessId } = {}) {
   const definition = providerDefinition(providerKey);
+  if (!definition.configurable) {
+    throw createServiceError(`${definition.label} does not have an active governed connector to disconnect.`, 409, {
+      code: "MARKETING_PROVIDER_NOT_CONFIGURABLE",
+      provider: definition.key,
+    });
+  }
   const app = await marketingApp(businessId);
   if (!app) throw createServiceError(`${definition.label} is not connected.`, 404);
   const connection = await IntegrationConnection.findOne({ business: businessId, app: app._id, provider: definition.key, connectionKey: definition.key });
