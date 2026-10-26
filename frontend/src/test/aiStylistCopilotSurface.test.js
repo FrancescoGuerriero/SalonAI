@@ -26,3 +26,18 @@ test("Stylist Copilot UI only requests canonical appointment-scoped endpoint", (
   assert.doesNotMatch(service, /customerId=/);
   assert.doesNotMatch(service, /sensitiveContext=/);
 });
+
+test("Stylist Copilot is registered as an authorised AI management workspace", () => {
+  const router = read("components/stage4/Stage4WorkspaceRouter.jsx");
+  const navigation = read("components/navigation/managementNavigationConfig.js");
+
+  assert.match(router, /pathname === "\/stylist-copilot"/);
+  assert.match(router, /hasPermission\(user, "ai:use"\)/);
+  assert.match(router, /isFeatureEnabled\("ai-tools"\)/);
+  assert.match(router, /<StylistCopilotPage \/>/);
+
+  assert.match(navigation, /"\/stylist-copilot"/);
+  assert.match(navigation, /"Stylist copilot"/);
+  assert.match(navigation, /"ai:use"/);
+  assert.match(navigation, /"ai-tools"/);
+});
