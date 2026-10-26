@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 import AiGatewayInvocation from "../../models/AiGatewayInvocation.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { buildManagementBiSnapshot, MANAGEMENT_EVIDENCE_CONTRACT } from "./managementBiService.js";
@@ -20,9 +18,7 @@ function gatewayConfiguration() {
   const baseUrl = text(process.env.AI_SERVICE_BASE_URL || process.env.AI_SERVICE_URL, 2000).replace(/\/$/, "");
   const serviceKey = text(process.env.AI_SERVICE_SERVICE_KEY || process.env.AI_SERVICE_KEY, 20000);
   if (!baseUrl || !serviceKey) {
-    throw createServiceError("AI Gateway is not configured for this environment.", 503, {
-      code: "AI_GATEWAY_NOT_CONFIGURED",
-    });
+    throw createServiceError("AI Gateway is not configured for this environment.", 503, { code: "AI_GATEWAY_NOT_CONFIGURED" });
   }
   const parsed = new URL(baseUrl);
   if (!["https:", "http:"].includes(parsed.protocol)) {
@@ -40,20 +36,13 @@ async function gatewayPost(path, payload, { baseUrl, serviceKey }) {
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "X-SalonAI-Service-Key": serviceKey,
-      },
+      headers: { "content-type": "application/json", "X-SalonAI-Service-Key": serviceKey },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
     const raw = await response.text();
     let body = {};
-    try {
-      body = raw ? JSON.parse(raw) : {};
-    } catch {
-      body = { message: text(raw, 2000) };
-    }
+    try { body = raw ? JSON.parse(raw) : {}; } catch { body = { message: text(raw, 2000) }; }
     return { response, body };
   } finally {
     clearTimeout(timer);
@@ -62,18 +51,13 @@ async function gatewayPost(path, payload, { baseUrl, serviceKey }) {
 
 function pythonEvidence(snapshot) {
   const locationId = text(snapshot?.authority?.selectedLocationId, 120);
-  if (
-    !locationId ||
-    snapshot?.authority?.locationIds?.length !== 1 ||
-    snapshot?.pythonAnalysis?.available !== true
-  ) {
+  if (!locationId || snapshot?.authority?.locationIds?.length !== 1 || snapshot?.pythonAnalysis?.available !== true) {
     throw createServiceError(
       "Governed Python management analysis requires one explicitly selected authorised Location.",
       409,
       { code: "POINT10_PYTHON_SINGLE_LOCATION_REQUIRED" }
     );
   }
-
   return {
     contract: MANAGEMENT_EVIDENCE_CONTRACT,
     business_id: text(snapshot.authority.businessId, 120),
@@ -104,24 +88,20 @@ function assertIdentityEcho(body, evidence) {
   };
   for (const [key, value] of Object.entries(expected)) {
     if (text(body?.[key], 240) !== text(value, 240)) {
-      throw createServiceError(
-        `AI Gateway management analysis identity mismatch for ${key}.`,
-        502,
-        { code: "POINT10_AI_IDENTITY_MISMATCH" }
-      );
+      throw createServiceError(`AI Gateway management analysis identity mismatch for ${key}.`, 502, {
+        code: "POINT10_AI_IDENTITY_MISMATCH",
+      });
     }
   }
   if (body?.model_inference_executed !== false || body?.execution_authorised !== false || body?.external_write_authorised !== false) {
-    throw createServiceError(
-      "AI Gateway management analysis violated the non-execution contract.",
-      502,
-      { code: "POINT10_AI_EXECUTION_CONTRACT_VIOLATION" }
-    );
+    throw createServiceError("AI Gateway management analysis violated the non-execution contract.", 502, {
+      code: "POINT10_AI_EXECUTION_CONTRACT_VIOLATION",
+    });
   }
 }
 
 async function recordInvocation({ snapshot, evidence, actor, responseBody = {}, status = "planned", errorCode = "" }) {
-  const planOutcome = {
+  const outcome = {
     status,
     ...(errorCode ? { errorCode: text(errorCode, 120) } : {}),
     registryVersion: text(responseBody.registry_version, 40),
@@ -135,13 +115,12 @@ async function recordInvocation({ snapshot, evidence, actor, responseBody = {}, 
     executionAuthorised: false,
     externalWriteAuthorised: false,
   };
-
   return AiGatewayInvocation.create({
     business: snapshot.authority.businessId,
     location: evidence.location_id,
     toolKey: TOOL_KEY,
     requestedAction: REQUESTED_ACTION,
-    registryVersion: planOutcome.registryVersion,
+    registryVersion: outcome.registryVersion,
     evidenceId: evidence.evidence_id,
     evidenceContract: evidence.contract,
     evidenceChecksum: evidence.checksum,
@@ -152,7 +131,7 @@ async function recordInvocation({ snapshot, evidence, actor, responseBody = {}, 
       { sourceId: snapshot.evidence.metricDefinitionAuthority, provider: "canonical" },
     ],
     status,
-    planOutcome,
+    planOutcome: outcome,
     humanApprovalRequired: true,
     executionAuthorised: false,
     externalWriteAuthorised: false,
@@ -161,50 +140,24 @@ async function recordInvocation({ snapshot, evidence, actor, responseBody = {}, 
   });
 }
 
-export async function analyseManagementBiWithPython({
-  effectiveAuthority = {},
-  actor = null,
-  periodDays = 30,
-  asOfDate = new Date(),
-} = {}) {
+export async function analyseManagementBiWithPython({ effectiveAuthority = {}, actor = null, periodDays = 30, asOfDate = new Date() } = {}) {
   const snapshot = await buildManagementBiSnapshot({ effectiveAuthority, periodDays, asOfDate });
   const evidence = pythonEvidence(snapshot);
   const config = gatewayConfiguration();
-
   try {
     const { response, body } = await gatewayPost(
       "/api/v1/ai-gateway/management-analysis",
-      {
-        tool_key: TOOL_KEY,
-        requested_action: REQUESTED_ACTION,
-        evidence,
-      },
+      { tool_key: TOOL_KEY, requested_action: REQUESTED_ACTION, evidence },
       config
     );
-
     if (!response.ok) {
-      await recordInvocation({
-        snapshot,
-        evidence,
-        actor,
-        responseBody: body,
-        status: "rejected",
-        errorCode: "POINT10_MANAGEMENT_ANALYSIS_FAILED",
-      });
+      await recordInvocation({ snapshot, evidence, actor, responseBody: body, status: "rejected", errorCode: "POINT10_MANAGEMENT_ANALYSIS_FAILED" });
       throw createServiceError(`AI Gateway management analysis returned HTTP ${response.status}.`, response.status, {
         code: body?.code || body?.detail?.code || "POINT10_MANAGEMENT_ANALYSIS_FAILED",
       });
     }
-
     assertIdentityEcho(body, evidence);
-    const invocation = await recordInvocation({
-      snapshot,
-      evidence,
-      actor,
-      responseBody: body,
-      status: "planned",
-    });
-
+    const invocation = await recordInvocation({ snapshot, evidence, actor, responseBody: body, status: "advisory_previewed" });
     return {
       snapshot,
       analysis: body,
@@ -217,16 +170,8 @@ export async function analyseManagementBiWithPython({
     };
   } catch (error) {
     if (error?.name === "AbortError") {
-      await recordInvocation({
-        snapshot,
-        evidence,
-        actor,
-        status: "failed",
-        errorCode: "POINT10_MANAGEMENT_ANALYSIS_TIMEOUT",
-      });
-      throw createServiceError("AI Gateway management analysis timed out.", 504, {
-        code: "POINT10_MANAGEMENT_ANALYSIS_TIMEOUT",
-      });
+      await recordInvocation({ snapshot, evidence, actor, status: "failed", errorCode: "POINT10_MANAGEMENT_ANALYSIS_TIMEOUT" });
+      throw createServiceError("AI Gateway management analysis timed out.", 504, { code: "POINT10_MANAGEMENT_ANALYSIS_TIMEOUT" });
     }
     throw error;
   }
