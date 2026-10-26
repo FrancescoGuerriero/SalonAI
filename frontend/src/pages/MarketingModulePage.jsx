@@ -3,19 +3,19 @@ import { Link } from "react-router-dom";
 
 const WORKSPACES = [
   {
-    to: "/marketing/windsor",
-    title: "Windsor data connections",
-    description: "Connect marketing, analytics, CRM, seller and business data sources through Windsor and bring tenant-bound data into the Marketing dashboard.",
+    to: "/marketing/data-connections",
+    title: "Data connections",
+    description: "Connect marketing, analytics, CRM, seller and business data sources through AIIBP and bring tenant-bound evidence into the Marketing Data Hub.",
     icon: Database,
   },
   {
     to: "/marketing/native-connections",
     title: "Native connections",
-    description: "Use AIIBP-managed direct provider connections where deeper first-party control or provider-specific verification is required.",
+    description: "Use direct AIIBP provider connections where deeper first-party control or provider-specific verification is required.",
     icon: Link2,
   },
   {
-    to: "/marketing/windsor?type=seller",
+    to: "/marketing/data-connections?type=seller",
     title: "Sellers",
     description: "Connect Amazon Seller Central, eBay and supported commerce marketplaces for seller performance, orders, fees, traffic and advertising evidence.",
     icon: Store,
@@ -56,7 +56,11 @@ export default function MarketingModulePage() {
           <h2 className="text-xl font-bold text-stone-950">Workspaces</h2>
           <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {WORKSPACES.map(({ to, title, description, icon: Icon }) => (
-              <Link className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900" key={to} to={to}>
+              <Link
+                className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900"
+                key={to}
+                to={to}
+              >
                 <Icon aria-hidden="true" size={22} />
                 <h3 className="mt-3 font-bold text-stone-950">{title}</h3>
                 <p className="mt-1 text-sm leading-6 text-stone-600">{description}</p>
@@ -68,7 +72,7 @@ export default function MarketingModulePage() {
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="font-bold text-stone-950">Connection policy</h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Windsor is used for broad read/analytics connectivity. Native AIIBP connections remain available where provider-specific verification, governed write operations or deeper operational control is required. OAuth providers use provider/Windsor authorization screens; the Marketing module must not collect a customer&apos;s provider password.
+            AIIBP owns the connection catalogue, tenancy, Data Hub, scheduling, backfill, monitoring and business-facing experience. Direct provider adapters and optional managed connection adapters sit behind the same provider-neutral contracts. OAuth providers use secure provider authorization flows; the Marketing module must never collect a customer&apos;s provider password.
           </p>
         </section>
       </div>
