@@ -88,6 +88,10 @@ jobs:
           src/test/stage8MarketingVerifiedExtensionContracts.test.js
           src/test/stage8MarketingVerifiedWave3Contracts.test.js
           src/test/stage8MarketingVerifiedWave4Contracts.test.js
+          src/test/stage8MarketingVerifiedWave5Contracts.test.js
+          src/test/stage8MarketingVerifiedWave6Contracts.test.js
+          src/test/stage8MarketingVerifiedWave8Contracts.test.js
+          src/test/stage8MarketingVerifiedWave9Contracts.test.js
 
       - name: Verify backend source
         run: npm run check
