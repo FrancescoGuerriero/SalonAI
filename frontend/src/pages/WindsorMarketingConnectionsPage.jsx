@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLink, LoaderCircle, RefreshCw, Search, Store, Unplug } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Database, ExternalLink, LoaderCircle, RefreshCw, Search, Store, Unplug } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import useAuth from "../hooks/useAuth.js";
 import { hasPermission } from "../utils/permissions.js";
@@ -28,11 +28,16 @@ function statusLabel(item) {
 
 export default function WindsorMarketingConnectionsPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const canManage = hasPermission(user, "feature-control:update");
+  const requestedType = searchParams.get("type");
+  const initialKind = ["seller", "source", "data-platform", "destination", "ai-destination"].includes(requestedType)
+    ? requestedType
+    : "all";
   const [items, setItems] = useState([]);
   const [runtime, setRuntime] = useState({ configured: false });
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("all");
+  const [kind, setKind] = useState(initialKind);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -115,6 +120,21 @@ export default function WindsorMarketingConnectionsPage() {
     } finally { setBusy(""); }
   }
 
+  async function importAccount(item, account) {
+    setBusy(`${item.key}:${account.accountId}`); setError(""); setNotice("");
+    try {
+      const payload = await marketingConnections.importWindsorConnectorData(item.key, {
+        accountId: account.accountId,
+        fields: ["date", "account_id", "account_name"],
+        datePreset: "last_7d",
+        limit: 100,
+      });
+      setNotice(`${item.label}: imported ${payload.importedRecords || 0} records into the active location Data Hub (${payload.status || "complete"}).`);
+    } catch (importError) {
+      setError(errorMessage(importError, `${item.label} data could not be imported into the Data Hub.`));
+    } finally { setBusy(""); }
+  }
+
   async function unlink(item, account) {
     setBusy(`${item.key}:${account.accountId}`); setError(""); setNotice("");
     try {
@@ -139,7 +159,7 @@ export default function WindsorMarketingConnectionsPage() {
               <div className="text-sm font-semibold text-stone-600">Marketing · Windsor data connections</div>
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-stone-950">Connect business data</h1>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-stone-600">
-                Connect supported marketing, analytics, seller, CRM and business platforms through Windsor. OAuth/manual provider setup happens in Windsor/provider screens; this application never asks for the provider password. Connected account IDs are bound to the active business before data can be previewed.
+                Connect supported marketing, analytics, seller, CRM and business platforms through Windsor. OAuth/manual provider setup happens in Windsor/provider screens; this application never asks for the provider password. Connected account IDs are bound to the active business before data can be previewed or imported into the active location Data Hub.
               </p>
             </div>
             <div className="flex gap-2">
@@ -218,8 +238,9 @@ export default function WindsorMarketingConnectionsPage() {
                                   <div className="truncate text-sm font-semibold">{account.accountName || account.accountId}</div>
                                   <div className="truncate text-xs text-stone-500">{account.accountId}</div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap gap-2">
                                   <button className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={Boolean(busy)} onClick={() => previewAccount(item, account)} type="button">Preview</button>
+                                  <button className="inline-flex items-center gap-1 rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold" disabled={!canManage || Boolean(busy)} onClick={() => importAccount(item, account)} type="button"><Database size={14} /> Import to Data Hub</button>
                                   <button aria-label={`Disconnect ${account.accountName || account.accountId}`} className="inline-flex items-center rounded-lg border border-stone-300 bg-white px-2.5 py-1.5" disabled={!canManage || Boolean(busy)} onClick={() => unlink(item, account)} type="button"><Unplug size={15} /></button>
                                 </div>
                               </div>
