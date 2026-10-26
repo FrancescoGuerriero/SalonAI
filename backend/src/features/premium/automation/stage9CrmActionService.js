@@ -99,7 +99,7 @@ async function loadCustomer(customerId, businessId) {
     status: { $ne: "deleted" },
   })
     .select(
-      "firstName lastName preferredName email phone dateOfBirth communicationPreferences referralCode loyaltyPoints status"
+      "firstName lastName preferredName email phone dateOfBirth communicationPreferences marketing referralCode loyaltyPoints status"
     )
     .lean();
   if (!customer) {
@@ -108,12 +108,52 @@ async function loadCustomer(customerId, businessId) {
   return customer;
 }
 
+function marketingChannelEligible(customer, channel) {
+  const preferences = customer.communicationPreferences || {};
+  const marketing = customer.marketing || {};
+  if (preferences.unsubscribed === true) return false;
+
+  if (channel === "email") {
+    return Boolean(
+      customer.email &&
+      preferences.emailMarketing === true &&
+      preferences.emailUnsubscribed !== true &&
+      marketing.emailConsent === true &&
+      marketing.emailSuppressed !== true
+    );
+  }
+  if (channel === "sms") {
+    return Boolean(
+      customer.phone &&
+      preferences.smsMarketing === true &&
+      preferences.smsUnsubscribed !== true &&
+      marketing.smsConsent === true
+    );
+  }
+  if (channel === "whatsapp") {
+    return Boolean(
+      customer.phone &&
+      preferences.whatsappMarketing === true &&
+      preferences.whatsappUnsubscribed !== true &&
+      marketing.whatsappConsent === true
+    );
+  }
+  return true;
+}
+
 function assertChannelEligible(customer, channel) {
   if (channel === "email" && !customer.email) {
     throw actionError("Customer has no email address for an email draft.", 409, "POINT9_CHANNEL_UNAVAILABLE");
   }
   if (["sms", "whatsapp", "phone"].includes(channel) && !customer.phone) {
     throw actionError("Customer has no phone number for this draft channel.", 409, "POINT9_CHANNEL_UNAVAILABLE");
+  }
+  if (["email", "sms", "whatsapp"].includes(channel) && !marketingChannelEligible(customer, channel)) {
+    throw actionError(
+      "The customer has not granted current marketing consent for this provider channel.",
+      409,
+      "POINT9_MARKETING_CONSENT_REQUIRED"
+    );
   }
 }
 
