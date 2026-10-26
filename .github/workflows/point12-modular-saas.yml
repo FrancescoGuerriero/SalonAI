@@ -13,6 +13,7 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/aiibpCommercialDocsSite.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
@@ -22,6 +23,8 @@ on:
       - "docs/roadmap/point12-*.md"
       - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
       - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
+      - "docs/AIIBP_PLATFORM_DOCUMENTATION.md"
+      - "docs/aiibp-platform-site/**"
       - ".github/workflows/point12-modular-saas.yml"
   push:
     branches:
@@ -37,6 +40,7 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/aiibpCommercialDocsSite.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
@@ -46,6 +50,8 @@ on:
       - "docs/roadmap/point12-*.md"
       - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
       - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
+      - "docs/AIIBP_PLATFORM_DOCUMENTATION.md"
+      - "docs/aiibp-platform-site/**"
       - ".github/workflows/point12-modular-saas.yml"
 
 permissions:
@@ -78,6 +84,7 @@ jobs:
           src/test/point12BusinessModuleBoundaries.test.js
           src/test/point12ModuleInstallability.test.js
           src/test/point12DataConnectionContracts.test.js
+          src/test/aiibpCommercialDocsSite.test.js
 
       - name: Verify backend source
         run: npm run check
