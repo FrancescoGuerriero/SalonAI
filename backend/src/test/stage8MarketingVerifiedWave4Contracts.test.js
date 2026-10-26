@@ -50,12 +50,15 @@ test("Amazon SQS verifier performs SigV4 signed ListQueues", async () => {
   assert.match(verification, /sqs\.\$\{region\}\.amazonaws\.com/);
 });
 
-test("Apple Ads verifier creates ES256 client credentials and calls v1 me", async () => {
+test("Apple Ads schema stores the private key securely and verifier creates ES256 credentials", async () => {
+  const definition = VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4.apple_search_ads;
   const verification = await source("../features/integrationPlatform/marketingAccountVerificationExtensionsWave4.js");
+
+  assert.ok(definition.credentials.some((item) => item.role === "private_key" && item.required));
+  assert.match(verification, /credential\(connection, "private_key"\)/);
   assert.match(verification, /alg:\s*"ES256"/);
   assert.match(verification, /dsaEncoding:\s*"ieee-p1363"/);
   assert.match(verification, /https:\/\/appleid\.apple\.com\/auth\/oauth2\/token/);
   assert.match(verification, /scope:\s*"searchadsorg"/);
   assert.match(verification, /https:\/\/api\.ads\.apple\.com\/v1\/me/);
-  assert.match(verification, /role:\s*"private_key"/);
 });
