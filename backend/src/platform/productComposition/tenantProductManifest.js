@@ -5,9 +5,6 @@ import {
 import {
   getVerticalPackDefinition,
 } from "../capabilities/verticalPackRegistry.js";
-import {
-  resolveBusinessModuleAllocation,
-} from "../modules/businessModuleRegistry.js";
 
 export const TENANT_PRODUCT_MANIFEST_SCHEMA_VERSION = "1";
 
@@ -355,15 +352,19 @@ export function resolveEffectiveTenantProductComposition({
       return {
         key: capabilityKey,
         label: definition.label,
-        contractVersion:
-          definition.contractVersion,
+        contractVersion: definition.contractVersion,
         status: definition.status,
+        moduleClass: definition.moduleClass,
+        businessPurpose: definition.businessPurpose,
+        allocatable: definition.allocatable,
+        decisionSupportOnly: definition.decisionSupportOnly,
+        ownedDomains: definition.ownedDomains,
+        consumesDomains: definition.consumesDomains,
         enabled,
         reason,
         selectionSource,
         dependencies: definition.dependencies,
-        requiredPermissions:
-          definition.requiredPermissions,
+        requiredPermissions: definition.requiredPermissions,
       };
     }
   );
@@ -405,34 +406,25 @@ export function resolveEffectiveTenantProductComposition({
     (state) => Object.freeze({ ...state })
   );
 
-  const enabledCapabilityPackKeys = Object.freeze(
-    capabilities
-      .filter(({ enabled }) => enabled)
-      .map(({ key }) => key)
-  );
-
-  const disabledCapabilityPackKeys = Object.freeze(
-    capabilities
-      .filter(({ enabled }) => !enabled)
-      .map(({ key }) => key)
-  );
-
-  const businessModules = Object.freeze(
-    resolveBusinessModuleAllocation(enabledCapabilityPackKeys)
-      .map((module) => Object.freeze({ ...module }))
-  );
-
   return Object.freeze({
     manifest: normalised,
     vertical: Object.freeze({
       id: vertical.id,
       label: vertical.label,
       terminology: vertical.terminology,
+      allocatableCapabilityPackKeys: vertical.allocatableCapabilityPackKeys,
     }),
     capabilities: Object.freeze(capabilities),
-    enabledCapabilityPackKeys,
-    disabledCapabilityPackKeys,
-    businessModules,
+    enabledCapabilityPackKeys: Object.freeze(
+      capabilities
+        .filter(({ enabled }) => enabled)
+        .map(({ key }) => key)
+    ),
+    disabledCapabilityPackKeys: Object.freeze(
+      capabilities
+        .filter(({ enabled }) => !enabled)
+        .map(({ key }) => key)
+    ),
   });
 }
 
