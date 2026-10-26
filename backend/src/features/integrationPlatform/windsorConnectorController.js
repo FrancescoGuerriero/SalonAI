@@ -17,6 +17,7 @@ import {
   windsorConnectorRuntimeConfig,
 } from "./windsorConnectorService.js";
 import { windsorMarketingConnector } from "./windsorConnectorCatalogue.js";
+import { importWindsorAccountToDataHub } from "./windsorDataHubService.js";
 
 const APP_KEY = "windsor-marketing-connections";
 
@@ -30,8 +31,14 @@ function businessId(request) {
   return String(value);
 }
 
-function locationId(request) {
-  return String(request.effectiveAuthority?.locationId || request.tenantContext?.locationId || "");
+function locationId(request, { required = false } = {}) {
+  const value = String(request.effectiveAuthority?.locationId || request.tenantContext?.locationId || "");
+  if (required && !value) {
+    throw createServiceError("Select a location before importing Windsor data into the Data Hub.", 400, {
+      code: "LOCATION_REQUIRED",
+    });
+  }
+  return value;
 }
 
 function actorUser(request) {
@@ -134,6 +141,16 @@ async function accessTokenFor(connection) {
   return resolved.secret;
 }
 
+function assertOwnedAccount(connection, accountId) {
+  const allowed = new Set((connection.metadata?.accountIds || []).map(String));
+  if (!accountId || !allowed.has(accountId)) {
+    throw createServiceError("That Windsor account is not connected to the active business.", 403, {
+      code: "WINDSOR_ACCOUNT_NOT_OWNED_BY_BUSINESS",
+    });
+  }
+  return (connection.metadata?.accounts || []).find((account) => String(account.accountId) === accountId) || null;
+}
+
 async function reconcileConnection(tenantBusinessId, key, entry) {
   const { connection } = await connectionForBusiness(tenantBusinessId, key);
   const token = await accessTokenFor(connection);
@@ -221,17 +238,15 @@ export async function authorize(request, response) {
   connection.disconnectedAt = null;
   await connection.save();
 
-  if (auth.authorizationAccessToken) {
-    await storeProviderCredential(app._id, connection._id, {
-      role: "access_token",
-      secret: auth.authorizationAccessToken,
-      metadata: {
-        source: "windsor_authorization_link",
-        provider: key,
-        purpose: "co_user_account_reconciliation",
-      },
-    }, { businessId: tenantBusinessId });
-  }
+  await storeProviderCredential(app._id, connection._id, {
+    role: "access_token",
+    secret: auth.authorizationAccessToken,
+    metadata: {
+      source: "windsor_authorization_link",
+      provider: key,
+      purpose: "co_user_account_reconciliation",
+    },
+  }, { businessId: tenantBusinessId });
 
   response.json({
     provider: key,
@@ -271,12 +286,7 @@ export async function preview(request, response) {
   const { connection } = await connectionForBusiness(tenantBusinessId, key);
   const payload = request.body && typeof request.body === "object" ? request.body : {};
   const accountId = String(payload.accountId || "").trim();
-  const allowed = new Set((connection.metadata?.accountIds || []).map(String));
-  if (!accountId || !allowed.has(accountId)) {
-    throw createServiceError("That Windsor account is not connected to the active business.", 403, {
-      code: "WINDSOR_ACCOUNT_NOT_OWNED_BY_BUSINESS",
-    });
-  }
+  assertOwnedAccount(connection, accountId);
   const connectorId = String(connection.metadata?.connectorId || key);
   const data = await previewWindsorData({
     connectorId,
@@ -298,17 +308,51 @@ export async function preview(request, response) {
   });
 }
 
+export async function importToDataHub(request, response) {
+  const tenantBusinessId = businessId(request);
+  const selectedLocationId = locationId(request, { required: true });
+  const actor = actorUser(request);
+  const { value: key, entry } = productKey(request);
+  if (["destination", "ai-destination"].includes(entry.kind)) {
+    throw createServiceError("Destinations cannot be imported as Marketing source data.", 409, {
+      code: "WINDSOR_CONNECTOR_IS_DESTINATION",
+    });
+  }
+  const { connection } = await connectionForBusiness(tenantBusinessId, key);
+  const payload = request.body && typeof request.body === "object" ? request.body : {};
+  const accountId = String(payload.accountId || "").trim();
+  const account = assertOwnedAccount(connection, accountId);
+  const connectorId = String(connection.metadata?.connectorId || key);
+  const result = await importWindsorAccountToDataHub({
+    connection,
+    connectorId,
+    productKey: key,
+    productLabel: entry.label,
+    accountId,
+    accountName: account?.accountName || accountId,
+    fields: payload.fields,
+    datePreset: payload.datePreset || "last_7d",
+    limit: payload.limit || 100,
+    businessId: tenantBusinessId,
+    locationId: selectedLocationId,
+    actor,
+  });
+  response.json({
+    provider: key,
+    label: entry.label,
+    connectorId,
+    accountId,
+    locationId: selectedLocationId,
+    ...result,
+  });
+}
+
 export async function unlinkAccount(request, response) {
   const tenantBusinessId = businessId(request);
   const { value: key, entry } = productKey(request);
   const accountId = String(request.params.accountId || "").trim();
   const { connection } = await connectionForBusiness(tenantBusinessId, key);
-  const allowed = new Set((connection.metadata?.accountIds || []).map(String));
-  if (!accountId || !allowed.has(accountId)) {
-    throw createServiceError("That Windsor account is not connected to the active business.", 403, {
-      code: "WINDSOR_ACCOUNT_NOT_OWNED_BY_BUSINESS",
-    });
-  }
+  assertOwnedAccount(connection, accountId);
   const token = await accessTokenFor(connection);
   const connectorId = String(connection.metadata?.connectorId || key);
   await unlinkWindsorLinkedAccount({ connectorId, accountId, accessToken: token });
@@ -319,6 +363,7 @@ export default {
   authorize,
   catalogue,
   fields,
+  importToDataHub,
   preview,
   reconcile,
   unlinkAccount,
