@@ -55,9 +55,8 @@ export default function CookiePolicyPage() {
         <h1>Cookie and tracking notice</h1>
         <p>
           This notice explains the storage and access technologies used by
-          SalonAI and the measurement providers planned for the first-party
-          marketing and analytics module that replaces the previous
-          Windsor.ai-style dependency.
+          SalonAI and the measurement providers configured through AIIBP&apos;s
+          first-party marketing and analytics capabilities.
         </p>
       </header>
 
