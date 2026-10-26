@@ -1,43 +1,41 @@
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const src = path.resolve(here, "..");
+import pageSource from "../pages/StylistCopilotPage.jsx?raw";
+import serviceSource from "../Services/aiStylistCopilotService.js?raw";
+import routerSource from "../components/stage4/Stage4WorkspaceRouter.jsx?raw";
+import {
+  MANAGEMENT_LINKS,
+} from "../components/navigation/managementNavigationConfig.js";
 
-function read(relativePath) {
-  return fs.readFileSync(path.join(src, relativePath), "utf8");
-}
+describe("Stylist Copilot staff surface", () => {
+  it("exposes advisory safety boundaries", () => {
+    expect(pageSource).toMatch(/Stylist Copilot/);
+    expect(pageSource).toMatch(/advisory only/);
+    expect(pageSource).toMatch(/Human review/);
+    expect(pageSource).toMatch(/Canonical writes/);
+    expect(pageSource).toMatch(/Safety override/);
+  });
 
-test("Stylist Copilot workspace exposes advisory safety boundaries", () => {
-  const page = read("pages/StylistCopilotPage.jsx");
-  assert.match(page, /Stylist Copilot/);
-  assert.match(page, /advisory only/);
-  assert.match(page, /Human review/);
-  assert.match(page, /Canonical writes/);
-  assert.match(page, /Safety override/);
-});
+  it("only requests the canonical appointment-scoped endpoint", () => {
+    expect(serviceSource).toMatch(/\/ai\/stylist-copilot\/appointments\//);
+    expect(serviceSource).not.toMatch(/customerId=/);
+    expect(serviceSource).not.toMatch(/sensitiveContext=/);
+  });
 
-test("Stylist Copilot UI only requests canonical appointment-scoped endpoint", () => {
-  const service = read("Services/aiStylistCopilotService.js");
-  assert.match(service, /\/ai\/stylist-copilot\/appointments\//);
-  assert.doesNotMatch(service, /customerId=/);
-  assert.doesNotMatch(service, /sensitiveContext=/);
-});
+  it("is registered as an authorised AI management workspace", () => {
+    expect(routerSource).toMatch(/pathname === "\/stylist-copilot"/);
+    expect(routerSource).toMatch(/hasPermission\(user, "ai:use"\)/);
+    expect(routerSource).toMatch(/isFeatureEnabled\("ai-tools"\)/);
+    expect(routerSource).toMatch(/<StylistCopilotPage \/>/);
 
-test("Stylist Copilot is registered as an authorised AI management workspace", () => {
-  const router = read("components/stage4/Stage4WorkspaceRouter.jsx");
-  const navigation = read("components/navigation/managementNavigationConfig.js");
-
-  assert.match(router, /pathname === "\/stylist-copilot"/);
-  assert.match(router, /hasPermission\(user, "ai:use"\)/);
-  assert.match(router, /isFeatureEnabled\("ai-tools"\)/);
-  assert.match(router, /<StylistCopilotPage \/>/);
-
-  assert.match(navigation, /"\/stylist-copilot"/);
-  assert.match(navigation, /"Stylist copilot"/);
-  assert.match(navigation, /"ai:use"/);
-  assert.match(navigation, /"ai-tools"/);
+    const link = MANAGEMENT_LINKS.find(
+      (item) => item.to === "/stylist-copilot"
+    );
+    expect(link).toMatchObject({
+      label: "Stylist copilot",
+      permission: "ai:use",
+      featureId: "ai-tools",
+      presentation: "advanced",
+    });
+  });
 });
