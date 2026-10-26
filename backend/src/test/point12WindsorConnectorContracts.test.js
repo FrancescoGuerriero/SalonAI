@@ -43,10 +43,11 @@ test("Windsor service keeps API key server-side and limits preview", async () =>
   assert.match(service, /process\.env\.WINDSOR_API_KEY/);
   assert.match(service, /MAX_PREVIEW_ROWS\s*=\s*100/);
   assert.match(service, /WINDSOR_CONNECTOR_IS_DESTINATION/);
+  assert.match(service, /WINDSOR_AUTHORIZATION_SESSION_REQUIRED/);
   assert.doesNotMatch(service, /response\.json\([\s\S]*?WINDSOR_API_KEY/);
 });
 
-test("Windsor controller enforces tenant-owned account IDs before preview and unlink", async () => {
+test("Windsor controller enforces tenant-owned account IDs before preview, import and unlink", async () => {
   const controller = await source("../features/integrationPlatform/windsorConnectorController.js");
   assert.match(controller, /request\.effectiveAuthority\?\.businessId/);
   assert.match(controller, /accountIds/);
@@ -54,6 +55,18 @@ test("Windsor controller enforces tenant-owned account IDs before preview and un
   assert.match(controller, /allowed\.has\(accountId\)/);
   assert.match(controller, /resolveProviderCredential\(connection, "access_token"\)/);
   assert.match(controller, /storeProviderCredential/);
+  assert.match(controller, /importWindsorAccountToDataHub/);
+  assert.match(controller, /locationId\(request, \{ required: true \}\)/);
+});
+
+test("Windsor Data Hub adapter reuses canonical Marketing Data Core", async () => {
+  const adapter = await source("../features/integrationPlatform/windsorDataHubService.js");
+  assert.match(adapter, /MarketingDataSource/);
+  assert.match(adapter, /runMarketingDataSource/);
+  assert.match(adapter, /provider:\s*"generic"/);
+  assert.match(adapter, /managedBy:\s*"windsor_marketing_connector"/);
+  assert.match(adapter, /windsorAccountId/);
+  assert.match(adapter, /readOnly:\s*true/);
 });
 
 test("Windsor routes are permission protected under Marketing connections", async () => {
@@ -62,15 +75,17 @@ test("Windsor routes are permission protected under Marketing connections", asyn
   assert.match(routes, /windsor\/:connector\/authorize/);
   assert.match(routes, /windsor\/:connector\/reconcile/);
   assert.match(routes, /windsor\/:connector\/preview/);
+  assert.match(routes, /windsor\/:connector\/import/);
   assert.match(routes, /windsor\/:connector\/accounts\/:accountId/);
   assert.match(routes, /requirePermissions\("feature-control:read"\)/);
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
 });
 
-test("frontend exposes one Marketing module with native and Windsor sub-workspaces", async () => {
+test("frontend exposes one Marketing module with native, Windsor and Data Hub import workflows", async () => {
   const router = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
   const landing = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
   const windsor = await source("../../../frontend/src/pages/WindsorMarketingConnectionsPage.jsx");
+  const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
   assert.match(router, /pathname === "\/marketing"/);
   assert.match(router, /pathname === "\/marketing\/native-connections"/);
   assert.match(router, /pathname === "\/marketing\/windsor"/);
@@ -79,4 +94,6 @@ test("frontend exposes one Marketing module with native and Windsor sub-workspac
   assert.match(windsor, /Connect securely/);
   assert.match(windsor, /Amazon, eBay/);
   assert.match(windsor, /provider password/);
+  assert.match(windsor, /Import to Data Hub/);
+  assert.match(client, /importWindsorConnectorData/);
 });
