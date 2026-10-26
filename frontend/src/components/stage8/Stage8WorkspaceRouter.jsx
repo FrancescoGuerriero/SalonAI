@@ -11,7 +11,7 @@ const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
-const WindsorMarketingConnectionsPage = lazy(() => import("../../pages/WindsorMarketingConnectionsPage.jsx"));
+const MarketingDataConnectionsPage = lazy(() => import("../../pages/MarketingDataConnectionsPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -46,8 +46,8 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return <MarketingAccess loading={loading} user={user}><MarketingHubPage /></MarketingAccess>;
   }
 
-  if (pathname === "/marketing/windsor") {
-    return <MarketingAccess loading={loading} user={user}><WindsorMarketingConnectionsPage /></MarketingAccess>;
+  if (pathname === "/marketing/data-connections") {
+    return <MarketingAccess loading={loading} user={user}><MarketingDataConnectionsPage /></MarketingAccess>;
   }
 
   if (pathname === "/admin/system/data-hub") {
