@@ -5,6 +5,9 @@ import {
   protect,
 } from "../../../middleware/authMiddleware.js";
 import {
+  effectiveAuthorityMiddleware,
+} from "../../../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../../../middleware/permissionMiddleware.js";
 import {
@@ -29,6 +32,11 @@ import {
   reconcileMembershipRecoveryJourneys,
   updateEnrollmentOutcome,
 } from "./stage7CrmController.js";
+import {
+  createTechnicalRecord,
+  getRetentionQueue,
+  getTechnicalRecords,
+} from "./stage9CrmController.js";
 
 const router = express.Router();
 
@@ -70,6 +78,26 @@ router.get(
   requirePermissions("customer:read"),
   asyncHandler(getCrmSegments)
 );
+
+router.get(
+  "/crm/retention-queue",
+  effectiveAuthorityMiddleware,
+  requirePermissions("customer:read"),
+  asyncHandler(getRetentionQueue)
+);
+
+router
+  .route("/crm/customers/:customerId/technical-records")
+  .get(
+    effectiveAuthorityMiddleware,
+    requirePermissions("customer:read"),
+    asyncHandler(getTechnicalRecords)
+  )
+  .post(
+    effectiveAuthorityMiddleware,
+    requirePermissions("customer:update"),
+    asyncHandler(createTechnicalRecord)
+  );
 
 router
   .route("/enrollments")
