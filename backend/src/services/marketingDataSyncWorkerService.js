@@ -1,6 +1,10 @@
 import MarketingDataSource from "../models/MarketingDataSource.js";
 import { runMarketingDataSource } from "../features/integrationPlatform/marketingDataCoreService.js";
 import { runMarketingProviderSource } from "../features/integrationPlatform/marketingProviderRunService.js";
+import {
+  isWindsorDataSource,
+  runWindsorScheduledSource,
+} from "../features/integrationPlatform/windsorScheduledSyncService.js";
 
 const DEFAULT_INTERVAL_MS = 300000;
 const MIN_INTERVAL_MS = 30000;
@@ -78,7 +82,12 @@ async function processSource(source, now) {
   }
   try {
     let result;
-    if (source.provider === "technical_seo") {
+    if (isWindsorDataSource(source)) {
+      result = await runWindsorScheduledSource(
+        source._id,
+        { businessId: source.business, locationId: source.location, actor: null }
+      );
+    } else if (source.provider === "technical_seo") {
       result = await runMarketingDataSource(
         source._id,
         { mode: "seo_scan" },
@@ -101,7 +110,14 @@ async function processSource(source, now) {
         },
       }
     );
-    return { sourceId: String(source._id), locationId: String(source.location), success: true, result };
+    return {
+      sourceId: String(source._id),
+      locationId: String(source.location),
+      provider: source.provider,
+      managedBy: source.sourceConfig?.managedBy || null,
+      success: true,
+      result,
+    };
   } catch (error) {
     const retryAt = new Date(now.getTime() + 15 * 60000);
     await MarketingDataSource.updateOne(
@@ -184,7 +200,10 @@ export async function runMarketingDataSyncWorkerCycle(options = {}) {
       syncMode: { $in: ["scheduled", "incremental"] },
       "schedule.cadence": { $in: ["hourly", "daily", "weekly"] },
       "schedule.nextRunAt": { $ne: null, $lte: now },
-      provider: { $in: ["ga4", "google_search_console", "bing_webmaster", "technical_seo"] },
+      $or: [
+        { provider: { $in: ["ga4", "google_search_console", "bing_webmaster", "technical_seo"] } },
+        { provider: "generic", "sourceConfig.managedBy": "windsor_marketing_connector" },
+      ],
     }).sort({ "schedule.nextRunAt": 1, _id: 1 }).limit(config.limit);
 
     const results = await executeWithConcurrency(
