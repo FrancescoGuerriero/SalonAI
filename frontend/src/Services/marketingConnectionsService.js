@@ -46,6 +46,10 @@ export function previewWindsorConnector(connector, payload) {
   return API.post(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/preview`, payload).then(responseData);
 }
 
+export function importWindsorConnectorData(connector, payload) {
+  return API.post(`${BASE_URL}/windsor/${encodeURIComponent(connector)}/import`, payload).then(responseData);
+}
+
 export function unlinkWindsorAccount(connector, accountId) {
   return API.delete(
     `${BASE_URL}/windsor/${encodeURIComponent(connector)}/accounts/${encodeURIComponent(accountId)}`
@@ -60,6 +64,7 @@ export default {
   getMarketingConnectionCatalogue,
   getWindsorCatalogue,
   getWindsorConnectorFields,
+  importWindsorConnectorData,
   previewWindsorConnector,
   reconcileWindsorConnector,
   unlinkWindsorAccount,
