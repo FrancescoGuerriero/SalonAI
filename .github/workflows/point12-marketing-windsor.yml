@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "backend/src/platform/capabilities/**"
-      - "backend/src/features/integrationPlatform/windsorConnector*.js"
+      - "backend/src/features/integrationPlatform/windsor*.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12WindsorConnectorContracts.test.js"
@@ -20,7 +20,7 @@ on:
       - main
     paths:
       - "backend/src/platform/capabilities/**"
-      - "backend/src/features/integrationPlatform/windsorConnector*.js"
+      - "backend/src/features/integrationPlatform/windsor*.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12WindsorConnectorContracts.test.js"
