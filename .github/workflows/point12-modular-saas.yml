@@ -1,0 +1,112 @@
+name: Point 12 Modular SaaS Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/platform/productComposition/**"
+      - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/sellerKpiService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/models/DataConnectionApiUsageBudget.js"
+      - "backend/src/services/marketingDataSyncWorkerService.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12ModuleInstallability.test.js"
+      - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/roadmap/point12-*.md"
+      - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.1.md"
+      - ".github/workflows/point12-modular-saas.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/platform/productComposition/**"
+      - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/sellerKpiService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/models/DataConnectionApiUsageBudget.js"
+      - "backend/src/services/marketingDataSyncWorkerService.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12ModuleInstallability.test.js"
+      - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/roadmap/point12-*.md"
+      - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.1.md"
+      - ".github/workflows/point12-modular-saas.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contracts:
+    name: Point 12 modular SaaS contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 12 contracts
+        run: >-
+          node --test
+          src/test/point12BusinessModuleBoundaries.test.js
+          src/test/point12ModuleInstallability.test.js
+          src/test/point12DataConnectionContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+
+  frontend:
+    name: Point 12 modular SaaS frontend build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
