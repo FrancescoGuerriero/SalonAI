@@ -1,0 +1,95 @@
+name: Point 12 Marketing Windsor Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/features/integrationPlatform/windsorConnector*.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12WindsorConnectorContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/WindsorMarketingConnectionsPage.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/roadmap/point12-*.md"
+      - ".github/workflows/point12-marketing-windsor.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/features/integrationPlatform/windsorConnector*.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12WindsorConnectorContracts.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/WindsorMarketingConnectionsPage.jsx"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/roadmap/point12-*.md"
+      - ".github/workflows/point12-marketing-windsor.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contracts:
+    name: Point 12 module and Windsor contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 12 contracts
+        run: >-
+          node --test
+          src/test/point12BusinessModuleBoundaries.test.js
+          src/test/point12WindsorConnectorContracts.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+
+  frontend:
+    name: Point 12 Marketing frontend build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle
