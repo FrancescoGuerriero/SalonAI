@@ -34,6 +34,8 @@ import {
 } from "./stage7CrmController.js";
 import {
   createTechnicalRecord,
+  getPoint9Customer360,
+  getRetentionOpportunities,
   getRetentionQueue,
   getTechnicalRecords,
 } from "./stage9CrmController.js";
@@ -74,6 +76,13 @@ router.get(
 );
 
 router.get(
+  "/crm/customers/:customerId/360",
+  effectiveAuthorityMiddleware,
+  requirePermissions("customer:read"),
+  asyncHandler(getPoint9Customer360)
+);
+
+router.get(
   "/crm/segments",
   requirePermissions("customer:read"),
   asyncHandler(getCrmSegments)
@@ -84,6 +93,13 @@ router.get(
   effectiveAuthorityMiddleware,
   requirePermissions("customer:read"),
   asyncHandler(getRetentionQueue)
+);
+
+router.get(
+  "/crm/opportunities",
+  effectiveAuthorityMiddleware,
+  requirePermissions("customer:read"),
+  asyncHandler(getRetentionOpportunities)
 );
 
 router
