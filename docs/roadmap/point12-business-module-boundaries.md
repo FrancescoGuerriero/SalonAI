@@ -1,127 +1,152 @@
-# Point 12 — Business Module Boundaries and Manual Acceptance
+# Point 12 — Business Module Manual Acceptance
 
 ## Purpose
 
-Point 12 packages the existing AIIBP capabilities into distinct business modules that can be allocated to a Business through capability entitlements without duplicating authority.
+Point 12 packages AIIBP capabilities into distinctive business-facing modules that can be allocated to a Business without exposing internal engines as duplicate products.
 
-The module catalogue sits above low-level capability packs. Existing canonical domains remain authoritative; this work does not create parallel Appointment, Customer, Campaign, Communication, Integration, BI or AI stores.
+The canonical module authority is the existing capability registry:
 
-## Module catalogue
+- `backend/src/platform/capabilities/capabilityRegistry.js`
+- `backend/src/platform/capabilities/verticalPackRegistry.js`
+- `docs/architecture/business-module-boundaries.md`
 
-| Module | Primary purpose | External platform connection | AI assistance | Execution authority |
-| --- | --- | --- | --- | --- |
-| Booking & Operations | Appointments, availability, waitlist/reception and service scheduling | No | No | Canonical operational authority |
-| Workforce & Staff | Employee records, staff roles/eligibility and staff availability | No | No | Canonical workforce authority |
-| Commerce | Checkout, orders, payments/refunds/invoices, memberships and loyalty/stored value | Yes | No | Canonical financial/value authority |
-| Inventory & Purchasing | Stock, suppliers, purchase orders and reorder workflow | Yes | No | Canonical stock/purchasing authority |
-| CRM & Customer Intelligence | Customer 360, lifecycle, deterministic segmentation, consent/contactability and retention evidence | No | No | Canonical read-model/customer evidence authority |
-| Communications | Templates, channel delivery, scheduled delivery and delivery status/retry | Yes | No | Canonical delivery authority |
-| Integration Hub | Provider connections, credential governance, Windsor-style/provider-neutral ingestion, lineage and governed destinations | Yes | No | Integration control plane |
-| Marketing Automation | Campaigns, journeys, audience activation, approvals/scheduling and attribution orchestration | Indirectly through Integration Hub | Yes | Human-approved automation |
-| Analytics & BI | Deterministic metrics, dashboards, campaign performance and operational/revenue analysis | No | No | Read-only evidence |
-| AI Decision Support | Copilots, predictions, recommendations, next-best-action and natural-language analysis | No | Yes | Advisory only |
-| AI Receptionist | Customer-facing conversational front-desk workflows using governed booking/communication tools | No direct provider ownership | Yes | Governed tool execution |
+Internal engines remain installable dependencies, but tenant/business configuration should expose only `allocatableCapabilityPackKeys`.
 
-## Non-duplication rules
+## Core allocation model
 
-1. Every primary responsibility has exactly one module owner.
-2. The Integration Hub owns provider credentials and provider connectivity. Marketing Automation must not implement a second credential store or provider-connection framework.
-3. CRM owns customer lifecycle, deterministic segments, consent and contactability evidence. Marketing Automation consumes those audiences but does not redefine customer authority.
-4. Communications owns message transport, templates and delivery state. Marketing Automation chooses approved campaign/journey actions but delegates sending.
-5. Analytics & BI owns deterministic reporting. AI Decision Support may interpret evidence but must not replace deterministic facts with model output.
-6. AI Decision Support remains advisory by default and cannot silently mutate canonical business state, send campaigns, charge customers or override safety/consent policy.
-7. AI Receptionist is a separate customer-facing conversational module. It must not become an internal management copilot or a marketing campaign engine.
-8. Booking, workforce, commerce and inventory remain canonical operational modules. Other modules consume their evidence through governed contracts rather than recreating their state.
+Business-facing modules include Appointments & Booking, Workforce & Staff, Service Catalogue, Commerce, Communications, Calendar Integration, Integration Hub, Analytics & BI, CRM & Customer Intelligence, Marketing, AI Business Adviser, AI Receptionist, AI Retention Manager, AI Stylist Copilot, Memberships, Inventory & Purchasing, Loyalty and vertical-specific specialist modules.
 
-## Point 12 marketing architecture
+The key Point 12 rule is:
 
-Marketing Automation is the orchestration layer over existing capabilities:
+**one allocatable Marketing module**
 
-`CRM audience/consent -> Marketing Automation -> approval/schedule -> Communications/provider execution -> CampaignExecution/Attribution -> Analytics & BI -> optional AI Decision Support`
+with these internal, non-allocatable engines:
 
-Provider/data connections are separate:
+- `marketing-data` — Windsor-style/provider-neutral ingestion, normalisation and lineage;
+- `campaigns-attribution` — canonical campaigns, campaign executions, social publication and deterministic attribution;
+- `marketing-automation` — triggers, approvals, schedules and automation-run orchestration.
 
-`Business -> Integration Hub -> external platform -> Marketing Data Core/Data Hub -> Analytics/Marketing evidence`
-
-This preserves the existing provider-neutral, Windsor-style first-party architecture while allowing a Business to receive only the modules it is entitled to use.
-
-## Capability allocation
-
-The platform capability registry now exposes explicit allocatable packs for:
-
-- `integrations`
-- `crm`
-- `marketing-automation`
-- `ai-decision-support`
-
-`marketing-automation` depends on CRM, Communications, Analytics & BI and Integration Hub capability packs. AI Decision Support depends on the shared AI foundation and Analytics & BI.
+The Marketing module composes those engines together with Integration Hub, CRM, Communications and Analytics & BI without duplicating their canonical state.
 
 ## Manual acceptance checklist
 
-Use a non-production test Business and test Location. Do not enter production provider credentials unless a controlled provider acceptance test has been authorised.
+Use a non-production test Business and test Location. Do not enter production provider credentials or activate live sending unless a controlled provider acceptance step has been authorised.
 
-### A. Module visibility/allocation
+### A. Module catalogue and allocation
 
-1. Allocate only Booking & Operations capabilities. Confirm booking/service/calendar functions work and Marketing/AI-specific surfaces are unavailable or clearly marked as not entitled.
-2. Add `integrations`. Confirm provider connection/data-connection surfaces become available without enabling campaign execution.
-3. Add `crm`. Confirm Customer 360/lifecycle/segment evidence is available without creating/sending campaigns.
-4. Add `marketing-automation` with its dependencies. Confirm campaign/journey controls become available.
-5. Remove `marketing-automation` while retaining `integrations`. Confirm provider/data connections remain usable while marketing execution is unavailable.
-6. Add `ai` + `ai-decision-support`. Confirm copilots/recommendations are available without automatically sending messages or changing canonical records.
+1. Open the tenant/business product composition surface or inspect the resolved vertical composition.
+2. Confirm `allocatableCapabilityPackKeys` includes business-facing modules such as `marketing`, `integrations`, `crm`, `analytics`, `ai-decision-support` and the vertical-appropriate AI assistants.
+3. Confirm internal engines are **not** directly allocatable: `ai`, `marketing-data`, `campaigns-attribution`, `marketing-automation`.
+4. Confirm allocating `marketing` automatically requires its internal dependencies rather than asking the Business to buy/configure them separately.
+5. Confirm disabling/removing `marketing` does not remove unrelated modules such as Appointments, Workforce, Commerce or Integration Hub unless those are separately removed.
 
 ### B. Integration Hub separation
 
-1. Open Marketing/Integration connections.
-2. Configure a test/sandbox provider where supported.
-3. Confirm credentials are never returned in plaintext after save.
-4. Confirm connection status/data ingestion can be inspected independently from campaign creation.
-5. Confirm disconnecting a provider does not delete canonical CRM customers, campaigns, appointments or BI history.
+1. Allocate/enable `integrations` without `marketing`.
+2. Open provider connection management.
+3. Configure a supported sandbox/test provider.
+4. Confirm credentials are stored securely and are not returned in plaintext after save.
+5. Confirm provider connection/sync status can be inspected without exposing campaign automation controls.
+6. Confirm disconnecting a provider does not delete canonical CRM customers, appointments, campaigns, orders or historical analytics evidence.
 
-### C. CRM separation
+**Pass condition:** Integration Hub owns provider connection, credential and sync state only.
 
-1. Open a test customer.
-2. Review Customer 360, lifecycle and deterministic segment membership.
-3. Change test consent/contactability through the canonical customer/consent workflow.
-4. Confirm CRM reflects the change.
-5. Confirm Marketing Automation respects the updated contactability rather than maintaining a separate consent flag.
+### C. CRM & Customer Intelligence separation
 
-### D. Marketing Automation
+1. Allocate/enable `crm` without `marketing`.
+2. Open Customer 360/lifecycle/segment views.
+3. Verify deterministic lifecycle and segment evidence can be reviewed independently of campaign execution.
+4. Change test consent/contactability through the canonical customer/consent workflow.
+5. Confirm CRM reflects the change.
+6. Confirm no marketing message is sent merely because a customer enters a segment or lifecycle state.
 
-1. Create a draft campaign or retention journey.
-2. Select an existing CRM segment/audience.
-3. Preview the audience and verify tenant/location scoping.
-4. Confirm customers without required channel consent are excluded or blocked.
-5. Confirm provider credentials are referenced through Integration Hub rather than entered again in the campaign.
-6. Confirm the workflow remains Draft/Preview/Approve/Schedule/Execute/Measure, with live execution still gated where provider activation is not approved.
-7. Confirm CampaignExecution/attribution evidence records results without creating a second campaign source of truth.
+**Pass condition:** CRM owns customer intelligence/retention definitions and evidence, not campaign sending.
+
+### D. Marketing module composition
+
+1. Allocate/enable `marketing` with its required dependencies.
+2. Confirm the Business sees a single Marketing product experience rather than separate Marketing Data, Campaign Attribution and Marketing Automation products.
+3. Open marketing provider/data connections and confirm they use Integration Hub credentials/contracts rather than a second credential store.
+4. Create or inspect a draft campaign or retention journey.
+5. Select an existing CRM audience/segment.
+6. Preview the audience and verify tenant/location scope.
+7. Confirm customers without required channel consent/contactability are excluded or blocked.
+8. Confirm the campaign workflow remains governed: Draft/Preview/Approve/Schedule/Execute/Measure, or the nearest current equivalent where execution is still gated.
+9. Confirm campaign execution/attribution uses canonical `Campaign`/`CampaignExecution`/attribution evidence and does not create another campaign source of truth.
+10. Confirm marketing-data evidence can be consumed without exposing `marketing-data` as a separately allocatable product.
+
+**Pass condition:** one Marketing module orchestrates existing authorities without recreating them.
 
 ### E. Communications separation
 
-1. Open templates and scheduled communications.
-2. Confirm templates/delivery state live in Communications, not inside Marketing Automation.
-3. Trigger only an authorised test delivery.
-4. Confirm delivery status/retry evidence appears in Communications while campaign/journey state remains in Marketing Automation.
+1. Allocate/enable Communications independently.
+2. Open templates, scheduled communications and delivery monitoring.
+3. Confirm templates, channel transport, delivery state and retry evidence remain in Communications.
+4. From Marketing, confirm approved campaign actions delegate actual delivery to Communications/provider contracts.
+5. Trigger only an authorised sandbox/test delivery.
+6. Confirm delivery evidence appears in Communications while campaign/journey orchestration remains in Marketing.
+
+**Pass condition:** Communications owns message delivery; Marketing owns approved orchestration.
 
 ### F. Analytics & BI separation
 
-1. Open campaign/performance reporting.
-2. Confirm spend, conversion, booking/revenue and other deterministic metrics are derived from canonical/normalised evidence.
-3. Confirm reporting does not execute a campaign or mutate Customer/Campaign/Appointment records.
+1. Allocate/enable Analytics & BI without AI Decision Support.
+2. Review campaign, revenue or operational reporting.
+3. Confirm deterministic metrics are available without AI recommendations.
+4. Confirm reporting cannot execute campaigns or mutate Customer, Appointment, Order, Campaign or Staff canonical records.
 
-### G. AI Decision Support separation
+**Pass condition:** Analytics & BI is read/evidence authority only.
 
-1. Open Management Copilot or Stylist Copilot with a test Business.
-2. Confirm outputs are labelled advisory/human-review-required.
-3. Confirm AI can analyse relevant evidence and recommend an action.
-4. Confirm accepting/viewing a recommendation does not automatically send a marketing message, charge a customer, create an appointment, alter consent or override professional/safety rules.
-5. Confirm AI provenance/inference evidence is recorded where the existing governed AI contract requires it.
+### G. AI Business Adviser / decision support
 
-### H. AI Receptionist separation
+1. Allocate `ai-decision-support` for a test Business.
+2. Confirm the shared internal `ai` foundation is not separately presented as a commercial module.
+3. Open the Management Copilot/business-adviser surface.
+4. Confirm output is evidence-grounded and human-review/advisory in nature.
+5. Confirm a recommendation does not automatically send marketing, change pricing, alter staff, create bookings, charge customers or mutate canonical state.
+6. Confirm inference/provenance evidence is recorded where the governed AI contract requires it.
 
-1. Use a sandbox/test conversation.
-2. Confirm the AI Receptionist handles front-desk intent and can use only authorised booking/communication tools.
-3. Confirm it does not expose management BI, campaign-builder functions or internal professional-copilot content.
+**Pass condition:** AI assists decisions and does not silently become operational authority.
 
-## Acceptance outcome
+### H. AI Retention Manager
 
-Point 12 module architecture passes manual acceptance when each module can be enabled/disabled independently through capability allocation, dependencies are enforced, no module recreates another module's canonical state, and AI/automation behaviour remains within its declared authority boundary.
+1. Allocate/enable the AI Retention Manager where supported.
+2. Confirm it can recommend audiences, channels or next actions from CRM/BI evidence.
+3. Confirm it cannot directly own or execute a campaign.
+4. Confirm approved execution still passes through the Marketing module and Communications/provider contracts.
+
+**Pass condition:** AI Retention advises; Marketing executes approved activity.
+
+### I. AI Stylist Copilot
+
+1. On a Salon business, allocate/enable AI Stylist Copilot.
+2. Open a test appointment-scoped Copilot view.
+3. Confirm recommendations are professional decision support only.
+4. Confirm no autonomous customer message, canonical write, medical diagnosis or safety-rule override occurs.
+5. Confirm Marketing functions are not exposed inside the Stylist Copilot.
+
+**Pass condition:** professional AI decision support remains separate from marketing and general management AI.
+
+### J. AI Receptionist
+
+1. Allocate/enable AI Receptionist for a test Business.
+2. Use a sandbox/test conversation.
+3. Confirm the assistant can use only authorised booking/communications tools.
+4. Confirm it cannot expose internal BI dashboards, campaign-building functions or professional Copilot content.
+5. Confirm canonical Appointments/Communications remain authoritative after any approved tool action.
+
+**Pass condition:** AI Receptionist is a governed customer-facing assistant, not a management or marketing engine.
+
+## Non-duplication acceptance
+
+The architecture passes when:
+
+- every active canonical `ownedDomain` has one owner only;
+- internal engines are hidden from tenant allocation when they are dependencies rather than products;
+- `Marketing` is the single business-facing marketing module;
+- provider connections remain owned by Integration Hub;
+- CRM remains customer-intelligence authority;
+- Communications remains delivery authority;
+- Analytics & BI remains deterministic evidence authority;
+- AI assistants remain within their declared advisory/tool-use boundaries;
+- no module recreates another module's canonical database/state/business rules.
