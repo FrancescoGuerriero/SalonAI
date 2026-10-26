@@ -4,63 +4,62 @@ Original Phase 14.
 
 ## Decision
 
-Point 12 extends the existing business-facing **Marketing** module. It does not introduce a second marketing product and does not rebuild CRM, Communications, Data Hub, campaign/attribution or AI foundations.
+Point 12 extends the existing **Marketing** module rather than creating another marketing product. The business-facing Marketing module composes provider connectivity, Windsor-backed data ingestion, seller data, campaigns/attribution, CRM audiences, consent-aware automation, Communications delivery, deterministic BI and governed AI assistance.
 
-The existing first-party Windsor-style/provider-neutral marketing-data capability remains an internal engine. Businesses are allocated the **Marketing** module, while internal dependencies are installed/resolved by the platform.
+The existing first-party/provider-neutral Marketing Data Core remains canonical inside AIIBP. Windsor is an external connector platform feeding that Data Hub; it does not become the source of truth for campaigns, customers, permissions, tenant ownership or business configuration.
 
-## Foundations reused
+## Distinct internal authorities
 
-- Stage 5 Marketing Data Core / Data Hub for provider-neutral ingestion, normalisation and lineage.
-- Stage 6 `Campaign`, `CampaignExecution`, social publishing and deterministic attribution.
-- Stage 7 Customer 360, lifecycle, deterministic segmentation, consent-aware journeys and campaign-to-revenue evidence.
-- Communications for templates, delivery, retries and scheduled messages.
-- Integration Hub for external platform connections and credential governance.
-- Analytics & BI for deterministic metrics and reporting.
-- Governed AI platform and business-facing AI assistants for advisory recommendations.
+- **Integration Hub** — provider/native connection and credential authority.
+- **Windsor connector layer** — broad read/analytics authorization and source-account retrieval.
+- **Marketing Data Core / Data Hub** — canonical AIIBP ingestion, raw/normalised lineage and source health.
+- **CRM** — Customer 360, lifecycle, segmentation and consent/contactability evidence.
+- **Campaign & Attribution Engine** — canonical campaign/execution/attribution evidence.
+- **Marketing Automation Engine** — triggers, approval, schedule and automation-run evidence.
+- **Communications** — message templates, transport, delivery status and retry.
+- **Analytics & BI** — deterministic reporting/read models.
+- **AI assistants** — advisory interpretation/recommendation; humans remain decision owners.
 
-## Canonical module authority
+## Windsor plugin delivered in this Point 12 branch
 
-Module definitions and non-duplication rules are encoded in:
+- metadata-driven requested connector catalogue;
+- runtime Windsor connector discovery/connect-info contract;
+- server-side `WINDSOR_API_KEY` only;
+- Business-scoped Windsor authorization sessions;
+- encrypted session token storage;
+- account reconciliation scoped to the specific Business authorization session;
+- Business-owned account ID enforcement before preview/import/unlink;
+- one Marketing landing workspace with Windsor and native sub-workspaces;
+- separate UI groups for Sources, Sellers, Data platforms, Destinations and AI destinations;
+- dedicated Sellers experience including Amazon Seller Central and eBay;
+- read-only preview;
+- bounded manual import into the canonical location-owned Data Hub;
+- destination-only entries blocked from ordinary source import;
+- no Windsor/provider write operations enabled.
 
-- `backend/src/platform/capabilities/capabilityRegistry.js`
-- `backend/src/platform/capabilities/verticalPackRegistry.js`
-- `docs/architecture/business-module-boundaries.md`
+## Seller direction
 
-Every active canonical `ownedDomain` has at most one owner. Tenant/business configuration should expose `allocatableCapabilityPackKeys` rather than internal engines.
+Amazon Seller Central (`amazon_sp`) and eBay (`ebay`) are treated as **Sellers** inside Marketing. Their analytics evidence can flow through Windsor into the Data Hub and then into BI/AI. Product/listing mutations, finance actions or other provider writes require future explicit provider-specific authorization, permission, approval and audit contracts.
 
-## Marketing composition
+## AI role
 
-The single business-facing `marketing` module composes three internal, non-allocatable engines:
+AI may assist the user with connector selection, setup explanations, connection-health interpretation, field/mapping suggestions, anomaly/data-quality interpretation and marketing/seller insight generation from canonical Data Hub evidence.
 
-1. `marketing-data` — Windsor-style/provider-neutral ingestion, normalisation and lineage.
-2. `campaigns-attribution` — campaigns, campaign executions, social publication and deterministic attribution.
-3. `marketing-automation` — triggers, approval policy, scheduling and automation-run evidence.
+AI does not receive provider passwords or Windsor API/session tokens and cannot silently connect/unlink accounts, cross tenant boundaries, execute provider write actions or replace deterministic evidence with model output.
 
-It also consumes existing authorities:
+## Ingestion activation boundary
 
-- provider connections/credentials — Integration Hub;
-- customer lifecycle/segments/retention definitions — CRM & Customer Intelligence;
-- message transport/templates/delivery state — Communications;
-- deterministic metrics — Analytics & BI;
-- recommendations/predictions — AI assistant modules;
-- orders/payments/appointments/staff/services — their canonical operational domains.
+The first implementation supports bounded manual import to prove the connection, tenant isolation and canonical Data Hub lineage. Complete scheduled/incremental/backfill ingestion requires connector-specific validation of Windsor fields, pagination, date windows, limits, retry behaviour and commercial refresh limits. It must reuse the same canonical `MarketingDataSource` rather than introduce another store.
 
-## Point 12 implementation direction
+## Manual acceptance
 
-New source work should focus on the Marketing module experience and orchestration:
+Use:
 
-- marketing overview and dependency/readiness state;
-- campaign/journey trigger configuration;
-- audience preview using canonical CRM segments and consent/contactability;
-- approval workflow;
-- schedule controls;
-- execution evidence;
-- attribution/ROI evidence;
-- AI-assisted recommendations that remain advisory;
-- clear links to Integration Hub, Communications, CRM and Analytics without duplicating those functions.
+- `docs/roadmap/point12-business-module-boundaries.md`
+- `docs/roadmap/point12-windsor-connector-implementation.md`
 
-## Safety boundary
+These include Business/module allocation, Windsor configuration, Amazon/eBay seller tests, Data Hub import, native-vs-Windsor boundaries, CRM/Communications separation, AI boundaries and cross-tenant unlink/import checks.
 
-Marketing execution remains human-approved by default. Provider credentials, production sending, autonomous scheduling, production data migration, model promotion and production activation remain controlled steps and are not enabled merely by allocating the Marketing module.
+## Production safety
 
-Manual acceptance is defined in `docs/roadmap/point12-business-module-boundaries.md`.
+No production deployment, live provider credential activation, scheduled Windsor sync, historical backfill, provider write operation, autonomous marketing send, model promotion or production AI decision authority is authorised by this source implementation.
