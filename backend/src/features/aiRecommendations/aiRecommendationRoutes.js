@@ -18,24 +18,19 @@ import {
 import {
   analyseCustomerSegmentation,
 } from "./aiCustomerSegmentationController.js";
-
 import {
   generateAppointmentDemandForecast,
 } from "./aiDemandForecastingController.js";
-
 import {
   recommendHaircare,
   status,
 } from "./aiRecommendationController.js";
-
 import {
   generateCustomerSummary,
 } from "./aiCustomerSummaryController.js";
-
 import {
   generateAiSalesForecast,
 } from "./aiSalesForecastingController.js";
-
 import {
   generateAiMarketingInsights,
 } from "./aiMarketingInsightsController.js";
@@ -48,6 +43,9 @@ import {
 import {
   getAiManagementCopilot,
 } from "./aiManagementCopilotController.js";
+import {
+  getAiStylistCopilot,
+} from "./aiStylistCopilotController.js";
 import {
   askAdviser,
 } from "./aiAdviserController.js";
@@ -103,57 +101,43 @@ router.get(
 router.post(
   "/adviser/query",
   ...tenantAwareAiChain,
-  asyncHandler(
-    askAdviser
-  )
+  asyncHandler(askAdviser)
 );
 
 router.patch(
   "/adviser/inferences/:inferenceId/feedback",
   ...tenantAwareAiChain,
-  asyncHandler(
-    submitFeedback
-  )
+  asyncHandler(submitFeedback)
 );
 
 router.get(
   "/adviser/evaluation",
   ...tenantAwareAiChain,
-  asyncHandler(
-    getEvaluation
-  )
+  asyncHandler(getEvaluation)
 );
 
 router.get(
   "/adviser/proposals",
   ...tenantAwareAiChain,
-  asyncHandler(
-    listProposals
-  )
+  asyncHandler(listProposals)
 );
 
 router.post(
   "/adviser/proposals",
   ...tenantAwareAiChain,
-  asyncHandler(
-    createProposal
-  )
+  asyncHandler(createProposal)
 );
 
 router.patch(
   "/adviser/proposals/:proposalId/review",
   ...tenantAwareAiChain,
-  asyncHandler(
-    reviewProposal
-  )
+  asyncHandler(reviewProposal)
 );
 
 router.post(
   "/adviser/proposals/:proposalId/prepare",
   ...tenantAwareAiChain,
-  asyncHandler(
-    prepareProposalDraft
-  )
+  asyncHandler(prepareProposalDraft)
 );
 
 router.get(
@@ -207,67 +191,55 @@ router.post(
 router.get(
   "/management-copilot",
   ...tenantAwareAiChain,
-  asyncHandler(
-    getAiManagementCopilot
-  )
+  asyncHandler(getAiManagementCopilot)
+);
+
+router.get(
+  "/stylist-copilot/appointments/:appointmentId",
+  ...tenantAwareAiChain,
+  asyncHandler(getAiStylistCopilot)
 );
 
 router.get(
   "/no-show-predictions",
   ...tenantAwareAiChain,
-  asyncHandler(
-    getAiNoShowPredictions
-  )
+  asyncHandler(getAiNoShowPredictions)
 );
 
 router.get(
   "/no-show-evaluation",
   ...tenantAwareAiChain,
-  asyncHandler(
-    getAiNoShowEvaluation
-  )
+  asyncHandler(getAiNoShowEvaluation)
 );
 
 router.post(
   "/haircare/recommendations",
-  asyncHandler(
-    recommendHaircare
-  )
+  asyncHandler(recommendHaircare)
 );
 
 router.get(
   "/customers/:customerId/summary",
-  asyncHandler(
-    generateCustomerSummary
-  )
+  asyncHandler(generateCustomerSummary)
 );
 
 router.get(
   "/customer-segmentation",
-  asyncHandler(
-    analyseCustomerSegmentation
-  )
+  asyncHandler(analyseCustomerSegmentation)
 );
 
 router.get(
   "/appointment-demand-forecast",
-  asyncHandler(
-    generateAppointmentDemandForecast
-  )
+  asyncHandler(generateAppointmentDemandForecast)
 );
 
 router.get(
   "/sales-forecast",
-  asyncHandler(
-    generateAiSalesForecast
-  )
+  asyncHandler(generateAiSalesForecast)
 );
 
 router.get(
   "/marketing-insights",
-  asyncHandler(
-    generateAiMarketingInsights
-  )
+  asyncHandler(generateAiMarketingInsights)
 );
 
 export default router;
