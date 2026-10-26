@@ -45,7 +45,7 @@ test("Marketing is one allocatable business module backed by distinct internal e
   assert.equal(campaigns.allocatable, false);
   assert.equal(automation.allocatable, false);
 
-  assert.deepEqual(marketingData.ownedDomains.sort(), [
+  assert.deepEqual([...marketingData.ownedDomains].sort(), [
     "marketing-ingestion",
     "marketing-lineage",
     "marketing-normalised-data",
