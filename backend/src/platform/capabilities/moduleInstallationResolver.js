@@ -1,3 +1,5 @@
+import "./commercialCapabilityExtensions.js";
+
 import {
   capabilitySupportsVertical,
   getCapabilityPack,
