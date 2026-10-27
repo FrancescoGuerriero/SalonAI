@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.security import require_service_key
 from app.governance.ai_registry import registry_snapshot
+from app.governance.model_development_registry import model_development_snapshot
 from app.governance.training_data_registry import training_data_snapshot
 
 
@@ -16,6 +17,7 @@ router = APIRouter(
 def _core_status() -> dict:
     registry = registry_snapshot()
     training_data = registry["trainingData"]
+    development = model_development_snapshot()
     datasets = training_data["datasets"]
     models = registry["models"]
     tools = registry["tools"]
@@ -25,6 +27,7 @@ def _core_status() -> dict:
         "registryVersion": registry["version"],
         "toolCount": len(tools),
         "modelCount": len(models),
+        "modelDevelopmentTrackCount": len(development["tracks"]),
         "trainingDatasetCount": len(datasets),
         "trainingEligibleDatasetCount": sum(
             1 for dataset in datasets if dataset.get("trainingEligible") is True
@@ -52,6 +55,10 @@ def _core_status() -> dict:
             "humanApprovalRequiredForPromotion": training_data["policy"][
                 "humanApprovalRequiredForPromotion"
             ],
+            "offlineTrainingOnly": development["policy"]["offlineTrainingOnly"],
+            "repeatedRunsForStochasticModelsRequired": development["policy"][
+                "repeatedRunsForStochasticModelsRequired"
+            ],
         },
         "state": "governed_foundation",
         "message": (
@@ -72,6 +79,12 @@ def get_ai_core_status(request: Request) -> dict:
 def get_ai_core_training_data(request: Request) -> dict:
     request.state.ai_capability = "ai-core-training-data"
     return training_data_snapshot()
+
+
+@router.get("/development-tracks", dependencies=[Depends(require_service_key)])
+def get_ai_core_development_tracks(request: Request) -> dict:
+    request.state.ai_capability = "ai-core-development-tracks"
+    return model_development_snapshot()
 
 
 @router.get("/models", dependencies=[Depends(require_service_key)])
