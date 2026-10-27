@@ -3,6 +3,7 @@ export const AIIBP_CORE_MODULES = Object.freeze([
     key: "ai",
     label: "AI Core",
     group: "Core",
+    link: "/admin/system/ai-core",
     summary:
       "Shared governed AI foundation for inference, provenance, model lifecycle, evaluation, training-data governance and approved AI tools across AIIBP.",
   },
