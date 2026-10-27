@@ -11,7 +11,10 @@ import {
 
 import { Link } from "react-router-dom";
 
-import { AIIBP_COMMERCIAL_MODULES } from "../config/aiibpCommercialModules.js";
+import {
+  AIIBP_COMMERCIAL_MODULES,
+  AIIBP_CORE_MODULES,
+} from "../config/aiibpCommercialModules.js";
 
 const cards = [
   {
@@ -72,6 +75,7 @@ const existingSalonDashboardModuleKeys = new Set([
 ]);
 
 const moduleCategoryByGroup = Object.freeze({
+  Core: "Core Modules",
   Operations: "Core Modules",
   Customer: "Core Modules",
   Integrations: "System Modules",
@@ -83,9 +87,10 @@ const moduleCategoryByGroup = Object.freeze({
 });
 
 const moduleCategories = ["Core Modules", "System Modules", "Business Modules"];
+const listedPlatformModules = [...AIIBP_CORE_MODULES, ...AIIBP_COMMERCIAL_MODULES];
 
 function listedModules(category) {
-  return AIIBP_COMMERCIAL_MODULES.filter(
+  return listedPlatformModules.filter(
     (module) =>
       !existingSalonDashboardModuleKeys.has(module.key) &&
       moduleCategoryByGroup[module.group] === category
