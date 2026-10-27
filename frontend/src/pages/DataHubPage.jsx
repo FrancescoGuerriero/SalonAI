@@ -265,7 +265,7 @@ export default function DataHubPage() {
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-start gap-3 text-sm leading-6 text-emerald-950">
             <ShieldCheck size={20} className="mt-0.5 shrink-0" />
-            <p><strong>Governed mode.</strong> Queries use tenant-scoped normalised records and preserve source provenance. Destination tasks can be configured and previewed, but live external writes and AI actions remain separately controlled.</p>
+            <p><strong>Governed mode.</strong> Queries use tenant-scoped normalised records and preserve source provenance. Destination tasks can be configured and previewed, but live external writes and AI actions remain disabled until separately approved and activated.</p>
           </div>
         </section>
 
