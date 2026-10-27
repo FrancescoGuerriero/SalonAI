@@ -97,6 +97,32 @@ function listedModules(category) {
   );
 }
 
+function ModuleListingCard({ module }) {
+  const content = (
+    <>
+      <h3 className="text-base font-bold text-slate-900">{module.label}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{module.summary}</p>
+    </>
+  );
+
+  if (module.link) {
+    return (
+      <Link
+        to={module.link}
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-amber-400 hover:shadow-md"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {content}
+    </article>
+  );
+}
+
 export default function AdminDashboard() {
   return (
     <main className="space-y-6 p-4 sm:p-6 lg:p-8" id="main-content" tabIndex="-1">
@@ -144,10 +170,7 @@ export default function AdminDashboard() {
 
               <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {modules.map((module) => (
-                  <article key={module.key} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="text-base font-bold text-slate-900">{module.label}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{module.summary}</p>
-                  </article>
+                  <ModuleListingCard key={module.key} module={module} />
                 ))}
               </div>
             </section>
