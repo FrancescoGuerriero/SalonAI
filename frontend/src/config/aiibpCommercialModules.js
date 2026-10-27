@@ -1,3 +1,13 @@
+export const AIIBP_CORE_MODULES = Object.freeze([
+  {
+    key: "ai",
+    label: "AI Core",
+    group: "Core",
+    summary:
+      "Shared governed AI foundation for inference, provenance, model lifecycle, evaluation, training-data governance and approved AI tools across AIIBP.",
+  },
+]);
+
 export const AIIBP_COMMERCIAL_MODULES = Object.freeze([
   { key: "appointments", label: "Appointments & Booking", group: "Operations", summary: "Booking, availability, appointment lifecycle, queues and front-desk workflows." },
   { key: "staff", label: "Workforce & Staff", group: "Operations", summary: "Employees, staff profiles, assignments, rotas and workforce operations." },
