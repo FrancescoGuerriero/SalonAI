@@ -21,10 +21,10 @@ Modules can be allocated individually where their dependencies permit or combine
 1. **Appointments & Booking** — availability, appointment lifecycle, online booking, queues and booking operations.
 2. **Workforce & Staff** — employees, staff profiles, roles, assignments, rota and workforce operations.
 3. **Service Catalogue** — services, pricing, duration, configuration and location-specific offerings.
-4. **Commerce & Payments** — orders, checkout, payments, refunds and transactional business state.
+4. **Commerce** — orders, checkout, payments, refunds and transactional business state.
 5. **Memberships** — membership contracts, benefits, lifecycle and recurring commercial relationships.
 6. **Inventory & Purchasing** — stock, stock movement, suppliers, purchasing and replenishment.
-7. **Loyalty & Rewards** — points, rewards, balances, redemption and incentive programmes.
+7. **Loyalty** — points, rewards, balances, redemption and incentive programmes.
 8. **Communications** — governed customer and staff communications across configured channels.
 9. **Calendar Integration** — external calendar connections and appointment/calendar synchronisation.
 10. **Integration Hub** — external system connections, credentials, synchronisation and integration health.
@@ -104,29 +104,22 @@ Consequential actions remain constrained by tenant permissions, policy, consent,
 ## 6. Example tenant compositions
 
 ### Small appointment-led business
-Appointments & Booking + Workforce & Staff + Service Catalogue + Commerce & Payments + Communications.
+Appointments & Booking + Workforce & Staff + Service Catalogue + Commerce + Communications.
 
 ### Growth-oriented service business
 Core operations + CRM & Customer Intelligence + Marketing + Analytics & BI + Customer Experience + AI Business Adviser.
 
 ### Retail/e-commerce business
-Commerce & Payments + E-commerce & Online Store + Inventory & Purchasing + CRM + Marketing + Analytics & BI.
+Commerce + E-commerce & Online Store + Inventory & Purchasing + CRM + Marketing + Analytics & BI.
 
 ### Marketplace seller
-Seller & Marketplace Management + Inventory & Purchasing + Commerce & Payments + Analytics & BI + Business Planning & Forecasting + AI Business Adviser.
+Seller & Marketplace Management + Inventory & Purchasing + Commerce + Analytics & BI + Business Planning & Forecasting + AI Business Adviser.
 
 ### Multi-location enterprise
 Operational modules + Integration Hub + Analytics & BI + Business Planning & Forecasting + CRM + Marketing + Customer Experience + governed AI assistants.
 
-## 7. Commercial website information architecture
+## 7. Further development rule
 
-The public AIIBP website exposes:
+Capabilities that already belong to an existing owning module remain inside that module. A new commercial module is created only when the capability represents a distinct business product with a clear canonical domain boundary, independent commercial value and a valid tenant-installation contract.
 
-- Home
-- Modules (all commercial module names)
-- AI Capabilities
-- About
-- Contact
-- Tenant sign-in / demonstration entry point when configured
-
-The public website describes AIIBP generically and does not present third-party services or products that inspired implementation patterns as part of the AIIBP brand.
+When a requested capability is missing, the development plan must first determine whether it belongs inside an existing module. Only genuinely distinct domains should expand the commercial module catalogue.
