@@ -9,6 +9,12 @@ import {
 import { getVerticalPackDefinition } from "../platform/capabilities/verticalPackRegistry.js";
 
 const VERTICALS = ["salon", "spa", "fitness", "plastic-surgery"];
+const NEW_COMMERCIAL_MODULES = [
+  "ecommerce",
+  "business-planning",
+  "customer-experience",
+  "seller-marketplaces",
+];
 
 test("every allocatable module can be selected independently for every supported vertical", () => {
   for (const verticalId of VERTICALS) {
@@ -19,6 +25,25 @@ test("every allocatable module can be selected independently for every supported
       `${verticalId} has non-installable modules: ${audit.results.filter(({ installable }) => !installable).map(({ key, error }) => `${key}: ${error}`).join("; ")}`
     );
     assert.equal(audit.installableCount, audit.moduleCount);
+  }
+});
+
+test("new commercial modules are independently selectable and resolve only declared dependencies", () => {
+  const expectedDependencies = {
+    ecommerce: ["services", "commerce"],
+    "business-planning": ["analytics"],
+    "customer-experience": ["crm"],
+    "seller-marketplaces": ["integrations", "commerce"],
+  };
+
+  const allocatable = new Set(listAllocatableCapabilityPacks().map(({ key }) => key));
+  for (const key of NEW_COMMERCIAL_MODULES) {
+    assert.equal(allocatable.has(key), true, `${key} must be commercially allocatable`);
+    const plan = resolveModuleInstallationPlan({ selectedModuleKeys: [key], verticalId: "salon" });
+    assert.deepEqual(plan.selectedModuleKeys, [key]);
+    for (const dependency of expectedDependencies[key]) {
+      assert.ok(plan.requiredCapabilityKeys.includes(dependency), `${key} must resolve ${dependency}`);
+    }
   }
 });
 
