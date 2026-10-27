@@ -1,8 +1,8 @@
 # AI Intelligent Business Platform (AIIBP)
 
 **Commercial platform documentation**  
-**Version:** 1.0  
-**Date:** 26 October 2026  
+**Version:** 1.1  
+**Date:** 27 October 2026  
 **Platform model:** Modular multi-tenant SaaS  
 **Reference implementation:** SalonAI
 
@@ -37,17 +37,21 @@ AIIBP follows ten platform rules.
 
 ## 3. Commercial module portfolio
 
-### Core operations
+AIIBP currently exposes **22 business-facing commercial modules**. Internal engines are not counted as commercial products.
+
+### Core operations and commerce
 
 | Module | Purpose | Independent selection |
 | --- | --- | --- |
-| Appointments & Booking | Availability, bookings and appointment lifecycle | Yes |
-| Workforce & Staff | Staff profiles, resources and assignment | Yes |
+| Appointments & Booking | Availability, bookings, queues and appointment lifecycle | Yes |
+| Workforce & Staff | Staff profiles, resources, rotas and assignment | Yes |
 | Service Catalogue | Services, procedures and configuration | Yes |
 | Commerce | Orders, checkout, payments and refunds | Yes |
+| E-commerce & Online Store | Storefront, digital merchandising and online order orchestration | Yes; Service Catalogue and Commerce are auto-resolved |
 | Memberships | Recurring membership contracts and lifecycle | Yes; Commerce is auto-resolved |
 | Inventory & Purchasing | Stock, stock movement, purchasing and replenishment | Yes |
 | Loyalty | Loyalty earning, balances and redemption | Yes; Commerce is auto-resolved |
+| Seller & Marketplace Management | Marketplace channels, listings, seller orders, fulfilment and seller performance | Yes; Integration Hub and Commerce are auto-resolved |
 | Clinical Records | Regulated clinical record state for supported clinical tenants | Yes where vertical-supported |
 
 ### Customer, growth and communication
@@ -58,8 +62,10 @@ AIIBP follows ten platform rules.
 | Calendar Integration | Staff/customer calendar connection and synchronisation | Yes; Appointments is auto-resolved |
 | Integration Hub | Provider connections, credentials and synchronisation contracts | Yes |
 | CRM & Customer Intelligence | Customer 360, lifecycle, segmentation and retention definitions | Yes; Analytics is auto-resolved |
+| Customer Experience | Feedback, reviews, referrals, service recovery and experience outcomes | Yes; CRM is auto-resolved |
 | Marketing | Data connections, campaigns, audiences, attribution and governed automation | Yes; internal engines are auto-resolved |
 | Analytics & Business Intelligence | Governed metrics, dashboards and analytical projections | Yes |
+| Business Planning & Forecasting | Plans, targets, scenarios, forecasts and variance analysis | Yes; Analytics is auto-resolved |
 
 ### AI assistants
 
@@ -82,6 +88,9 @@ The following capabilities support commercial modules but are not exposed as dup
 - RBAC and effective-authority services
 - Audit and provenance services
 - Data Hub normalisation and lineage
+- Metric Catalogue
+- Integration Framework
+- Workflow and notification infrastructure
 - Observability, readiness and production-safety controls
 
 ## 4. What “independent module” means
@@ -99,6 +108,10 @@ Examples:
 - Calendar Integration resolves Appointments automatically.
 - Memberships resolves Commerce automatically.
 - Loyalty resolves Commerce automatically.
+- E-commerce & Online Store resolves Service Catalogue and Commerce automatically.
+- Customer Experience resolves CRM automatically.
+- Seller & Marketplace Management resolves Integration Hub and Commerce automatically.
+- Business Planning & Forecasting resolves Analytics automatically.
 - AI Receptionist resolves Shared AI, Communications and Appointments.
 - AI Stylist Copilot resolves Shared AI, Appointments and Service Catalogue.
 - Marketing resolves its internal data, campaign and automation engines plus Integration Hub, CRM, Communications and Analytics.
@@ -190,7 +203,7 @@ Internally it composes:
 - analytics;
 - AI-assisted interpretation and recommendations.
 
-This avoids exposing multiple overlapping “marketing products” to the tenant.
+This avoids exposing multiple overlapping marketing products to the tenant.
 
 ## 8. Analytics and decision intelligence
 
@@ -288,7 +301,7 @@ Every commercial module should have:
 - one canonical domain boundary;
 - entitlement gating;
 - RBAC gating;
-- a module landing page;
+- a module landing page or clearly owned application workspace;
 - empty, loading, not-configured and error states;
 - auditability for state-changing operations;
 - declared dependencies;
@@ -307,13 +320,7 @@ AIIBP distinguishes four states:
 
 A capability is not described as production-ready merely because source code exists.
 
-## 15. Website alignment
-
-The companion website under `docs/aiibp-platform-site/` presents the same product model in customer-facing language.
-
-The documentation is the detailed product/architecture reference. The website is the commercial presentation layer. Both follow the same module names, product boundaries and AI operating model.
-
-## 16. Forward roadmap
+## 15. Forward roadmap
 
 The forward authority is `docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md`.
 
