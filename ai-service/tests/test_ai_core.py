@@ -13,6 +13,7 @@ def test_ai_core_status_exposes_governed_fail_closed_state(client, auth_headers)
     assert body["module"]["role"] == "shared_core_module"
     assert body["toolCount"] >= 10
     assert body["modelCount"] >= 2
+    assert body["modelDevelopmentTrackCount"] >= 5
     assert body["trainingDatasetCount"] >= 8
     assert body["trainingEligibleDatasetCount"] >= 7
     assert body["restrictedDatasetCount"] >= 1
@@ -22,6 +23,8 @@ def test_ai_core_status_exposes_governed_fail_closed_state(client, auth_headers)
     assert body["policy"]["automaticModelPromotionAllowed"] is False
     assert body["policy"]["humanApprovalRequiredForTraining"] is True
     assert body["policy"]["humanApprovalRequiredForPromotion"] is True
+    assert body["policy"]["offlineTrainingOnly"] is True
+    assert body["policy"]["repeatedRunsForStochasticModelsRequired"] is True
     assert body["state"] == "governed_foundation"
 
 
@@ -47,6 +50,33 @@ def test_ai_core_training_data_catalogue_is_tenant_scoped_and_restricted_by_defa
     assert datasets["customer-behaviour"]["personalData"] == "pseudonymised_only"
     assert datasets["clinical-records"]["trainingEligible"] is False
     assert datasets["clinical-records"]["personalData"] == "special_category"
+
+
+def test_ai_core_development_tracks_reference_only_approved_training_data(client, auth_headers):
+    response = client.get("/api/v1/ai-core/development-tracks", headers=auth_headers)
+    assert response.status_code == 200
+
+    body = response.json()
+    tracks = {track["key"]: track for track in body["tracks"]}
+
+    assert body["policy"]["offlineTrainingOnly"] is True
+    assert body["policy"]["trainingRequiresExplicitApproval"] is True
+    assert body["policy"]["baselineComparisonRequired"] is True
+    assert body["policy"]["holdoutEvaluationRequired"] is True
+    assert body["policy"]["automaticTrainingAllowed"] is False
+    assert body["policy"]["automaticProductionPromotionAllowed"] is False
+
+    assert "appointments-history" in tracks["no-show-risk"]["approvedDatasets"]
+    assert tracks["no-show-risk"]["calibrationRequired"] is True
+    assert tracks["demand-forecasting"]["baseline"] == "seasonal_naive"
+    assert "customer-behaviour" in tracks["retention-risk"]["approvedDatasets"]
+    assert tracks["service-product-recommendation"]["taskType"] == "ranking"
+    assert all(track["trainingAuthorised"] is False for track in body["tracks"])
+    assert all(track["productionPromotionAuthorised"] is False for track in body["tracks"])
+    assert all(
+        "clinical-records" not in track["approvedDatasets"]
+        for track in body["tracks"]
+    )
 
 
 def test_ai_core_models_endpoint_does_not_authorise_training_or_promotion(client, auth_headers):
