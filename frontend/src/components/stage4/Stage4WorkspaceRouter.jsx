@@ -1,9 +1,5 @@
+import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
-import AiibpPlatformChrome from "../platform/AiibpPlatformChrome.jsx";
-import AiibpModulesPage from "../../pages/AiibpModulesPage.jsx";
-import AiibpPlatformAboutPage from "../../pages/AiibpPlatformAboutPage.jsx";
-import AiibpPlatformContactPage from "../../pages/AiibpPlatformContactPage.jsx";
-import AiibpPlatformHomePage from "../../pages/AiibpPlatformHomePage.jsx";
 import CmsPage from "../../pages/CmsPage.jsx";
 import ContentStudioPage from "../../pages/ContentStudioPage.jsx";
 import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
@@ -14,6 +10,12 @@ import useAuth from "../../hooks/useAuth.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 import { hasPermission } from "../../utils/permissions.js";
 import Stage5WorkspaceRouter from "../stage5/Stage5WorkspaceRouter.jsx";
+
+const AiibpPlatformChrome = lazy(() => import("../platform/AiibpPlatformChrome.jsx"));
+const AiibpModulesPage = lazy(() => import("../../pages/AiibpModulesPage.jsx"));
+const AiibpPlatformAboutPage = lazy(() => import("../../pages/AiibpPlatformAboutPage.jsx"));
+const AiibpPlatformContactPage = lazy(() => import("../../pages/AiibpPlatformContactPage.jsx"));
+const AiibpPlatformHomePage = lazy(() => import("../../pages/AiibpPlatformHomePage.jsx"));
 
 function AccessDenied() {
   return (
@@ -42,7 +44,11 @@ function platformPage(pathname) {
   else if (pathname === "/platform/about") Page = AiibpPlatformAboutPage;
   else if (pathname === "/platform/contact") Page = AiibpPlatformContactPage;
   if (!Page) return null;
-  return <AiibpPlatformChrome><Page /></AiibpPlatformChrome>;
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#061323]" aria-busy="true" />}>
+      <AiibpPlatformChrome><Page /></AiibpPlatformChrome>
+    </Suspense>
+  );
 }
 
 export default function Stage4WorkspaceRouter({ pathname, children }) {
