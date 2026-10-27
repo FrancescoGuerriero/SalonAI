@@ -1,19 +1,20 @@
 import {
+  Boxes,
   CalendarDays,
   PackagePlus,
   Scissors,
+  ToggleLeft,
   Upload,
   UserPlus,
   UsersRound,
   Wrench,
-  ToggleLeft,
 } from "lucide-react";
 
 import { Link } from "react-router-dom";
 
 import { AIIBP_COMMERCIAL_MODULES } from "../config/aiibpCommercialModules.js";
 
-const cards = [
+const operationalCards = [
   {
     title: "On/Off Ideas",
     description: "Enable or disable app options using administrator-owned backend controls.",
@@ -64,18 +65,8 @@ const cards = [
   },
 ];
 
-function groupedModules() {
-  const groups = new Map();
-  for (const module of AIIBP_COMMERCIAL_MODULES) {
-    if (!groups.has(module.group)) groups.set(module.group, []);
-    groups.get(module.group).push(module);
-  }
-  return [...groups.entries()];
-}
-
 export default function AdminDashboard() {
   const newModules = AIIBP_COMMERCIAL_MODULES.filter(({ newCommercial }) => newCommercial);
-  const moduleGroups = groupedModules();
 
   return (
     <main className="space-y-6 p-4 sm:p-6 lg:p-8" id="main-content" tabIndex="-1">
@@ -83,69 +74,21 @@ export default function AdminDashboard() {
         <span className="text-xs font-bold uppercase tracking-wider text-amber-700">Administration</span>
         <h1 className="mt-2 text-2xl font-bold text-slate-900">SalonAI Admin Dashboard</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          Manage the current tenant and review the commercial modules available for modular SaaS tenant configurations.
+          Manage day-to-day salon operations, staff, customers and the capabilities available to this tenant.
         </p>
       </header>
 
-      <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 shadow-sm" aria-labelledby="commercial-modules-heading">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-cyan-800">Commercial module catalogue</span>
-          <h2 id="commercial-modules-heading" className="mt-2 text-xl font-bold text-slate-950">
-            {AIIBP_COMMERCIAL_MODULES.length} allocatable commercial modules
-          </h2>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-700">
-            Tenant platforms are composed from these modules. Each module owns a distinct business domain and can be selected with other modules; declared dependencies are resolved by the platform rather than duplicated in the tenant application.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {newModules.map((module) => (
-            <article key={module.key} className="rounded-xl border-2 border-cyan-400 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="text-sm font-bold text-slate-950">{module.label}</div>
-                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-bold text-cyan-900">New module</span>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{module.summary}</p>
-              <div className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Key: {module.key}</div>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-6 space-y-5">
-          {moduleGroups.map(([group, modules]) => (
-            <section key={group} aria-labelledby={`module-group-${group.replaceAll(" ", "-").toLowerCase()}`}>
-              <h3 id={`module-group-${group.replaceAll(" ", "-").toLowerCase()}`} className="text-sm font-bold uppercase tracking-wide text-slate-700">
-                {group}
-              </h3>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {modules.map((module) => (
-                  <article key={module.key} className="rounded-xl border border-slate-200 bg-white p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-950">{module.label}</div>
-                      {module.newCommercial ? (
-                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-bold text-cyan-900">New</span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{module.summary}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => {
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Salon administration">
+        {operationalCards.map((card) => {
           const Icon = card.icon;
           return (
             <Link
               key={card.title}
               to={card.link}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-black">
-                <Icon size={21} />
+                <Icon size={21} aria-hidden="true" />
               </div>
               <h2 className="mt-4 text-lg font-bold text-slate-900">{card.title}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
@@ -153,6 +96,48 @@ export default function AdminDashboard() {
             </Link>
           );
         })}
+      </section>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+        aria-labelledby="saas-modules-heading"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700">AIIBP SaaS platform</span>
+            <h2 id="saas-modules-heading" className="mt-2 text-xl font-bold text-slate-950">
+              {AIIBP_COMMERCIAL_MODULES.length} commercial modules available
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Review the reusable AIIBP module catalogue used to compose tenant products. Module composition does not replace SalonAI's canonical operational, tenancy or permission authorities.
+            </p>
+          </div>
+
+          <Link
+            to="/platform/modules"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-400 bg-amber-100 px-4 py-2.5 text-sm font-bold text-black transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          >
+            <Boxes size={19} aria-hidden="true" />
+            SaaS modules
+          </Link>
+        </div>
+
+        <div className="mt-5">
+          <h3 className="text-sm font-bold text-slate-900">New commercial modules</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {newModules.map((module) => (
+              <article key={module.key} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-sm font-bold text-slate-950">{module.label}</div>
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                    New
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-600">{module.summary}</p>
+              </article>
+            ))}
+          </div>
+        </div>
       </section>
     </main>
   );
