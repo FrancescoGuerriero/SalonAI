@@ -1,4 +1,9 @@
 import { Navigate } from "react-router-dom";
+import AiibpPlatformChrome from "../platform/AiibpPlatformChrome.jsx";
+import AiibpModulesPage from "../../pages/AiibpModulesPage.jsx";
+import AiibpPlatformAboutPage from "../../pages/AiibpPlatformAboutPage.jsx";
+import AiibpPlatformContactPage from "../../pages/AiibpPlatformContactPage.jsx";
+import AiibpPlatformHomePage from "../../pages/AiibpPlatformHomePage.jsx";
 import CmsPage from "../../pages/CmsPage.jsx";
 import ContentStudioPage from "../../pages/ContentStudioPage.jsx";
 import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
@@ -30,9 +35,22 @@ function FeatureUnavailable() {
   );
 }
 
+function platformPage(pathname) {
+  let Page = null;
+  if (pathname === "/platform") Page = AiibpPlatformHomePage;
+  else if (pathname === "/platform/modules") Page = AiibpModulesPage;
+  else if (pathname === "/platform/about") Page = AiibpPlatformAboutPage;
+  else if (pathname === "/platform/contact") Page = AiibpPlatformContactPage;
+  if (!Page) return null;
+  return <AiibpPlatformChrome><Page /></AiibpPlatformChrome>;
+}
+
 export default function Stage4WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
   const { isFeatureEnabled } = useFeatureControls();
+
+  const publicPlatformPage = platformPage(pathname);
+  if (publicPlatformPage) return publicPlatformPage;
 
   if (pathname.startsWith("/content/") && pathname.length > "/content/".length) {
     return <CmsPage />;
