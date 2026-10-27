@@ -5,6 +5,7 @@ import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
 const AiCandidateGovernancePage = lazy(() => import("../../pages/AiCandidateGovernancePage.jsx"));
+const AiCorePage = lazy(() => import("../../pages/AiCorePage.jsx"));
 const AiOfflineExperimentComparisonPage = lazy(() => import("../../pages/AiOfflineExperimentComparisonPage.jsx"));
 const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionProposalPage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
@@ -56,6 +57,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><DataHubPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect the AIIBP Data Hub." />;
+  }
+
+  if (pathname === "/admin/system/ai-core") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><AiCorePage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect AI Core governance." />;
   }
 
   if (pathname === "/admin/system/ai-readiness") {
