@@ -1,6 +1,9 @@
 import { CheckCircle2, Layers3 } from "lucide-react";
 
-import { AIIBP_COMMERCIAL_MODULES } from "../config/aiibpCommercialModules.js";
+import {
+  AIIBP_COMMERCIAL_MODULES,
+  AIIBP_CORE_MODULES,
+} from "../config/aiibpCommercialModules.js";
 
 export default function AiibpModulesPage() {
   const groups = [...new Set(AIIBP_COMMERCIAL_MODULES.map(({ group }) => group))];
@@ -18,6 +21,21 @@ export default function AiibpModulesPage() {
       </section>
 
       <div className="mx-auto max-w-7xl space-y-12 px-4 py-14 sm:px-6 lg:px-8">
+        <section>
+          <div className="mb-5 flex items-center gap-3"><Layers3 className="text-cyan-300" size={21} /><h2 className="text-2xl font-black text-white">Core Modules</h2></div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {AIIBP_CORE_MODULES.map((module) => (
+              <article id={module.key} key={module.key} className="scroll-mt-28 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><span className="text-[11px] font-bold uppercase tracking-[0.15em] text-cyan-300">Core</span><h3 className="mt-2 text-lg font-bold text-white">{module.label}</h3></div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-400">{module.summary}</p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-300"><CheckCircle2 size={15} className="text-cyan-300" /> Shared platform foundation for AI-enabled modules</div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         {groups.map((group) => (
           <section key={group}>
             <div className="mb-5 flex items-center gap-3"><Layers3 className="text-cyan-300" size={21} /><h2 className="text-2xl font-black text-white">{group}</h2></div>
