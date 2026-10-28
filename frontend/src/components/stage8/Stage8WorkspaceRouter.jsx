@@ -15,6 +15,7 @@ const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
 const MarketingDataConnectionsPage = lazy(() => import("../../pages/MarketingDataConnectionsPage.jsx"));
 const MembershipManagementPage = lazy(() => import("../../pages/MembershipManagementPage.jsx"));
+const ModuleOperationsPage = lazy(() => import("../../pages/ModuleOperationsPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -59,6 +60,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "customer:read")
       ? <DeferredWorkspace><MembershipManagementPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect customer memberships." />;
+  }
+
+  if (pathname === "/admin/system/modules") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><ModuleOperationsPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect commercial module operations." />;
   }
 
   if (pathname === "/admin/system/connections") {
