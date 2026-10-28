@@ -10,6 +10,7 @@ on:
       - 'ai-service/app/governance/**'
       - 'ai-service/app/schemas/ai_core.py'
       - 'ai-service/tests/test_*training*.py'
+      - 'ai-service/tests/test_demand_ai_core_launcher.py'
       - 'ai-service/tests/test_ai_core.py'
       - 'backend/src/features/aiPlatform/**'
       - 'backend/src/models/WorkforceCapacitySnapshot.js'
@@ -66,15 +67,17 @@ jobs:
           set -euo pipefail
           python -m py_compile train_no_show.py
           python -m py_compile train_no_show_ai_core.py
+          python -m py_compile train_demand_ai_core.py
           python -m py_compile app/training/demand_forecasting.py
 
-      - name: Validate no-show training CLI imports
+      - name: Validate governed training CLI imports
         shell: bash
         working-directory: ai-service
         run: |
           set -euo pipefail
           python train_no_show.py --help
           python train_no_show_ai_core.py --help
+          python train_demand_ai_core.py --help
 
       - name: Run AI Core Python training contracts
         shell: bash
@@ -83,6 +86,7 @@ jobs:
           set -euo pipefail
           python -m pytest -q \
             tests/test_demand_training_core.py \
+            tests/test_demand_ai_core_launcher.py \
             tests/test_ai_training_manifest_policy.py \
             tests/test_offline_training_contract.py
 
