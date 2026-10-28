@@ -143,6 +143,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/admin", "Admin overview", "Open the administrator control centre", "Gauge", false, "dashboard:view", "", ADVANCED],
       ["/admin/privacy-requests", "Privacy requests", "Review and action customer privacy-rights requests", "ShieldCheck", false, "privacy-request:manage", "", ADVANCED],
       ["/admin/system", "On/Off Ideas", "Manage administrator feature controls", "ToggleLeft", false, "feature-control:read", "", ADVANCED],
+      ["/admin/system/connections", "Connections", "Connect Google Ads, Amazon Seller Central, marketplace apps and business accounts", "Link2", false, "feature-control:read", "", SIMPLE],
       ["/admin/system/connected-accounts", "Connected accounts", "Connect Facebook, Instagram, LinkedIn and Google Business Profile", "Link2", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/measurement-core", "Measurement & Integration Core", "Inspect Stage 5 SEO, metrics, connectors and data lineage", "BarChart3", false, "feature-control:read", "", ADVANCED],
       ["/admin/system/data-hub", "AIIBP Data Hub", "Blend location data, build BI views and govern destinations", "Database", false, "feature-control:read", "", ADVANCED],
