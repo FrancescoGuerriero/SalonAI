@@ -14,6 +14,7 @@ const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
 const MarketingDataConnectionsPage = lazy(() => import("../../pages/MarketingDataConnectionsPage.jsx"));
+const MembershipManagementPage = lazy(() => import("../../pages/MembershipManagementPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -50,6 +51,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
 
   if (pathname === "/marketing/data-connections") {
     return <MarketingAccess loading={loading} user={user}><MarketingDataConnectionsPage /></MarketingAccess>;
+  }
+
+  if (pathname === "/memberships") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "customer:read")
+      ? <DeferredWorkspace><MembershipManagementPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect customer memberships." />;
   }
 
   if (pathname === "/admin/system/connections") {
