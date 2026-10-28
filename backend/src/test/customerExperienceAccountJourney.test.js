@@ -28,7 +28,11 @@ test(
     );
     assert.match(
       accountPage,
-      />Book again</
+      /function canBookAgain\(appointment\)/
+    );
+    assert.match(
+      accountPage,
+      /canBookAgain\(appointment\)\s*\?\s*"Book again"\s*:\s*"New booking"/
     );
     assert.match(
       accountPage,
