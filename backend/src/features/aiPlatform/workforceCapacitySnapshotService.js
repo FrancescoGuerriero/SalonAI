@@ -55,6 +55,47 @@ function parseMinutes(value) {
   return hour * 60 + minute;
 }
 
+function mergedBreakMinutes(breaks, shiftStart, shiftEnd) {
+  const intervals = (Array.isArray(breaks) ? breaks : [])
+    .map((item) => {
+      const breakStart = parseMinutes(item?.start);
+      const breakEnd = parseMinutes(item?.end);
+      if (
+        breakStart === null ||
+        breakEnd === null ||
+        breakEnd <= breakStart
+      ) {
+        return null;
+      }
+
+      const start = Math.max(shiftStart, breakStart);
+      const end = Math.min(shiftEnd, breakEnd);
+      return end > start ? [start, end] : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a[0] - b[0]);
+
+  if (!intervals.length) {
+    return 0;
+  }
+
+  let total = 0;
+  let [currentStart, currentEnd] = intervals[0];
+
+  for (const [start, end] of intervals.slice(1)) {
+    if (start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, end);
+      continue;
+    }
+
+    total += currentEnd - currentStart;
+    currentStart = start;
+    currentEnd = end;
+  }
+
+  return total + currentEnd - currentStart;
+}
+
 export function workingMinutesForDay(workingHours, dayName) {
   const entry = (Array.isArray(workingHours) ? workingHours : []).find(
     (item) => asText(item?.day) === dayName
@@ -70,24 +111,11 @@ export function workingMinutesForDay(workingHours, dayName) {
     return 0;
   }
 
-  let breakMinutes = 0;
-  for (const item of Array.isArray(entry.breaks) ? entry.breaks : []) {
-    const breakStart = parseMinutes(item?.start);
-    const breakEnd = parseMinutes(item?.end);
-    if (
-      breakStart === null ||
-      breakEnd === null ||
-      breakEnd <= breakStart
-    ) {
-      continue;
-    }
-
-    const boundedStart = Math.max(start, breakStart);
-    const boundedEnd = Math.min(end, breakEnd);
-    if (boundedEnd > boundedStart) {
-      breakMinutes += boundedEnd - boundedStart;
-    }
-  }
+  const breakMinutes = mergedBreakMinutes(
+    entry.breaks,
+    start,
+    end
+  );
 
   return Math.max(0, end - start - breakMinutes);
 }
