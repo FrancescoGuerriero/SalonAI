@@ -13,12 +13,15 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/config/aiibpCommercialModules.js"
       - "frontend/src/pages/AdminDashboard.jsx"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
       - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "docs/architecture/business-module-boundaries.md"
       - "docs/commercial/AIIBP_MODULAR_SAAS_PLATFORM.md"
@@ -42,12 +45,15 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/config/aiibpCommercialModules.js"
       - "frontend/src/pages/AdminDashboard.jsx"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
       - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
       - "docs/architecture/business-module-boundaries.md"
       - "docs/commercial/AIIBP_MODULAR_SAAS_PLATFORM.md"
@@ -88,6 +94,7 @@ jobs:
           src/test/point12BusinessModuleBoundaries.test.js
           src/test/point12ModuleInstallability.test.js
           src/test/point12DataConnectionContracts.test.js
+          src/test/point12ConnectionsWorkspace.test.js
 
       - name: Verify backend source
         run: npm run check
