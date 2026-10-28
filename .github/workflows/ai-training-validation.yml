@@ -12,10 +12,13 @@ on:
       - 'ai-service/tests/test_*training*.py'
       - 'ai-service/tests/test_ai_core.py'
       - 'backend/src/features/aiPlatform/**'
+      - 'backend/src/models/WorkforceCapacitySnapshot.js'
       - 'backend/scripts/build*TrainingDataset.js'
       - 'backend/scripts/*DemandAiCore*.js'
+      - 'backend/scripts/captureWorkforceCapacitySnapshot.js'
       - 'backend/src/test/*AiCore*.test.js'
       - 'backend/src/test/demandAiCoreDataset.test.js'
+      - 'backend/src/test/workforceCapacitySnapshot.test.js'
       - '.github/workflows/ai-training-validation.yml'
   workflow_dispatch:
 
@@ -102,7 +105,8 @@ jobs:
           set -euo pipefail
           node --test \
             src/test/noShowAiCoreManifest.test.js \
-            src/test/demandAiCoreDataset.test.js
+            src/test/demandAiCoreDataset.test.js \
+            src/test/workforceCapacitySnapshot.test.js
 
       - name: Verify AI Core backend source
         shell: bash
