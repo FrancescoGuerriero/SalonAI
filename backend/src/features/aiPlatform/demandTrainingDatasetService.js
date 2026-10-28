@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import Appointment from "../../models/Appointment.js";
+import WorkforceCapacitySnapshot from "../../models/WorkforceCapacitySnapshot.js";
 import AiFeatureSnapshot from "./AiFeatureSnapshot.js";
 import AiTrainingDataset from "./AiTrainingDataset.js";
 
@@ -69,7 +70,10 @@ function assignTemporalSplits(rows) {
   }));
 }
 
-export function buildDemandTrainingRows(appointments) {
+export function buildDemandTrainingRows(
+  appointments,
+  capacitySnapshots = []
+) {
   const eligible = (Array.isArray(appointments) ? appointments : [])
     .map((appointment) => ({
       appointment,
@@ -98,6 +102,16 @@ export function buildDemandTrainingRows(appointments) {
     grouped.set(key, entry);
   }
 
+  const capacityByDay = new Map();
+  for (const snapshot of Array.isArray(capacitySnapshots)
+    ? capacitySnapshots
+    : []) {
+    const date = utcDay(snapshot?.businessDate);
+    if (date) {
+      capacityByDay.set(dayKey(date), snapshot);
+    }
+  }
+
   const firstDay = eligible[0].businessDate;
   const lastDay = eligible.at(-1).businessDate;
   const rows = [];
@@ -109,6 +123,7 @@ export function buildDemandTrainingRows(appointments) {
   ) {
     const key = dayKey(cursor);
     const dayAppointments = grouped.get(key)?.appointments || [];
+    const capacity = capacityByDay.get(key) || null;
     const booked = dayAppointments.length;
     const completed = dayAppointments.filter(
       (item) => item.status === "completed"
@@ -120,6 +135,18 @@ export function buildDemandTrainingRows(appointments) {
       (item) => item.status === "no_show"
     ).length;
 
+    const sourceRefs = dayAppointments.map((appointment) => ({
+      collection: Appointment.collection.name,
+      documentId: String(appointment._id),
+    }));
+
+    if (capacity?._id) {
+      sourceRefs.push({
+        collection: WorkforceCapacitySnapshot.collection.name,
+        documentId: String(capacity._id),
+      });
+    }
+
     rows.push({
       task: TASK,
       entityType: "business_day",
@@ -127,8 +154,14 @@ export function buildDemandTrainingRows(appointments) {
       asOf: new Date(cursor),
       featureVersion: FEATURE_VERSION,
       features: {
-        available_staff_hours: 0,
-        appointment_capacity: 0,
+        available_staff_hours: Math.max(
+          0,
+          Number(capacity?.availableStaffHours || 0)
+        ),
+        appointment_capacity: Math.max(
+          0,
+          Number(capacity?.appointmentCapacity || 0)
+        ),
         completed_appointments: completed,
         cancelled_appointments: cancelled,
         no_show_appointments: noShow,
@@ -137,10 +170,7 @@ export function buildDemandTrainingRows(appointments) {
       labelObservedAt: new Date(
         cursor.getTime() + DAY_MS - 1
       ),
-      sourceRefs: dayAppointments.map((appointment) => ({
-        collection: Appointment.collection.name,
-        documentId: String(appointment._id),
-      })),
+      sourceRefs,
       privacy: {
         containsDirectIdentifiers: false,
         pseudonymised: true,
@@ -149,7 +179,9 @@ export function buildDemandTrainingRows(appointments) {
       metadata: {
         target: "booked_appointments",
         calendarContinuity: true,
-        workforceCapacityJoined: false,
+        workforceCapacityJoined: Boolean(capacity),
+        workforceCapacitySourceType:
+          asText(capacity?.sourceType) || null,
       },
     });
   }
@@ -191,15 +223,20 @@ export function evaluateDemandDatasetReadiness(rows) {
     );
   }
 
-  if (
-    safeRows.some(
-      (row) =>
-        Number(row.features?.available_staff_hours || 0) === 0 &&
-        Number(row.features?.appointment_capacity || 0) === 0
-    )
-  ) {
+  const capacityRows = safeRows.filter(
+    (row) => row.metadata?.workforceCapacityJoined === true
+  ).length;
+  const capacityCoverage = safeRows.length
+    ? capacityRows / safeRows.length
+    : 0;
+
+  if (capacityCoverage === 0) {
     warnings.push(
-      "Workforce capacity is not joined yet; candidate training will use appointment-history demand signals only."
+      "No dated workforce-capacity snapshots are available; candidate training will use appointment-history demand signals only."
+    );
+  } else if (capacityCoverage < 1) {
+    warnings.push(
+      `Workforce-capacity coverage is partial (${capacityRows}/${safeRows.length} days); missing days remain explicit zero/unavailable evidence.`
     );
   }
 
@@ -208,6 +245,8 @@ export function evaluateDemandDatasetReadiness(rows) {
     blockers,
     warnings,
     splitCounts,
+    capacityCoverage,
+    capacityRows,
   };
 }
 
@@ -250,7 +289,17 @@ export async function materialiseDemandTrainingDataset({
     .sort({ appointmentDate: 1, appointmentTime: 1 })
     .lean();
 
-  const rows = buildDemandTrainingRows(appointments);
+  const capacitySnapshots = await WorkforceCapacitySnapshot.find({
+    business,
+    location,
+  })
+    .sort({ businessDate: 1 })
+    .lean();
+
+  const rows = buildDemandTrainingRows(
+    appointments,
+    capacitySnapshots
+  );
   const readiness = evaluateDemandDatasetReadiness(rows);
   const dataHash = sha256(
     JSON.stringify(deterministicRows(rows))
@@ -305,6 +354,13 @@ export async function materialiseDemandTrainingDataset({
     }))
   );
 
+  const sourceCollections = [Appointment.collection.name];
+  if (readiness.capacityRows > 0) {
+    sourceCollections.push(
+      WorkforceCapacitySnapshot.collection.name
+    );
+  }
+
   await AiTrainingDataset.findOneAndUpdate(
     {
       name: DATASET_NAME,
@@ -338,12 +394,17 @@ export async function materialiseDemandTrainingDataset({
       schemaHash,
       dataHash,
       lineage: {
-        sourceCollections: [Appointment.collection.name],
+        sourceCollections,
         builderVersion: FEATURE_VERSION,
         gitCommit: asText(process.env.GIT_COMMIT),
       },
       quality: {
-        missingFeatureRates: {},
+        missingFeatureRates: {
+          workforceCapacity:
+            rows.length > 0
+              ? 1 - readiness.capacityCoverage
+              : 1,
+        },
         labelDistribution: {},
         splitLabelDistribution: readiness.splitCounts,
         readiness: {
@@ -353,7 +414,7 @@ export async function materialiseDemandTrainingDataset({
         warnings: readiness.warnings,
       },
       notes:
-        "Continuous daily appointment-demand series. Workforce capacity remains zero until a separately governed workforce-capacity join is implemented.",
+        "Continuous daily appointment-demand series. Dated aggregate workforce-capacity snapshots are joined only when governed historical evidence exists; current recurring schedules are never retroactively backfilled as history.",
     },
     {
       upsert: true,
