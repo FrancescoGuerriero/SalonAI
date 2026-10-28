@@ -24,9 +24,9 @@ function appointment(id, date, status = "completed") {
 function dataset(overrides = {}) {
   return {
     name: "salonai-demand-forecast",
-    version: "demand-dataset-v1",
+    version: "demand-dataset-v2",
     task: "demand_forecasting",
-    featureVersion: "demand-forecast-v1",
+    featureVersion: "demand-forecast-v2",
     status: "frozen",
     snapshotCount: 84,
     dataHash: "b".repeat(64),
@@ -58,17 +58,11 @@ test("demand dataset keeps zero-booking calendar days in the daily series", () =
       ["2026-01-03", 1],
     ]
   );
-  assert.equal(
-    rows[1].metadata.calendarContinuity,
-    true
-  );
-  assert.equal(
-    rows[1].sourceRefs.length,
-    0
-  );
+  assert.equal(rows[1].metadata.calendarContinuity, true);
+  assert.equal(rows[1].sourceRefs.length, 0);
 });
 
-test("demand dataset joins only dated governed workforce capacity evidence", () => {
+test("demand v2 distinguishes missing workforce evidence from known zero capacity", () => {
   const rows = buildDemandTrainingRows(
     [
       appointment("a1", "2026-01-01"),
@@ -78,26 +72,50 @@ test("demand dataset joins only dated governed workforce capacity evidence", () 
       {
         _id: "507f1f77bcf86cd799439099",
         businessDate: new Date("2026-01-02T00:00:00.000Z"),
-        availableStaffHours: 15.5,
+        availableStaffHours: 0,
         appointmentCapacity: 0,
-        sourceType: "recurring_working_hours",
+        sourceType: "manual_roster",
       },
     ]
   );
 
   assert.equal(rows[0].features.available_staff_hours, 0);
+  assert.equal(rows[0].features.workforce_capacity_observed, 0);
   assert.equal(rows[0].metadata.workforceCapacityJoined, false);
-  assert.equal(rows[1].features.available_staff_hours, 15.5);
+
+  assert.equal(rows[1].features.available_staff_hours, 0);
+  assert.equal(rows[1].features.workforce_capacity_observed, 1);
   assert.equal(rows[1].metadata.workforceCapacityJoined, true);
   assert.equal(
     rows[1].metadata.workforceCapacitySourceType,
-    "recurring_working_hours"
+    "manual_roster"
   );
-  assert.equal(rows[1].sourceRefs.length, 1);
-  assert.equal(rows[2].features.available_staff_hours, 0);
+
+  assert.equal(rows[2].features.workforce_capacity_observed, 0);
 });
 
-test("demand dataset readiness reports workforce capacity coverage", () => {
+test("same-day appointment outcomes are diagnostics and never model features", () => {
+  const rows = buildDemandTrainingRows([
+    appointment("a1", "2026-01-01", "completed"),
+    appointment("a2", "2026-01-01", "cancelled"),
+    appointment("a3", "2026-01-01", "no_show"),
+  ]);
+
+  const row = rows[0];
+  assert.deepEqual(Object.keys(row.features).sort(), [
+    "appointment_capacity",
+    "available_staff_hours",
+    "workforce_capacity_observed",
+  ]);
+  assert.deepEqual(row.metadata.outcomeDiagnostics, {
+    completedAppointments: 1,
+    cancelledAppointments: 1,
+    noShowAppointments: 1,
+  });
+  assert.equal(row.label, 3);
+});
+
+test("demand dataset readiness reports workforce capacity coverage from observed flag", () => {
   const rows = Array.from({ length: 42 }, (_, index) => ({
     split:
       index < 29
@@ -109,10 +127,9 @@ test("demand dataset readiness reports workforce capacity coverage", () => {
     features: {
       available_staff_hours: index < 21 ? 8 : 0,
       appointment_capacity: 0,
+      workforce_capacity_observed: index < 21 ? 1 : 0,
     },
-    metadata: {
-      workforceCapacityJoined: index < 21,
-    },
+    metadata: {},
   }));
 
   const result = evaluateDemandDatasetReadiness(rows);
@@ -121,7 +138,7 @@ test("demand dataset readiness reports workforce capacity coverage", () => {
   assert.equal(result.capacityRows, 21);
   assert.equal(result.capacityCoverage, 0.5);
   assert.ok(
-    result.warnings.some((item) => item.includes("partial"))
+    result.warnings.some((item) => item.includes("observed-capacity"))
   );
 });
 
@@ -137,10 +154,9 @@ test("demand dataset readiness requires at least 42 continuous days", () => {
     features: {
       available_staff_hours: 0,
       appointment_capacity: 0,
+      workforce_capacity_observed: 0,
     },
-    metadata: {
-      workforceCapacityJoined: false,
-    },
+    metadata: {},
   }));
 
   const result = evaluateDemandDatasetReadiness(shortRows);
@@ -151,40 +167,37 @@ test("demand dataset readiness requires at least 42 continuous days", () => {
   );
 });
 
-test("AI Core demand manifest is issued only for one frozen Business/Location dataset", () => {
+test("AI Core demand manifest is issued only for one frozen Business/Location v2 dataset", () => {
   const manifest = buildDemandAiCoreManifest(dataset());
 
   assert.equal(
     manifest.contract,
     "aiibp_training_dataset_manifest_v1"
   );
-  assert.equal(
-    manifest.dataset_key,
-    "appointments-history"
-  );
+  assert.equal(manifest.dataset_key, "appointments-history");
   assert.equal(manifest.business_id, BUSINESS_ID);
   assert.equal(manifest.location_id, LOCATION_ID);
-  assert.equal(
-    manifest.approved_purpose,
-    "demand_forecasting"
-  );
+  assert.equal(manifest.approved_purpose, "demand_forecasting");
   assert.equal(
     manifest.feature_definition_version,
-    "demand-forecast-v1"
+    "demand-forecast-v2"
   );
   assert.equal(manifest.row_count, 84);
-  assert.equal(
-    manifest.sha256_fingerprint,
-    "b".repeat(64)
-  );
-  assert.equal(
-    manifest.contains_direct_identifiers,
-    false
-  );
+  assert.equal(manifest.sha256_fingerprint, "b".repeat(64));
+  assert.equal(manifest.contains_direct_identifiers, false);
   assert.equal(manifest.contains_credentials, false);
 });
 
-test("AI Core demand manifest rejects multi-location and malformed fingerprints", () => {
+test("AI Core demand manifest rejects old feature contracts, multi-location and malformed fingerprints", () => {
+  assert.throws(
+    () =>
+      buildDemandAiCoreManifest(
+        dataset({ featureVersion: "demand-forecast-v1" })
+      ),
+    (error) =>
+      error.code === "AI_TRAINING_DATASET_CONTRACT_MISMATCH"
+  );
+
   assert.throws(
     () =>
       buildDemandAiCoreManifest(
