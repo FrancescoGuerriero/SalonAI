@@ -79,7 +79,10 @@ describe("Stage 1B management presentation", () => {
     );
 
     expect(screen.getByText("Haircare AI")).toBeInTheDocument();
-    expect(screen.getByText("Connected accounts")).toBeInTheDocument();
+    expect(
+      MANAGEMENT_LINKS.find((link) => link.label === "Connected accounts")
+        ?.presentation
+    ).toBe(MANAGEMENT_PRESENTATION_MODES.ADVANCED);
     expect(
       screen.getByRole("button", { name: "Advanced" })
     ).toHaveAttribute("aria-pressed", "true");
