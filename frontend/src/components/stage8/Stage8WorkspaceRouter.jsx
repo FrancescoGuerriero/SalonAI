@@ -9,6 +9,7 @@ const AiCorePage = lazy(() => import("../../pages/AiCorePage.jsx"));
 const AiOfflineExperimentComparisonPage = lazy(() => import("../../pages/AiOfflineExperimentComparisonPage.jsx"));
 const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionProposalPage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
+const ConnectionsWorkspacePage = lazy(() => import("../../pages/ConnectionsWorkspacePage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
@@ -49,6 +50,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
 
   if (pathname === "/marketing/data-connections") {
     return <MarketingAccess loading={loading} user={user}><MarketingDataConnectionsPage /></MarketingAccess>;
+  }
+
+  if (pathname === "/admin/system/connections") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><ConnectionsWorkspacePage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect business connections." />;
   }
 
   if (pathname === "/admin/system/data-hub") {
