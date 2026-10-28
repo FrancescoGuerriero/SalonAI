@@ -6,7 +6,7 @@ import AiFeatureSnapshot from "./AiFeatureSnapshot.js";
 import AiTrainingDataset from "./AiTrainingDataset.js";
 
 export const TASK = "demand_forecasting";
-export const FEATURE_VERSION = "demand-forecast-v1";
+export const FEATURE_VERSION = "demand-forecast-v2";
 export const DATASET_NAME = "salonai-demand-forecast";
 export const MINIMUM_DAYS = 42;
 
@@ -154,17 +154,13 @@ export function buildDemandTrainingRows(
       asOf: new Date(cursor),
       featureVersion: FEATURE_VERSION,
       features: {
-        available_staff_hours: Math.max(
-          0,
-          Number(capacity?.availableStaffHours || 0)
-        ),
-        appointment_capacity: Math.max(
-          0,
-          Number(capacity?.appointmentCapacity || 0)
-        ),
-        completed_appointments: completed,
-        cancelled_appointments: cancelled,
-        no_show_appointments: noShow,
+        available_staff_hours: capacity
+          ? Math.max(0, Number(capacity.availableStaffHours || 0))
+          : 0,
+        appointment_capacity: capacity
+          ? Math.max(0, Number(capacity.appointmentCapacity || 0))
+          : 0,
+        workforce_capacity_observed: capacity ? 1 : 0,
       },
       label: booked,
       labelObservedAt: new Date(
@@ -182,6 +178,16 @@ export function buildDemandTrainingRows(
         workforceCapacityJoined: Boolean(capacity),
         workforceCapacitySourceType:
           asText(capacity?.sourceType) || null,
+        outcomeDiagnostics: {
+          completedAppointments: completed,
+          cancelledAppointments: cancelled,
+          noShowAppointments: noShow,
+        },
+        excludedFromModelFeatures: [
+          "same_day_completed_appointments",
+          "same_day_cancelled_appointments",
+          "same_day_no_show_appointments",
+        ],
       },
     });
   }
@@ -224,7 +230,7 @@ export function evaluateDemandDatasetReadiness(rows) {
   }
 
   const capacityRows = safeRows.filter(
-    (row) => row.metadata?.workforceCapacityJoined === true
+    (row) => row.features?.workforce_capacity_observed === 1
   ).length;
   const capacityCoverage = safeRows.length
     ? capacityRows / safeRows.length
@@ -236,7 +242,7 @@ export function evaluateDemandDatasetReadiness(rows) {
     );
   } else if (capacityCoverage < 1) {
     warnings.push(
-      `Workforce-capacity coverage is partial (${capacityRows}/${safeRows.length} days); missing days remain explicit zero/unavailable evidence.`
+      `Workforce-capacity coverage is partial (${capacityRows}/${safeRows.length} days); the observed-capacity indicator prevents missing evidence from being treated as known zero capacity.`
     );
   }
 
@@ -306,11 +312,9 @@ export async function materialiseDemandTrainingDataset({
   );
   const schemaHash = sha256(
     JSON.stringify([
-      "available_staff_hours",
       "appointment_capacity",
-      "cancelled_appointments",
-      "completed_appointments",
-      "no_show_appointments",
+      "available_staff_hours",
+      "workforce_capacity_observed",
     ])
   );
 
@@ -318,6 +322,7 @@ export async function materialiseDemandTrainingDataset({
     datasetVersion: version,
     businessId: business,
     locationId: location,
+    featureVersion: FEATURE_VERSION,
     rowCount: rows.length,
     dataHash,
     schemaHash,
@@ -414,7 +419,7 @@ export async function materialiseDemandTrainingDataset({
         warnings: readiness.warnings,
       },
       notes:
-        "Continuous daily appointment-demand series. Dated aggregate workforce-capacity snapshots are joined only when governed historical evidence exists; current recurring schedules are never retroactively backfilled as history.",
+        "Demand Forecast v2 uses a continuous daily appointment-demand series. Dated aggregate workforce capacity is joined only where governed evidence exists; workforce_capacity_observed distinguishes missing evidence from known zero capacity, and same-day appointment outcomes are retained only as diagnostics, never model features.",
     },
     {
       upsert: true,
