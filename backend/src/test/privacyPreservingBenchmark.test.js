@@ -6,6 +6,14 @@ async function source(relativePath) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
 
+function functionSlice(sourceText, startMarker, endMarker) {
+  const start = sourceText.indexOf(startMarker);
+  const end = sourceText.indexOf(endMarker, start);
+  assert.notEqual(start, -1, `Missing source marker: ${startMarker}`);
+  assert.notEqual(end, -1, `Missing source marker: ${endMarker}`);
+  return sourceText.slice(start, end);
+}
+
 test("benchmark participation is explicit and append-only", async () => {
   const [model, service] = await Promise.all([
     source("../models/BenchmarkParticipation.js"),
@@ -50,7 +58,7 @@ test("published benchmark cohorts require at least ten tenants and suppress spar
 
   assert.match(catalogue, /minimumCohortTenants:\s*10/);
   assert.match(service, /contributions\.length < BENCHMARK_PRIVACY_POLICY\.minimumCohortTenants/);
-  assert.match(service, /values\.length < BENCHMARK_PRIVACY_POLICY\.minimumCohortTenants/);
+  assert.match(service, /sorted\.length < BENCHMARK_PRIVACY_POLICY\.minimumCohortTenants/);
   assert.match(service, /suppressedMetricKeys/);
   assert.match(snapshot, /participantCountBand/);
   assert.match(snapshot, /BENCHMARK_SNAPSHOT_IMMUTABLE/);
@@ -67,7 +75,14 @@ test("benchmark cohort output does not expose tenant identifiers, exact extrema 
   assert.match(service, /participantCountBand/);
   assert.match(service, /\.select\("-business -participation -metadata"\)/);
   assert.match(service, /Tenant identities, raw operational rows and individual extrema are not exposed/);
-  assert.doesNotMatch(service, /publicSnapshot[\s\S]*participantCount:/);
+
+  const publicSnapshotSource = functionSlice(
+    service,
+    "function publicSnapshot",
+    "export async function getBenchmarkCohort"
+  );
+  assert.doesNotMatch(publicSnapshotSource, /\bparticipantCount\s*:/);
+  assert.match(publicSnapshotSource, /participantCountBand:/);
   assert.doesNotMatch(service, /\bmin:\s*sorted|\bmax:\s*sorted/);
 });
 
