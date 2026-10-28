@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildWorkforceCapacitySnapshot,
+  captureWorkforceCapacitySnapshot,
   workingMinutesForDay,
 } from "../features/aiPlatform/workforceCapacitySnapshotService.js";
 
@@ -38,6 +39,26 @@ test("working hours subtract governed breaks", () => {
   assert.equal(
     workingMinutesForDay(stylist().workingHours, "Monday"),
     450
+  );
+});
+
+test("overlapping breaks are merged instead of double-counted", () => {
+  const workingHours = [
+    {
+      day: "Monday",
+      start: "09:00",
+      end: "17:00",
+      available: true,
+      breaks: [
+        { start: "12:00", end: "13:00" },
+        { start: "12:30", end: "13:30" },
+      ],
+    },
+  ];
+
+  assert.equal(
+    workingMinutesForDay(workingHours, "Monday"),
+    390
   );
 });
 
@@ -84,4 +105,17 @@ test("unavailable working day contributes zero capacity", () => {
 
   assert.equal(snapshot.availableStaffHours, 0);
   assert.equal(snapshot.eligibleStaffCount, 1);
+});
+
+test("current recurring schedules cannot be fabricated into historical capacity", async () => {
+  await assert.rejects(
+    captureWorkforceCapacitySnapshot({
+      businessId: BUSINESS_ID,
+      locationId: LOCATION_ID,
+      businessDate: "2026-01-01",
+      apply: false,
+    }),
+    (error) =>
+      error.code === "AI_WORKFORCE_HISTORICAL_BACKFILL_BLOCKED"
+  );
 });
