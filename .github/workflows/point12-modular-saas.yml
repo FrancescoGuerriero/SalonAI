@@ -14,12 +14,15 @@ on:
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
+      - "backend/src/test/point12MembershipWorkspace.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/Services/membershipService.js"
       - "frontend/src/config/aiibpCommercialModules.js"
       - "frontend/src/pages/AdminDashboard.jsx"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
       - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
+      - "frontend/src/pages/MembershipManagementPage.jsx"
       - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
@@ -46,12 +49,15 @@ on:
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
+      - "backend/src/test/point12MembershipWorkspace.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/Services/membershipService.js"
       - "frontend/src/config/aiibpCommercialModules.js"
       - "frontend/src/pages/AdminDashboard.jsx"
       - "frontend/src/pages/MarketingModulePage.jsx"
       - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
       - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
+      - "frontend/src/pages/MembershipManagementPage.jsx"
       - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
       - "frontend/src/components/navigation/managementNavigationConfig.js"
       - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
@@ -95,6 +101,7 @@ jobs:
           src/test/point12ModuleInstallability.test.js
           src/test/point12DataConnectionContracts.test.js
           src/test/point12ConnectionsWorkspace.test.js
+          src/test/point12MembershipWorkspace.test.js
 
       - name: Verify backend source
         run: npm run check
