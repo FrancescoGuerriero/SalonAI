@@ -47,6 +47,7 @@ const RAW_MANAGEMENT_SECTIONS = [
       ["/customers", "Customers", "Find profiles, history and activity", "ContactRound", false, "customer:read", "", SIMPLE],
       ["/customer-follow-ups", "Customer follow-ups", "Act on follow-up opportunities", "ContactRound", false, "customer:read", "", SIMPLE],
       ["/retention-actions", "Retention actions", "Manage re-engagement work", "HeartHandshake", false, "customer:read", "", SIMPLE],
+      ["/memberships", "Memberships", "Manage plans, customer memberships, collections and benefits", "UsersRound", false, "customer:read", "", SIMPLE],
       ["/customer-segments", "Customer segments", "Build and review audience groups", "UsersRound", false, "customer:read", "", ADVANCED],
       ["/customer-value", "Customer value", "Analyse customer value", "BadgePoundSterling", false, "customer:read", "", ADVANCED],
       ["/retention-predictions", "Retention predictions", "Identify customers at risk", "HeartHandshake", false, "customer:read", "", ADVANCED],
