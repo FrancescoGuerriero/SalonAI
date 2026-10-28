@@ -68,6 +68,63 @@ test("demand dataset keeps zero-booking calendar days in the daily series", () =
   );
 });
 
+test("demand dataset joins only dated governed workforce capacity evidence", () => {
+  const rows = buildDemandTrainingRows(
+    [
+      appointment("a1", "2026-01-01"),
+      appointment("a2", "2026-01-03"),
+    ],
+    [
+      {
+        _id: "507f1f77bcf86cd799439099",
+        businessDate: new Date("2026-01-02T00:00:00.000Z"),
+        availableStaffHours: 15.5,
+        appointmentCapacity: 0,
+        sourceType: "recurring_working_hours",
+      },
+    ]
+  );
+
+  assert.equal(rows[0].features.available_staff_hours, 0);
+  assert.equal(rows[0].metadata.workforceCapacityJoined, false);
+  assert.equal(rows[1].features.available_staff_hours, 15.5);
+  assert.equal(rows[1].metadata.workforceCapacityJoined, true);
+  assert.equal(
+    rows[1].metadata.workforceCapacitySourceType,
+    "recurring_working_hours"
+  );
+  assert.equal(rows[1].sourceRefs.length, 1);
+  assert.equal(rows[2].features.available_staff_hours, 0);
+});
+
+test("demand dataset readiness reports workforce capacity coverage", () => {
+  const rows = Array.from({ length: 42 }, (_, index) => ({
+    split:
+      index < 29
+        ? "train"
+        : index < 35
+          ? "validation"
+          : "test",
+    label: index % 3,
+    features: {
+      available_staff_hours: index < 21 ? 8 : 0,
+      appointment_capacity: 0,
+    },
+    metadata: {
+      workforceCapacityJoined: index < 21,
+    },
+  }));
+
+  const result = evaluateDemandDatasetReadiness(rows);
+
+  assert.equal(result.readyToFreeze, true);
+  assert.equal(result.capacityRows, 21);
+  assert.equal(result.capacityCoverage, 0.5);
+  assert.ok(
+    result.warnings.some((item) => item.includes("partial"))
+  );
+});
+
 test("demand dataset readiness requires at least 42 continuous days", () => {
   const shortRows = Array.from({ length: 41 }, (_, index) => ({
     split:
@@ -80,6 +137,9 @@ test("demand dataset readiness requires at least 42 continuous days", () => {
     features: {
       available_staff_hours: 0,
       appointment_capacity: 0,
+    },
+    metadata: {
+      workforceCapacityJoined: false,
     },
   }));
 
