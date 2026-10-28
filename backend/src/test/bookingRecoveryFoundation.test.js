@@ -59,8 +59,8 @@ test("workflow engine provides consent-gated booking recovery action", async () 
 test("customer booking UI restores and attributes without bypassing canonical appointment creation", async () => {
   const [routes, api, page] = await Promise.all([
     source("../routes/appointmentRoutes.js"),
-    source("../../frontend/src/Services/appointmentApi.js"),
-    source("../../frontend/src/pages/Booking.jsx"),
+    source("../../../frontend/src/Services/appointmentApi.js"),
+    source("../../../frontend/src/pages/Booking.jsx"),
   ]);
 
   assert.match(routes, /"\/recovery"/);
