@@ -9,6 +9,7 @@ from typing import Iterable, Sequence
 TRACK_KEY = "demand-forecasting"
 DATASET_KEY = "appointments-history"
 APPROVED_PURPOSE = "demand_forecasting"
+FEATURE_VERSION = "demand-forecast-v2"
 SEASON_LENGTH_DAYS = 7
 MINIMUM_OBSERVATIONS = 42
 
@@ -23,6 +24,7 @@ class DemandObservation:
     booked_appointments: float
     available_staff_hours: float = 0.0
     appointment_capacity: float = 0.0
+    workforce_capacity_observed: bool = False
 
 
 @dataclass(frozen=True)
@@ -129,7 +131,11 @@ def forecast_metrics(actual: Sequence[float], predicted: Sequence[float]) -> For
 
 
 def _feature_rows(rows: Sequence[DemandObservation]) -> tuple[list[list[float]], list[float]]:
-    """Create pre-outcome calendar/lag/capacity features for offline experiments."""
+    """Create pre-outcome calendar/lag/capacity features for offline experiments.
+
+    Capacity values are accompanied by an explicit observed/missing indicator so a
+    missing historical roster is never interpreted as known zero capacity.
+    """
 
     if len(rows) <= 28:
         raise DemandTrainingError("At least 29 observations are required to construct lag features.")
@@ -151,6 +157,7 @@ def _feature_rows(rows: Sequence[DemandObservation]) -> tuple[list[list[float]],
                 sum(trailing_28) / 28.0,
                 float(item.available_staff_hours),
                 float(item.appointment_capacity),
+                1.0 if item.workforce_capacity_observed else 0.0,
             ]
         )
         y.append(bookings[index])
