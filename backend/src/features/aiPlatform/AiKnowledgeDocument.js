@@ -14,13 +14,17 @@ const aiKnowledgeDocumentSchema =
       sourceType: {
         type: String,
         enum: [
+          "policy",
           "salon_policy",
+          "retail_policy",
           "service",
           "product",
+          "catalogue",
           "procedure",
           "training_material",
           "business_rule",
           "faq",
+          "brand_content",
           "document",
         ],
         required: true,
