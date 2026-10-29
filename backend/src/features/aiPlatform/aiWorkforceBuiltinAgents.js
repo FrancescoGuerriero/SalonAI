@@ -18,6 +18,7 @@ const BUILTIN_AGENTS =
           "active",
         allowedVerticals: [
           "salon",
+          "retail",
         ],
         requiredEntitlement:
           "",
@@ -64,6 +65,48 @@ const BUILTIN_AGENTS =
         evaluationSuite: {
           key:
             "ai-receptionist-a1-v2",
+          minimumTaskSuccessRate:
+            0.9,
+          maximumPolicyViolationRate:
+            0,
+        },
+      }),
+    "retail-customer-concierge":
+      Object.freeze({
+        key:
+          "retail-customer-concierge",
+        version:
+          "1",
+        displayName:
+          "AI Customer Concierge",
+        purpose:
+          "Provide a governed Retail customer-assistance profile for product discovery, order support, delivery and returns guidance without inheriting Salon appointment tools or mutating Commerce, Inventory, CRM, Communications or Marketplace state.",
+        lifecycle:
+          "draft",
+        allowedVerticals: [
+          "retail",
+        ],
+        requiredEntitlement:
+          "ai-tools",
+        allowedTools: [],
+        plannedTools: [
+          "product.catalogue.read",
+          "order.status.read",
+          "delivery.policy.read",
+          "returns.policy.read",
+          "customer-support-action.propose",
+        ],
+        autonomyCeiling:
+          "A0",
+        activationBlockers: [
+          "Register and implement Retail canonical read/proposal tool executors.",
+          "Add Retail tenant/location isolation tests for every tool.",
+          "Pass gut-instinct-customer-concierge evaluation suite with zero policy violations.",
+          "Complete owner-led manual acceptance before any production activation.",
+        ],
+        evaluationSuite: {
+          key:
+            "retail-customer-concierge-draft-v1",
           minimumTaskSuccessRate:
             0.9,
           maximumPolicyViolationRate:
