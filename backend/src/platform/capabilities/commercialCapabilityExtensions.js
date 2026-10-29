@@ -1,7 +1,7 @@
 import { registerCapabilityPack } from "./capabilityRegistry.js";
 
-const SERVICE_VERTICALS = ["salon", "spa", "fitness", "plastic-surgery"];
-const RETAIL_VERTICALS = ["salon", "spa", "fitness"];
+const BUSINESS_VERTICALS = ["salon", "spa", "fitness", "plastic-surgery", "retail"];
+const RETAIL_VERTICALS = ["salon", "spa", "fitness", "retail"];
 
 [
   {
@@ -36,7 +36,7 @@ const RETAIL_VERTICALS = ["salon", "spa", "fitness"];
       "analytical-projection",
       "business-advice",
     ],
-    supportedVerticals: SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["analytics", "ai-decision-support"],
     configurationDefinitions: ["planning-horizon", "scenario-policy", "human-review-required"],
   },
@@ -57,7 +57,7 @@ const RETAIL_VERTICALS = ["salon", "spa", "fitness"];
       "message-delivery",
       "business-intelligence",
     ],
-    supportedVerticals: SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["crm", "communications", "analytics"],
     requiredPermissions: ["customer-experience:read"],
     configurationDefinitions: ["feedback-policy", "reputation-policy"],
