@@ -52,6 +52,7 @@ const MembershipManagementPage = lazy(() => import("./pages/MembershipManagement
 const ReputationHubPage = lazy(() => import("./pages/ReputationHubPage.jsx"));
 const ContentStudioPage = lazy(() => import("./pages/ContentStudioPage.jsx"));
 const MarketingHubPage = lazy(() => import("./pages/MarketingHubPage.jsx"));
+const AiReceptionistPage = lazy(() => import("./pages/AiReceptionistPage.jsx"));
 const StylistCopilotPage = lazy(() => import("./pages/StylistCopilotPage.jsx"));
 const ModuleOperationsPage = lazy(() => import("./pages/ModuleOperationsPage.jsx"));
 const ConnectionsWorkspacePage = lazy(() => import("./pages/ConnectionsWorkspacePage.jsx"));
@@ -920,6 +921,11 @@ function AppRoutes() {
         | Phase 4 AI features
         |--------------------------------------------------------------------------
         */}
+
+        <Route
+          path="ai-receptionist"
+          element={featurePage(permissionPage(AiReceptionistPage, "ai:use"), "ai-tools")}
+        />
 
         <Route
           path="ai/haircare"
