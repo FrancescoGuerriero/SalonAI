@@ -16,6 +16,7 @@ import {
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import {
   getConfigurationStudio,
+  getTenantProductComposition,
   listAuditLogs,
   listDeadLetters,
   listFeatureControls,
@@ -45,6 +46,18 @@ router.get(
   ),
   asyncHandler(
     getConfigurationStudio
+  )
+);
+router.get(
+  "/tenant-product-composition",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getTenantProductComposition
   )
 );
 router.get(
