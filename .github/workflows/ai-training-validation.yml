@@ -13,6 +13,7 @@ on:
       - 'ai-service/tests/test_demand_ai_core_launcher.py'
       - 'ai-service/tests/test_ai_core.py'
       - 'backend/src/features/aiPlatform/**'
+      - 'backend/src/features/commerce/CustomerCommercePolicy.js'
       - 'backend/src/models/WorkforceCapacitySnapshot.js'
       - 'backend/scripts/build*TrainingDataset.js'
       - 'backend/scripts/*DemandAiCore*.js'
@@ -111,7 +112,8 @@ jobs:
             src/test/noShowAiCoreManifest.test.js \
             src/test/demandAiCoreDataset.test.js \
             src/test/workforceCapacitySnapshot.test.js \
-            src/test/tenantAiTrainingProfileAiCore.test.js
+            src/test/tenantAiTrainingProfileAiCore.test.js \
+            src/test/retailCustomerConciergeAiCore.test.js
 
       - name: Verify AI Core backend source
         shell: bash
