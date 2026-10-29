@@ -70,6 +70,35 @@ test("tenant-aware dashboard reads canonical manifest composition and exposes fo
   assert.match(dashboard, /Manifest revision/);
 });
 
+test("AI Governance and Learning exposes tenant-scoped read-only evidence with fail-closed promotion policy", async () => {
+  const routes = await source("../routes/systemAdministrationRoutes.js");
+  const service = await source("../features/aiPlatform/aiGovernanceLearningService.js");
+  const page = await source("../../../frontend/src/pages/AiGovernanceLearningPage.jsx");
+  const registry = await source("../../../frontend/src/config/aiibpModuleRegistry.js");
+  const client = await source("../../../frontend/src/Services/aiGovernanceLearningService.js");
+  const app = await source("../../../frontend/src/App.jsx");
+
+  assert.match(routes, /ai-governance-learning/);
+  assert.match(routes, /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*feature-control:read/);
+  assert.match(service, /scope\.mode": "platform_global"/);
+  assert.match(service, /scope\.mode": "cross_business_deidentified"/);
+  assert.match(service, /scope\.business": trustedBusinessId/);
+  assert.match(service, /automaticPromotionEnabled: false/);
+  assert.match(service, /automaticInferenceActivationEnabled: false/);
+  assert.match(service, /unscopedModelsVisible: false/);
+  assert.match(client, /\/system-administration\/ai-governance-learning/);
+  assert.match(page, /General AI/);
+  assert.match(page, /Vertical AI/);
+  assert.match(page, /Tenant AI/);
+  assert.match(page, /Continuous ML/);
+  assert.match(page, /Dataset readiness/);
+  assert.match(page, /Candidate & model lifecycle/);
+  assert.match(page, /Production safety boundary/);
+  assert.match(registry, /AI Core[\s\S]*\/admin\/system\/ai-candidate-governance/);
+  assert.match(registry, /AI Governance & Learning[\s\S]*\/admin\/system\/ai-candidate-governance/);
+  assert.match(app, /path="admin\/system\/ai-candidate-governance"/);
+});
+
 test("AI Receptionist surface keeps both staff operation and customer chatbot entry points", async () => {
   const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
   const navigation = await source("../../../frontend/src/components/navigation/managementNavigationConfig.js");
