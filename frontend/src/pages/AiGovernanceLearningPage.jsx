@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  BookOpenCheck,
   BrainCircuit,
   Database,
   FlaskConical,
+  Gauge,
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
@@ -25,6 +27,10 @@ function Stat({ label, value }) {
       <div className="mt-2 text-2xl font-bold text-slate-950">{value}</div>
     </article>
   );
+}
+
+function thresholdText(threshold = {}) {
+  return `${threshold.comparator || ""} ${Math.round(Number(threshold.value || 0) * 100)}%`;
 }
 
 export default function AiGovernanceLearningPage() {
@@ -58,6 +64,8 @@ export default function AiGovernanceLearningPage() {
   const profiles = useMemo(() => overview?.profiles || [], [overview]);
   const datasets = overview?.datasets || [];
   const models = overview?.models || [];
+  const knowledge = overview?.knowledge || [];
+  const evaluationSuites = overview?.evaluationSuites || [];
   const summary = overview?.summary || {};
 
   return (
@@ -69,7 +77,7 @@ export default function AiGovernanceLearningPage() {
           </div>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">AI Governance & Learning</h1>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-slate-600">
-            Review governed training layers, tenant/vertical profiles, dataset readiness and model lifecycle evidence. This workspace is read-only: production training, automatic model promotion and automatic production inference activation remain disabled.
+            Review General, Vertical, Tenant and Continuous-ML learning, governed RAG knowledge, evaluation thresholds, dataset readiness and candidate-model lifecycle evidence. This workspace remains read-only: production training, automatic promotion and automatic inference activation are disabled.
           </p>
         </header>
 
@@ -78,12 +86,14 @@ export default function AiGovernanceLearningPage() {
 
         {overview ? (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="AI governance summary">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7" aria-label="AI governance summary">
               <Stat label="Datasets" value={summary.datasetCount || 0} />
-              <Stat label="Frozen datasets" value={summary.frozenDatasetCount || 0} />
-              <Stat label="Candidate models" value={summary.candidateModelCount || 0} />
-              <Stat label="Approved models" value={summary.approvedModelCount || 0} />
-              <Stat label="Production models" value={summary.productionModelCount || 0} />
+              <Stat label="Frozen" value={summary.frozenDatasetCount || 0} />
+              <Stat label="Candidates" value={summary.candidateModelCount || 0} />
+              <Stat label="Approved" value={summary.approvedModelCount || 0} />
+              <Stat label="Production" value={summary.productionModelCount || 0} />
+              <Stat label="Knowledge" value={summary.knowledgeDocumentCount || 0} />
+              <Stat label="Eval suites" value={summary.evaluationSuiteCount || 0} />
             </section>
 
             <section aria-labelledby="ai-learning-layers">
@@ -123,6 +133,55 @@ export default function AiGovernanceLearningPage() {
               </div>
             </section>
 
+            <section aria-labelledby="ai-rag-knowledge">
+              <div className="flex items-center gap-2"><BookOpenCheck size={20} /><h2 className="text-xl font-bold text-slate-950" id="ai-rag-knowledge">Governed RAG knowledge</h2></div>
+              <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-600">Only published, reviewed and explicitly scoped knowledge is visible. Legacy unscoped documents are excluded until classified. Tenant evidence is isolated by Business/Location; vertical/global evidence requires explicit cross-tenant approval and governance basis.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Stat label="Tenant knowledge" value={summary.tenantKnowledgeCount || 0} />
+                <Stat label="Vertical knowledge" value={summary.verticalKnowledgeCount || 0} />
+                <Stat label="Global knowledge" value={summary.globalKnowledgeCount || 0} />
+                <Stat label="Vector indexed" value={summary.vectorIndexedKnowledgeCount || 0} />
+              </div>
+              <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="p-3">Knowledge</th><th className="p-3">Scope</th><th className="p-3">Retrieval</th><th className="p-3">Review</th></tr></thead>
+                  <tbody>
+                    {knowledge.length ? knowledge.map((document) => (
+                      <tr className="border-t border-slate-100" key={document.id}>
+                        <td className="p-3"><div className="font-semibold text-slate-900">{document.title}</div><div className="text-xs text-slate-500">{document.sourceType} · {document.sourceKey} · v{document.version}</div></td>
+                        <td className="p-3">{document.scopeMode || "Blocked / unscoped"}</td>
+                        <td className="p-3">{document.retrievalStrategy}{document.vectorIndexed ? " · indexed" : ""}</td>
+                        <td className="p-3">{document.reviewedAt ? "Reviewed" : "Not reviewed"}</td>
+                      </tr>
+                    )) : <tr><td className="p-4 text-slate-500" colSpan="4">No published and reviewed AI knowledge is visible in this tenant scope yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section aria-labelledby="ai-evaluation-suites">
+              <div className="flex items-center gap-2"><Gauge size={20} /><h2 className="text-xl font-bold text-slate-950" id="ai-evaluation-suites">AI evaluation gates</h2></div>
+              <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-600">Shared acceptance contracts evaluate task success, grounding, citations, unsupported claims, policy violations and unauthorised tool use before a model or agent can even become eligible for a human promotion proposal.</p>
+              <div className="mt-3 grid gap-4 lg:grid-cols-2">
+                {evaluationSuites.map((suite) => (
+                  <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" key={suite.key}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div><h3 className="font-bold text-slate-950">{suite.key}</h3><p className="mt-1 text-sm leading-6 text-slate-600">{suite.purpose}</p></div>
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900">Human acceptance required</span>
+                    </div>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      {Object.entries(suite.thresholds || {}).map(([metric, threshold]) => (
+                        <div className="rounded-xl bg-slate-50 p-3" key={metric}>
+                          <div className="text-xs font-bold text-slate-700">{metric}</div>
+                          <div className="mt-1 text-xs text-slate-500">{thresholdText(threshold)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section aria-labelledby="ai-datasets">
               <div className="flex items-center gap-2"><Database size={20} /><h2 className="text-xl font-bold text-slate-950" id="ai-datasets">Dataset readiness</h2></div>
               <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -159,7 +218,7 @@ export default function AiGovernanceLearningPage() {
 
             <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
               <div className="flex items-center gap-2 font-bold text-amber-950"><LockKeyhole size={20} /> Production safety boundary</div>
-              <p className="mt-2 text-sm leading-6 text-amber-900">Training and model promotion are not executable from this page. Candidate evaluation must precede explicit human approval; automatic promotion and automatic production inference activation remain disabled.</p>
+              <p className="mt-2 text-sm leading-6 text-amber-900">Retrieved knowledge cannot authorise business mutations. Training and model promotion are not executable from this page. Candidate evaluation must precede explicit human approval; automatic promotion and automatic production inference activation remain disabled.</p>
             </section>
           </>
         ) : null}
