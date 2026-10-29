@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 
+import AiKnowledgeDocument from "./AiKnowledgeDocument.js";
 import AiModelVersion from "./AiModelVersion.js";
 import AiTrainingDataset from "./AiTrainingDataset.js";
+import {
+  listAiEvaluationSuites,
+} from "./aiEvaluationSuiteRegistry.js";
 import {
   AI_TRAINING_LAYERS,
   AI_TRAINING_LAYER_POLICY,
@@ -81,6 +85,27 @@ function modelProjection(model) {
   };
 }
 
+function knowledgeProjection(document) {
+  return {
+    id: String(document._id),
+    title: document.title,
+    sourceType: document.sourceType,
+    sourceKey: document.sourceKey,
+    version: document.version,
+    scopeMode: document.knowledgeScope?.mode || null,
+    verticals: document.knowledgeScope?.verticals || [],
+    tenantBlueprintKey: document.knowledgeScope?.tenantBlueprintKey || "",
+    profileKeys: document.knowledgeScope?.profileKeys || [],
+    crossTenantUseApproved:
+      document.knowledgeScope?.crossTenantUseApproved === true,
+    retrievalStrategy: document.retrieval?.strategy || "lexical",
+    vectorIndexed: Boolean(document.retrieval?.vectorReference),
+    reviewedAt: document.provenance?.reviewedAt || null,
+    sourceHash: document.provenance?.sourceHash || "",
+    updatedAt: document.updatedAt || null,
+  };
+}
+
 export async function buildAiGovernanceLearningOverview({
   businessId,
   verticalId = "",
@@ -90,6 +115,7 @@ export async function buildAiGovernanceLearningOverview({
     throw governanceError("Trusted Business authority is required for AI governance.");
   }
 
+  const cleanVerticalId = String(verticalId || "").trim().toLowerCase();
   const datasetScope = {
     $or: [
       { "scope.mode": "platform_global" },
@@ -104,9 +130,43 @@ export async function buildAiGovernanceLearningOverview({
     ],
   };
 
-  const datasets = await AiTrainingDataset.find(datasetScope)
-    .sort({ updatedAt: -1 })
-    .lean();
+  const knowledgeScope = {
+    status: "published",
+    "provenance.reviewedAt": { $ne: null },
+    $or: [
+      {
+        "knowledgeScope.mode": "tenant",
+        "knowledgeScope.business": trustedBusinessId,
+      },
+      ...(cleanVerticalId
+        ? [
+            {
+              "knowledgeScope.mode": "vertical",
+              "knowledgeScope.verticals": cleanVerticalId,
+              "knowledgeScope.crossTenantUseApproved": true,
+              "knowledgeScope.governanceBasis": { $nin: ["", null] },
+            },
+          ]
+        : []),
+      {
+        "knowledgeScope.mode": "platform_global",
+        "knowledgeScope.crossTenantUseApproved": true,
+        "knowledgeScope.governanceBasis": { $nin: ["", null] },
+      },
+    ],
+  };
+
+  const [datasets, knowledgeDocuments] = await Promise.all([
+    AiTrainingDataset.find(datasetScope)
+      .sort({ updatedAt: -1 })
+      .lean(),
+    AiKnowledgeDocument.find(knowledgeScope)
+      .select(
+        "_id title sourceType sourceKey version knowledgeScope retrieval provenance updatedAt"
+      )
+      .sort({ updatedAt: -1 })
+      .lean(),
+  ]);
   const datasetIds = datasets.map((dataset) => dataset._id);
 
   const models = datasetIds.length
@@ -117,11 +177,13 @@ export async function buildAiGovernanceLearningOverview({
     : [];
 
   const profiles = listAiTrainingProfiles().filter(
-    (profile) => !verticalId || profile.verticalId === verticalId
+    (profile) => !cleanVerticalId || profile.verticalId === cleanVerticalId
   );
+  const evaluationSuites = listAiEvaluationSuites();
 
   const datasetViews = datasets.map(datasetProjection);
   const modelViews = models.map(modelProjection);
+  const knowledgeViews = knowledgeDocuments.map(knowledgeProjection);
 
   const layerSummaries = AI_TRAINING_LAYERS.map((layer) => ({
     key: layer,
@@ -137,24 +199,34 @@ export async function buildAiGovernanceLearningOverview({
 
   return {
     businessId: trustedBusinessId,
-    verticalId: String(verticalId || "").trim().toLowerCase(),
+    verticalId: cleanVerticalId,
     policy: {
       productionTrainingEnabled: false,
       automaticPromotionEnabled: false,
       automaticInferenceActivationEnabled: false,
       humanControlledPromotionRequired: true,
       unscopedModelsVisible: false,
+      unscopedKnowledgeVisible: false,
+      retrievedKnowledgeMayAuthorizeMutation: false,
     },
     layers: layerSummaries,
     profiles,
     datasets: datasetViews,
     models: modelViews,
+    knowledge: knowledgeViews,
+    evaluationSuites,
     summary: {
       datasetCount: datasetViews.length,
       frozenDatasetCount: datasetViews.filter(({ status }) => status === "frozen").length,
       candidateModelCount: modelViews.filter(({ lifecycle }) => lifecycle === "candidate").length,
       approvedModelCount: modelViews.filter(({ lifecycle }) => lifecycle === "approved").length,
       productionModelCount: modelViews.filter(({ lifecycle }) => lifecycle === "production").length,
+      knowledgeDocumentCount: knowledgeViews.length,
+      tenantKnowledgeCount: knowledgeViews.filter(({ scopeMode }) => scopeMode === "tenant").length,
+      verticalKnowledgeCount: knowledgeViews.filter(({ scopeMode }) => scopeMode === "vertical").length,
+      globalKnowledgeCount: knowledgeViews.filter(({ scopeMode }) => scopeMode === "platform_global").length,
+      vectorIndexedKnowledgeCount: knowledgeViews.filter(({ vectorIndexed }) => vectorIndexed).length,
+      evaluationSuiteCount: evaluationSuites.length,
     },
   };
 }
