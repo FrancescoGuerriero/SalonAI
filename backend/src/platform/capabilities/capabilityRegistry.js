@@ -35,13 +35,7 @@ function cleanKey(value, label = "Capability pack key") {
   return key;
 }
 
-function uniqueKeys(
-  values = [],
-  label,
-  {
-    allowWildcard = false,
-  } = {}
-) {
+function uniqueKeys(values = [], label, { allowWildcard = false } = {}) {
   if (!Array.isArray(values)) {
     throw new TypeError(`${label} must be an array.`);
   }
@@ -51,11 +45,7 @@ function uniqueKeys(
       values
         .map((value) => {
           const cleaned = cleanString(value).toLowerCase();
-
-          if (allowWildcard && cleaned === "*") {
-            return "*";
-          }
-
+          if (allowWildcard && cleaned === "*") return "*";
           return cleanKey(cleaned, label);
         })
         .filter(Boolean)
@@ -66,13 +56,9 @@ function uniqueKeys(
 function normaliseDefinition(definition = {}) {
   const key = cleanKey(definition.key);
   const label = cleanString(definition.label);
-
-  if (!label) {
-    throw new TypeError("Capability pack label is required.");
-  }
+  if (!label) throw new TypeError("Capability pack label is required.");
 
   const status = cleanString(definition.status || "active").toLowerCase();
-
   if (!CAPABILITY_PACK_STATUSES.includes(status)) {
     throw new TypeError(
       `Capability pack status must be one of: ${CAPABILITY_PACK_STATUSES.join(", ")}.`
@@ -80,7 +66,6 @@ function normaliseDefinition(definition = {}) {
   }
 
   const moduleClass = cleanString(definition.moduleClass || "operations").toLowerCase();
-
   if (!CAPABILITY_MODULE_CLASSES.includes(moduleClass)) {
     throw new TypeError(
       `Capability module class must be one of: ${CAPABILITY_MODULE_CLASSES.join(", ")}.`
@@ -92,11 +77,8 @@ function normaliseDefinition(definition = {}) {
     "Supported vertical id",
     { allowWildcard: true }
   );
-
   if (supportedVerticals.length === 0) {
-    throw new TypeError(
-      "Capability pack must declare at least one supported vertical."
-    );
+    throw new TypeError("Capability pack must declare at least one supported vertical.");
   }
 
   return Object.freeze({
@@ -111,63 +93,38 @@ function normaliseDefinition(definition = {}) {
     supportedVerticals,
     ownedDomains: uniqueKeys(definition.ownedDomains || [], "Owned domain"),
     consumesDomains: uniqueKeys(definition.consumesDomains || [], "Consumed domain"),
-    dependencies: uniqueKeys(
-      definition.dependencies || [],
-      "Capability dependency"
-    ),
-    conflicts: uniqueKeys(
-      definition.conflicts || [],
-      "Capability conflict"
-    ),
-    requiredPermissions: Object.freeze(
-      [
-        ...new Set(
-          (Array.isArray(definition.requiredPermissions)
-            ? definition.requiredPermissions
-            : []
-          )
-            .map((value) => cleanString(value))
-            .filter(Boolean)
-        ),
-      ]
-    ),
-    configurationDefinitions: Object.freeze(
-      [
-        ...new Set(
-          (Array.isArray(definition.configurationDefinitions)
-            ? definition.configurationDefinitions
-            : []
-          )
-            .map((value) => cleanString(value))
-            .filter(Boolean)
-        ),
-      ]
-    ),
-    integrationContracts: Object.freeze(
-      [
-        ...new Set(
-          (Array.isArray(definition.integrationContracts)
-            ? definition.integrationContracts
-            : []
-          )
-            .map((value) => cleanString(value))
-            .filter(Boolean)
-        ),
-      ]
-    ),
+    dependencies: uniqueKeys(definition.dependencies || [], "Capability dependency"),
+    conflicts: uniqueKeys(definition.conflicts || [], "Capability conflict"),
+    requiredPermissions: Object.freeze([
+      ...new Set(
+        (Array.isArray(definition.requiredPermissions) ? definition.requiredPermissions : [])
+          .map((value) => cleanString(value))
+          .filter(Boolean)
+      ),
+    ]),
+    configurationDefinitions: Object.freeze([
+      ...new Set(
+        (Array.isArray(definition.configurationDefinitions) ? definition.configurationDefinitions : [])
+          .map((value) => cleanString(value))
+          .filter(Boolean)
+      ),
+    ]),
+    integrationContracts: Object.freeze([
+      ...new Set(
+        (Array.isArray(definition.integrationContracts) ? definition.integrationContracts : [])
+          .map((value) => cleanString(value))
+          .filter(Boolean)
+      ),
+    ]),
     meteringKey: cleanString(definition.meteringKey || ""),
   });
 }
 
 export function registerCapabilityPack(definition) {
   const normalised = normaliseDefinition(definition);
-
   if (capabilityRegistry.has(normalised.key)) {
-    throw new Error(
-      `Capability pack "${normalised.key}" is already registered.`
-    );
+    throw new Error(`Capability pack "${normalised.key}" is already registered.`);
   }
-
   capabilityRegistry.set(normalised.key, normalised);
   return normalised;
 }
@@ -179,16 +136,12 @@ export function isRegisteredCapabilityPack(capabilityKey) {
 export function getCapabilityPack(capabilityKey) {
   const key = cleanKey(capabilityKey);
   const definition = capabilityRegistry.get(key);
-
   if (!definition) {
-    const error = new Error(
-      `Capability pack "${key}" is not registered by this platform build.`
-    );
+    const error = new Error(`Capability pack "${key}" is not registered by this platform build.`);
     error.statusCode = 400;
     error.code = "UNKNOWN_CAPABILITY_PACK";
     throw error;
   }
-
   return definition;
 }
 
@@ -205,19 +158,23 @@ export function listAllocatableCapabilityPacks() {
 export function capabilitySupportsVertical(capabilityKey, verticalId) {
   const definition = getCapabilityPack(capabilityKey);
   const vertical = cleanKey(verticalId, "Vertical id");
-
   return (
     definition.supportedVerticals.includes("*") ||
     definition.supportedVerticals.includes(vertical)
   );
 }
 
-const ALL_SERVICE_VERTICALS = [
+const SERVICE_VERTICALS = Object.freeze([
   "salon",
   "spa",
   "fitness",
   "plastic-surgery",
-];
+]);
+
+const BUSINESS_VERTICALS = Object.freeze([
+  ...SERVICE_VERTICALS,
+  "retail",
+]);
 
 [
   {
@@ -226,7 +183,7 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "operations",
     businessPurpose: "Own booking, availability and appointment lifecycle state.",
     ownedDomains: ["booking", "availability", "appointment-lifecycle"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: SERVICE_VERTICALS,
   },
   {
     key: "staff",
@@ -234,7 +191,7 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "operations",
     businessPurpose: "Own workforce, staff profiles and staff/resource assignment state.",
     ownedDomains: ["workforce", "staff-profile", "staff-assignment"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: SERVICE_VERTICALS,
   },
   {
     key: "services",
@@ -242,7 +199,7 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "operations",
     businessPurpose: "Own the business service/procedure catalogue and service configuration.",
     ownedDomains: ["service-catalogue", "service-configuration"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: SERVICE_VERTICALS,
   },
   {
     key: "commerce",
@@ -250,15 +207,15 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "operations",
     businessPurpose: "Own checkout, payments, orders, refunds and commercial transaction state.",
     ownedDomains: ["orders", "payments", "checkout", "refunds"],
-    supportedVerticals: ["salon", "spa", "fitness"],
+    supportedVerticals: ["salon", "spa", "fitness", "retail"],
   },
   {
     key: "communications",
     label: "Communications",
     moduleClass: "integration",
-    businessPurpose: "Own consent-aware inbound/outbound message delivery across approved channels.",
+    businessPurpose: "Own consent-aware inbound/outbound transactional and marketing message delivery across approved email, SMS, WhatsApp and future channels.",
     ownedDomains: ["message-delivery", "communication-channel"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
   },
   {
     key: "calendar",
@@ -268,7 +225,7 @@ const ALL_SERVICE_VERTICALS = [
     ownedDomains: ["calendar-connection", "calendar-sync"],
     consumesDomains: ["booking"],
     dependencies: ["appointments"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: SERVICE_VERTICALS,
   },
   {
     key: "analytics",
@@ -276,24 +233,24 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "analytics",
     businessPurpose: "Own governed metrics, dashboards and analytical read models without becoming operational source of truth.",
     ownedDomains: ["metric-catalogue", "business-intelligence", "analytical-projection"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
   },
   {
     key: "ai",
     label: "Shared AI platform",
     moduleClass: "ai-foundation",
-    businessPurpose: "Provide governed AI gateway, inference, provenance and tool/model infrastructure for AI assistant modules.",
+    businessPurpose: "Provide governed general, vertical, tenant-specific and continuously evaluated ML foundations, provenance and approved AI tools.",
     ownedDomains: ["ai-inference", "ai-provenance", "ai-tool-governance"],
     allocatable: false,
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
   },
   {
     key: "integrations",
     label: "Integration Hub",
     moduleClass: "integration",
-    businessPurpose: "Connect external business platforms through reusable provider credentials, connection and sync contracts.",
+    businessPurpose: "Connect external business platforms through reusable provider credentials, account selection, connection health and sync contracts.",
     ownedDomains: ["provider-connection", "provider-credential", "integration-sync"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     integrationContracts: ["provider-connections"],
   },
   {
@@ -304,7 +261,7 @@ const ALL_SERVICE_VERTICALS = [
     ownedDomains: ["marketing-ingestion", "marketing-normalised-data", "marketing-lineage"],
     consumesDomains: ["provider-connection"],
     allocatable: false,
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["integrations"],
     integrationContracts: ["marketing-data-core"],
   },
@@ -316,17 +273,17 @@ const ALL_SERVICE_VERTICALS = [
     ownedDomains: ["campaign", "campaign-execution", "social-publication", "marketing-attribution"],
     consumesDomains: ["marketing-normalised-data"],
     allocatable: false,
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["marketing-data"],
   },
   {
     key: "crm",
     label: "CRM & customer intelligence",
     moduleClass: "operations",
-    businessPurpose: "Own Customer 360, lifecycle classification, segmentation and retention journey definitions/outcomes.",
+    businessPurpose: "Own Customer 360, customer relationship history, lifecycle classification, segmentation and retention journey definitions/outcomes independently from Marketing.",
     ownedDomains: ["customer-360", "customer-lifecycle", "customer-segmentation", "retention-journey"],
     consumesDomains: ["business-intelligence", "marketing-attribution"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["analytics"],
     configurationDefinitions: ["customer-lifecycle", "customer-segmentation"],
   },
@@ -334,11 +291,11 @@ const ALL_SERVICE_VERTICALS = [
     key: "marketing-automation",
     label: "Marketing Automation Engine",
     moduleClass: "automation",
-    businessPurpose: "Internal trigger, approval, schedule and multi-channel orchestration engine that consumes CRM, campaigns, communications and marketing evidence.",
+    businessPurpose: "Internal trigger, approval, schedule and multi-channel orchestration engine that consumes CRM audiences and requests delivery from Communications.",
     ownedDomains: ["marketing-trigger", "marketing-automation-policy", "marketing-automation-run"],
     consumesDomains: ["customer-segmentation", "retention-journey", "campaign", "campaign-execution", "message-delivery", "marketing-normalised-data"],
     allocatable: false,
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["crm", "communications", "analytics", "campaigns-attribution", "marketing-data"],
     requiredPermissions: ["retention-automation:manage"],
     configurationDefinitions: ["campaign-automation", "journey-automation"],
@@ -348,10 +305,10 @@ const ALL_SERVICE_VERTICALS = [
     key: "marketing",
     label: "Marketing",
     moduleClass: "bundle",
-    businessPurpose: "Business-facing marketing module combining AIIBP data connections, campaigns, attribution, CRM audiences and governed marketing automation without duplicating internal authorities.",
+    businessPurpose: "Business-facing advertising, audiences, campaigns, attribution and automation workspace. CRM remains customer authority and Communications remains email/SMS/WhatsApp delivery authority.",
     ownedDomains: ["marketing-module-experience"],
-    consumesDomains: ["marketing-normalised-data", "campaign", "marketing-attribution", "customer-segmentation", "marketing-automation-run"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    consumesDomains: ["marketing-normalised-data", "campaign", "marketing-attribution", "customer-segmentation", "marketing-automation-run", "message-delivery"],
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["marketing-automation", "integrations"],
     requiredPermissions: ["retention-automation:manage"],
   },
@@ -363,7 +320,7 @@ const ALL_SERVICE_VERTICALS = [
     ownedDomains: ["business-advice"],
     consumesDomains: ["business-intelligence", "analytical-projection"],
     decisionSupportOnly: true,
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: BUSINESS_VERTICALS,
     dependencies: ["ai", "analytics"],
     requiredPermissions: ["ai:use"],
     configurationDefinitions: ["human-review-required"],
@@ -375,7 +332,7 @@ const ALL_SERVICE_VERTICALS = [
     businessPurpose: "Own recurring membership contracts and membership lifecycle while Commerce owns payment state.",
     ownedDomains: ["membership-contract", "membership-lifecycle"],
     consumesDomains: ["payments"],
-    supportedVerticals: ["salon", "spa", "fitness"],
+    supportedVerticals: ["salon", "spa", "fitness", "retail"],
     dependencies: ["commerce"],
   },
   {
@@ -384,7 +341,7 @@ const ALL_SERVICE_VERTICALS = [
     moduleClass: "operations",
     businessPurpose: "Own stock, stock movement, purchasing and replenishment state.",
     ownedDomains: ["inventory", "stock-movement", "purchasing"],
-    supportedVerticals: ["salon", "spa", "plastic-surgery"],
+    supportedVerticals: ["salon", "spa", "plastic-surgery", "retail"],
   },
   {
     key: "loyalty",
@@ -393,7 +350,7 @@ const ALL_SERVICE_VERTICALS = [
     businessPurpose: "Own loyalty earning, redemption and balance state while Commerce owns transaction state.",
     ownedDomains: ["loyalty-ledger", "loyalty-redemption"],
     consumesDomains: ["orders"],
-    supportedVerticals: ["salon", "spa", "fitness"],
+    supportedVerticals: ["salon", "spa", "fitness", "retail"],
     dependencies: ["commerce"],
   },
   {
@@ -403,7 +360,7 @@ const ALL_SERVICE_VERTICALS = [
     businessPurpose: "Assist front-desk/customer interactions using governed communications and appointment tools.",
     ownedDomains: ["reception-assistance"],
     consumesDomains: ["booking", "availability", "message-delivery"],
-    supportedVerticals: ALL_SERVICE_VERTICALS,
+    supportedVerticals: SERVICE_VERTICALS,
     dependencies: ["ai", "communications", "appointments"],
     requiredPermissions: ["ai:use"],
   },
@@ -411,11 +368,11 @@ const ALL_SERVICE_VERTICALS = [
     key: "ai-retention",
     label: "AI Retention Manager",
     moduleClass: "ai-assistant",
-    businessPurpose: "Recommend retention audiences, channels and next actions; the Marketing module remains execution authority.",
+    businessPurpose: "Recommend retention audiences, channels and next actions; CRM remains customer authority and Marketing remains campaign authority.",
     ownedDomains: ["retention-advice"],
     consumesDomains: ["customer-lifecycle", "customer-segmentation", "business-intelligence"],
     decisionSupportOnly: true,
-    supportedVerticals: ["salon", "spa", "fitness"],
+    supportedVerticals: ["salon", "spa", "fitness", "retail"],
     dependencies: ["ai", "crm", "analytics"],
     requiredPermissions: ["ai:use", "retention-automation:manage"],
   },
