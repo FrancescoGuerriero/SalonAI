@@ -19,7 +19,14 @@ test("sequence rescheduling atomically replaces provider and resource reservatio
   const handler = service.slice(start);
   assert.match(handler, /databaseSession\.withTransaction/);
   assert.match(handler, /ProviderOccupancyReservation\.findOne/);
-  assert.match(handler, /excludeAppointmentId:\s*appointment\._id/);
+  assert.match(
+    service,
+    /assertProviderWindowsAvailable[\s\S]*excludeAppointmentId:\s*appointmentId/
+  );
+  assert.match(
+    handler,
+    /assertProviderWindowsAvailable\([\s\S]*appointment\._id[\s\S]*\)/
+  );
   assert.match(handler, /ProviderOccupancyReservation\.deleteMany/);
   assert.match(handler, /BookingResourceReservation\.deleteMany/);
   assert.match(handler, /ProviderOccupancyReservation\.create/);
