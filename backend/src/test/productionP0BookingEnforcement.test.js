@@ -21,7 +21,7 @@ test(
   async () => {
     const controller =
       await source(
-        "../controllers/appointmentController.js"
+        "../features/appointments/customerBookingController.js"
       );
 
     assert.match(
