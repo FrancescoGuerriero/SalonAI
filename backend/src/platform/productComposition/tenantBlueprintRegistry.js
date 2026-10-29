@@ -20,7 +20,7 @@ function normaliseBlueprint(definition = {}) {
     throw new TypeError("Tenant blueprint key must be 2-60 lowercase letters, numbers or hyphens.");
   }
   if (!name) throw new TypeError("Tenant blueprint name is required.");
-  if (!['planned', 'provisioning', 'active', 'suspended'].includes(status)) {
+  if (!["planned", "provisioning", "active", "suspended"].includes(status)) {
     throw new TypeError("Tenant blueprint status is invalid.");
   }
 
@@ -43,6 +43,8 @@ function normaliseBlueprint(definition = {}) {
       tenantTraining: true,
       continuousMachineLearning: true,
       knowledgeRetrieval: true,
+      trainingProfileKey: clean(definition.aiProfile?.trainingProfileKey).toLowerCase(),
+      customerAssistantAgentKey: clean(definition.aiProfile?.customerAssistantAgentKey).toLowerCase(),
       notes: clean(definition.aiProfile?.notes),
     }),
   });
@@ -92,6 +94,8 @@ registerTenantBlueprint({
     "ai-stylist-copilot",
   ],
   aiProfile: {
+    trainingProfileKey: "stylish-ai",
+    customerAssistantAgentKey: "ai-receptionist",
     notes: "Salon vertical training plus Stylish-specific services, policies, staff, products, customer journeys and governed business-generated ML evidence.",
   },
 });
@@ -121,6 +125,8 @@ registerTenantBlueprint({
     "ai-retention",
   ],
   aiProfile: {
+    trainingProfileKey: "gut-instinct-ai",
+    customerAssistantAgentKey: "retail-customer-concierge",
     notes: "Retail vertical training plus Gut Instinct product, order, returns, marketplace, marketing and customer-support knowledge. Retail concierge tooling will be enabled only after its non-booking tool profile is governed separately from the salon AI Receptionist contract.",
   },
 });
