@@ -18,6 +18,9 @@ import {
   getAiGovernanceLearningOverview,
 } from "../features/aiPlatform/aiGovernanceLearningController.js";
 import {
+  getSystemObservabilityOverview,
+} from "../features/observability/systemObservabilityController.js";
+import {
   getConfigurationStudio,
   getTenantProductComposition,
   listAuditLogs,
@@ -73,6 +76,18 @@ router.get(
   ),
   asyncHandler(
     getAiGovernanceLearningOverview
+  )
+);
+router.get(
+  "/observability-health",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getSystemObservabilityOverview
   )
 );
 router.get(
