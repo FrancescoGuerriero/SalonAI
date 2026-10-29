@@ -167,3 +167,21 @@ registerVertical({
     "ai",
   ],
 });
+
+registerVertical({
+  id: "retail",
+  label: "Retail AI",
+  terminology: {
+    business: "Retail Business",
+    staffMember: "Team member",
+    service: "Product",
+    booking: "Order",
+    customer: "Customer",
+  },
+  capabilities: [
+    "commerce",
+    "communications",
+    "analytics",
+    "ai",
+  ],
+});
