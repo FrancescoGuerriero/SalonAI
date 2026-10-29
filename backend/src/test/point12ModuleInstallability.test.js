@@ -8,12 +8,13 @@ import {
 } from "../platform/capabilities/moduleInstallationResolver.js";
 import { getVerticalPackDefinition } from "../platform/capabilities/verticalPackRegistry.js";
 
-const VERTICALS = ["salon", "spa", "fitness", "plastic-surgery"];
+const VERTICALS = ["salon", "spa", "fitness", "plastic-surgery", "retail"];
 const EXPECTED_COMMERCIAL_MODULE_COUNTS = Object.freeze({
   salon: 21,
   spa: 20,
   fitness: 19,
   "plastic-surgery": 15,
+  retail: 15,
 });
 const NEW_COMMERCIAL_MODULES = [
   "ecommerce-store",
@@ -50,6 +51,32 @@ test("every allocatable module can be selected independently for every supported
       `${verticalId} has non-installable modules: ${audit.results.filter(({ installable }) => !installable).map(({ key, error }) => `${key}: ${error}`).join("; ")}`
     );
     assert.equal(audit.installableCount, audit.moduleCount);
+  }
+});
+
+test("Retail composition keeps CRM, Marketing and Communications as distinct commercial authorities", () => {
+  const retail = getVerticalPackDefinition("retail");
+  const supported = new Set(retail.allocatableCapabilityPackKeys);
+
+  for (const key of ["crm", "marketing", "communications"]) {
+    assert.equal(supported.has(key), true, `${key} must be independently allocatable for Retail`);
+  }
+
+  const marketing = resolveModuleInstallationPlan({
+    selectedModuleKeys: ["marketing"],
+    verticalId: "retail",
+  });
+
+  for (const dependency of [
+    "crm",
+    "communications",
+    "analytics",
+    "integrations",
+    "marketing-data",
+    "campaigns-attribution",
+    "marketing-automation",
+  ]) {
+    assert.ok(marketing.requiredCapabilityKeys.includes(dependency));
   }
 });
 
