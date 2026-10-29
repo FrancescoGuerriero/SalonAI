@@ -217,11 +217,11 @@ test("appointments booked inside the 48-hour decision window are excluded from v
   );
 });
 
-test("training script benchmarks learned candidates against SalonAI rules", async () => {
+test("training core benchmarks learned candidates against SalonAI rules", async () => {
   const source =
     await readFile(
       new URL(
-        "../../../ai-service/train_no_show.py",
+        "../../../ai-service/train_no_show_core.py",
         import.meta.url
       ),
       "utf8"
