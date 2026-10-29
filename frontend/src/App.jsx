@@ -48,6 +48,18 @@ const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperie
 const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
 const CustomerExperienceManagementPage = lazy(() => import("./pages/CustomerExperienceManagementPage.jsx"));
 const SystemAdministrationPage = lazy(() => import("./pages/SystemAdministrationPage.jsx"));
+const MembershipManagementPage = lazy(() => import("./pages/MembershipManagementPage.jsx"));
+const ReputationHubPage = lazy(() => import("./pages/ReputationHubPage.jsx"));
+const ContentStudioPage = lazy(() => import("./pages/ContentStudioPage.jsx"));
+const MarketingHubPage = lazy(() => import("./pages/MarketingHubPage.jsx"));
+const StylistCopilotPage = lazy(() => import("./pages/StylistCopilotPage.jsx"));
+const ModuleOperationsPage = lazy(() => import("./pages/ModuleOperationsPage.jsx"));
+const ConnectionsWorkspacePage = lazy(() => import("./pages/ConnectionsWorkspacePage.jsx"));
+const ConnectedAccountsPage = lazy(() => import("./pages/ConnectedAccountsPage.jsx"));
+const MeasurementIntegrationCorePage = lazy(() => import("./pages/MeasurementIntegrationCorePage.jsx"));
+const DataHubPage = lazy(() => import("./pages/DataHubPage.jsx"));
+const AiReadinessPage = lazy(() => import("./pages/AiReadinessPage.jsx"));
+const AiCandidateGovernancePage = lazy(() => import("./pages/AiCandidateGovernancePage.jsx"));
 const Home = lazy(
   () => import("./pages/Home.jsx")
 );
@@ -576,6 +588,8 @@ function AppRoutes() {
 <Route path="retention-automation" element={featurePage(permissionPage(RetentionAutomationPage, "retention-automation:manage"), "retention-automation")} />
 <Route path="premium-analytics" element={featurePage(permissionPage(PremiumAnalyticsPage, "premium-analytics:read"), "premium-analytics")} />
 <Route path="customer-experience-management" element={permissionPage(CustomerExperienceManagementPage, "customer-experience:read")} />
+<Route path="customer-experience-management/reputation" element={permissionPage(ReputationHubPage, "customer-experience:read")} />
+<Route path="customer-experience-management/content" element={permissionPage(ContentStudioPage, "customer-experience:read")} />
         <Route
           index
           element={<Home />}
@@ -774,6 +788,11 @@ function AppRoutes() {
         />
 
         <Route
+          path="memberships"
+          element={permissionPage(MembershipManagementPage, "customer:read")}
+        />
+
+        <Route
           path="customer-segments"
           element={permissionPage(CustomerSegmentationPage, "customer:read")}
         />
@@ -937,12 +956,22 @@ function AppRoutes() {
           element={featurePage(permissionPage(AiSalesForecastingPage, "ai:use"), "ai-tools")}
         />
 
+        <Route
+          path="stylist-copilot"
+          element={featurePage(permissionPage(StylistCopilotPage, "ai:use"), "ai-tools")}
+        />
+
 
         {/*
         |--------------------------------------------------------------------------
         | Communications
         |--------------------------------------------------------------------------
         */}
+
+        <Route
+          path="marketing"
+          element={permissionPage(MarketingHubPage, "feature-control:read")}
+        />
 
         <Route
           path="communications"
@@ -1208,6 +1237,41 @@ function AppRoutes() {
         <Route
           path="admin/system"
           element={permissionPage(SystemAdministrationPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/modules"
+          element={permissionPage(ModuleOperationsPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/connections"
+          element={permissionPage(ConnectionsWorkspacePage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/connected-accounts"
+          element={permissionPage(ConnectedAccountsPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/measurement-core"
+          element={permissionPage(MeasurementIntegrationCorePage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/data-hub"
+          element={permissionPage(DataHubPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/ai-readiness"
+          element={permissionPage(AiReadinessPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/system/ai-candidate-governance"
+          element={permissionPage(AiCandidateGovernancePage, "feature-control:read")}
         />
 
 
