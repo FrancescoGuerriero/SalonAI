@@ -11,6 +11,9 @@ import {
   getBuiltinAiAgentDefinition,
 } from "../features/aiPlatform/aiWorkforceBuiltinAgents.js";
 import {
+  requireAiWorkforceTool,
+} from "../features/aiPlatform/aiWorkforceToolRegistry.js";
+import {
   getTenantBlueprint,
 } from "../platform/productComposition/tenantBlueprintRegistry.js";
 
@@ -86,16 +89,27 @@ test("AI training datasets expose fail-closed training context fields", () => {
   ]);
 });
 
-test("Retail Customer Concierge is draft-only and cannot inherit Salon appointment tools", () => {
+test("Retail Customer Concierge remains draft-only with A0 tenant-scoped read tools", () => {
   const concierge = getBuiltinAiAgentDefinition("retail-customer-concierge");
   const receptionist = getBuiltinAiAgentDefinition("ai-receptionist");
 
   assert.equal(concierge.lifecycle, "draft");
   assert.deepEqual(concierge.allowedVerticals, ["retail"]);
-  assert.deepEqual(concierge.allowedTools, []);
-  assert.ok(concierge.plannedTools.includes("product.catalogue.read"));
+  assert.deepEqual(concierge.allowedTools, [
+    "product.catalogue.read",
+    "delivery.policy.read",
+    "returns.policy.read",
+  ]);
   assert.ok(concierge.plannedTools.includes("order.status.read"));
-  assert.ok(concierge.activationBlockers.length >= 4);
+  assert.ok(concierge.plannedTools.includes("customer-support-action.propose"));
+  assert.ok(concierge.activationBlockers.some((item) => item.includes("Order Business/Location ownership")));
+
+  for (const key of concierge.allowedTools) {
+    const tool = requireAiWorkforceTool(key);
+    assert.equal(tool.mutation, false);
+    assert.equal(tool.maximumAutonomy, "A0");
+    assert.equal(tool.requiresHumanApproval, false);
+  }
 
   assert.equal(receptionist.lifecycle, "active");
   assert.deepEqual(receptionist.allowedVerticals, ["salon"]);
