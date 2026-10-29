@@ -110,7 +110,8 @@ jobs:
           node --test \
             src/test/noShowAiCoreManifest.test.js \
             src/test/demandAiCoreDataset.test.js \
-            src/test/workforceCapacitySnapshot.test.js
+            src/test/workforceCapacitySnapshot.test.js \
+            src/test/tenantAiTrainingProfileAiCore.test.js
 
       - name: Verify AI Core backend source
         shell: bash
