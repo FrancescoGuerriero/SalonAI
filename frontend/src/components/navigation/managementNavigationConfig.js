@@ -126,6 +126,7 @@ const RAW_MANAGEMENT_SECTIONS = [
     id: "ai-automation",
     label: "Use AI and automation",
     links: [
+      ["/ai-receptionist", "AI Receptionist", "Monitor governed customer-channel runs and booking proposals", "MessageCircle", false, "ai:use", "ai-tools", SIMPLE],
       ["/ai/haircare", "Haircare AI", "Create haircare recommendations", "Sparkles", false, "ai:use", "ai-tools", ADVANCED],
       ["/ai/customer-summaries", "Customer AI summaries", "Summarise customer history", "FileText", false, "ai:use", "ai-tools", ADVANCED],
       ["/ai/customer-segmentation", "AI segmentation", "Analyse customer behaviour", "UsersRound", false, "ai:use", "ai-tools", ADVANCED],
