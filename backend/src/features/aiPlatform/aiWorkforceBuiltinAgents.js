@@ -80,7 +80,7 @@ const BUILTIN_AGENTS =
         displayName:
           "AI Customer Concierge",
         purpose:
-          "Provide a governed Retail customer-assistance profile for product discovery, order support, delivery and returns guidance without inheriting Salon appointment tools or mutating Commerce, Inventory, CRM, Communications or Marketplace state.",
+          "Provide governed Retail product discovery and customer policy guidance without inheriting Salon appointment tools or mutating Commerce, Inventory, CRM, Communications or Marketplace state.",
         lifecycle:
           "draft",
         allowedVerticals: [
@@ -88,19 +88,20 @@ const BUILTIN_AGENTS =
         ],
         requiredEntitlement:
           "ai-tools",
-        allowedTools: [],
-        plannedTools: [
+        allowedTools: [
           "product.catalogue.read",
-          "order.status.read",
           "delivery.policy.read",
           "returns.policy.read",
+        ],
+        plannedTools: [
+          "order.status.read",
           "customer-support-action.propose",
         ],
         autonomyCeiling:
           "A0",
         activationBlockers: [
-          "Register and implement Retail canonical read/proposal tool executors.",
-          "Add Retail tenant/location isolation tests for every tool.",
+          "Reconcile canonical Commerce Order Business/Location ownership before registering order.status.read.",
+          "Add tenant/location isolation tests for order status and any future proposal tool.",
           "Pass gut-instinct-customer-concierge evaluation suite with zero policy violations.",
           "Complete owner-led manual acceptance before any production activation.",
         ],
