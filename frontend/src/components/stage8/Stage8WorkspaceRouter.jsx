@@ -14,6 +14,7 @@ const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
 const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
 const MarketingDataConnectionsPage = lazy(() => import("../../pages/MarketingDataConnectionsPage.jsx"));
+const MarketplaceCommandCentrePage = lazy(() => import("../../pages/MarketplaceCommandCentrePage.jsx"));
 const MembershipManagementPage = lazy(() => import("../../pages/MembershipManagementPage.jsx"));
 const ModuleOperationsPage = lazy(() => import("../../pages/ModuleOperationsPage.jsx"));
 
@@ -44,6 +45,10 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
 
   if (pathname === "/marketing") {
     return <MarketingAccess loading={loading} user={user}><MarketingModulePage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketplaces") {
+    return <MarketingAccess loading={loading} user={user}><MarketplaceCommandCentrePage /></MarketingAccess>;
   }
 
   if (pathname === "/marketing/native-connections") {
