@@ -15,6 +15,9 @@ import {
 } from "../platform/tenancy/trustedTenantMiddleware.js";
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import {
+  getAiGovernanceLearningOverview,
+} from "../features/aiPlatform/aiGovernanceLearningController.js";
+import {
   getConfigurationStudio,
   getTenantProductComposition,
   listAuditLogs,
@@ -58,6 +61,18 @@ router.get(
   ),
   asyncHandler(
     getTenantProductComposition
+  )
+);
+router.get(
+  "/ai-governance-learning",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getAiGovernanceLearningOverview
   )
 );
 router.get(
