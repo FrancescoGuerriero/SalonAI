@@ -31,9 +31,9 @@ export const AIIBP_SYSTEM_MODULES = Object.freeze([
   moduleDefinition({ key: "marketing-automation-engine", label: "Marketing Automation Engine", moduleClass: "system", link: "/marketing", summary: "Consent-aware triggers, schedules, approvals and journeys that request delivery from Communications." }),
   moduleDefinition({ key: "analytics-engine", label: "Analytics & BI Engine", moduleClass: "system", link: "/reports", summary: "Metric catalogue, deterministic read models and governed cross-module analytics." }),
   moduleDefinition({ key: "ai-governance", label: "AI Governance & Learning", moduleClass: "system", link: "/admin/system/ai-candidate-governance", summary: "General training, vertical training, tenant-specific training, continuous ML evaluation and human-controlled model promotion." }),
-  moduleDefinition({ key: "background-jobs", label: "Jobs & Scheduling", moduleClass: "system", summary: "Tenant-safe scheduled sync, background processing, retries and operational job controls." }),
+  moduleDefinition({ key: "background-jobs", label: "Jobs & Scheduling", moduleClass: "system", link: "/admin/system", summary: "Tenant-safe scheduled sync, background processing, retries and operational job controls. Tenant-scoped worker-health evidence remains fail-closed until a canonical registry exists." }),
   moduleDefinition({ key: "import-export", label: "Import & Export", moduleClass: "system", link: "/data-imports", summary: "Governed data import/export, validation, provenance and portability workflows." }),
-  moduleDefinition({ key: "observability-health", label: "Observability & Health", moduleClass: "system", summary: "Connection, sync, worker and platform health evidence for operators and administrators." }),
+  moduleDefinition({ key: "observability-health", label: "Observability & Health", moduleClass: "system", link: "/admin/system", summary: "Read-only tenant health evidence for connectors, AI governance and platform dependencies; unscoped worker/dead-letter telemetry is deliberately not inferred or exposed." }),
 ]);
 
 export const AIIBP_COMMERCIAL_BUSINESS_MODULES = Object.freeze(
