@@ -27,6 +27,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A0",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "business-adviser-a0-v1",
@@ -62,6 +74,30 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "knowledge-retrieval",
+          profileRequired:
+            true,
+          citationsRequired:
+            true,
+          allowedScopeModes: [
+            "platform_global",
+            "vertical",
+            "tenant",
+          ],
+          allowedSourceTypes: [
+            "policy",
+            "salon_policy",
+            "service",
+            "product",
+            "business_rule",
+            "faq",
+            "document",
+          ],
+          maxKnowledgeSources:
+            8,
+        },
         evaluationSuite: {
           key:
             "ai-receptionist-a1-v2",
@@ -99,6 +135,31 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A0",
+        groundingPolicy: {
+          mode:
+            "knowledge-retrieval",
+          profileRequired:
+            true,
+          citationsRequired:
+            true,
+          allowedScopeModes: [
+            "platform_global",
+            "vertical",
+            "tenant",
+          ],
+          allowedSourceTypes: [
+            "policy",
+            "retail_policy",
+            "product",
+            "catalogue",
+            "brand_content",
+            "business_rule",
+            "faq",
+            "document",
+          ],
+          maxKnowledgeSources:
+            8,
+        },
         activationBlockers: [
           "Reconcile canonical Commerce Order Business/Location ownership before registering order.status.read.",
           "Add tenant/location isolation tests for order status and any future proposal tool.",
@@ -137,6 +198,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "ai-retention-a1-v1",
@@ -169,6 +242,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "ai-lead-a1-v1",
