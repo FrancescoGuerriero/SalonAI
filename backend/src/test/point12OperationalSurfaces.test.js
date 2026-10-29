@@ -36,7 +36,7 @@ test("each SalonAI operational module points at a route exposed by the applicati
   const stage8 = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
   const searchableRoutes = `${app}\n${navigation}\n${stage4}\n${stage8}`;
 
-  const operationalEntries = [...surfaces.matchAll(/\{\s*key:\s*"([^"]+)"[\s\S]*?primaryRoute:\s*"([^"]+)"[\s\S]*?salonOperational:\s*true\s*\}/g)];
+  const operationalEntries = [...surfaces.matchAll(/\{\s*key:\s*"([^"]+)"[\s\S]*?primaryRoute:\s*"([^"]+)"[\s\S]*?salonOperational:\s*true,?\s*\}/g)];
   assert.equal(operationalEntries.length, 21);
 
   for (const [, key, route] of operationalEntries) {
@@ -46,6 +46,28 @@ test("each SalonAI operational module points at a route exposed by the applicati
       `${key} must expose its primary operational route ${pathname}`
     );
   }
+});
+
+test("tenant-aware dashboard reads canonical manifest composition and exposes four module states", async () => {
+  const routes = await source("../routes/systemAdministrationRoutes.js");
+  const controller = await source("../controllers/systemAdministrationController.js");
+  const dashboard = await source("../../../frontend/src/pages/AdminDashboard.jsx");
+  const client = await source("../../../frontend/src/Services/tenantProductCompositionService.js");
+
+  assert.match(routes, /tenant-product-composition/);
+  assert.match(routes, /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*feature-control:read/);
+  assert.match(controller, /TenantProductManifest\.findOne/);
+  assert.match(controller, /resolveEffectiveTenantProductComposition/);
+  assert.match(controller, /tenantState = "installed"/);
+  assert.match(controller, /tenantState = "available"/);
+  assert.match(controller, /tenantState = "disabled"/);
+  assert.match(controller, /tenantState = "vertical-restricted"/);
+  assert.match(client, /\/system-administration\/tenant-product-composition/);
+  assert.match(dashboard, /Installed/);
+  assert.match(dashboard, /Available/);
+  assert.match(dashboard, /Disabled/);
+  assert.match(dashboard, /Vertical restricted/);
+  assert.match(dashboard, /Manifest revision/);
 });
 
 test("AI Receptionist surface keeps both staff operation and customer chatbot entry points", async () => {
