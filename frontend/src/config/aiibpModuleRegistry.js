@@ -20,7 +20,7 @@ export const AIIBP_CORE_PLATFORM_MODULES = Object.freeze([
   moduleDefinition({ key: "audit-governance", label: "Audit & Governance", moduleClass: "core", summary: "Auditable provenance for privileged operations, provider activity and governed automation." }),
   moduleDefinition({ key: "privacy-consent", label: "Privacy & Consent Core", moduleClass: "core", summary: "Consent, communication preferences, privacy controls and data-rights boundaries." }),
   moduleDefinition({ key: "api-webhook-core", label: "API & Webhook Core", moduleClass: "core", summary: "Shared provider-neutral external API and webhook contracts." }),
-  moduleDefinition({ key: "ai", label: "AI Core", moduleClass: "core", link: "/admin/system/ai-core", summary: "General, vertical and tenant AI foundations plus governed datasets, model lifecycle, evaluation, provenance and approved tools." }),
+  moduleDefinition({ key: "ai", label: "AI Core", moduleClass: "core", link: "/admin/system/ai-candidate-governance", summary: "General, vertical and tenant AI foundations plus governed datasets, model lifecycle, evaluation, provenance and approved tools." }),
 ]);
 
 export const AIIBP_SYSTEM_MODULES = Object.freeze([
@@ -30,7 +30,7 @@ export const AIIBP_SYSTEM_MODULES = Object.freeze([
   moduleDefinition({ key: "campaign-attribution-engine", label: "Campaign & Attribution Engine", moduleClass: "system", link: "/marketing", summary: "Canonical campaign executions, channel performance and deterministic attribution evidence." }),
   moduleDefinition({ key: "marketing-automation-engine", label: "Marketing Automation Engine", moduleClass: "system", link: "/marketing", summary: "Consent-aware triggers, schedules, approvals and journeys that request delivery from Communications." }),
   moduleDefinition({ key: "analytics-engine", label: "Analytics & BI Engine", moduleClass: "system", link: "/reports", summary: "Metric catalogue, deterministic read models and governed cross-module analytics." }),
-  moduleDefinition({ key: "ai-governance", label: "AI Governance & Learning", moduleClass: "system", link: "/admin/system/ai-core", summary: "General training, vertical training, tenant-specific training, continuous ML evaluation and human-controlled model promotion." }),
+  moduleDefinition({ key: "ai-governance", label: "AI Governance & Learning", moduleClass: "system", link: "/admin/system/ai-candidate-governance", summary: "General training, vertical training, tenant-specific training, continuous ML evaluation and human-controlled model promotion." }),
   moduleDefinition({ key: "background-jobs", label: "Jobs & Scheduling", moduleClass: "system", summary: "Tenant-safe scheduled sync, background processing, retries and operational job controls." }),
   moduleDefinition({ key: "import-export", label: "Import & Export", moduleClass: "system", link: "/data-imports", summary: "Governed data import/export, validation, provenance and portability workflows." }),
   moduleDefinition({ key: "observability-health", label: "Observability & Health", moduleClass: "system", summary: "Connection, sync, worker and platform health evidence for operators and administrators." }),
