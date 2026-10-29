@@ -14,6 +14,9 @@ import {
   evaluateAiSuiteResult,
   getAiEvaluationSuite,
 } from "../features/aiPlatform/aiEvaluationSuiteRegistry.js";
+import {
+  listBuiltinAiAgentDefinitions,
+} from "../features/aiPlatform/aiWorkforceBuiltinAgents.js";
 
 const BUSINESS_ID = "507f1f77bcf86cd799439011";
 const LOCATION_ID = "507f1f77bcf86cd799439012";
@@ -249,6 +252,25 @@ test("grounding context rejects profile and vertical mismatch", async () => {
     }),
     /does not belong to the requested vertical/
   );
+});
+
+test("every built-in AI workforce agent resolves to a shared evaluation suite", () => {
+  for (const agent of listBuiltinAiAgentDefinitions()) {
+    const suite = getAiEvaluationSuite(agent.evaluationSuite?.key);
+    assert.ok(suite, `${agent.key} must use a registered evaluation suite`);
+    assert.ok(suite.appliesTo.includes(agent.key));
+    assert.equal(suite.productionPromotionAuthorized, false);
+    assert.equal(suite.automaticPromotionAuthorized, false);
+
+    const taskThreshold = suite.thresholds.taskSuccessRate;
+    const policyThreshold = suite.thresholds.policyViolationRate;
+    assert.ok(taskThreshold);
+    assert.equal(taskThreshold.comparator, ">=");
+    assert.ok(taskThreshold.value >= agent.evaluationSuite.minimumTaskSuccessRate);
+    assert.ok(policyThreshold);
+    assert.equal(policyThreshold.comparator, "<=");
+    assert.ok(policyThreshold.value <= agent.evaluationSuite.maximumPolicyViolationRate);
+  }
 });
 
 test("shared AI evaluation suites fail closed when metrics are missing and never authorize promotion", () => {
