@@ -19,7 +19,7 @@ export const AIIBP_MODULE_OPERATIONAL_SURFACES = Object.freeze([
     connectionRoute: "/admin/system/connections",
     sellerRoute: "/marketing/data-connections?type=seller",
     surface: "management",
-    salonOperational: true,
+    salonOperational: true
   },
   { key: "analytics", primaryRoute: "/reports", surface: "management", salonOperational: true },
   { key: "business-planning", primaryRoute: "/revenue-forecast", supportingRoutes: ["/booking-demand", "/capacity-planning", "/executive-command-centre"], surface: "management", salonOperational: true },
