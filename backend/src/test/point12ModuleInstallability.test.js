@@ -9,6 +9,12 @@ import {
 import { getVerticalPackDefinition } from "../platform/capabilities/verticalPackRegistry.js";
 
 const VERTICALS = ["salon", "spa", "fitness", "plastic-surgery"];
+const EXPECTED_COMMERCIAL_MODULE_COUNTS = Object.freeze({
+  salon: 21,
+  spa: 20,
+  fitness: 19,
+  "plastic-surgery": 15,
+});
 const NEW_COMMERCIAL_MODULES = [
   "ecommerce-store",
   "business-planning",
@@ -16,9 +22,28 @@ const NEW_COMMERCIAL_MODULES = [
   "seller-marketplace",
 ];
 
+test("Point 12 commercial portfolio exposes exactly 22 allocatable modules", () => {
+  const allocatable = listAllocatableCapabilityPacks();
+  assert.equal(
+    allocatable.length,
+    22,
+    "The Point 12 commercial portfolio contract must remain synchronised with the 22-module catalogue."
+  );
+  assert.equal(
+    new Set(allocatable.map(({ key }) => key)).size,
+    22,
+    "Commercial module keys must remain unique."
+  );
+});
+
 test("every allocatable module can be selected independently for every supported vertical", () => {
   for (const verticalId of VERTICALS) {
     const audit = auditCommercialModuleInstallability(verticalId);
+    assert.equal(
+      audit.moduleCount,
+      EXPECTED_COMMERCIAL_MODULE_COUNTS[verticalId],
+      `${verticalId} commercial module count drifted from the Point 12 audited portfolio.`
+    );
     assert.equal(
       audit.failedCount,
       0,
@@ -39,8 +64,7 @@ test("new commercial modules are independently selectable and resolve declared d
   const allocatable = new Set(listAllocatableCapabilityPacks().map(({ key }) => key));
   for (const key of NEW_COMMERCIAL_MODULES) {
     assert.equal(allocatable.has(key), true, `${key} must be commercially allocatable`);
-    const capabilityVertical = key === "seller-marketplace" || key === "ecommerce-store" ? "salon" : "salon";
-    const plan = resolveModuleInstallationPlan({ selectedModuleKeys: [key], verticalId: capabilityVertical });
+    const plan = resolveModuleInstallationPlan({ selectedModuleKeys: [key], verticalId: "salon" });
     assert.deepEqual(plan.selectedModuleKeys, [key]);
     for (const dependency of expectedDependencies[key]) {
       assert.ok(plan.requiredCapabilityKeys.includes(dependency), `${key} must resolve ${dependency}`);
