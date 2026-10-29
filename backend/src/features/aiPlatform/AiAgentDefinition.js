@@ -79,6 +79,47 @@ const aiAgentDefinitionSchema =
           default: "",
         },
       },
+      groundingPolicy: {
+        mode: {
+          type: String,
+          enum: [
+            "canonical-tools-only",
+            "knowledge-retrieval",
+          ],
+          default: "canonical-tools-only",
+        },
+        profileRequired: {
+          type: Boolean,
+          default: false,
+        },
+        citationsRequired: {
+          type: Boolean,
+          default: false,
+        },
+        allowedScopeModes: {
+          type: [
+            {
+              type: String,
+              enum: [
+                "platform_global",
+                "vertical",
+                "tenant",
+              ],
+            },
+          ],
+          default: [],
+        },
+        allowedSourceTypes: {
+          type: [String],
+          default: [],
+        },
+        maxKnowledgeSources: {
+          type: Number,
+          min: 1,
+          max: 12,
+          default: 6,
+        },
+      },
       evaluationSuite: {
         key: {
           type: String,
@@ -108,6 +149,35 @@ const aiAgentDefinitionSchema =
       timestamps: true,
     }
   );
+
+aiAgentDefinitionSchema.pre(
+  "validate",
+  function validateGroundingPolicy() {
+    const policy = this.groundingPolicy || {};
+    if (policy.mode !== "knowledge-retrieval") {
+      return;
+    }
+
+    if (policy.profileRequired !== true) {
+      this.invalidate(
+        "groundingPolicy.profileRequired",
+        "Knowledge-grounded AI agents must resolve a governed tenant/vertical AI profile."
+      );
+    }
+    if (policy.citationsRequired !== true) {
+      this.invalidate(
+        "groundingPolicy.citationsRequired",
+        "Knowledge-grounded AI agents must require citations for grounded claims."
+      );
+    }
+    if (!Array.isArray(policy.allowedScopeModes) || policy.allowedScopeModes.length === 0) {
+      this.invalidate(
+        "groundingPolicy.allowedScopeModes",
+        "Knowledge-grounded AI agents require explicit knowledge scope modes."
+      );
+    }
+  }
+);
 
 aiAgentDefinitionSchema.index(
   {
