@@ -113,7 +113,8 @@ jobs:
             src/test/demandAiCoreDataset.test.js \
             src/test/workforceCapacitySnapshot.test.js \
             src/test/tenantAiTrainingProfileAiCore.test.js \
-            src/test/retailCustomerConciergeAiCore.test.js
+            src/test/retailCustomerConciergeAiCore.test.js \
+            src/test/aiKnowledgeGroundingAiCore.test.js
 
       - name: Verify AI Core backend source
         shell: bash
