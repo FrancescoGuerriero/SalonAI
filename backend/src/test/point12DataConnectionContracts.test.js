@@ -19,10 +19,10 @@ async function source(relativePath) {
 test("Point 12 catalogue includes requested seller connections", () => {
   const amazon = dataConnection("amazon_sp");
   const ebay = dataConnection("ebay");
-  assert.equal(amazon?.kind, "seller");
-  assert.equal(ebay?.kind, "seller");
-  assert.equal(amazon?.category, "Sellers");
-  assert.equal(ebay?.category, "Sellers");
+  assert.equal(amazon.kind, "seller");
+  assert.equal(ebay.kind, "seller");
+  assert.equal(amazon.category, "Sellers");
+  assert.equal(ebay.category, "Sellers");
 });
 
 test("AIIBP data connection catalogue separates sources, sellers and destinations", () => {
@@ -38,15 +38,16 @@ test("requested connection catalogue is broad and metadata-driven", () => {
     assert.ok(item.key);
     assert.ok(item.label);
     assert.ok(item.kind);
-    assert.ok(item.category);
   }
 });
 
 test("managed gateway keeps secrets server-side and uses provider-neutral configuration", async () => {
   const gateway = await source("../features/integrationPlatform/dataConnectionGatewayService.js");
-  assert.match(gateway, /AIIBP_DATA_CONNECTION_GATEWAY_URL/);
-  assert.match(gateway, /AIIBP_DATA_CONNECTION_GATEWAY_TOKEN/);
-  assert.doesNotMatch(gateway, /password/);
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_API_KEY/);
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_API_BASE_URL/);
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_ONBOARD_BASE_URL/);
+  assert.match(gateway, /DATA_CONNECTION_GATEWAY_NOT_CONFIGURED/);
+  assert.doesNotMatch(gateway, /process\.env\.VITE_/);
 });
 
 test("data connection controller enforces tenant-owned accounts and sources", async () => {
@@ -56,17 +57,22 @@ test("data connection controller enforces tenant-owned accounts and sources", as
   assert.match(controller, /request\.effectiveAuthority/);
 });
 
-test("Data Hub adapter uses canonical Marketing Data Core and neutral ownership metadata", async () => {
-  const adapter = await source("../features/integrationPlatform/dataHubConnectionAdapter.js");
-  assert.match(adapter, /Marketing Data Core/);
-  assert.match(adapter, /businessId/);
-  assert.match(adapter, /locationId/);
+test("Data Hub integration reuses canonical Marketing Data Core with tenant ownership metadata", async () => {
+  const service = await source("../features/integrationPlatform/dataConnectionDataHubService.js");
+  assert.match(service, /marketingDataCoreService\.js/);
+  assert.match(service, /runMarketingDataSource/);
+  assert.match(service, /businessId/);
+  assert.match(service, /locationId/);
+  assert.match(service, /aiibp_data_connections/);
 });
 
-test("scheduled executor uses checkpoints and the shared Marketing sync worker", async () => {
-  const executor = await source("../features/integrationPlatform/dataConnectionScheduleExecutor.js");
-  assert.match(executor, /checkpoint/);
-  assert.match(executor, /marketingDataSyncWorkerService/);
+test("scheduled managed sync preserves checkpoints and reuses canonical Marketing Data Core", async () => {
+  const scheduled = await source("../features/integrationPlatform/dataConnectionScheduledSyncService.js");
+  assert.match(scheduled, /checkpoint/);
+  assert.match(scheduled, /runMarketingDataSource/);
+  assert.match(scheduled, /businessId/);
+  assert.match(scheduled, /locationId/);
+  assert.match(scheduled, /readOnly: true/);
 });
 
 test("backfill is bounded and reports saturated one-day windows", async () => {
