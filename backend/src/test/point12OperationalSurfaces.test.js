@@ -70,6 +70,23 @@ test("tenant-aware dashboard reads canonical manifest composition and exposes fo
   assert.match(dashboard, /Manifest revision/);
 });
 
+test("commercial dashboard shortcuts fail closed unless the tenant module is installed", async () => {
+  const dashboard = await source("../../../frontend/src/pages/AdminDashboard.jsx");
+
+  for (const moduleKey of ["services", "staff", "inventory", "appointments", "crm"]) {
+    assert.match(
+      dashboard,
+      new RegExp(`moduleKey:\\s*"${moduleKey}"`),
+      `${moduleKey} operational shortcut must declare its commercial module owner`
+    );
+  }
+
+  assert.match(dashboard, /compositionState === "ready"[\s\S]*tenantState === "installed"/);
+  assert.match(dashboard, /tenantModule=\{card\.moduleKey \? moduleStateByKey\.get\(card\.moduleKey\) : null\}/);
+  assert.match(dashboard, /aria-disabled="true"/);
+  assert.match(dashboard, /Commercial shortcuts open only when the current tenant manifest marks the module as installed\./);
+});
+
 test("AI Governance and Learning exposes tenant-scoped read-only evidence with fail-closed promotion policy", async () => {
   const routes = await source("../routes/systemAdministrationRoutes.js");
   const service = await source("../features/aiPlatform/aiGovernanceLearningService.js");
