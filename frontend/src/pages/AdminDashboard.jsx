@@ -33,18 +33,21 @@ const cards = [
     description: "Manage salon services, pricing and availability.",
     link: "/manage/services",
     icon: Wrench,
+    moduleKey: "services",
   },
   {
     title: "Employees",
     description: "Add employees and control roles, active, published and bookable settings.",
     link: "/admin/employees",
     icon: UserPlus,
+    moduleKey: "staff",
   },
   {
     title: "Products & inventory",
     description: "Add new retail products and manage catalogue, prices, stock and reorder levels.",
     link: "/manage/inventory",
     icon: PackagePlus,
+    moduleKey: "inventory",
   },
   {
     title: "Bulk data import",
@@ -57,18 +60,21 @@ const cards = [
     description: "Manage salon appointments and booking activity.",
     link: "/appointments",
     icon: CalendarDays,
+    moduleKey: "appointments",
   },
   {
     title: "Customers",
     description: "Manage customer records and account information.",
     link: "/customers",
     icon: UsersRound,
+    moduleKey: "crm",
   },
   {
     title: "Staff profiles",
     description: "Review how staff profiles, photos and public professional details appear across SalonAI.",
     link: "/staff/profile",
     icon: Scissors,
+    moduleKey: "staff",
   },
 ];
 
@@ -148,6 +154,81 @@ function ModuleListingCard({ module, tenantState = null, tenantReason = "" }) {
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {content}
+    </article>
+  );
+}
+
+function OperationalShortcutCard({ card, tenantModule = null, compositionState }) {
+  const Icon = card.icon;
+  const tenantState = card.moduleKey ? tenantModule?.tenantState || null : null;
+  const entitlementReady = !card.moduleKey || (
+    compositionState === "ready" && tenantState === "installed"
+  );
+  const statusLabel = card.moduleKey
+    ? compositionState === "ready"
+      ? STATE_LABELS[tenantState] || "Unavailable"
+      : compositionState === "loading"
+        ? "Checking entitlement"
+        : compositionState === "unprovisioned"
+          ? "Not provisioned"
+          : "Entitlement unavailable"
+    : "Platform capability";
+  const reason = card.moduleKey && !entitlementReady
+    ? tenantModule?.reason || (
+        compositionState === "unprovisioned"
+          ? "No active tenant product manifest."
+          : compositionState === "unavailable"
+            ? "Tenant composition could not be verified."
+            : compositionState === "loading"
+              ? "Tenant composition is still loading."
+              : "This commercial module is not installed for the current tenant."
+      )
+    : "";
+
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-black">
+          <Icon size={21} />
+        </div>
+        <span
+          className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+            entitlementReady
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-slate-200 bg-slate-100 text-slate-600"
+          }`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+      <h3 className="mt-4 text-lg font-bold text-slate-900">{card.title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
+      {reason ? (
+        <p className="mt-3 text-xs font-semibold text-slate-600">{reason}</p>
+      ) : null}
+      <span className="mt-4 inline-flex text-sm font-bold text-black">
+        {entitlementReady ? "Manage" : "Unavailable"}
+      </span>
+    </>
+  );
+
+  if (entitlementReady) {
+    return (
+      <Link
+        to={card.link}
+        className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <article
+      className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm"
+      aria-disabled="true"
+    >
       {content}
     </article>
   );
@@ -240,26 +321,17 @@ export default function AdminDashboard() {
       <section aria-labelledby="operational-shortcuts-heading">
         <div className="mb-3">
           <h2 id="operational-shortcuts-heading" className="text-lg font-bold text-slate-900">Tenant operational shortcuts</h2>
-          <p className="mt-1 text-sm text-slate-600">Current SalonAI operational surfaces.</p>
+          <p className="mt-1 text-sm text-slate-600">Current SalonAI operational surfaces. Commercial shortcuts open only when the current tenant manifest marks the module as installed.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Link
-                key={card.title}
-                to={card.link}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-black">
-                  <Icon size={21} />
-                </div>
-                <h3 className="mt-4 text-lg font-bold text-slate-900">{card.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
-                <span className="mt-4 inline-flex text-sm font-bold text-black">Manage</span>
-              </Link>
-            );
-          })}
+          {cards.map((card) => (
+            <OperationalShortcutCard
+              key={card.title}
+              card={card}
+              compositionState={compositionState}
+              tenantModule={card.moduleKey ? moduleStateByKey.get(card.moduleKey) : null}
+            />
+          ))}
         </div>
       </section>
 
