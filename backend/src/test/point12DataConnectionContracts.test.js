@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  DATA_CONNECTION_CATALOGUE,
-  dataConnectionDefinition,
+  DATA_CONNECTIONS,
+  dataConnection,
   listDataConnections,
 } from "../features/integrationPlatform/dataConnectionCatalogue.js";
 import {
-  dataConnectionFieldProfiles,
+  listDataConnectionFieldProfiles,
   resolveDataConnectionFieldProfile,
 } from "../features/integrationPlatform/dataConnectionFieldProfiles.js";
 
@@ -17,27 +17,28 @@ async function source(relativePath) {
 }
 
 test("Point 12 catalogue includes requested seller connections", () => {
-  const amazon = dataConnectionDefinition("amazon_sp");
-  const ebay = dataConnectionDefinition("ebay");
-  assert.equal(amazon.connectionType, "seller");
-  assert.equal(ebay.connectionType, "seller");
-  assert.ok(amazon.metricGroups.includes("seller"));
-  assert.ok(ebay.metricGroups.includes("seller"));
+  const amazon = dataConnection("amazon_sp");
+  const ebay = dataConnection("ebay");
+  assert.equal(amazon?.kind, "seller");
+  assert.equal(ebay?.kind, "seller");
+  assert.equal(amazon?.category, "Sellers");
+  assert.equal(ebay?.category, "Sellers");
 });
 
 test("AIIBP data connection catalogue separates sources, sellers and destinations", () => {
-  const kinds = new Set(listDataConnections().map(({ connectionType }) => connectionType));
+  const kinds = new Set(listDataConnections().map(({ kind }) => kind));
   for (const kind of ["source", "seller", "data-platform", "destination", "ai-destination"]) {
     assert.ok(kinds.has(kind), `${kind} must remain represented in the connection catalogue`);
   }
 });
 
 test("requested connection catalogue is broad and metadata-driven", () => {
-  assert.ok(DATA_CONNECTION_CATALOGUE.length >= 25);
-  for (const item of DATA_CONNECTION_CATALOGUE) {
+  assert.ok(DATA_CONNECTIONS.length >= 25);
+  for (const item of DATA_CONNECTIONS) {
     assert.ok(item.key);
     assert.ok(item.label);
-    assert.ok(item.connectionType);
+    assert.ok(item.kind);
+    assert.ok(item.category);
   }
 });
 
@@ -75,7 +76,7 @@ test("backfill is bounded and reports saturated one-day windows", async () => {
 });
 
 test("seller profiles and KPI summaries remain AIIBP-owned", async () => {
-  const profiles = dataConnectionFieldProfiles("amazon_sp");
+  const profiles = listDataConnectionFieldProfiles("amazon_sp");
   assert.ok(profiles.length > 0);
   assert.ok(resolveDataConnectionFieldProfile("amazon_sp", profiles[0].key));
   const kpis = await source("../features/integrationPlatform/sellerKpiService.js");
