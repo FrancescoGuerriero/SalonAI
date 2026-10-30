@@ -172,7 +172,7 @@ function OperationalShortcutCard({ card, tenantModule = null, compositionState }
         ? "Checking entitlement"
         : compositionState === "unprovisioned"
           ? "Not provisioned"
-          : "Entitlement unavailable"
+          : "Tenant entitlement unavailable"
     : "Platform capability";
   const reason = card.moduleKey && !entitlementReady
     ? tenantModule?.reason || (
