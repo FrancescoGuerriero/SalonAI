@@ -68,23 +68,25 @@ test("tenant-aware dashboard reads canonical manifest composition and exposes fo
   assert.match(dashboard, /Disabled/);
   assert.match(dashboard, /Vertical restricted/);
   assert.match(dashboard, /Manifest revision/);
+  assert.match(dashboard, /card\.moduleKey/);
+  assert.match(dashboard, /tenantState === "installed"/);
+  assert.match(dashboard, /Tenant entitlement unavailable/);
 });
 
-test("commercial dashboard shortcuts fail closed unless the tenant module is installed", async () => {
-  const dashboard = await source("../../../frontend/src/pages/AdminDashboard.jsx");
+test("management navigation keeps commercial entitlement distinct from RBAC and fails closed", async () => {
+  const navigation = await source("../../../frontend/src/components/navigation/ManagementNavigation.jsx");
 
-  for (const moduleKey of ["services", "staff", "inventory", "appointments", "crm"]) {
-    assert.match(
-      dashboard,
-      new RegExp(`moduleKey:\\s*"${moduleKey}"`),
-      `${moduleKey} operational shortcut must declare its commercial module owner`
-    );
-  }
-
-  assert.match(dashboard, /compositionState === "ready"[\s\S]*tenantState === "installed"/);
-  assert.match(dashboard, /tenantModule=\{card\.moduleKey \? moduleStateByKey\.get\(card\.moduleKey\) : null\}/);
-  assert.match(dashboard, /aria-disabled="true"/);
-  assert.match(dashboard, /Commercial shortcuts open only when the current tenant manifest marks the module as installed\./);
+  assert.match(navigation, /getTenantProductComposition/);
+  assert.match(navigation, /COMMERCIAL_MODULE_ROUTE_RULES/);
+  assert.match(navigation, /commercialModuleKeyForRoute/);
+  assert.match(navigation, /tenantCompositionState !== "ready"/);
+  assert.match(navigation, /tenantModule\?\.tenantState !== "installed"/);
+  assert.match(navigation, /entitlementDisabled/);
+  assert.match(navigation, /Tenant entitlement unavailable/);
+  assert.match(navigation, /No active tenant product manifest/);
+  assert.match(navigation, /Module is not installed/);
+  assert.match(navigation, /const disabled = featureDisabled \|\| entitlementDisabled/);
+  assert.match(navigation, /if \(disabled\) \{[\s\S]*?event\.preventDefault\(\)/);
 });
 
 test("AI Governance and Learning exposes tenant-scoped read-only evidence with fail-closed promotion policy", async () => {
