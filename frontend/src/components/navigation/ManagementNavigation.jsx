@@ -10,6 +10,7 @@ import {
 } from "../../utils/roles.js";
 import { hasPermission } from "../../utils/permissions.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
+import { getTenantProductComposition } from "../../Services/tenantProductCompositionService.js";
 
 import {
   isAdvancedManagementLink,
@@ -22,6 +23,38 @@ import "./ManagementNavigation.css";
 const MANAGEMENT_SECTION_PREVIEW = 5;
 const MANAGEMENT_PRESENTATION_STORAGE_KEY =
   "salonai.managementNavigation.presentation.v1";
+
+const COMMERCIAL_MODULE_ROUTE_RULES = Object.freeze([
+  ["appointments", ["/appointments", "/waitlist", "/booking-loss", "/smart-appointments"]],
+  ["calendar", ["/calendar"]],
+  ["business-planning", ["/booking-demand", "/capacity-planning", "/revenue-forecast", "/executive-command-centre"]],
+  ["crm", ["/customers", "/customer-follow-ups", "/customer-segments", "/customer-value", "/rebooking-opportunities"]],
+  ["ai-retention", ["/retention-actions", "/retention-predictions", "/retention-automation"]],
+  ["memberships", ["/memberships"]],
+  ["customer-experience", ["/customer-experience-management", "/feedback-analytics"]],
+  ["loyalty", ["/loyalty"]],
+  ["staff", ["/staff/self-service", "/team-availability", "/admin/employees", "/staff/profile", "/staff-rota", "/admin/staff-roles", "/staff-performance"]],
+  ["services", ["/manage/services", "/manage/service-packages", "/service-performance"]],
+  ["ecommerce-store", ["/manage/products"]],
+  ["inventory", ["/manage/inventory", "/suppliers", "/purchase-orders", "/reorder-recommendations", "/inventory-forecasting"]],
+  ["commerce", ["/manage/orders", "/gift-cards"]],
+  ["marketing", ["/marketing", "/marketing-attribution"]],
+  ["communications", ["/communications", "/communication-templates", "/scheduled-communications", "/communication-campaigns", "/message-delivery", "/rebooking-campaigns", "/notification-centre", "/push-notifications", "/email-campaigns", "/sms-reminders"]],
+  ["analytics", ["/reports", "/premium-analytics"]],
+  ["ai-receptionist", ["/ai-receptionist", "/whatsapp-booking"]],
+  ["ai-decision-support", ["/management-copilot"]],
+  ["ai-stylist-copilot", ["/stylist-copilot"]],
+]);
+
+function commercialModuleKeyForRoute(route) {
+  const pathname = String(route || "").split("?")[0];
+  for (const [moduleKey, routes] of COMMERCIAL_MODULE_ROUTE_RULES) {
+    if (routes.some((candidate) => pathname === candidate || pathname.startsWith(`${candidate}/`))) {
+      return moduleKey;
+    }
+  }
+  return "";
+}
 
 const MANAGEMENT_ICONS = Object.freeze({
   Award,
@@ -80,6 +113,8 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
   const [presentationMode, setPresentationMode] = useState(
     readPresentationMode
   );
+  const [tenantComposition, setTenantComposition] = useState(null);
+  const [tenantCompositionState, setTenantCompositionState] = useState("loading");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -96,6 +131,33 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
       // when storage is unavailable (private mode, policies, quota, etc.).
     }
   }, [presentationMode]);
+
+  useEffect(() => {
+    let active = true;
+
+    getTenantProductComposition()
+      .then((composition) => {
+        if (!active) return;
+        setTenantComposition(composition);
+        setTenantCompositionState(composition?.provisioned ? "ready" : "unprovisioned");
+      })
+      .catch(() => {
+        if (!active) return;
+        setTenantComposition(null);
+        setTenantCompositionState("unavailable");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const tenantModuleStateByKey = useMemo(
+    () => new Map(
+      (tenantComposition?.modules || []).map((module) => [module.key, module])
+    ),
+    [tenantComposition]
+  );
 
   const authorisedSections = useMemo(() => {
     const canReadAllProfiles = hasPermission(
@@ -120,14 +182,43 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
               }
             : link
         )
-        .map((link) => ({
-          ...link,
-          icon: MANAGEMENT_ICONS[link.icon] || Sparkles,
-          featureDisabled:
-            Boolean(link.featureId) &&
-            !isSuperAdminRole(user?.role) &&
-            !isFeatureEnabled(link.featureId),
-        }))
+        .map((link) => {
+          const commercialModuleKey = commercialModuleKeyForRoute(link.to);
+          const tenantModule = commercialModuleKey
+            ? tenantModuleStateByKey.get(commercialModuleKey)
+            : null;
+          const entitlementDisabled = Boolean(commercialModuleKey) && (
+            tenantCompositionState !== "ready" ||
+            tenantModule?.tenantState !== "installed"
+          );
+          const entitlementReason = !commercialModuleKey
+            ? ""
+            : tenantCompositionState === "loading"
+              ? "Checking tenant entitlement"
+              : tenantCompositionState === "unavailable"
+                ? "Tenant entitlement unavailable"
+                : tenantCompositionState === "unprovisioned"
+                  ? "No active tenant product manifest"
+                  : tenantModule?.tenantState === "vertical-restricted"
+                    ? "Not available for this vertical"
+                    : tenantModule?.tenantState === "disabled"
+                      ? "Disabled for this tenant"
+                      : tenantModule?.tenantState === "available"
+                        ? "Module is not installed"
+                        : "Module entitlement unavailable";
+
+          return {
+            ...link,
+            icon: MANAGEMENT_ICONS[link.icon] || Sparkles,
+            commercialModuleKey,
+            entitlementDisabled,
+            entitlementReason,
+            featureDisabled:
+              Boolean(link.featureId) &&
+              !isSuperAdminRole(user?.role) &&
+              !isFeatureEnabled(link.featureId),
+          };
+        })
         .filter(
           (link) =>
             (!link.adminOnly || isAdminRole(user?.role)) &&
@@ -141,6 +232,8 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
     })).filter((section) => section.links.length);
   }, [
     isFeatureEnabled,
+    tenantCompositionState,
+    tenantModuleStateByKey,
     user?.permissions,
     user?.rolePermissions,
     user?.role,
@@ -220,7 +313,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
             <strong>Workspace view</strong>
             <span>
               Simple keeps routine work prominent. Advanced adds specialist
-              tools you already have permission to use.
+              tools you already have permission and tenant entitlement to use.
             </span>
           </div>
           <div
@@ -328,21 +421,27 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
                         description,
                         icon: Icon,
                         featureDisabled,
+                        entitlementDisabled,
+                        entitlementReason,
                         presentation,
                       }) => {
                         const advancedLink =
                           presentation ===
                           MANAGEMENT_PRESENTATION_MODES.ADVANCED;
+                        const disabled = featureDisabled || entitlementDisabled;
+                        const disabledReason = entitlementDisabled
+                          ? entitlementReason
+                          : featureDisabled
+                            ? "Currently off"
+                            : "";
 
                         return (
                           <NavLink
                             key={to}
                             to={to}
-                            aria-disabled={
-                              featureDisabled ? "true" : undefined
-                            }
+                            aria-disabled={disabled ? "true" : undefined}
                             onClick={(event) => {
-                              if (featureDisabled) {
+                              if (disabled) {
                                 event.preventDefault();
                                 return;
                               }
@@ -351,20 +450,16 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
                             }}
                             title={
                               collapsed
-                                ? `${label}${
-                                    advancedLink ? " — Advanced" : ""
-                                  }`
-                                : featureDisabled
-                                  ? `${label} — currently off`
+                                ? `${label}${advancedLink ? " — Advanced" : ""}${disabledReason ? ` — ${disabledReason}` : ""}`
+                                : disabledReason
+                                  ? `${label} — ${disabledReason}`
                                   : undefined
                             }
                             className={({ isActive }) =>
                               `management-link${
                                 isActive ? " management-link-active" : ""
                               }${
-                                featureDisabled
-                                  ? " management-link-disabled"
-                                  : ""
+                                disabled ? " management-link-disabled" : ""
                               }`
                             }
                           >
@@ -381,11 +476,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
                                     </span>
                                   )}
                                 </span>
-                                <small>
-                                  {featureDisabled
-                                    ? "Currently off"
-                                    : description}
-                                </small>
+                                <small>{disabledReason || description}</small>
                               </span>
                             )}
                           </NavLink>
