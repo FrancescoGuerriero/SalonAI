@@ -21,6 +21,21 @@ test("module operations workspace indexes the commercial catalogue without chang
   assert.match(navigation, /"\/admin\/system\/modules", "Module Operations"/);
 });
 
+test("module operations workspace resolves tenant composition and only links installed modules", async () => {
+  const page = await source("../../../frontend/src/pages/ModuleOperationsPage.jsx");
+
+  assert.match(page, /getTenantProductComposition/);
+  assert.match(page, /compositionState === "ready"/);
+  assert.match(page, /tenantModule\?\.tenantState === "installed"/);
+  assert.match(page, /Tenant entitlement unavailable/);
+  assert.match(page, /No active tenant product manifest/);
+  assert.match(page, /available to this vertical but is not installed/);
+  assert.match(page, /disabled for the current tenant/);
+  assert.match(page, /restricted for the current tenant vertical/);
+  assert.match(page, /\{installed \? \(/);
+  assert.match(page, /to=\{surface\.primaryRoute\}/);
+});
+
 test("module operations workspace keeps clinical records restricted for SalonAI", async () => {
   const page = await source("../../../frontend/src/pages/ModuleOperationsPage.jsx");
   const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
