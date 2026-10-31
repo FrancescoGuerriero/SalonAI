@@ -221,15 +221,19 @@ test("Adviser proposal API requires ai:use and exposes no execute route", async 
 
   assert.match(
     routes,
-    /"\/adviser\/proposals"[\s\S]*?"ai:use"[\s\S]*?listProposals/
+    /const tenantAwareAiChain = \[[\s\S]*?requirePermissions\([\s\S]*?"ai:use"[\s\S]*?\)[\s\S]*?\];/
   );
   assert.match(
     routes,
-    /"\/adviser\/proposals"[\s\S]*?"ai:use"[\s\S]*?createProposal/
+    /"\/adviser\/proposals"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?listProposals/
   );
   assert.match(
     routes,
-    /"\/adviser\/proposals\/:proposalId\/review"[\s\S]*?"ai:use"[\s\S]*?reviewProposal/
+    /"\/adviser\/proposals"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?createProposal/
+  );
+  assert.match(
+    routes,
+    /"\/adviser\/proposals\/:proposalId\/review"[\s\S]*?\.\.\.tenantAwareAiChain[\s\S]*?reviewProposal/
   );
   assert.equal(
     /adviser\/proposals[^"\n]*execute/.test(

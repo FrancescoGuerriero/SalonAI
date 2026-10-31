@@ -1,0 +1,165 @@
+name: Point 12 Modular SaaS Gate
+
+on:
+  pull_request:
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/platform/productComposition/**"
+      - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/sellerKpiService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/features/observability/**"
+      - "backend/src/models/DataConnectionApiUsageBudget.js"
+      - "backend/src/models/ConnectorHealth.js"
+      - "backend/src/models/DeadLetterRecord.js"
+      - "backend/src/routes/systemAdministrationRoutes.js"
+      - "backend/src/services/marketingDataSyncWorkerService.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12ModuleInstallability.test.js"
+      - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12ConnectionsWorkspace.test.js"
+      - "backend/src/test/point12MembershipWorkspace.test.js"
+      - "backend/src/test/point12OperationalSurfaces.test.js"
+      - "backend/src/test/point12ObservabilityHealth.test.js"
+      - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/Services/membershipService.js"
+      - "frontend/src/Services/systemObservabilityService.js"
+      - "frontend/src/config/aiibpCommercialModules.js"
+      - "frontend/src/config/aiibpModuleOperationalSurfaces.js"
+      - "frontend/src/config/aiibpModuleRegistry.js"
+      - "frontend/src/pages/AdminDashboard.jsx"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
+      - "frontend/src/pages/MembershipManagementPage.jsx"
+      - "frontend/src/pages/ModuleOperationsPage.jsx"
+      - "frontend/src/pages/SystemAdministrationPage.jsx"
+      - "frontend/src/pages/SystemObservabilityPage.jsx"
+      - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/commercial/AIIBP_MODULAR_SAAS_PLATFORM.md"
+      - "docs/roadmap/point12-*.md"
+      - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
+      - "docs/roadmap/AIIBP_MODULE_COMPOSITION_AUDIT_2026-10-26.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
+      - "docs/AIIBP_PLATFORM_DOCUMENTATION.md"
+      - ".github/workflows/point12-modular-saas.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/src/platform/capabilities/**"
+      - "backend/src/platform/productComposition/**"
+      - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/sellerKpiService.js"
+      - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
+      - "backend/src/features/observability/**"
+      - "backend/src/models/DataConnectionApiUsageBudget.js"
+      - "backend/src/models/ConnectorHealth.js"
+      - "backend/src/models/DeadLetterRecord.js"
+      - "backend/src/routes/systemAdministrationRoutes.js"
+      - "backend/src/services/marketingDataSyncWorkerService.js"
+      - "backend/src/test/point12BusinessModuleBoundaries.test.js"
+      - "backend/src/test/point12ModuleInstallability.test.js"
+      - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12ConnectionsWorkspace.test.js"
+      - "backend/src/test/point12MembershipWorkspace.test.js"
+      - "backend/src/test/point12OperationalSurfaces.test.js"
+      - "backend/src/test/point12ObservabilityHealth.test.js"
+      - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
+      - "frontend/src/Services/marketingConnectionsService.js"
+      - "frontend/src/Services/membershipService.js"
+      - "frontend/src/Services/systemObservabilityService.js"
+      - "frontend/src/config/aiibpCommercialModules.js"
+      - "frontend/src/config/aiibpModuleOperationalSurfaces.js"
+      - "frontend/src/config/aiibpModuleRegistry.js"
+      - "frontend/src/pages/AdminDashboard.jsx"
+      - "frontend/src/pages/MarketingModulePage.jsx"
+      - "frontend/src/pages/MarketingDataConnectionsPage.jsx"
+      - "frontend/src/pages/ConnectionsWorkspacePage.jsx"
+      - "frontend/src/pages/MembershipManagementPage.jsx"
+      - "frontend/src/pages/ModuleOperationsPage.jsx"
+      - "frontend/src/pages/SystemAdministrationPage.jsx"
+      - "frontend/src/pages/SystemObservabilityPage.jsx"
+      - "frontend/src/components/marketing/DataSourceOperationsPanel.jsx"
+      - "frontend/src/components/navigation/managementNavigationConfig.js"
+      - "frontend/src/components/stage8/Stage8WorkspaceRouter.jsx"
+      - "docs/architecture/business-module-boundaries.md"
+      - "docs/commercial/AIIBP_MODULAR_SAAS_PLATFORM.md"
+      - "docs/roadmap/point12-*.md"
+      - "docs/roadmap/AIIBP_COMMERCIAL_READINESS_REPORT_2026-10-26.md"
+      - "docs/roadmap/AIIBP_MODULE_COMPOSITION_AUDIT_2026-10-26.md"
+      - "docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md"
+      - "docs/AIIBP_PLATFORM_DOCUMENTATION.md"
+      - ".github/workflows/point12-modular-saas.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contracts:
+    name: Point 12 modular SaaS contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Run Point 12 contracts
+        run: >-
+          node --test
+          src/test/point12BusinessModuleBoundaries.test.js
+          src/test/point12ModuleInstallability.test.js
+          src/test/point12DataConnectionContracts.test.js
+          src/test/point12ConnectionsWorkspace.test.js
+          src/test/point12MembershipWorkspace.test.js
+          src/test/point12OperationalSurfaces.test.js
+          src/test/point12ObservabilityHealth.test.js
+          src/test/point12ModuleOperationsWorkspace.test.js
+
+      - name: Verify backend source
+        run: npm run check
+
+      - name: Verify application imports
+        run: node -e "import('./src/app.js').then(() => console.log('Backend import OK'))"
+
+  frontend:
+    name: Point 12 modular SaaS frontend build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Enforce frontend bundle budget
+        run: npm run check:bundle

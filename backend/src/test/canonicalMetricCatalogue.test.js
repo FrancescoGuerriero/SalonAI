@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   APPOINTMENT_METRIC_KEYS,
   CANONICAL_METRIC_KEYS,
+  COMMERCE_METRIC_KEYS,
   OPERATIONAL_METRIC_KEYS,
   getMetricDefinition,
   listMetricDefinitions,
@@ -20,11 +21,13 @@ import {
   canonicalRatioResult,
 } from "../features/analytics/operationalMetricCalculator.js";
 
+const CANONICAL_METRIC_VERSION = "2.1.0";
+
 function metricByKey(comparison, key) {
   return comparison.metrics.find((metric) => metric.key === key);
 }
 
-test("canonical metric catalogue v2 covers appointment and operational KPI contracts", () => {
+test("canonical metric catalogue v2 covers appointment, operational and commerce KPI contracts", () => {
   assert.deepEqual([...APPOINTMENT_METRIC_KEYS], [
     "bookings",
     "completed",
@@ -38,14 +41,28 @@ test("canonical metric catalogue v2 covers appointment and operational KPI contr
     "utilisation-rate",
     "conversion-rate",
   ]);
-  assert.equal(CANONICAL_METRIC_KEYS.length, 9);
+  assert.deepEqual([...COMMERCE_METRIC_KEYS], [
+    "payment-link-conversion-rate",
+    "membership-collection-failure-rate",
+    "membership-collection-recovery-rate",
+  ]);
+
+  const expectedKeys = [
+    ...APPOINTMENT_METRIC_KEYS,
+    ...OPERATIONAL_METRIC_KEYS,
+    ...COMMERCE_METRIC_KEYS,
+  ];
+  assert.deepEqual([...CANONICAL_METRIC_KEYS], expectedKeys);
 
   const definitions = listMetricDefinitions();
-  assert.equal(definitions.length, 9);
-  assert.equal(new Set(definitions.map((definition) => definition.key)).size, 9);
+  assert.equal(definitions.length, expectedKeys.length);
+  assert.equal(
+    new Set(definitions.map((definition) => definition.key)).size,
+    expectedKeys.length
+  );
 
   for (const definition of definitions) {
-    assert.equal(definition.version, "2.0.0");
+    assert.equal(definition.version, CANONICAL_METRIC_VERSION);
     assert.equal(Object.isFrozen(definition), true);
     assert.ok(definition.evidence.sourceModel);
   }
@@ -59,6 +76,10 @@ test("canonical metric catalogue v2 covers appointment and operational KPI contr
   assert.equal(
     getMetricDefinition("retention-rate").formula,
     "returning_active_customers / active_customers * 100"
+  );
+  assert.equal(
+    getMetricDefinition("payment-link-conversion-rate").formula,
+    "paid_payment_requests / eligible_payment_requests * 100"
   );
 });
 
@@ -86,7 +107,7 @@ test("canonical ratio calculator is deterministic, zero-safe and definition-gove
     8
   );
   assert.equal(result.value, 50);
-  assert.equal(result.version, "2.0.0");
+  assert.equal(result.version, CANONICAL_METRIC_VERSION);
   assert.equal(result.evidence.formula, "successful_conversions / eligible_opportunities * 100");
 
   assert.throws(
@@ -129,7 +150,7 @@ test("appointment calculator remains backwards compatible under catalogue v2", (
   assert.equal(comparison.current.revenue, 120);
   assert.equal(metricByKey(comparison, "no-show-rate").value, 25);
   assert.equal(metricByKey(comparison, "cancellation-rate").value, 25);
-  assert.equal(metricByKey(comparison, "revenue").version, "2.0.0");
+  assert.equal(metricByKey(comparison, "revenue").version, CANONICAL_METRIC_VERSION);
   assert.equal(metricByKey(comparison, "revenue").evidence.sourceModel, "Appointment");
 });
 

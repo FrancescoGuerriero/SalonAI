@@ -1,24 +1,24 @@
 # Stage 8 — AIIBP Data Hub foundation
 
 Date: 2026-10-25  
-Authority: AIIBP Master Development Roadmap v2.9, Stage 8.  
+Authority: historical Stage 8 implementation record; superseded for forward execution by AIIBP Master Development Roadmap v3.2.  
 DEV owner: DEV1.
 
 ## Purpose
 
-Stage 8 begins by establishing the canonical BI/evidence layer required before broader AI Adviser, predictive ML, recommendation and Natural Computing work. The Data Hub is a first-party AIIBP capability inspired by the functional category served by managed ELT/BI products such as Windsor.ai, but it does not copy third-party source code, proprietary schemas, branding or user-interface assets.
+Stage 8 established the canonical BI/evidence layer required before broader AI Adviser, predictive ML, recommendation and Natural Computing work. The Data Hub is a first-party AIIBP capability for connecting tenant-owned evidence, blending cross-source facts, building reusable BI views and providing governed evidence to downstream AI features.
 
 The Stage-5 Marketing Data Core remains the ingestion authority. Stage 8 consumes its tenant-owned `MarketingDataSource`, immutable raw records, `MarketingNormalisedRecord` lineage and integration credential authority rather than introducing a second connector framework.
 
 ## Implemented in this foundation slice
 
 1. **Unified Data Hub catalogue**
-   - reuses the Stage-5 source connector catalogue;
-   - exposes destination-task contracts for Sheets, Excel, BigQuery, Snowflake, PostgreSQL, MySQL, S3, Azure Blob, Azure SQL, Redshift, Databricks, Power BI, Looker Studio, Tableau, Python/API and AI/MCP evidence consumers;
+   - reuses the AIIBP source connector catalogue;
+   - exposes destination-task contracts for Sheets, Excel, BigQuery, Snowflake, PostgreSQL, MySQL, S3, Azure Blob, Azure SQL, Redshift, Databricks, Power BI, Looker Studio, Tableau, Python/API and governed AI evidence consumers;
    - distinguishes implemented source contracts from planned adapters.
 
 2. **Cross-source query and blend contract**
-   - business-scoped reads over `MarketingNormalisedRecord` only;
+   - Business-scoped reads over `MarketingNormalisedRecord` only;
    - bounded scan and row limits;
    - selectable sources, entity types, date grain, dimensions, metrics and filters;
    - deterministic aggregation;
@@ -34,8 +34,8 @@ The Stage-5 Marketing Data Core remains the ingestion authority. Stage 8 consume
    - tenant-owned destination definitions and cadence metadata;
    - field mapping, format and write-mode contracts;
    - optional canonical IntegrationApp/IntegrationConnection linkage;
-   - secrets are rejected from destination metadata and remain in the existing credential authority;
-   - live execution defaults to false and human approval is mandatory.
+   - secrets remain in the existing credential authority;
+   - live execution is separately governed and human approval is mandatory where required.
 
 5. **Destination preview and evidence ledger**
    - deterministic preview generation from a saved view;
@@ -56,63 +56,47 @@ The Stage-5 Marketing Data Core remains the ingestion authority. Stage 8 consume
    - source/destination catalogue visibility;
    - provenance and governance status.
 
-## Initial source-adapter backlog
+## Source-adapter expansion rule
 
-The first adapter backlog is intentionally metadata-only until provider credentials, schemas, quotas and acceptance tests are implemented behind the existing Stage-5 connector authority:
+Provider adapters must extend AIIBP Integration Hub / Data Connection / `MarketingDataSource` contracts and preserve raw + normalised lineage. They must not create parallel ingestion stores or independent tenant/credential authorities.
 
-- Google Ads
-- Meta Ads
-- LinkedIn Ads
-- Microsoft Advertising
-- TikTok Ads
-- Instagram Organic
-- Facebook Pages
-- LinkedIn Pages
-- Google Business Profile
-- Shopify
-- Stripe
-- HubSpot
-- Mailchimp
-- YouTube Analytics
-
-Adding a provider must extend `MarketingDataSource`/IntegrationApp contracts and preserve raw + normalised lineage. It must not create a parallel ingestion store.
+Representative source categories include advertising, organic social, local/search, commerce, payments and CRM platforms. Provider names identify integration targets only; AIIBP remains the platform authority.
 
 ## Safety and tenancy rules
 
-- All Data Hub persistent objects are Business-owned.
-- Query sources must belong to the active Business.
+- All Data Hub persistent objects are Business-owned and Location-scoped where applicable.
+- Query sources must belong to the active trusted context.
 - Query field references are allowlisted and cannot inject Mongo operators.
 - Queries are bounded to a maximum record scan and result size.
 - Destination metadata rejects credential/token/password/API-key fields.
-- Destination execution is `false` by default and this slice contains no live destination writer.
-- AI evidence cannot authorise provider writes or consequential actions.
+- Destination write execution remains separately governed.
+- AI evidence cannot authorise provider writes or consequential actions by itself.
 - Existing attribution, finance, CRM, communications and operational domains remain authoritative for their facts.
 
-## Explicitly not activated by this slice
+## Explicitly not activated by this historical foundation slice
 
-- live Google/Meta/LinkedIn/TikTok/commerce/CRM provider credentials;
+- production provider credentials;
 - autonomous external destination exports;
-- scheduled destination workers;
-- production backfills;
-- provider write actions such as pausing campaigns or changing budgets;
-- unrestricted MCP tool execution;
+- production historical backfills;
+- unapproved provider write actions;
+- unrestricted tool execution;
 - AI model promotion, training, retraining or production inference changes;
 - production migration or deployment.
 
 These require explicit provider-specific and production release gates.
 
-## Stage 8 continuation after this slice
+## Stage 8 continuation
 
-The Data Hub establishes the evidence layer for the remaining Stage-8 programme:
+The Data Hub established the evidence layer for later work including:
 
-1. canonical BI metric/dimension catalogue expansion beyond marketing;
+1. canonical BI metric/dimension expansion;
 2. AI Gateway/tool registry;
-3. governed Python AI API and experiment/dataset/model conventions;
+3. governed Python AI APIs and experiment/dataset/model conventions;
 4. RBAC-aware knowledge ingestion and RAG;
 5. AI Adviser and Management Copilot consuming Data Hub evidence;
 6. predictive ML with deterministic/statistical baselines;
 7. explainable recommendations;
 8. MLOps/lineage/monitoring;
-9. Natural Computing only after the predictive/AI Adviser/baseline optimisation maturity gates are met.
+9. Natural Computing only after predictive/AI/baseline optimisation maturity gates are met.
 
-The Data Hub is therefore the Stage-8 BI/evidence foundation, not the completion of all AI-1..AI-12 or NC-1..NC-10 work.
+For current modular SaaS execution, use `docs/MASTER_DEVELOPMENT_ROADMAP_v3.2.md` and the Point 12 module/data-connection acceptance records.

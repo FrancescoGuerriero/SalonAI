@@ -15,7 +15,14 @@ import {
 } from "../platform/tenancy/trustedTenantMiddleware.js";
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import {
+  getAiGovernanceLearningOverview,
+} from "../features/aiPlatform/aiGovernanceLearningController.js";
+import {
+  getSystemObservabilityOverview,
+} from "../features/observability/systemObservabilityController.js";
+import {
   getConfigurationStudio,
+  getTenantProductComposition,
   listAuditLogs,
   listDeadLetters,
   listFeatureControls,
@@ -45,6 +52,42 @@ router.get(
   ),
   asyncHandler(
     getConfigurationStudio
+  )
+);
+router.get(
+  "/tenant-product-composition",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getTenantProductComposition
+  )
+);
+router.get(
+  "/ai-governance-learning",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getAiGovernanceLearningOverview
+  )
+);
+router.get(
+  "/observability-health",
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions(
+    "feature-control:read"
+  ),
+  asyncHandler(
+    getSystemObservabilityOverview
   )
 );
 router.get(

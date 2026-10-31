@@ -1,5 +1,8 @@
 from fastapi import APIRouter
 
+from app.api.routes.ai_core import (
+    router as ai_core_router,
+)
 from app.api.routes.ai_gateway import (
     router as ai_gateway_router,
 )
@@ -50,7 +53,12 @@ api_router.include_router(
 )
 
 
-# Authenticated AI governance/gateway endpoints.
+# Authenticated shared AI Core and governance endpoints.
+api_router.include_router(
+    ai_core_router,
+    prefix="/api/v1",
+)
+
 api_router.include_router(
     ai_gateway_router,
     prefix="/api/v1",

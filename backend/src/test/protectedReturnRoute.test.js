@@ -8,9 +8,9 @@ async function source(relativePath) {
 
 test("protected deep links preserve query/hash through sign-in", async () => {
   const [protectedRoute, login, register] = await Promise.all([
-    source("../../frontend/src/Routes/ProtectedRoute.jsx"),
-    source("../../frontend/src/pages/Login.jsx"),
-    source("../../frontend/src/pages/Register.jsx"),
+    source("../../../frontend/src/Routes/ProtectedRoute.jsx"),
+    source("../../../frontend/src/pages/Login.jsx"),
+    source("../../../frontend/src/pages/Register.jsx"),
   ]);
 
   assert.match(

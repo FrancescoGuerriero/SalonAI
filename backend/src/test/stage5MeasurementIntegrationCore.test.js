@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  MARKETING_CONNECTOR_CATALOGUE_VERSION,
   marketingConnectorCatalogue,
   marketingConnectorDefinition,
 } from "../features/integrationPlatform/marketingConnectorCatalogue.js";
@@ -18,11 +19,29 @@ const source = (relativePath) =>
 
 test("Stage 5 connector catalogue versions retained Marketing Data Core providers", () => {
   const catalogue = marketingConnectorCatalogue();
-  assert.equal(catalogue.version, "1.0.0");
-  assert.deepEqual(
-    catalogue.connectors.map((entry) => entry.key),
-    ["ga4", "google_search_console", "bing_webmaster", "generic", "technical_seo"]
-  );
+  assert.equal(catalogue.version, MARKETING_CONNECTOR_CATALOGUE_VERSION);
+  assert.equal(catalogue.version, "2.1.0");
+
+  const connectorKeys = catalogue.connectors.map((entry) => entry.key);
+  for (const retainedProvider of [
+    "ga4",
+    "google_search_console",
+    "bing_webmaster",
+    "generic",
+    "technical_seo",
+  ]) {
+    assert.ok(
+      connectorKeys.includes(retainedProvider),
+      `Expected retained Marketing Data Core provider: ${retainedProvider}`
+    );
+  }
+
+  assert.ok(connectorKeys.includes("google_ads"));
+  assert.ok(connectorKeys.includes("meta_ads"));
+  assert.ok(connectorKeys.includes("linkedin_ads"));
+  assert.ok(connectorKeys.includes("shopify"));
+  assert.ok(connectorKeys.includes("stripe"));
+
   assert.equal(marketingConnectorDefinition("ga4").entityType, "analytics_event");
   assert.equal(marketingConnectorDefinition("google_search_console").entityType, "search_performance");
   assert.equal(marketingConnectorDefinition("technical_seo").liveActivation, "none");
@@ -76,7 +95,6 @@ test("Stage 5 sync contract includes preview scheduled incremental backfill and 
     source("../models/MarketingSyncRun.js"),
     source("../features/integrationPlatform/marketingDataCoreService.js"),
   ]);
-
   assert.match(sourceModel, /syncMode/);
   assert.match(sourceModel, /checkpoint/);
   assert.match(sourceModel, /fieldCatalogue/);
