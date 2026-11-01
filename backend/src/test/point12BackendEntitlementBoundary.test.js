@@ -70,6 +70,17 @@ test("commercial module entitlement middleware grants an installed module within
   });
 });
 
+test("commercial module entitlement middleware fails closed when effective Business authority is missing", async () => {
+  const requireCommercialModule = createCommercialModuleEntitlementMiddleware({
+    compositionLoader: async () => composition(),
+  });
+
+  const error = await invoke(requireCommercialModule("services"), {});
+
+  assert.equal(error?.code, "COMMERCIAL_MODULE_AUTHORITY_REQUIRED");
+  assert.equal(error?.statusCode, 500);
+});
+
 test("commercial module entitlement middleware fails closed when no active tenant manifest exists", async () => {
   const requireCommercialModule = createCommercialModuleEntitlementMiddleware({
     compositionLoader: async () => null,
@@ -110,4 +121,15 @@ test("Services management APIs compose trusted tenant authority, entitlement and
   assert.match(routes, /router\.post\([\s\S]*\.\.\.protectedServiceTenantChain[\s\S]*"service:create"/);
   assert.match(routes, /router\.put\([\s\S]*\.\.\.protectedServiceTenantChain[\s\S]*"service:update"/);
   assert.match(routes, /router\.delete\([\s\S]*\.\.\.protectedServiceTenantChain[\s\S]*"service:delete"/);
+});
+
+test("Analytics report APIs enforce commercial entitlement after trusted tenant authority", async () => {
+  const routes = await source("../features/reports/reportRoutes.js");
+  const routerUseStart = routes.indexOf("router.use(");
+  const routerUseEnd = routes.indexOf(");", routerUseStart);
+  const chain = routes.slice(routerUseStart, routerUseEnd);
+
+  assert.ok(routerUseStart >= 0);
+  assert.match(chain, /workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("analytics"\)/);
+  assert.match(routes, /requirePermissions\("data-export:manage"\)/);
 });
