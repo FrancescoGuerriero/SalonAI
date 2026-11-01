@@ -1,6 +1,9 @@
 import express from "express";
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   effectiveAuthorityMiddleware,
 } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
@@ -19,7 +22,8 @@ const router = express.Router();
 router.use(
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
-  effectiveAuthorityMiddleware
+  effectiveAuthorityMiddleware,
+  requireCommercialModule("analytics")
 );
 
 router.get(
