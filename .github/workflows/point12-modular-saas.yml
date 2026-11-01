@@ -5,6 +5,9 @@ on:
     paths:
       - "backend/src/platform/capabilities/**"
       - "backend/src/platform/productComposition/**"
+      - "backend/src/middleware/commercialModuleEntitlementMiddleware.js"
+      - "backend/src/routes/serviceRoutes.js"
+      - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
@@ -22,6 +25,7 @@ on:
       - "backend/src/test/point12OperationalSurfaces.test.js"
       - "backend/src/test/point12ObservabilityHealth.test.js"
       - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
+      - "backend/src/test/point12BackendEntitlementBoundary.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/Services/membershipService.js"
       - "frontend/src/Services/systemObservabilityService.js"
@@ -53,6 +57,9 @@ on:
     paths:
       - "backend/src/platform/capabilities/**"
       - "backend/src/platform/productComposition/**"
+      - "backend/src/middleware/commercialModuleEntitlementMiddleware.js"
+      - "backend/src/routes/serviceRoutes.js"
+      - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
@@ -70,6 +77,7 @@ on:
       - "backend/src/test/point12OperationalSurfaces.test.js"
       - "backend/src/test/point12ObservabilityHealth.test.js"
       - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
+      - "backend/src/test/point12BackendEntitlementBoundary.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/Services/membershipService.js"
       - "frontend/src/Services/systemObservabilityService.js"
@@ -131,6 +139,7 @@ jobs:
           src/test/point12OperationalSurfaces.test.js
           src/test/point12ObservabilityHealth.test.js
           src/test/point12ModuleOperationsWorkspace.test.js
+          src/test/point12BackendEntitlementBoundary.test.js
 
       - name: Verify backend source
         run: npm run check
