@@ -113,18 +113,52 @@ const STATE_CLASSES = Object.freeze({
   "vertical-restricted": "border-slate-200 bg-slate-100 text-slate-500",
 });
 
-function ModuleListingCard({ module, tenantState = null, tenantReason = "" }) {
+function compositionStatusLabel(compositionState) {
+  if (compositionState === "loading") return "Checking entitlement";
+  if (compositionState === "unprovisioned") return "Not provisioned";
+  if (compositionState === "unavailable") return "Tenant entitlement unavailable";
+  return "Unavailable";
+}
+
+function compositionReason(compositionState) {
+  if (compositionState === "loading") return "Tenant composition is still loading.";
+  if (compositionState === "unprovisioned") return "No active tenant product manifest.";
+  if (compositionState === "unavailable") return "Tenant composition could not be verified.";
+  return "This commercial module is not installed for the current tenant.";
+}
+
+function ModuleListingCard({
+  module,
+  tenantState = null,
+  tenantReason = "",
+  entitlementRequired = false,
+  compositionState = "ready",
+}) {
+  const entitlementReady = !entitlementRequired || (
+    compositionState === "ready" && tenantState === "installed"
+  );
+  const displayedState = entitlementRequired
+    ? compositionState === "ready"
+      ? STATE_LABELS[tenantState] || "Unavailable"
+      : compositionStatusLabel(compositionState)
+    : null;
+  const displayedReason = entitlementRequired && !entitlementReady
+    ? tenantReason || compositionReason(compositionState)
+    : "";
+
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-base font-bold text-slate-900">{module.label}</h3>
         <div className="flex flex-wrap justify-end gap-1.5">
-          {tenantState ? (
+          {displayedState ? (
             <span
-              className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${STATE_CLASSES[tenantState] || STATE_CLASSES.available}`}
-              title={tenantReason || undefined}
+              className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                tenantState ? STATE_CLASSES[tenantState] || STATE_CLASSES.available : "border-slate-200 bg-slate-100 text-slate-600"
+              }`}
+              title={displayedReason || tenantReason || undefined}
             >
-              {STATE_LABELS[tenantState] || tenantState}
+              {displayedState}
             </span>
           ) : null}
           <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -133,13 +167,13 @@ function ModuleListingCard({ module, tenantState = null, tenantReason = "" }) {
         </div>
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-600">{module.summary}</p>
-      {tenantState === "disabled" && tenantReason ? (
-        <p className="mt-2 text-xs font-semibold text-amber-800">Disabled: {tenantReason}</p>
+      {displayedReason ? (
+        <p className="mt-2 text-xs font-semibold text-slate-600">{displayedReason}</p>
       ) : null}
     </>
   );
 
-  const canOpen = module.link && tenantState !== "vertical-restricted" && tenantState !== "disabled";
+  const canOpen = Boolean(module.link && entitlementReady);
 
   if (canOpen) {
     return (
@@ -153,7 +187,10 @@ function ModuleListingCard({ module, tenantState = null, tenantReason = "" }) {
   }
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      aria-disabled={entitlementRequired && !entitlementReady ? "true" : undefined}
+    >
       {content}
     </article>
   );
@@ -168,22 +205,10 @@ function OperationalShortcutCard({ card, tenantModule = null, compositionState }
   const statusLabel = card.moduleKey
     ? compositionState === "ready"
       ? STATE_LABELS[tenantState] || "Unavailable"
-      : compositionState === "loading"
-        ? "Checking entitlement"
-        : compositionState === "unprovisioned"
-          ? "Not provisioned"
-          : "Tenant entitlement unavailable"
+      : compositionStatusLabel(compositionState)
     : "Platform capability";
   const reason = card.moduleKey && !entitlementReady
-    ? tenantModule?.reason || (
-        compositionState === "unprovisioned"
-          ? "No active tenant product manifest."
-          : compositionState === "unavailable"
-            ? "Tenant composition could not be verified."
-            : compositionState === "loading"
-              ? "Tenant composition is still loading."
-              : "This commercial module is not installed for the current tenant."
-      )
+    ? tenantModule?.reason || compositionReason(compositionState)
     : "";
 
   const content = (
@@ -352,7 +377,8 @@ export default function AdminDashboard() {
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {section.modules.map((module) => {
-                const tenantModule = section.key === "commercial"
+                const isCommercial = section.key === "commercial";
+                const tenantModule = isCommercial
                   ? moduleStateByKey.get(module.key)
                   : null;
 
@@ -362,6 +388,8 @@ export default function AdminDashboard() {
                     module={module}
                     tenantReason={tenantModule?.reason || ""}
                     tenantState={tenantModule?.tenantState || null}
+                    entitlementRequired={isCommercial}
+                    compositionState={compositionState}
                   />
                 );
               })}
