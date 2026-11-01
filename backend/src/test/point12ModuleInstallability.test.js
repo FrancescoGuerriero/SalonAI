@@ -7,6 +7,7 @@ import {
   resolveModuleInstallationPlan,
 } from "../platform/capabilities/moduleInstallationResolver.js";
 import { getVerticalPackDefinition } from "../platform/capabilities/verticalPackRegistry.js";
+import { resolveEffectiveTenantProductComposition } from "../platform/productComposition/tenantProductManifest.js";
 
 const VERTICALS = ["salon", "spa", "fitness", "plastic-surgery", "retail"];
 const EXPECTED_COMMERCIAL_MODULE_COUNTS = Object.freeze({
@@ -128,6 +129,62 @@ test("all supported commercial modules can compose into one tenant installation 
     assert.equal(new Set(plan.requiredCapabilityKeys).size, plan.requiredCapabilityKeys.length);
     assert.ok(plan.requiredCapabilityKeys.length >= selectedModuleKeys.length);
   }
+});
+
+test("disabling a shared dependency fails dependent modules closed without disabling unrelated modules", () => {
+  const verticalId = "salon";
+  const vertical = getVerticalPackDefinition(verticalId);
+  const plan = resolveModuleInstallationPlan({
+    selectedModuleKeys: [...vertical.allocatableCapabilityPackKeys],
+    verticalId,
+  });
+
+  const composition = resolveEffectiveTenantProductComposition({
+    manifest: {
+      businessId: "phase-a-disabled-module-audit",
+      verticalId,
+      status: "active",
+      capabilityPackKeys: plan.requiredCapabilityKeys,
+    },
+    platformDisabledCapabilityPackKeys: ["analytics"],
+  });
+
+  const stateByKey = new Map(composition.capabilities.map((capability) => [capability.key, capability]));
+
+  assert.equal(stateByKey.get("analytics")?.enabled, false);
+  assert.equal(stateByKey.get("analytics")?.reason, "platform-safety-lock");
+  assert.equal(stateByKey.get("crm")?.enabled, false);
+  assert.equal(stateByKey.get("crm")?.reason, "dependency-unavailable:analytics");
+  assert.equal(stateByKey.get("marketing")?.enabled, false);
+  assert.match(stateByKey.get("marketing")?.reason || "", /^dependency-unavailable:/);
+
+  for (const unrelatedKey of ["appointments", "staff", "services", "commerce", "inventory"]) {
+    assert.equal(
+      stateByKey.get(unrelatedKey)?.enabled,
+      true,
+      `${unrelatedKey} must remain usable when analytics and its dependants fail closed.`
+    );
+  }
+});
+
+test("removing one commercial module recomputes closure without orphaning unrelated selections", () => {
+  const verticalId = "salon";
+  const vertical = getVerticalPackDefinition(verticalId);
+  const fullSelection = [...vertical.allocatableCapabilityPackKeys];
+  const reducedSelection = fullSelection.filter((key) => key !== "ai-stylist-copilot");
+  const fullPlan = resolveModuleInstallationPlan({ selectedModuleKeys: fullSelection, verticalId });
+  const reducedPlan = resolveModuleInstallationPlan({ selectedModuleKeys: reducedSelection, verticalId });
+
+  assert.equal(reducedPlan.selectedModuleKeys.includes("ai-stylist-copilot"), false);
+  assert.equal(reducedPlan.requiredCapabilityKeys.includes("ai-stylist-copilot"), false);
+
+  for (const unrelatedKey of ["appointments", "staff", "services", "commerce", "crm", "marketing"]) {
+    assert.equal(reducedPlan.selectedModuleKeys.includes(unrelatedKey), true);
+    assert.equal(reducedPlan.requiredCapabilityKeys.includes(unrelatedKey), true);
+  }
+
+  assert.ok(reducedPlan.requiredCapabilityKeys.length <= fullPlan.requiredCapabilityKeys.length);
+  assert.equal(new Set(reducedPlan.requiredCapabilityKeys).size, reducedPlan.requiredCapabilityKeys.length);
 });
 
 test("internal capabilities cannot be sold or selected directly", () => {
