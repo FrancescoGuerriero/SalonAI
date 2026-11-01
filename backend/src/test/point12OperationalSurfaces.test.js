@@ -73,6 +73,19 @@ test("tenant-aware dashboard reads canonical manifest composition and exposes fo
   assert.match(dashboard, /Tenant entitlement unavailable/);
 });
 
+test("commercial dashboard module listings fail closed until installed", async () => {
+  const dashboard = await source("../../../frontend/src/pages/AdminDashboard.jsx");
+
+  assert.match(dashboard, /entitlementRequired = false/);
+  assert.match(dashboard, /compositionState === "ready" && tenantState === "installed"/);
+  assert.match(dashboard, /const canOpen = Boolean\(module\.link && entitlementReady\)/);
+  assert.match(dashboard, /entitlementRequired=\{isCommercial\}/);
+  assert.match(dashboard, /compositionState=\{compositionState\}/);
+  assert.match(dashboard, /aria-disabled=\{entitlementRequired && !entitlementReady \? "true" : undefined\}/);
+  assert.match(dashboard, /No active tenant product manifest/);
+  assert.match(dashboard, /Tenant composition could not be verified/);
+});
+
 test("management navigation keeps commercial entitlement distinct from RBAC and fails closed", async () => {
   const navigation = await source("../../../frontend/src/components/navigation/ManagementNavigation.jsx");
 
