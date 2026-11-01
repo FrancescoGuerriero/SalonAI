@@ -96,12 +96,25 @@ test("commercial dashboard module listings fail closed until installed", async (
   assert.match(dashboard, /Tenant composition could not be verified/);
 });
 
+test("commercial route ownership is canonical and shared by navigation and route enforcement", async () => {
+  const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
+  const navigation = await source("../../../frontend/src/components/navigation/ManagementNavigation.jsx");
+  const boundary = await source("../../../frontend/src/Routes/CommercialModuleEntitlementBoundary.jsx");
+
+  assert.match(surfaces, /entitlementRoutes/);
+  assert.match(surfaces, /export function aiibpCommercialModuleKeyForRoute/);
+  assert.match(surfaces, /pathname === candidate \|\| pathname\.startsWith/);
+  assert.match(navigation, /aiibpCommercialModuleKeyForRoute/);
+  assert.match(boundary, /aiibpCommercialModuleKeyForRoute/);
+  assert.doesNotMatch(navigation, /COMMERCIAL_MODULE_ROUTE_RULES/);
+  assert.doesNotMatch(boundary, /COMMERCIAL_MODULE_ROUTE_RULES/);
+});
+
 test("management navigation keeps commercial entitlement distinct from RBAC and fails closed", async () => {
   const navigation = await source("../../../frontend/src/components/navigation/ManagementNavigation.jsx");
 
   assert.match(navigation, /getTenantProductComposition/);
-  assert.match(navigation, /COMMERCIAL_MODULE_ROUTE_RULES/);
-  assert.match(navigation, /commercialModuleKeyForRoute/);
+  assert.match(navigation, /aiibpCommercialModuleKeyForRoute/);
   assert.match(navigation, /tenantCompositionState !== "ready"/);
   assert.match(navigation, /tenantModule\?\.tenantState !== "installed"/);
   assert.match(navigation, /entitlementDisabled/);
@@ -116,7 +129,7 @@ test("commercial workspaces enforce tenant entitlement at the routing boundary",
   const boundary = await source("../../../frontend/src/Routes/CommercialModuleEntitlementBoundary.jsx");
   const stage4 = await source("../../../frontend/src/components/stage4/Stage4WorkspaceRouter.jsx");
 
-  assert.match(boundary, /commercialModuleKeyForPath/);
+  assert.match(boundary, /aiibpCommercialModuleKeyForRoute/);
   assert.match(boundary, /getTenantProductComposition/);
   assert.match(boundary, /moduleState\?\.tenantState === "installed"/);
   assert.match(boundary, /data-commercial-module-blocked=\{moduleKey\}/);
