@@ -11,6 +11,7 @@ import {
 import { hasPermission } from "../../utils/permissions.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 import { getTenantProductComposition } from "../../Services/tenantProductCompositionService.js";
+import { aiibpCommercialModuleKeyForRoute } from "../../config/aiibpModuleOperationalSurfaces.js";
 
 import {
   isAdvancedManagementLink,
@@ -23,38 +24,6 @@ import "./ManagementNavigation.css";
 const MANAGEMENT_SECTION_PREVIEW = 5;
 const MANAGEMENT_PRESENTATION_STORAGE_KEY =
   "salonai.managementNavigation.presentation.v1";
-
-const COMMERCIAL_MODULE_ROUTE_RULES = Object.freeze([
-  ["appointments", ["/appointments", "/waitlist", "/booking-loss", "/smart-appointments"]],
-  ["calendar", ["/calendar"]],
-  ["business-planning", ["/booking-demand", "/capacity-planning", "/revenue-forecast", "/executive-command-centre"]],
-  ["crm", ["/customers", "/customer-follow-ups", "/customer-segments", "/customer-value", "/rebooking-opportunities"]],
-  ["ai-retention", ["/retention-actions", "/retention-predictions", "/retention-automation"]],
-  ["memberships", ["/memberships"]],
-  ["customer-experience", ["/customer-experience-management", "/feedback-analytics"]],
-  ["loyalty", ["/loyalty"]],
-  ["staff", ["/staff/self-service", "/team-availability", "/admin/employees", "/staff/profile", "/staff-rota", "/admin/staff-roles", "/staff-performance"]],
-  ["services", ["/manage/services", "/manage/service-packages", "/service-performance"]],
-  ["ecommerce-store", ["/manage/products"]],
-  ["inventory", ["/manage/inventory", "/suppliers", "/purchase-orders", "/reorder-recommendations", "/inventory-forecasting"]],
-  ["commerce", ["/manage/orders", "/gift-cards"]],
-  ["marketing", ["/marketing", "/marketing-attribution"]],
-  ["communications", ["/communications", "/communication-templates", "/scheduled-communications", "/communication-campaigns", "/message-delivery", "/rebooking-campaigns", "/notification-centre", "/push-notifications", "/email-campaigns", "/sms-reminders"]],
-  ["analytics", ["/reports", "/premium-analytics"]],
-  ["ai-receptionist", ["/ai-receptionist", "/whatsapp-booking"]],
-  ["ai-decision-support", ["/management-copilot"]],
-  ["ai-stylist-copilot", ["/stylist-copilot"]],
-]);
-
-function commercialModuleKeyForRoute(route) {
-  const pathname = String(route || "").split("?")[0];
-  for (const [moduleKey, routes] of COMMERCIAL_MODULE_ROUTE_RULES) {
-    if (routes.some((candidate) => pathname === candidate || pathname.startsWith(`${candidate}/`))) {
-      return moduleKey;
-    }
-  }
-  return "";
-}
 
 const MANAGEMENT_ICONS = Object.freeze({
   Award,
@@ -183,7 +152,7 @@ export default function ManagementNavigation({ collapsed = false, onNavigate }) 
             : link
         )
         .map((link) => {
-          const commercialModuleKey = commercialModuleKeyForRoute(link.to);
+          const commercialModuleKey = aiibpCommercialModuleKeyForRoute(link.to);
           const tenantModule = commercialModuleKey
             ? tenantModuleStateByKey.get(commercialModuleKey)
             : null;
