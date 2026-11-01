@@ -75,6 +75,46 @@ function tenantStateReason({ compositionState, tenantModule, surface }) {
   return tenantModule?.reason || "This commercial module is not installed for the current tenant.";
 }
 
+function CompositionStatus({ compositionState, installedCount }) {
+  if (compositionState === "loading") {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 shadow-sm" role="status" aria-live="polite">
+        <strong>Checking tenant product manifest</strong>
+        <p className="mt-1">Commercial module entitlements are being resolved for the current trusted tenant.</p>
+      </section>
+    );
+  }
+
+  if (compositionState === "unprovisioned") {
+    return (
+      <section className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm text-slate-800 shadow-sm" role="status" aria-live="polite" data-module-operations-state="not-configured">
+        <strong>Tenant product composition is not configured</strong>
+        <p className="mt-1">No active tenant product manifest exists. Commercial module workspaces remain unavailable until provisioning is completed.</p>
+      </section>
+    );
+  }
+
+  if (compositionState === "unavailable") {
+    return (
+      <section className="rounded-2xl border border-rose-300 bg-rose-50 p-5 text-sm text-rose-900 shadow-sm" role="alert" data-module-operations-state="error">
+        <strong>Tenant product composition could not be loaded</strong>
+        <p className="mt-1">Entitlements cannot be verified, so commercial module access remains fail-closed.</p>
+      </section>
+    );
+  }
+
+  if (compositionState === "ready" && installedCount === 0) {
+    return (
+      <section className="rounded-2xl border border-sky-300 bg-sky-50 p-5 text-sm text-slate-800 shadow-sm" role="status" data-module-operations-state="empty">
+        <strong>No commercial modules are installed</strong>
+        <p className="mt-1">The tenant manifest is valid, but it currently contains no installed commercial modules.</p>
+      </section>
+    );
+  }
+
+  return null;
+}
+
 export default function ModuleOperationsPage() {
   const groups = groupedModules();
   const [productComposition, setProductComposition] = useState(null);
@@ -130,6 +170,8 @@ export default function ModuleOperationsPage() {
             </span>
           </div>
         </header>
+
+        <CompositionStatus compositionState={compositionState} installedCount={installedCount} />
 
         {groups.map(([group, modules]) => (
           <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm" key={group}>
