@@ -48,14 +48,24 @@ test("each SalonAI operational module points at a route exposed by the applicati
   }
 });
 
-test("tenant-aware dashboard reads canonical manifest composition and exposes four module states", async () => {
+test("tenant composition is authenticated and tenant scoped without requiring system-admin feature control authority", async () => {
   const routes = await source("../routes/systemAdministrationRoutes.js");
+  const routeStart = routes.indexOf('"/tenant-product-composition"');
+  assert.ok(routeStart >= 0);
+  const routeSlice = routes.slice(routeStart, routes.indexOf("router.get(", routeStart + 1));
+
+  assert.match(routes, /router\.use\(protect\)/);
+  assert.match(routeSlice, /workforcePublicTenantContextMiddleware/);
+  assert.match(routeSlice, /trustedTenantContextMiddleware/);
+  assert.match(routeSlice, /effectiveAuthorityMiddleware/);
+  assert.doesNotMatch(routeSlice, /feature-control:read/);
+});
+
+test("tenant-aware dashboard reads canonical manifest composition and exposes four module states", async () => {
   const controller = await source("../controllers/systemAdministrationController.js");
   const dashboard = await source("../../../frontend/src/pages/AdminDashboard.jsx");
   const client = await source("../../../frontend/src/Services/tenantProductCompositionService.js");
 
-  assert.match(routes, /tenant-product-composition/);
-  assert.match(routes, /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*feature-control:read/);
   assert.match(controller, /TenantProductManifest\.findOne/);
   assert.match(controller, /resolveEffectiveTenantProductComposition/);
   assert.match(controller, /tenantState = "installed"/);
@@ -100,6 +110,21 @@ test("management navigation keeps commercial entitlement distinct from RBAC and 
   assert.match(navigation, /Module is not installed/);
   assert.match(navigation, /const disabled = featureDisabled \|\| entitlementDisabled/);
   assert.match(navigation, /if \(disabled\) \{[\s\S]*?event\.preventDefault\(\)/);
+});
+
+test("commercial workspaces enforce tenant entitlement at the routing boundary", async () => {
+  const boundary = await source("../../../frontend/src/Routes/CommercialModuleEntitlementBoundary.jsx");
+  const stage4 = await source("../../../frontend/src/components/stage4/Stage4WorkspaceRouter.jsx");
+
+  assert.match(boundary, /commercialModuleKeyForPath/);
+  assert.match(boundary, /getTenantProductComposition/);
+  assert.match(boundary, /moduleState\?\.tenantState === "installed"/);
+  assert.match(boundary, /data-commercial-module-blocked=\{moduleKey\}/);
+  assert.match(boundary, /available to install but is not installed/);
+  assert.match(boundary, /Tenant entitlement could not be verified/);
+  assert.match(stage4, /CommercialModuleEntitlementBoundary/);
+  assert.match(stage4, /entitlementBoundary\(pathname/);
+  assert.match(stage4, /<Stage5WorkspaceRouter pathname=\{pathname\}>/);
 });
 
 test("AI Governance and Learning exposes tenant-scoped read-only evidence with fail-closed promotion policy", async () => {
