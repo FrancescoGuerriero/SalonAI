@@ -36,6 +36,19 @@ test("module operations workspace resolves tenant composition and only links ins
   assert.match(page, /to=\{surface\.primaryRoute\}/);
 });
 
+test("module operations exposes explicit loading, not-configured, error and empty acceptance states", async () => {
+  const page = await source("../../../frontend/src/pages/ModuleOperationsPage.jsx");
+
+  assert.match(page, /Checking tenant product manifest/);
+  assert.match(page, /data-module-operations-state="not-configured"/);
+  assert.match(page, /Tenant product composition is not configured/);
+  assert.match(page, /data-module-operations-state="error"/);
+  assert.match(page, /Entitlements cannot be verified, so commercial module access remains fail-closed/);
+  assert.match(page, /data-module-operations-state="empty"/);
+  assert.match(page, /No commercial modules are installed/);
+  assert.match(page, /compositionState === "ready" && installedCount === 0/);
+});
+
 test("module operations workspace keeps clinical records restricted for SalonAI", async () => {
   const page = await source("../../../frontend/src/pages/ModuleOperationsPage.jsx");
   const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
