@@ -6,6 +6,7 @@ import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
 import CustomerRelationshipsPage from "../../pages/CustomerRelationshipsPage.jsx";
 import ReputationHubPage from "../../pages/ReputationHubPage.jsx";
 import StylistCopilotPage from "../../pages/StylistCopilotPage.jsx";
+import CommercialModuleEntitlementBoundary from "../../Routes/CommercialModuleEntitlementBoundary.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 import { hasPermission } from "../../utils/permissions.js";
@@ -51,6 +52,14 @@ function platformPage(pathname) {
   );
 }
 
+function entitlementBoundary(pathname, content) {
+  return (
+    <CommercialModuleEntitlementBoundary pathname={pathname}>
+      {content}
+    </CommercialModuleEntitlementBoundary>
+  );
+}
+
 export default function Stage4WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
   const { isFeatureEnabled } = useFeatureControls();
@@ -73,7 +82,9 @@ export default function Stage4WorkspaceRouter({ pathname, children }) {
   if (stylistCopilotWorkspace && !user) return <Navigate replace to="/login" />;
   if (stylistCopilotWorkspace && !hasPermission(user, "ai:use")) return <AccessDenied />;
   if (stylistCopilotWorkspace && !isFeatureEnabled("ai-tools")) return <FeatureUnavailable />;
-  if (stylistCopilotWorkspace) return <StylistCopilotPage />;
+  if (stylistCopilotWorkspace) {
+    return entitlementBoundary(pathname, <StylistCopilotPage />);
+  }
 
   const managementWorkspace = pathname === "/customer-experience-management/content"
     || pathname === "/customer-experience-management/reputation";
@@ -81,17 +92,24 @@ export default function Stage4WorkspaceRouter({ pathname, children }) {
   if (managementWorkspace && !user) return <Navigate replace to="/login" />;
 
   if (pathname === "/customer-experience-management/content") {
-    return hasPermission(user, "customer-experience:read")
-      ? <ContentStudioPage />
-      : <AccessDenied />;
+    return entitlementBoundary(
+      pathname,
+      hasPermission(user, "customer-experience:read")
+        ? <ContentStudioPage />
+        : <AccessDenied />
+    );
   }
   if (pathname === "/customer-experience-management/reputation") {
-    return hasPermission(user, "customer-experience:read")
-      ? <ReputationHubPage />
-      : <AccessDenied />;
+    return entitlementBoundary(
+      pathname,
+      hasPermission(user, "customer-experience:read")
+        ? <ReputationHubPage />
+        : <AccessDenied />
+    );
   }
 
-  return (
+  return entitlementBoundary(
+    pathname,
     <Stage5WorkspaceRouter pathname={pathname}>
       {children}
     </Stage5WorkspaceRouter>
