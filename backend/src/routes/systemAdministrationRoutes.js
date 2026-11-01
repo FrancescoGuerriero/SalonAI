@@ -59,9 +59,6 @@ router.get(
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
-  requirePermissions(
-    "feature-control:read"
-  ),
   asyncHandler(
     getTenantProductComposition
   )
