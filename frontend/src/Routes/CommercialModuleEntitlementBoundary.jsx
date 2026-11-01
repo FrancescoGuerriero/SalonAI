@@ -1,40 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
+import { aiibpCommercialModuleKeyForRoute } from "../config/aiibpModuleOperationalSurfaces.js";
 import useAuth from "../hooks/useAuth.js";
 import { getTenantProductComposition } from "../Services/tenantProductCompositionService.js";
-
-const COMMERCIAL_MODULE_ROUTE_RULES = Object.freeze([
-  ["appointments", ["/appointments", "/waitlist", "/booking-loss", "/smart-appointments"]],
-  ["calendar", ["/calendar"]],
-  ["business-planning", ["/booking-demand", "/capacity-planning", "/revenue-forecast", "/executive-command-centre"]],
-  ["crm", ["/customers", "/customer-follow-ups", "/customer-segments", "/customer-value", "/rebooking-opportunities"]],
-  ["ai-retention", ["/retention-actions", "/retention-predictions", "/retention-automation"]],
-  ["memberships", ["/memberships"]],
-  ["customer-experience", ["/customer-experience-management", "/feedback-analytics"]],
-  ["loyalty", ["/loyalty"]],
-  ["staff", ["/staff/self-service", "/team-availability", "/admin/employees", "/staff/profile", "/staff-rota", "/admin/staff-roles", "/staff-performance"]],
-  ["services", ["/manage/services", "/manage/service-packages", "/service-performance"]],
-  ["ecommerce-store", ["/manage/products"]],
-  ["inventory", ["/manage/inventory", "/suppliers", "/purchase-orders", "/reorder-recommendations", "/inventory-forecasting"]],
-  ["commerce", ["/manage/orders", "/gift-cards"]],
-  ["marketing", ["/marketing", "/marketing-attribution"]],
-  ["communications", ["/communications", "/communication-templates", "/scheduled-communications", "/communication-campaigns", "/message-delivery", "/rebooking-campaigns", "/notification-centre", "/push-notifications", "/email-campaigns", "/sms-reminders"]],
-  ["analytics", ["/reports", "/premium-analytics"]],
-  ["ai-receptionist", ["/ai-receptionist", "/whatsapp-booking"]],
-  ["ai-decision-support", ["/management-copilot"]],
-  ["ai-stylist-copilot", ["/stylist-copilot"]],
-]);
-
-export function commercialModuleKeyForPath(path) {
-  const pathname = String(path || "").split("?")[0];
-  for (const [moduleKey, routes] of COMMERCIAL_MODULE_ROUTE_RULES) {
-    if (routes.some((candidate) => pathname === candidate || pathname.startsWith(`${candidate}/`))) {
-      return moduleKey;
-    }
-  }
-  return "";
-}
 
 function blockedReason(state, moduleState) {
   if (state === "unprovisioned") return "No active tenant product manifest.";
@@ -47,7 +16,7 @@ function blockedReason(state, moduleState) {
 
 export default function CommercialModuleEntitlementBoundary({ pathname, children }) {
   const { loading: authLoading, isAuthenticated } = useAuth();
-  const moduleKey = commercialModuleKeyForPath(pathname);
+  const moduleKey = aiibpCommercialModuleKeyForRoute(pathname);
   const [composition, setComposition] = useState(null);
   const [compositionState, setCompositionState] = useState("idle");
 
