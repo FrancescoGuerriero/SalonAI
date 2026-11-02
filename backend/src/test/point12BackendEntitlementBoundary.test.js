@@ -225,6 +225,26 @@ test("Twilio provider webhook remains outside staff Communications entitlement",
   assert.doesNotMatch(webhookSlice, /protect|effectiveAuthorityMiddleware|requireCommercialModule/);
 });
 
+test("Memberships APIs establish trusted Business authority and entitlement before customer RBAC", async () => {
+  const routes = await source("../features/memberships/membershipRoutes.js");
+  const chainStart = routes.indexOf("router.use(");
+  const chainEnd = routes.indexOf(");", chainStart);
+  const chain = routes.slice(chainStart, chainEnd);
+
+  assert.ok(chainStart >= 0);
+  assert.match(
+    chain,
+    /workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("memberships"\)/
+  );
+  assert.match(routes, /"\/plans"[\s\S]*requirePermissions\("customer:read"\)/);
+  assert.match(routes, /"\/contracts"[\s\S]*requirePermissions\("customer:read"\)/);
+  assert.match(routes, /"\/contracts\/:id\/benefits\/:benefitKey\/redeem"[\s\S]*requirePermissions\("customer:update"\)/);
+
+  const controller = await source("../features/memberships/membershipController.js");
+  assert.match(controller, /request\.effectiveAuthority\?\.businessId/);
+  assert.match(controller, /businessId:\s*businessId\(request\)/);
+});
+
 test("shared Connections workspace remains permission-gated and outside Seller Marketplace entitlement", async () => {
   const app = await source("../../../frontend/src/App.jsx");
   const routeStart = app.indexOf('path="admin/system/connections"');
