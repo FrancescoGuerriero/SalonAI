@@ -55,3 +55,25 @@ test("Staff entitlement covers both self-service and management workforce routes
     );
   }
 });
+
+test("Staff rota APIs enforce Staff entitlement before rota RBAC and scoped mutations", async () => {
+  const routes = await source("../features/staffRota/staffRotaRoutes.js");
+  const chainStart = routes.indexOf("const rotaTenantAuthority");
+  const chainEnd = routes.indexOf("];", chainStart);
+  const chain = routes.slice(chainStart, chainEnd);
+
+  assert.ok(chainStart >= 0);
+  assert.match(
+    chain,
+    /workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("staff"\)/
+  );
+  assert.match(routes, /requirePermissions\("employee:schedule:update"\)/);
+  assert.match(routes, /requirePermissions\("appointment:read"\)/);
+  assert.match(
+    routes,
+    /\.\.\.rotaTenantAuthority[\s\S]*manageRota[\s\S]*asyncHandler\(requireScopedRotaShiftMutation\)/
+  );
+
+  const controller = await source("../features/staffRota/staffRotaController.js");
+  assert.match(controller, /request\.effectiveAuthority/);
+});
