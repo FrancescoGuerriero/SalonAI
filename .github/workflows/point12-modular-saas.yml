@@ -35,6 +35,7 @@ on:
       - "backend/src/test/point12SellerAcceptanceContracts.test.js"
       - "backend/src/test/point12MarketingDataHubSchedulingAcceptance.test.js"
       - "backend/src/test/point12MarketingSeparationAcceptance.test.js"
+      - "backend/src/test/point12MarketingAnalyticsAiUnlinkAcceptance.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "backend/src/test/point12MembershipWorkspace.test.js"
       - "backend/src/test/point12OperationalSurfaces.test.js"
@@ -105,6 +106,7 @@ on:
       - "backend/src/test/point12SellerAcceptanceContracts.test.js"
       - "backend/src/test/point12MarketingDataHubSchedulingAcceptance.test.js"
       - "backend/src/test/point12MarketingSeparationAcceptance.test.js"
+      - "backend/src/test/point12MarketingAnalyticsAiUnlinkAcceptance.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "backend/src/test/point12MembershipWorkspace.test.js"
       - "backend/src/test/point12OperationalSurfaces.test.js"
@@ -173,6 +175,7 @@ jobs:
           src/test/point12SellerAcceptanceContracts.test.js
           src/test/point12MarketingDataHubSchedulingAcceptance.test.js
           src/test/point12MarketingSeparationAcceptance.test.js
+          src/test/point12MarketingAnalyticsAiUnlinkAcceptance.test.js
           src/test/point12ConnectionsWorkspace.test.js
           src/test/point12MembershipWorkspace.test.js
           src/test/point12OperationalSurfaces.test.js
