@@ -14,6 +14,7 @@ on:
       - "backend/src/features/memberships/membershipRoutes.js"
       - "backend/src/features/clinical/clinicalRoutes.js"
       - "backend/src/features/clinical/clinicalEligibilityMiddleware.js"
+      - "backend/src/features/staff/staffRoutes.js"
       - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
@@ -34,6 +35,7 @@ on:
       - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
       - "backend/src/test/point12BackendEntitlementBoundary.test.js"
       - "backend/src/test/point12ClinicalEntitlementBoundary.test.js"
+      - "backend/src/test/point12StaffEntitlementBoundary.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/Services/membershipService.js"
       - "frontend/src/Services/systemObservabilityService.js"
@@ -74,6 +76,7 @@ on:
       - "backend/src/features/memberships/membershipRoutes.js"
       - "backend/src/features/clinical/clinicalRoutes.js"
       - "backend/src/features/clinical/clinicalEligibilityMiddleware.js"
+      - "backend/src/features/staff/staffRoutes.js"
       - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
@@ -94,6 +97,7 @@ on:
       - "backend/src/test/point12ModuleOperationsWorkspace.test.js"
       - "backend/src/test/point12BackendEntitlementBoundary.test.js"
       - "backend/src/test/point12ClinicalEntitlementBoundary.test.js"
+      - "backend/src/test/point12StaffEntitlementBoundary.test.js"
       - "frontend/src/Services/marketingConnectionsService.js"
       - "frontend/src/Services/membershipService.js"
       - "frontend/src/Services/systemObservabilityService.js"
@@ -157,6 +161,7 @@ jobs:
           src/test/point12ModuleOperationsWorkspace.test.js
           src/test/point12BackendEntitlementBoundary.test.js
           src/test/point12ClinicalEntitlementBoundary.test.js
+          src/test/point12StaffEntitlementBoundary.test.js
 
       - name: Verify backend source
         run: npm run check
