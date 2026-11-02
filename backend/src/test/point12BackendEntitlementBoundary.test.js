@@ -133,3 +133,74 @@ test("Analytics report APIs enforce commercial entitlement after trusted tenant 
   assert.match(chain, /workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("analytics"\)/);
   assert.match(routes, /requirePermissions\("data-export:manage"\)/);
 });
+
+test("Seller Marketplace tenant APIs require commercial entitlement in addition to RBAC", async () => {
+  const routes = await source("../features/partnerMarketplace/partnerMarketplaceRoutes.js");
+  const tenantStart = routes.indexOf("const tenant = Router();");
+  const tenantRoutes = routes.slice(tenantStart);
+
+  assert.ok(tenantStart >= 0);
+  assert.match(
+    tenantRoutes,
+    /tenant\.use\(trustedTenantContextMiddleware\);[\s\S]*tenant\.use\(effectiveAuthorityMiddleware\);[\s\S]*tenant\.use\(requireCommercialModule\("seller-marketplace"\)\);/
+  );
+  assert.match(
+    tenantRoutes,
+    /"\/installations"[\s\S]*requirePermissions\("feature-control:read"\)/
+  );
+  assert.match(
+    tenantRoutes,
+    /"\/apps\/:appId\/installations"[\s\S]*requirePermissions\("feature-control:update"\)/
+  );
+  assert.match(
+    tenantRoutes,
+    /"\/installations\/:installationId\/reconcile"[\s\S]*requirePermissions\("feature-control:update"\)/
+  );
+
+  const catalogueStart = routes.indexOf('"/catalogue"');
+  const tenantBoundaryStart = routes.indexOf("const tenant = Router();");
+  assert.ok(catalogueStart >= 0 && catalogueStart < tenantBoundaryStart);
+});
+
+test("Managed Data Connections require Seller Marketplace entitlement before RBAC", async () => {
+  const routes = await source("../features/integrationPlatform/marketingConnectedAccountsRoutes.js");
+  const chainStart = routes.indexOf("const dataConnectionTenantChain");
+  const chainEnd = routes.indexOf("];", chainStart);
+  const chain = routes.slice(chainStart, chainEnd);
+
+  assert.ok(chainStart >= 0);
+  assert.match(
+    chain,
+    /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("seller-marketplace"\)/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/catalogue"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*read/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/:connector\/authorize"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*write/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/:connector\/import"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*write/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/:connector\/seller-kpis"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*read/
+  );
+});
+
+test("shared Connections workspace remains permission-gated and outside Seller Marketplace entitlement", async () => {
+  const app = await source("../../../frontend/src/App.jsx");
+  const routeStart = app.indexOf('path="admin/system/connections"');
+  const routeEnd = app.indexOf("/>", routeStart);
+  const route = app.slice(routeStart, routeEnd + 2);
+
+  assert.ok(routeStart >= 0);
+  assert.match(
+    route,
+    /permissionPage\(ConnectionsWorkspacePage, "feature-control:read"\)/
+  );
+  assert.doesNotMatch(route, /seller-marketplace|CommercialModuleEntitlementBoundary/);
+});
