@@ -36,7 +36,7 @@ test("service management separates edit and publication permissions", async () =
   );
   assert.match(
     routes,
-    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
+    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requireCommercialModule\("services"\),\s*\];/
   );
   assert.match(
     controller,
