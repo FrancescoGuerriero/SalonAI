@@ -50,6 +50,42 @@ test("managed gateway keeps secrets server-side and uses provider-neutral config
   assert.doesNotMatch(gateway, /process\.env\.VITE_/);
 });
 
+test("managed source authorization is browser-safe and preserves a server-side reconciliation session", async () => {
+  const [gateway, controller, page] = await Promise.all([
+    source("../features/integrationPlatform/dataConnectionGatewayService.js"),
+    source("../features/integrationPlatform/dataConnectionController.js"),
+    source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx"),
+  ]);
+
+  assert.match(gateway, /generateDataConnectionAuthorization/);
+  assert.match(gateway, /authorizationSessionHash:\s*hash\(accessToken\)/);
+  assert.match(gateway, /authorizationAccessToken:\s*accessToken/);
+  assert.match(controller, /storeProviderCredential\([\s\S]*role:\s*"access_token"/);
+  assert.match(controller, /purpose:\s*"account_reconciliation"/);
+  assert.match(controller, /authorizationUrl:\s*auth\.authorizationUrl/);
+  assert.doesNotMatch(controller, /authorizationAccessToken:\s*auth\.authorizationAccessToken/);
+  assert.match(page, /window\.open\(payload\.authorizationUrl, "_blank", "noopener,noreferrer"\)/);
+  assert.doesNotMatch(page, /type=["']password["']/);
+});
+
+test("managed source reconciliation exposes only accounts linked through the active Business authorization", async () => {
+  const controller = await source("../features/integrationPlatform/dataConnectionController.js");
+
+  assert.match(
+    controller,
+    /IntegrationConnection\.findOne\(\{[\s\S]*business:\s*tenantBusinessId[\s\S]*connectionKey:\s*key/
+  );
+  assert.match(
+    controller,
+    /listLinkedDataAccounts\(\{[\s\S]*connectorId[\s\S]*accessToken:\s*await accessTokenFor\(connection\)/
+  );
+  assert.match(
+    controller,
+    /linked[\s\S]*\.filter\(\(account\) => account\.datasource === connectorId\)/
+  );
+  assert.match(controller, /DATA_CONNECTION_ACCOUNT_NOT_OWNED_BY_BUSINESS/);
+});
+
 test("data connection controller enforces tenant-owned accounts and sources", async () => {
   const controller = await source("../features/integrationPlatform/dataConnectionController.js");
   assert.match(controller, /businessId/);
