@@ -32,6 +32,7 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12SellerAcceptanceContracts.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "backend/src/test/point12MembershipWorkspace.test.js"
       - "backend/src/test/point12OperationalSurfaces.test.js"
@@ -99,6 +100,7 @@ on:
       - "backend/src/test/point12BusinessModuleBoundaries.test.js"
       - "backend/src/test/point12ModuleInstallability.test.js"
       - "backend/src/test/point12DataConnectionContracts.test.js"
+      - "backend/src/test/point12SellerAcceptanceContracts.test.js"
       - "backend/src/test/point12ConnectionsWorkspace.test.js"
       - "backend/src/test/point12MembershipWorkspace.test.js"
       - "backend/src/test/point12OperationalSurfaces.test.js"
@@ -164,6 +166,7 @@ jobs:
           src/test/point12BusinessModuleBoundaries.test.js
           src/test/point12ModuleInstallability.test.js
           src/test/point12DataConnectionContracts.test.js
+          src/test/point12SellerAcceptanceContracts.test.js
           src/test/point12ConnectionsWorkspace.test.js
           src/test/point12MembershipWorkspace.test.js
           src/test/point12OperationalSurfaces.test.js
