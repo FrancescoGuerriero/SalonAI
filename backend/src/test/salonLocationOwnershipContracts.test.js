@@ -23,12 +23,18 @@ test("CRM Lead and Opportunity records require Location ownership", async () => 
   assert.match(opportunityModel, /business:\s*1,\s*location:\s*1,\s*lead:\s*1/);
 });
 
-test("CRM route resolves trusted effective authority before lead operations", async () => {
+test("CRM route resolves trusted tenant and effective authority before commercial entitlement and lead operations", async () => {
   const routes = await source("../features/leads/leadRoutes.js");
   const controller = await source("../features/leads/leadController.js");
+  const chainStart = routes.indexOf("router.use(");
+  const chainEnd = routes.indexOf(");", chainStart);
+  const chain = routes.slice(chainStart, chainEnd);
 
-  assert.match(routes, /effectiveAuthorityMiddleware/);
-  assert.match(routes, /router\.use\(effectiveAuthorityMiddleware\)/);
+  assert.ok(chainStart >= 0);
+  assert.match(
+    chain,
+    /workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("crm"\)/
+  );
   assert.match(controller, /effectiveAuthority\?\.locationId/);
   assert.match(controller, /LOCATION_REQUIRED/);
   assert.match(controller, /locationOwnedLeadService/);
