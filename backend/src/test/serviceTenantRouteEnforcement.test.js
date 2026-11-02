@@ -199,7 +199,7 @@ test("explicit server Service host override wins for controlled test environment
   );
 });
 
-test("Service routes compose host, membership, effective authority and canonical permissions", async () => {
+test("Service routes compose host, membership, effective authority, entitlement and canonical permissions", async () => {
   const source =
     await readFile(
       new URL(
@@ -223,7 +223,7 @@ test("Service routes compose host, membership, effective authority and canonical
   );
   assert.match(
     source,
-    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*\];/
+    /const protectedServiceTenantChain = \[\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requireCommercialModule\("services"\),\s*\];/
   );
 
   for (const permission of [
