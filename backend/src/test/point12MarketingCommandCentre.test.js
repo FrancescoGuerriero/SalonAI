@@ -44,7 +44,14 @@ test("Marketing command centre preserves CRM and Communications canonical owners
 
   assert.match(capabilities, /key:\s*"communications"[\s\S]*?Own consent-aware inbound\/outbound transactional and marketing message delivery/);
   assert.match(capabilities, /key:\s*"crm"[\s\S]*?Own Customer 360/);
-  assert.match(capabilities, /key:\s*"marketing"[\s\S]*?marketing module/);
+  assert.match(
+    capabilities,
+    /key:\s*"marketing"[\s\S]*?Business-facing advertising, audiences, campaigns, attribution and automation workspace\.[\s\S]*?CRM remains customer authority and Communications remains email\/SMS\/WhatsApp delivery authority/
+  );
+  assert.match(
+    capabilities,
+    /key:\s*"marketing"[\s\S]*?ownedDomains:\s*\["marketing-module-experience"\]/
+  );
 });
 
 test("Marketing command centre does not fabricate analytics before canonical source evidence exists", async () => {
