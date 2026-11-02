@@ -178,6 +178,7 @@ export function aiibpModuleOperationalSurface(key) {
 
 export function aiibpCommercialModuleKeyForRoute(route) {
   const pathname = String(route || "").split("?")[0];
+  let bestMatch = null;
 
   for (const surface of AIIBP_MODULE_OPERATIONAL_SURFACES) {
     if (!surface.salonOperational) continue;
@@ -186,15 +187,22 @@ export function aiibpCommercialModuleKeyForRoute(route) {
       ? surface.entitlementRoutes
       : [];
 
-    if (
-      routes.some(
-        (candidate) =>
-          pathname === candidate || pathname.startsWith(`${candidate}/`)
-      )
-    ) {
-      return surface.key;
+    for (const candidate of routes) {
+      if (
+        pathname !== candidate &&
+        !pathname.startsWith(`${candidate}/`)
+      ) {
+        continue;
+      }
+
+      if (!bestMatch || candidate.length > bestMatch.route.length) {
+        bestMatch = {
+          key: surface.key,
+          route: candidate,
+        };
+      }
     }
   }
 
-  return "";
+  return bestMatch?.key || "";
 }
