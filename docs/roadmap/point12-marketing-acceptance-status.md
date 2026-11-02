@@ -7,13 +7,27 @@
 ## Status rules
 
 - **Source complete** — required implementation and automated source contracts exist.
-- **CI verified** — the relevant Point 12 contract/build gate has passed on the current branch head.
+- **CI verified** — the relevant Point 12 contract/build evidence has passed for the implementation head recorded below.
 - **Manual pending** — browser/provider acceptance still requires an approved non-production Business, Location and/or provider account.
 - **Production deferred** — no production credentials, provider writes, workers, backfills or activation are authorised by source completion.
 
+## CI evidence
+
+**Implementation head:** `d2991d58286c2fd58f3aeb8ef315004a44b06bf9`  
+**Point 12 run:** `41515273349`
+
+Verified on that implementation head:
+- Point 12 Marketing/modular SaaS contract suite passed;
+- backend source validation passed;
+- backend application import validation passed;
+- frontend production build passed;
+- frontend bundle budget passed.
+
+The preceding failed run was traced to one over-specific test regex for the already-correct managed-account unlink client path; runtime behaviour was unchanged and the corrected contract passed.
+
 ## B — Marketing module navigation
 
-**Status:** Source complete; CI verification required on current head; manual browser acceptance pending.
+**Status:** Source complete; CI verified; manual browser acceptance pending.
 
 Implemented Marketing workspaces:
 - Data connections;
@@ -27,7 +41,7 @@ The Marketing landing page retains CRM, Communications and Analytics as canonica
 
 ## C — Managed Data Connections without adapter configuration
 
-**Status:** Source complete; CI verification required on current head; manual browser acceptance pending.
+**Status:** Source complete; CI verified; manual browser acceptance pending.
 
 Automated contracts verify:
 - the AIIBP connection catalogue remains visible when the managed adapter is not configured;
@@ -37,7 +51,7 @@ Automated contracts verify:
 
 ## D — Managed source connection
 
-**Status:** Source complete for the AIIBP contract; provider acceptance pending.
+**Status:** Source complete; CI verified; provider acceptance pending.
 
 Implemented and protected:
 - `Connect securely` starts a server-generated authorization flow in a new tab;
@@ -54,7 +68,7 @@ Manual acceptance still requires an approved non-production adapter and test pro
 
 ## E — Amazon Seller Central
 
-**Status:** Source complete for provider-neutral AIIBP workflow; provider acceptance pending.
+**Status:** Source complete; CI verified; provider acceptance pending.
 
 Automated contracts verify:
 - `Amazon Seller Central (Amazon SP)` remains a Seller connector;
@@ -70,7 +84,7 @@ Provider-native KPI reconciliation remains manual.
 
 ## F — eBay
 
-**Status:** Source complete for provider-neutral AIIBP workflow; provider acceptance pending.
+**Status:** Source complete; CI verified; provider acceptance pending.
 
 Automated contracts verify:
 - eBay remains a Seller connector;
@@ -82,7 +96,7 @@ Provider-native KPI reconciliation remains manual.
 
 ## G — Data Hub ingestion and scheduling
 
-**Status:** Source complete; CI verification required on current head; scheduled-worker production activation deferred.
+**Status:** Source complete; CI verified; scheduled-worker production activation deferred.
 
 Automated contracts verify:
 - Location is required for import;
@@ -96,7 +110,7 @@ Automated contracts verify:
 
 ## H — Historical backfill safety
 
-**Status:** Source complete; CI verification required on current head; provider/manual acceptance pending.
+**Status:** Source complete; CI verified; provider/manual acceptance pending.
 
 Automated contracts verify:
 - a single historical operation is date-bounded and capped at 366 days;
@@ -108,7 +122,7 @@ Automated contracts verify:
 
 ## I — Destinations and AI destinations
 
-**Status:** Source complete; manual UI acceptance pending.
+**Status:** Source complete; CI verified; manual UI acceptance pending.
 
 Automated contracts verify:
 - ChatGPT, Claude and Copilot Agent are represented as AI destinations;
@@ -119,7 +133,7 @@ Automated contracts verify:
 
 ## J — Native versus managed connections
 
-**Status:** Source complete; manual UI/provider-mode acceptance pending.
+**Status:** Source complete; CI verified; manual UI/provider-mode acceptance pending.
 
 Automated contracts verify:
 - the Marketing landing page exposes separate `Data connections` and `Native connections` workspaces;
@@ -129,7 +143,7 @@ Automated contracts verify:
 
 ## K — CRM separation
 
-**Status:** Source complete; manual consent-change acceptance pending.
+**Status:** Source complete; CI verified; manual consent-change acceptance pending.
 
 Automated contracts verify:
 - Marketing/retention analysis reads canonical `Customer` and `ConsentRecord` state;
@@ -139,7 +153,7 @@ Automated contracts verify:
 
 ## L — Communications separation
 
-**Status:** Source complete; manual delivery-workflow acceptance pending.
+**Status:** Source complete; CI verified; manual delivery-workflow acceptance pending.
 
 Automated contracts verify:
 - journey enrollment consumes canonical CRM evidence;
@@ -149,7 +163,7 @@ Automated contracts verify:
 
 ## M — Analytics and AI assistance
 
-**Status:** Source complete; manual BI/provider reconciliation and AI UI acceptance pending.
+**Status:** Source complete; CI verified; manual BI/provider reconciliation and AI UI acceptance pending.
 
 Automated contracts verify:
 - deterministic seller KPI projections read Business/Location/source-scoped `MarketingNormalisedRecord` evidence;
@@ -160,7 +174,7 @@ Automated contracts verify:
 
 ## N — Disconnect/unlink
 
-**Status:** Source complete; provider/manual acceptance pending.
+**Status:** Source complete; CI verified; provider/manual acceptance pending.
 
 Automated contracts verify:
 - unlink resolves the active Business-owned connection first;
@@ -169,9 +183,11 @@ Automated contracts verify:
 - unlink does not delete `MarketingDataSource` historical evidence;
 - the browser client exposes no hidden historical-data purge endpoint as part of account unlink.
 
-## Current source acceptance outcome
+## Current Marketing acceptance outcome
 
-Roadmap B–N now has explicit automated source contracts. This does **not** mean provider/manual acceptance is complete. The remaining Marketing acceptance work is evidence collection using an approved non-production Business/Location and provider test accounts, followed by CI confirmation on the current branch head.
+Roadmap B–N is now source-complete and Point 12 CI-verified for implementation head `d2991d58286c2fd58f3aeb8ef315004a44b06bf9`.
+
+This does **not** mean manual/provider acceptance is complete. Remaining scheduled Marketing work is evidence collection against an approved non-production Business/Location and provider test accounts: browser navigation/state checks, managed-provider authorization/reconciliation, Amazon/eBay sandbox verification and KPI reconciliation, native-versus-managed UX checks, consent/delivery workflow checks, AI UI review and unlink evidence.
 
 ## Production boundary
 
