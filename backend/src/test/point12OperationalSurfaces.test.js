@@ -15,6 +15,26 @@ function extractKeys(sourceText, startMarker) {
   return [...tail.slice(0, end).matchAll(/\bkey:\s*"([^"]+)"/g)].map((match) => match[1]);
 }
 
+function entitlementRouteClaims(sourceText) {
+  const claims = [];
+  const entries = sourceText.matchAll(
+    /\{\s*key:\s*"([^"]+)"[\s\S]*?entitlementRoutes:\s*\[([^\]]*)\][\s\S]*?salonOperational:\s*(true|false)[\s\S]*?\},/g
+  );
+
+  for (const [, key, routesSource, salonOperational] of entries) {
+    if (salonOperational !== "true") continue;
+
+    for (const routeMatch of routesSource.matchAll(/"([^"]+)"/g)) {
+      claims.push({
+        key,
+        route: routeMatch[1],
+      });
+    }
+  }
+
+  return claims;
+}
+
 test("every commercial module declares an operational or vertical-restricted surface", async () => {
   const commercial = await source("../../../frontend/src/config/aiibpCommercialModules.js");
   const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
@@ -103,11 +123,40 @@ test("commercial route ownership is canonical and shared by navigation and route
 
   assert.match(surfaces, /entitlementRoutes/);
   assert.match(surfaces, /export function aiibpCommercialModuleKeyForRoute/);
-  assert.match(surfaces, /pathname === candidate \|\| pathname\.startsWith/);
+  assert.match(surfaces, /candidate\.length > bestMatch\.route\.length/);
   assert.match(navigation, /aiibpCommercialModuleKeyForRoute/);
   assert.match(boundary, /aiibpCommercialModuleKeyForRoute/);
   assert.doesNotMatch(navigation, /COMMERCIAL_MODULE_ROUTE_RULES/);
   assert.doesNotMatch(boundary, /COMMERCIAL_MODULE_ROUTE_RULES/);
+});
+
+test("commercial route ownership is unique and the most-specific nested route wins", async () => {
+  const surfaces = await source("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
+  const claims = entitlementRouteClaims(surfaces);
+  const ownerByExactRoute = new Map();
+
+  for (const claim of claims) {
+    assert.equal(
+      ownerByExactRoute.has(claim.route),
+      false,
+      `${claim.route} must not be claimed by both ${ownerByExactRoute.get(claim.route)} and ${claim.key}`
+    );
+    ownerByExactRoute.set(claim.route, claim.key);
+  }
+
+  assert.equal(ownerByExactRoute.get("/marketing"), "marketing");
+  assert.equal(ownerByExactRoute.get("/marketing/data-connections"), "seller-marketplace");
+  assert.equal(ownerByExactRoute.has("/admin/system/connections"), false);
+
+  const {
+    aiibpCommercialModuleKeyForRoute,
+  } = await import("../../../frontend/src/config/aiibpModuleOperationalSurfaces.js");
+
+  assert.equal(aiibpCommercialModuleKeyForRoute("/marketing"), "marketing");
+  assert.equal(aiibpCommercialModuleKeyForRoute("/marketing/overview"), "marketing");
+  assert.equal(aiibpCommercialModuleKeyForRoute("/marketing/data-connections"), "seller-marketplace");
+  assert.equal(aiibpCommercialModuleKeyForRoute("/marketing/data-connections/accounts"), "seller-marketplace");
+  assert.equal(aiibpCommercialModuleKeyForRoute("/admin/system/connections"), "");
 });
 
 test("management navigation keeps commercial entitlement distinct from RBAC and fails closed", async () => {
