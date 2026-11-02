@@ -106,16 +106,72 @@ Automated contracts verify:
 - historical runs reuse the original incremental watermark rather than moving the normal checkpoint backwards;
 - backfill remains Business/Location scoped and read-only.
 
-## I–N
+## I — Destinations and AI destinations
 
-Not yet accepted in this pass. Continue strictly in roadmap order after H:
+**Status:** Source complete; manual UI acceptance pending.
 
-- I — Destinations and AI destinations;
-- J — Native versus managed connections;
-- K — CRM separation;
-- L — Communications separation;
-- M — Analytics and AI assistance;
-- N — Disconnect/unlink.
+Automated contracts verify:
+- ChatGPT, Claude and Copilot Agent are represented as AI destinations;
+- Power BI is represented as a destination;
+- destination/AI-destination entries are explicitly identified as downstream destinations, not Marketing sources;
+- source connect/import operations are not rendered for destination-only entries;
+- destination activation remains separate from source ingestion.
+
+## J — Native versus managed connections
+
+**Status:** Source complete; manual UI/provider-mode acceptance pending.
+
+Automated contracts verify:
+- the Marketing landing page exposes separate `Data connections` and `Native connections` workspaces;
+- managed source operations remain within the provider-neutral Data Connections surface;
+- native connections use the shared AIIBP Connection Framework;
+- the shared managed catalogue is reused by Marketing and Seller Marketplace without creating a duplicate commercial workspace/module.
+
+## K — CRM separation
+
+**Status:** Source complete; manual consent-change acceptance pending.
+
+Automated contracts verify:
+- Marketing/retention analysis reads canonical `Customer` and `ConsentRecord` state;
+- email, SMS and WhatsApp contactability is derived from canonical consent/preferences/suppression state;
+- the CRM projection does not create or mutate a parallel `ConsentRecord` authority;
+- next-best-action output remains advisory with `executionAuthorised: false`.
+
+## L — Communications separation
+
+**Status:** Source complete; manual delivery-workflow acceptance pending.
+
+Automated contracts verify:
+- journey enrollment consumes canonical CRM evidence;
+- Marketing journey steps are created as non-executable evidence (`execution_not_authorised`);
+- Marketing journey code does not directly invoke SendGrid/Twilio or create delivery records;
+- campaign, template, scheduling and delivery routes remain owned by the `communications` commercial entitlement and Communications RBAC.
+
+## M — Analytics and AI assistance
+
+**Status:** Source complete; manual BI/provider reconciliation and AI UI acceptance pending.
+
+Automated contracts verify:
+- deterministic seller KPI projections read Business/Location/source-scoped `MarketingNormalisedRecord` evidence;
+- Marketing AI declares `aiibp_data_hub` as its evidence authority;
+- Marketing AI is advisory, requires human approval and has external writes disabled;
+- forecast execution and automatic promotion remain disabled;
+- the UI route is protected by `ai:use` and its client consumes the read-only Marketing insights endpoint.
+
+## N — Disconnect/unlink
+
+**Status:** Source complete; provider/manual acceptance pending.
+
+Automated contracts verify:
+- unlink resolves the active Business-owned connection first;
+- the target account must already belong to that Business;
+- unlink invokes only the external managed-account unlink operation and then reconciles the Business connection;
+- unlink does not delete `MarketingDataSource` historical evidence;
+- the browser client exposes no hidden historical-data purge endpoint as part of account unlink.
+
+## Current source acceptance outcome
+
+Roadmap B–N now has explicit automated source contracts. This does **not** mean provider/manual acceptance is complete. The remaining Marketing acceptance work is evidence collection using an approved non-production Business/Location and provider test accounts, followed by CI confirmation on the current branch head.
 
 ## Production boundary
 
