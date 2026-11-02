@@ -2,8 +2,20 @@ import express from "express";
 
 import asyncHandler from "../../shared/asyncHandler.js";
 import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import {
+  effectiveAuthorityMiddleware,
+} from "../../middleware/effectiveAuthorityMiddleware.js";
+import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../platform/tenancy/trustedTenantMiddleware.js";
 import {
   benefitBalances,
   collectContract,
@@ -21,6 +33,19 @@ import {
 } from "./membershipController.js";
 
 const router = express.Router();
+
+/*
+ * The parent future-feature router establishes authenticated staff identity.
+ * Membership operations then bind that identity to trusted Business authority,
+ * require the Memberships commercial entitlement and only afterwards evaluate
+ * the operation-specific customer RBAC permission.
+ */
+router.use(
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requireCommercialModule("memberships")
+);
 
 router.get("/plans", requirePermissions("customer:read"), asyncHandler(plans));
 router.post("/plans", requirePermissions("customer:update"), asyncHandler(createPlan));
