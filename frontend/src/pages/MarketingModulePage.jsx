@@ -51,16 +51,22 @@ const MARKETING_PROVIDER_GROUPS = Object.freeze([
 
 const WORKSPACES = Object.freeze([
   {
+    to: "/marketing/data-connections",
+    title: "Data connections",
+    description: "Operate managed source connections, previews, imports, schedules, bounded backfill and Data Hub lineage.",
+    icon: Database,
+  },
+  {
     to: "/admin/system/connections",
-    title: "Provider connections",
-    description: "Connect Google, Meta, Microsoft, analytics and communications providers through the shared AIIBP connection framework.",
+    title: "Native connections",
+    description: "Manage native provider connections through the shared AIIBP connection framework without creating another commercial module.",
     icon: Link2,
   },
   {
-    to: "/marketing/data-connections",
-    title: "Marketing Data Hub",
-    description: "Inspect tenant-bound source evidence, field profiles, imports, schedules, backfill and data health.",
-    icon: Database,
+    to: "/marketing/data-connections?type=seller",
+    title: "Sellers",
+    description: "Operate Amazon, eBay and other seller evidence through the Seller & Marketplace boundary and active Location Data Hub.",
+    icon: Store,
   },
   {
     to: "/retention-automation",
@@ -75,6 +81,12 @@ const WORKSPACES = Object.freeze([
     icon: BarChart3,
   },
   {
+    to: "/ai/marketing-insights",
+    title: "AI marketing assistance",
+    description: "Interpret governed tenant-owned evidence, identify anomalies and opportunities, and propose actions for human review.",
+    icon: Bot,
+  },
+  {
     to: "/communications",
     title: "Email, SMS & WhatsApp",
     description: "Open Communications for transactional and marketing email, SMS and WhatsApp delivery, templates and delivery status.",
@@ -85,18 +97,6 @@ const WORKSPACES = Object.freeze([
     title: "CRM audiences",
     description: "Use canonical CRM customer profiles, lifecycle state and segments without moving customer ownership into Marketing.",
     icon: Target,
-  },
-  {
-    to: "/marketing/data-connections?type=seller",
-    title: "Seller & commerce evidence",
-    description: "Bring marketplace and seller performance into analysis without making Marketing the marketplace authority.",
-    icon: Store,
-  },
-  {
-    to: "/ai/marketing-insights",
-    title: "AI marketing assistant",
-    description: "Interpret governed evidence, identify anomalies and opportunities, and propose actions for human review.",
-    icon: Bot,
   },
 ]);
 
@@ -173,7 +173,7 @@ export default function MarketingModulePage() {
               </p>
             </div>
             <Link className="rounded-xl border border-stone-900 bg-stone-950 px-4 py-2.5 text-sm font-bold text-white" to="/admin/system/connections">
-              Manage all connections
+              Manage native connections
             </Link>
           </div>
 
