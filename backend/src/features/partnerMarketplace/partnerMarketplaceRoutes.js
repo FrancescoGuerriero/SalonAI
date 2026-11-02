@@ -7,6 +7,9 @@ import {
   effectiveAuthorityMiddleware,
 } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import {
@@ -17,6 +20,9 @@ import * as controller from "./partnerMarketplaceController.js";
 
 const router = Router();
 
+// The platform catalogue remains discoverable to authorised staff independently
+// of a tenant's commercial-module selection. Tenant installation operations are
+// entitlement-gated below.
 router.get(
   "/catalogue",
   requirePermissions("feature-control:read"),
@@ -47,6 +53,7 @@ router.post(
 const tenant = Router();
 tenant.use(trustedTenantContextMiddleware);
 tenant.use(effectiveAuthorityMiddleware);
+tenant.use(requireCommercialModule("seller-marketplace"));
 
 tenant.get(
   "/installations",
