@@ -191,6 +191,40 @@ test("Managed Data Connections require Seller Marketplace entitlement before RBA
   );
 });
 
+test("staff-facing Communications APIs require commercial entitlement before operation RBAC", async () => {
+  for (const relativePath of [
+    "../routes/communicationCampaignRoutes.js",
+    "../routes/communicationTemplateRoutes.js",
+    "../routes/scheduledCommunicationRoutes.js",
+    "../routes/messageDeliveryRoutes.js",
+  ]) {
+    const routes = await source(relativePath);
+    const chainStart = routes.indexOf("router.use(");
+    const chainEnd = routes.indexOf(");", chainStart);
+    const chain = routes.slice(chainStart, chainEnd);
+
+    assert.ok(chainStart >= 0, `${relativePath} must expose a staff middleware chain`);
+    assert.match(
+      chain,
+      /protect[\s\S]*workforcePublicTenantContextMiddleware[\s\S]*trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("communications"\)[\s\S]*communicationEffectiveScopeMiddleware/,
+      `${relativePath} must enforce Communications entitlement after effective authority`
+    );
+    assert.match(routes, /communications:read/);
+    assert.match(routes, /communications:manage/);
+  }
+});
+
+test("Twilio provider webhook remains outside staff Communications entitlement", async () => {
+  const routes = await source("../routes/messageDeliveryRoutes.js");
+  const webhookStart = routes.indexOf('"/webhooks/twilio/status"');
+  const staffChainStart = routes.indexOf("router.use(", webhookStart);
+  const webhookSlice = routes.slice(webhookStart, staffChainStart);
+
+  assert.ok(webhookStart >= 0 && staffChainStart > webhookStart);
+  assert.match(webhookSlice, /twilioWebhookProtection/);
+  assert.doesNotMatch(webhookSlice, /protect|effectiveAuthorityMiddleware|requireCommercialModule/);
+});
+
 test("shared Connections workspace remains permission-gated and outside Seller Marketplace entitlement", async () => {
   const app = await source("../../../frontend/src/App.jsx");
   const routeStart = app.indexOf('path="admin/system/connections"');
