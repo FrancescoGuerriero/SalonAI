@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   getCapabilityPack,
@@ -10,6 +11,10 @@ import {
   getVerticalPackDefinition,
   validateProductRegistryIntegrity,
 } from "../platform/capabilities/verticalPackRegistry.js";
+
+async function source(relativePath) {
+  return readFile(new URL(relativePath, import.meta.url), "utf8");
+}
 
 test("Point 12 capability registry has one owner per canonical business domain", () => {
   const result = validateProductRegistryIntegrity();
@@ -96,4 +101,26 @@ test("business allocation hides internal AI and marketing engines", () => {
   assert.ok(salonAllocatable.has("marketing"));
   assert.ok(salonAllocatable.has("ai-stylist-copilot"));
   assert.equal(salonAllocatable.has("marketing-data"), false);
+});
+
+test("Marketing landing page exposes the Point 12 roadmap workspaces without adapter branding", async () => {
+  const page = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
+
+  const expectedWorkspaces = [
+    ["Data connections", "/marketing/data-connections"],
+    ["Native connections", "/admin/system/connections"],
+    ["Sellers", "/marketing/data-connections?type=seller"],
+    ["Journeys & automation", "/retention-automation"],
+    ["Attribution & performance", "/marketing-attribution"],
+    ["AI marketing assistance", "/ai/marketing-insights"],
+  ];
+
+  for (const [title, route] of expectedWorkspaces) {
+    assert.match(page, new RegExp(`title: \\"${title.replaceAll("&", "\\&")}\\"`));
+    assert.ok(page.includes(`to: "${route}"`), `${title} must link to ${route}`);
+  }
+
+  assert.match(page, /CRM remains the customer authority/);
+  assert.match(page, /Communications remains the Email, SMS and WhatsApp delivery authority/);
+  assert.doesNotMatch(page, /Windsor\.ai|Fivetran|Supermetrics|Coupler\.io/i);
 });
