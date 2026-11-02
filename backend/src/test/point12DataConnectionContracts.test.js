@@ -102,15 +102,30 @@ test("routes are permission protected under AIIBP managed data connections", asy
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
 });
 
-test("frontend exposes AIIBP-owned data connections", async () => {
+test("frontend exposes the roadmap Marketing data connection and Seller workspaces", async () => {
   const router = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
   const landing = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
   const page = await source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx");
   const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
+
   assert.match(router, /pathname === "\/marketing\/data-connections"/);
-  assert.match(landing, /Marketing Data Hub/);
-  assert.match(landing, /Seller & commerce evidence/);
+  assert.match(landing, /title: "Data connections"/);
+  assert.match(landing, /title: "Native connections"/);
+  assert.match(landing, /title: "Sellers"/);
+  assert.match(landing, /\/marketing\/data-connections\?type=seller/);
   assert.match(page, /AIIBP data connections/);
   assert.match(page, /Connect securely/);
   assert.match(client, /importManagedDataConnection/);
+});
+
+test("unconfigured managed data connections remain visible but connection actions fail closed", async () => {
+  const page = await source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx");
+  const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
+
+  assert.match(page, /Managed data connections are not configured in this environment/);
+  assert.match(page, /setItems\(Array\.isArray\(payload\?\.items\)/);
+  assert.match(page, /!runtime\.configured/);
+  assert.match(page, /disabled=\{!canManage \|\| !runtime\.configured/);
+  assert.doesNotMatch(page, /VITE_.*DATA_CONNECTION|VITE_.*ADAPTER|API_KEY/);
+  assert.doesNotMatch(client, /VITE_.*DATA_CONNECTION|VITE_.*ADAPTER|API_KEY/);
 });
