@@ -82,30 +82,33 @@ Provider-native KPI reconciliation remains manual.
 
 ## G — Data Hub ingestion and scheduling
 
-**Status:** Source implementation exists; acceptance contract review is next.
+**Status:** Source complete; CI verification required on current head; scheduled-worker production activation deferred.
 
-Next verification slice:
-- Location required for import;
-- canonical Marketing Data Core reuse;
-- existing Data Hub source update instead of duplication;
-- `nextRunAt` for automatic cadences;
-- shared sync worker execution;
-- retry/error evidence remains Business/Location scoped.
+Automated contracts verify:
+- Location is required for import;
+- imports reuse the canonical Marketing Data Core;
+- Business/Location/source key upsert updates an existing Data Hub source rather than creating a duplicate;
+- Manual / Hourly / Daily / Weekly cadence is canonical;
+- automatic cadences populate `nextRunAt` while Manual does not;
+- the shared Marketing Data Sync Worker executes due managed sources;
+- worker source updates and retry scheduling retain Business and Location ownership;
+- managed scheduled sync retains the existing incremental checkpoint and remains read-only.
 
 ## H — Historical backfill safety
 
-**Status:** Source implementation exists; acceptance contract review follows G.
+**Status:** Source complete; CI verification required on current head; provider/manual acceptance pending.
 
-Next verification slice:
-- date-bounded slicing;
-- saturated-window subdivision;
-- explicit one-day saturation reporting;
-- request-budget enforcement;
-- incremental checkpoint is not moved backwards.
+Automated contracts verify:
+- a single historical operation is date-bounded and capped at 366 days;
+- initial windows are sliced and saturated windows are recursively subdivided;
+- one-day saturation is explicitly reported and prevents a false `complete` result;
+- per-operation request count is capped and shared API request-budget reservation is enforced;
+- historical runs reuse the original incremental watermark rather than moving the normal checkpoint backwards;
+- backfill remains Business/Location scoped and read-only.
 
 ## I–N
 
-Not yet accepted in this pass. Continue strictly in roadmap order after G/H:
+Not yet accepted in this pass. Continue strictly in roadmap order after H:
 
 - I — Destinations and AI destinations;
 - J — Native versus managed connections;
