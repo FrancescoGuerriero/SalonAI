@@ -1,17 +1,31 @@
 import express from "express";
 
-import asyncHandler from "../../shared/asyncHandler.js";
+import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
 import {
   effectiveAuthorityMiddleware,
 } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
+import {
+  workforcePublicTenantContextMiddleware,
+} from "../../middleware/workforceTenantMiddleware.js";
+import {
+  trustedTenantContextMiddleware,
+} from "../../platform/tenancy/trustedTenantMiddleware.js";
+import asyncHandler from "../../shared/asyncHandler.js";
 import * as controller from "./leadController.js";
 
 const router = express.Router();
 
-router.use(effectiveAuthorityMiddleware);
+router.use(
+  workforcePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requireCommercialModule("crm")
+);
 
 router.get(
   "/",
