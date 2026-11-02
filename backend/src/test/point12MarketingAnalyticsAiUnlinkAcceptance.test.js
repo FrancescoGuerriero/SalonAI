@@ -65,9 +65,10 @@ test("managed account unlink is Business-owned and does not delete retained Data
 test("browser unlink calls the explicit managed-account endpoint and no historical-delete endpoint", async () => {
   const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
 
+  assert.match(client, /export function unlinkManagedDataAccount\(connector, accountId\)/);
   assert.match(
     client,
-    /API\.delete\([\s\S]*data-connections[\s\S]*accounts[\s\S]*accountId/
+    /API\.delete\([\s\S]*DATA_CONNECTIONS_URL[\s\S]*\/accounts\/[\s\S]*encodeURIComponent\(accountId\)/
   );
   assert.doesNotMatch(client, /deleteHistory|deleteImportedData|purgeDataHub|deleteEvidence/i);
 });
