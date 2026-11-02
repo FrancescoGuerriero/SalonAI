@@ -37,6 +37,28 @@ function composition({ enabled = true } = {}) {
   };
 }
 
+function marketingComposition() {
+  return {
+    manifest: {
+      businessId: BUSINESS_ID,
+      verticalId: "salon",
+      manifestRevision: "8",
+    },
+    capabilities: [
+      {
+        key: "marketing",
+        enabled: true,
+        reason: "selected",
+      },
+      {
+        key: "seller-marketplace",
+        enabled: false,
+        reason: "not-selected",
+      },
+    ],
+  };
+}
+
 async function source(relativePath) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
@@ -65,6 +87,32 @@ test("commercial module entitlement middleware grants an installed module within
     moduleKey: "services",
     businessId: BUSINESS_ID,
     manifestRevision: "7",
+    verticalId: "salon",
+    source: "selected",
+  });
+});
+
+test("commercial module entitlement middleware grants one installed module from an allowed alternative set", async () => {
+  const requireCommercialModule = createCommercialModuleEntitlementMiddleware({
+    compositionLoader: async () => marketingComposition(),
+  });
+  const request = {
+    effectiveAuthority: authority(),
+  };
+
+  const error = await invoke(
+    requireCommercialModule.requireAnyCommercialModule(
+      "seller-marketplace",
+      "marketing"
+    ),
+    request
+  );
+
+  assert.equal(error, null);
+  assert.deepEqual(request.commercialModuleEntitlement, {
+    moduleKey: "marketing",
+    businessId: BUSINESS_ID,
+    manifestRevision: "8",
     verticalId: "salon",
     source: "selected",
   });
@@ -162,32 +210,44 @@ test("Seller Marketplace tenant APIs require commercial entitlement in addition 
   assert.ok(catalogueStart >= 0 && catalogueStart < tenantBoundaryStart);
 });
 
-test("Managed Data Connections require Seller Marketplace entitlement before RBAC", async () => {
+test("Managed Data Connections keep Marketing and Seller entitlements distinct before RBAC", async () => {
   const routes = await source("../features/integrationPlatform/marketingConnectedAccountsRoutes.js");
-  const chainStart = routes.indexOf("const dataConnectionTenantChain");
+  const chainStart = routes.indexOf("const dataConnectionTenantAuthority");
   const chainEnd = routes.indexOf("];", chainStart);
   const chain = routes.slice(chainStart, chainEnd);
 
   assert.ok(chainStart >= 0);
   assert.match(
     chain,
-    /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware[\s\S]*requireCommercialModule\("seller-marketplace"\)/
+    /trustedTenantContextMiddleware[\s\S]*effectiveAuthorityMiddleware/
   );
   assert.match(
     routes,
-    /"\/data-connections\/catalogue"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*read/
+    /requireMarketingDataConnection\s*=\s*requireCommercialModule\("marketing"\)/
   );
   assert.match(
     routes,
-    /"\/data-connections\/:connector\/authorize"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*write/
+    /requireSellerDataConnection\s*=\s*requireCommercialModule\("seller-marketplace"\)/
   );
   assert.match(
     routes,
-    /"\/data-connections\/:connector\/import"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*write/
+    /requireDataConnectionCatalogue\s*=\s*requireAnyCommercialModule\("marketing", "seller-marketplace"\)/
   );
   assert.match(
     routes,
-    /"\/data-connections\/:connector\/seller-kpis"[\s\S]*\.\.\.dataConnectionTenantChain[\s\S]*read/
+    /entry\?\.kind === "seller"[\s\S]*requireSellerDataConnection[\s\S]*requireMarketingDataConnection/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/catalogue"[\s\S]*\.\.\.dataConnectionTenantAuthority[\s\S]*requireDataConnectionCatalogue[\s\S]*read/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/:connector\/authorize"[\s\S]*\.\.\.dataConnectionTenantAuthority[\s\S]*requireDataConnectionEntitlement[\s\S]*write/
+  );
+  assert.match(
+    routes,
+    /"\/data-connections\/:connector\/import"[\s\S]*\.\.\.dataConnectionTenantAuthority[\s\S]*requireDataConnectionEntitlement[\s\S]*write/
   );
 });
 
