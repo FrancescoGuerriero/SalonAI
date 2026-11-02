@@ -46,6 +46,14 @@ export default function useModalFocusTrap({
 
     const focusInitial =
       window.requestAnimationFrame(() => {
+        if (
+          container.contains(
+            document.activeElement
+          )
+        ) {
+          return;
+        }
+
         const [first] =
           focusableElements(
             container
