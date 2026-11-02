@@ -42,7 +42,7 @@ test("Marketing command centre preserves CRM and Communications canonical owners
   assert.match(page, /Communications remains the Email, SMS and WhatsApp delivery authority/);
   assert.match(page, /Marketing defines the audience, campaign and journey/);
 
-  assert.match(capabilities, /key:\s*"communications"[\s\S]*?Own consent-aware inbound\/outbound message delivery/);
+  assert.match(capabilities, /key:\s*"communications"[\s\S]*?Own consent-aware inbound\/outbound transactional and marketing message delivery/);
   assert.match(capabilities, /key:\s*"crm"[\s\S]*?Own Customer 360/);
   assert.match(capabilities, /key:\s*"marketing"[\s\S]*?marketing module/);
 });
