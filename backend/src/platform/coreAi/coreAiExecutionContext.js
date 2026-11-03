@@ -67,3 +67,36 @@ export function requireCoreAiExecutionContext({ moduleKey, toolKey } = {}) {
     }
   };
 }
+
+/**
+ * Verifies the exact module and scoped inputs before any internal AI service
+ * reads evidence or performs inference. The route is not the only trust boundary.
+ */
+export function assertCoreAiModuleExecutionContext({
+  context, moduleKey, toolKey, businessId, locationId = null,
+  allowedLocationIds = [], actorUserId,
+} = {}) {
+  const requestedLocations = Array.isArray(allowedLocationIds) ? allowedLocationIds.map(identity) : [];
+  const authorisedLocations = Array.isArray(context?.allowedLocationIds)
+    ? context.allowedLocationIds.map(identity)
+    : [];
+  const expectedLocation = identity(locationId) || null;
+  if (!context || !Object.isFrozen(context) ||
+      context.moduleKey !== moduleKey || context.toolKey !== toolKey ||
+      context.businessId !== identity(businessId) ||
+      context.userId !== identity(actorUserId) ||
+      context.locationId !== expectedLocation ||
+      context.externalWritesAllowed !== false ||
+      context.automaticModelPromotionAllowed !== false ||
+      context.requiresHumanApprovalForConsequentialActions !== true ||
+      JSON.stringify(requestedLocations) !== JSON.stringify(authorisedLocations) ||
+      (!expectedLocation &&
+       context.locationAccessMode !== "all" &&
+       authorisedLocations.length === 0)) {
+    throw policyError(
+      "AI module execution requires matching trusted Business, Location, actor and module scope.",
+      "CORE_AI_MODULE_EXECUTION_SCOPE_REQUIRED"
+    );
+  }
+  return context;
+}
