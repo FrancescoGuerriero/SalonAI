@@ -16,6 +16,7 @@ import {
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import { requireCommercialModule } from "../../middleware/commercialModuleEntitlementMiddleware.js";
 import { requireCoreAiExecutionContext } from "../../platform/coreAi/coreAiExecutionContext.js";
+import { authoriseCoreAiTool } from "../../platform/coreAi/coreAiToolAuthorisation.js";
 
 import {
   analyseCustomerSegmentation,
@@ -115,6 +116,7 @@ router.get(
 router.post(
   "/adviser/query",
   ...adviserModuleChain,
+  authoriseCoreAiTool({ agentKey: "business-adviser", toolKey: "business.metrics.read" }),
   asyncHandler(askAdviser)
 );
 
