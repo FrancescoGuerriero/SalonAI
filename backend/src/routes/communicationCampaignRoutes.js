@@ -27,6 +27,9 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  requireCommercialModule,
+} from "../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   communicationReferenceScopeMiddleware,
 } from "../middleware/communicationReferenceScopeMiddleware.js";
 import {
@@ -68,14 +71,15 @@ const manageCommunications =
 |--------------------------------------------------------------------------
 |
 | The existing communications permission catalogue remains authoritative.
-| This chain only binds those permissions to the trusted Business/Location
-| scope supplied by the AIIBP tenancy contract.
+| Commercial entitlement is evaluated after trusted Business authority and
+| before communication scope and operation-specific RBAC checks.
 */
 router.use(
   protect,
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
+  requireCommercialModule("communications"),
   communicationEffectiveScopeMiddleware
 );
 

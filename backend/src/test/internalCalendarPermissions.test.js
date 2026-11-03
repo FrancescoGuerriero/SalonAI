@@ -84,10 +84,10 @@ test("calendar customer lookup is scoped to appointment mutation authority and m
       ),
       "utf8"
     );
-  const service =
+  const core =
     await readFile(
       new URL(
-        "../features/appointments/appointmentManagementService.js",
+        "../features/appointments/appointmentManagementCore.js",
         import.meta.url
       ),
       "utf8"
@@ -98,15 +98,15 @@ test("calendar customer lookup is scoped to appointment mutation authority and m
     /"\/customers"[\s\S]*?"appointment:create"[\s\S]*?"appointment:update"/
   );
   assert.match(
-    service,
+    core,
     /async function searchAppointmentCustomers/
   );
   assert.match(
-    service,
+    core,
     /"firstName lastName preferredName email phone status"/
   );
   assert.equal(
-    service.includes(
+    core.includes(
       '"hairProfile"'
     ),
     false

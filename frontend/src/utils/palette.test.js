@@ -5,6 +5,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const AIIBP_BRAND_FILES = new Set([
+  "components/platform/AiibpPlatformChrome.jsx",
+  "components/stage4/Stage4WorkspaceRouter.jsx",
+  "pages/AiibpModulesPage.jsx",
+  "pages/AiibpPlatformAboutPage.jsx",
+  "pages/AiibpPlatformContactPage.jsx",
+  "pages/AiibpPlatformHomePage.jsx",
+]);
 
 function filesIn(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -27,19 +35,35 @@ function hueAndSaturation(hex) {
   return { hue, saturation: maximum ? delta / maximum : 0 };
 }
 
-test("interface source contains only neutral, gold and sand colour values", () => {
+test("SalonAI interface source contains only neutral, gold and sand colour values", () => {
   const violations = [];
   for (const file of filesIn(root)) {
+    const relative = path.relative(root, file).replaceAll("\\", "/");
+    if (AIIBP_BRAND_FILES.has(relative)) continue;
     const source = fs.readFileSync(file, "utf8");
     for (const match of source.matchAll(/#[0-9a-fA-F]{6}\b/g)) {
       const value = match[0].toLowerCase();
       const { hue, saturation } = hueAndSaturation(value);
       const neutral = saturation <= 0.13;
       const goldOrSand = hue >= 30 && hue <= 60;
-      if (!neutral && !goldOrSand) violations.push(`${path.relative(root, file)}: ${value}`);
+      if (!neutral && !goldOrSand) violations.push(`${relative}: ${value}`);
     }
   }
   assert.deepEqual(violations, []);
+});
+
+test("AIIBP brand colour exception is restricted to the commercial platform surface", () => {
+  for (const relative of AIIBP_BRAND_FILES) {
+    assert.equal(fs.existsSync(path.join(root, relative)), true, `${relative} must exist`);
+  }
+  assert.equal(
+    [...AIIBP_BRAND_FILES].every((relative) =>
+      relative.startsWith("components/platform/") ||
+      relative === "components/stage4/Stage4WorkspaceRouter.jsx" ||
+      relative.startsWith("pages/Aiibp")
+    ),
+    true
+  );
 });
 
 test("audited interactive UI does not use blue, indigo or navy utilities", () => {
@@ -70,7 +94,6 @@ test("audited interactive UI does not use blue, indigo or navy utilities", () =>
 
   assert.deepEqual(violations, []);
 });
-
 
 test("approved SalonAI controls use lighter gold with black text", () => {
   const source = fs.readFileSync(

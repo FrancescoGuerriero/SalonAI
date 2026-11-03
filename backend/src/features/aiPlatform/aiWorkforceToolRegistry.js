@@ -38,6 +38,63 @@ const TOOL_DEFINITIONS =
         requiresHumanApproval:
           false,
       }),
+    "product.catalogue.read":
+      Object.freeze({
+        key:
+          "product.catalogue.read",
+        domain:
+          "commerce",
+        description:
+          "Read active tenant-scoped product catalogue data without exposing cost price or mutating catalogue or stock state.",
+        requiredPermission:
+          "inventory:read",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
+    "delivery.policy.read":
+      Object.freeze({
+        key:
+          "delivery.policy.read",
+        domain:
+          "commerce",
+        description:
+          "Read the currently published tenant-scoped customer delivery policy without changing policy or order state.",
+        requiredPermission:
+          "ai:use",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
+    "returns.policy.read":
+      Object.freeze({
+        key:
+          "returns.policy.read",
+        domain:
+          "commerce",
+        description:
+          "Read the currently published tenant-scoped customer returns policy without changing policy, refund or order state.",
+        requiredPermission:
+          "ai:use",
+        mutation:
+          false,
+        riskLevel:
+          "low",
+        maximumAutonomy:
+          "A0",
+        requiresHumanApproval:
+          false,
+      }),
     "availability.search":
       Object.freeze({
         key:

@@ -3,6 +3,7 @@ import AuditLog from "../models/AuditLog.js";
 import Business from "../models/Business.js";
 import DeadLetterRecord from "../models/DeadLetterRecord.js";
 import Location from "../models/Location.js";
+import TenantProductManifest from "../models/TenantProductManifest.js";
 import { recordAuditEvent } from "../services/auditService.js";
 import {
   featureSettingKey,
@@ -16,6 +17,13 @@ import {
 import {
   resolvePersistedConfiguration,
 } from "../platform/configuration/configurationValueService.js";
+import {
+  capabilitySupportsVertical,
+  listCapabilityPacks,
+} from "../platform/capabilities/capabilityRegistry.js";
+import {
+  resolveEffectiveTenantProductComposition,
+} from "../platform/productComposition/tenantProductManifest.js";
 
 export async function listSettings(req, res) {
   const settings = await SystemSetting.find()
@@ -213,6 +221,100 @@ export async function getConfigurationStudio(req, res) {
   });
 }
 
+export async function getTenantProductComposition(req, res) {
+  const businessId = String(req.effectiveAuthority?.businessId || "").trim();
+
+  if (!businessId) {
+    const error = new Error("Effective Business authority is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const manifestRecord = await TenantProductManifest.findOne({
+    business: businessId,
+    status: "active",
+  })
+    .sort({ manifestRevision: -1 })
+    .lean();
+
+  if (!manifestRecord) {
+    return res.json({
+      success: true,
+      productComposition: {
+        provisioned: false,
+        businessId,
+        manifest: null,
+        vertical: null,
+        modules: [],
+      },
+    });
+  }
+
+  const composition = resolveEffectiveTenantProductComposition({
+    manifest: {
+      ...manifestRecord,
+      businessId: String(manifestRecord.business),
+      manifestRevision: String(manifestRecord.manifestRevision),
+      effectiveFrom: manifestRecord.effectiveFrom
+        ? new Date(manifestRecord.effectiveFrom).toISOString()
+        : "",
+    },
+  });
+  const effectiveByKey = new Map(
+    composition.capabilities.map((capability) => [capability.key, capability])
+  );
+
+  const modules = listCapabilityPacks()
+    .filter((capability) => capability.allocatable)
+    .map((capability) => {
+      const effective = effectiveByKey.get(capability.key) || null;
+      const supported = capabilitySupportsVertical(
+        capability.key,
+        composition.vertical.id
+      );
+
+      let tenantState = "vertical-restricted";
+      let reason = "unsupported-vertical";
+
+      if (supported && !effective) {
+        tenantState = "available";
+        reason = "not-installed";
+      } else if (effective?.enabled) {
+        tenantState = "installed";
+        reason = effective.reason;
+      } else if (effective) {
+        tenantState = "disabled";
+        reason = effective.reason;
+      }
+
+      return {
+        key: capability.key,
+        label: capability.label,
+        tenantState,
+        reason,
+        selectionSource: effective?.selectionSource || null,
+        status: capability.status,
+      };
+    });
+
+  return res.json({
+    success: true,
+    productComposition: {
+      provisioned: true,
+      businessId,
+      manifest: {
+        revision: manifestRecord.manifestRevision,
+        platformVersion: manifestRecord.platformVersion,
+        planKey: manifestRecord.planKey,
+        status: manifestRecord.status,
+        effectiveFrom: manifestRecord.effectiveFrom,
+      },
+      vertical: composition.vertical,
+      modules,
+    },
+  });
+}
+
 export async function listAuditLogs(req, res) {
   const logs = await AuditLog.find()
     .populate("actor", "name email")
@@ -232,13 +334,8 @@ export async function listDeadLetters(req, res) {
   res.json({ success: true, records });
 }
 
-
-export async function getSocialAuthReadiness(
-  req,
-  res
-) {
-  const report =
-    buildSocialAuthReadinessReport();
+export async function getSocialAuthReadiness(req, res) {
+  const report = buildSocialAuthReadinessReport();
 
   res.json({
     success: true,

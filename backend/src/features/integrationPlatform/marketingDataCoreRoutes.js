@@ -2,6 +2,9 @@ import express from "express";
 
 import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
+import { effectiveAuthorityMiddleware } from "../../middleware/effectiveAuthorityMiddleware.js";
+import { requireCommercialModule } from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import * as controller from "./marketingDataCoreController.js";
 import * as recoveryController from "./marketingDataRecoveryController.js";
 
@@ -20,5 +23,13 @@ router.post("/sources/:sourceId/provider-run", write, asyncHandler(controller.ru
 router.get("/runs", read, asyncHandler(controller.runs));
 router.post("/runs/:runId/retry", write, asyncHandler(recoveryController.retryRun));
 router.get("/seo-observations", read, asyncHandler(controller.seoObservations));
+router.get(
+  "/seo-audit",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requireCommercialModule("marketing"),
+  read,
+  asyncHandler(controller.seoAudit)
+);
 
 export default router;

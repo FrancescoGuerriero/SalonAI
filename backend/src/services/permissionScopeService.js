@@ -131,6 +131,20 @@ export const PERMISSION_SCOPE_BY_KEY =
     "consultation:approve": "L",
     "consultation:assign": "L",
 
+    "clinical:record:read": "A",
+    "clinical:record:write": "L",
+    "clinical:record:sign": "L",
+    "clinical:consent:read": "A",
+    "clinical:consent:manage": "L",
+    "clinical:credential:read": "B",
+    "clinical:credential:manage": "B",
+    "clinical:media:read": "A",
+    "clinical:media:manage": "L",
+    "clinical:eligibility:manage": "L",
+
+    "benchmark:read": "B",
+    "benchmark:manage": "B",
+
     "loyalty:manage": "X",
     "gift-card:manage": "X",
     "referral:manage": "B",

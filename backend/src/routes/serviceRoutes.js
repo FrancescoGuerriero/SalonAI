@@ -17,6 +17,9 @@ import {
   effectiveAuthorityMiddleware,
 } from "../middleware/effectiveAuthorityMiddleware.js";
 import {
+  requireCommercialModule,
+} from "../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   requirePermissions,
 } from "../middleware/permissionMiddleware.js";
 import {
@@ -33,10 +36,12 @@ const protectedServiceTenantChain = [
   servicePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
+  requireCommercialModule("services"),
 ];
 
 // Customers browse published services only for the Business resolved from
-// the server-trusted request host.
+// the server-trusted request host. Public catalogue entitlement remains a
+// separate storefront policy concern; this route never exposes management data.
 router.get(
   "/",
   servicePublicTenantContextMiddleware,
@@ -44,7 +49,8 @@ router.get(
 );
 
 // Management catalogue includes published and unpublished records, but only
-// inside the trusted BusinessMembership/effective-authority tenant scope.
+// inside the trusted BusinessMembership/effective-authority tenant scope and
+// when the Services commercial module is installed for the tenant.
 router.get(
   "/management",
   ...protectedServiceTenantChain,

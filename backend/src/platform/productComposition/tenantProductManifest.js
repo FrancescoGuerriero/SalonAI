@@ -352,15 +352,19 @@ export function resolveEffectiveTenantProductComposition({
       return {
         key: capabilityKey,
         label: definition.label,
-        contractVersion:
-          definition.contractVersion,
+        contractVersion: definition.contractVersion,
         status: definition.status,
+        moduleClass: definition.moduleClass,
+        businessPurpose: definition.businessPurpose,
+        allocatable: definition.allocatable,
+        decisionSupportOnly: definition.decisionSupportOnly,
+        ownedDomains: definition.ownedDomains,
+        consumesDomains: definition.consumesDomains,
         enabled,
         reason,
         selectionSource,
         dependencies: definition.dependencies,
-        requiredPermissions:
-          definition.requiredPermissions,
+        requiredPermissions: definition.requiredPermissions,
       };
     }
   );
@@ -408,6 +412,7 @@ export function resolveEffectiveTenantProductComposition({
       id: vertical.id,
       label: vertical.label,
       terminology: vertical.terminology,
+      allocatableCapabilityPackKeys: vertical.allocatableCapabilityPackKeys,
     }),
     capabilities: Object.freeze(capabilities),
     enabledCapabilityPackKeys: Object.freeze(

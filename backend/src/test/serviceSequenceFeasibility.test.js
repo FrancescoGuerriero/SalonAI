@@ -94,6 +94,8 @@ test("provider work during a processing gap does not block the sequence", () => 
     sequence: COLOUR_SEQUENCE,
     providerAppointments: [
       {
+        // 08:30-09:00 UTC is 09:30-10:00 Europe/London on this BST date,
+        // exactly the provider-free processing gap for a 09:00 sequence start.
         startsAt: new Date("2030-06-15T08:30:00.000Z"),
         endsAt: new Date("2030-06-15T09:00:00.000Z"),
         status: "confirmed",
@@ -109,7 +111,10 @@ test("provider work during a processing gap does not block the sequence", () => 
     now: NOW,
   });
 
-  assert.deepEqual(slots, ["09:00", "10:00"]);
+  // 09:00 remains feasible because the overlapping appointment falls only
+  // inside the processing gap. A 10:00 start would end at 11:30 and therefore
+  // exceeds the declared 11:00 working range.
+  assert.deepEqual(slots, ["09:00"]);
 });
 
 test("resource capacity blocks otherwise feasible sequence starts", () => {

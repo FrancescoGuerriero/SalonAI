@@ -22,6 +22,9 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  requireCommercialModule,
+} from "../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   communicationReferenceScopeMiddleware,
 } from "../middleware/communicationReferenceScopeMiddleware.js";
 import {
@@ -75,13 +78,15 @@ router.post(
 
 /*
  * Interactive management routes compose the existing communications
- * permission model with trusted Business/Location effective authority.
+ * permission model with trusted Business/Location effective authority and
+ * require the Communications commercial module before operation-level RBAC.
  */
 router.use(
   protect,
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
+  requireCommercialModule("communications"),
   communicationEffectiveScopeMiddleware
 );
 

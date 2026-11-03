@@ -18,6 +18,7 @@ const BUILTIN_AGENTS =
           "active",
         allowedVerticals: [
           "salon",
+          "retail",
         ],
         requiredEntitlement:
           "",
@@ -26,6 +27,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A0",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "business-adviser-a0-v1",
@@ -61,9 +74,101 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "knowledge-retrieval",
+          profileRequired:
+            true,
+          citationsRequired:
+            true,
+          allowedScopeModes: [
+            "platform_global",
+            "vertical",
+            "tenant",
+          ],
+          allowedSourceTypes: [
+            "policy",
+            "salon_policy",
+            "service",
+            "product",
+            "business_rule",
+            "faq",
+            "document",
+          ],
+          maxKnowledgeSources:
+            8,
+        },
         evaluationSuite: {
           key:
             "ai-receptionist-a1-v2",
+          minimumTaskSuccessRate:
+            0.9,
+          maximumPolicyViolationRate:
+            0,
+        },
+      }),
+    "retail-customer-concierge":
+      Object.freeze({
+        key:
+          "retail-customer-concierge",
+        version:
+          "1",
+        displayName:
+          "AI Customer Concierge",
+        purpose:
+          "Provide governed Retail product discovery and customer policy guidance without inheriting Salon appointment tools or mutating Commerce, Inventory, CRM, Communications or Marketplace state.",
+        lifecycle:
+          "draft",
+        allowedVerticals: [
+          "retail",
+        ],
+        requiredEntitlement:
+          "ai-tools",
+        allowedTools: [
+          "product.catalogue.read",
+          "delivery.policy.read",
+          "returns.policy.read",
+        ],
+        plannedTools: [
+          "order.status.read",
+          "customer-support-action.propose",
+        ],
+        autonomyCeiling:
+          "A0",
+        groundingPolicy: {
+          mode:
+            "knowledge-retrieval",
+          profileRequired:
+            true,
+          citationsRequired:
+            true,
+          allowedScopeModes: [
+            "platform_global",
+            "vertical",
+            "tenant",
+          ],
+          allowedSourceTypes: [
+            "policy",
+            "retail_policy",
+            "product",
+            "catalogue",
+            "brand_content",
+            "business_rule",
+            "faq",
+            "document",
+          ],
+          maxKnowledgeSources:
+            8,
+        },
+        activationBlockers: [
+          "Reconcile canonical Commerce Order Business/Location ownership before registering order.status.read.",
+          "Add tenant/location isolation tests for order status and any future proposal tool.",
+          "Pass gut-instinct-customer-concierge evaluation suite with zero policy violations.",
+          "Complete owner-led manual acceptance before any production activation.",
+        ],
+        evaluationSuite: {
+          key:
+            "retail-customer-concierge-draft-v1",
           minimumTaskSuccessRate:
             0.9,
           maximumPolicyViolationRate:
@@ -93,6 +198,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "ai-retention-a1-v1",
@@ -125,6 +242,18 @@ const BUILTIN_AGENTS =
         ],
         autonomyCeiling:
           "A1",
+        groundingPolicy: {
+          mode:
+            "canonical-tools-only",
+          profileRequired:
+            false,
+          citationsRequired:
+            false,
+          allowedScopeModes: [],
+          allowedSourceTypes: [],
+          maxKnowledgeSources:
+            1,
+        },
         evaluationSuite: {
           key:
             "ai-lead-a1-v1",

@@ -1,0 +1,167 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import {
+  DATA_CONNECTIONS,
+  dataConnection,
+  listDataConnections,
+} from "../features/integrationPlatform/dataConnectionCatalogue.js";
+import {
+  listDataConnectionFieldProfiles,
+  resolveDataConnectionFieldProfile,
+} from "../features/integrationPlatform/dataConnectionFieldProfiles.js";
+
+async function source(relativePath) {
+  return readFile(new URL(relativePath, import.meta.url), "utf8");
+}
+
+test("Point 12 catalogue includes requested seller connections", () => {
+  const amazon = dataConnection("amazon_sp");
+  const ebay = dataConnection("ebay");
+  assert.equal(amazon.kind, "seller");
+  assert.equal(ebay.kind, "seller");
+  assert.equal(amazon.category, "Sellers");
+  assert.equal(ebay.category, "Sellers");
+});
+
+test("AIIBP data connection catalogue separates sources, sellers and destinations", () => {
+  const kinds = new Set(listDataConnections().map(({ kind }) => kind));
+  for (const kind of ["source", "seller", "data-platform", "destination", "ai-destination"]) {
+    assert.ok(kinds.has(kind), `${kind} must remain represented in the connection catalogue`);
+  }
+});
+
+test("requested connection catalogue is broad and metadata-driven", () => {
+  assert.ok(DATA_CONNECTIONS.length >= 25);
+  for (const item of DATA_CONNECTIONS) {
+    assert.ok(item.key);
+    assert.ok(item.label);
+    assert.ok(item.kind);
+  }
+});
+
+test("managed gateway keeps secrets server-side and uses provider-neutral configuration", async () => {
+  const gateway = await source("../features/integrationPlatform/dataConnectionGatewayService.js");
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_API_KEY/);
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_API_BASE_URL/);
+  assert.match(gateway, /AIIBP_DATA_CONNECTION_ONBOARD_BASE_URL/);
+  assert.match(gateway, /DATA_CONNECTION_GATEWAY_NOT_CONFIGURED/);
+  assert.doesNotMatch(gateway, /process\.env\.VITE_/);
+});
+
+test("managed source authorization is browser-safe and preserves a server-side reconciliation session", async () => {
+  const [gateway, controller, page] = await Promise.all([
+    source("../features/integrationPlatform/dataConnectionGatewayService.js"),
+    source("../features/integrationPlatform/dataConnectionController.js"),
+    source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx"),
+  ]);
+
+  assert.match(gateway, /generateDataConnectionAuthorization/);
+  assert.match(gateway, /authorizationSessionHash:\s*hash\(accessToken\)/);
+  assert.match(gateway, /authorizationAccessToken:\s*accessToken/);
+  assert.match(controller, /storeProviderCredential\([\s\S]*role:\s*"access_token"/);
+  assert.match(controller, /purpose:\s*"account_reconciliation"/);
+  assert.match(controller, /authorizationUrl:\s*auth\.authorizationUrl/);
+  assert.doesNotMatch(controller, /authorizationAccessToken:\s*auth\.authorizationAccessToken/);
+  assert.match(page, /window\.open\(payload\.authorizationUrl, "_blank", "noopener,noreferrer"\)/);
+  assert.doesNotMatch(page, /type=["']password["']/);
+});
+
+test("managed source reconciliation exposes only accounts linked through the active Business authorization", async () => {
+  const controller = await source("../features/integrationPlatform/dataConnectionController.js");
+
+  assert.match(
+    controller,
+    /IntegrationConnection\.findOne\(\{[\s\S]*business:\s*tenantBusinessId[\s\S]*connectionKey:\s*key/
+  );
+  assert.match(
+    controller,
+    /listLinkedDataAccounts\(\{[\s\S]*connectorId[\s\S]*accessToken:\s*await accessTokenFor\(connection\)/
+  );
+  assert.match(
+    controller,
+    /linked[\s\S]*\.filter\(\(account\) => account\.datasource === connectorId\)/
+  );
+  assert.match(controller, /DATA_CONNECTION_ACCOUNT_NOT_OWNED_BY_BUSINESS/);
+});
+
+test("data connection controller enforces tenant-owned accounts and sources", async () => {
+  const controller = await source("../features/integrationPlatform/dataConnectionController.js");
+  assert.match(controller, /businessId/);
+  assert.match(controller, /locationId/);
+  assert.match(controller, /request\.effectiveAuthority/);
+});
+
+test("Data Hub integration reuses canonical Marketing Data Core with tenant ownership metadata", async () => {
+  const service = await source("../features/integrationPlatform/dataConnectionDataHubService.js");
+  assert.match(service, /marketingDataCoreService\.js/);
+  assert.match(service, /runMarketingDataSource/);
+  assert.match(service, /businessId/);
+  assert.match(service, /locationId/);
+  assert.match(service, /aiibp_data_connections/);
+});
+
+test("scheduled managed sync preserves checkpoints and reuses canonical Marketing Data Core", async () => {
+  const scheduled = await source("../features/integrationPlatform/dataConnectionScheduledSyncService.js");
+  assert.match(scheduled, /checkpoint/);
+  assert.match(scheduled, /runMarketingDataSource/);
+  assert.match(scheduled, /businessId/);
+  assert.match(scheduled, /locationId/);
+  assert.match(scheduled, /readOnly: true/);
+});
+
+test("backfill is bounded and reports saturated one-day windows", async () => {
+  const backfill = await source("../features/integrationPlatform/dataConnectionBackfillService.js");
+  assert.match(backfill, /one-day/i);
+  assert.match(backfill, /saturated/i);
+});
+
+test("seller profiles and KPI summaries remain AIIBP-owned", async () => {
+  const profiles = listDataConnectionFieldProfiles("amazon_sp");
+  assert.ok(profiles.length > 0);
+  assert.ok(resolveDataConnectionFieldProfile("amazon_sp", profiles[0].key));
+  const kpis = await source("../features/integrationPlatform/sellerKpiService.js");
+  assert.match(kpis, /resolveDataConnectionFieldProfile/);
+});
+
+test("routes are permission protected under AIIBP managed data connections", async () => {
+  const routes = await source("../features/integrationPlatform/marketingConnectedAccountsRoutes.js");
+  assert.match(routes, /data-connections\/catalogue/);
+  assert.match(routes, /data-connections\/:connector\/authorize/);
+  assert.match(routes, /data-connections\/:connector\/reconcile/);
+  assert.match(routes, /data-connections\/:connector\/preview/);
+  assert.match(routes, /data-connections\/:connector\/import/);
+  assert.match(routes, /data-connections\/:connector\/backfill/);
+  assert.match(routes, /data-connections\/:connector\/seller-kpis/);
+  assert.match(routes, /requirePermissions\("feature-control:read"\)/);
+  assert.match(routes, /requirePermissions\("feature-control:update"\)/);
+});
+
+test("frontend exposes the roadmap Marketing data connection and Seller workspaces", async () => {
+  const router = await source("../../../frontend/src/components/stage8/Stage8WorkspaceRouter.jsx");
+  const landing = await source("../../../frontend/src/pages/MarketingModulePage.jsx");
+  const page = await source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx");
+  const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
+
+  assert.match(router, /pathname === "\/marketing\/data-connections"/);
+  assert.match(landing, /title: "Data connections"/);
+  assert.match(landing, /title: "Native connections"/);
+  assert.match(landing, /title: "Sellers"/);
+  assert.match(landing, /\/marketing\/data-connections\?type=seller/);
+  assert.match(page, /AIIBP data connections/);
+  assert.match(page, /Connect securely/);
+  assert.match(client, /importManagedDataConnection/);
+});
+
+test("unconfigured managed data connections remain visible but connection actions fail closed", async () => {
+  const page = await source("../../../frontend/src/pages/MarketingDataConnectionsPage.jsx");
+  const client = await source("../../../frontend/src/Services/marketingConnectionsService.js");
+
+  assert.match(page, /Managed data connections are not configured in this environment/);
+  assert.match(page, /setItems\(Array\.isArray\(payload\?\.items\)/);
+  assert.match(page, /!runtime\.configured/);
+  assert.match(page, /disabled=\{!canManage \|\| !runtime\.configured/);
+  assert.doesNotMatch(page, /VITE_.*DATA_CONNECTION|VITE_.*ADAPTER|API_KEY/);
+  assert.doesNotMatch(client, /VITE_.*DATA_CONNECTION|VITE_.*ADAPTER|API_KEY/);
+});

@@ -37,8 +37,20 @@ jobs:
         working-directory: backend
 
       - name: Run complete backend regression suite
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee stage-1-6-backend-test.log
         working-directory: backend
+
+      - name: Retain backend regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: stage-1-6-backend-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: backend/stage-1-6-backend-test.log
+          if-no-files-found: error
+          retention-days: 14
 
   frontend-regression:
     name: Frontend Stage 1-6 regression

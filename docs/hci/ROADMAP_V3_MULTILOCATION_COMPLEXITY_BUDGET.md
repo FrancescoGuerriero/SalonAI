@@ -6,7 +6,7 @@ Baseline: `main@b14f56e801ee4337cef765f1b40cb0e555ed7217`
 
 ## Purpose
 
-The Zenoti benchmark demonstrates the commercial value of broad enterprise functionality, but public product feedback also highlights the usability cost of dense configuration and click-heavy administration. AI Intelligent Business Platform should retain enterprise capability while enforcing a measurable complexity budget.
+AIIBP must support broad enterprise-grade functionality without allowing configuration density, navigation depth or administrative complexity to make ordinary business tasks difficult. This document defines a measurable UX complexity budget for the modular multi-location platform.
 
 This document starts the HCI audit. It does not define tenancy, RBAC or business rules.
 
@@ -48,6 +48,8 @@ A material redesign should not increase steps or task time without a documented 
 6. Permission errors should identify the unavailable action without revealing unauthorised tenant/location data.
 7. Dialogs, drawers and popovers must remain within the viewport at supported breakpoints.
 8. Mobile workspaces should prioritise operational tasks rather than reproduce every desktop administration control.
+9. A module should expose only the configuration and cross-module links needed for its tasks; internal platform dependencies remain hidden from ordinary users.
+10. The same canonical function must not be exposed through multiple competing administration surfaces without a documented role-specific reason.
 
 ## Prototype set
 
@@ -65,8 +67,9 @@ Each prototype should cover desktop and at least one narrow/mobile breakpoint an
 
 ## Handoff gate
 
-DEV2 hands implementation-ready flows to DEV1/DEV4 only after:
-- terminology is consistent with the shared platform contracts;
-- DEV3 confirms permission semantics where relevant;
+DEV2 hands implementation-ready flows to DEV1 only after:
+- terminology is consistent with the shared AIIBP platform contracts;
+- permission semantics are confirmed where relevant;
 - prototype review identifies no critical viewport/accessibility issue;
-- the proposed flow does not create a duplicate management surface.
+- the proposed flow does not create a duplicate management surface;
+- module boundaries remain compatible with the current dependency-resolved tenant composition model.

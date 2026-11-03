@@ -5,11 +5,18 @@ import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
 const AiCandidateGovernancePage = lazy(() => import("../../pages/AiCandidateGovernancePage.jsx"));
+const AiCorePage = lazy(() => import("../../pages/AiCorePage.jsx"));
 const AiOfflineExperimentComparisonPage = lazy(() => import("../../pages/AiOfflineExperimentComparisonPage.jsx"));
 const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionProposalPage.jsx"));
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
+const ConnectionsWorkspacePage = lazy(() => import("../../pages/ConnectionsWorkspacePage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
+const MarketingModulePage = lazy(() => import("../../pages/MarketingModulePage.jsx"));
+const MarketingDataConnectionsPage = lazy(() => import("../../pages/MarketingDataConnectionsPage.jsx"));
+const MarketplaceCommandCentrePage = lazy(() => import("../../pages/MarketplaceCommandCentrePage.jsx"));
+const MembershipManagementPage = lazy(() => import("../../pages/MembershipManagementPage.jsx"));
+const ModuleOperationsPage = lazy(() => import("../../pages/ModuleOperationsPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -25,15 +32,55 @@ function DeferredWorkspace({ children }) {
   return <Suspense fallback={null}>{children}</Suspense>;
 }
 
+function MarketingAccess({ children, loading, user }) {
+  if (loading) return null;
+  if (!user) return <Navigate replace to="/login" />;
+  return hasPermission(user, "feature-control:read")
+    ? <DeferredWorkspace>{children}</DeferredWorkspace>
+    : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+}
+
 export default function Stage8WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
 
   if (pathname === "/marketing") {
+    return <MarketingAccess loading={loading} user={user}><MarketingModulePage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketplaces") {
+    return <MarketingAccess loading={loading} user={user}><MarketplaceCommandCentrePage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketing/native-connections") {
+    return <MarketingAccess loading={loading} user={user}><MarketingHubPage /></MarketingAccess>;
+  }
+
+  if (pathname === "/marketing/data-connections") {
+    return <MarketingAccess loading={loading} user={user}><MarketingDataConnectionsPage /></MarketingAccess>;
+  }
+
+  if (pathname === "/memberships") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "customer:read")
+      ? <DeferredWorkspace><MembershipManagementPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect customer memberships." />;
+  }
+
+  if (pathname === "/admin/system/modules") {
     if (loading) return null;
     if (!user) return <Navigate replace to="/login" />;
     return hasPermission(user, "feature-control:read")
-      ? <DeferredWorkspace><MarketingHubPage /></DeferredWorkspace>
-      : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+      ? <DeferredWorkspace><ModuleOperationsPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect commercial module operations." />;
+  }
+
+  if (pathname === "/admin/system/connections") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><ConnectionsWorkspacePage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect business connections." />;
   }
 
   if (pathname === "/admin/system/data-hub") {
@@ -42,6 +89,14 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><DataHubPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect the AIIBP Data Hub." />;
+  }
+
+  if (pathname === "/admin/system/ai-core") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    return hasPermission(user, "feature-control:read")
+      ? <DeferredWorkspace><AiCorePage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect AI Core governance." />;
   }
 
   if (pathname === "/admin/system/ai-readiness") {

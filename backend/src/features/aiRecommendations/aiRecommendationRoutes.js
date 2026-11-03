@@ -14,6 +14,9 @@ import {
 import {
   trustedTenantContextMiddleware,
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
+import { requireCommercialModule } from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import { requireCoreAiExecutionContext } from "../../platform/coreAi/coreAiExecutionContext.js";
+import { authoriseCoreAiTool } from "../../platform/coreAi/coreAiToolAuthorisation.js";
 
 import {
   analyseCustomerSegmentation,
@@ -93,6 +96,18 @@ const tenantAwareAiChain = [
   ),
 ];
 
+const adviserModuleChain = [
+  ...tenantAwareAiChain,
+  requireCommercialModule("ai-decision-support"),
+  requireCoreAiExecutionContext({ moduleKey: "ai-decision-support", toolKey: "business-adviser" }),
+];
+
+const stylistModuleChain = [
+  ...tenantAwareAiChain,
+  requireCommercialModule("ai-stylist-copilot"),
+  requireCoreAiExecutionContext({ moduleKey: "ai-stylist-copilot", toolKey: "stylist-copilot" }),
+];
+
 router.get(
   "/status",
   asyncHandler(status)
@@ -100,43 +115,44 @@ router.get(
 
 router.post(
   "/adviser/query",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
+  authoriseCoreAiTool({ agentKey: "business-adviser", toolKey: "business.metrics.read" }),
   asyncHandler(askAdviser)
 );
 
 router.patch(
   "/adviser/inferences/:inferenceId/feedback",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(submitFeedback)
 );
 
 router.get(
   "/adviser/evaluation",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(getEvaluation)
 );
 
 router.get(
   "/adviser/proposals",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(listProposals)
 );
 
 router.post(
   "/adviser/proposals",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(createProposal)
 );
 
 router.patch(
   "/adviser/proposals/:proposalId/review",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(reviewProposal)
 );
 
 router.post(
   "/adviser/proposals/:proposalId/prepare",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(prepareProposalDraft)
 );
 
@@ -190,13 +206,13 @@ router.post(
 
 router.get(
   "/management-copilot",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(getAiManagementCopilot)
 );
 
 router.get(
   "/stylist-copilot/appointments/:appointmentId",
-  ...tenantAwareAiChain,
+  ...stylistModuleChain,
   asyncHandler(getAiStylistCopilot)
 );
 

@@ -3,8 +3,10 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.governance.training_data_registry import training_data_snapshot
 
-REGISTRY_VERSION = "1.3.0"
+
+REGISTRY_VERSION = "1.4.0"
 ADVISORY_EVALUATION_POLICY_VERSION = "salonai-advisory-evaluation-v1"
 
 
@@ -160,8 +162,15 @@ _MODEL_REGISTRY: tuple[dict[str, Any], ...] = (
 def registry_snapshot() -> dict[str, Any]:
     return {
         "version": REGISTRY_VERSION,
+        "module": {
+            "key": "ai",
+            "label": "AI Core",
+            "role": "shared_core_module",
+            "assistantModulesConsumeCore": True,
+        },
         "tools": deepcopy(list(_TOOL_REGISTRY)),
         "models": deepcopy(list(_MODEL_REGISTRY)),
+        "trainingData": training_data_snapshot(),
         "policy": {
             "canonicalFactsRequired": True,
             "tenantContextRequired": True,

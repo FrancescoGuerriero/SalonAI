@@ -18,7 +18,7 @@ import {
   getRuntimePlatformConfiguration,
 } from "../platform/platformConfigurationService.js";
 
-test("AI Intelligent Business Platform registers the four current vertical products", () => {
+test("AI Intelligent Business Platform registers the five current vertical products", () => {
   assert.equal(DEFAULT_VERTICAL_ID, "salon");
 
   const expectedVerticals = [
@@ -26,6 +26,7 @@ test("AI Intelligent Business Platform registers the four current vertical produ
     ["plastic-surgery", "Plastic Surgery AI"],
     ["spa", "Spa AI"],
     ["fitness", "Fitness AI"],
+    ["retail", "Retail AI"],
   ];
 
   for (const [id, label] of expectedVerticals) {
@@ -33,7 +34,7 @@ test("AI Intelligent Business Platform registers the four current vertical produ
     assert.equal(getVerticalDefinition(id).label, label);
   }
 
-  assert.equal(listVerticalDefinitions().length, 4);
+  assert.equal(listVerticalDefinitions().length, 5);
 
   const salon = getVerticalDefinition();
   assert.equal(salon.terminology.staffMember, "Stylist");
@@ -136,6 +137,7 @@ test("Business model accepts every registered current vertical", () => {
     "plastic-surgery",
     "spa",
     "fitness",
+    "retail",
   ]) {
     const business = new Business({
       name: `Example ${businessType}`,
@@ -172,6 +174,7 @@ test("public platform configuration exposes product metadata without tenant data
     { id: "plastic-surgery", label: "Plastic Surgery AI" },
     { id: "spa", label: "Spa AI" },
     { id: "fitness", label: "Fitness AI" },
+    { id: "retail", label: "Retail AI" },
   ]);
   assert.equal(configuration.businessType, "spa");
   assert.equal(configuration.verticalLabel, "Spa AI");

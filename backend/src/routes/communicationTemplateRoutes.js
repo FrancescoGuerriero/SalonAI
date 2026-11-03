@@ -11,6 +11,9 @@ import {
   protect,
 } from "../middleware/authMiddleware.js";
 import {
+  requireCommercialModule,
+} from "../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   communicationEffectiveScopeMiddleware,
   scopedTemplateMutationResource,
   scopedTemplateResource,
@@ -48,6 +51,7 @@ router.use(
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
+  requireCommercialModule("communications"),
   communicationEffectiveScopeMiddleware
 );
 

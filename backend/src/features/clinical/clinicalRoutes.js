@@ -1,6 +1,9 @@
 import { Router } from "express";
 
 import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   effectiveAuthorityMiddleware,
 } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
@@ -20,9 +23,12 @@ const router = Router();
 
 router.use(trustedTenantContextMiddleware);
 router.use(effectiveAuthorityMiddleware);
+router.use(requireCommercialModule("clinical-records"));
 
 /* Eligibility administration is the only clinical surface available before
- * eligibility has been granted. The pack otherwise fails closed by default. */
+ * regional/location eligibility has been granted. The commercial Clinical
+ * Records entitlement is still required first so an unprovisioned tenant can
+ * never enter the regulated clinical capability through RBAC alone. */
 router.get(
   "/eligibility",
   requirePermissions("clinical:eligibility:manage"),

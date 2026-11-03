@@ -81,6 +81,43 @@ const aiTrainingDatasetSchema =
           },
         },
       },
+      trainingContext: {
+        layer: {
+          type: String,
+          enum: [
+            "general",
+            "vertical",
+            "tenant",
+            "continuous-ml",
+          ],
+          default: undefined,
+          index: true,
+        },
+        profileKey: {
+          type: String,
+          trim: true,
+          default: "",
+          index: true,
+        },
+        tenantBlueprintKey: {
+          type: String,
+          trim: true,
+          default: "",
+          index: true,
+        },
+        productionTrainingAuthorized: {
+          type: Boolean,
+          default: false,
+        },
+        automaticPromotionAuthorized: {
+          type: Boolean,
+          default: false,
+        },
+        automaticInferenceActivationAuthorized: {
+          type: Boolean,
+          default: false,
+        },
+      },
       status: {
         type: String,
         enum: [
@@ -202,6 +239,13 @@ aiTrainingDatasetSchema.index(
 aiTrainingDatasetSchema.index({
   "scope.mode": 1,
   "scope.business": 1,
+  task: 1,
+  status: 1,
+});
+
+aiTrainingDatasetSchema.index({
+  "trainingContext.profileKey": 1,
+  "trainingContext.layer": 1,
   task: 1,
   status: 1,
 });

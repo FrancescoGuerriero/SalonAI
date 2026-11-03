@@ -376,9 +376,9 @@ test("strict shared eligibility is wired through production booking surfaces", (
 
 
 test("global bookability is enforced in customer and staff-managed appointment writes", () => {
-  const appointmentController = fs.readFileSync(
+  const customerBookingController = fs.readFileSync(
     new URL(
-      "../controllers/appointmentController.js",
+      "../features/appointments/customerBookingController.js",
       import.meta.url
     ),
     "utf8"
@@ -393,7 +393,7 @@ test("global bookability is enforced in customer and staff-managed appointment w
   );
 
   assert.match(
-    appointmentController,
+    customerBookingController,
     /isAppointmentEligibleStylist/
   );
 

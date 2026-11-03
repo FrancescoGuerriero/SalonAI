@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import CmsPage from "../../pages/CmsPage.jsx";
 import ContentStudioPage from "../../pages/ContentStudioPage.jsx";
@@ -5,10 +6,17 @@ import CustomerCheckInPage from "../../pages/CustomerCheckInPage.jsx";
 import CustomerRelationshipsPage from "../../pages/CustomerRelationshipsPage.jsx";
 import ReputationHubPage from "../../pages/ReputationHubPage.jsx";
 import StylistCopilotPage from "../../pages/StylistCopilotPage.jsx";
+import CommercialModuleEntitlementBoundary from "../../Routes/CommercialModuleEntitlementBoundary.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import useFeatureControls from "../../hooks/useFeatureControls.js";
 import { hasPermission } from "../../utils/permissions.js";
 import Stage5WorkspaceRouter from "../stage5/Stage5WorkspaceRouter.jsx";
+
+const AiibpPlatformChrome = lazy(() => import("../platform/AiibpPlatformChrome.jsx"));
+const AiibpModulesPage = lazy(() => import("../../pages/AiibpModulesPage.jsx"));
+const AiibpPlatformAboutPage = lazy(() => import("../../pages/AiibpPlatformAboutPage.jsx"));
+const AiibpPlatformContactPage = lazy(() => import("../../pages/AiibpPlatformContactPage.jsx"));
+const AiibpPlatformHomePage = lazy(() => import("../../pages/AiibpPlatformHomePage.jsx"));
 
 function AccessDenied() {
   return (
@@ -30,9 +38,34 @@ function FeatureUnavailable() {
   );
 }
 
+function platformPage(pathname) {
+  let Page = null;
+  if (pathname === "/platform") Page = AiibpPlatformHomePage;
+  else if (pathname === "/platform/modules") Page = AiibpModulesPage;
+  else if (pathname === "/platform/about") Page = AiibpPlatformAboutPage;
+  else if (pathname === "/platform/contact") Page = AiibpPlatformContactPage;
+  if (!Page) return null;
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#061323]" aria-busy="true" />}>
+      <AiibpPlatformChrome><Page /></AiibpPlatformChrome>
+    </Suspense>
+  );
+}
+
+function entitlementBoundary(pathname, content) {
+  return (
+    <CommercialModuleEntitlementBoundary pathname={pathname}>
+      {content}
+    </CommercialModuleEntitlementBoundary>
+  );
+}
+
 export default function Stage4WorkspaceRouter({ pathname, children }) {
   const { user, loading } = useAuth();
   const { isFeatureEnabled } = useFeatureControls();
+
+  const publicPlatformPage = platformPage(pathname);
+  if (publicPlatformPage) return publicPlatformPage;
 
   if (pathname.startsWith("/content/") && pathname.length > "/content/".length) {
     return <CmsPage />;
@@ -49,7 +82,9 @@ export default function Stage4WorkspaceRouter({ pathname, children }) {
   if (stylistCopilotWorkspace && !user) return <Navigate replace to="/login" />;
   if (stylistCopilotWorkspace && !hasPermission(user, "ai:use")) return <AccessDenied />;
   if (stylistCopilotWorkspace && !isFeatureEnabled("ai-tools")) return <FeatureUnavailable />;
-  if (stylistCopilotWorkspace) return <StylistCopilotPage />;
+  if (stylistCopilotWorkspace) {
+    return entitlementBoundary(pathname, <StylistCopilotPage />);
+  }
 
   const managementWorkspace = pathname === "/customer-experience-management/content"
     || pathname === "/customer-experience-management/reputation";
@@ -57,17 +92,24 @@ export default function Stage4WorkspaceRouter({ pathname, children }) {
   if (managementWorkspace && !user) return <Navigate replace to="/login" />;
 
   if (pathname === "/customer-experience-management/content") {
-    return hasPermission(user, "customer-experience:read")
-      ? <ContentStudioPage />
-      : <AccessDenied />;
+    return entitlementBoundary(
+      pathname,
+      hasPermission(user, "customer-experience:read")
+        ? <ContentStudioPage />
+        : <AccessDenied />
+    );
   }
   if (pathname === "/customer-experience-management/reputation") {
-    return hasPermission(user, "customer-experience:read")
-      ? <ReputationHubPage />
-      : <AccessDenied />;
+    return entitlementBoundary(
+      pathname,
+      hasPermission(user, "customer-experience:read")
+        ? <ReputationHubPage />
+        : <AccessDenied />
+    );
   }
 
-  return (
+  return entitlementBoundary(
+    pathname,
     <Stage5WorkspaceRouter pathname={pathname}>
       {children}
     </Stage5WorkspaceRouter>

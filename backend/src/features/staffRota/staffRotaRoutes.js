@@ -1,6 +1,9 @@
 import express from "express";
 
 import {
+  requireCommercialModule,
+} from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import {
   effectiveAuthorityMiddleware,
 } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
@@ -26,6 +29,7 @@ const rotaTenantAuthority = [
   workforcePublicTenantContextMiddleware,
   trustedTenantContextMiddleware,
   effectiveAuthorityMiddleware,
+  requireCommercialModule("staff"),
 ];
 
 const scopedExistingShiftMutation = [

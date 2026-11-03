@@ -6,9 +6,8 @@ export async function askAdviser(
   request,
   response
 ) {
-  const tenantContext =
-    request.tenantContext ||
-    {};
+  const executionContext = request.coreAiExecutionContext;
+  const toolDecision = request.coreAiToolDecision;
   const result =
     await askSalonAiAdviser({
       question:
@@ -24,24 +23,18 @@ export async function askAdviser(
         ) || 30,
       user:
         request.user,
+      coreAiExecutionContext: executionContext,
+      coreAiToolDecision: toolDecision,
       requestId:
         request.id ||
         request.requestId ||
         request.headers?.[
           "x-request-id"
         ],
-      businessId:
-        tenantContext.businessId ||
-        null,
-      locationId:
-        tenantContext.locationId ||
-        null,
-      locationAccessMode:
-        tenantContext.locationAccessMode ||
-        "selected",
-      allowedLocationIds:
-        tenantContext.allowedLocationIds ||
-        [],
+      businessId: executionContext?.businessId || null,
+      locationId: executionContext?.locationId || null,
+      locationAccessMode: executionContext?.locationAccessMode || "selected",
+      allowedLocationIds: executionContext?.allowedLocationIds || [],
     });
 
   return response

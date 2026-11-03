@@ -5,6 +5,7 @@ import Order from "../commerce/Order.js";
 import ConsultationSession from "../consultations/ConsultationSession.js";
 import AiInferenceLog from "../aiPlatform/AiInferenceLog.js";
 import { generateStylistCopilotBrief } from "./stylistCopilotAiClient.js";
+import { assertCoreAiModuleExecutionContext } from "../../platform/coreAi/coreAiExecutionContext.js";
 
 function text(value) {
   return String(value ?? "").trim();
@@ -276,7 +277,17 @@ export async function generateStylistCopilot({
   businessId,
   locationId = null,
   allowedLocationIds = [],
+  coreAiExecutionContext,
 }) {
+  const authorised = assertCoreAiModuleExecutionContext({
+    context: coreAiExecutionContext,
+    moduleKey: "ai-stylist-copilot",
+    toolKey: "stylist-copilot",
+    businessId,
+    locationId,
+    allowedLocationIds,
+    actorUserId: user?._id,
+  });
   const startedAt = Date.now();
   const context = await buildStylistCopilotContext({
     appointmentId,
@@ -316,6 +327,9 @@ export async function generateStylistCopilot({
       actorRole: text(user?.role),
       actorUserId: user?._id,
       source: "ai-stylist-copilot",
+      moduleKey: authorised.moduleKey,
+      manifestRevision: authorised.manifestRevision,
+      autonomy: "A0",
     },
   });
 
