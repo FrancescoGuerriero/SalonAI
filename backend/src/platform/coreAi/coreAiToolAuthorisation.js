@@ -48,7 +48,7 @@ export function authoriseCoreAiTool({ agentKey, toolKey, requestedAutonomy = "A0
 
       const decision = evaluateAgentToolPolicy({ agent, tool, requestedAutonomy });
       if (!decision.allowed || decision.directMutation ||
-          (decision.requiresHumanApproval && !request?.coreAiApprovedProposal)) {
+          decision.requiresHumanApproval) {
         throw denied("AI tool execution requires a separately approved proposal.", "CORE_AI_TOOL_APPROVAL_REQUIRED");
       }
       request.coreAiToolDecision = Object.freeze({
