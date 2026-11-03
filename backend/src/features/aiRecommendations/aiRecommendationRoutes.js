@@ -14,6 +14,7 @@ import {
 import {
   trustedTenantContextMiddleware,
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
+import { requireCommercialModule } from "../../middleware/commercialModuleEntitlementMiddleware.js";
 
 import {
   analyseCustomerSegmentation,
@@ -93,6 +94,16 @@ const tenantAwareAiChain = [
   ),
 ];
 
+const adviserModuleChain = [
+  ...tenantAwareAiChain,
+  requireCommercialModule("ai-decision-support"),
+];
+
+const stylistModuleChain = [
+  ...tenantAwareAiChain,
+  requireCommercialModule("ai-stylist-copilot"),
+];
+
 router.get(
   "/status",
   asyncHandler(status)
@@ -100,43 +111,43 @@ router.get(
 
 router.post(
   "/adviser/query",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(askAdviser)
 );
 
 router.patch(
   "/adviser/inferences/:inferenceId/feedback",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(submitFeedback)
 );
 
 router.get(
   "/adviser/evaluation",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(getEvaluation)
 );
 
 router.get(
   "/adviser/proposals",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(listProposals)
 );
 
 router.post(
   "/adviser/proposals",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(createProposal)
 );
 
 router.patch(
   "/adviser/proposals/:proposalId/review",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(reviewProposal)
 );
 
 router.post(
   "/adviser/proposals/:proposalId/prepare",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(prepareProposalDraft)
 );
 
@@ -190,13 +201,13 @@ router.post(
 
 router.get(
   "/management-copilot",
-  ...tenantAwareAiChain,
+  ...adviserModuleChain,
   asyncHandler(getAiManagementCopilot)
 );
 
 router.get(
   "/stylist-copilot/appointments/:appointmentId",
-  ...tenantAwareAiChain,
+  ...stylistModuleChain,
   asyncHandler(getAiStylistCopilot)
 );
 
