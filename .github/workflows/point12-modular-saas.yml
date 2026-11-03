@@ -19,6 +19,8 @@ on:
       - "backend/src/features/staffRota/staffRotaAuthorityMiddleware.js"
       - "backend/src/features/aiRecommendations/aiRecommendationRoutes.js"
       - "backend/src/test/point12CoreAiModuleExecutionBoundary.test.js"
+      - "backend/src/platform/coreAi/coreAiExecutionContext.js"
+      - "backend/src/test/point12CoreAiExecutionContext.test.js"
       - "backend/src/features/leads/leadRoutes.js"
       - "backend/src/features/leads/leadController.js"
       - "backend/src/features/reports/reportRoutes.js"
@@ -92,6 +94,8 @@ on:
       - "backend/src/features/staffRota/staffRotaAuthorityMiddleware.js"
       - "backend/src/features/aiRecommendations/aiRecommendationRoutes.js"
       - "backend/src/test/point12CoreAiModuleExecutionBoundary.test.js"
+      - "backend/src/platform/coreAi/coreAiExecutionContext.js"
+      - "backend/src/test/point12CoreAiExecutionContext.test.js"
       - "backend/src/features/leads/leadRoutes.js"
       - "backend/src/features/leads/leadController.js"
       - "backend/src/features/reports/reportRoutes.js"
@@ -190,6 +194,7 @@ jobs:
           src/test/point12StaffEntitlementBoundary.test.js
           src/test/point12CrmEntitlementBoundary.test.js
           src/test/point12CoreAiModuleExecutionBoundary.test.js
+          src/test/point12CoreAiExecutionContext.test.js
 
       - name: Verify backend source
         run: npm run check
