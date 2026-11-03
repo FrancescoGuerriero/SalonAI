@@ -20,6 +20,19 @@ Execution is now frozen around five product pillars:
 
 No new commercial modules or secondary product features should be added until these pillars satisfy their exit gates.
 
+## Current execution sequencing — owner direction, 3 November 2026 (evening)
+
+The product owner explicitly **deferred tenant provisioning and the 22-module assignment implementation** and requested Marketing development next, specifically Google/Microsoft Search and Ads, technical SEO, monthly backlink outreach and article submissions from an approved pool of tenant-owned website articles. This is a **sequencing change only**, not removal of SaaS provisioning or reduction of the 22-module catalogue.
+
+**Active immediate priority:** Marketing Search & SEO Operations, as specified in `docs/roadmap/point12-search-ads-seo-editorial-research-2026-11-03.md`:
+1. S1 secure tenant-owned SEO inventory, technical audit, canonical/robots/sitemap and public-page verification;
+2. S2 Search Console, Bing Webmaster REST and consented IndexNow submissions;
+3. S3 Google Ads/Microsoft Ads, conversion/consent/attribution and read-only optimisation;
+4. S4 approved article pool, **monthly editorial outreach**, publisher-permitted submissions and verified backlink health;
+5. S5 measurable AI-search visibility and prioritised content improvement.
+
+**Deferred until owner restarts it:** Section 5 Business/Location tenant onboarding and assignment workflow, plus non-blocking Core AI enhancements. Existing Business/Location authority and `marketing` entitlement enforcement are **not** deferred: every new Marketing feature must preserve them. External provider credentials, scheduled outreach, paid campaign mutations, link placements, bulk submissions and production workers remain blocked pending controlled acceptance and explicit activation. Do not claim guaranteed backlinks, rankings or indexing.
+
 ## 2. Platform invariants
 
 `AIIBP Platform -> Vertical/Product Configuration -> Business -> Location -> Users/Resources`
