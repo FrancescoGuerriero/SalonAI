@@ -15,6 +15,7 @@ import {
   trustedTenantContextMiddleware,
 } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import { requireCommercialModule } from "../../middleware/commercialModuleEntitlementMiddleware.js";
+import { requireCoreAiExecutionContext } from "../../platform/coreAi/coreAiExecutionContext.js";
 
 import {
   analyseCustomerSegmentation,
@@ -97,11 +98,13 @@ const tenantAwareAiChain = [
 const adviserModuleChain = [
   ...tenantAwareAiChain,
   requireCommercialModule("ai-decision-support"),
+  requireCoreAiExecutionContext({ moduleKey: "ai-decision-support", toolKey: "business-adviser" }),
 ];
 
 const stylistModuleChain = [
   ...tenantAwareAiChain,
   requireCommercialModule("ai-stylist-copilot"),
+  requireCoreAiExecutionContext({ moduleKey: "ai-stylist-copilot", toolKey: "stylist-copilot" }),
 ];
 
 router.get(
