@@ -31,6 +31,11 @@ on:
       - "backend/src/features/leads/leadController.js"
       - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/marketingSeoAuditService.js"
+      - "backend/src/features/integrationPlatform/marketingDataCoreController.js"
+      - "backend/src/features/integrationPlatform/marketingDataCoreRoutes.js"
+      - "backend/src/test/point12MarketingSeoAudit.test.js"
+      - "frontend/src/components/marketing/MarketingSeoAuditPanel.jsx"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
       - "backend/src/features/observability/**"
@@ -112,6 +117,11 @@ on:
       - "backend/src/features/leads/leadController.js"
       - "backend/src/features/reports/reportRoutes.js"
       - "backend/src/features/integrationPlatform/dataConnection*.js"
+      - "backend/src/features/integrationPlatform/marketingSeoAuditService.js"
+      - "backend/src/features/integrationPlatform/marketingDataCoreController.js"
+      - "backend/src/features/integrationPlatform/marketingDataCoreRoutes.js"
+      - "backend/src/test/point12MarketingSeoAudit.test.js"
+      - "frontend/src/components/marketing/MarketingSeoAuditPanel.jsx"
       - "backend/src/features/integrationPlatform/sellerKpiService.js"
       - "backend/src/features/integrationPlatform/marketingConnectedAccountsRoutes.js"
       - "backend/src/features/observability/**"
@@ -208,6 +218,7 @@ jobs:
           src/test/point12CoreAiModuleExecutionBoundary.test.js
           src/test/point12CoreAiExecutionContext.test.js
           src/test/point12CoreAiToolAuthorisation.test.js
+          src/test/point12MarketingSeoAudit.test.js
 
       - name: Verify backend source
         run: npm run check
