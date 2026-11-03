@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { requireCoreAiExecutionContext } from "../platform/coreAi/coreAiExecutionContext.js";
+import { requireCoreAiExecutionContext, assertCoreAiModuleExecutionContext } from "../platform/coreAi/coreAiExecutionContext.js";
 
 function invoke(middleware, overrides = {}) {
   const request = {
@@ -118,4 +118,76 @@ test("Core AI accepts explicitly all-location authority without inventing a sele
 
 test("Core AI policy construction fails closed without explicit module/tool identifiers", () => {
   assert.throws(() => requireCoreAiExecutionContext({ moduleKey: "ai-decision-support" }), { code: "CORE_AI_POLICY_INVALID" });
+});
+
+test("internal Stylist Copilot rejects missing, mismatched or cross-tenant Core AI module context", async () => {
+  const scopedMiddleware = requireCoreAiExecutionContext({
+    moduleKey: "ai-stylist-copilot",
+    toolKey: "stylist-copilot",
+  });
+  const { request, error } = invoke(scopedMiddleware, {
+    commercialModuleEntitlement: {
+      moduleKey: "ai-stylist-copilot",
+      businessId: "business-a",
+      manifestRevision: "9",
+    },
+  });
+  assert.equal(error, null);
+  const args = {
+    context: request.coreAiExecutionContext,
+    moduleKey: "ai-stylist-copilot",
+    toolKey: "stylist-copilot",
+    businessId: "business-a",
+    locationId: "location-a",
+    allowedLocationIds: ["location-a"],
+    actorUserId: "user-a",
+  };
+  assert.equal(assertCoreAiModuleExecutionContext(args), args.context);
+  for (const invalid of [
+    { context: null },
+    { businessId: "business-b" },
+    { locationId: "location-b" },
+    { allowedLocationIds: ["location-b"] },
+    { moduleKey: "ai-decision-support" },
+    { toolKey: "unregistered-copilot" },
+    { actorUserId: "user-b" },
+    { context: { ...args.context } },
+  ]) {
+    assert.throws(
+      () => assertCoreAiModuleExecutionContext({ ...args, ...invalid }),
+      { code: "CORE_AI_MODULE_EXECUTION_SCOPE_REQUIRED" }
+    );
+  }
+});
+
+test("internal Core AI service fails closed on selected Location scope without any allowed Location", () => {
+  const context = Object.freeze({
+    businessId: "business-a",
+    locationId: null,
+    locationAccessMode: "selected",
+    allowedLocationIds: Object.freeze([]),
+    userId: "user-a",
+    moduleKey: "ai-stylist-copilot",
+    toolKey: "stylist-copilot",
+    externalWritesAllowed: false,
+    automaticModelPromotionAllowed: false,
+    requiresHumanApprovalForConsequentialActions: true,
+  });
+  assert.throws(() => assertCoreAiModuleExecutionContext({
+    context, businessId: "business-a", actorUserId: "user-a",
+    locationId: null, allowedLocationIds: [], moduleKey: "ai-stylist-copilot",
+    toolKey: "stylist-copilot",
+  }), { code: "CORE_AI_MODULE_EXECUTION_SCOPE_REQUIRED" });
+});
+
+test("Stylist controller passes the trusted Core AI context and service checks it before evidence reads", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [controller, service] = await Promise.all([
+    readFile(new URL("../features/aiRecommendations/aiStylistCopilotController.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiRecommendations/aiStylistCopilotService.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(controller, /coreAiExecutionContext: executionContext/);
+  assert.match(service, /const authorised = assertCoreAiModuleExecutionContext\(/);
+  assert.ok(service.indexOf("assertCoreAiModuleExecutionContext({") < service.indexOf("await buildStylistCopilotContext({"));
+  assert.match(service, /manifestRevision: authorised\.manifestRevision/);
 });
