@@ -1,5 +1,6 @@
 import AiInferenceLog from "../aiPlatform/AiInferenceLog.js";
 import AiAgentRun from "../aiPlatform/AiAgentRun.js";
+import { assertCoreAiToolDecision } from "../../platform/coreAi/coreAiToolAuthorisation.js";
 import {
   getBuiltinAiAgentDefinition,
 } from "../aiPlatform/aiWorkforceBuiltinAgents.js";
@@ -166,7 +167,25 @@ export async function askSalonAiAdviser({
   locationId = null,
   locationAccessMode = "selected",
   allowedLocationIds = [],
+  coreAiExecutionContext,
+  coreAiToolDecision,
 }) {
+  const authorisedTool = assertCoreAiToolDecision({
+    decision: coreAiToolDecision,
+    context: coreAiExecutionContext,
+    agentKey: AGENT_KEY,
+    toolKey: TOOL_KEY,
+  });
+  if (String(businessId || "") !== coreAiExecutionContext.businessId ||
+      (locationId || null) !== coreAiExecutionContext.locationId ||
+      locationAccessMode !== coreAiExecutionContext.locationAccessMode ||
+      JSON.stringify(allowedLocationIds || []) !== JSON.stringify(coreAiExecutionContext.allowedLocationIds || [])) {
+    const error = new Error("Core AI execution scope must match authorised tool context.");
+    error.code = "CORE_AI_TOOL_SCOPE_MISMATCH";
+    error.statusCode = 403;
+    throw error;
+  }
+
   const safeQuestion =
     text(question);
 
@@ -290,6 +309,14 @@ export async function askSalonAiAdviser({
         },
       ],
       metadata: {
+        coreAiToolDecision: {
+          agentKey: authorisedTool.agentKey,
+          toolKey: authorisedTool.toolKey,
+          moduleKey: authorisedTool.moduleKey,
+          manifestRevision: authorisedTool.manifestRevision,
+          autonomy: authorisedTool.autonomy,
+          auditRequired: authorisedTool.auditRequired,
+        },
         contextPath:
           text(contextPath),
         aggregateOnly:
