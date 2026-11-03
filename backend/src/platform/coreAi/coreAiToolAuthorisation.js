@@ -68,3 +68,30 @@ export function authoriseCoreAiTool({ agentKey, toolKey, requestedAutonomy = "A0
     }
   };
 }
+
+/**
+ * Enforces that a downstream AI service received the same pre-invocation
+ * decision as its trusted caller. Never reconstruct authority from user input.
+ */
+export function assertCoreAiToolDecision({
+  decision,
+  context,
+  agentKey,
+  toolKey,
+} = {}) {
+  if (!decision || !context ||
+      !Object.isFrozen(decision) || !Object.isFrozen(context) ||
+      decision.agentKey !== agentKey ||
+      decision.toolKey !== toolKey ||
+      decision.businessId !== context.businessId ||
+      decision.locationId !== context.locationId ||
+      decision.moduleKey !== context.moduleKey ||
+      decision.manifestRevision !== context.manifestRevision ||
+      decision.autonomy !== "A0" ||
+      decision.mutation !== false ||
+      decision.auditRequired !== true ||
+      context.externalWritesAllowed !== false) {
+    throw denied("A matching authorised Core AI tool decision is required.", "CORE_AI_TOOL_DECISION_REQUIRED");
+  }
+  return decision;
+}
