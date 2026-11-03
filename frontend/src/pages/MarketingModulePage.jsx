@@ -16,6 +16,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import MarketingSeoAuditPanel from "../components/marketing/MarketingSeoAuditPanel.jsx";
 
 import {
   PROVIDER_CONNECTIONS,
@@ -138,6 +139,8 @@ export default function MarketingModulePage() {
             <span className="rounded-full bg-stone-100 px-3 py-1.5">Human-approved external actions</span>
           </div>
         </header>
+
+        <MarketingSeoAuditPanel />
 
         <section aria-labelledby="marketing-kpis">
           <div className="flex flex-wrap items-end justify-between gap-3">
