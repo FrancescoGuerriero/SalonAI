@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { authoriseCoreAiTool } from "../platform/coreAi/coreAiToolAuthorisation.js";
+import { authoriseCoreAiTool, assertCoreAiToolDecision } from "../platform/coreAi/coreAiToolAuthorisation.js";
 
 function check({ agentKey = "business-adviser", toolKey = "business.metrics.read", autonomy = "A0", mutate = null } = {}) {
   const context = Object.freeze({
@@ -97,4 +97,44 @@ test("deny approval-gated proposal tools even if request claims approval", () =>
 
 test("deny missing agent/tool configuration before any execution", () => {
   assert.throws(() => authoriseCoreAiTool({ agentKey: "business-adviser" }), { code: "CORE_AI_TOOL_CONFIGURATION_REQUIRED" });
+});
+
+test("downstream Adviser service requires exact frozen tool decision and execution scope", () => {
+  const { request, error } = check();
+  assert.equal(error, null);
+  const args = {
+    decision: request.coreAiToolDecision,
+    context: request.coreAiExecutionContext,
+    agentKey: "business-adviser",
+    toolKey: "business.metrics.read",
+  };
+  assert.equal(assertCoreAiToolDecision(args), request.coreAiToolDecision);
+  assert.throws(() => assertCoreAiToolDecision({ ...args, decision: null }), { code: "CORE_AI_TOOL_DECISION_REQUIRED" });
+  assert.throws(() => assertCoreAiToolDecision({
+    ...args,
+    decision: Object.freeze({ ...args.decision, businessId: "business-b" }),
+  }), { code: "CORE_AI_TOOL_DECISION_REQUIRED" });
+  assert.throws(() => assertCoreAiToolDecision({
+    ...args,
+    decision: Object.freeze({ ...args.decision, moduleKey: "ai-retention" }),
+  }), { code: "CORE_AI_TOOL_DECISION_REQUIRED" });
+  assert.throws(() => assertCoreAiToolDecision({
+    ...args,
+    decision: { ...args.decision },
+  }), { code: "CORE_AI_TOOL_DECISION_REQUIRED" });
+});
+
+test("Adviser controller and service propagate policy decision into persistent AgentRun metadata", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [controller, service] = await Promise.all([
+    readFile(new URL("../features/aiRecommendations/aiAdviserController.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiRecommendations/aiAdviserService.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(controller, /coreAiExecutionContext: executionContext/);
+  assert.match(controller, /coreAiToolDecision: toolDecision/);
+  assert.match(service, /assertCoreAiToolDecision\(/);
+  assert.match(service, /CORE_AI_TOOL_SCOPE_MISMATCH/);
+  assert.match(service, /coreAiToolDecision: \{/);
+  assert.match(service, /await AiAgentRun\.create\(/);
+  assert.match(service, /await AiAgentRun\.updateOne\(/);
 });
