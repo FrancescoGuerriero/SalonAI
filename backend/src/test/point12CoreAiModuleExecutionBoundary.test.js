@@ -21,7 +21,6 @@ test("AI Adviser and Stylist Copilot require trusted tenant, effective authority
   );
 
   for (const handler of [
-    "askAdviser",
     "submitFeedback",
     "getEvaluation",
     "listProposals",
@@ -34,6 +33,10 @@ test("AI Adviser and Stylist Copilot require trusted tenant, effective authority
       "\\.\\.\\.adviserModuleChain,\\s*asyncHandler\\(" + handler + "\\)"
     ));
   }
+  assert.match(
+    routes,
+    /"\/adviser\/query"[\s\S]*?\.\.\.adviserModuleChain,\s*authoriseCoreAiTool\(\{ agentKey: "business-adviser", toolKey: "business\.metrics\.read" \}\),\s*asyncHandler\(askAdviser\)/
+  );
   assert.match(
     routes,
     /\.\.\.stylistModuleChain,\s*asyncHandler\(getAiStylistCopilot\)/
