@@ -1,6 +1,7 @@
 import { createServiceError } from "../../shared/serviceError.js";
 import * as service from "./marketingDataCoreService.js";
 import { runMarketingProviderSource } from "./marketingProviderRunService.js";
+import { getMarketingSeoAudit } from "./marketingSeoAuditService.js";
 
 function businessId(request) {
   const value = request.effectiveAuthority?.businessId || request.tenantContext?.businessId || null;
@@ -86,7 +87,13 @@ export async function seoObservations(request, response) {
   response.json({ items: await service.listSeoObservations(request.query || {}, scope(request)) });
 }
 
+export async function seoAudit(request, response) {
+  const sourceId = request.query?.sourceId;
+  response.json(await getMarketingSeoAudit(sourceId, scope(request)));
+}
+
 export default {
+  seoAudit,
   catalogue,
   createSource,
   overview,
