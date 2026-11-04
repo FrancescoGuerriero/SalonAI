@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import useAuth from "../hooks/useAuth.js";
 import { hasPermission } from "../utils/permissions.js";
 import * as api from "../Services/marketingEditorialService.js";
+import customerExperienceService from "../Services/customerExperienceService.js";
 
 const steps = { prospect: "draft", draft: "review", review: "approved", approved: "submitted", submitted: "accepted", accepted: "published" };
 const monthNow = () => new Date().toISOString().slice(0, 7);
@@ -20,9 +21,10 @@ export default function MarketingEditorialPage() {
   const [section, setSection] = useState("editorial");
   const [month, setMonth] = useState(monthNow);
   const [placements, setPlacements] = useState([]);
+  const [articles, setArticles] = useState([]);
   const [links, setLinks] = useState([]);
   const [report, setReport] = useState(null);
-  const [draft, setDraft] = useState({ workingTitle: "", publisherName: "", publisherWebsite: "", pitchSummary: "" });
+  const [draft, setDraft] = useState({ workingTitle: "", publisherName: "", publisherWebsite: "", pitchSummary: "", contentPage: "" });
   const [linkDraft, setLinkDraft] = useState({ sourceUrl: "", targetUrl: "", anchorText: "" });
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -33,10 +35,12 @@ export default function MarketingEditorialPage() {
       mayReadEditorial ? api.listPlacements() : Promise.resolve({ items: [] }),
       mayReadLinks ? api.listBacklinks() : Promise.resolve({ items: [] }),
       mayReadLinks ? api.getMonthlyBacklinks(month) : Promise.resolve({ report: null }),
+      mayReadEditorial ? customerExperienceService.listContentPages() : Promise.resolve({ pages: [] }),
     ]);
     if (results[0].status === "fulfilled") setPlacements(results[0].value.items || []);
     if (results[1].status === "fulfilled") setLinks(results[1].value.items || []);
     if (results[2].status === "fulfilled") setReport(results[2].value.report || null);
+    if (results[3].status === "fulfilled") setArticles(results[3].value.pages || []);
     setError(results.filter(r => r.status === "rejected").map(r => problem(r.reason)).join(" "));
   }, [month, mayReadEditorial, mayReadLinks]);
   useEffect(() => { void load(); }, [load]);
@@ -83,12 +87,13 @@ export default function MarketingEditorialPage() {
       {section === "editorial" && <section className="space-y-4">
         {mayWriteEditorial && <form className={card} onSubmit={event => {
           event.preventDefault();
-          void run(async () => { await api.createPlacement(draft); setDraft({ workingTitle: "", publisherName: "", publisherWebsite: "", pitchSummary: "" }); }, "Prospect saved; no submission was sent.");
+          void run(async () => { await api.createPlacement({ ...draft, contentPage: draft.contentPage || undefined }); setDraft({ workingTitle: "", publisherName: "", publisherWebsite: "", pitchSummary: "", contentPage: "" }); }, "Prospect saved; no submission was sent.");
         }}>
           <h2 className="text-lg font-bold">Add publisher prospect</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {[["workingTitle", "Working article title"], ["publisherName", "Publisher name"], ["publisherWebsite", "Publisher HTTPS website"]].map(([key, label]) =>
               <label key={key} className="text-sm font-medium">{label}<input required disabled={working} className={inputStyle} type={key === "publisherWebsite" ? "url" : "text"} value={draft[key]} onChange={e => setDraft(p => ({...p,[key]:e.target.value}))}/></label>)}
+            <label className="text-sm font-medium">Existing Content Studio article (optional)<select className={inputStyle} disabled={working} value={draft.contentPage} onChange={e => setDraft(p => ({...p,contentPage:e.target.value}))}><option value="">No linked article</option>{articles.map(article => <option key={article._id} value={article._id}>{article.slug} · {article.status}</option>)}</select></label>
             <label className="text-sm font-medium md:col-span-2">Pitch summary<textarea className={inputStyle} disabled={working} maxLength={3000} rows={3} value={draft.pitchSummary} onChange={e => setDraft(p => ({...p,pitchSummary:e.target.value}))}/></label>
           </div><button className={`${buttonStyle} mt-3`} disabled={working}>Save prospect</button>
         </form>}
