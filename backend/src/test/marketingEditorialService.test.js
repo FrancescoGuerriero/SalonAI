@@ -5,6 +5,7 @@ import {
   canAdvanceEditorial,
   marketingScope,
   monthBounds,
+  recordManualBacklink,
 } from "../features/marketing/marketingEditorialService.js";
 
 test("marketing operations refuse missing or untrusted location scope", () => {
@@ -37,4 +38,27 @@ test("monthly boundaries use UTC start inclusive and next month exclusive", () =
   });
   assert.throws(() => monthBounds("2026-13"), /YYYY-MM/);
   assert.throws(() => monthBounds("1999-01"), /out of range/);
+});
+
+test("internal hyperlinks are not reported as external backlinks", async () => {
+  const scope = { businessId: new mongoose.Types.ObjectId(), locationId: new mongoose.Types.ObjectId() };
+  await assert.rejects(
+    recordManualBacklink({
+      sourceUrl: "https://salon.example.com/article",
+      targetUrl: "https://salon.example.com/services",
+    }, scope, new mongoose.Types.ObjectId()),
+    /Internal links must not be recorded/
+  );
+});
+
+test("manual backlink creation rejects non-HTTPS and credential-bearing URLs before persistence", async () => {
+  const scope = { businessId: new mongoose.Types.ObjectId(), locationId: new mongoose.Types.ObjectId() };
+  await assert.rejects(
+    recordManualBacklink({ sourceUrl: "http://other.example/story", targetUrl: "https://salon.example.com" }, scope),
+    /HTTPS URL/
+  );
+  await assert.rejects(
+    recordManualBacklink({ sourceUrl: "https://user:pass@other.example/story", targetUrl: "https://salon.example.com" }, scope),
+    /without credentials/
+  );
 });
