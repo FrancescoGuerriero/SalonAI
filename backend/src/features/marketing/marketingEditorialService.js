@@ -107,6 +107,9 @@ export async function recordManualBacklink(input, authority, actor) {
   const scope = marketingScope(authority);
   const sourceUrl = httpsUrl(input.sourceUrl, "source");
   const targetUrl = httpsUrl(input.targetUrl, "target");
+  if (new URL(sourceUrl).hostname.toLowerCase() === new URL(targetUrl).hostname.toLowerCase()) {
+    throw createServiceError("Internal links must not be recorded as external backlinks.", 422);
+  }
   const when = new Date();
   return Backlink.create({
     ...scope,
@@ -140,20 +143,38 @@ export function monthBounds(month) {
 export async function monthlyBacklinkSummary(authority, month) {
   const scope = marketingScope(authority);
   const { start, end } = monthBounds(month);
-  const [links, placements] = await Promise.all([
-    Backlink.find({ ...scope, observedAt: { $gte: start, $lt: end } })
-      .select("sourceHost status discoveryMethod").lean(),
-    Placement.find({ ...scope, publishedAt: { $gte: start, $lt: end }, status: "published" })
-      .select("publishedUrl publisherWebsite").lean(),
+  const match = {
+    business: new mongoose.Types.ObjectId(scope.business),
+    location: new mongoose.Types.ObjectId(scope.location),
+    observedAt: { $gte: start, $lt: end },
+  };
+  const [counts, domains, publishedPlacements] = await Promise.all([
+    Backlink.aggregate([
+      { $match: match },
+      { $group: {
+        _id: null,
+        observedLinks: { $sum: 1 },
+        verifiedLinks: { $sum: { $cond: [{ $eq: ["$status", "verified"] }, 1, 0] } },
+        lostObservations: { $sum: { $cond: [{ $eq: ["$status", "lost"] }, 1, 0] } },
+      } },
+    ]),
+    Backlink.aggregate([
+      { $match: match },
+      { $group: { _id: "$sourceHost" } },
+      { $count: "distinctReferringDomains" },
+    ]),
+    Placement.countDocuments({
+      ...scope, status: "published",
+      publishedAt: { $gte: start, $lt: end },
+    }),
   ]);
   return {
     month,
-    observedLinks: links.length,
-    distinctReferringDomains: new Set(links.map(link => link.sourceHost)).size,
-    verifiedLinks: links.filter(link => link.status === "verified").length,
-    lostObservations: links.filter(link => link.status === "lost").length,
-    publishedPlacements: placements.length,
-    // Counts reflect observed records in month, not all current/live backlinks.
+    observedLinks: counts[0]?.observedLinks || 0,
+    distinctReferringDomains: domains[0]?.distinctReferringDomains || 0,
+    verifiedLinks: counts[0]?.verifiedLinks || 0,
+    lostObservations: counts[0]?.lostObservations || 0,
+    publishedPlacements,
     evidenceBasis: "observations_in_period",
   };
 }
