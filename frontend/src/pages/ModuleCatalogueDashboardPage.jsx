@@ -391,6 +391,18 @@ export default function ModuleCatalogueDashboardPage() {
                     return (
                       <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
                         <h3 className="font-bold">Operational acceptance checklist</h3>
+                        {assessment.acceptanceContract && (
+                          <div className="space-y-2 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Module API, tenancy and AI evidence required</h4>
+                            <p>Contract: {assessment.acceptanceContract.contractType.replaceAll("_", " ")}.
+                              Route inventory: not verified; production approval: not granted.</p>
+                            <ul className="list-disc pl-5">
+                              {assessment.acceptanceContract.verificationItems.map((item) => (
+                                <li key={item}>{item.replaceAll("_", " ")}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <p>Outstanding checks: {assessment.outstandingVerification.length};
                           confirmed blockers: {assessment.confirmedBlockers.length}.
                           Production approval: not granted.</p>
