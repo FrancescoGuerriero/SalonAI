@@ -383,7 +383,7 @@ test("reviewed test source ledger refuses wrong IDs and returns immutable eviden
   assert.equal(Object.isFrozen(ai), true);
   assert.equal(Object.isFrozen(ai[0]), true);
   const allIds = [...new Set([
-    ...["CORE-01", "CORE-02", "CORE-03", "CORE-04", "11", "16", "18"],
+    ...["CORE-01", "CORE-02", "CORE-03", "CORE-04", "11", "16", "18", "19", "20", "21"],
     ...["AI-CORE-01", "AI-CORE-02", "AI-CORE-04", "AI-CORE-05"],
   ])];
   assert.equal(validateModuleTestEvidenceLedger(allIds).valid, true);
@@ -566,4 +566,20 @@ test("existing AI Receptionist, Retention Manager and Stylist Copilot remain rep
   assert.match(receptionist, /startWhatsAppReceptionistAgentRun/);
   const retention = await readFile(new URL("../features/ai/aiRetentionTenantService.js", import.meta.url), "utf8");
   assert.match(retention, /predictTenantRetention/);
+});
+
+test("existing AI application tests are linked as source evidence only", async () => {
+  const result = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  for (const [id, testFile] of [
+    ["19", "aiReceptionistWorkforce.test.js"],
+    ["20", "aiRetentionTenantBoundary.test.js"],
+    ["21", "aiStylistCopilot.test.js"],
+  ]) {
+    const entry = result.entries.find((row) => row.moduleId === id);
+    assert.ok(entry.reviewedTestSourceEvidence.some((source) => source.path.endsWith("/" + testFile)));
+    assert.ok(entry.reviewedTestSourceEvidence.every((source) =>
+      source.executedInThisInspection === false && source.perTestCiConclusion === null &&
+      source.productionAccepted === null));
+    assert.equal(entry.acceptanceContract.activationAuthorised, false);
+  }
 });
