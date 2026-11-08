@@ -145,7 +145,7 @@ export async function resolveTrustedAiToolContext(
  * before delegating to the already audited canonical metrics invocation.
  */
 export async function invokeMetricsWithResolvedTenantAuthority(
-  { effectiveAuthority, user, locationId = null, periodDays = 30, requestId = "" } = {},
+  { effectiveAuthority, user, locationId = null, periodDays = 30, requestId = "", timeoutMs, signal = null } = {},
   dependencies = {}
 ) {
   const trusted = await resolveTrustedAiToolContext(effectiveAuthority, dependencies);
@@ -158,6 +158,8 @@ export async function invokeMetricsWithResolvedTenantAuthority(
       locationId,
       periodDays,
       requestId,
+      timeoutMs,
+      signal,
     },
     dependencies.invocation || {}
   );
