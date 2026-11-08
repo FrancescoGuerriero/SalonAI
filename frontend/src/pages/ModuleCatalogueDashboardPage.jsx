@@ -391,6 +391,21 @@ export default function ModuleCatalogueDashboardPage() {
                     return (
                       <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
                         <h3 className="font-bold">Operational acceptance checklist</h3>
+                        {assessment.implementationReference?.existingImplementationReview === true && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Existing module implementation</h4>
+                            <p>Source reviewed — preserve existing behaviour; no module recreation is required.</p>
+                            <p><strong>Current capabilities:</strong> {assessment.implementationReference.preservedCapability}</p>
+                            <p><strong>Mounted API paths:</strong>{" "}
+                              {assessment.implementationReference.apiMounts.join(", ")}</p>
+                            <ul className="list-disc pl-5">
+                              {assessment.implementationReference.routeSources.map((path) => (
+                                <li key={path}><code>{path}</code></li>
+                              ))}
+                            </ul>
+                            <p>Runtime and production acceptance: not independently verified.</p>
+                          </div>
+                        )}
                         <div className="space-y-1 rounded-lg border border-stone-300 p-3">
                           <h4 className="font-semibold">Reviewed module test sources</h4>
                           <p>Source reviewed only; per-test CI execution, tenant acceptance and deployment are not verified by these links.</p>
