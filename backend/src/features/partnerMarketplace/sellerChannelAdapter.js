@@ -189,3 +189,38 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     publicationEnabled: false,
   });
 }
+
+/**
+ * eBay shipping labels / package status are read separately from order lists.
+ * No carrier booking, shipment creation, refund or tracking mutation is made.
+ */
+export async function fetchEbayShippingFulfillments(connection, orderId, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+} = {}) {
+  if (connection?.provider !== "ebay") {
+    throw unsupported("Shipping fulfillment detail requires an eBay seller connection.");
+  }
+  const identifier = required(orderId, "orderId");
+  if (identifier.length > 120 || !/^[a-zA-Z0-9!_.-]+$/.test(identifier)) {
+    throw unsupported("Invalid eBay order identifier.", "SELLER_CHANNEL_INVALID_ORDER_ID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL(`/sell/fulfillment/v1/order/${encodeURIComponent(identifier)}/shipping_fulfillment`, origin);
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+  });
+  if (!Array.isArray(body.fulfillments)) {
+    throw unsupported("Unexpected eBay shipping fulfillment response.", "SELLER_CHANNEL_BAD_RESPONSE");
+  }
+  return Object.freeze({
+    provider: "ebay", kind: "shipping_fulfillments", source: "read_only_provider_snapshot",
+    externalOrderId: identifier,
+    records: body.fulfillments.slice(0, 50).map((item) => ({
+      fulfillmentId: String(item.fulfillmentId || ""),
+      shippedDate: safeDate(item.shippedDate),
+      carrierCode: item.shippingCarrierCode || null,
+      trackingNumber: item.shipmentTrackingNumber || null,
+    })),
+    canonicalRecordsWritten: 0, shippingUpdatesPosted: 0, refundsProcessed: 0,
+  });
+}
