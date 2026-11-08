@@ -140,7 +140,7 @@ test("public products and checkout remain publication-aware", async () => {
   );
   assert.match(
     commerce,
-    /Product\.find\(\{\s*_id: \{ \$in:[\s\S]*active: true,/s
+    /Product\.find\(\{\s*\.\.\.owner,\s*_id: \{ \$in:[\s\S]*active: true,/s
   );
 });
 
