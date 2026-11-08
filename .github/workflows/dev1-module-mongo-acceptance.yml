@@ -1,0 +1,84 @@
+name: DEV1 AIIBP Module Mongo Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/acceptance/**'
+      - 'backend/src/features/moduleCatalogue/**'
+      - 'backend/src/features/aiRecommendations/aiManagementCopilotService.js'
+      - 'backend/src/features/aiPlatform/aiTenantScope.js'
+      - 'backend/src/platform/tenancy/**'
+      - 'backend/src/platform/productComposition/**'
+      - 'backend/src/platform/subscriptions/**'
+      - 'backend/src/models/TenantProductManifest.js'
+      - 'backend/src/models/TenantSubscription.js'
+      - 'backend/src/models/Appointment.js'
+      - 'backend/src/models/BusinessMembership.js'
+      - 'backend/src/models/Location.js'
+      - 'backend/package-lock.json'
+      - 'backend/package.json'
+      - '.github/workflows/dev1-module-mongo-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/acceptance/**'
+      - 'backend/src/features/moduleCatalogue/**'
+      - 'backend/src/features/aiRecommendations/aiManagementCopilotService.js'
+      - 'backend/src/features/aiPlatform/aiTenantScope.js'
+      - 'backend/src/platform/tenancy/**'
+      - 'backend/src/platform/productComposition/**'
+      - 'backend/src/platform/subscriptions/**'
+      - 'backend/src/models/TenantProductManifest.js'
+      - 'backend/src/models/TenantSubscription.js'
+      - 'backend/src/models/Appointment.js'
+      - 'backend/src/models/BusinessMembership.js'
+      - 'backend/src/models/Location.js'
+      - '.github/workflows/dev1-module-mongo-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev1-aiibp-module-mongo-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mongo-acceptance:
+    name: Real MongoDB tenant and appointment isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 127.0.0.1:27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AIIBP_ACCEPTANCE_MONGO_URI: mongodb://127.0.0.1:27017/aiibp_module_acceptance_ci
+      NODE_ENV: test
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install locked backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run isolated MongoDB acceptance suite
+        working-directory: backend
+        run: node --test src/acceptance/moduleMongoAcceptance.test.js
