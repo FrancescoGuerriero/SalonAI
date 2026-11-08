@@ -200,3 +200,44 @@ test("dependency evidence fails unknown on absent, contradictory and incomplete 
   assert.equal(Object.isFrozen(result[0]), true);
   assert.deepEqual(inspectModuleDependencyEvidence([], []), []);
 });
+
+test("capability mapping review distinguishes unmapped candidates from taxonomy-only entries", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const summary = result.deliveryGaps;
+  assert.equal(summary.totals.count, 48);
+  const byId = (id) => summary.entries.find((entry) => entry.moduleId === id);
+  assert.equal(byId("01").mappingReviewState, "canonical_mapping_recorded");
+  assert.equal(byId("22").mappingReviewState, "taxonomy_only");
+  assert.equal(byId("26").mappingReviewState, "taxonomy_only");
+  assert.equal(byId("05").mappingReviewState, "mapping_review_required");
+  assert.equal(byId("05").suggestedNextReview, "review_capability_mapping");
+  assert.equal(byId("18").aiEvidenceState, "tool_contract_not_verified");
+  assert.equal(byId("18").suggestedNextReview, "verify_ai_tool_contract_evidence");
+  assert.equal(summary.totals.unmapped,
+    summary.entries.filter((entry) => entry.mappingReviewState === "mapping_review_required").length);
+  assert.equal(summary.totals.taxonomyOnly, 2);
+  assert.equal(summary.totals.aiEvidenceUnverified,
+    summary.entries.filter((entry) => entry.aiEvidenceState === "tool_contract_not_verified").length);
+  assert.ok(summary.reviewQueue.some((item) => item.moduleId === "05"));
+  assert.ok(!summary.reviewQueue.some((item) => item.moduleId === "22"));
+  assert.ok(summary.reviewQueue.every((item) => item.activationAuthorised === false));
+  assert.equal(Object.isFrozen(summary.reviewQueue), true);
+  assert.equal(Object.isFrozen(summary.reviewQueue[0]), true);
+  assert.deepEqual(summary.reviewQueue.map((item) => item.priority),
+    [...summary.reviewQueue].map((item) => item.priority)
+      .sort((a, b) => ["P0", "P1", "P2", "P3"].indexOf(a) - ["P0", "P1", "P2", "P3"].indexOf(b)));
+});
+
+test("AI opportunities remain planning-only and never constitute a verified tool or deployment", () => {
+  const entries = summariseModuleOperationalGaps([
+    { moduleId: "18", checks: [] },
+    { moduleId: "MKT-01", checks: [] },
+  ]).entries;
+  assert.ok(entries[0].aiOpportunity);
+  assert.equal(entries[0].aiEvidenceState, "tool_contract_not_verified");
+  assert.equal(entries[0].activationAuthorised, false);
+  assert.equal(entries[0].productionAccepted, null);
+  assert.equal(entries[1].aiEvidenceState, "ai_integration_not_specified");
+});
