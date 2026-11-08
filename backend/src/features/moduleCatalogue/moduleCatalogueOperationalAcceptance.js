@@ -9,6 +9,7 @@ import { buildModuleAcceptanceContract } from "./moduleCatalogueAcceptanceContra
 import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
 import { inspectExistingModuleImplementation } from "../../platform/moduleCatalogue/moduleImplementationReferences.js";
+import { inspectModuleMappingReconciliation } from "./moduleCatalogueMappingReconciliation.js";
 
 const UNKNOWN = "not_verified";
 const PASSED = "evidence_present";
@@ -40,6 +41,8 @@ export async function inspectModuleOperationalAcceptance({
     const requiredPermissions = [...new Set(definitions.flatMap((def) => def.requiredPermissions))];
     const dependencyEvidence = inspectModuleDependencyEvidence(prerequisiteKeys, trusted.entries || []);
     const contractEvidence = inspectModuleContractDeclarations(definitions, item.aiOpportunity, item.moduleId);
+    const implementationReference = inspectExistingModuleImplementation(item.moduleId);
+    const mappingReconciliation = inspectModuleMappingReconciliation(item, implementationReference);
     const acceptanceContract = buildModuleAcceptanceContract(item, {
       expectedDependencies: prerequisiteKeys, requiredPermissionDefinitions: requiredPermissions,
       contractEvidence,
@@ -89,7 +92,8 @@ export async function inspectModuleOperationalAcceptance({
       dependencyEvidence,
       contractEvidence,
       acceptanceContract,
-      implementationReference: inspectExistingModuleImplementation(item.moduleId),
+      implementationReference,
+      mappingReconciliation,
       reviewedTestSourceEvidence: listReviewedModuleTestEvidence(item.moduleId),
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
