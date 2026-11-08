@@ -411,3 +411,28 @@ entries remain `source_not_reviewed` rather than being called missing.
 without redefining canonical module mappings or entitlement permissions.
 These counts do **not** measure ready modules, production deployments,
 or the completion of the underlying requirements.
+
+## DEV1 source versus canonical capability reconciliation
+
+A new read-only `mappingReconciliation` observation per catalogue entry
+explicitly separates an existing source route from a canonical registered
+capability pack, without adding any entitlements. The states are:
+
+- `registered_mapping_and_existing_source`: both the existing pack reference
+  and a reviewed source entry point are present.
+- `registered_mapping_source_not_reviewed`: existing pack recorded, but no
+  source reference reviewed in this inventory.
+- `existing_source_without_canonical_mapping`: module source has been
+  inspected, but the requirement lacks an independently approved mapping to
+  a canonical pack; **do not build a duplicate module or auto-map a pack**.
+- `mapping_and_source_review_required`: neither evidence has been recorded;
+  this is not proof that underlying functionality is absent.
+- `taxonomy_only`: a classification or research slot, not a deployable pack.
+
+The read-only dashboard also counts
+`deliveryGaps.totals.existingSourceWithoutMapping` separately from missing
+source observations. In particular, existing storefront (05), partner
+marketplace (15), AI Stylist Copilot (21) and shared AI gateway candidates
+must be reviewed for reuse of existing capabilities, rather than receiving
+new entitlement registrations by default. No production acceptance,
+deployment or activation follows from this planning reconciliation.
