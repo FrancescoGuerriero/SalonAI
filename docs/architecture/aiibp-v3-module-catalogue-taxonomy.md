@@ -257,3 +257,32 @@ absence of unlisted tests. Each reference records a source-level contract;
 per-test execution verification, all-location tenant acceptance, production
 approval, AI external-provider availability and deployment remain unverified.
 No capability pack or production configuration was changed.
+
+## DEV1 existing P1 business module implementation references
+
+The Module Catalogue now explicitly recognises the **existing implementation**
+of the following modules without adding duplicate registration, endpoint,
+entity, subscription or business logic:
+
+| Requirement | Existing implementation source | Observed API mount |
+| --- | --- | --- |
+| 01 Appointments & Booking | `routes/appointmentRoutes.js` and `features/appointments/appointmentManagementRoutes.js` | `/api/appointments` |
+| 02 Workforce & Staff | `routes/stylistRoutes.js` | `/api/stylists` |
+| 03 Service Catalogue | `routes/serviceRoutes.js` | `/api/services` |
+| 04 Commerce | `features/commerce/commerceRoutes.js` | `/api/commerce` |
+| 09 Communications | `routes/communicationTemplateRoutes.js`, `routes/communicationCampaignRoutes.js`, `routes/messageDeliveryRoutes.js` | `/api/communication-templates`, `/api/communication-campaigns`, `/api/message-delivery` |
+
+These are **source-level references to pre-existing modules**, not newly
+built modules or an exhaustive route inventory. The read-only
+`implementationReference` response carries the observed source files
+and mounts, never replacing the existing route implementations. The
+acceptance checklist remains independent: a source file existing is not
+evidence that every tenant boundary, provider, payment flow, and live
+deployment acceptance test has passed. Unreviewed entries are marked
+`not_reviewed_in_this_inventory`, not `not_implemented`.
+
+The prior P0 ledger expansion exposed two outdated tests that assumed
+Integration Hub (11) had no mapped test source and that the ledger only
+contained its earlier P0 IDs. Those assertions were corrected after
+inspecting the failed Stage 1–6 job, without weakening tenant or
+permission tests. This change preserves Commerce and Stripe behaviour.
