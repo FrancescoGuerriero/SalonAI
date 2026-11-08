@@ -332,3 +332,23 @@ to distinguish **source present** from **capability pack mapping**, **test
 acceptance**, **deployment** and **production sign-off**. Requirement 25
 (Fulfilment & Delivery) remains unreviewed in this inventory and is not
 labelled unimplemented as a consequence. No existing module code changed.
+
+## DEV1 existing AI application source references
+
+Requirements **19 AI Receptionist**, **20 AI Retention Manager** and
+**21 AI Stylist Copilot** are now recognised as already having implemented
+source surfaces. The catalogue references their existing entry points
+rather than creating new AI modules:
+
+| Requirement | Existing API / feature source | Scope of observation |
+| --- | --- | --- |
+| 19 AI Receptionist | `/api/whatsapp`, `whatsappReceptionistAgentRunService.js` | Existing A1 WhatsApp receptionist/proposal flow, not fully autonomous booking |
+| 20 AI Retention Manager | `/api/future/ai`, `aiRetentionTenantService.js` | Existing tenant-scoped retention AI prediction paths, not full campaign automation |
+| 21 AI Stylist Copilot | `/api/ai`, `aiStylistCopilotService.js` | Existing governed stylist-copilot appointment brief and model client |
+
+The module catalogue still does not infer AI tool registration,
+provider readiness, permission acceptance, production deployment, or
+complete end-to-end workflows from a route or service file. Existing
+catalogue IDs and capability pack mappings are unchanged. Any unreviewed
+marketplace, fulfilment or other entries remain unverified, not
+automatically unimplemented.
