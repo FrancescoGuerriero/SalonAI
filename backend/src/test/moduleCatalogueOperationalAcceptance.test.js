@@ -625,7 +625,8 @@ test("marketplace source is partner app governance, not evidence of Amazon/eBay 
     }
   }
   const marketplaceEntry = assessment.entries.find((entry) => entry.moduleId === "15");
-  assert.match(marketplaceEntry.implementationReference.preservedCapability, /no Amazon\/eBay seller listing/);
+  assert.match(marketplaceEntry.implementationReference.preservedCapability, /Established partner-app marketplace/);
+  assert.match(marketplaceEntry.implementationReference.preservedCapability, /Amazon\/eBay seller-channel/);
   assert.ok(marketplaceEntry.reviewedTestSourceEvidence.some((item) =>
     item.path === "backend/src/test/partnerMarketplaceFoundation.test.js"));
   assert.ok(marketplaceEntry.reviewedTestSourceEvidence.every((item) =>
@@ -755,4 +756,37 @@ test("catalogue mapping review cites existing route guards without silently regi
   assert.equal(missing.evidenceState, "not_reviewed");
   assert.deepEqual(missing.registeredPackCandidatesForReview, []);
   assert.equal(missing.mappingApproved, false);
+});
+
+test("seller marketplace is an established partner-app foundation, not an absent module or approved seller connector", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const seller = assessment.entries.find((entry) => entry.moduleId === "15");
+  assert.ok(seller);
+  const reviewed = seller.mappingReconciliation.reviewedBoundary;
+  assert.equal(reviewed.establishedFoundation, "partner_app_marketplace");
+  assert.deepEqual(reviewed.existingWorkflows, [
+    "partner_app_catalogue",
+    "partner_submission_and_review",
+    "tenant_installation_preparation",
+    "integration_platform_connection_reconciliation",
+  ]);
+  assert.equal(reviewed.extensionEvidenceStatus, "seller_channel_integrations_not_verified");
+  assert.equal(reviewed.mappingApproved, false);
+  assert.equal(Object.isFrozen(reviewed.existingWorkflows), true);
+  assert.equal(seller.implementationReference.existingImplementationReview, true);
+  assert.equal(seller.implementationReference.productionAccepted, null);
+  assert.equal(seller.mappingReconciliation.createsCapabilityPack, false);
+  const [routes, service, reconciliation, panel] = await Promise.all([
+    readFile(new URL("../features/partnerMarketplace/partnerMarketplaceRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/partnerMarketplace/partnerMarketplaceService.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/partnerMarketplace/partnerMarketplaceReconciliationService.js", import.meta.url), "utf8"),
+    readFile(new URL("../../../frontend/src/components/admin/PartnerMarketplacePanel.jsx", import.meta.url), "utf8"),
+  ]);
+  for (const marker of ['"/catalogue"', '"/submissions"', '"/apps/:appId/installations"', '"/installations/:installationId/reconcile"']) {
+    assert.ok(routes.includes(marker), `Missing established marketplace route ${marker}`);
+  }
+  assert.ok(service.includes("preparePartnerMarketplaceInstallation"));
+  assert.ok(reconciliation.includes("reconcilePartnerMarketplaceInstallation"));
+  assert.ok(panel.includes("getMarketplaceCatalogue") && panel.includes("prepareMarketplaceInstallation"));
+  assert.equal(seller.readyForProductionAcceptance, false);
 });
