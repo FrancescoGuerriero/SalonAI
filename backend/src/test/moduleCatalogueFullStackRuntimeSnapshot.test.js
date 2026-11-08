@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import {
@@ -39,9 +40,11 @@ function build() {
       repoDigests: [immutableReference],
     })),
   };
+  const releaseRaw = JSON.stringify(release);
   return {
-    snapshot, release,
+    snapshot, release, releaseRaw,
     archive: {
+      releaseManifestSha256: createHash("sha256").update(releaseRaw).digest("hex"),
       evidenceValidated: true, deploymentVerified: true,
       releaseTag: TAG, sourceCommit: COMMIT,
     },
@@ -76,6 +79,7 @@ test("stale, future, mismatched, duplicate, unhealthy or unapproved image eviden
     (f) => { f.snapshot.services.pop(); },
     (f) => { f.release.images.pop(); },
     (f) => { f.archive.evidenceValidated = null; },
+    (f) => { f.archive.releaseManifestSha256 = "b".repeat(64); },
   ];
   for (const mutate of mutations) {
     const f = build();
@@ -116,7 +120,7 @@ test("trusted source requires archive verification and reads fixed artifact base
     readArtifact: async (_directory, name) => {
       calls.push(name);
       return name === "runtime-snapshot.json"
-        ? JSON.stringify(f.snapshot) : JSON.stringify(f.release);
+        ? JSON.stringify(f.snapshot) : f.releaseRaw;
     },
   });
   assert.equal(result.snapshotEvidenceValid, true);
