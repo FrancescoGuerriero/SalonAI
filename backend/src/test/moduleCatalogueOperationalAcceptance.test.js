@@ -630,3 +630,49 @@ test("marketplace source is partner app governance, not evidence of Amazon/eBay 
     item.executedInThisInspection === false && item.productionAccepted === null));
   assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
 });
+
+test("shared AI capability entries reference existing governed endpoints without implying complete deployment", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const [app, future, integrations, ai, dataHub, builtins] = await Promise.all([
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/futureFeatureRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/integrationPlatform/integrationPlatformRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiRecommendations/aiRecommendationRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/integrationPlatform/dataHubRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiPlatform/aiWorkforceBuiltinAgents.js", import.meta.url), "utf8"),
+  ]);
+  assert.ok(app.includes('"/api/ai"') && app.includes('"/api/future"'));
+  assert.ok(future.includes('"/integrations"'));
+  assert.ok(integrations.includes('"/data-hub"') && integrations.includes("dataHubRoutes"));
+  assert.ok(ai.includes('"/workforce/registry"') && ai.includes('"/workforce/runs"'));
+  assert.ok(ai.includes('"/adviser/proposals"') && ai.includes('"/adviser/proposals/:proposalId/review"'));
+  assert.ok(dataHub.includes('"/ai-gateway/plan"') && dataHub.includes('"/ai-gateway/candidate-evaluations"'));
+  assert.ok(builtins.includes('"ai-receptionist"'));
+  for (const [moduleId, mount] of [
+    ["AI-CORE-01", "/api/ai"],
+    ["AI-CORE-02", "/api/ai"],
+    ["AI-CORE-04", "/api/future/integrations/data-hub"],
+    ["AI-CORE-05", "/api/ai"],
+  ]) {
+    const entry = assessment.entries.find((item) => item.moduleId === moduleId);
+    assert.ok(entry);
+    const implementation = entry.implementationReference;
+    assert.equal(implementation.sourceState, "existing_implementation_source_reviewed");
+    assert.ok(implementation.apiMounts.includes(mount));
+    assert.equal(implementation.runtimeVerified, null);
+    assert.equal(implementation.productionAccepted, null);
+    assert.equal(implementation.activationAuthorised, false);
+    assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status, "not_verified");
+    const summary = assessment.deliveryGaps.entries.find((item) => item.moduleId === moduleId);
+    assert.equal(summary.implementationReviewState, "existing_source_reviewed");
+    assert.ok(summary.implementationRouteCount >= 1);
+  }
+  assert.equal(assessment.deliveryGaps.totals.withReviewedImplementationSources,
+    assessment.deliveryGaps.entries.filter((entry) =>
+      entry.implementationReviewState === "existing_source_reviewed").length);
+  assert.equal(assessment.deliveryGaps.totals.implementationReviewNotRecorded,
+    assessment.deliveryGaps.totals.count - assessment.deliveryGaps.totals.withReviewedImplementationSources);
+  const unreviewed = assessment.deliveryGaps.entries.find((item) => item.moduleId === "25");
+  assert.equal(unreviewed.implementationReviewState, "source_not_reviewed");
+  assert.equal(unreviewed.implementationRouteCount, 0);
+});
