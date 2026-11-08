@@ -252,7 +252,9 @@ export default function ModuleCatalogueDashboardPage() {
               <div className="space-y-2" aria-label="Prioritised module delivery gaps">
                 <p><strong>Confirmed prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.blocked}.
                   <strong> Entries requiring verification:</strong> {operationalAssessment.deliveryGaps.totals.verificationRequired}.
-                  <strong> Unmapped/taxonomy entries:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.</p>
+                  <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
+                  <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
+                  <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.</p>
                 <p className="text-stone-700">
                   These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions.
                 </p>
@@ -265,6 +267,20 @@ export default function ModuleCatalogueDashboardPage() {
                     </li>
                   ))}
                 </ul>
+                <div className="space-y-2" aria-label="Module catalogue next verification queue">
+                  <h3 className="font-semibold">Priority review queue</h3>
+                  <p className="text-stone-700">Unmapped capabilities and confirmed tenant prerequisite blockers only; this list is not an activation or deployment schedule.</p>
+                  {operationalAssessment.deliveryGaps.reviewQueue.length === 0
+                    ? <p>No currently evidenced mapping or prerequisite review items.</p>
+                    : <ol className="list-decimal space-y-1 pl-5">
+                        {operationalAssessment.deliveryGaps.reviewQueue.map((entry) => (
+                          <li key={entry.moduleId}>
+                            <strong>{entry.priority} · {entry.moduleId} — {entry.displayName}</strong>:
+                            {" "}{entry.nextReview.replaceAll("_", " ")}
+                          </li>
+                        ))}
+                      </ol>}
+                </div>
               </div>
             )}
           </div>
