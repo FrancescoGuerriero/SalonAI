@@ -409,6 +409,27 @@ test("only Super Admin retains unconditional full dashboard visibility", async (
 });
 
 
+// Stage 4/5/8 workspaces are mounted by MainLayout around the App outlet.
+// They are valid guarded routes even when App.jsx contains no matching <Route>.
+async function stagedWorkspaceSources() {
+  return Promise.all([
+    "stage4/Stage4WorkspaceRouter.jsx",
+    "stage5/Stage5WorkspaceRouter.jsx",
+    "stage8/Stage8WorkspaceRouter.jsx",
+  ].map((name) => readFile(
+    new URL("../../../frontend/src/components/" + name, import.meta.url), "utf8"
+  )));
+}
+
+function matchingStagedWorkspace(sources, path) {
+  const marker = `pathname === "${path}"`;
+  for (const source of sources) {
+    const index = source.indexOf(marker);
+    if (index >= 0) return source.slice(index, index + 700);
+  }
+  return "";
+}
+
 test("dashboard navigation contains no dead primary links", async () => {
   const app =
     await readFile(
@@ -421,6 +442,7 @@ test("dashboard navigation contains no dead primary links", async () => {
 
   const navigation =
     await managementNavigationSource();
+  const stagedSources = await stagedWorkspaceSources();
 
   const routePaths =
     new Set(
@@ -446,10 +468,7 @@ test("dashboard navigation contains no dead primary links", async () => {
 
   const dead =
     navigationPaths.filter(
-      (path) =>
-        !routePaths.has(
-          path
-        )
+      (path) => !routePaths.has(path) && !matchingStagedWorkspace(stagedSources, path)
     );
 
   assert.deepEqual(
@@ -681,6 +700,7 @@ test("every dashboard link declares a permission and matches its route guard", a
 
   const navigation =
     await managementNavigationSource();
+  const stagedSources = await stagedWorkspaceSources();
 
   const links = [
     ...navigation.matchAll(
@@ -734,10 +754,18 @@ test("every dashboard link declares a permission and matches its route guard", a
           )
       );
 
-    assert.ok(
+    if (!routeBlock) {
+      const staged = matchingStagedWorkspace(stagedSources, `/${link.path}`);
+      assert.ok(staged, `Missing route for /${link.path}`);
+      assert.match(staged,
+        new RegExp(`hasPermission\\(user,\\s*"${link.permission.replace(/[.*+?^${}()|[\\]\\]/g, "\\    assert.ok(
       routeBlock,
       `Missing route for /${link.path}`
-    );
+    );")}"\\)`),
+        `Staged route guard mismatch for /${link.path}`
+      );
+      continue;
+    }
 
     if (
       link.adminOnly
