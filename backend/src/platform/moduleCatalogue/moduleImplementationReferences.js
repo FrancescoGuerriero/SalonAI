@@ -131,6 +131,32 @@ const REFERENCES = Object.freeze({
     apiMounts: ["/api/ai"],
     preservedCapability: "Existing governed Stylist Copilot appointment brief; AI tool production sign-off unverified",
   },
+  "15": {
+    routeSources: [
+      "backend/src/features/partnerMarketplace/partnerMarketplaceRoutes.js",
+      "backend/src/features/integrationPlatform/integrationPlatformRoutes.js",
+    ],
+    apiMounts: ["/api/future/integrations/marketplace"],
+    preservedCapability: "Existing partner-app marketplace governance only; no Amazon/eBay seller listing or fulfilment connector claimed",
+  },
+  "CORE-02": {
+    routeSources: ["backend/src/routes/systemAdministrationRoutes.js"],
+    apiMounts: ["/api/system-administration"],
+    preservedCapability: "Existing module catalogue and tenant composition administrative read APIs",
+  },
+  "CORE-03": {
+    routeSources: [
+      "backend/src/features/integrationPlatform/integrationPlatformRoutes.js",
+      "backend/src/features/integrationPlatform/integrationApiRoutes.js",
+    ],
+    apiMounts: ["/api/future/integrations", "/api/future/integrations/v1"],
+    preservedCapability: "Existing integration registry and versioned credential-scoped API routes; general gateway completion not asserted",
+  },
+  "CORE-04": {
+    routeSources: ["backend/src/features/security/securityRoutes.js"],
+    apiMounts: ["/api/future/security"],
+    preservedCapability: "Existing audited security read endpoints; comprehensive secrets/events/policy platform not asserted",
+  },
 });
 const frozen = (array) => Object.freeze([...array]);
 
