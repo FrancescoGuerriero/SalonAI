@@ -70,3 +70,22 @@ tests alone.
 - https://developer.ebay.com/develop/api/sell/fulfillment_api
 - https://developer.ebay.com/api-docs/sell/static/inventory/managing-inventory-items.html
 - https://developer.ebay.com/develop/api/sell/sell_return
+
+## Bounded pagination and staging completeness
+
+The connector now follows fixed-origin provider pagination internally for a
+maximum of **5 pages or 50 normalized records** per operator request.
+Amazon Orders `nextToken` is supplied to `paginationToken`; Amazon
+Listings `pagination.nextToken` is supplied to `pageToken`.
+eBay next-page URLs are parsed for numeric offsets, and only the
+allowlisted endpoint is subsequently called. No untrusted next-link
+host or pathname is followed. OAuth access-token lengths support
+normal provider-issued tokens; they are never returned or logged.
+
+`nextPageAvailable`, `completeWithinLimit` and `pagesFetched`
+describe **only the queried time window and bounded snapshot**.
+Manual staging copies `sourcePageComplete` and `pagesFetched` into the
+audit record and response. Even when `sourcePageComplete=true`, this
+does not mean an account's historical orders, inventory, returns or
+fulfilment have been reconciled. A multi-run cursor/checkpoint service
+and approved canonical Commerce mapping are still required for full sync.
