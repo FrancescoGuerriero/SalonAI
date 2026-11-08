@@ -103,10 +103,12 @@ function safeDate(value) {
 }
 function safeOrder(order, provider) {
   if (provider === "amazon") return {
-    provider, externalOrderId: String(order.AmazonOrderId || ""),
-    status: String(order.OrderStatus || ""), placedAt: safeDate(order.PurchaseDate),
-    total: order.OrderTotal?.Amount ?? null, currency: order.OrderTotal?.CurrencyCode ?? null,
-    fulfillmentStatus: order.FulfillmentChannel || null,
+    provider, externalOrderId: String(order.orderId || ""),
+    status: String(order.fulfillment?.fulfillmentStatus || ""),
+    placedAt: safeDate(order.createdTime),
+    total: order.proceeds?.grandTotal?.amount ?? null,
+    currency: order.proceeds?.grandTotal?.currencyCode ?? null,
+    fulfillmentStatus: order.fulfillment?.fulfillmentStatus || null,
   };
   return {
     provider, externalOrderId: String(order.orderId || ""),
@@ -151,14 +153,15 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     headers = { "x-amz-access-token": accessToken, accept: "application/json" };
     url = new URL(kind === "listings"
       ? `/listings/2021-08-01/items/${encodeURIComponent(config.sellerId)}`
-      : "/orders/v0/orders", config.origin);
+      : "/orders/2026-01-01/orders", config.origin);
     if (kind === "listings") {
       url.searchParams.set("marketplaceIds", config.marketplaceId);
-      url.searchParams.set("pageSize", String(take));
+      url.searchParams.set("pageSize", String(Math.min(take, 20)));
     } else {
-      url.searchParams.set("MarketplaceIds", config.marketplaceId);
-      url.searchParams.set("CreatedAfter", new Date(Date.now() - 7 * 86400000).toISOString());
-      url.searchParams.set("MaxResultsPerPage", String(take));
+      url.searchParams.set("marketplaceIds", config.marketplaceId);
+      url.searchParams.set("createdAfter", new Date(Date.now() - 7 * 86400000).toISOString());
+      url.searchParams.set("maxResultsPerPage", String(take));
+      url.searchParams.set("includedData", "PROCEEDS");
     }
   } else {
     const ebay = await ebayToken(connection, fetchImpl, getCredential);
@@ -171,7 +174,7 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
   }
   const response = await fetchJson(fetchImpl, url.toString(), { method: "GET", headers });
   const items = provider === "amazon_seller_central"
-    ? kind === "listings" ? response.items : response.payload?.Orders
+    ? kind === "listings" ? response.items : response.orders
     : kind === "listings" ? response.inventoryItems : response.orders;
   if (!Array.isArray(items)) throw unsupported("Unexpected seller result shape.", "SELLER_CHANNEL_BAD_RESPONSE");
   // No buyer information, addresses, payment identifiers or provider access tokens.
@@ -181,7 +184,7 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
   return Object.freeze({
     provider, kind, source: "read_only_provider_snapshot", records: normalized,
     recordCount: normalized.length, nextPageAvailable: Boolean(
-      response.pagination?.nextToken || response.payload?.NextToken || response.next),
+      response.pagination?.nextToken || response.next),
     canonicalRecordsWritten: 0, ordersFulfilled: 0, returnsProcessed: 0,
     publicationEnabled: false,
   });
