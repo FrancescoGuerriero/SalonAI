@@ -4,6 +4,17 @@ const { Schema } = mongoose;
 
 // Editorial outreach is review-controlled. This model never publishes content,
 // sends messages, buys links or changes external campaigns.
+const transitionEvidenceSchema = new Schema(
+  {
+    fromStatus: { type: String, required: true },
+    toStatus: { type: String, required: true },
+    actor: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    recordedAt: { type: Date, default: Date.now, required: true },
+    confirmation: { type: String, enum: ["none", "rights_review", "external_submission", "external_publication"], default: "none" },
+  },
+  { _id: false }
+);
+
 const editorialPlacementSchema = new Schema(
   {
     business: { type: Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -33,6 +44,7 @@ const editorialPlacementSchema = new Schema(
     publishedAt: { type: Date, default: null },
     lastVerifiedAt: { type: Date, default: null },
     notes: { type: String, trim: true, maxlength: 3000, default: "" },
+    transitionHistory: { type: [transitionEvidenceSchema], default: [] },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
