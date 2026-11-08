@@ -24,6 +24,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
     const unverified = checks.filter((check) => check.status === "not_verified")
       .map((check) => check.key);
     const mapped = definition.capabilityPackKeys.length > 0 && !definition.taxonomyOnly;
+    const dependencyEvidence = Array.isArray(item.dependencyEvidence) ? item.dependencyEvidence : [];
     return Object.freeze({
       moduleId: definition.moduleId,
       displayName: definition.displayName,
@@ -32,6 +33,9 @@ export function summariseModuleOperationalGaps(assessments = []) {
       kind: definition.kind,
       aiOpportunity: definition.aiOpportunity,
       mappedCapabilityPackKeys: definition.capabilityPackKeys,
+      dependencyEvidence: Object.freeze([...dependencyEvidence]),
+      dependencyPrerequisiteBlockers: Object.freeze(dependencyEvidence.filter((dependency) => dependency.state === "confirmed_prerequisite_blocker").map((dependency) => dependency.capabilityKey)),
+      dependencyVerificationNeeded: Object.freeze(dependencyEvidence.filter((dependency) => dependency.state === "not_verified").map((dependency) => dependency.capabilityKey)),
       confirmedBlockers: Object.freeze(blocked),
       outstandingVerification: Object.freeze(unverified),
       planningState: blocked.length ? "confirmed_blocker"
