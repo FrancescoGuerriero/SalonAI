@@ -161,7 +161,7 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
       url.searchParams.set("marketplaceIds", config.marketplaceId);
       url.searchParams.set("createdAfter", new Date(Date.now() - 7 * 86400000).toISOString());
       url.searchParams.set("maxResultsPerPage", String(take));
-      url.searchParams.set("includedData", "PROCEEDS");
+      url.searchParams.set("includedData", "FULFILLMENT,PROCEEDS");
     }
   } else {
     const ebay = await ebayToken(connection, fetchImpl, getCredential);
