@@ -18,7 +18,7 @@ const REVIEWED = Object.freeze({
     observedFeatureGates: [],
     observedPermissions: ["feature-control:read", "feature-control:update"],
     registeredPackCandidatesForReview: [],
-    boundary: "Existing partner-app marketplace is not an Amazon/eBay seller listing or fulfilment integration.",
+    boundary: "Established partner-app marketplace (catalogue, partner submission/review, tenant installation preparation and reconciliation). Amazon/eBay seller feeds, listings, order sync and fulfilment require separate validation.",
   }),
   "21": Object.freeze({
     sourcePath: "backend/src/features/aiRecommendations/aiRecommendationRoutes.js",
