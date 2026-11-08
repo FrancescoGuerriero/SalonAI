@@ -8,6 +8,9 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./commerceController.js";
+import { servicePublicTenantContextMiddleware } from "../../middleware/serviceTenantMiddleware.js";
+import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
+import { effectiveAuthorityMiddleware } from "../../middleware/effectiveAuthorityMiddleware.js";
 import {
   createOrderInvoice,
   readOrderInvoice,
@@ -17,16 +20,19 @@ import { requireFeature } from "../../services/featureControlService.js";
 const router = express.Router();
 
 router.get("/config", requireFeature("online-shop"), controller.getCommerceConfig);
-router.get("/products", requireFeature("online-shop"), asyncHandler(controller.listProducts));
+router.get("/products", requireFeature("online-shop"), servicePublicTenantContextMiddleware, asyncHandler(controller.listProducts));
 router.get(
   "/inventory/products",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:read"
   ),
   asyncHandler(controller.listInventoryProducts)
 );
-router.get("/products/:identifier", requireFeature("online-shop"), asyncHandler(controller.getProduct));
+router.get("/products/:identifier", requireFeature("online-shop"), servicePublicTenantContextMiddleware, asyncHandler(controller.getProduct));
 
 router.post(
   "/products",
