@@ -35,6 +35,12 @@ function httpsUrl(value, label) {
   return url.toString();
 }
 
+export function isPublishedOnPublisherDomain(publisherWebsite, publishedUrl) {
+  const base = new URL(publisherWebsite).hostname.toLowerCase().replace(/^www\./, "");
+  const host = new URL(publishedUrl).hostname.toLowerCase().replace(/^www\./, "");
+  return host === base || host.endsWith(`.${base}`);
+}
+
 function limitedText(value, max, label, required = false) {
   const result = String(value ?? "").trim();
   if (result.length > max || (required && !result)) throw createServiceError(`Invalid ${label}.`, 422);
@@ -100,6 +106,9 @@ export async function transitionEditorialPlacement(id, input, authority, actor) 
   }
   if (target === "published") {
     record.publishedUrl = httpsUrl(input.publishedUrl, "published article");
+    if (!isPublishedOnPublisherDomain(record.publisherWebsite, record.publishedUrl)) {
+      throw createServiceError("Published article URL must belong to the declared publisher domain.", 422);
+    }
     record.publishedAt = input.publishedAt ? new Date(input.publishedAt) : new Date();
     if (!Number.isFinite(record.publishedAt.getTime())) throw createServiceError("Invalid publication date.", 422);
   }
