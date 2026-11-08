@@ -312,3 +312,23 @@ tenant isolation, Stripe/payment safety, calendar provider availability,
 or production sign-off. Requirement 12's customer-route reference does
 **not** imply its entire intelligence layer has been implemented. Existing
 models, controllers, middleware and route registrations are unchanged.
+
+## DEV1 further existing source-route references
+
+The additive, read-only implementation inventory now also recognises
+the following source surfaces. These entries are not newly created modules.
+
+| Requirement | Reviewed existing route | Scope limitation |
+| --- | --- | --- |
+| 14 Marketing, Advertising & SEO | `/api/marketing-editorial` | Editorial functionality only; not evidence of complete marketing or SEO coverage |
+| 17 Business Planning & Forecasting | `/api/future/revenue-forecast` | Revenue forecast and snapshots only |
+| 23 Clinical Records | `/api/future/clinical` | Existing restricted clinical source; no clinical/regulated production acceptance |
+| 24 Finance & Accounting Integrations | `/api/future/settlements` | Existing settlement workflows, not full accounting integration coverage |
+| 27 Data Management & Audit Centre | `/api/future/data-export-audit` | Existing export/audit surface; not full data-management completeness |
+
+Mounts are checked against `app.js` and nested `futureFeatureRoutes.js`,
+and route sources are checked for Express handlers. The catalogue continues
+to distinguish **source present** from **capability pack mapping**, **test
+acceptance**, **deployment** and **production sign-off**. Requirement 25
+(Fulfilment & Delivery) remains unreviewed in this inventory and is not
+labelled unimplemented as a consequence. No existing module code changed.
