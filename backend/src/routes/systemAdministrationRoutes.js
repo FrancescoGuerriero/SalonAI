@@ -15,6 +15,7 @@ import {
 } from "../platform/tenancy/trustedTenantMiddleware.js";
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import { moduleCatalogueController } from "../features/moduleCatalogue/moduleCatalogueController.js";
+import { inspectTrustedTenantModuleEvidence } from "../features/moduleCatalogue/moduleCatalogueTenantRuntimeEvidence.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -34,6 +35,20 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Read-only tenant evidence requires membership-resolved all-location authority.
+router.get(
+  "/module-catalogue/tenant-evidence",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const evidence = await inspectTrustedTenantModuleEvidence({
+      effectiveAuthority: request.effectiveAuthority,
+    });
+    response.status(200).json({ success: true, evidence });
+  })
 );
 
 // Planning dashboard only: server RBAC, no activation or write endpoints.
