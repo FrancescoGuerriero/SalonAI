@@ -104,7 +104,7 @@ router.get(
   asyncHandler(controller.inventorySummary)
 );
 
-router.post("/checkout", requireFeature("online-shop"), protect, asyncHandler(controller.createCheckout));
+router.post("/checkout", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.createCheckout));
 router.post(
   "/checkout/:id/confirm-demo",
   requireFeature("online-shop"),
