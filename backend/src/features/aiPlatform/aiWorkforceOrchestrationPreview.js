@@ -54,8 +54,8 @@ export function previewAiWorkforceToolInvocation({
   }
 
   const verticalId = String(composition.vertical?.id || "");
-  if (!verticalId || (Array.isArray(agent?.allowedVerticals) &&
-      !agent.allowedVerticals.includes("*") &&
+  if (!verticalId || !Array.isArray(agent?.allowedVerticals) ||
+      (!agent.allowedVerticals.includes("*") &&
       !agent.allowedVerticals.includes(verticalId))) {
     blocked("This agent is not enabled for the tenant vertical.", "AI_TOOL_VERTICAL_NOT_ALLOWED");
   }
@@ -80,6 +80,9 @@ export function previewAiWorkforceToolInvocation({
   }
 
   const tool = requireAiWorkforceTool(toolKey);
+  if (tool.maximumAutonomy !== "A0" || tool.requiresHumanApproval === true || tool.riskLevel !== "low") {
+    blocked("Only registered low-risk A0 read tools may be previewed.", "AI_TOOL_PREVIEW_TOOL_NOT_READ_ONLY");
+  }
   const policy = evaluateAgentToolPolicy({ agent, tool, requestedAutonomy });
   assertEffectivePermission(effectiveAuthority, "ai:use");
   assertEffectivePermission(effectiveAuthority, tool.requiredPermission);
