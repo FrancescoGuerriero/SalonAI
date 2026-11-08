@@ -241,3 +241,19 @@ that does not imply the repository contains no tests for that module.
 
 This slice does not modify acceptance thresholds, activate packs,
 change production infrastructure, or introduce subscription/AI quotas.
+
+## DEV1 additional P0 reviewed test-source links
+
+Source inspection extended the immutable test-source ledger to:
+- `CORE-01`: BusinessMembership, trusted-tenant and selected-location control-plane tests.
+- `11` / `CORE-03`: integration registry and credential/scoping tests.
+- `CORE-04`: available tenant policy/configuration, integration authorization and AI audit-reconciliation tests; **not** a claim that all secrets, events and policies have complete test coverage.
+- `AI-CORE-01` / `AI-CORE-02`: AI Workforce agent/tool ceilings, governance and run-audit tests.
+- `AI-CORE-04`: bounded AI reads, timeout/cancellation and audit failure classification; this does **not** prove complete model gateway, costing or safety functionality.
+- `AI-CORE-05`: AI human approval, proposal mutation prohibitions and audit reconciliation tests.
+
+The reviewed test-source inventory is intentionally partial, with no inferred
+absence of unlisted tests. Each reference records a source-level contract;
+per-test execution verification, all-location tenant acceptance, production
+approval, AI external-provider availability and deployment remain unverified.
+No capability pack or production configuration was changed.
