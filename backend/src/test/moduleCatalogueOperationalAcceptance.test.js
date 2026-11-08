@@ -448,8 +448,50 @@ test("existing P1 business modules are recorded as source-present without reimpl
     const source = await readFile(new URL("../" + routeFile.slice("backend/src/".length), import.meta.url), "utf8");
     assert.match(source, /router\.(get|post|patch|put|delete|use)\(/);
   }
-  const unknown = inspectExistingModuleImplementation("12");
+  const unknown = inspectExistingModuleImplementation("24");
   assert.equal(unknown.sourceState, "not_reviewed_in_this_inventory");
   assert.equal(unknown.existingImplementationReview, null);
   assert.equal(unknown.activationAuthorised, false);
+});
+
+test("additional existing business and AI modules resolve to real app mounts and route source", async () => {
+  const [appSource, futureSource] = await Promise.all([
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/futureFeatureRoutes.js", import.meta.url), "utf8"),
+  ]);
+  const cases = [
+    ["05", "/api/commerce", "backend/src/features/commerce/commerceRoutes.js"],
+    ["06", "/api/future/memberships", "backend/src/features/memberships/membershipRoutes.js"],
+    ["07", "/api/inventory-purchasing", "backend/src/features/inventoryPurchasing/routes/inventoryPurchasingRoutes.js"],
+    ["08", "/api/loyalty", "backend/src/features/premium/loyalty/loyaltyRoutes.js"],
+    ["10", "/api/calendar-oauth", "backend/src/integrations/calendar/calendarOAuthCallbackRoutes.js"],
+    ["11", "/api/future/integrations/v1", "backend/src/features/integrationPlatform/integrationApiRoutes.js"],
+    ["12", "/api/customers", "backend/src/routes/customerRoutes.js"],
+    ["13", "/api/customer-experience", "backend/src/features/customerExperience/customerExperienceRoutes.js"],
+    ["16", "/api/dashboard/insights", "backend/src/routes/dashboardInsightsRoutes.js"],
+    ["18", "/api/ai", "backend/src/features/aiRecommendations/aiRecommendationRoutes.js"],
+  ];
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  assert.ok(appSource.includes('"/api/future"') && futureSource.includes('"/memberships"'));
+  assert.ok(futureSource.includes('"/integrations/v1"'));
+  for (const [moduleId, mount, path] of cases) {
+    const entry = assessment.entries.find((record) => record.moduleId === moduleId);
+    assert.ok(entry);
+    const reference = entry.implementationReference;
+    assert.equal(reference.existingImplementationReview, true);
+    assert.equal(reference.sourceState, "existing_implementation_source_reviewed");
+    assert.ok(reference.apiMounts.includes(mount));
+    assert.ok(reference.routeSources.includes(path));
+    const segments = mount.startsWith("/api/future/") ? ["/api/future", "/" + mount.split("/").slice(3).join("/")] : [mount];
+    for (const segment of segments) {
+      assert.ok((segment === "/api/future" ? appSource : mount.startsWith("/api/future/") ? futureSource : appSource)
+        .includes(`"${segment}"`), `Missing mounted path segment ${segment} for ${moduleId}`);
+    }
+    const source = await readFile(new URL("../" + path.slice("backend/src/".length), import.meta.url), "utf8");
+    assert.match(source, /router\.(get|post|patch|put|delete|use)\(/);
+    assert.equal(reference.productionAccepted, null);
+    assert.equal(reference.activationAuthorised, false);
+    assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status, "not_verified");
+  }
+  assert.equal(inspectExistingModuleImplementation("24").existingImplementationReview, null);
 });
