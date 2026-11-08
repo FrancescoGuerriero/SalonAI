@@ -64,7 +64,7 @@ export async function stageSellerChannelSnapshot(connection, kind, {
   }
   const snapshot = await readSnapshot(connection, kind);
   if (!Array.isArray(snapshot?.records) || snapshot.records.length > 50 ||
-      snapshot.provider !== connection.provider) {
+      snapshot.provider !== connection.provider || snapshot.kind !== kind) {
     throw createServiceError("Invalid seller channel snapshot.", 502, {
       code: "SELLER_SYNC_SNAPSHOT_INVALID",
     });
