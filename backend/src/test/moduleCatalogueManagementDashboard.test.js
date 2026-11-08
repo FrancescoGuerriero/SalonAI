@@ -9,7 +9,8 @@ import {
 test("administrative module dashboard returns 27 requirements and 21 candidates without activation rights", () => {
   const snapshot = getAdministrativeModuleCatalogue();
   assert.equal(snapshot.readOnly, true);
-  assert.equal(snapshot.statusEvidence, "not independently verified");
+  assert.match(snapshot.statusEvidence, /reviewed GitHub source\/CI snapshots only/);
+  assert.equal(snapshot.evidenceIntegrity.valid, true);
   assert.equal(snapshot.entries.length, 48);
   assert.equal(snapshot.categories.length, 15);
   assert.deepEqual(snapshot.integrity, {
@@ -21,6 +22,8 @@ test("administrative module dashboard returns 27 requirements and 21 candidates 
     assert.equal(item.status.entitled, null);
     assert.equal(item.productionAcceptance, "unknown");
     assert.equal(item.deploymentStatus, "unknown");
+    assert.equal(item.deliveryMilestones.deployed, null);
+    assert.equal(item.deliveryMilestones.productionAccepted, null);
   }
   assert.equal(getAdministrativeModuleCatalogue({ includeCandidates: false }).entries.length, 27);
 });
@@ -50,4 +53,6 @@ test("catalogue is restricted by existing management RBAC on API and UI", async 
   assert.match(dashboard, /API\.get\("\/system-administration\/module-catalogue"\)/);
   assert.doesNotMatch(dashboard, /API\.(post|patch|put|delete)\(/);
   assert.match(dashboard, /Production verification remains unknown/);
+  assert.match(dashboard, /record.sourceUrl/);
+  assert.match(dashboard, /record.checks/);
 });
