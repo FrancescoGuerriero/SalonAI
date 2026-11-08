@@ -4,6 +4,7 @@ import AuditLog from "../../models/AuditLog.js";
 import { getBuiltinAiAgentDefinition } from "./aiWorkforceBuiltinAgents.js";
 import { requireAiWorkforceTool } from "./aiWorkforceToolRegistry.js";
 import { previewAiWorkforceToolInvocation } from "./aiWorkforceOrchestrationPreview.js";
+import { assertEffectivePermission } from "../../services/effectiveAuthorityService.js";
 import { buildManagementCopilotPayload } from "../aiRecommendations/aiManagementCopilotService.js";
 
 const TOOL_KEY = "business.metrics.read";
@@ -63,7 +64,7 @@ export async function invokeGovernedBusinessMetrics(
     enabledEntitlements,
     locationId,
   });
-  const businessId = decision.businessId;
+  // The tool registry grants ai:use; this canonical Appointment-derived\n  // metric reader additionally requires the source-domain read permission.\n  assertEffectivePermission(effectiveAuthority, "appointment:read");\n  const businessId = decision.businessId;
   const selectedLocationId = decision.locationId;
   const startedAt = new Date();
   const safeRequestId = String(requestId || "").slice(0, 160);
