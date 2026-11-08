@@ -7,6 +7,7 @@ import { inspectModuleContractDeclarations } from "../features/moduleCatalogue/m
 import { buildModuleAcceptanceContract } from "../features/moduleCatalogue/moduleCatalogueAcceptanceContract.js";
 import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectExistingModuleImplementation } from "../platform/moduleCatalogue/moduleImplementationReferences.js";
+import { inspectModuleMappingReconciliation } from "../features/moduleCatalogue/moduleCatalogueMappingReconciliation.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -675,4 +676,41 @@ test("shared AI capability entries reference existing governed endpoints without
   const unreviewed = assessment.deliveryGaps.entries.find((item) => item.moduleId === "25");
   assert.equal(unreviewed.implementationReviewState, "source_not_reviewed");
   assert.equal(unreviewed.implementationRouteCount, 0);
+});
+
+test("mapping reconciliation recognises implemented sources without inventing entitlement keys", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  for (const [id, state] of [
+    ["01", "registered_mapping_and_existing_source"],
+    ["05", "existing_source_without_canonical_mapping"],
+    ["11", "existing_source_without_canonical_mapping"],
+    ["15", "existing_source_without_canonical_mapping"],
+    ["21", "existing_source_without_canonical_mapping"],
+    ["AI-CORE-01", "registered_mapping_and_existing_source"],
+    ["AI-CORE-04", "existing_source_without_canonical_mapping"],
+    ["25", "mapping_and_source_review_required"],
+    ["22", "taxonomy_only"],
+    ["26", "taxonomy_only"],
+  ]) {
+    const entry = assessment.entries.find((row) => row.moduleId === id);
+    assert.ok(entry, `Unknown catalogue entry ${id}`);
+    const reconciliation = entry.mappingReconciliation;
+    assert.equal(reconciliation.reconciliationState, state, `Unexpected reconciliation ${id}`);
+    assert.deepEqual(reconciliation.mappedCapabilityPackKeys, entry.mappedCapabilityPackKeys);
+    assert.equal(reconciliation.createsCapabilityPack, false);
+    assert.equal(reconciliation.changesEntitlements, false);
+    assert.equal(reconciliation.activationAuthorised, false);
+    assert.equal(reconciliation.productionAccepted, null);
+    assert.equal(Object.isFrozen(reconciliation), true);
+    assert.equal(Object.isFrozen(reconciliation.observedApiMounts), true);
+  }
+  assert.equal(assessment.deliveryGaps.totals.existingSourceWithoutMapping,
+    assessment.deliveryGaps.entries.filter((row) =>
+      row.mappingReconciliationState === "existing_source_without_canonical_mapping").length);
+  assert.equal(assessment.deliveryGaps.entries.find((row) => row.moduleId === "05")
+    .mappingReconciliationAction, "review_reuse_of_existing_capability_without_duplicate_registration");
+  assert.throws(() => inspectModuleMappingReconciliation(null), TypeError);
+  assert.deepEqual(inspectModuleMappingReconciliation({
+    moduleId: "X", capabilityPackKeys: ["ai"], taxonomyOnly: false,
+  }).mappedCapabilityPackKeys, ["ai"]);
 });
