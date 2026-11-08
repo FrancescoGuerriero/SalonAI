@@ -36,7 +36,7 @@ export async function inspectModuleOperationalAcceptance({
     const prerequisiteKeys = [...new Set(definitions.flatMap((def) => def.dependencies))];
     const requiredPermissions = [...new Set(definitions.flatMap((def) => def.requiredPermissions))];
     const dependencyEvidence = inspectModuleDependencyEvidence(prerequisiteKeys, trusted.entries || []);
-    const contractEvidence = inspectModuleContractDeclarations(definitions, item.aiOpportunity);
+    const contractEvidence = inspectModuleContractDeclarations(definitions, item.aiOpportunity, item.moduleId);
 
     const checks = [
       criterion("canonical_capability_mapping", mapped ? PASSED : UNKNOWN,
