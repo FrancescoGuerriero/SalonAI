@@ -258,7 +258,8 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.
                   <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.
                   <strong> Entries with reviewed existing implementation:</strong> {operationalAssessment.deliveryGaps.totals.withReviewedImplementationSources}.
-                  <strong> Entries without a reviewed implementation reference:</strong> {operationalAssessment.deliveryGaps.totals.implementationReviewNotRecorded}.</p>
+                  <strong> Entries without a reviewed implementation reference:</strong> {operationalAssessment.deliveryGaps.totals.implementationReviewNotRecorded}.
+                  <strong> Existing implementation with mapping review required:</strong> {operationalAssessment.deliveryGaps.totals.existingSourceWithoutMapping}.</p>
                 <p className="text-stone-700">
                   These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions. An unreviewed implementation reference does not mean a module is absent.
                 </p>
@@ -393,6 +394,16 @@ export default function ModuleCatalogueDashboardPage() {
                     return (
                       <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
                         <h3 className="font-bold">Operational acceptance checklist</h3>
+                        {assessment.mappingReconciliation && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Canonical capability mapping reconciliation</h4>
+                            <p><strong>Evidence state:</strong>{" "}
+                              {assessment.mappingReconciliation.reconciliationState.replaceAll("_", " ")}</p>
+                            <p><strong>Next review:</strong>{" "}
+                              {assessment.mappingReconciliation.reviewAction.replaceAll("_", " ")}</p>
+                            <p>Source presence is not an entitlement; no new capability pack, activation or production approval is implied.</p>
+                          </div>
+                        )}
                         {assessment.implementationReference?.existingImplementationReview === true && (
                           <div className="space-y-1 rounded-lg border border-stone-300 p-3">
                             <h4 className="font-semibold">Existing module implementation</h4>
