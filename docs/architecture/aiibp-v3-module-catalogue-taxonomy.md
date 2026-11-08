@@ -216,3 +216,28 @@ capabilities, or claims a completed production sign-off. This is a
 prioritisation/acceptance contract for DEV1 to fill with independently
 reviewed module-specific test evidence. Source/CI snapshots alone do not
 satisfy this contract.
+
+## DEV1 P0 acceptance test-source cross-reference
+
+The existing protected Module Catalogue assessment now returns
+`reviewedTestSourceEvidence` per entry, sourced from the immutable
+`moduleTestEvidenceLedger.js`. Source inspection on 2026-11-08 mapped
+the existing catalogue and AI test suites to P0 capabilities:
+
+- `CORE-02`: canonical catalogue, trusted tenant evidence, module
+  operational checklist and backend runtime identity tests.
+- `16`, `18`, `AI-CORE-01`, `AI-CORE-02`: governed read-only AI metrics
+  invocation tests, including foreign tenant/location denials and
+  error/audit behaviour, and AI Adviser route/tool boundary tests where mapped.
+
+These links are **reviewed test-file source evidence**, not per-test
+execution attestations. Recorded workflow green states cover a commit's
+workflow result; individual tests were not independently reconciled with
+CI job logs in this slice. The ledger explicitly returns
+`executedInThisInspection: false`, `perTestCiConclusion: null`,
+`tenantAcceptance: null` and `productionAccepted: null`.
+A module with no listed test has no reviewed mapping **in this ledger**;
+that does not imply the repository contains no tests for that module.
+
+This slice does not modify acceptance thresholds, activate packs,
+change production infrastructure, or introduce subscription/AI quotas.
