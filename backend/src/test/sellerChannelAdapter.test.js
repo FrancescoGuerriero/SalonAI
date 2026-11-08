@@ -47,13 +47,14 @@ test("Amazon orders normalize dates and totals without buyer identities", async 
   const result = await fetchSellerChannelSnapshot(AMAZON, "orders", {
     getCredential, fetchImpl: fetchFixture([
       { access_token: "short-lived" },
-      { payload: { Orders: [{ AmazonOrderId: "111-222", OrderStatus: "Shipped",
-        PurchaseDate: "2026-10-01T11:00:00Z", OrderTotal: { Amount: "10.00", CurrencyCode: "GBP" },
-        BuyerInfo: { BuyerEmail: "private@example.com" } }] } },
+      { orders: [{ orderId: "111-222", fulfillment: { fulfillmentStatus: "SHIPPED" },
+        createdTime: "2026-10-01T11:00:00Z", proceeds: { grandTotal: { amount: "10.00", currencyCode: "GBP" } },
+        buyer: { email: "private@example.com" } }] },
     ]),
   });
   assert.equal(result.records[0].externalOrderId, "111-222");
-  assert.equal(result.records[0].status, "Shipped");
+  assert.equal(result.records[0].status, "SHIPPED");
+  assert.equal(result.records[0].total, "10.00");
   assert.ok(!JSON.stringify(result).includes("private@example.com"));
   assert.equal(result.ordersFulfilled, 0);
 });
