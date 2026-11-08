@@ -18,6 +18,8 @@ function evidenceText(value) {
 export default function ModuleCatalogueDashboardPage() {
   const [catalogue, setCatalogue] = useState(null);
   const [tenantEvidence, setTenantEvidence] = useState(null);
+  const [operationalAssessment, setOperationalAssessment] = useState(null);
+  const [assessmentError, setAssessmentError] = useState("");
   const [deploymentProvenance, setDeploymentProvenance] = useState(null);
   const [backendRuntimeIdentity, setBackendRuntimeIdentity] = useState(null);
   const [fullStackSnapshot, setFullStackSnapshot] = useState(null);
@@ -49,6 +51,15 @@ export default function ModuleCatalogueDashboardPage() {
           evidenceValidated: null,
           reason: "trusted_deployment_evidence_unavailable",
         });
+      });
+    API.get("/system-administration/module-catalogue/operational-acceptance")
+      .then(({ data }) => {
+        if (active) setOperationalAssessment(data.assessment);
+      })
+      .catch((cause) => {
+        if (active) setAssessmentError(cause?.response?.status === 403
+          ? "Business-wide module acceptance assessment requires all-location management authority."
+          : "Module operational acceptance evidence is currently unavailable.");
       });
     API.get("/system-administration/module-catalogue/tenant-evidence")
       .then(({ data }) => {
@@ -226,6 +237,20 @@ export default function ModuleCatalogueDashboardPage() {
           </dl>
         )}
       </section>
+      <section aria-label="Module acceptance overview" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-bold">Operational acceptance prerequisites</h2>
+        <p className="text-sm text-stone-700">
+          Checklist evidence is advisory and read-only. Source merges, tenant entitlements and
+          healthy containers are not sufficient for module-specific production acceptance.
+        </p>
+        {assessmentError && <p role="status">{assessmentError}</p>}
+        {operationalAssessment && (
+          <p className="text-sm">
+            {operationalAssessment.assessmentCount} assessed requirements and candidates.
+            No production sign-offs have been granted.
+          </p>
+        )}
+      </section>
       <section aria-label="Module requirements" className="space-y-3">
         <p className="text-sm text-stone-700" role="status">
           Showing {rows.length} {candidates ? "requirements and candidates" : "requirements"}.
@@ -295,6 +320,33 @@ export default function ModuleCatalogueDashboardPage() {
                           ? `Selected: ${evidence.manifestSelected ? "Yes" : "No"}; subscription grant: ${evidence.subscriptionEntitled ? "Yes" : "No"}`
                           : UNKNOWN}
                       </p>
+                    );
+                  })()}
+                  {(() => {
+                    const assessment = operationalAssessment?.entries?.find(
+                      (entry) => entry.moduleId === item.moduleId,
+                    );
+                    if (!assessment) return <p><strong>Operational acceptance:</strong> {UNKNOWN}</p>;
+                    return (
+                      <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
+                        <h3 className="font-bold">Operational acceptance checklist</h3>
+                        <p>Outstanding checks: {assessment.outstandingVerification.length};
+                          confirmed blockers: {assessment.confirmedBlockers.length}.
+                          Production approval: not granted.</p>
+                        <p><strong>Expected dependencies:</strong>{" "}
+                          {assessment.expectedDependencies.join(", ") || "None registered"}
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5">
+                          {assessment.checks.map((check) => (
+                            <li key={check.key}>
+                              <strong>{check.description}:</strong>{" "}
+                              {check.status === "evidence_present" ? "Evidence present"
+                                : check.status === "failed_or_missing" ? "Blocking prerequisite"
+                                  : UNKNOWN}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
                     );
                   })()}
                   <p><strong>Provider readiness:</strong> {item.providerReadiness}</p>
