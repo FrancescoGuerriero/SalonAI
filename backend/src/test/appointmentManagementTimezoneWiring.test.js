@@ -10,7 +10,7 @@ import test
 
 const SERVICE_URL =
   new URL(
-    "../features/appointments/appointmentManagementService.js",
+    "../features/appointments/appointmentManagementCore.js",
     import.meta.url
   );
 
