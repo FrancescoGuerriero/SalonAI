@@ -10,6 +10,7 @@ existing Integration Platform API:
 - `GET /api/future/integrations/seller-channels/:connectionId/orders`: bounded order-status snapshot.
 - `GET /api/future/integrations/seller-channels/:connectionId/fulfillments`: eBay order fulfilment-status snapshot. Amazon intentionally fails closed pending a separately scoped fulfilment implementation.
 - `GET /api/future/integrations/seller-channels/:connectionId/fulfillments/:orderId`: eBay shipping fulfilment details, including carrier, shipment reference and shipped date, without initiating shipment or returning recipient addresses.
+- `POST /api/future/integrations/seller-channels/:connectionId/stage/:kind` (`kind` = `listings` or `orders`): explicit operator-controlled import into separate `SellerChannelStagingRecord` records. Requires `feature-control:update` plus `inventory:read` or `order:read`; uses unique `(business, connection, kind, externalId)` for idempotency and writes an `AuditLog` event. It never changes canonical Commerce records.
 
 All APIs require authentication and trusted Business/Location effective
 authority. A connection must belong to the trusted business, use provider
@@ -40,16 +41,16 @@ eBay OAuth requests are sent to the corresponding official sandbox or
 production endpoint only.
 
 ## Privacy and reconciliation
-Responses expose only SKU, marketplace listing reference, quantity (when
+Read responses expose only SKU, marketplace listing reference, quantity (when
 available), order ID, status, purchase date and total/currency. They do not
 expose buyer names, addresses, emails, provider tokens, raw provider objects
 or stored credentials. Each response states
 `canonicalRecordsWritten: 0` and `publicationEnabled: false`.
-Results are current bounded read snapshots, **not** durable synchronisation,
+Reads are bounded snapshots and the manual stage endpoint persists only a bounded, normalized copy; **neither is** canonical inventory synchronization,
 reconciled stock, or an authorisation to ship/refund orders.
 
 ## Not completed: provider-dependent scope and acceptance
-This code is not production-ready seller-channel integration. It still
+This code is not production-ready seller-channel integration. The manual staging collection needs indexed MongoDB rollout and real acceptance. It still
 requires (a) live authorised Amazon/eBay seller accounts and credentials,
 (b) approved provider scopes and successful seller sandbox/production
 verification, (c) cursor-based full historical order/listing ingestion,
