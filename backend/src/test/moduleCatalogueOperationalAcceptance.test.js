@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { summariseModuleOperationalGaps } from "../features/moduleCatalogue/moduleCatalogueGapSummary.js";
+import { inspectModuleDependencyEvidence } from "../features/moduleCatalogue/moduleCatalogueDependencyEvidence.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -153,4 +154,49 @@ test("delivery-gap summary rejects duplicate or unknown identifiers and remains 
   assert.throws(() => summariseModuleOperationalGaps([{ moduleId: "UNKNOWN", checks: [] }]),
     (error) => error.code === "UNKNOWN_MODULE_CATALOGUE_ID");
   assert.throws(() => summariseModuleOperationalGaps({}), TypeError);
+});
+
+test("module dependencies disclose trusted prerequisite evidence without claiming runtime acceptance", async () => {
+  const inputs = [
+    { moduleId: "18", capabilityPackKeys: ["ai"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "09", capabilityPackKeys: ["communications"], manifestSelected: true,
+      subscriptionEntitled: false, subscriptionStatus: "active" },
+    { moduleId: "01", capabilityPackKeys: ["appointments"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "trial" },
+    { moduleId: "19", capabilityPackKeys: ["ai-receptionist"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+  ];
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture(inputs));
+  const receptionist = result.entries.find((entry) => entry.moduleId === "19");
+  assert.deepEqual(receptionist.expectedDependencies, ["ai", "communications", "appointments"]);
+  assert.deepEqual(receptionist.dependencyEvidence.map((row) => row.state), [
+    "prerequisites_evidenced", "confirmed_prerequisite_blocker", "prerequisites_evidenced",
+  ]);
+  assert.ok(receptionist.dependencyEvidence.every((row) =>
+    row.operationallyAccepted === null && row.activationAuthorised === false));
+  const summary = result.deliveryGaps.entries.find((row) => row.moduleId === "19");
+  assert.deepEqual(summary.dependencyPrerequisiteBlockers, ["communications"]);
+  assert.deepEqual(summary.dependencyVerificationNeeded, []);
+  assert.equal(receptionist.checks.find((row) => row.key === "dependency_acceptance").status,
+    "not_verified");
+});
+
+test("dependency evidence fails unknown on absent, contradictory and incomplete source records", () => {
+  const result = inspectModuleDependencyEvidence(["ai", "commerce", "ai"], [
+    { capabilityPackKeys: ["ai"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { capabilityPackKeys: ["ai"], manifestSelected: false,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+  ]);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].manifestSelected, null);
+  assert.equal(result[0].state, "not_verified");
+  assert.equal(result[1].state, "not_verified");
+  assert.equal(result[1].subscriptionEntitled, null);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result[0]), true);
+  assert.deepEqual(inspectModuleDependencyEvidence([], []), []);
 });
