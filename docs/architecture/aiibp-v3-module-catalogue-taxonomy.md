@@ -173,3 +173,22 @@ The read-only management dashboard exposes the declaration inventory per
 module. No actual endpoint is executed or provider credential consulted; no
 deployment, entitlement or catalogue activation is implied. In particular,
 this does not create or replace existing Stripe, booking or AI integrations.
+
+## DEV1 reviewed API/AI source-work traceability
+
+The existing operational acceptance `contractEvidence.relatedSourceReviews`
+now links module requirements to PRs in the **previously reviewed,
+immutable Module Delivery Evidence Ledger**. This adds source provenance
+without live external calls or client-supplied URLs. Each related record
+includes a PR number, GitHub source URL, type, reviewed date and
+`related_work_merged` outcome; it is *not* an assertion that a particular
+API route, AI tool or full module has been delivered.
+
+The summary counts entries with source reviews separately from entries
+with registered integration declarations. Both can be present while
+`apiRouteVerification`, `apiOperationalAcceptance`,
+`aiToolContractVerification` and provider readiness all remain
+`not_verified`. Source review records must be refreshed independently
+after inspecting the exact PR and associated checks. A snapshot does not
+replace a live tenant-specific API acceptance test, signed deployment
+identity or explicit production sign-off. No module activation is added.
