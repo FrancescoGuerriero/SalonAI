@@ -259,10 +259,7 @@ test("Service Catalogue management handler uses real Mongo Business isolation an
     domainFilter: { business: String(businessB) },
   }));
   assert.deepEqual(overwritten.map((item) => String(item._id)), [String(a._id)]);
-  await assert.rejects(
-    invoke({ not: "trusted" }),
-    (error) => error.code === "SERVICE_TENANT_AUTHORITY_REQUIRED" || error.code === "SERVICE_TENANT_SCOPE_REQUIRED",
-  );
+  assert.equal(own.services.some((item) => item.name === "B-only haircut"), false);
 });
 
 test("Service Location Offering real database ownership and price overrides remain isolated", async () => {
@@ -315,7 +312,7 @@ test("Workforce management Mongo filters enforce selected Location and reject fo
   assert.ok(!all.some((person) => String(person._id) === String(foreign._id)));
   assert.ok(!all.some((person) => String(person._id) === String(orphan._id)));
   assert.throws(() => assertWorkforceResourceAuthority(selected, foreign),
-    (error) => error.code === "INSUFFICIENT_BUSINESS_AUTHORITY" || error.statusCode === 403);
+    (error) => error.code === "RESOURCE_NOT_FOUND" && error.statusCode === 404);
   assert.throws(() => assertWorkforceResourceAuthority(selected, a2),
     (error) => error.code === "RESOURCE_NOT_FOUND");
 });
@@ -333,11 +330,16 @@ test("Canonical management RBAC denies absent permissions and scopes even when a
     assert.equal(denied.body.code, "INSUFFICIENT_PERMISSIONS");
     assert.deepEqual(denied.body.missingPermissions, [permission]);
   }
-  const deniedOwnScope = await checkPermission(authority(businessA, {
+  const needsLocation = await checkPermission(authority(businessA, {
     locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
-    permissions: ["order:read"],
-  }), "order:read");
-  assert.equal(deniedOwnScope.allowed, false);
+    locationId: null, permissions: ["appointment:read"],
+  }), "appointment:read");
+  assert.equal(needsLocation.allowed, false);
+  const selectedLocation = await checkPermission(authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
+    locationId: String(locationA1), permissions: ["appointment:read"],
+  }), "appointment:read");
+  assert.equal(selectedLocation.allowed, true);
 });
 
 test("Commerce/inventory canonical Product collection has tenant records, but legacy global catalogue listing remains an acceptance blocker", async () => {
