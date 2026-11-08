@@ -1,0 +1,43 @@
+name: DEV1 Marketing Editorial and Backlink Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/src/features/marketing/**"
+      - "backend/src/models/MarketingBacklinkObservation.js"
+      - "backend/src/models/MarketingEditorialPlacement.js"
+      - "backend/src/test/marketingEditorial*.test.js"
+      - "frontend/src/Services/marketingEditorialService.js"
+      - "frontend/src/pages/MarketingEditorialPage.jsx"
+      - ".github/workflows/dev1-marketing-editorial.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  editorial-contracts:
+    name: Editorial contracts and tenant-scope tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Run targeted marketing regression tests
+        run: node --test src/test/marketingEditorialBacklinkModels.test.js src/test/marketingEditorialService.test.js
+        working-directory: backend
+      - name: Validate backend source and app imports
+        run: npm run check && node -e "import('./src/app.js').then(() => console.log('Import OK'))"
+        working-directory: backend
