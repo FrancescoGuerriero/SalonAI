@@ -448,7 +448,7 @@ test("existing P1 business modules are recorded as source-present without reimpl
     const source = await readFile(new URL("../" + routeFile.slice("backend/src/".length), import.meta.url), "utf8");
     assert.match(source, /router\.(get|post|patch|put|delete|use)\(/);
   }
-  const unknown = inspectExistingModuleImplementation("24");
+  const unknown = inspectExistingModuleImplementation("25");
   assert.equal(unknown.sourceState, "not_reviewed_in_this_inventory");
   assert.equal(unknown.existingImplementationReview, null);
   assert.equal(unknown.activationAuthorised, false);
@@ -493,5 +493,39 @@ test("additional existing business and AI modules resolve to real app mounts and
     assert.equal(reference.activationAuthorised, false);
     assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status, "not_verified");
   }
-  assert.equal(inspectExistingModuleImplementation("24").existingImplementationReview, null);
+  assert.equal(inspectExistingModuleImplementation("25").existingImplementationReview, null);
+});
+
+test("existing marketing forecast clinical finance and audit surfaces are source-linked without claiming full module completion", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const [app, future] = await Promise.all([
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/futureFeatureRoutes.js", import.meta.url), "utf8"),
+  ]);
+  const cases = [
+    ["14", "/api/marketing-editorial", "backend/src/features/marketing/marketingEditorialRoutes.js"],
+    ["17", "/api/future/revenue-forecast", "backend/src/features/revenueForecasting/revenueForecastRoutes.js"],
+    ["23", "/api/future/clinical", "backend/src/features/clinical/clinicalRoutes.js"],
+    ["24", "/api/future/settlements", "backend/src/features/finance/settlementRoutes.js"],
+    ["27", "/api/future/data-export-audit", "backend/src/features/dataExportAudit/dataExportAuditRoutes.js"],
+  ];
+  assert.ok(app.includes('"/api/future"'));
+  for (const [id, mount, path] of cases) {
+    const item = assessment.entries.find((entry) => entry.moduleId === id);
+    assert.ok(item, `Unrecognised module ${id}`);
+    const source = item.implementationReference;
+    assert.equal(source.sourceState, "existing_implementation_source_reviewed");
+    assert.equal(source.existingImplementationReview, true);
+    assert.ok(source.apiMounts.includes(mount));
+    assert.ok(source.routeSources.includes(path));
+    const nested = mount.startsWith("/api/future/");
+    assert.ok((nested ? future : app).includes(`"${nested ? "/" + mount.split("/").slice(3).join("/") : mount}"`));
+    const content = await readFile(new URL("../" + path.slice("backend/src/".length), import.meta.url), "utf8");
+    assert.match(content, /router\s*\.(?:get|post|patch|put|delete|use|route)\s*\(/);
+    assert.equal(source.runtimeVerified, null);
+    assert.equal(source.productionAccepted, null);
+    assert.equal(source.activationAuthorised, false);
+    assert.equal(item.checks.find((check) => check.key === "module_api_acceptance").status, "not_verified");
+  }
+  assert.equal(inspectExistingModuleImplementation("25").sourceState, "not_reviewed_in_this_inventory");
 });
