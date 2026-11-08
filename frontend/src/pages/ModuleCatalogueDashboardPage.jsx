@@ -411,6 +411,15 @@ export default function ModuleCatalogueDashboardPage() {
                                   {assessment.mappingReconciliation.reviewedBoundary.observedPermissions.join(", ") || "None recorded"}</p>
                                 <p><strong>Existing registered packs for review, not assignment:</strong>{" "}
                                   {assessment.mappingReconciliation.reviewedBoundary.registeredPackCandidatesForReview.join(", ") || "No pack suggested"}</p>
+                                {assessment.mappingReconciliation.reviewedBoundary.establishedFoundation === "partner_app_marketplace" && (
+                                  <div className="space-y-1">
+                                    <p><strong>Existing foundation:</strong> Partner-app marketplace established</p>
+                                    <p><strong>Existing workflows:</strong>{" "}
+                                      {assessment.mappingReconciliation.reviewedBoundary.existingWorkflows
+                                        .map((workflow) => workflow.replaceAll("_", " ")).join(", ")}</p>
+                                    <p><strong>Seller-channel extension:</strong> Not independently verified (Amazon/eBay listings, orders and fulfilment)</p>
+                                  </div>
+                                )}
                                 <p>{assessment.mappingReconciliation.reviewedBoundary.boundary}</p>
                               </div>
                             )}
