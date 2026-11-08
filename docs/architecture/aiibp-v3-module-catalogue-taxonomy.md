@@ -152,3 +152,24 @@ mapping review or with confirmed prerequisite blockers. It never assigns
 runtime status, writes entitlements, creates modules or authorises
 activation. The dashboard renders the queue and shows mapping, taxonomy
 and unverified AI opportunity counts separately. No monthly AI quotas.
+
+## DEV1 canonical API and AI integration contract declarations
+
+The existing tenant-protected operational acceptance response includes
+`entries[].contractEvidence`. It inventories **only** declarations already
+present in the canonical capability registry: `integrationContracts`,
+`configurationDefinitions`, `requiredPermissions`, and registered
+capability keys. No API route or AI agent is inferred from a module title or
+roadmap opportunity.
+
+`integration_contracts_declared` is a source-definition observation, not
+endpoint validation. `integration_contracts_not_declared` does not mean
+that APIs or AI capabilities are absent. `capability_mapping_missing`
+means that this planning entry has no mapped pack, not that the underlying
+implementation is missing. All route, provider, operational, AI tool and
+production acceptance states remain `not_verified`.
+
+The read-only management dashboard exposes the declaration inventory per
+module. No actual endpoint is executed or provider credential consulted; no
+deployment, entitlement or catalogue activation is implied. In particular,
+this does not create or replace existing Stripe, booking or AI integrations.
