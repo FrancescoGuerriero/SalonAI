@@ -139,3 +139,66 @@ test("eBay shipping fulfilment detail reads packages without posting shipments",
     getCredential, fetchImpl: () => { throw new Error("Unexpected call"); },
   }));
 });
+
+test("Amazon Orders v2026 paginates with bounded tokens and never echoes OAuth credentials", async () => {
+  const calls = [];
+  const veryLongToken = "access-" + "a".repeat(1100);
+  const result = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    limit: 3,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: veryLongToken },
+      { orders: [{ orderId: "A1", fulfillment: { fulfillmentStatus: "SHIPPED" } }],
+        nextToken: "second-page" },
+      { orders: [{ orderId: "A2", fulfillment: { fulfillmentStatus: "UNSHIPPED" } }] },
+    ], calls),
+  });
+  assert.deepEqual(result.records.map((r) => r.externalOrderId), ["A1", "A2"]);
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.completeWithinLimit, true);
+  assert.equal(result.nextPageAvailable, false);
+  assert.ok(calls[1].url.includes("/orders/2026-01-01/orders?"));
+  assert.ok(calls[2].url.includes("paginationToken=second-page"));
+  assert.ok(!JSON.stringify(result).includes(veryLongToken));
+});
+
+test("Amazon listings pages continue via pageToken and enforce maximum API page size", async () => {
+  const calls = [];
+  const result = await fetchSellerChannelSnapshot(AMAZON, "listings", {
+    limit: 30, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { items: [{ sku: "SKU-A" }], pagination: { nextToken: "page-2" } },
+      { items: [{ sku: "SKU-B" }] },
+    ], calls),
+  });
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.records[1].sku, "SKU-B");
+  assert.equal(new URL(calls[1].url).searchParams.get("pageSize"), "20");
+  assert.equal(new URL(calls[2].url).searchParams.get("pageToken"), "page-2");
+});
+
+test("eBay pagination never follows an untrusted provider-controlled URL", async () => {
+  let calls = 0;
+  const get = async (_url) => {
+    calls += 1;
+    return fakeResponse(calls === 1 ? { access_token: "ebay-token" } :
+      { orders: [{ orderId: "EB-1" }], next: "https://example.invalid/steal" });
+  };
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    fetchImpl: get, getCredential,
+  }), /unsafe pagination URL/);
+  assert.equal(calls, 2);
+});
+
+test("seller pagination returns bounded partial result instead of claiming complete sync", async () => {
+  let i = 0;
+  const responses = [{ access_token: "ebay-token" },
+    ...Array.from({ length: 5 }, () => ({ orders: [{ orderId: `EB-${++i}` }], next: "/sell/fulfillment/v1/order?offset=" + i }))];
+  const result = await fetchSellerChannelSnapshot(EBAY, "orders", {
+    limit: 25, fetchImpl: fetchFixture(responses), getCredential,
+  });
+  assert.equal(result.recordCount, 5);
+  assert.equal(result.pagesFetched, 5);
+  assert.equal(result.completeWithinLimit, false);
+  assert.equal(result.nextPageAvailable, true);
+});
