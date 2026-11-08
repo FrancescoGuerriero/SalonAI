@@ -387,3 +387,27 @@ source inventory. Lack of a reviewed reference is not proof of missing
 implementation. These references do not create any new modules, routes
 or capability packs and do not change Stripe, CRM, AI, booking or
 production configuration.
+
+## DEV1 existing shared AI implementation coverage
+
+The read-only inventory now recognises the following **existing** shared
+AI platform route surfaces. It neither creates a parallel AI runtime nor
+grants activation:
+
+| Candidate | Existing API source and mount | Scope limitation |
+| --- | --- | --- |
+| AI-CORE-01 Orchestration & Policy | `/api/ai` workforce registry/governance routes, `aiWorkforceBuiltinAgents.js` | Not proof of complete shared orchestration acceptance |
+| AI-CORE-02 Agent Registry, Tools & Evaluations | `/api/ai` workforce registry, runs, proposals, and builtin agent definitions | Not proof of complete evaluation coverage |
+| AI-CORE-04 Model Gateway, Cost & Safety | `/api/future/integrations/data-hub` AI gateway evidence, plan and evaluation routes | Not proof of all gateway, provider, cost or model-safety workflows |
+| AI-CORE-05 Human Approval & Execution Ledger | `/api/ai` adviser proposals/review and workforce outcome routes | Not proof of an end-to-end execution ledger |
+
+Existing Python AI gateway and registry source is separately available,
+but this source-level reference set does not claim live Python integration
+acceptance. AI-CORE-03 Tenant Knowledge/RAG and other unreviewed catalogue
+entries remain `source_not_reviewed` rather than being called missing.
+
+`deliveryGaps.totals.withReviewedImplementationSources` and
+`implementationReviewNotRecorded` count the two source-review states
+without redefining canonical module mappings or entitlement permissions.
+These counts do **not** measure ready modules, production deployments,
+or the completion of the underlying requirements.
