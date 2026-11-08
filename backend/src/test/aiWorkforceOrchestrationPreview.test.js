@@ -94,5 +94,5 @@ test("an agent cannot request a proposal tool through an A0 preview", () => {
   assert.throws(() => preview({
     toolKey: "appointment.reschedule.propose",
     agent: { ...agent, allowedTools: ["appointment.reschedule.propose"], autonomyCeiling: "A1" },
-  }), /autonomy exceeds the registered tool ceiling|not activated|tool ceiling/i);
+  }), /Only registered low-risk A0 read tools/);
 });
