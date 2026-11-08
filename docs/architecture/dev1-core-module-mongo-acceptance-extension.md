@@ -142,3 +142,26 @@ unowned orders. This deliberately does not migrate those records, enable
 payment providers or change order settlement. The manager status endpoint,
 invoices, refunds, demo checkout, webhooks and mixed cart ownership still
 need independent end-to-end tests and reviewed integration before production.
+
+## DEV1 product-only checkout ownership gate
+
+The canonical checkout path now requires host-trusted Business context and
+authenticated user identity before any cart processing. Product lookups
+are Business-scoped; all products must have a verified and single Location.
+New Order records receive that Business and Location from the validated
+product lookup rather than from the cart body. Inventory settlement and
+compensating stock increments use the Order's Business and Location.
+
+Appointment-payment and service-package mixed carts are deliberately
+rejected with 409 **before** creating payments/orders until complete
+cross-module tenant ownership can be verified (ServicePackage currently
+has no Business ownership field). This is a compatibility restriction on
+the draft branch, **not** a production release. The customer order lookup
+changes only become usable for new product-only orders when this source
+is independently integrated.
+
+Mongo acceptance asserts foreign product rejection and mixed-cart rejection
+without Order/Payment writes. Provider callbacks, customer-facing HTTP
+checkout, positive provider payment flow, settlement retries, invoices,
+refunds, order lifecycle changes and integration with customer context all
+need additional acceptance before this branch can merge or deploy.
