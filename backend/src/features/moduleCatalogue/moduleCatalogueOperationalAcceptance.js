@@ -3,6 +3,7 @@ import {
 } from "../../platform/moduleCatalogue/canonicalModuleCatalogue.js";
 import { getCapabilityPack } from "../../platform/capabilities/capabilityRegistry.js";
 import { summariseModuleOperationalGaps } from "./moduleCatalogueGapSummary.js";
+import { inspectModuleDependencyEvidence } from "./moduleCatalogueDependencyEvidence.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
 
 const UNKNOWN = "not_verified";
@@ -33,6 +34,7 @@ export async function inspectModuleOperationalAcceptance({
     const definitions = mapped ? item.capabilityPackKeys.map(getCapabilityPack) : [];
     const prerequisiteKeys = [...new Set(definitions.flatMap((def) => def.dependencies))];
     const requiredPermissions = [...new Set(definitions.flatMap((def) => def.requiredPermissions))];
+    const dependencyEvidence = inspectModuleDependencyEvidence(prerequisiteKeys, trusted.entries || []);
 
     const checks = [
       criterion("canonical_capability_mapping", mapped ? PASSED : UNKNOWN,
@@ -75,6 +77,7 @@ export async function inspectModuleOperationalAcceptance({
       category: item.category,
       mappedCapabilityPackKeys: Object.freeze([...item.capabilityPackKeys]),
       expectedDependencies: Object.freeze(prerequisiteKeys),
+      dependencyEvidence,
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
       confirmedBlockers: Object.freeze(blocking),
