@@ -282,3 +282,24 @@ test("integration declarations never substitute for verified API routes, tools o
   assert.equal(Object.isFrozen(evidence.integrationContracts), true);
   assert.throws(() => inspectModuleContractDeclarations({}), TypeError);
 });
+
+test("reviewed AI and catalogue source PRs are traceable without claiming an API or tool is operational", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const ai = assessment.entries.find((entry) => entry.moduleId === "18");
+  assert.equal(ai.contractEvidence.relatedSourceReviewState, "related_source_snapshots_present");
+  assert.ok(ai.contractEvidence.relatedSourceReviews.some((record) => record.prNumber === 591));
+  assert.ok(ai.contractEvidence.relatedSourceReviews.every((record) =>
+    record.sourceOutcome === "related_work_merged" && record.sourceUrl.startsWith("https://github.com/")));
+  assert.equal(ai.contractEvidence.aiToolContractVerification, "not_verified");
+  assert.equal(ai.contractEvidence.apiOperationalAcceptance, "not_verified");
+  assert.equal(ai.contractEvidence.activationAuthorised, false);
+  const unreviewed = assessment.entries.find((entry) => entry.moduleId === "05");
+  assert.equal(unreviewed.contractEvidence.relatedSourceReviewState, "not_reviewed");
+  assert.deepEqual(unreviewed.contractEvidence.relatedSourceReviews, []);
+  assert.equal(assessment.deliveryGaps.totals.withRelatedSourceReviews,
+    assessment.deliveryGaps.entries.filter((row) => row.relatedSourceReviewCount > 0).length);
+  assert.equal(Object.isFrozen(ai.contractEvidence.relatedSourceReviews), true);
+  assert.equal(Object.isFrozen(ai.contractEvidence.relatedSourceReviews[0]), true);
+});
