@@ -7,6 +7,21 @@
 const REVIEWED_AT = "2026-11-08";
 const TESTS = Object.freeze([
   {
+    path: "backend/src/test/aiReceptionistWorkforce.test.js",
+    verifies: "AI Receptionist A1 registry, governed WhatsApp proposal provenance and no direct booking mutation",
+    moduleIds: ["19"],
+  },
+  {
+    path: "backend/src/test/aiRetentionTenantBoundary.test.js",
+    verifies: "Tenant-scoped AI retention reporting, no global customer fallback or direct communication dispatch",
+    moduleIds: ["20"],
+  },
+  {
+    path: "backend/src/test/aiStylistCopilot.test.js",
+    verifies: "Tenant-scoped stylist brief, consent-sensitive context and governed Python AI contract",
+    moduleIds: ["21"],
+  },
+  {
     path: "backend/src/test/saasControlPlaneV3.test.js",
     verifies: "BusinessMembership ownership, trusted tenant selection, configuration locks and unauthenticated rejection",
     moduleIds: ["CORE-01", "CORE-04"],
