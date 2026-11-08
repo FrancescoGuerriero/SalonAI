@@ -122,3 +122,23 @@ The test now asserts the trusted middleware order and checks delegated
 
 No production deployment, historical record migration, activation or monthly
 AI quotas.
+
+## DEV1 customer self-service Order isolation
+
+Customer `GET /orders/mine`, `GET /orders/:id` and
+`POST /orders/:id/cancel` now require the existing login **and** a
+verified Business resolved from the request host. New service entry points
+filter by both `business` and the authenticated `user._id`; a management
+role never grants customer self-service access to another customer's order.
+Unowned orders are excluded rather than silently assigned to any Business.
+
+Cancellation validates that scoped ownership before invoking the existing
+pending-checkout cancellation handler. Mongo fixtures cover cross-tenant,
+cross-user, missing-host-context and own-order cancellation outcomes.
+
+**Still blocked:** checkout does not yet write trusted Order ownership;
+the above customer self-service APIs therefore fail closed for existing
+unowned orders. This deliberately does not migrate those records, enable
+payment providers or change order settlement. The manager status endpoint,
+invoices, refunds, demo checkout, webhooks and mixed cart ownership still
+need independent end-to-end tests and reviewed integration before production.
