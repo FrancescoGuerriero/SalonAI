@@ -50,7 +50,7 @@ export async function createProduct(req, res) {
 }
 
 export async function listProducts(req, res) {
-  res.json(await service.listProducts(req.query));
+  res.json(await service.listProducts(req.query, { publicTenantContext: req.publicTenantContext }));
 }
 
 export async function listInventoryProducts(req, res) {
@@ -59,6 +59,7 @@ export async function listInventoryProducts(req, res) {
       req.query,
       {
         management: true,
+        effectiveAuthority: req.effectiveAuthority,
         includeCost:
           hasRequestPermission(
             req,
@@ -70,7 +71,7 @@ export async function listInventoryProducts(req, res) {
 }
 
 export async function getProduct(req, res) {
-  res.json(await service.getProduct(req.params.identifier));
+  res.json(await service.getProduct(req.params.identifier, { publicTenantContext: req.publicTenantContext }));
 }
 
 export async function updateProduct(req, res) {
