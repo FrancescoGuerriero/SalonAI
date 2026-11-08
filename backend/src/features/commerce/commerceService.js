@@ -799,6 +799,23 @@ function providerCheckoutItems({
   return providerItems;
 }
 
+/** Payment-free ownership preflight for all product-only cart lines. */
+export async function resolveProductCheckoutLocation(productItems = [], publicTenantContext) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  const productIds = productItems.map((item) => item.product);
+  const products = await Product.find({
+    ...owner,
+    _id: { $in: productIds },
+    active: true,
+  }).select("location");
+  const locations = [...new Set(products.map((item) => String(item.location || "")))];
+  if (!productItems.length || products.length !== productItems.length
+    || locations.length !== 1 || !mongoose.isValidObjectId(locations[0])) {
+    throw createServiceError("All checkout products must belong to one verified Business Location.", 409);
+  }
+  return locations[0];
+}
+
 export async function createCheckout(payload, user, publicTenantContext) {
   const owner = commercePublicTenantFilter(publicTenantContext);
   if (!mongoose.isValidObjectId(user?._id)) {
@@ -836,17 +853,9 @@ export async function createCheckout(payload, user, publicTenantContext) {
     );
   }
   const productItems = await buildProductOrderItems(productRequests, publicTenantContext);
-  const selectedProducts = await Product.find({
-    ...owner,
-    _id: { $in: productItems.map((item) => item.product) },
-    active: true,
-  }).select("location");
-  const locations = [...new Set(selectedProducts.map((item) => String(item.location || "")))];
-  if (!productItems.length || selectedProducts.length !== productItems.length
-    || locations.length !== 1 || !mongoose.isValidObjectId(locations[0])) {
-    throw createServiceError("All checkout products must belong to one verified Business Location.", 409);
-  }
-  const checkoutLocationId = locations[0];
+  const checkoutLocationId = await resolveProductCheckoutLocation(
+    productItems, publicTenantContext
+  );
   const servicePackageItems =
     await buildPurchasableServicePackageOrderItems(
       servicePackageRequests,
