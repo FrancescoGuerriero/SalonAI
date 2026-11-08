@@ -170,15 +170,15 @@ export async function confirmDemoCheckout(req, res) {
 }
 
 export async function listMyOrders(req, res) {
-  res.json(await service.listMyOrders(req.user, req.query));
+  res.json(await service.listTenantCustomerOrders(req.user, req.query, req.publicTenantContext));
 }
 
 export async function getOrder(req, res) {
-  res.json(await service.getOrder(req.params.id, req.user));
+  res.json(await service.getTenantCustomerOrder(req.params.id, req.user, req.publicTenantContext));
 }
 
 export async function cancelOrder(req, res) {
-  res.json(await service.cancelOrder(req.params.id, req.user));
+  res.json(await service.cancelTenantCustomerOrder(req.params.id, req.user, req.publicTenantContext));
 }
 
 export async function listOrders(req, res) {
