@@ -78,3 +78,31 @@ change entitlements or subscriptions, introduce monthly AI quotas, connect
 providers, expose an API route, or deploy/activate production features.
 
 Sole development owner: **DEV1**.
+
+## DEV1 priority-first delivery-gap assessment (2026-11-08)
+
+The existing read-only, membership-protected
+`GET /system-administration/module-catalogue/operational-acceptance`
+response now includes `assessment.deliveryGaps`. It derives only from the
+server's previously verified tenant manifest/subscription evidence and the
+existing twelve-prerequisite assessment for each entry. It reports:
+
+- **48 entries**: 27 roadmap requirements and 21 candidates, with their
+  original identifiers, categories, priority and AI opportunities preserved.
+- Per-entry **confirmed prerequisite blockers** only when an existing check
+  returns `failed_or_missing`; unavailable checks remain
+  `not_verified`, never silently treated as failed or passed.
+- P0/P1/P2/P3 and category-level counts, including unmapped/taxonomy items,
+  to prioritise technical follow-up without changing the underlying roadmap.
+- A read-only management dashboard summary; no new write endpoint, plan,
+  subscription, capability registration or deployment operation.
+
+The result is **not** a production-readiness score: existing deployment,
+runtime, cross-module behaviour, provider verification and sign-off remain
+independent evidence requirements. `activationAuthorised` is always false,
+and `productionAcceptedCount` is null because tenant-wide production
+acceptance was not independently inspected. The existing authoritative
+platform capability registry and tenant entitlements remain unchanged.
+
+Commerce/Stripe draft PR #608 remains separate and is not part of this
+Module Catalogue slice. No monthly AI usage quotas are introduced.
