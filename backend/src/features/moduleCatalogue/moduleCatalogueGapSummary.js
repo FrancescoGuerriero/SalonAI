@@ -32,6 +32,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
     const dependencyEvidence = Array.isArray(item.dependencyEvidence) ? item.dependencyEvidence : [];
     const contractEvidence = item.contractEvidence || null;
     const implementationReference = item.implementationReference || null;
+    const mappingReconciliation = item.mappingReconciliation || null;
     const implementationReviewState = implementationReference?.existingImplementationReview === true
       ? "existing_source_reviewed" : "source_not_reviewed";
     return Object.freeze({
@@ -44,6 +45,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
       aiEvidenceState,
       mappingReviewState,
       implementationReviewState,
+      mappingReconciliationState: mappingReconciliation?.reconciliationState || "not_reviewed",
+      mappingReconciliationAction: mappingReconciliation?.reviewAction || "investigate_source_and_existing_capability_relationship",
       implementationRouteCount: implementationReference?.apiMounts?.length || 0,
       suggestedNextReview: mappingReviewState === "mapping_review_required"
         ? "review_capability_mapping"
@@ -83,6 +86,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
     withRelatedSourceReviews: items.filter((item) => item.relatedSourceReviewCount > 0).length,
     withReviewedImplementationSources: items.filter((item) => item.implementationReviewState === "existing_source_reviewed").length,
     implementationReviewNotRecorded: items.filter((item) => item.implementationReviewState === "source_not_reviewed").length,
+    existingSourceWithoutMapping: items.filter((item) => item.mappingReconciliationState === "existing_source_without_canonical_mapping").length,
   });
   const categories = [...new Set(rows.map((item) => item.category))].sort()
     .map((category) => Object.freeze({ category, ...aggregate(rows.filter((item) => item.category === category)) }));
