@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { commerceTenantFilter, commercePublicTenantFilter } from "./commerceTenantOwnership.js";
+import { commerceTenantFilter, commercePublicTenantFilter, commerceWriteLocation } from "./commerceTenantOwnership.js";
 
 import Appointment from "../../models/Appointment.js";
 import Product from "./Product.js";
@@ -113,7 +113,7 @@ function productFields(
     : "-costPrice";
 }
 
-async function uniqueSlug(name, currentId = null) {
+async function uniqueSlug(name, currentId = null, businessId = null) {
   const base = slugify(name) || `product-${Date.now()}`;
   let slug = base;
   let suffix = 2;
@@ -121,6 +121,7 @@ async function uniqueSlug(name, currentId = null) {
   while (
     await Product.exists({
       slug,
+      ...(businessId ? { business: businessId } : {}),
       ...(currentId ? { _id: { $ne: currentId } } : {}),
     })
   ) {
@@ -190,9 +191,13 @@ function normaliseProductPayload(payload, { partial = false } = {}) {
   return output;
 }
 
-export async function createProduct(payload) {
+export async function createProduct(payload, effectiveAuthority) {
+  const owner = commerceWriteLocation(effectiveAuthority);
   const data = normaliseProductPayload(payload);
-  data.slug = await uniqueSlug(data.name);
+  // Ownership comes from verified authority, not supplied product fields.
+  data.business = owner.business;
+  data.location = owner.location;
+  data.slug = await uniqueSlug(data.name, null, owner.business);
   return Product.create(data);
 }
 
@@ -397,13 +402,14 @@ export async function getProduct(identifier, { management = false, effectiveAuth
   return assertFound(await query.lean({ virtuals: true }), "Product not found.");
 }
 
-export async function updateProduct(id, payload) {
-  const product = assertFound(await Product.findById(id), "Product not found.");
+export async function updateProduct(id, payload, effectiveAuthority) {
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const product = assertFound(await Product.findOne({ _id: id, ...owner }), "Product not found.");
   const data = normaliseProductPayload(payload, { partial: true });
   delete data.stockQuantity;
 
   if (data.name && data.name !== product.name) {
-    data.slug = await uniqueSlug(data.name, product._id);
+    data.slug = await uniqueSlug(data.name, product._id, owner.business);
   }
 
   Object.assign(product, data);
@@ -411,7 +417,7 @@ export async function updateProduct(id, payload) {
   return product.toObject({ virtuals: true });
 }
 
-export async function adjustStock(id, payload, user) {
+export async function adjustStock(id, payload, user, effectiveAuthority) {
   const delta = Number(payload.delta);
   const reason = String(payload.reason || "").trim();
 
@@ -423,7 +429,8 @@ export async function adjustStock(id, payload, user) {
     throw createServiceError("A stock adjustment reason is required.", 400);
   }
 
-  const product = assertFound(await Product.findById(id), "Product not found.");
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const product = assertFound(await Product.findOne({ _id: id, ...owner }), "Product not found.");
   const previousQuantity = product.stockQuantity;
   const newQuantity = previousQuantity + delta;
 
@@ -447,9 +454,17 @@ export async function adjustStock(id, payload, user) {
   return { product: product.toObject({ virtuals: true }), adjustment };
 }
 
-export async function listStockAdjustments(productId, query = {}) {
+export async function listStockAdjustments(productId, query = {}, effectiveAuthority) {
   const { page, limit, skip } = paginationFromQuery(query);
-  const match = productId ? { product: productId } : {};
+  const owner = commerceTenantFilter(effectiveAuthority);
+  // Resolve allowed products first; never expose foreign or unowned adjustment history.
+  const allowedIds = await Product.find(owner).distinct("_id");
+  const match = { product: { $in: allowedIds } };
+  if (productId) {
+    const allowed = allowedIds.some((id) => String(id) === String(productId));
+    if (!allowed) return { items: [], pagination: paginationResult(page, limit, 0) };
+    match.product = productId;
+  }
   const [items, total] = await Promise.all([
     InventoryAdjustment.find(match)
       .populate("product", "name sku")
@@ -482,10 +497,12 @@ export function commerceConfig() {
 
 export async function inventorySummary({
   includeCost = false,
+  effectiveAuthority = null,
 } = {}) {
+  const owner = commerceTenantFilter(effectiveAuthority);
   const [totals, lowStockProducts, lowStockCount] = await Promise.all([
     Product.aggregate([
-      { $match: { active: true } },
+      { $match: { ...owner, active: true } },
       {
         $group: {
           _id: null,
@@ -497,6 +514,7 @@ export async function inventorySummary({
       },
     ]),
     Product.find({
+      ...owner,
       active: true,
       $expr: { $lte: ["$stockQuantity", "$reorderLevel"] },
     })
@@ -505,6 +523,7 @@ export async function inventorySummary({
       .limit(20)
       .lean(),
     Product.countDocuments({
+      ...owner,
       active: true,
       $expr: { $lte: ["$stockQuantity", "$reorderLevel"] },
     }),
