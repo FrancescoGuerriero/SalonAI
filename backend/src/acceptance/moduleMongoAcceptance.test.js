@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder, createCheckout } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -567,4 +567,24 @@ test("Customer cancellation refuses foreign Order IDs before any mutation", asyn
   const cancelled = await cancelTenantCustomerOrder(own._id, customer, context);
   assert.equal(cancelled.status, "cancelled");
   assert.equal((await Order.findById(own._id)).status, "cancelled");
+});
+
+test("Checkout refuses untrusted host, cross-Business products and unverified mixed cart before payment writes", async () => {
+  const a = await Product.findOne({ business: businessA, sku: "A-SHAMPOO" }).lean();
+  const b = await Product.findOne({ business: businessB, sku: "B-SHAMPOO" }).lean();
+  const user = { _id: userA, name: "Fixture", email: "fixture@acceptance.example" };
+  const payload = (id) => ({
+    items: [{ type: "product", product: id, quantity: 1 }],
+  });
+  const paymentsBefore = await mongoose.connection.db.collection("payments").countDocuments();
+  const ordersBefore = await Order.countDocuments();
+  await assert.rejects(createCheckout(payload(a._id), user, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  await assert.rejects(createCheckout(payload(b._id), user, { businessId: String(businessA) }),
+    (error) => error.statusCode === 404);
+  await assert.rejects(createCheckout({
+    items: [{ type: "service_package", servicePackageId: new mongoose.Types.ObjectId() }],
+  }, user, { businessId: String(businessA) }), (error) => error.statusCode === 409);
+  assert.equal(await Order.countDocuments(), ordersBefore);
+  assert.equal(await mongoose.connection.db.collection("payments").countDocuments(), paymentsBefore);
 });
