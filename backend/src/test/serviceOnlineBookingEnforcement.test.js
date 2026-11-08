@@ -15,7 +15,7 @@ async function source(relativePath) {
 test("customer appointment creation rejects services that are not bookable", async () => {
   const controller =
     await source(
-      "../controllers/appointmentController.js"
+      "../features/appointments/customerBookingController.js"
     );
 
   assert.match(
