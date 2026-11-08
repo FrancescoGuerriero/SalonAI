@@ -383,7 +383,7 @@ test("reviewed test source ledger refuses wrong IDs and returns immutable eviden
   assert.equal(Object.isFrozen(ai), true);
   assert.equal(Object.isFrozen(ai[0]), true);
   const allIds = [...new Set([
-    ...["CORE-01", "CORE-02", "CORE-03", "CORE-04", "11", "16", "18", "19", "20", "21"],
+    ...["CORE-01", "CORE-02", "CORE-03", "CORE-04", "11", "15", "16", "18", "19", "20", "21"],
     ...["AI-CORE-01", "AI-CORE-02", "AI-CORE-04", "AI-CORE-05"],
   ])];
   assert.equal(validateModuleTestEvidenceLedger(allIds).valid, true);
@@ -582,4 +582,51 @@ test("existing AI application tests are linked as source evidence only", async (
       source.productionAccepted === null));
     assert.equal(entry.acceptanceContract.activationAuthorised, false);
   }
+});
+
+test("marketplace source is partner app governance, not evidence of Amazon/eBay seller connectors", async () => {
+  const [app, future, integration, marketplace, admin, security] = await Promise.all([
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/futureFeatureRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/integrationPlatform/integrationPlatformRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/partnerMarketplace/partnerMarketplaceRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../routes/systemAdministrationRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/security/securityRoutes.js", import.meta.url), "utf8"),
+  ]);
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  assert.ok(app.includes('"/api/future"'));
+  assert.ok(app.includes('"/api/system-administration"'));
+  assert.ok(future.includes('"/integrations"'));
+  assert.ok(future.includes('"/integrations/v1"'));
+  assert.ok(future.includes('"/security"'));
+  assert.ok(integration.includes('"/marketplace"') && integration.includes("partnerMarketplaceRoutes"));
+  assert.ok(marketplace.includes('"/catalogue"') && marketplace.includes('"/installations"'));
+  assert.ok(admin.includes('"/module-catalogue"'));
+  assert.ok(security.includes('"/audit-logs"'));
+  for (const [id, mount] of [
+    ["15", "/api/future/integrations/marketplace"],
+    ["CORE-02", "/api/system-administration"],
+    ["CORE-03", "/api/future/integrations"],
+    ["CORE-04", "/api/future/security"],
+  ]) {
+    const entry = assessment.entries.find((item) => item.moduleId === id);
+    assert.ok(entry);
+    assert.equal(entry.implementationReference.sourceState, "existing_implementation_source_reviewed");
+    assert.ok(entry.implementationReference.apiMounts.includes(mount));
+    assert.equal(entry.implementationReference.runtimeVerified, null);
+    assert.equal(entry.implementationReference.productionAccepted, null);
+    assert.equal(entry.implementationReference.activationAuthorised, false);
+    assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status, "not_verified");
+    for (const path of entry.implementationReference.routeSources) {
+      const source = await readFile(new URL("../" + path.slice("backend/src/".length), import.meta.url), "utf8");
+      assert.ok(source.includes("router."), `Missing route source ${path}`);
+    }
+  }
+  const marketplaceEntry = assessment.entries.find((entry) => entry.moduleId === "15");
+  assert.match(marketplaceEntry.implementationReference.preservedCapability, /no Amazon\/eBay seller listing/);
+  assert.ok(marketplaceEntry.reviewedTestSourceEvidence.some((item) =>
+    item.path === "backend/src/test/partnerMarketplaceFoundation.test.js"));
+  assert.ok(marketplaceEntry.reviewedTestSourceEvidence.every((item) =>
+    item.executedInThisInspection === false && item.productionAccepted === null));
+  assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
 });
