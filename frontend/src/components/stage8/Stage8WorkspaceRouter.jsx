@@ -10,6 +10,7 @@ const AiPromotionProposalPage = lazy(() => import("../../pages/AiPromotionPropos
 const AiReadinessPage = lazy(() => import("../../pages/AiReadinessPage.jsx"));
 const DataHubPage = lazy(() => import("../../pages/DataHubPage.jsx"));
 const MarketingHubPage = lazy(() => import("../../pages/MarketingHubPage.jsx"));
+const MarketingEditorialPage = lazy(() => import("../../pages/MarketingEditorialPage.jsx"));
 
 function AccessDenied({ message }) {
   return (
@@ -34,6 +35,15 @@ export default function Stage8WorkspaceRouter({ pathname, children }) {
     return hasPermission(user, "feature-control:read")
       ? <DeferredWorkspace><MarketingHubPage /></DeferredWorkspace>
       : <AccessDenied message="You do not have permission to inspect Marketing connections." />;
+  }
+
+  if (pathname === "/marketing/editorial") {
+    if (loading) return null;
+    if (!user) return <Navigate replace to="/login" />;
+    const allowed = ["customer-experience:read", "reports:read"].some(permission => hasPermission(user, permission));
+    return allowed
+      ? <DeferredWorkspace><MarketingEditorialPage /></DeferredWorkspace>
+      : <AccessDenied message="You do not have permission to inspect editorial placements or backlinks." />;
   }
 
   if (pathname === "/admin/system/data-hub") {

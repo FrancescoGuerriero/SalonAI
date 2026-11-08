@@ -12,6 +12,7 @@ import commerceWebhookRoutes from "./features/commerce/commerceWebhookRoutes.js"
 import chatbotRoutes from "./features/chatbot/chatbotRoutes.js";
 import consultationSessionRoutes from "./features/consultations/consultationSessionRoutes.js";
 import customerExperienceRoutes from "./features/customerExperience/customerExperienceRoutes.js";
+import marketingEditorialRoutes from "./features/marketing/marketingEditorialRoutes.js";
 import dataImportRoutes from "./features/dataImport/dataImportRoutes.js";
 import servicePackageCustomerRoutes from "./features/servicePackages/servicePackageCustomerRoutes.js";
 
@@ -207,6 +208,7 @@ app.use("/api/whatsapp", requireFeature("whatsapp-booking"), whatsappRoutes);
 app.use("/api/retention-automation", requireFeature("retention-automation"), automationRoutes);
 app.use("/api/premium-analytics", requireFeature("premium-analytics"), premiumAnalyticsRoutes);
 app.use("/api/customer-experience", customerExperienceRoutes);
+app.use("/api/marketing-editorial", marketingEditorialRoutes);
 app.use("/api/data-imports", dataImportRoutes);
 
 /*

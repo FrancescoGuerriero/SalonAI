@@ -216,6 +216,7 @@ export default function MarketingHubPage() {
               <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">Connect advertising, analytics, social, commerce, CRM, finance, survey, communications and governed data sources to the AIIBP Data Hub. Provider secrets are encrypted and never returned after storage.</p>
             </div>
             <div className="flex gap-2">
+              <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800" to="/marketing/editorial">Editorial &amp; backlinks</Link>
               <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800" to="/admin/system/data-hub"><Database aria-hidden="true" size={18} /> Data Hub</Link>
               <button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800" onClick={() => { setLoading(true); load(); }} type="button"><RefreshCw aria-hidden="true" size={18} /> Refresh</button>
             </div>
