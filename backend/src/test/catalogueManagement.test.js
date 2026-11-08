@@ -84,7 +84,7 @@ test("product management separates catalogue, publication and inventory permissi
 
   assert.match(
     routes,
-    /"\/inventory\/products",\s*protect,\s*requirePermissions\(\s*"product:read"/s
+    /"\/inventory\/products",\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requirePermissions\(\s*"product:read"/s
   );
   assert.match(
     routes,
@@ -202,4 +202,17 @@ test("service catalogue mutations write canonical audit history", async () => {
     controller,
     /changedFields:\s*Object\.keys\(\s*payload\s*\)/
   );
+});
+
+test("commerce public and inventory read routes require tenant-bound authority", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const commerce = await source("../features/commerce/commerceService.js");
+  assert.match(routes, /"\/products", requireFeature\("online-shop"\), servicePublicTenantContextMiddleware,/);
+  assert.match(routes, /"\/products\/:identifier", requireFeature\("online-shop"\), servicePublicTenantContextMiddleware,/);
+  assert.match(controller, /publicTenantContext: req\.publicTenantContext/);
+  assert.match(controller, /effectiveAuthority: req\.effectiveAuthority/);
+  assert.match(commerce, /commercePublicTenantFilter\(publicTenantContext\)/);
+  assert.match(commerce, /commerceTenantFilter\(effectiveAuthority\)/);
+  assert.match(commerce, /\.\.\.match,\s*active: true/);
 });
