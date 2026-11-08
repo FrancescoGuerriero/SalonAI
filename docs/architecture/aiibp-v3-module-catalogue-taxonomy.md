@@ -461,3 +461,36 @@ not represented as a deployed seller-channel connector.
 The read-only `mappingReconciliation.reviewedBoundary` response reports
 the source path, observed feature guards, permissions and pack candidates.
 The management dashboard makes these distinctions visible for review.
+
+## DEV1 correction: Seller & Marketplace Management already has an established foundation
+
+Requirement **15 Seller & Marketplace Management** must not be described
+as an absent or newly proposed module. The source repository already
+contains an **established partner-app marketplace foundation**:
+
+- `MarketplaceApp` and `MarketplaceInstallation` persistence models.
+- Partner-app submission, platform approval, catalogue and trusted tenant
+  installation preparation controllers/services.
+- Installation connection reconciliation using the existing Integration
+  Platform as the source of connection authority.
+- Existing admin UI `PartnerMarketplacePanel.jsx` and partner marketplace
+  regression tests.
+- Mounted routes under `/api/future/integrations/marketplace`.
+
+The catalogue records this with
+`mappingReconciliation.reviewedBoundary.establishedFoundation =
+"partner_app_marketplace"` and an immutable list of reviewed workflows.
+The canonical module entry, actual routes, application logic and original
+entitlement architecture remain unchanged.
+
+**Separate scope**: This foundation is not itself proof that Amazon/eBay
+seller listing publication, feed synchronisation, orders, returns,
+shipping/fulfilment or external provider connections have passed
+acceptance. Those are additional seller-channel integration checks, not
+a reason to recreate or classify the established marketplace foundation
+as missing. `extensionEvidenceStatus` remains
+`seller_channel_integrations_not_verified`.
+
+A missing explicit module-to-pack mapping is an administrative
+reconciliation issue only; it must not erase the existing source
+implementation or create a new capability pack automatically.
