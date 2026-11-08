@@ -165,3 +165,11 @@ without Order/Payment writes. Provider callbacks, customer-facing HTTP
 checkout, positive provider payment flow, settlement retries, invoices,
 refunds, order lifecycle changes and integration with customer context all
 need additional acceptance before this branch can merge or deploy.
+
+The product-only preflight is also exposed as
+`resolveProductCheckoutLocation`, which checks canonical Mongo Product
+ownership without creating any Order, Payment or provider session. Fixtures
+exercise a valid same-Business location and deny foreign Business, mixed
+tenant products and absent trusted context. A passing preflight fixture does
+**not** prove successful provider checkout, atomic settlement or customer
+session integration. Those remain explicit acceptance blockers.
