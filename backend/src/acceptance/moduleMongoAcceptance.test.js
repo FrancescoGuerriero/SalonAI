@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder, createCheckout } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder, createCheckout, resolveProductCheckoutLocation } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -587,4 +587,20 @@ test("Checkout refuses untrusted host, cross-Business products and unverified mi
   }, user, { businessId: String(businessA) }), (error) => error.statusCode === 409);
   assert.equal(await Order.countDocuments(), ordersBefore);
   assert.equal(await mongoose.connection.db.collection("payments").countDocuments(), paymentsBefore);
+});
+
+test("Payment-free product checkout ownership preflight accepts one tenant location only", async () => {
+  const [a, b] = await Promise.all([
+    Product.findOne({ business: businessA, sku: "A-SHAMPOO" }).lean(),
+    Product.findOne({ business: businessB, sku: "B-SHAMPOO" }).lean(),
+  ]);
+  const tenantA = { businessId: String(businessA) };
+  const valid = await resolveProductCheckoutLocation([{ product: a._id }], tenantA);
+  assert.equal(valid, String(locationA1));
+  await assert.rejects(resolveProductCheckoutLocation([{ product: a._id }, { product: b._id }], tenantA),
+    (error) => error.statusCode === 409);
+  await assert.rejects(resolveProductCheckoutLocation([{ product: b._id }], tenantA),
+    (error) => error.statusCode === 409);
+  await assert.rejects(resolveProductCheckoutLocation([{ product: a._id }], null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
 });
