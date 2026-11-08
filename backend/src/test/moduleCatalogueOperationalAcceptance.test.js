@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import { summariseModuleOperationalGaps } from "../features/moduleCatalogue/moduleCatalogueGapSummary.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -113,4 +114,43 @@ test("module management route enforces trusted authority and UI does not write s
     /API\.get\("\/system-administration\/module-catalogue\/operational-acceptance"\)/);
   assert.match(page, /Production approval: not granted/);
   assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
+});
+
+test("catalogue delivery gap summary includes every requirement and candidate without implied approval", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const summary = result.deliveryGaps;
+  assert.equal(summary.readOnly, true);
+  assert.equal(summary.assessmentNotApproval, true);
+  assert.equal(summary.activationAuthorised, false);
+  assert.equal(summary.productionAcceptedCount, null);
+  assert.equal(summary.totals.count, 48);
+  assert.equal(summary.priorities.reduce((total, row) => total + row.count, 0), 48);
+  assert.equal(summary.categories.reduce((total, row) => total + row.count, 0), 48);
+  assert.deepEqual(summary.priorities.map((row) => row.priority), ["P0", "P1", "P2", "P3"]);
+  assert.ok(summary.entries.some((row) =>
+    row.moduleId === "02" && row.confirmedBlockers.includes("subscription_entitlement")));
+  assert.ok(summary.entries.some((row) =>
+    row.moduleId === "18" && row.aiOpportunity.includes("assistant")));
+  assert.ok(summary.entries.some((row) =>
+    row.moduleId === "22" && row.canonicalMappingVerified === false));
+  assert.ok(summary.entries.every((row) =>
+    row.activationAuthorised === false && row.productionAccepted === null));
+});
+
+test("delivery-gap summary rejects duplicate or unknown identifiers and remains read-only", () => {
+  const assessment = {
+    moduleId: "01",
+    checks: [{ key: "tenant_location_isolation", status: "not_verified" }],
+  };
+  const summary = summariseModuleOperationalGaps([assessment]);
+  assert.equal(summary.entries[0].planningState, "verification_required");
+  assert.equal(summary.totals.verificationRequired, 1);
+  assert.equal(Object.isFrozen(summary.entries), true);
+  assert.equal(Object.isFrozen(summary.entries[0]), true);
+  assert.throws(() => summariseModuleOperationalGaps([assessment, assessment]), /Duplicate/);
+  assert.throws(() => summariseModuleOperationalGaps([{ moduleId: "UNKNOWN", checks: [] }]),
+    (error) => error.code === "UNKNOWN_MODULE_CATALOGUE_ID");
+  assert.throws(() => summariseModuleOperationalGaps({}), TypeError);
 });
