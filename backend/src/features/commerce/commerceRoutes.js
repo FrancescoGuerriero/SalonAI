@@ -11,6 +11,7 @@ import * as controller from "./commerceController.js";
 import { servicePublicTenantContextMiddleware } from "../../middleware/serviceTenantMiddleware.js";
 import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import { effectiveAuthorityMiddleware } from "../../middleware/effectiveAuthorityMiddleware.js";
+import { requireScopedCommerceOrder } from "./commerceOrderAuthorityMiddleware.js";
 import {
   createOrderInvoice,
   readOrderInvoice,
@@ -126,25 +127,41 @@ router.get(
 router.patch(
   "/orders/:id/status",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:update"),
+  requireScopedCommerceOrder,
   asyncHandler(controller.updateOrderStatus)
 );
 router.post(
   "/orders/:id/refunds",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:refund"),
+  requireScopedCommerceOrder,
   asyncHandler(controller.refundOrderPayment)
 );
 router.get(
   "/orders/:id/invoice",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:read"),
+  requireScopedCommerceOrder,
   asyncHandler(readOrderInvoice)
 );
 router.post(
   "/orders/:id/invoice",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:update"),
+  requireScopedCommerceOrder,
   asyncHandler(createOrderInvoice)
 );
 
