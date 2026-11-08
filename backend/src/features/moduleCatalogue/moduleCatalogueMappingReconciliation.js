@@ -3,6 +3,8 @@
  * An existing route is not a new entitlement key, a proof of activation,
  * or evidence that the complete business module is implemented.
  */
+import { inspectModuleMappingReviewEvidence } from "./moduleCatalogueMappingReviewEvidence.js";
+
 const freeze = (items) => Object.freeze([...items]);
 
 export function inspectModuleMappingReconciliation(entry, implementationReference = null) {
@@ -13,6 +15,7 @@ export function inspectModuleMappingReconciliation(entry, implementationReferenc
   const taxonomyOnly = entry.taxonomyOnly === true;
   const mappedCapabilityPackKeys = freeze(entry.capabilityPackKeys);
   const existingSourceReviewed = implementationReference?.existingImplementationReview === true;
+  const reviewedBoundary = inspectModuleMappingReviewEvidence(entry.moduleId);
   const apiMounts = freeze(existingSourceReviewed
     ? implementationReference.apiMounts || [] : []);
 
@@ -33,6 +36,7 @@ export function inspectModuleMappingReconciliation(entry, implementationReferenc
     sourceReviewState: existingSourceReviewed ? "existing_source_reviewed" : "source_not_reviewed",
     mappedCapabilityPackKeys,
     observedApiMounts: apiMounts,
+    reviewedBoundary,
     reviewAction: taxonomyOnly ? "retain_taxonomy_only"
       : mappedCapabilityPackKeys.length
         ? "verify_existing_entitlement_and_runtime_contract"
