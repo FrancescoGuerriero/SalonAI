@@ -137,7 +137,7 @@ const REFERENCES = Object.freeze({
       "backend/src/features/integrationPlatform/integrationPlatformRoutes.js",
     ],
     apiMounts: ["/api/future/integrations/marketplace"],
-    preservedCapability: "Existing partner-app marketplace governance only; no Amazon/eBay seller listing or fulfilment connector claimed",
+    preservedCapability: "Established partner-app marketplace: app submissions, review, catalogue, tenant installation preparation and reconciliation. Seller-channel Amazon/eBay scope not independently verified.",
   },
   "CORE-02": {
     routeSources: ["backend/src/routes/systemAdministrationRoutes.js"],
