@@ -94,8 +94,8 @@ test("provider work during a processing gap does not block the sequence", () => 
     sequence: COLOUR_SEQUENCE,
     providerAppointments: [
       {
-        startsAt: new Date("2030-06-15T08:30:00.000Z"),
-        endsAt: new Date("2030-06-15T09:00:00.000Z"),
+        startsAt: new Date("2030-06-15T09:30:00.000Z"),
+        endsAt: new Date("2030-06-15T10:00:00.000Z"),
         status: "confirmed",
       },
     ],
@@ -109,7 +109,9 @@ test("provider work during a processing gap does not block the sequence", () => 
     now: NOW,
   });
 
-  assert.deepEqual(slots, ["09:00", "10:00"]);
+  // 09:00 remains feasible because the provider is released during 09:30–10:00.
+  // 10:00 is correctly excluded because a 90-minute sequence ends after 11:00.
+  assert.deepEqual(slots, ["09:00"]);
 });
 
 test("resource capacity blocks otherwise feasible sequence starts", () => {

@@ -131,6 +131,23 @@ export const PERMISSION_SCOPE_BY_KEY =
     "consultation:approve": "L",
     "consultation:assign": "L",
 
+    // Clinical operations require an explicitly selected authorised location.
+    "clinical:record:read": "L",
+    "clinical:record:write": "L",
+    "clinical:record:sign": "L",
+    "clinical:consent:read": "L",
+    "clinical:consent:manage": "L",
+    "clinical:credential:read": "B",
+    "clinical:credential:manage": "B",
+    "clinical:media:read": "L",
+    "clinical:media:manage": "L",
+    "clinical:eligibility:manage": "L",
+
+    // Benchmark reading is restricted to granted locations; governance is
+    // controlled by the active Business, never by an unrelated tenant.
+    "benchmark:read": "A",
+    "benchmark:manage": "B",
+
     "loyalty:manage": "X",
     "gift-card:manage": "X",
     "referral:manage": "B",

@@ -158,9 +158,10 @@ test("Adviser preparation endpoint remains behind ai:use and is explicitly separ
       "utf8"
     );
 
+  assert.match(routes, /const tenantAwareAiChain = \[[\s\S]*?trustedTenantContextMiddleware[\s\S]*?effectiveAuthorityMiddleware[\s\S]*?"ai:use"/);
   assert.match(
     routes,
-    /"\/adviser\/proposals\/:proposalId\/prepare"[\s\S]*?"ai:use"[\s\S]*?prepareProposalDraft/
+    /"\/adviser\/proposals\/:proposalId\/prepare"[\s\S]*?tenantAwareAiChain[\s\S]*?prepareProposalDraft/
   );
   assert.equal(
     /adviser\/proposals[^"\n]*execute/.test(

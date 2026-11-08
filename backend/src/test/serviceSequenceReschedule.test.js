@@ -19,7 +19,10 @@ test("sequence rescheduling atomically replaces provider and resource reservatio
   const handler = service.slice(start);
   assert.match(handler, /databaseSession\.withTransaction/);
   assert.match(handler, /ProviderOccupancyReservation\.findOne/);
-  assert.match(handler, /excludeAppointmentId:\s*appointment\._id/);
+  // The canonical transaction passes the current appointment ID to both
+  // resource and provider conflict checks; no deprecated named option is used.
+  assert.match(handler, /busyReservations\([\s\S]*?databaseSession,\s*appointment\._id\s*\)/);
+  assert.match(handler, /assertProviderWindowsAvailable\([\s\S]*?databaseSession,\s*appointment\._id\s*\)/);
   assert.match(handler, /ProviderOccupancyReservation\.deleteMany/);
   assert.match(handler, /BookingResourceReservation\.deleteMany/);
   assert.match(handler, /ProviderOccupancyReservation\.create/);

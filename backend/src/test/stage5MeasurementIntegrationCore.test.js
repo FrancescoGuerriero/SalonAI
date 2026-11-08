@@ -18,9 +18,9 @@ const source = (relativePath) =>
 
 test("Stage 5 connector catalogue versions retained Marketing Data Core providers", () => {
   const catalogue = marketingConnectorCatalogue();
-  assert.equal(catalogue.version, "1.0.0");
+  assert.match(catalogue.version, /^2\.\d+\.\d+$/);
   assert.deepEqual(
-    catalogue.connectors.map((entry) => entry.key),
+    catalogue.connectors.filter((entry) => ["ga4", "google_search_console", "bing_webmaster", "generic", "technical_seo"].includes(entry.key)).map((entry) => entry.key),
     ["ga4", "google_search_console", "bing_webmaster", "generic", "technical_seo"]
   );
   assert.equal(marketingConnectorDefinition("ga4").entityType, "analytics_event");

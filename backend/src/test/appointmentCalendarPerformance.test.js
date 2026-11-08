@@ -4,7 +4,7 @@ import test from "node:test";
 
 test("calendar retrieval uses a lightweight projection without appointment audit-history populations", async () => {
   const source = await readFile(
-    new URL("../features/appointments/appointmentManagementService.js", import.meta.url),
+    new URL("../features/appointments/appointmentManagementCore.js", import.meta.url),
     "utf8"
   );
 
@@ -33,7 +33,7 @@ test("calendar retrieval uses a lightweight projection without appointment audit
 
 test("calendar optimisation preserves the existing maximum result limit", async () => {
   const source = await readFile(
-    new URL("../features/appointments/appointmentManagementService.js", import.meta.url),
+    new URL("../features/appointments/appointmentManagementCore.js", import.meta.url),
     "utf8"
   );
 
