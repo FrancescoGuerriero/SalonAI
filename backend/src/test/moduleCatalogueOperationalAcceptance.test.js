@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { summariseModuleOperationalGaps } from "../features/moduleCatalogue/moduleCatalogueGapSummary.js";
 import { inspectModuleDependencyEvidence } from "../features/moduleCatalogue/moduleCatalogueDependencyEvidence.js";
 import { inspectModuleContractDeclarations } from "../features/moduleCatalogue/moduleCatalogueContractEvidence.js";
+import { buildModuleAcceptanceContract } from "../features/moduleCatalogue/moduleCatalogueAcceptanceContract.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -302,4 +303,49 @@ test("reviewed AI and catalogue source PRs are traceable without claiming an API
     assessment.deliveryGaps.entries.filter((row) => row.relatedSourceReviewCount > 0).length);
   assert.equal(Object.isFrozen(ai.contractEvidence.relatedSourceReviews), true);
   assert.equal(Object.isFrozen(ai.contractEvidence.relatedSourceReviews[0]), true);
+});
+
+test("all 48 module entries expose read-only API, tenant, RBAC and AI acceptance contracts", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  assert.equal(result.entries.length, 48);
+  for (const entry of result.entries) {
+    const contract = entry.acceptanceContract;
+    assert.equal(contract.moduleId, entry.moduleId);
+    assert.equal(contract.acceptanceEvidenceStatus, "not_verified");
+    assert.equal(contract.routeInventoryVerified, false);
+    assert.equal(contract.activationAuthorised, false);
+    assert.equal(contract.productionAccepted, null);
+    assert.ok(contract.verificationItems.includes("foreign_business_access_denied"));
+    assert.ok(contract.verificationItems.includes("unauthorised_location_access_denied"));
+    assert.ok(contract.verificationItems.includes("authenticated_api_route_inventory"));
+    assert.ok(contract.verificationItems.includes("positive_and_negative_permission_tests"));
+    assert.equal(Object.isFrozen(contract), true);
+    assert.equal(Object.isFrozen(contract.verificationItems), true);
+    assert.deepEqual(contract.requiredPermissionDefinitions, entry.requiredPermissionDefinitions);
+  }
+});
+
+test("AI and registered provider contracts require additional evidence, not inferred endpoints", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const ai = result.entries.find((entry) => entry.moduleId === "19").acceptanceContract;
+  assert.ok(ai.expectedDependencies.includes("appointments"));
+  assert.ok(ai.verificationItems.includes("ai_tool_tenant_and_permission_enforcement"));
+  assert.ok(ai.verificationItems.includes("ai_tool_failure_and_prompt_injection_tests"));
+  assert.equal(ai.aiToolRegistryBindingVerified, false);
+  const taxonomy = result.entries.find((entry) => entry.moduleId === "22").acceptanceContract;
+  assert.equal(taxonomy.contractType, "taxonomy_only");
+  const unmapped = result.entries.find((entry) => entry.moduleId === "05").acceptanceContract;
+  assert.equal(unmapped.contractType, "unmapped_planning_review");
+  assert.deepEqual(unmapped.capabilityPackKeys, []);
+  assert.throws(() => buildModuleAcceptanceContract(null), TypeError);
+  const declared = buildModuleAcceptanceContract({
+    moduleId: "X", capabilityPackKeys: ["ai"], aiOpportunity: "Assistant",
+  }, { contractEvidence: { integrationContracts: ["provider-api"] } });
+  assert.ok(declared.verificationItems.includes("integration_contract_compatibility_tests"));
+  assert.ok(declared.verificationItems.includes("provider_credentials_and_callback_validation"));
+  assert.equal(declared.routeInventoryVerified, false);
 });
