@@ -45,7 +45,7 @@ export async function createProduct(req, res) {
           ? req.body.reorderLevel
           : 5,
       active: false,
-    })
+    }, req.effectiveAuthority)
   );
 }
 
@@ -94,7 +94,8 @@ export async function updateProduct(req, res) {
   res.json(
     await service.updateProduct(
       req.params.id,
-      payload
+      payload,
+      req.effectiveAuthority
     )
   );
 }
@@ -116,22 +117,24 @@ export async function updateProductPublication(req, res) {
       {
         active:
           req.body.active,
-      }
+      },
+      req.effectiveAuthority
     )
   );
 }
 
 export async function adjustStock(req, res) {
-  res.json(await service.adjustStock(req.params.id, req.body, req.user));
+  res.json(await service.adjustStock(req.params.id, req.body, req.user, req.effectiveAuthority));
 }
 
 export async function listStockAdjustments(req, res) {
-  res.json(await service.listStockAdjustments(req.params.id, req.query));
+  res.json(await service.listStockAdjustments(req.params.id, req.query, req.effectiveAuthority));
 }
 
 export async function inventorySummary(req, res) {
   res.json(
     await service.inventorySummary({
+      effectiveAuthority: req.effectiveAuthority,
       includeCost:
         hasRequestPermission(
           req,
