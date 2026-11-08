@@ -37,6 +37,9 @@ router.get("/products/:identifier", requireFeature("online-shop"), servicePublic
 router.post(
   "/products",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:create"
   ),
@@ -45,6 +48,9 @@ router.post(
 router.patch(
   "/products/:id",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:update"
   ),
@@ -54,6 +60,9 @@ router.patch(
 router.patch(
   "/products/:id/publication",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:publish"
   ),
@@ -64,6 +73,9 @@ router.patch(
 router.post(
   "/products/:id/stock-adjustments",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:inventory:update"
   ),
@@ -72,6 +84,9 @@ router.post(
 router.get(
   "/products/:id/stock-adjustments",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "inventory:read"
   ),
@@ -80,6 +95,9 @@ router.get(
 router.get(
   "/inventory/summary",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "inventory:read"
   ),
