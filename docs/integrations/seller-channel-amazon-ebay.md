@@ -9,6 +9,7 @@ existing Integration Platform API:
 - `GET /api/future/integrations/seller-channels/:connectionId/listings`: bounded listing/inventory snapshot.
 - `GET /api/future/integrations/seller-channels/:connectionId/orders`: bounded order-status snapshot.
 - `GET /api/future/integrations/seller-channels/:connectionId/fulfillments`: eBay order fulfilment-status snapshot. Amazon intentionally fails closed pending a separately scoped fulfilment implementation.
+- `GET /api/future/integrations/seller-channels/:connectionId/fulfillments/:orderId`: eBay shipping fulfilment details, including carrier, shipment reference and shipped date, without initiating shipment or returning recipient addresses.
 
 All APIs require authentication and trusted Business/Location effective
 authority. A connection must belong to the trusted business, use provider
