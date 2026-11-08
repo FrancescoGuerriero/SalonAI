@@ -6,6 +6,7 @@ import { summariseModuleOperationalGaps } from "./moduleCatalogueGapSummary.js";
 import { inspectModuleDependencyEvidence } from "./moduleCatalogueDependencyEvidence.js";
 import { inspectModuleContractDeclarations } from "./moduleCatalogueContractEvidence.js";
 import { buildModuleAcceptanceContract } from "./moduleCatalogueAcceptanceContract.js";
+import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
 
 const UNKNOWN = "not_verified";
@@ -87,6 +88,7 @@ export async function inspectModuleOperationalAcceptance({
       dependencyEvidence,
       contractEvidence,
       acceptanceContract,
+      reviewedTestSourceEvidence: listReviewedModuleTestEvidence(item.moduleId),
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
       confirmedBlockers: Object.freeze(blocking),
@@ -102,6 +104,7 @@ export async function inspectModuleOperationalAcceptance({
     readOnly: true,
     manifestIntegrity: trusted.integrity,
     assessmentCount: entries.length,
+    testEvidenceIntegrity: validateModuleTestEvidenceLedger(entries.map((entry) => entry.moduleId)),
     deliveryGaps: summariseModuleOperationalGaps(entries),
     acceptedCount: 0,
     assessmentNotApproval: true,
