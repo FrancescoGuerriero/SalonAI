@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct, createProduct, updateProduct, inventorySummary } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -486,4 +486,29 @@ test("Product creation and mutations enforce trusted Business and Location autho
   assert.equal(ownSummary.lowStockProducts.some((item) => item.sku === "B-SHAMPOO"), false);
   await assert.rejects(inventorySummary(), (error) =>
     error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+});
+
+test("Order management listing excludes foreign and unowned orders", async () => {
+  const ids = Object.values((await mongoose.connection.db.collection("orders").insertMany([
+    { business: businessA, location: locationA1, status: "processing" },
+    { business: businessA, location: locationA2, status: "processing" },
+    { business: businessB, location: locationB, status: "processing" },
+    { location: locationA1, status: "processing" },
+  ])).insertedIds).map(String);
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+    locationId: String(locationA1),
+  });
+  const scoped = await listTenantOrders({ status: "processing" }, selected);
+  assert.equal(scoped.pagination.total, 1);
+  assert.deepEqual(scoped.items.map((row) => String(row._id)), [ids[0]]);
+  assert.equal((await listTenantOrders({ status: "processing" }, authority(businessA))).pagination.total, 2);
+  assert.equal((await listTenantOrders({ status: "processing" }, authority(businessB))).pagination.total, 1);
+  await assert.rejects(listTenantOrders({ status: "processing" }), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  await assert.rejects(listTenantOrders({ status: "processing" }, authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [],
+  })), (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
 });
