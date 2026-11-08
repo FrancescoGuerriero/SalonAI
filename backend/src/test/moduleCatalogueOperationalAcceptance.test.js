@@ -371,7 +371,8 @@ test("P0 catalogue items reference reviewed test source without claiming isolate
   assert.ok(assessment.entries.find((row) => row.moduleId === "CORE-02")
     .reviewedTestSourceEvidence.some((record) =>
       record.path === "backend/src/test/moduleCatalogueTenantRuntimeEvidence.test.js"));
-  assert.deepEqual(assessment.entries.find((row) => row.moduleId === "11").reviewedTestSourceEvidence, []);
+  assert.ok(assessment.entries.find((row) => row.moduleId === "11")
+    .reviewedTestSourceEvidence.some((record) => record.path.endsWith("/integrationRegistry.test.js")));
   assert.equal(ai.checks.find((row) => row.key === "module_api_acceptance").status, "not_verified");
 });
 
@@ -380,7 +381,10 @@ test("reviewed test source ledger refuses wrong IDs and returns immutable eviden
   assert.ok(ai.length > 0);
   assert.equal(Object.isFrozen(ai), true);
   assert.equal(Object.isFrozen(ai[0]), true);
-  const allIds = ["CORE-02", "16", "18", "AI-CORE-01", "AI-CORE-02"];
+  const allIds = [...new Set([
+    ...["CORE-01", "CORE-02", "CORE-03", "CORE-04", "11", "16", "18"],
+    ...["AI-CORE-01", "AI-CORE-02", "AI-CORE-04", "AI-CORE-05"],
+  ])];
   assert.equal(validateModuleTestEvidenceLedger(allIds).valid, true);
   assert.throws(() => validateModuleTestEvidenceLedger(["18"]), /Invalid module test source evidence mapping/);
   assert.deepEqual(listReviewedModuleTestEvidence("UNKNOWN"), []);
