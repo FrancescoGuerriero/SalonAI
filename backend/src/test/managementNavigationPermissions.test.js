@@ -424,7 +424,7 @@ async function stagedWorkspaceSources() {
 function matchingStagedWorkspace(sources, path) {
   const marker = `pathname === "${path}"`;
   for (const source of sources) {
-    const index = source.indexOf(marker);
+    const index = source.lastIndexOf(marker);
     if (index >= 0) return source.slice(index, index + 700);
   }
   return "";
@@ -757,11 +757,8 @@ test("every dashboard link declares a permission and matches its route guard", a
     if (!routeBlock) {
       const staged = matchingStagedWorkspace(stagedSources, `/${link.path}`);
       assert.ok(staged, `Missing route for /${link.path}`);
-      assert.match(staged,
-        new RegExp(`hasPermission\\(user,\\s*"${link.permission.replace(/[.*+?^${}()|[\\]\\]/g, "\\    assert.ok(
-      routeBlock,
-      `Missing route for /${link.path}`
-    );")}"\\)`),
+      assert.ok(
+        staged.includes('hasPermission(user, "' + link.permission + '")'),
         `Staged route guard mismatch for /${link.path}`
       );
       continue;
