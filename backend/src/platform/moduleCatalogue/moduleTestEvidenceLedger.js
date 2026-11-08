@@ -7,6 +7,11 @@
 const REVIEWED_AT = "2026-11-08";
 const TESTS = Object.freeze([
   {
+    path: "backend/src/test/partnerMarketplaceFoundation.test.js",
+    verifies: "Partner-app marketplace catalogue and installation preparation without seller-channel provisioning or billing execution",
+    moduleIds: ["15", "CORE-03"],
+  },
+  {
     path: "backend/src/test/aiReceptionistWorkforce.test.js",
     verifies: "AI Receptionist A1 registry, governed WhatsApp proposal provenance and no direct booking mutation",
     moduleIds: ["19"],
