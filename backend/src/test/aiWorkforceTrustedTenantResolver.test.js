@@ -50,7 +50,7 @@ const subscription = {
   ],
 };
 
-function providers({ manifestRecord = record, subscriptionRecord = subscription } = {}) {
+function providers({ manifestRecord = record, subscriptionRecord = subscription, featureValue = null, connected = true } = {}) {
   const calls = [];
   return {
     calls,
@@ -66,6 +66,13 @@ function providers({ manifestRecord = record, subscriptionRecord = subscription 
         return { lean: async () => subscriptionRecord };
       },
     },
+    featureSettings: {
+      db: { readyState: connected ? 1 : 0 },
+      findOne: (filter) => {
+        calls.push({ model: "feature", filter });
+        return { lean: async () => featureValue === null ? null : { value: featureValue } };
+      },
+    },
   };
 }
 
@@ -75,6 +82,7 @@ test("trusted resolver reads tenant-scoped authoritative records and intersects 
   assert.deepEqual(source.calls, [
     { model: "manifest", filter: { business: BUSINESS, status: "active" } },
     { model: "subscription", filter: { business: BUSINESS } },
+    { model: "feature", filter: { key: "feature.ai-tools.enabled" } },
   ]);
   assert.equal(result.composition.manifest.businessId, BUSINESS);
   assert.equal(result.manifestRevision, "1");
@@ -156,4 +164,16 @@ test("unauthorised location cannot invoke canonical metrics after trusted resolu
   await assert.rejects(invokeMetricsWithResolvedTenantAuthority({
     effectiveAuthority: authority, user: { _id: USER }, locationId: OTHER_LOCATION,
   }, source), /outside the trusted membership/);
+});
+
+test("AI invocation fails closed for disabled, malformed or unavailable feature controls", async () => {
+  for (const source of [
+    providers({ featureValue: false }),
+    providers({ featureValue: "true" }),
+    providers({ connected: false }),
+  ]) {
+    await assert.rejects(resolveTrustedAiToolContext(authority, source));
+  }
+  const allowed = await resolveTrustedAiToolContext(authority, providers({ featureValue: true }));
+  assert.ok(allowed.composition.enabledCapabilityPackKeys.includes("ai"));
 });
