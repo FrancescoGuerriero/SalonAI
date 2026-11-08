@@ -25,7 +25,10 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
   });
 });
 
-router.get("/:connectionId/:kind", requirePermissions("feature-control:read"),
+router.get("/:connectionId/:kind", (request, response, next) => {
+  const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
+  return requirePermissions(permission)(request, response, next);
+},
   asyncHandler(async (request, response) => {
     const businessId = request.effectiveAuthority?.businessId;
     if (!businessId || !mongoose.isValidObjectId(businessId)) {
