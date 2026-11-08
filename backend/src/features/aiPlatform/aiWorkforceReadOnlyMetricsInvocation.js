@@ -6,6 +6,7 @@ import { requireAiWorkforceTool } from "./aiWorkforceToolRegistry.js";
 import { previewAiWorkforceToolInvocation } from "./aiWorkforceOrchestrationPreview.js";
 import { assertEffectivePermission } from "../../services/effectiveAuthorityService.js";
 import { buildManagementCopilotPayload } from "../aiRecommendations/aiManagementCopilotService.js";
+import { APPOINTMENT_METRIC_KEYS, getMetricDefinition } from "../analytics/metricCatalogue.js";
 
 const TOOL_KEY = "business.metrics.read";
 const AGENT_KEY = "business-adviser";
@@ -19,6 +20,36 @@ function denied(message, code, statusCode = 403) {
 
 function validId(value) {
   return mongoose.isValidObjectId(value);
+}
+
+export function validateAiWorkforceMetricEvidence(metrics, effectiveAuthority) {
+  if (!Array.isArray(metrics) || metrics.length > APPOINTMENT_METRIC_KEYS.length) {
+    denied("Canonical metrics returned invalid bounded evidence.", "AI_TOOL_EVIDENCE_INVALID");
+  }
+  const seen = new Set();
+  return metrics.map((metric) => {
+    if (!metric || typeof metric !== "object" || !APPOINTMENT_METRIC_KEYS.includes(metric.key) ||
+        seen.has(metric.key)) {
+      denied("Canonical metrics contain unknown or duplicate definitions.", "AI_TOOL_METRIC_NOT_REGISTERED");
+    }
+    seen.add(metric.key);
+    const definition = getMetricDefinition(metric.key);
+    for (const permission of definition.requiredPermissions) {
+      assertEffectivePermission(effectiveAuthority, permission);
+    }
+    if (metric.version !== definition.version || metric.unit !== definition.unit ||
+        !Number.isFinite(metric.value) || typeof metric.label !== "string" ||
+        metric.label !== definition.label) {
+      denied("Canonical metric evidence does not match its registered definition.", "AI_TOOL_METRIC_EVIDENCE_INVALID");
+    }
+    return {
+      key: metric.key,
+      version: definition.version,
+      label: definition.label,
+      value: metric.value,
+      unit: definition.unit,
+    };
+  });
 }
 
 /**
@@ -113,12 +144,7 @@ export async function invokeGovernedBusinessMetrics(
         payload?.scope?.tenantScoped !== true) {
       denied("Canonical metrics returned invalid scope evidence.", "AI_TOOL_EVIDENCE_SCOPE_MISMATCH");
     }
-    if (!Array.isArray(payload.metrics) || payload.metrics.length > 30) {
-      denied("Canonical metrics returned invalid bounded evidence.", "AI_TOOL_EVIDENCE_INVALID");
-    }
-    metrics = payload.metrics.map(({ key, version, label, value, unit }) => ({
-      key, version, label, value, unit,
-    }));
+    metrics = validateAiWorkforceMetricEvidence(payload.metrics, effectiveAuthority);
     state = "completed";
   } catch (error) {
     caughtError = error;

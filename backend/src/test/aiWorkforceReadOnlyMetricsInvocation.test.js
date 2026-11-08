@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   invokeGovernedBusinessMetrics,
+  validateAiWorkforceMetricEvidence,
 } from "../features/aiPlatform/aiWorkforceReadOnlyMetricsInvocation.js";
 
 const BUSINESS = "507f1f77bcf86cd799439021";
@@ -105,4 +106,23 @@ test("canonical read failure is recorded, not misreported as success", async () 
 test("audit failure prevents returning metrics", async () => {
   const { dependencies } = harness({ auditFailure: new Error("audit unavailable") });
   await assert.rejects(invokeGovernedBusinessMetrics(input, dependencies), /audit unavailable/);
+});
+
+test("AI metric evidence rejects unknown keys, duplicates, stale versions and nonfinite values", () => {
+  const metric = { key: "bookings", version: "2.1.0", label: "Bookings", value: 4, unit: "count" };
+  const valid = { ...input.effectiveAuthority };
+  assert.deepEqual(validateAiWorkforceMetricEvidence([metric], valid), [metric]);
+  for (const candidate of [
+    { ...metric, key: "customer-lifetime-value" },
+    { ...metric, version: "1.0.0" },
+    { ...metric, unit: "GBP" },
+    { ...metric, value: Number.POSITIVE_INFINITY },
+    { ...metric, label: "Not the canonical label" },
+  ]) {
+    assert.throws(() => validateAiWorkforceMetricEvidence([candidate], valid));
+  }
+  assert.throws(() => validateAiWorkforceMetricEvidence([metric, metric], valid), /duplicate/);
+  assert.throws(() => validateAiWorkforceMetricEvidence([metric], {
+    ...valid, permissions: ["ai:use"],
+  }), /permission/i);
 });
