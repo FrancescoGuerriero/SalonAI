@@ -17,6 +17,8 @@ function evidenceText(value) {
 
 export default function ModuleCatalogueDashboardPage() {
   const [catalogue, setCatalogue] = useState(null);
+  const [tenantEvidence, setTenantEvidence] = useState(null);
+  const [tenantEvidenceError, setTenantEvidenceError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
@@ -27,6 +29,15 @@ export default function ModuleCatalogueDashboardPage() {
 
   useEffect(() => {
     let active = true;
+    API.get("/system-administration/module-catalogue/tenant-evidence")
+      .then(({ data }) => {
+        if (active) setTenantEvidence(data.evidence);
+      })
+      .catch((cause) => {
+        if (active) setTenantEvidenceError(cause?.response?.status === 403
+          ? "Tenant-wide evidence requires all-location management authority."
+          : "Trusted tenant evidence is unavailable; no runtime status can be inferred.");
+      });
     API.get("/system-administration/module-catalogue").then(({ data }) => {
       if (active) setCatalogue(data.catalogue);
     }).catch((cause) => {
@@ -101,6 +112,24 @@ export default function ModuleCatalogueDashboardPage() {
           Include proposed capability candidates
         </label>
       </section>
+      <section aria-label="Trusted tenant evidence" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-bold">Tenant composition evidence</h2>
+        <p className="text-sm text-stone-700">
+          Read-only persisted manifest and subscription state for the authorised business.
+          These records do not verify deployment, runtime health, provider readiness or production acceptance.
+        </p>
+        {tenantEvidenceError && <p role="status" className="text-sm text-stone-700">{tenantEvidenceError}</p>}
+        {tenantEvidence && (
+          <dl className="grid gap-2 text-sm sm:grid-cols-3">
+            <div><dt className="font-semibold">Record integrity</dt><dd>{tenantEvidence.integrity}</dd></div>
+            <div><dt className="font-semibold">Manifest revision</dt><dd>{tenantEvidence.manifestRevision || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Subscription revision</dt><dd>{tenantEvidence.subscriptionRevision ?? UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Deployment</dt><dd>{UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Runtime verification</dt><dd>{UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Production acceptance</dt><dd>{UNKNOWN}</dd></div>
+          </dl>
+        )}
+      </section>
       <section aria-label="Module requirements" className="space-y-3">
         <p className="text-sm text-stone-700" role="status">
           Showing {rows.length} {candidates ? "requirements and candidates" : "requirements"}.
@@ -162,6 +191,16 @@ export default function ModuleCatalogueDashboardPage() {
                       </ul>
                     ) : <p>No verified source delivery records mapped to this requirement yet.</p>}
                   </section>
+                  {(() => {
+                    const evidence = tenantEvidence?.entries?.find((row) => row.moduleId === item.moduleId);
+                    return (
+                      <p><strong>Trusted tenant composition:</strong>{" "}
+                        {evidence
+                          ? `Selected: ${evidence.manifestSelected ? "Yes" : "No"}; subscription grant: ${evidence.subscriptionEntitled ? "Yes" : "No"}`
+                          : UNKNOWN}
+                      </p>
+                    );
+                  })()}
                   <p><strong>Provider readiness:</strong> {item.providerReadiness}</p>
                   <p><strong>Deployment:</strong> {item.deploymentStatus}; <strong>Production acceptance:</strong> {item.productionAcceptance}</p>
                   <dl className="grid gap-2 sm:grid-cols-2">
