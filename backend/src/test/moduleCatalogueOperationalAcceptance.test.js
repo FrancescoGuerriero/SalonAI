@@ -8,6 +8,7 @@ import { buildModuleAcceptanceContract } from "../features/moduleCatalogue/modul
 import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectExistingModuleImplementation } from "../platform/moduleCatalogue/moduleImplementationReferences.js";
 import { inspectModuleMappingReconciliation } from "../features/moduleCatalogue/moduleCatalogueMappingReconciliation.js";
+import { inspectModuleMappingReviewEvidence } from "../features/moduleCatalogue/moduleCatalogueMappingReviewEvidence.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -713,4 +714,45 @@ test("mapping reconciliation recognises implemented sources without inventing en
   assert.deepEqual(inspectModuleMappingReconciliation({
     moduleId: "X", capabilityPackKeys: ["ai"], taxonomyOnly: false,
   }).mappedCapabilityPackKeys, ["ai"]);
+});
+
+test("catalogue mapping review cites existing route guards without silently registering a pack", async () => {
+  const [commerce, marketplace, ai, app, dataHub] = await Promise.all([
+    readFile(new URL("../features/commerce/commerceRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/partnerMarketplace/partnerMarketplaceRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiRecommendations/aiRecommendationRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/integrationPlatform/dataHubRoutes.js", import.meta.url), "utf8"),
+  ]);
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const cases = [
+    ["05", commerce, ["online-shop"], ["product:read", "product:create", "order:read"], ["commerce"]],
+    ["15", marketplace, [], ["feature-control:read", "feature-control:update"], []],
+    ["21", ai, ["ai-tools"], ["ai:use"], ["ai"]],
+    ["AI-CORE-04", dataHub, [], ["ai:use", "feature-control:read"], ["ai"]],
+  ];
+  for (const [id, source, gates, permissions, candidates] of cases) {
+    const entry = assessment.entries.find((item) => item.moduleId === id);
+    assert.ok(entry);
+    const evidence = entry.mappingReconciliation.reviewedBoundary;
+    assert.equal(evidence.evidenceState, "source_boundary_reviewed");
+    assert.deepEqual(evidence.observedFeatureGates, gates);
+    assert.deepEqual(evidence.observedPermissions, permissions);
+    assert.deepEqual(evidence.registeredPackCandidatesForReview, candidates);
+    for (const gate of gates) {
+      assert.ok(source.includes(`"${gate}"`) || (id === "21" && app.includes(`"${gate}"`)));
+    }
+    for (const permission of permissions) {
+      assert.ok(source.includes(`"${permission}"`));
+    }
+    assert.equal(evidence.mappingApproved, false);
+    assert.equal(evidence.productionAccepted, null);
+    assert.equal(Object.isFrozen(evidence), true);
+    assert.equal(Object.isFrozen(evidence.registeredPackCandidatesForReview), true);
+    assert.deepEqual(entry.mappedCapabilityPackKeys, []);
+  }
+  const missing = inspectModuleMappingReviewEvidence("25");
+  assert.equal(missing.evidenceState, "not_reviewed");
+  assert.deepEqual(missing.registeredPackCandidatesForReview, []);
+  assert.equal(missing.mappingApproved, false);
 });
