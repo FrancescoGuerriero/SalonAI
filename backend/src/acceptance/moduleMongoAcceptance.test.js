@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -511,4 +511,31 @@ test("Order management listing excludes foreign and unowned orders", async () =>
   await assert.rejects(listTenantOrders({ status: "processing" }, authority(businessA, {
     locationAccessMode: "selected", allowedLocationIds: [],
   })), (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+});
+
+test("Customer Order self-service denies foreign business, foreign user and legacy unowned records", async () => {
+  const ownCustomer = { _id: userA, role: "admin" };
+  const otherCustomer = { _id: userB, role: "admin" };
+  const [mine, foreignBusiness, foreignUser, legacy] = Object.values(
+    (await mongoose.connection.db.collection("orders").insertMany([
+      { business: businessA, location: locationA1, user: userA, status: "ready" },
+      { business: businessB, location: locationB, user: userA, status: "ready" },
+      { business: businessA, location: locationA1, user: userB, status: "ready" },
+      { location: locationA1, user: userA, status: "ready" },
+    ])).insertedIds
+  ).map(String);
+  const tenantA = { businessId: String(businessA) };
+  const onlyMine = await listTenantCustomerOrders(ownCustomer, { status: "ready" }, tenantA);
+  assert.equal(onlyMine.pagination.total, 1);
+  assert.deepEqual(onlyMine.items.map((item) => String(item._id)), [mine]);
+  assert.equal(String((await getTenantCustomerOrder(mine, ownCustomer, tenantA))._id), mine);
+  for (const id of [foreignBusiness, foreignUser, legacy]) {
+    await assert.rejects(getTenantCustomerOrder(id, ownCustomer, tenantA),
+      (error) => error.statusCode === 404);
+  }
+  await assert.rejects(listTenantCustomerOrders(ownCustomer, {}, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  await assert.rejects(listTenantCustomerOrders({}, {}, tenantA),
+    (error) => error.statusCode === 401);
+  assert.equal((await listTenantCustomerOrders(otherCustomer, { status: "ready" }, tenantA)).pagination.total, 1);
 });
