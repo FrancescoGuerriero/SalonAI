@@ -4,6 +4,7 @@ import {
 import { getCapabilityPack } from "../../platform/capabilities/capabilityRegistry.js";
 import { summariseModuleOperationalGaps } from "./moduleCatalogueGapSummary.js";
 import { inspectModuleDependencyEvidence } from "./moduleCatalogueDependencyEvidence.js";
+import { inspectModuleContractDeclarations } from "./moduleCatalogueContractEvidence.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
 
 const UNKNOWN = "not_verified";
@@ -35,6 +36,7 @@ export async function inspectModuleOperationalAcceptance({
     const prerequisiteKeys = [...new Set(definitions.flatMap((def) => def.dependencies))];
     const requiredPermissions = [...new Set(definitions.flatMap((def) => def.requiredPermissions))];
     const dependencyEvidence = inspectModuleDependencyEvidence(prerequisiteKeys, trusted.entries || []);
+    const contractEvidence = inspectModuleContractDeclarations(definitions, item.aiOpportunity);
 
     const checks = [
       criterion("canonical_capability_mapping", mapped ? PASSED : UNKNOWN,
@@ -78,6 +80,7 @@ export async function inspectModuleOperationalAcceptance({
       mappedCapabilityPackKeys: Object.freeze([...item.capabilityPackKeys]),
       expectedDependencies: Object.freeze(prerequisiteKeys),
       dependencyEvidence,
+      contractEvidence,
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
       confirmedBlockers: Object.freeze(blocking),
