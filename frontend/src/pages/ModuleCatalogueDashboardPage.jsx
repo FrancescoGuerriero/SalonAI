@@ -391,6 +391,19 @@ export default function ModuleCatalogueDashboardPage() {
                     return (
                       <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
                         <h3 className="font-bold">Operational acceptance checklist</h3>
+                        <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                          <h4 className="font-semibold">Reviewed module test sources</h4>
+                          <p>Source reviewed only; per-test CI execution, tenant acceptance and deployment are not verified by these links.</p>
+                          {assessment.reviewedTestSourceEvidence?.length ? (
+                            <ul className="list-disc pl-5">
+                              {assessment.reviewedTestSourceEvidence.map((record) => (
+                                <li key={record.path}>
+                                  <code>{record.path}</code> — {record.verifies}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : <p>No module-specific reviewed test file is recorded yet.</p>}
+                        </div>
                         {assessment.acceptanceContract && (
                           <div className="space-y-2 rounded-lg border border-stone-300 p-3">
                             <h4 className="font-semibold">Module API, tenancy and AI evidence required</h4>
