@@ -385,3 +385,32 @@ test("reviewed test source ledger refuses wrong IDs and returns immutable eviden
   assert.throws(() => validateModuleTestEvidenceLedger(["18"]), /Invalid module test source evidence mapping/);
   assert.deepEqual(listReviewedModuleTestEvidence("UNKNOWN"), []);
 });
+
+test("reviewed P0 test inventory covers tenant provisioning, integration registry and AI governance boundaries", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const byId = (id) => assessment.entries.find((row) => row.moduleId === id);
+  const expected = [
+    ["CORE-01", "saasControlPlaneV3.test.js"],
+    ["CORE-03", "integrationApiAuth.test.js"],
+    ["CORE-04", "saasControlPlaneV3.test.js"],
+    ["11", "integrationRegistry.test.js"],
+    ["AI-CORE-01", "aiWorkforceCore.test.js"],
+    ["AI-CORE-02", "aiWorkforceAuditReconciliation.test.js"],
+    ["AI-CORE-04", "aiWorkforceReadDeadline.test.js"],
+    ["AI-CORE-05", "aiWorkforceGovernance.test.js"],
+  ];
+  for (const [moduleId, filename] of expected) {
+    const entry = byId(moduleId);
+    assert.ok(entry, `Missing P0 module ${moduleId}`);
+    assert.ok(entry.reviewedTestSourceEvidence.some((record) =>
+      record.path.endsWith("/" + filename)), `Missing reviewed source mapping ${moduleId}`);
+    assert.equal(entry.acceptanceContract.activationAuthorised, false);
+    assert.equal(entry.checks.find((item) => item.key === "module_api_acceptance").status,
+      "not_verified");
+  }
+  // A recorded test source remains only traceability, not an independent
+  // per-test CI result or a module-wide acceptance decision.
+  assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
+  assert.equal(byId("AI-CORE-03").reviewedTestSourceEvidence.length, 0);
+  assert.equal(assessment.entries.every((entry) => entry.productionAccepted === null), true);
+});
