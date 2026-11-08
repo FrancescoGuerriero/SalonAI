@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { commerceTenantFilter, commercePublicTenantFilter } from "./commerceTenantOwnership.js";
 
 import Appointment from "../../models/Appointment.js";
 import Product from "./Product.js";
@@ -200,10 +201,14 @@ export async function listProducts(
   {
     management = false,
     includeCost = false,
+    effectiveAuthority = null,
+    publicTenantContext = null,
   } = {}
 ) {
   const { page, limit, skip } = paginationFromQuery(query);
-  const match = {};
+  const match = management
+    ? commerceTenantFilter(effectiveAuthority)
+    : commercePublicTenantFilter(publicTenantContext);
 
   if (!management) {
     match.active = true;
@@ -314,6 +319,7 @@ export async function listProducts(
         ? Product.distinct(
             "category",
             {
+              ...match,
               active: true,
             }
           )
@@ -324,6 +330,7 @@ export async function listProducts(
         ? Product.distinct(
             "brand",
             {
+              ...match,
               active: true,
             }
           )
@@ -334,6 +341,7 @@ export async function listProducts(
         ? Product.distinct(
             "collectionName",
             {
+              ...match,
               active: true,
             }
           )
@@ -369,10 +377,13 @@ export async function listProducts(
   };
 }
 
-export async function getProduct(identifier, { management = false } = {}) {
-  const match = mongoose.isValidObjectId(identifier)
+export async function getProduct(identifier, { management = false, effectiveAuthority = null, publicTenantContext = null } = {}) {
+  const match = {
+    ...(management ? commerceTenantFilter(effectiveAuthority) : commercePublicTenantFilter(publicTenantContext)),
+    ...(mongoose.isValidObjectId(identifier)
     ? { _id: identifier }
-    : { slug: String(identifier).toLowerCase() };
+    : { slug: String(identifier).toLowerCase() }),
+  };
 
   if (!management) {
     match.active = true;
