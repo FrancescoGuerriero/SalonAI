@@ -165,6 +165,7 @@ export function getModuleCatalogueEntry(moduleId) {
  */
 export function inspectModuleCatalogueStatus(moduleId, {
   composition = null,
+  entitlementEvidence = null,
   configured = null,
   providerVerified = null,
   ingestionActive = null,
@@ -174,8 +175,12 @@ export function inspectModuleCatalogueStatus(moduleId, {
   const key = entry.entitlementKey;
   const capability = key && composition?.capabilities?.find((c) => c.key === key);
   const supported = key ? listCapabilityPacks().some((p) => p.key === key) : false;
-  const entitled = capability ? (capability.reason === "not-entitled" ? false :
-    capability.enabled === true ? true : null) : null;
+  // Composition alone does not prove subscription entitlement: an effective
+  // composition may have been built without entitlement filtering.
+  const entitled = capability?.reason === "not-entitled" ? false :
+    key && Array.isArray(entitlementEvidence) &&
+    entitlementEvidence.includes(key) && capability?.enabled === true
+      ? true : null;
   return Object.freeze({
     moduleId,
     catalogueVisible: true,
