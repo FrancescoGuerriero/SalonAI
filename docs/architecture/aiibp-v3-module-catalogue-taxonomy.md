@@ -106,3 +106,24 @@ platform capability registry and tenant entitlements remain unchanged.
 
 Commerce/Stripe draft PR #608 remains separate and is not part of this
 Module Catalogue slice. No monthly AI usage quotas are introduced.
+
+## DEV1 tenant dependency-prerequisite diagnostics
+
+The existing operational-acceptance response now includes
+`entries[].dependencyEvidence`, with each canonical capability prerequisite
+and its manifest-selection, subscription-entitlement and lifecycle evidence
+derived from the already trusted, all-location tenant inspector.
+
+- `prerequisites_evidenced` means the corresponding tenant records agree
+  on composition, entitlement and active/trial lifecycle; it **does not**
+  confirm runtime operation, provider access, permission tests or production sign-off.
+- `confirmed_prerequisite_blocker` means a trusted source explicitly
+  denies selection/entitlement or records an ineligible subscription lifecycle.
+- `not_verified` means evidence is absent, incomplete or contradictory.
+  It never means a module is broken or ready to deploy.
+
+The P0–P3 summary also includes per-module dependency prerequisite blockers
+and unresolved dependency verification keys. The dashboard presents this
+information without creating activation controls or altering module contracts.
+Existing `dependency_acceptance` checks remain `not_verified`, because
+commercial prerequisites are distinct from end-to-end workflow acceptance.
