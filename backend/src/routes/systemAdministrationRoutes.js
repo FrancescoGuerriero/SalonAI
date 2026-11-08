@@ -14,6 +14,7 @@ import {
   trustedTenantContextMiddleware,
 } from "../platform/tenancy/trustedTenantMiddleware.js";
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
+import { moduleCatalogueController } from "../features/moduleCatalogue/moduleCatalogueController.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -33,6 +34,13 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Planning dashboard only: server RBAC, no activation or write endpoints.
+router.get(
+  "/module-catalogue",
+  requirePermissions("feature-control:read"),
+  asyncHandler(moduleCatalogueController)
 );
 
 router.get(

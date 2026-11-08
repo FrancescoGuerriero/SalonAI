@@ -48,6 +48,7 @@ const CustomerExperienceFeaturePage = lazy(() => import("./pages/CustomerExperie
 const ManageAccountPage = lazy(() => import("./pages/ManageAccountPage.jsx"));
 const CustomerExperienceManagementPage = lazy(() => import("./pages/CustomerExperienceManagementPage.jsx"));
 const SystemAdministrationPage = lazy(() => import("./pages/SystemAdministrationPage.jsx"));
+const ModuleCatalogueDashboardPage = lazy(() => import("./pages/ModuleCatalogueDashboardPage.jsx"));
 const Home = lazy(
   () => import("./pages/Home.jsx")
 );
@@ -1208,6 +1209,11 @@ function AppRoutes() {
         <Route
           path="admin/system"
           element={permissionPage(SystemAdministrationPage, "feature-control:read")}
+        />
+
+        <Route
+          path="admin/module-catalogue"
+          element={permissionPage(ModuleCatalogueDashboardPage, "feature-control:read")}
         />
 
 
