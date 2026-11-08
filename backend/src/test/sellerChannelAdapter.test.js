@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
+import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
 
 const AMAZON = {
   provider: "amazon_seller_central",
@@ -115,4 +115,27 @@ test("seller channel routes keep trusted tenant ownership and permission boundar
   assert.match(integration, /"\/seller-channels"/);
   assert.doesNotMatch(routes, /\.create\(|\.updateOne\(|\.findOneAndUpdate\(/);
   assert.doesNotMatch(adapter, /MarketplaceInstallation\.create|IntegrationConnection\.create/);
+});
+
+test("eBay shipping fulfilment detail reads packages without posting shipments", async () => {
+  const calls = [];
+  const result = await fetchEbayShippingFulfillments(EBAY, "EB-01!123", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { fulfillments: [{
+        fulfillmentId: "FULF-1", shippingCarrierCode: "UPS",
+        shipmentTrackingNumber: "TRACK-1", shippedDate: "2026-11-01T11:00:00Z",
+        destinationAddress: { recipient: "private" },
+      }] },
+    ], calls),
+  });
+  assert.equal(result.records[0].carrierCode, "UPS");
+  assert.equal(result.records[0].trackingNumber, "TRACK-1");
+  assert.equal(result.shippingUpdatesPosted, 0);
+  assert.ok(!JSON.stringify(result).includes("private"));
+  assert.ok(calls[1].url.includes("/sell/fulfillment/v1/order/EB-01!123/shipping_fulfillment"));
+  assert.equal(calls[1].options.method, "GET");
+  await assert.rejects(fetchEbayShippingFulfillments(AMAZON, "x", {
+    getCredential, fetchImpl: () => { throw new Error("Unexpected call"); },
+  }));
 });
