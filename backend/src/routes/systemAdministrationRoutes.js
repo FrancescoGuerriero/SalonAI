@@ -16,6 +16,7 @@ import {
 import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.js";
 import { moduleCatalogueController } from "../features/moduleCatalogue/moduleCatalogueController.js";
 import { inspectTrustedTenantModuleEvidence } from "../features/moduleCatalogue/moduleCatalogueTenantRuntimeEvidence.js";
+import { inspectModuleDeploymentProvenance } from "../features/moduleCatalogue/moduleCatalogueDeploymentProvenance.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -35,6 +36,20 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Archived deployment provenance: no upload, client paths, activation or writes.
+router.get(
+  "/module-catalogue/deployment-provenance",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const provenance = await inspectModuleDeploymentProvenance({
+      effectiveAuthority: request.effectiveAuthority,
+    });
+    response.status(200).json({ success: true, provenance });
+  })
 );
 
 // Read-only tenant evidence requires membership-resolved all-location authority.

@@ -18,6 +18,7 @@ function evidenceText(value) {
 export default function ModuleCatalogueDashboardPage() {
   const [catalogue, setCatalogue] = useState(null);
   const [tenantEvidence, setTenantEvidence] = useState(null);
+  const [deploymentProvenance, setDeploymentProvenance] = useState(null);
   const [tenantEvidenceError, setTenantEvidenceError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
@@ -29,6 +30,14 @@ export default function ModuleCatalogueDashboardPage() {
 
   useEffect(() => {
     let active = true;
+    API.get("/system-administration/module-catalogue/deployment-provenance")
+      .then(({ data }) => { if (active) setDeploymentProvenance(data.provenance); })
+      .catch(() => {
+        if (active) setDeploymentProvenance({
+          evidenceValidated: null,
+          reason: "trusted_deployment_evidence_unavailable",
+        });
+      });
     API.get("/system-administration/module-catalogue/tenant-evidence")
       .then(({ data }) => {
         if (active) setTenantEvidence(data.evidence);
@@ -111,6 +120,31 @@ export default function ModuleCatalogueDashboardPage() {
             onChange={(event) => setCandidates(event.target.checked)} />
           Include proposed capability candidates
         </label>
+      </section>
+      <section aria-label="Deployment provenance" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-bold">Deployment provenance</h2>
+        <p className="text-sm text-stone-700">
+          Archived release, image-digest and smoke-test evidence, where available.
+          A historical deployment record does not prove current runtime health,
+          tenant activation or production acceptance.
+        </p>
+        {deploymentProvenance && (
+          <dl className="grid gap-2 text-sm sm:grid-cols-3">
+            <div><dt className="font-semibold">Archive verification</dt>
+              <dd>{deploymentProvenance.evidenceValidated === true
+                ? "Deployment archive consistent" : UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Release</dt>
+              <dd>{deploymentProvenance.releaseTag || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Source commit</dt>
+              <dd>{deploymentProvenance.sourceCommit?.slice(0, 12) || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Archived deployment time</dt>
+              <dd>{deploymentProvenance.deployedAtUtc || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Current running release</dt>
+              <dd>{UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Production acceptance</dt>
+              <dd>{UNKNOWN}</dd></div>
+          </dl>
+        )}
       </section>
       <section aria-label="Trusted tenant evidence" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
         <h2 className="text-lg font-bold">Tenant composition evidence</h2>
