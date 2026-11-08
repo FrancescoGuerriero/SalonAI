@@ -626,7 +626,7 @@ test("marketplace source is partner app governance, not evidence of Amazon/eBay 
   }
   const marketplaceEntry = assessment.entries.find((entry) => entry.moduleId === "15");
   assert.match(marketplaceEntry.implementationReference.preservedCapability, /Established partner-app marketplace/);
-  assert.match(marketplaceEntry.implementationReference.preservedCapability, /Amazon\/eBay seller-channel/);
+  assert.match(marketplaceEntry.implementationReference.preservedCapability, /Seller-channel Amazon\/eBay/);
   assert.ok(marketplaceEntry.reviewedTestSourceEvidence.some((item) =>
     item.path === "backend/src/test/partnerMarketplaceFoundation.test.js"));
   assert.ok(marketplaceEntry.reviewedTestSourceEvidence.every((item) =>
