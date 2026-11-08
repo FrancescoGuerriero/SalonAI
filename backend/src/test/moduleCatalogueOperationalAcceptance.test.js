@@ -5,6 +5,7 @@ import { summariseModuleOperationalGaps } from "../features/moduleCatalogue/modu
 import { inspectModuleDependencyEvidence } from "../features/moduleCatalogue/moduleCatalogueDependencyEvidence.js";
 import { inspectModuleContractDeclarations } from "../features/moduleCatalogue/moduleCatalogueContractEvidence.js";
 import { buildModuleAcceptanceContract } from "../features/moduleCatalogue/moduleCatalogueAcceptanceContract.js";
+import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -348,4 +349,39 @@ test("AI and registered provider contracts require additional evidence, not infe
   assert.ok(declared.verificationItems.includes("integration_contract_compatibility_tests"));
   assert.ok(declared.verificationItems.includes("provider_credentials_and_callback_validation"));
   assert.equal(declared.routeInventoryVerified, false);
+});
+
+test("P0 catalogue items reference reviewed test source without claiming isolated CI execution or acceptance", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  assert.equal(assessment.testEvidenceIntegrity.valid, true);
+  assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
+  assert.ok(assessment.testEvidenceIntegrity.reviewedTestSourceCount >= 5);
+  const ai = assessment.entries.find((row) => row.moduleId === "18");
+  assert.ok(ai.reviewedTestSourceEvidence.some((record) =>
+    record.path === "backend/src/test/aiAdviserV2.test.js"));
+  assert.ok(ai.reviewedTestSourceEvidence.some((record) =>
+    record.path === "backend/src/test/aiWorkforceReadOnlyMetricsInvocation.test.js"));
+  for (const record of ai.reviewedTestSourceEvidence) {
+    assert.equal(record.sourceType, "reviewed_test_source");
+    assert.equal(record.executedInThisInspection, false);
+    assert.equal(record.perTestCiConclusion, null);
+    assert.equal(record.tenantAcceptance, null);
+    assert.equal(record.productionAccepted, null);
+  }
+  assert.ok(assessment.entries.find((row) => row.moduleId === "CORE-02")
+    .reviewedTestSourceEvidence.some((record) =>
+      record.path === "backend/src/test/moduleCatalogueTenantRuntimeEvidence.test.js"));
+  assert.deepEqual(assessment.entries.find((row) => row.moduleId === "11").reviewedTestSourceEvidence, []);
+  assert.equal(ai.checks.find((row) => row.key === "module_api_acceptance").status, "not_verified");
+});
+
+test("reviewed test source ledger refuses wrong IDs and returns immutable evidence", () => {
+  const ai = listReviewedModuleTestEvidence("18");
+  assert.ok(ai.length > 0);
+  assert.equal(Object.isFrozen(ai), true);
+  assert.equal(Object.isFrozen(ai[0]), true);
+  const allIds = ["CORE-02", "16", "18", "AI-CORE-01", "AI-CORE-02"];
+  assert.equal(validateModuleTestEvidenceLedger(allIds).valid, true);
+  assert.throws(() => validateModuleTestEvidenceLedger(["18"]), /Invalid module test source evidence mapping/);
+  assert.deepEqual(listReviewedModuleTestEvidence("UNKNOWN"), []);
 });
