@@ -1253,6 +1253,33 @@ export async function listOrders(query = {}) {
   return { items, pagination: paginationResult(page, limit, total) };
 }
 
+/**
+ * Canonical management read: never call the legacy unscoped listOrders
+ * from an authenticated multi-tenant management route.
+ * Existing customer order pathways are deliberately unchanged in this slice.
+ */
+export async function listTenantOrders(query = {}, effectiveAuthority) {
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const { page, limit, skip } = paginationFromQuery(query);
+  const match = { ...owner };
+  if (query.status) match.status = query.status;
+  if (query.customer) match.customer = query.customer;
+  if (query.user) match.user = query.user;
+
+  const [items, total] = await Promise.all([
+    Order.find(match)
+      .populate("user", "name email")
+      .populate("customer", "firstName lastName fullName name email")
+      .populate("payment", "provider status paidAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(match),
+  ]);
+  return { items, pagination: paginationResult(page, limit, total) };
+}
+
 export async function cancelOrder(id, user) {
   const order = await findOwnedOrder(id, user);
   if (!["pending_payment", "paid"].includes(order.status)) {
