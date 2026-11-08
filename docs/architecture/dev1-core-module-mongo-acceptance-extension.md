@@ -49,3 +49,27 @@ Branch: `dev1/commerce-tenant-ownership-fixture-20261108`.
 
 No activation, deployment, production database access, provider configuration,
 or monthly AI quota work is part of this fixture.
+
+## DEV1 follow-on: tenant-bound Commerce catalogue reads
+
+This branch now routes canonical Commerce `GET /products`, `GET /products/:identifier`
+and authenticated `GET /inventory/products` through trusted tenant scope:
+
+- Public product browse/detail selects the Business from the host-verified
+  `servicePublicTenantContextMiddleware`; no client-supplied Business query
+  argument is trusted.
+- Inventory management resolves authenticated BusinessMembership and effective
+  location/permission authority before using `commerceTenantFilter`.
+- Product search, pagination count, categories, brands and collections all use
+  the same Business filter. Missing tenant context fails closed.
+- Mongo acceptance asserts positive and negative public detail/list reads,
+  management-scoped listing, and exclusion of cross-Business records.
+
+**Not yet safe for multi-tenant Commerce activation:** Product creation,
+mutation, stock adjustment, summary, checkout, legacy alternative commerce
+routes, Order listing/status, payments, invoices, refunds and webhook flows
+still require a single trusted owner propagated end-to-end. The public read
+changes may hide legacy unowned products until a separately audited migration;
+this is intentional fail-closed behaviour, not a data migration.
+
+Do not interpret fixture success as HTTP acceptance or live tenant sign-off.
