@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -356,12 +356,16 @@ test("Commerce/inventory canonical Product collection has tenant records, but le
   }));
   const scoped = await Product.find(scope).lean();
   assert.deepEqual(scoped.map((item) => item.name), ["A Shampoo"]);
-  const unscopedLegacyCatalogue = await listProducts({ facets: "false" });
-  assert.equal(unscopedLegacyCatalogue.items.length, 2);
-  assert.deepEqual(unscopedLegacyCatalogue.items.map((item) => item.name).sort(),
-    ["A Shampoo", "B Shampoo"]);
-  // Do not claim Commerce as tenant-isolation accepted: canonical legacy
-  // catalogue reads currently lack trusted Business filters.
+  await assert.rejects(listProducts({ facets: "false" }),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  const tenantCatalogue = await listProducts({ facets: "false" }, {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  assert.deepEqual(tenantCatalogue.items.map((item) => item.name), ["A Shampoo"]);
+  const foreignCatalogue = await listProducts({ facets: "false" }, {
+    publicTenantContext: { businessId: String(businessB) },
+  });
+  assert.deepEqual(foreignCatalogue.items.map((item) => item.name), ["B Shampoo"]);
   assert.ok(Order.schema.path("business"));
   assert.ok(Order.schema.path("location"));
 });
@@ -398,4 +402,40 @@ test("Commerce ownership predicate isolates canonical Product and Order records 
     (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
   assert.throws(() => commerceTenantFilter(authority(businessA, { locationAccessMode: "unknown" })),
     (error) => error.code === "COMMERCE_LOCATION_AUTHORITY_REQUIRED");
+});
+
+test("Commerce list facets and product detail reads fail closed across tenants and selected Locations", async () => {
+  const first = await listProducts({ facets: "true" }, {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  const second = await listProducts({ facets: "true" }, {
+    publicTenantContext: { businessId: String(businessB) },
+  });
+  assert.equal(first.pagination.total, 1);
+  assert.equal(second.pagination.total, 1);
+  assert.deepEqual(first.items.map((item) => item.name), ["A Shampoo"]);
+  assert.deepEqual(second.items.map((item) => item.name), ["B Shampoo"]);
+
+  const a = await Product.findOne({ business: businessA }).lean();
+  const b = await Product.findOne({ business: businessB }).lean();
+  const ownProduct = await getProduct(String(a._id), {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  assert.equal(String(ownProduct._id), String(a._id));
+  await assert.rejects(getProduct(String(b._id), {
+    publicTenantContext: { businessId: String(businessA) },
+  }), (error) => error.statusCode === 404);
+  await assert.rejects(getProduct(String(a._id)), (error) =>
+    error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const management = await listProducts({ facets: "false" }, {
+    management: true, effectiveAuthority: selected,
+  });
+  assert.deepEqual(management.items.map((item) => item.name), ["A Shampoo"]);
+  await assert.rejects(listProducts({}, { management: true }), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
 });
