@@ -96,11 +96,13 @@ export async function stageSellerChannelSnapshot(connection, kind, {
   await auditModel.create({
     actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
     resourceId: String(connection._id), requestId,
-    metadata: { businessId: String(businessId), provider: connection.provider, kind, count: writes.length,\n      sourcePageComplete: snapshot.completeWithinLimit === true, pagesFetched: snapshot.pagesFetched ?? null },
+    metadata: { businessId: String(businessId), provider: connection.provider, kind, count: writes.length,
+      sourcePageComplete: snapshot.completeWithinLimit === true, pagesFetched: snapshot.pagesFetched ?? null },
   });
   return Object.freeze({
     provider: connection.provider, kind, stagedCount: writes.length,
-    uniqueExternalIds: writes.length, sourcePageComplete: snapshot.completeWithinLimit === true,\n    pagesFetched: snapshot.pagesFetched ?? null, canonicalRecordsWritten: 0,
+    uniqueExternalIds: writes.length, sourcePageComplete: snapshot.completeWithinLimit === true,
+    pagesFetched: snapshot.pagesFetched ?? null, canonicalRecordsWritten: 0,
     listingPublicationEnabled: false, fulfillmentWritesEnabled: false,
     state: "staging_only", productionAccepted: false,
   });
