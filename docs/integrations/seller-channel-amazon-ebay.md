@@ -57,7 +57,7 @@ verification, (c) cursor-based full historical order/listing ingestion,
 (d) explicit authorised stock/listing publication workflows and eBay business
 policy/offer lifecycle, (e) dedicated returns and shipping/refund workflow
 connectors, and (f) real tenant isolation, rate-limit and production acceptance
-with representative accounts. Amazon order reads use the current Orders API v2026-01-01 searchOrders operation with PROCEEDS only, excluding buyer and recipient fields. Amazon listing reads use searchListingsItems with the provider maximum page size of 20. Pagination and durable ingestion remain separate work.
+with representative accounts. Amazon order reads use the current Orders API v2026-01-01 searchOrders operation with FULFILLMENT and PROCEEDS only, excluding buyer and recipient fields. Amazon listing reads use searchListingsItems with the provider maximum page size of 20. Pagination and durable ingestion remain separate work.
 Do not activate production or enable external writes based on green unit
 tests alone.
 
