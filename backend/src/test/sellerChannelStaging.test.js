@@ -29,6 +29,7 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(result.stagedCount, 1);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(result.state, "staging_only");
+  assert.equal(result.sourcePageComplete, false);
   assert.equal(h.writes.length, 1);
   const op = h.writes[0].updateOne;
   assert.deepEqual(op.filter, {
@@ -38,6 +39,7 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(op.update.$set.sourceRecord.quantity, 2);
   assert.equal(h.audits[0].action, "seller_channel.snapshot_staged");
   assert.equal(h.audits[0].metadata.businessId, businessId);
+  assert.equal(h.audits[0].metadata.sourcePageComplete, false);
   assert.ok(!JSON.stringify(h.audits).includes("SKU-1"));
 });
 
@@ -87,4 +89,20 @@ test("seller staging model and route prevent writes to canonical Commerce or Inv
   assert.match(model, /schema.index\(\{ business: 1, connection: 1, kind: 1, externalId: 1 \}, \{ unique: true \}\)/);
   assert.match(service, /recordsModel\.bulkWrite/);
   assert.doesNotMatch(service, /Product\.|CommerceOrder\.|StockAdjustment\.|Payment\./);
+});
+
+test("staging signals a completely read provider page without claiming canonical synchronization", async () => {
+  const h = harness([]);
+  const result = await stageSellerChannelSnapshot(connection, "listings", {
+    ...h, businessId, actorId,
+    readSnapshot: async () => ({
+      provider: "ebay", kind: "listings", records: [{ sku: "EX-1", quantity: 1 }],
+      pagesFetched: 2, completeWithinLimit: true,
+    }),
+  });
+  assert.equal(result.stagedCount, 1);
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.sourcePageComplete, true);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(h.audits[0].metadata.sourcePageComplete, true);
 });
