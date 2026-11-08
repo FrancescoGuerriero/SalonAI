@@ -117,6 +117,9 @@ router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, asyncH
 router.get(
   "/orders",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:read"),
   asyncHandler(controller.listOrders)
 );
