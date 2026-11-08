@@ -19,6 +19,7 @@ import { inspectTrustedTenantModuleEvidence } from "../features/moduleCatalogue/
 import { inspectModuleDeploymentProvenance } from "../features/moduleCatalogue/moduleCatalogueDeploymentProvenance.js";
 import { inspectBackendRuntimeReleaseIdentity } from "../features/moduleCatalogue/moduleCatalogueBackendRuntimeIdentity.js";
 import { inspectFullStackRuntimeSnapshot } from "../features/moduleCatalogue/moduleCatalogueFullStackRuntimeSnapshot.js";
+import { inspectModuleOperationalAcceptance } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -38,6 +39,20 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Acceptance is a read-only gap assessment, never a production sign-off.
+router.get(
+  "/module-catalogue/operational-acceptance",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const assessment = await inspectModuleOperationalAcceptance({
+      effectiveAuthority: request.effectiveAuthority,
+    });
+    response.status(200).json({ success: true, assessment });
+  })
 );
 
 // Read-only recent operator-collected full-stack snapshot; not live attestation.
