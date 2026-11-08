@@ -97,16 +97,20 @@ test("calendar customer lookup is scoped to appointment mutation authority and m
     routes,
     /"\/customers"[\s\S]*?"appointment:create"[\s\S]*?"appointment:update"/
   );
+  const core = await readFile(
+    new URL("../features/appointments/appointmentManagementCore.js", import.meta.url),
+    "utf8"
+  );
   assert.match(
-    service,
+    core,
     /async function searchAppointmentCustomers/
   );
   assert.match(
-    service,
+    core,
     /"firstName lastName preferredName email phone status"/
   );
   assert.equal(
-    service.includes(
+    core.includes(
       '"hairProfile"'
     ),
     false
