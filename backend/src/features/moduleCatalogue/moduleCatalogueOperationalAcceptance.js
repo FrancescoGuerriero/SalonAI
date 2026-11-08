@@ -2,6 +2,7 @@ import {
   listModuleCatalogue,
 } from "../../platform/moduleCatalogue/canonicalModuleCatalogue.js";
 import { getCapabilityPack } from "../../platform/capabilities/capabilityRegistry.js";
+import { summariseModuleOperationalGaps } from "./moduleCatalogueGapSummary.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
 
 const UNKNOWN = "not_verified";
@@ -89,6 +90,7 @@ export async function inspectModuleOperationalAcceptance({
     readOnly: true,
     manifestIntegrity: trusted.integrity,
     assessmentCount: entries.length,
+    deliveryGaps: summariseModuleOperationalGaps(entries),
     acceptedCount: 0,
     assessmentNotApproval: true,
     entries: Object.freeze(entries),
