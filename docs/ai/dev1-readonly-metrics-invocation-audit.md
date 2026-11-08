@@ -16,7 +16,7 @@ The service does **not** run a language model, initiate a campaign, create an ap
 
 1. Require an authenticated user and integer period from 1 to 365 days.
 2. Recheck trusted effective authority and active matching tenant composition **at invocation time**; preview output is not a bearer token.
-3. Require shared AI pack, vertical and entitlement authorisation; register no tool dynamically.
+3. Require shared AI pack, vertical and entitlement authorisation; register no tool dynamically.\n   The canonical Appointment metrics reader additionally requires `appointment:read`, beyond the tool-registry `ai:use` permission.
 4. Allow only the built-in Business Adviser with registered low-risk `business.metrics.read` at A0.
 5. The canonical metrics service applies the trusted business/location filter and returns aggregate results; the invocation checks the reported scope against the requested scope.
 6. Reject missing or foreign scope, unbounded metric arrays, foreign selected locations, missing permissions and audit failures.
