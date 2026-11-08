@@ -401,6 +401,19 @@ export default function ModuleCatalogueDashboardPage() {
                               {assessment.mappingReconciliation.reconciliationState.replaceAll("_", " ")}</p>
                             <p><strong>Next review:</strong>{" "}
                               {assessment.mappingReconciliation.reviewAction.replaceAll("_", " ")}</p>
+                            {assessment.mappingReconciliation.reviewedBoundary?.evidenceState === "source_boundary_reviewed" && (
+                              <div className="space-y-1">
+                                <p><strong>Source review:</strong>{" "}
+                                  <code>{assessment.mappingReconciliation.reviewedBoundary.reviewedSourcePath}</code></p>
+                                <p><strong>Observed feature gates:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.observedFeatureGates.join(", ") || "None in reviewed route"}</p>
+                                <p><strong>Observed permissions:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.observedPermissions.join(", ") || "None recorded"}</p>
+                                <p><strong>Existing registered packs for review, not assignment:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.registeredPackCandidatesForReview.join(", ") || "No pack suggested"}</p>
+                                <p>{assessment.mappingReconciliation.reviewedBoundary.boundary}</p>
+                              </div>
+                            )}
                             <p>Source presence is not an entitlement; no new capability pack, activation or production approval is implied.</p>
                           </div>
                         )}
