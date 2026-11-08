@@ -56,14 +56,13 @@ verification, (c) cursor-based full historical order/listing ingestion,
 (d) explicit authorised stock/listing publication workflows and eBay business
 policy/offer lifecycle, (e) dedicated returns and shipping/refund workflow
 connectors, and (f) real tenant isolation, rate-limit and production acceptance
-with representative accounts. Amazon Orders v0 is a legacy API surface and
-must be reconciled with the provider's current Orders API before go-live.
+with representative accounts. Amazon order reads use the current Orders API v2026-01-01 searchOrders operation with PROCEEDS only, excluding buyer and recipient fields. Amazon listing reads use searchListingsItems with the provider maximum page size of 20. Pagination and durable ingestion remain separate work.
 Do not activate production or enable external writes based on green unit
 tests alone.
 
 ## Official documentation
 - https://developer-docs.amazon/sp-api/docs/connecting-to-the-selling-partner-api
-- https://developer-docs.amazon/sp-api/reference/orders-v0
+- https://developer-docs.amazon/sp-api/lang-en_us/reference/searchorders
 - https://developer-docs.amazon/sp-api/lang-en_us/reference/searchlistingsitems
 - https://developer.ebay.com/develop/guides/sell/authorization
 - https://developer.ebay.com/develop/api/sell/fulfillment_api
