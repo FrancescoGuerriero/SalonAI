@@ -104,7 +104,7 @@ export default function ModuleCatalogueDashboardPage() {
       <section aria-label="Module requirements" className="space-y-3">
         <p className="text-sm text-stone-700" role="status">
           Showing {rows.length} {candidates ? "requirements and candidates" : "requirements"}.
-          Production verification remains unknown unless separately evidenced.
+          Production verification remains unknown unless separately evidenced. Reviewed GitHub source/CI snapshots do not prove a module is complete.
         </p>
         {rows.length === 0 && <p className="rounded-xl border p-6">No entries match the filters.</p>}
         {rows.map((item) => {
@@ -134,6 +134,34 @@ export default function ModuleCatalogueDashboardPage() {
                   <p><strong>Canonical capability:</strong> {item.capabilityPackKeys.join(", ") || "Unmapped / taxonomy-only"}</p>
                   <p><strong>Dependencies:</strong> {item.dependencies.join(", ") || "None verified"}</p>
                   <p><strong>Scope and permissions:</strong> {item.scopeClass}; {item.permissions.join(", ") || "Not verified"}</p>
+                  <section aria-label={`Delivery evidence for ${item.moduleId}`} className="space-y-2">
+                    <h3 className="font-bold">Verified delivery evidence</h3>
+                    <p>Related source changes merged: {item.deliveryMilestones?.relatedSourceWorkMerged === true ? "Yes — partial module evidence" : UNKNOWN}</p>
+                    <p>Recorded CI success: {item.deliveryMilestones?.recordedCiSuccess === true ? "Yes — on listed PR heads" : UNKNOWN}</p>
+                    <p>Deployed: {evidenceText(item.deliveryMilestones?.deployed)}</p>
+                    <p>Runtime verified: {evidenceText(item.deliveryMilestones?.runtimeVerified)}</p>
+                    <p>Production accepted: {evidenceText(item.deliveryMilestones?.productionAccepted)}</p>
+                    {item.deliveryEvidence?.length ? (
+                      <ul className="list-disc space-y-2 pl-5">
+                        {item.deliveryEvidence.map((record) => (
+                          <li key={record.prNumber}>
+                            <a className="font-semibold underline underline-offset-2"
+                              href={record.sourceUrl} target="_blank" rel="noopener noreferrer">
+                              PR #{record.prNumber}
+                            </a>
+                            {" — "}{record.description} (related source work merged)
+                            <p className="text-xs text-stone-600">Review snapshot: {record.verifiedAt}</p>
+                            {record.checks.length > 0 ? (
+                              <p className="text-xs text-stone-700">
+                                CI passed on PR head {record.checks[0].commitSha.slice(0, 8)}:
+                                {" "}{record.checks.map((check) => check.name).join(", ")}
+                              </p>
+                            ) : <p className="text-xs text-stone-600">CI outcome not recorded in this evidence snapshot.</p>}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>No verified source delivery records mapped to this requirement yet.</p>}
+                  </section>
                   <p><strong>Provider readiness:</strong> {item.providerReadiness}</p>
                   <p><strong>Deployment:</strong> {item.deploymentStatus}; <strong>Production acceptance:</strong> {item.productionAcceptance}</p>
                   <dl className="grid gap-2 sm:grid-cols-2">
@@ -144,7 +172,7 @@ export default function ModuleCatalogueDashboardPage() {
                       </div>
                     ))}
                   </dl>
-                  <p className="text-xs text-stone-600">No activation controls are provided. Evidence links and last review date remain unverified.</p>
+                  <p className="text-xs text-stone-600">Evidence links are reviewed snapshots, not live GitHub status. No activation controls are provided. Production acceptance requires separate runtime evidence.</p>
                 </div>
               )}
             </article>
