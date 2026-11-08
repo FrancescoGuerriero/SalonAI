@@ -8,6 +8,7 @@ import { inspectModuleContractDeclarations } from "./moduleCatalogueContractEvid
 import { buildModuleAcceptanceContract } from "./moduleCatalogueAcceptanceContract.js";
 import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
+import { inspectExistingModuleImplementation } from "../../platform/moduleCatalogue/moduleImplementationReferences.js";
 
 const UNKNOWN = "not_verified";
 const PASSED = "evidence_present";
@@ -88,6 +89,7 @@ export async function inspectModuleOperationalAcceptance({
       dependencyEvidence,
       contractEvidence,
       acceptanceContract,
+      implementationReference: inspectExistingModuleImplementation(item.moduleId),
       reviewedTestSourceEvidence: listReviewedModuleTestEvidence(item.moduleId),
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
