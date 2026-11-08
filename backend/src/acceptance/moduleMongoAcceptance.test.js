@@ -14,6 +14,7 @@ import Stylist from "../models/Stylist.js";
 import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
+import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
 import { listProducts } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
@@ -361,5 +362,40 @@ test("Commerce/inventory canonical Product collection has tenant records, but le
     ["A Shampoo", "B Shampoo"]);
   // Do not claim Commerce as tenant-isolation accepted: canonical legacy
   // catalogue reads currently lack trusted Business filters.
-  assert.equal(Order.schema.path("business"), undefined);
+  assert.ok(Order.schema.path("business"));
+  assert.ok(Order.schema.path("location"));
+});
+
+test("Commerce ownership predicate isolates canonical Product and Order records and excludes unowned legacy data", async () => {
+  const [ownOrder, otherLocationOrder, foreignOrder, legacyOrder] =
+    await mongoose.connection.db.collection("orders").insertMany([
+      { business: businessA, location: locationA1, status: "paid" },
+      { business: businessA, location: locationA2, status: "paid" },
+      { business: businessB, location: locationB, status: "paid" },
+      { location: locationA1, status: "paid" },
+    ]).then(({ insertedIds }) => Object.values(insertedIds));
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const ownProducts = await Product.find(commerceTenantFilter(selected)).lean();
+  const ownOrders = await Order.find(commerceTenantFilter(selected)).lean();
+  assert.deepEqual(ownProducts.map((item) => item.name), ["A Shampoo"]);
+  assert.deepEqual(ownOrders.map((item) => String(item._id)), [String(ownOrder)]);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(legacyOrder)), false);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(foreignOrder)), false);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(otherLocationOrder)), false);
+
+  const all = await Order.find(commerceTenantFilter(authority(businessA))).lean();
+  assert.equal(all.length, 2);
+  assert.throws(() => commerceTenantFilter(null), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  assert.throws(() => commerceTenantFilter({ businessId: "not-a-business", locationAccessMode: "all" }));
+  assert.throws(() => commerceTenantFilter(authority(businessA, { locationAccessMode: "selected", allowedLocationIds: [] })),
+    (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  assert.throws(() => commerceTenantFilter(selected, { locationId: String(locationB) }),
+    (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  assert.throws(() => commerceTenantFilter(authority(businessA, { locationAccessMode: "unknown" })),
+    (error) => error.code === "COMMERCE_LOCATION_AUTHORITY_REQUIRED");
 });
