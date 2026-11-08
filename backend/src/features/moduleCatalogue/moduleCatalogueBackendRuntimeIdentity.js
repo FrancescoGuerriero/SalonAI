@@ -4,7 +4,7 @@ import {
 } from "./moduleCatalogueDeploymentProvenance.js";
 
 const COMMIT = /^[a-f0-9]{40}$/;
-const RELEASE = /^v(0|[1-9]\d*)\\.(0|[1-9]\d*)\\.(0|[1-9]\d*)$/;
+const RELEASE = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 function identity(value) {
   return typeof value === "string" ? value.trim() : "";
