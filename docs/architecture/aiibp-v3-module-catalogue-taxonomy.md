@@ -127,3 +127,28 @@ and unresolved dependency verification keys. The dashboard presents this
 information without creating activation controls or altering module contracts.
 Existing `dependency_acceptance` checks remain `not_verified`, because
 commercial prerequisites are distinct from end-to-end workflow acceptance.
+
+## DEV1 capability mapping and AI tool-evidence review queue
+
+The existing read-only tenant acceptance summary now separates three
+different catalogue meanings:
+
+- `canonical_mapping_recorded`: a module requirement references one or more
+  registered canonical capability packs. **Not** evidence of deployment.
+- `mapping_review_required`: a planned requirement/candidate has no
+  independently mapped canonical capability pack. It stays unregistered.
+- `taxonomy_only`: an intentional structural/research entry, currently
+  requirement 22 or 26, **not** a missing deployable module.
+
+Entries with specified `aiOpportunity` are also labelled
+`tool_contract_not_verified` until separately reviewed evidence can attest
+to governed AI tools. This does **not** mean the existing AI implementation
+is missing or that a proposed AI feature is deployable. Entries without an
+AI opportunity are labelled `ai_integration_not_specified`.
+
+The `deliveryGaps.reviewQueue` is priority-ordered using the existing
+P0–P3 planning priority and selects **only** entries needing capability
+mapping review or with confirmed prerequisite blockers. It never assigns
+runtime status, writes entitlements, creates modules or authorises
+activation. The dashboard renders the queue and shows mapping, taxonomy
+and unverified AI opportunity counts separately. No monthly AI quotas.
