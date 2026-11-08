@@ -66,3 +66,15 @@ export function commercePublicTenantFilter(publicTenantContext) {
   }
   return { business: new mongoose.Types.ObjectId(businessId) };
 }
+
+/** All product creation needs a selected, authorised Location. */
+export function commerceWriteLocation(effectiveAuthority) {
+  const locationId = String(effectiveAuthority?.locationId || "");
+  if (!mongoose.isValidObjectId(locationId)) {
+    const error = new Error("Select a valid Commerce location before writing.");
+    error.code = "COMMERCE_WRITE_LOCATION_REQUIRED";
+    error.statusCode = 403;
+    throw error;
+  }
+  return commerceTenantFilter(effectiveAuthority, { locationId });
+}
