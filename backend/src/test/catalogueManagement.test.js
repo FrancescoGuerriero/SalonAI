@@ -88,11 +88,11 @@ test("product management separates catalogue, publication and inventory permissi
   );
   assert.match(
     routes,
-    /"\/products\/:id\/publication",\s*protect,\s*requirePermissions\(\s*"product:publish"/s
+    /"\/products\/:id\/publication",\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requirePermissions\(\s*"product:publish"/s
   );
   assert.match(
     routes,
-    /"\/products\/:id\/stock-adjustments",\s*protect,\s*requirePermissions\(\s*"product:inventory:update"/s
+    /"\/products\/:id\/stock-adjustments",\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requirePermissions\(\s*"product:inventory:update"/s
   );
   assert.match(
     controller,
@@ -215,4 +215,25 @@ test("commerce public and inventory read routes require tenant-bound authority",
   assert.match(commerce, /commercePublicTenantFilter\(publicTenantContext\)/);
   assert.match(commerce, /commerceTenantFilter\(effectiveAuthority\)/);
   assert.match(commerce, /\.\.\.match,\s*active: true/);
+});
+
+test("Commerce product write and stock endpoints use effective Business membership authority", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const commerce = await source("../features/commerce/commerceService.js");
+  for (const permission of [
+    "product:create", "product:update", "product:publish",
+    "product:inventory:update", "inventory:read",
+  ]) {
+    const at = routes.indexOf('"' + permission + '"');
+    assert.ok(at > -1, "Missing permission " + permission);
+    assert.match(routes.slice(Math.max(0, at - 230), at),
+      /servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requirePermissions\(/);
+  }
+  assert.match(controller, /service\.createProduct\([\s\S]*?req\.effectiveAuthority/);
+  assert.match(controller, /service\.adjustStock\(req\.params\.id, req\.body, req\.user, req\.effectiveAuthority\)/);
+  assert.match(controller, /service\.listStockAdjustments\(req\.params\.id, req\.query, req\.effectiveAuthority\)/);
+  assert.match(commerce, /Product\.findOne\(\{ _id: id, \.\.\.owner \}\)/);
+  assert.match(commerce, /data\.business = owner\.business/);
+  assert.match(commerce, /data\.location = owner\.location/);
 });
