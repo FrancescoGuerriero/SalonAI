@@ -20,6 +20,7 @@ export default function ModuleCatalogueDashboardPage() {
   const [tenantEvidence, setTenantEvidence] = useState(null);
   const [deploymentProvenance, setDeploymentProvenance] = useState(null);
   const [backendRuntimeIdentity, setBackendRuntimeIdentity] = useState(null);
+  const [fullStackSnapshot, setFullStackSnapshot] = useState(null);
   const [tenantEvidenceError, setTenantEvidenceError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
@@ -31,6 +32,11 @@ export default function ModuleCatalogueDashboardPage() {
 
   useEffect(() => {
     let active = true;
+    API.get("/system-administration/module-catalogue/fullstack-runtime-snapshot")
+      .then(({ data }) => { if (active) setFullStackSnapshot(data.snapshot); })
+      .catch(() => {
+        if (active) setFullStackSnapshot({ outcome: "unavailable" });
+      });
     API.get("/system-administration/module-catalogue/backend-runtime-identity")
       .then(({ data }) => { if (active) setBackendRuntimeIdentity(data.runtimeIdentity); })
       .catch(() => {
@@ -126,6 +132,32 @@ export default function ModuleCatalogueDashboardPage() {
             onChange={(event) => setCandidates(event.target.checked)} />
           Include proposed capability candidates
         </label>
+      </section>
+      <section aria-label="Full-stack runtime snapshot" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-bold">Observed application containers</h2>
+        <p className="text-sm text-stone-700">
+          Compares an operator-collected production-host snapshot with the reviewed release archive.
+          A recent snapshot is not cryptographic host attestation, continuously verified health,
+          tenant activation or production acceptance.
+        </p>
+        {fullStackSnapshot && (
+          <div className="space-y-2 text-sm">
+            <p><strong>Snapshot result:</strong>{" "}
+              {fullStackSnapshot.snapshotEvidenceValid === true
+                ? "Archived running-image and health observations agree"
+                : fullStackSnapshot.snapshotEvidenceValid === false
+                  ? "Snapshot rejected or mismatched" : UNKNOWN}</p>
+            <p><strong>Collected:</strong> {fullStackSnapshot.snapshotCollectedAt || UNKNOWN}</p>
+            <p><strong>Current live release:</strong> {UNKNOWN}</p>
+            {fullStackSnapshot.services?.length > 0 && (
+              <ul className="list-disc pl-5">
+                {fullStackSnapshot.services.map((service) => (
+                  <li key={service.service}>{service.service}: {service.state}, {service.health}, image digest matched</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
       <section aria-label="Backend runtime identity" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
         <h2 className="text-lg font-bold">Current backend release identity</h2>

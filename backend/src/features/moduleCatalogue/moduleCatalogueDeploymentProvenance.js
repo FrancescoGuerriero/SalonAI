@@ -124,6 +124,7 @@ export function verifyArchivedModuleDeploymentEvidence({
     environment: "production",
     imageDigestCount: images.size,
     smokeCheckCount: names.size,
+    releaseManifestSha256: deployment.releaseManifestSha256.toLowerCase(),
     // A deployment record is an *historical* event, not proof that the
     // recorded images are still running in production now.
     deploymentVerified: true,
