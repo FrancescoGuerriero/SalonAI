@@ -3,7 +3,7 @@
  *
  * Source observations only, not newly created modules or proof of every
  * route's operational/tenant acceptance. API paths are inspected mounts
- * from backend/src/app.js, not alternative route registrations.
+ * from backend/src/app.js (including nested futureFeatureRoutes.js mounts),\n * not alternative route registrations.
  */
 const REFERENCES = Object.freeze({
   "01": {
@@ -84,6 +84,31 @@ const REFERENCES = Object.freeze({
     routeSources: ["backend/src/features/aiRecommendations/aiRecommendationRoutes.js"],
     apiMounts: ["/api/ai"],
     preservedCapability: "Existing AI recommendation and adviser API routes",
+  },
+  "14": {
+    routeSources: ["backend/src/features/marketing/marketingEditorialRoutes.js"],
+    apiMounts: ["/api/marketing-editorial"],
+    preservedCapability: "Existing editorial marketing management routes; full advertising and SEO scope not asserted",
+  },
+  "17": {
+    routeSources: ["backend/src/features/revenueForecasting/revenueForecastRoutes.js"],
+    apiMounts: ["/api/future/revenue-forecast"],
+    preservedCapability: "Existing revenue forecast and snapshot route surface; full business planning scope not asserted",
+  },
+  "23": {
+    routeSources: ["backend/src/features/clinical/clinicalRoutes.js"],
+    apiMounts: ["/api/future/clinical"],
+    preservedCapability: "Existing restricted clinical route surface; production and regulated-data acceptance unverified",
+  },
+  "24": {
+    routeSources: ["backend/src/features/finance/settlementRoutes.js"],
+    apiMounts: ["/api/future/settlements"],
+    preservedCapability: "Existing settlement source surface; accounting connector coverage not asserted",
+  },
+  "27": {
+    routeSources: ["backend/src/features/dataExportAudit/dataExportAuditRoutes.js"],
+    apiMounts: ["/api/future/data-export-audit"],
+    preservedCapability: "Existing data export audit route surface; full data management functionality not asserted",
   },
 });
 const frozen = (array) => Object.freeze([...array]);
