@@ -157,6 +157,35 @@ const REFERENCES = Object.freeze({
     apiMounts: ["/api/future/security"],
     preservedCapability: "Existing audited security read endpoints; comprehensive secrets/events/policy platform not asserted",
   },
+  "AI-CORE-01": {
+    routeSources: [
+      "backend/src/features/aiRecommendations/aiRecommendationRoutes.js",
+      "backend/src/features/aiPlatform/aiWorkforceBuiltinAgents.js",
+    ],
+    apiMounts: ["/api/ai"],
+    preservedCapability: "Existing AI workforce registry and governed tool invocation surfaces; full orchestration acceptance unverified",
+  },
+  "AI-CORE-02": {
+    routeSources: [
+      "backend/src/features/aiRecommendations/aiRecommendationRoutes.js",
+      "backend/src/features/aiPlatform/aiWorkforceBuiltinAgents.js",
+    ],
+    apiMounts: ["/api/ai"],
+    preservedCapability: "Existing AI workforce registry, run and proposal routes; complete evaluation platform not asserted",
+  },
+  "AI-CORE-04": {
+    routeSources: [
+      "backend/src/features/integrationPlatform/dataHubRoutes.js",
+      "backend/src/features/integrationPlatform/integrationPlatformRoutes.js",
+    ],
+    apiMounts: ["/api/future/integrations/data-hub"],
+    preservedCapability: "Existing Data Hub AI gateway evidence, evaluation and proposal routes; complete model gateway and costing unverified",
+  },
+  "AI-CORE-05": {
+    routeSources: ["backend/src/features/aiRecommendations/aiRecommendationRoutes.js"],
+    apiMounts: ["/api/ai"],
+    preservedCapability: "Existing governed adviser proposals, review and outcomes; complete human approval ledger acceptance unverified",
+  },
 });
 const frozen = (array) => Object.freeze([...array]);
 
