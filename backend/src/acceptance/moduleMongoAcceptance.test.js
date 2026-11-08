@@ -14,6 +14,7 @@ import Stylist from "../models/Stylist.js";
 import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
+import { requireScopedCommerceOrder } from "../features/commerce/commerceOrderAuthorityMiddleware.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
 import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder, createCheckout, resolveProductCheckoutLocation } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
@@ -603,4 +604,35 @@ test("Payment-free product checkout ownership preflight accepts one tenant locat
     (error) => error.statusCode === 409);
   await assert.rejects(resolveProductCheckoutLocation([{ product: a._id }], null),
     (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+});
+
+test("Manager Order mutation guard denies other Business, other Location and unowned records before side effects", async () => {
+  const ids = Object.values((await mongoose.connection.db.collection("orders").insertMany([
+    { business: businessA, location: locationA1, status: "paid" },
+    { business: businessA, location: locationA2, status: "paid" },
+    { business: businessB, location: locationB, status: "paid" },
+    { location: locationA1, status: "paid" },
+  ])).insertedIds);
+  const scope = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const check = async (orderId, effectiveAuthority) => {
+    let nextError;
+    let called = false;
+    await requireScopedCommerceOrder({
+      params: { id: String(orderId) }, effectiveAuthority,
+    }, {}, (error) => { called = true; nextError = error; });
+    return { called, error: nextError };
+  };
+  const ok = await check(ids[0], scope);
+  assert.equal(ok.called, true);
+  assert.equal(ok.error, undefined);
+  for (const id of ids.slice(1)) {
+    const denied = await check(id, scope);
+    assert.equal(denied.error?.statusCode, 404);
+  }
+  assert.equal((await check(ids[0], authority(businessB))).error?.statusCode, 404);
+  assert.equal((await check(ids[0], null)).error?.code, "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  assert.equal((await check("invalid", scope)).error?.statusCode, 400);
 });
