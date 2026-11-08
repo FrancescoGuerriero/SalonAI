@@ -529,3 +529,41 @@ test("existing marketing forecast clinical finance and audit surfaces are source
   }
   assert.equal(inspectExistingModuleImplementation("25").sourceState, "not_reviewed_in_this_inventory");
 });
+
+test("existing AI Receptionist, Retention Manager and Stylist Copilot remain represented without duplicate modules", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const [app, future] = await Promise.all([
+    readFile(new URL("../app.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/futureFeatureRoutes.js", import.meta.url), "utf8"),
+  ]);
+  const cases = [
+    ["19", "/api/whatsapp", "backend/src/features/premium/whatsapp/whatsappRoutes.js"],
+    ["20", "/api/future/ai", "backend/src/features/ai/aiRoutes.js"],
+    ["21", "/api/ai", "backend/src/features/aiRecommendations/aiRecommendationRoutes.js"],
+  ];
+  for (const [moduleId, mount, path] of cases) {
+    const entry = assessment.entries.find((item) => item.moduleId === moduleId);
+    assert.ok(entry);
+    const reference = entry.implementationReference;
+    assert.equal(reference.sourceState, "existing_implementation_source_reviewed");
+    assert.equal(reference.existingImplementationReview, true);
+    assert.ok(reference.apiMounts.includes(mount));
+    assert.ok(reference.routeSources.includes(path));
+    assert.ok((mount.startsWith("/api/future/") ? future : app)
+      .includes(`"${mount.startsWith("/api/future/") ? "/ai" : mount}"`));
+    const route = await readFile(new URL("../" + path.slice("backend/src/".length), import.meta.url), "utf8");
+    assert.match(route, /router\s*\.(?:get|post|patch|put|delete|use|route)\s*\(/);
+    assert.equal(reference.runtimeVerified, null);
+    assert.equal(reference.productionAccepted, null);
+    assert.equal(reference.activationAuthorised, false);
+    assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status,
+      "not_verified");
+  }
+  assert.ok(app.includes('"/api/future"'));
+  const stylist = await readFile(new URL("../features/aiRecommendations/aiRecommendationRoutes.js", import.meta.url), "utf8");
+  assert.match(stylist, /"\/stylist-copilot\/appointments\/:appointmentId"/);
+  const receptionist = await readFile(new URL("../features/premium/whatsapp/whatsappReceptionistAgentRunService.js", import.meta.url), "utf8");
+  assert.match(receptionist, /startWhatsAppReceptionistAgentRun/);
+  const retention = await readFile(new URL("../features/ai/aiRetentionTenantService.js", import.meta.url), "utf8");
+  assert.match(retention, /predictTenantRetention/);
+});
