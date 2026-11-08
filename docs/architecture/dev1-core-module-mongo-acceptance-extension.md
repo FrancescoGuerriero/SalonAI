@@ -98,3 +98,27 @@ tenant-scoped catalogue.
 
 No activation, deployment, production database access, provider changes or
 monthly AI quotas are included.
+
+## DEV1 management Order read boundary and regression repair (2026-11-08)
+
+The management `GET /orders` route is now routed through authenticated
+host-selected Business membership, effective authority, `order:read` and
+a new `listTenantOrders` service. The Mongo query, pagination totals and
+status/user/customer filters all retain a mandatory trusted Business and
+permitted Location predicate. Legacy unowned orders do not appear.
+
+The existing `listOrders` helper remains for older customer-order call
+sites; its isolation and the complete checkout/order lifecycle are **not**
+accepted by this change. Customer `GET /orders/:id`, cancellation,
+manager status writes, Stripe callbacks, invoices and refunds must receive
+consistent canonical tenant ownership and verification in a subsequent slice.
+Do not mistake this read-only boundary for complete Order isolation.
+
+The previous Stage 1–6 backend regression failed one source-contract test:
+`phase89AccountAdminStabilization.test.js` expected the original 3-layer
+product-create route, but tenant hardening correctly extended it to 6 layers.
+The test now asserts the trusted middleware order and checks delegated
+`product:create` at the new guard index. Fresh CI verification is required.
+
+No production deployment, historical record migration, activation or monthly
+AI quotas.
