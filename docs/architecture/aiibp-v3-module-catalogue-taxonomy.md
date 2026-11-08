@@ -352,3 +352,9 @@ complete end-to-end workflows from a route or service file. Existing
 catalogue IDs and capability pack mappings are unchanged. Any unreviewed
 marketplace, fulfilment or other entries remain unverified, not
 automatically unimplemented.
+
+The reviewed test-source ledger also maps existing
+`aiReceptionistWorkforce.test.js`, `aiRetentionTenantBoundary.test.js`
+and `aiStylistCopilot.test.js` to requirements 19, 20 and 21 respectively.
+Test-file presence alone cannot confirm that all acceptance criteria or
+live provider integrations work in production.
