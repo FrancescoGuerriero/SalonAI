@@ -24,6 +24,11 @@ export function summariseModuleOperationalGaps(assessments = []) {
     const unverified = checks.filter((check) => check.status === "not_verified")
       .map((check) => check.key);
     const mapped = definition.capabilityPackKeys.length > 0 && !definition.taxonomyOnly;
+    // Mapping status is a planning observation, never proof of a deployable module.
+    const mappingReviewState = definition.taxonomyOnly ? "taxonomy_only"
+      : mapped ? "canonical_mapping_recorded" : "mapping_review_required";
+    const aiEvidenceState = definition.aiOpportunity
+      ? "tool_contract_not_verified" : "ai_integration_not_specified";
     const dependencyEvidence = Array.isArray(item.dependencyEvidence) ? item.dependencyEvidence : [];
     return Object.freeze({
       moduleId: definition.moduleId,
@@ -32,6 +37,18 @@ export function summariseModuleOperationalGaps(assessments = []) {
       priority: definition.priority,
       kind: definition.kind,
       aiOpportunity: definition.aiOpportunity,
+      aiEvidenceState,
+      mappingReviewState,
+      suggestedNextReview: mappingReviewState === "mapping_review_required"
+        ? "review_capability_mapping"
+        : dependencyEvidence.some((dependency) => dependency.state === "confirmed_prerequisite_blocker")
+          ? "investigate_tenant_dependency_prerequisites"
+          : dependencyEvidence.some((dependency) => dependency.state === "not_verified")
+            ? "verify_dependency_prerequisites"
+            : blocked.length ? "resolve_confirmed_acceptance_blocker"
+              : aiEvidenceState === "tool_contract_not_verified"
+                ? "verify_ai_tool_contract_evidence"
+                : "complete_operational_acceptance_evidence",
       mappedCapabilityPackKeys: definition.capabilityPackKeys,
       dependencyEvidence: Object.freeze([...dependencyEvidence]),
       dependencyPrerequisiteBlockers: Object.freeze(dependencyEvidence.filter((dependency) => dependency.state === "confirmed_prerequisite_blocker").map((dependency) => dependency.capabilityKey)),
@@ -50,7 +67,9 @@ export function summariseModuleOperationalGaps(assessments = []) {
     count: items.length,
     blocked: items.filter((item) => item.planningState === "confirmed_blocker").length,
     verificationRequired: items.filter((item) => item.outstandingVerification.length > 0).length,
-    unmapped: items.filter((item) => !item.canonicalMappingVerified).length,
+    unmapped: items.filter((item) => item.mappingReviewState === "mapping_review_required").length,
+    taxonomyOnly: items.filter((item) => item.mappingReviewState === "taxonomy_only").length,
+    aiEvidenceUnverified: items.filter((item) => item.aiEvidenceState === "tool_contract_not_verified").length,
   });
   const categories = [...new Set(rows.map((item) => item.category))].sort()
     .map((category) => Object.freeze({ category, ...aggregate(rows.filter((item) => item.category === category)) }));
@@ -65,6 +84,14 @@ export function summariseModuleOperationalGaps(assessments = []) {
     totals: aggregate(rows),
     priorities: Object.freeze(priorities),
     categories: Object.freeze(categories),
+    reviewQueue: Object.freeze(rows.filter((row) => row.mappingReviewState === "mapping_review_required" ||
+      row.confirmedBlockers.length > 0 || row.dependencyPrerequisiteBlockers.length > 0)
+      .map((row) => Object.freeze({
+        moduleId: row.moduleId, displayName: row.displayName, priority: row.priority,
+        nextReview: row.suggestedNextReview, mappingReviewState: row.mappingReviewState,
+        confirmedBlockers: row.confirmedBlockers, dependencyPrerequisiteBlockers: row.dependencyPrerequisiteBlockers,
+        activationAuthorised: false,
+      }))),
     entries: Object.freeze(rows),
   });
 }
