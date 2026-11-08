@@ -18,6 +18,7 @@ import {
 } from "./aiWorkforceToolRegistry.js";
 import {
   hasEffectivePermission,
+  hasLocationAuthority,
 } from "../../services/effectiveAuthorityService.js";
 import {
   assertFound,
@@ -84,6 +85,35 @@ function assertTenantAuthority({ businessId, effectiveAuthority }) {
   }
 }
 
+// Scope all AI evidence reads to locations granted by the trusted membership.
+// A business-wide user may read all locations; selected memberships cannot
+// request a foreign location or see records from one.
+export function aiWorkforceLocationMatch(effectiveAuthority, requestedLocation = null) {
+  if (!effectiveAuthority?.businessId) {
+    throw createServiceError("Trusted tenant authority is required.", 403);
+  }
+
+  if (requestedLocation !== undefined && requestedLocation !== null && requestedLocation !== "") {
+    const location = objectId(requestedLocation, "location");
+    if (!hasLocationAuthority(effectiveAuthority, location)) {
+      throw createServiceError("AI Workforce location is not authorised.", 403);
+    }
+    return { location };
+  }
+
+  if (effectiveAuthority.locationAccessMode === "all") {
+    return {};
+  }
+  if (effectiveAuthority.locationAccessMode === "selected") {
+    const allowed = Array.isArray(effectiveAuthority.allowedLocationIds)
+      ? effectiveAuthority.allowedLocationIds.filter((id) => mongoose.isValidObjectId(id))
+      : [];
+    return { location: { $in: allowed } };
+  }
+  // Unknown or stale membership scope is never permission to read all.
+  return { location: { $in: [] } };
+}
+
 function assertProposalPermission(proposal, effectiveAuthority) {
   if (!hasEffectivePermission(effectiveAuthority, proposal.requiredPermission)) {
     throw createServiceError(
@@ -126,10 +156,9 @@ export async function getAiWorkforceRegistry({ businessId, effectiveAuthority } 
 
 export async function listAiWorkforceRuns(query = {}, { businessId, effectiveAuthority } = {}) {
   assertTenantAuthority({ businessId, effectiveAuthority });
-  const match = { business: businessId };
+  const match = { business: businessId, ...aiWorkforceLocationMatch(effectiveAuthority, query.location) };
   if (query.agentKey) match.agentKey = text(query.agentKey).toLowerCase();
   if (query.status) match.status = text(query.status).toLowerCase();
-  if (query.location) match.location = objectId(query.location, "location");
 
   return AiAgentRun.find(match)
     .populate("agentDefinition", "key version displayName lifecycle autonomyCeiling")
@@ -143,10 +172,9 @@ export async function listAiWorkforceProposals(
   { businessId, effectiveAuthority } = {}
 ) {
   assertTenantAuthority({ businessId, effectiveAuthority });
-  const match = { business: businessId };
+  const match = { business: businessId, ...aiWorkforceLocationMatch(effectiveAuthority, query.location) };
   if (query.status) match.status = text(query.status).toLowerCase();
   if (query.agentKey) match.agentKey = text(query.agentKey).toLowerCase();
-  if (query.location) match.location = objectId(query.location, "location");
 
   const proposals = await AiActionProposal.find(match)
     .sort({ createdAt: -1, _id: -1 })
@@ -165,7 +193,7 @@ export async function listAiActionOutcomes(
   { businessId, effectiveAuthority } = {}
 ) {
   assertTenantAuthority({ businessId, effectiveAuthority });
-  const match = { business: businessId };
+  const match = { business: businessId, ...aiWorkforceLocationMatch(effectiveAuthority, query.location) };
   if (query.proposal) match.proposal = objectId(query.proposal, "proposal");
   if (query.agentKey) match.agentKey = text(query.agentKey).toLowerCase();
   if (query.status) match.status = text(query.status).toLowerCase();
@@ -194,6 +222,10 @@ export async function observeAiActionOutcome(
     "AI action proposal not found."
   );
   assertProposalPermission(proposal, effectiveAuthority);
+  // A caller may not record outcomes on another location's proposal.
+  if (proposal.location) {
+    aiWorkforceLocationMatch(effectiveAuthority, proposal.location);
+  }
 
   if (proposal.status !== "approved") {
     throw createServiceError(
