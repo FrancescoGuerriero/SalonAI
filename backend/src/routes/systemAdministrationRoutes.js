@@ -17,6 +17,7 @@ import enterpriseSsoRoutes from "../features/enterpriseSso/enterpriseSsoRoutes.j
 import { moduleCatalogueController } from "../features/moduleCatalogue/moduleCatalogueController.js";
 import { inspectTrustedTenantModuleEvidence } from "../features/moduleCatalogue/moduleCatalogueTenantRuntimeEvidence.js";
 import { inspectModuleDeploymentProvenance } from "../features/moduleCatalogue/moduleCatalogueDeploymentProvenance.js";
+import { inspectBackendRuntimeReleaseIdentity } from "../features/moduleCatalogue/moduleCatalogueBackendRuntimeIdentity.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -36,6 +37,20 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Current backend process identity is independent of full-stack runtime health.
+router.get(
+  "/module-catalogue/backend-runtime-identity",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const runtimeIdentity = await inspectBackendRuntimeReleaseIdentity({
+      effectiveAuthority: request.effectiveAuthority,
+    });
+    response.status(200).json({ success: true, runtimeIdentity });
+  })
 );
 
 // Archived deployment provenance: no upload, client paths, activation or writes.
