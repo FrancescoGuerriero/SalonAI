@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isAbsolute, join } from "node:path";
 import { lstat, readFile } from "node:fs/promises";
 import {
@@ -47,10 +48,14 @@ async function readFixedFile(directory, name) {
  * and consistency check, NOT signed host attestation.
  */
 export function verifyFullStackRuntimeSnapshot({
-  snapshot, release, archive, now = new Date(),
+  snapshot, release, archive, releaseRaw = null, now = new Date(),
 } = {}) {
   if (!snapshot || !release || archive?.evidenceValidated !== true ||
-      archive?.deploymentVerified !== true || !TAG.test(release.releaseTag || "") ||
+      archive?.deploymentVerified !== true ||
+      typeof releaseRaw !== "string" ||
+      !/^[a-f0-9]{64}$/.test(archive.releaseManifestSha256 || "") ||
+      createHash("sha256").update(releaseRaw).digest("hex") !== archive.releaseManifestSha256 ||
+      !TAG.test(release.releaseTag || "") ||
       !SHA.test(release.sourceCommit || "") ||
       release.releaseTag !== archive.releaseTag ||
       release.sourceCommit !== archive.sourceCommit ||
@@ -138,7 +143,7 @@ export async function inspectFullStackRuntimeSnapshot({
     ]);
     return verifyFullStackRuntimeSnapshot({
       snapshot: JSON.parse(runtimeRaw), release: JSON.parse(releaseRaw),
-      archive, now,
+      releaseRaw, archive, now,
     });
   } catch {
     return empty("trusted_runtime_snapshot_unavailable_or_invalid");
