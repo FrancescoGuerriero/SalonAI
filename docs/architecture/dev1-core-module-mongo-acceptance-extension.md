@@ -73,3 +73,28 @@ changes may hide legacy unowned products until a separately audited migration;
 this is intentional fail-closed behaviour, not a data migration.
 
 Do not interpret fixture success as HTTP acceptance or live tenant sign-off.
+
+## DEV1 product writes and inventory authority slice
+
+Product create, update, publication, stock adjustment, stock history and
+inventory summary routes now pass through host-selected Business, authenticated
+BusinessMembership, effective authority and their existing granular permission
+checks. The canonical service binds new Product Business/Location to the
+verified scope, never trusting ownership fields from the request body.
+Mutations first query by Business and permitted Location. Product creation
+requires a selected Location, even when the user manages all locations.
+Product slug uniqueness checks are business-scoped.
+
+Inventory summary aggregation, low-stock counts and history reads use the
+same verified scope; foreign and legacy-unowned records are excluded.
+Mongo acceptance covers own and foreign writes, selected-location denials and
+summary isolation. Stock-adjustment persistence currently uses the existing
+separate Product/adjustment writes; transactional audit consistency remains
+a separate operational acceptance requirement. Until checkout, orders,
+payments, invoices, refunds and the alternative legacy endpoints are tenant
+isolated, Commerce is **not production accepted**. Unowned historic product
+records require a reviewed migration plan before they appear in the new
+tenant-scoped catalogue.
+
+No activation, deployment, production database access, provider changes or
+monthly AI quotas are included.
