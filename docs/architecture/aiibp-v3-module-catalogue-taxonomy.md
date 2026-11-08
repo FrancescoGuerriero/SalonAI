@@ -192,3 +192,27 @@ with registered integration declarations. Both can be present while
 after inspecting the exact PR and associated checks. A snapshot does not
 replace a live tenant-specific API acceptance test, signed deployment
 identity or explicit production sign-off. No module activation is added.
+
+## DEV1 module-specific API/RBAC/AI acceptance contracts
+
+The protected operational-acceptance response now contains
+`entries[].acceptanceContract` for every requirement and candidate.
+Contracts distinguish registered mapped capabilities from unmapped
+planning requirements and taxonomy-only entries. They provide a
+**verification checklist, not claims of implemented endpoints**:
+
+- Authenticated route inventory and positive/negative effective-permission
+  tests, with explicit foreign-Business and unauthorised-Location rejection.
+- Subscription/feature and dependency workflow acceptance.
+- Governed AI tool registry binding, tenant/permission enforcement, approval
+  and audit (where applicable), and negative/failure/prompt-injection tests
+  for entries with AI opportunities.
+- Provider/contract tests only where canonical registered integration
+  declarations exist, plus runtime identity and production sign-off.
+
+The API route inventory and AI tool bindings are explicitly **not verified**;
+the catalogue never fabricates endpoint paths, overrides RBAC, enables
+capabilities, or claims a completed production sign-off. This is a
+prioritisation/acceptance contract for DEV1 to fill with independently
+reviewed module-specific test evidence. Source/CI snapshots alone do not
+satisfy this contract.
