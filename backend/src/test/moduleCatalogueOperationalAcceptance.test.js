@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { summariseModuleOperationalGaps } from "../features/moduleCatalogue/moduleCatalogueGapSummary.js";
 import { inspectModuleDependencyEvidence } from "../features/moduleCatalogue/moduleCatalogueDependencyEvidence.js";
+import { inspectModuleContractDeclarations } from "../features/moduleCatalogue/moduleCatalogueContractEvidence.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -240,4 +241,44 @@ test("AI opportunities remain planning-only and never constitute a verified tool
   assert.equal(entries[0].activationAuthorised, false);
   assert.equal(entries[0].productionAccepted, null);
   assert.equal(entries[1].aiEvidenceState, "ai_integration_not_specified");
+});
+
+test("catalogue API and AI contract evidence comes only from canonical registry declarations", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const entries = result.entries;
+  assert.equal(entries.length, 48);
+  const appointments = entries.find((row) => row.moduleId === "01");
+  assert.deepEqual(appointments.contractEvidence.registeredCapabilities, ["appointments"]);
+  assert.equal(appointments.contractEvidence.apiRouteVerification, "not_verified");
+  assert.equal(appointments.contractEvidence.apiOperationalAcceptance, "not_verified");
+  assert.equal(appointments.contractEvidence.aiToolContractVerification, "not_verified");
+  assert.equal(appointments.contractEvidence.activationAuthorised, false);
+  const unmapped = entries.find((row) => row.moduleId === "05");
+  assert.equal(unmapped.contractEvidence.declarationState, "capability_mapping_missing");
+  assert.deepEqual(unmapped.contractEvidence.integrationContracts, []);
+  assert.equal(result.deliveryGaps.totals.withDeclaredIntegrationContracts,
+    result.deliveryGaps.entries.filter((row) =>
+      row.integrationDeclarationState === "integration_contracts_declared").length);
+});
+
+test("integration declarations never substitute for verified API routes, tools or provider readiness", () => {
+  const evidence = inspectModuleContractDeclarations([{
+    key: "ai",
+    integrationContracts: ["external-api-v1", "external-api-v1"],
+    configurationDefinitions: ["provider-setting"],
+    requiredPermissions: ["ai:use"],
+  }], "AI assistant");
+  assert.deepEqual(evidence.integrationContracts, ["external-api-v1"]);
+  assert.deepEqual(evidence.configurationDefinitions, ["provider-setting"]);
+  assert.deepEqual(evidence.requiredPermissions, ["ai:use"]);
+  assert.equal(evidence.declarationState, "integration_contracts_declared");
+  assert.equal(evidence.apiRouteVerification, "not_verified");
+  assert.equal(evidence.aiToolContractVerification, "not_verified");
+  assert.equal(evidence.externalProviderReadiness, "not_verified");
+  assert.equal(evidence.activationAuthorised, false);
+  assert.equal(Object.isFrozen(evidence), true);
+  assert.equal(Object.isFrozen(evidence.integrationContracts), true);
+  assert.throws(() => inspectModuleContractDeclarations({}), TypeError);
 });
