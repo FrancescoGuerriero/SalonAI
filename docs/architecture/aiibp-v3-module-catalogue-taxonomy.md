@@ -358,3 +358,32 @@ The reviewed test-source ledger also maps existing
 and `aiStylistCopilot.test.js` to requirements 19, 20 and 21 respectively.
 Test-file presence alone cannot confirm that all acceptance criteria or
 live provider integrations work in production.
+
+## DEV1 partner marketplace versus seller-channel integrations
+
+The implementation inventory now references the **existing AIIBP partner-app
+marketplace foundation** at
+`/api/future/integrations/marketplace`, composed from
+`app.js` → `futureFeatureRoutes.js` →
+`integrationPlatformRoutes.js` → `partnerMarketplaceRoutes.js`.
+
+This is a source-level implementation reference for module 15, **not**
+evidence that Amazon Seller Central, eBay seller listings, order feeds,
+shipping, returns or marketplace settlement connectors are installed or
+ready for production. Existing marketplace tests explicitly keep tenant
+installation in a preparation/reconciliation state and do not provision
+provider connections or execute commercial billing.
+
+The catalogue also recognises limited existing shared-platform surfaces:
+
+| Candidate | Source-backed implementation reference | Explicit limitation |
+| --- | --- | --- |
+| CORE-02 Module composition | `/api/system-administration`, catalogue management endpoints | Does not imply tenant entitlement activation |
+| CORE-03 API Gateway & Integration Registry | `/api/future/integrations`, `/api/future/integrations/v1` | Does not imply a complete gateway |
+| CORE-04 Secrets, Events, Audit & Policy | `/api/future/security` | Existing audit/security read endpoints, not full policy or secret coverage |
+
+Requirement 25 Fulfilment & Delivery remains unreviewed in this
+source inventory. Lack of a reviewed reference is not proof of missing
+implementation. These references do not create any new modules, routes
+or capability packs and do not change Stripe, CRM, AI, booking or
+production configuration.
