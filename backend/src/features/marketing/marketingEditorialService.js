@@ -81,6 +81,15 @@ export async function transitionEditorialPlacement(id, input, authority, actor) 
   const record = await Placement.findOne({ _id: objectId(id, "placement"), ...scope });
   if (!record) throw createServiceError("Editorial placement not found.", 404);
   const target = String(input.status || "");
+  if (!actor || !mongoose.isValidObjectId(actor)) {
+    throw createServiceError("Authenticated editorial actor required.", 403);
+  }
+  if (target === "submitted" && input.submissionConfirmed !== true) {
+    throw createServiceError("Confirm that the article was submitted externally before recording submission.", 422);
+  }
+  if (target === "published" && input.publicationConfirmed !== true) {
+    throw createServiceError("Confirm external publication before recording publication.", 422);
+  }
   if (target === "approved") {
     // Only verified content rights and editorial review permit approval.
     record.rightsConfirmed = input.rightsConfirmed === true;
@@ -97,7 +106,17 @@ export async function transitionEditorialPlacement(id, input, authority, actor) 
   if (!canAdvanceEditorial(record.status, target, record)) {
     throw createServiceError("Editorial transition is not permitted or prerequisites are incomplete.", 409);
   }
+  const fromStatus = record.status;
   record.status = target;
+  record.transitionHistory.push({
+    fromStatus,
+    toStatus: target,
+    actor,
+    recordedAt: new Date(),
+    confirmation: target === "approved" ? "rights_review" :
+      target === "submitted" ? "external_submission" :
+      target === "published" ? "external_publication" : "none",
+  });
   if (target === "submitted") record.submittedAt = new Date();
   record.updatedBy = actor || null;
   return record.save();
