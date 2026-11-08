@@ -69,3 +69,29 @@ test("editorial placement links existing ContentPage without creating a second a
   assert.equal(placement.validateSync(), undefined);
   assert.equal(String(placement.contentPage), String(pageId));
 });
+
+test("editorial transition evidence is typed and requires a named actor", () => {
+  const record = new EditorialPlacement({
+    business: id(),
+    location: id(),
+    workingTitle: "Editorial test",
+    publisherName: "Example",
+    publisherWebsite: "https://example.com",
+    transitionHistory: [{
+      fromStatus: "review",
+      toStatus: "approved",
+      confirmation: "rights_review",
+      recordedAt: new Date(),
+    }],
+  });
+  assert.ok(record.validateSync()?.errors["transitionHistory.0.actor"]);
+  record.transitionHistory[0].actor = id();
+  assert.equal(record.validateSync(), undefined);
+  record.transitionHistory.push({
+    fromStatus: "approved",
+    toStatus: "submitted",
+    actor: id(),
+    confirmation: "unapproved_automatic_submission",
+  });
+  assert.ok(record.validateSync()?.errors["transitionHistory.1.confirmation"]);
+});
