@@ -1,0 +1,107 @@
+import mongoose from "mongoose";
+import AuditLog from "../../models/AuditLog.js";
+import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.js";
+import { createServiceError } from "../../shared/serviceError.js";
+import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+
+function requiredId(value, field) {
+  if (!mongoose.isValidObjectId(value)) {
+    throw createServiceError(`Valid ${field} is required for seller sync.`, 400, {
+      code: "SELLER_SYNC_INVALID_AUTHORITY",
+    });
+  }
+  return value;
+}
+function stageRecord(record, kind) {
+  const externalId = kind === "listings" ? record.sku : record.externalOrderId;
+  if (!externalId || String(externalId).length > 200) {
+    throw createServiceError("Provider returned an unidentifiable seller record.", 502, {
+      code: "SELLER_SYNC_EXTERNAL_ID_INVALID",
+    });
+  }
+  const quantity = record.quantity == null ? null : Number(record.quantity);
+  if (quantity !== null && (!Number.isSafeInteger(quantity) || quantity < 0)) {
+    throw createServiceError("Provider returned invalid inventory quantity.", 502, {
+      code: "SELLER_SYNC_QUANTITY_INVALID",
+    });
+  }
+  return {
+    externalId: String(externalId),
+    sourceRecord: {
+      sku: kind === "listings" ? String(record.sku || "") : "",
+      status: String(record.status || "").slice(0, 120),
+      quantity,
+      placedAt: kind === "orders" && record.placedAt ? new Date(record.placedAt) : null,
+      amount: kind === "orders" ? String(record.total ?? "").slice(0, 100) : "",
+      currency: kind === "orders" ? String(record.currency || "").slice(0, 20) : "",
+      fulfillmentStatus: kind === "orders" ? String(record.fulfillmentStatus || "").slice(0, 120) : "",
+    },
+  };
+}
+
+/**
+ * Human-invoked staging only. Canonical Product, Inventory and Order remain
+ * authoritative; there is no automatic stock, payment or fulfilment write.
+ */
+export async function stageSellerChannelSnapshot(connection, kind, {
+  businessId, actorId, requestId = "",
+  readSnapshot = fetchSellerChannelSnapshot,
+  recordsModel = SellerChannelStagingRecord,
+  auditModel = AuditLog,
+} = {}) {
+  requiredId(businessId, "business");
+  requiredId(actorId, "actor");
+  if (!connection || String(connection.business) !== String(businessId) ||
+      connection.status !== "connected") {
+    throw createServiceError("Seller connection is not owned and connected for this business.", 403, {
+      code: "SELLER_SYNC_AUTHORITY_REQUIRED",
+    });
+  }
+  if (!["listings", "orders"].includes(kind)) {
+    throw createServiceError("Only listings and orders can be staged.", 400, {
+      code: "SELLER_SYNC_UNSUPPORTED_KIND",
+    });
+  }
+  const snapshot = await readSnapshot(connection, kind);
+  if (!Array.isArray(snapshot?.records) || snapshot.records.length > 50 ||
+      snapshot.provider !== connection.provider) {
+    throw createServiceError("Invalid seller channel snapshot.", 502, {
+      code: "SELLER_SYNC_SNAPSHOT_INVALID",
+    });
+  }
+  const staged = snapshot.records.map((record) => stageRecord(record, kind));
+  if (new Set(staged.map((record) => record.externalId)).size !== staged.length) {
+    throw createServiceError("Seller snapshot contains duplicate external identifiers.", 502, {
+      code: "SELLER_SYNC_DUPLICATE_SOURCE_IDS",
+    });
+  }
+  const observed = new Date();
+  const writes = staged.map((record) => ({
+    updateOne: {
+      filter: { business: businessId, connection: connection._id, kind, externalId: record.externalId },
+      update: {
+        $set: {
+          sourceRecord: record.sourceRecord,
+          provider: connection.provider,
+          lastObservedAt: observed,
+        },
+        $setOnInsert: {
+          business: businessId, connection: connection._id, kind, externalId: record.externalId,
+        },
+      },
+      upsert: true,
+    },
+  }));
+  if (writes.length) await recordsModel.bulkWrite(writes, { ordered: true });
+  await auditModel.create({
+    actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
+    resourceId: String(connection._id), requestId,
+    metadata: { businessId: String(businessId), provider: connection.provider, kind, count: writes.length },
+  });
+  return Object.freeze({
+    provider: connection.provider, kind, stagedCount: writes.length,
+    uniqueExternalIds: writes.length, canonicalRecordsWritten: 0,
+    listingPublicationEnabled: false, fulfillmentWritesEnabled: false,
+    state: "staging_only", productionAccepted: false,
+  });
+}
