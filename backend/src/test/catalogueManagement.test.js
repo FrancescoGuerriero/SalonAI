@@ -237,3 +237,13 @@ test("Commerce product write and stock endpoints use effective Business membersh
   assert.match(commerce, /data\.business = owner\.business/);
   assert.match(commerce, /data\.location = owner\.location/);
 });
+
+test("Order management list requires tenant authority and is not the legacy global listing", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const service = await source("../features/commerce/commerceService.js");
+  assert.match(routes, /"\/orders",\s*protect,\s*servicePublicTenantContextMiddleware,\s*trustedTenantContextMiddleware,\s*effectiveAuthorityMiddleware,\s*requirePermissions\("order:read"\)/);
+  assert.match(controller, /listTenantOrders\(req\.query, req\.effectiveAuthority\)/);
+  assert.match(service, /export async function listTenantOrders\(query = \{\}, effectiveAuthority\)/);
+  assert.match(service, /const owner = commerceTenantFilter\(effectiveAuthority\)/);
+});
