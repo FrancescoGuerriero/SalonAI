@@ -8,6 +8,7 @@ import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTe
 import asyncHandler from "../../shared/asyncHandler.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
@@ -43,10 +44,26 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     returns: "not_implemented",
     listingPublication: "not_implemented",
     stockWriteback: "not_implemented",
+    manualStaging: "listings_and_orders_only",
     sourceOfTruth: "existing_integration_platform",
     productionAccepted: false,
   });
 });
+
+// Explicit operator action stages source records only, never canonical commerce data.
+router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:update"),
+  (request, response, next) => {
+    const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
+    return requirePermissions(permission)(request, response, next);
+  }, asyncHandler(async (request, response) => {
+    const connection = await ownedConnection(request);
+    const result = await stageSellerChannelSnapshot(connection, request.params.kind, {
+      businessId: request.effectiveAuthority.businessId,
+      actorId: request.user?._id || request.user?.id,
+      requestId: request.requestId || "",
+    });
+    response.status(200).json({ success: true, result });
+  }));
 
 router.get("/:connectionId/fulfillments/:orderId", requirePermissions("order:read"),
   asyncHandler(async (request, response) => {
