@@ -16,3 +16,36 @@ Tests use actual MongoDB collections and some real controller/service functions;
 Next DEV1 slice: canonical Commerce ownership and tenant-scoped read/write enforcement for Products and Orders, with full authenticated HTTP and cross-tenant tests; no rollout until verified. Avoid auto-backfilling or reassigning production orders.
 
 No production database access, module activation, external provider enablement, or monthly AI quotas.
+
+## DEV1 follow-on: Commerce ownership fixture (2026-11-08)
+
+Branch: `dev1/commerce-tenant-ownership-fixture-20261108`.
+
+- Added `commerceTenantFilter`, which requires a trusted Business and explicit
+  all/selected-location authority. It never treats client-supplied tenant IDs
+  or unowned documents as authoritative.
+- Added *optional* `business` and `location` fields/indexes to the canonical
+  Order model. This is a schema preparation step only: historical orders are not
+  backfilled, and existing checkout writers are **not yet** tenant-enabled.
+- Added a real Mongo fixture that checks Products and Orders against matching
+  tenant/location filters and ensures foreign and unowned Orders do not appear.
+- The older unscoped `listProducts` regression assertion remains intentionally
+  present. A passing test suite therefore **does not imply the live Commerce
+  API is tenant-isolated**.
+
+### Required before Commerce acceptance
+
+1. Make public catalogue tenant selection host-trusted; authenticate management
+   and order endpoints through the persisted membership/effective authority chain.
+2. Thread tenant/location ownership through product creation, retrieval,
+   inventory adjustment, checkout (including mixed appointments/packages),
+   order status, invoices, refunds and provider/webhook reconciliation.
+3. Reject cross-tenant IDs and absent/legacy ownership rather than silently
+   assigning them. Plan an explicitly audited, dry-run-first legacy migration.
+4. Add authenticated HTTP positive/negative RBAC and foreign-business/location
+   tests; then verify provider idempotency, rollback and inventory consistency.
+5. Keep the Module Management production acceptance indicator unverified until
+   deployed-tenant sign-off exists.
+
+No activation, deployment, production database access, provider configuration,
+or monthly AI quota work is part of this fixture.
