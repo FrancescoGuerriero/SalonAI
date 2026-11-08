@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -538,4 +538,33 @@ test("Customer Order self-service denies foreign business, foreign user and lega
   await assert.rejects(listTenantCustomerOrders({}, {}, tenantA),
     (error) => error.statusCode === 401);
   assert.equal((await listTenantCustomerOrders(otherCustomer, { status: "ready" }, tenantA)).pagination.total, 1);
+});
+
+test("Customer cancellation refuses foreign Order IDs before any mutation", async () => {
+  const product = await Product.findOne({ business: businessA }).lean();
+  const makePending = (business, location, user, suffix) => Order.create({
+    business, location, user,
+    contact: { name: "Fixture Customer", email: suffix + "@acceptance.example" },
+    items: [{
+      itemType: "product", product: product._id, sku: "A-SHAMPOO",
+      name: "Shampoo", quantity: 1, unitPrice: 10, lineTotal: 10,
+    }],
+    subtotal: 10, total: 10, status: "pending_payment",
+  });
+  const own = await makePending(businessA, locationA1, userA, "own");
+  const foreign = await makePending(businessB, locationB, userA, "foreign");
+  const otherUser = await makePending(businessA, locationA1, userB, "other");
+  const customer = { _id: userA, role: "admin" };
+  const context = { businessId: String(businessA) };
+  for (const id of [foreign._id, otherUser._id]) {
+    await assert.rejects(cancelTenantCustomerOrder(id, customer, context),
+      (error) => error.statusCode === 404);
+    assert.equal((await Order.findById(id)).status, "pending_payment");
+  }
+  await assert.rejects(cancelTenantCustomerOrder(own._id, customer, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  assert.equal((await Order.findById(own._id)).status, "pending_payment");
+  const cancelled = await cancelTenantCustomerOrder(own._id, customer, context);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal((await Order.findById(own._id)).status, "cancelled");
 });
