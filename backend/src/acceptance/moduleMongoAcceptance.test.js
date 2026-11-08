@@ -9,6 +9,19 @@ import { buildManagementCopilotPayload } from "../features/aiRecommendations/aiM
 import { resolveTrustedTenantContext } from "../platform/tenancy/trustedTenantContext.js";
 import BusinessMembership from "../models/BusinessMembership.js";
 import Location from "../models/Location.js";
+import Service from "../models/service.js";
+import Stylist from "../models/Stylist.js";
+import LocationServiceOffering from "../models/LocationServiceOffering.js";
+import Product from "../features/commerce/Product.js";
+import Order from "../features/commerce/Order.js";
+import { listProducts } from "../features/commerce/commerceService.js";
+import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
+import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
+import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
+import { resolveEffectiveServiceConfiguration } from "../platform/services/effectiveServiceConfiguration.js";
+import { getManagementServices } from "../controllers/serviceController.js";
+import { requirePermissions } from "../middleware/permissionMiddleware.js";
+
 
 const URI = process.env.AIIBP_ACCEPTANCE_MONGO_URI || "";
 if (!/^mongodb:\/\/127\.0\.0\.1:27017\/aiibp_module_acceptance_ci(?:\?|$)/.test(URI)) {
@@ -198,4 +211,155 @@ test("real Mongo membership lookup refuses foreign tenant selection", async () =
     findMembership, findLocation, countMemberships,
   });
   assert.equal(resolved.businessId, String(businessA));
+});
+
+
+function servicePayload(business, name, price) {
+  return {
+    business, name, category: "Hair", price, duration: 45,
+    active: true, published: true, bookable: true,
+  };
+}
+function checkPermission(effectiveAuthority, permission) {
+  return new Promise((resolve) => {
+    requirePermissions(permission)(
+      { effectiveAuthority, requestId: "mongodb-acceptance" },
+      {
+        status(code) { this.code = code; return this; },
+        json(body) { resolve({ allowed: false, status: this.code, body }); },
+      },
+      () => resolve({ allowed: true }),
+    );
+  });
+}
+
+test("Service Catalogue management handler uses real Mongo Business isolation and does not expose foreign service records", async () => {
+  const [a, b, legacy] = await Service.insertMany([
+    servicePayload(businessA, "A-only haircut", 40),
+    servicePayload(businessB, "B-only haircut", 99),
+    { name: "Legacy unowned service", category: "Hair", price: 5,
+      duration: 20, active: true, published: true },
+  ]);
+  const invoke = (businessId) => new Promise((resolve, reject) => {
+    getManagementServices(
+      { effectiveAuthority: authority(businessId) },
+      { json: (body) => resolve(body) },
+      reject,
+    );
+  });
+  const own = await invoke(businessA);
+  const other = await invoke(businessB);
+  assert.equal(own.success, true);
+  assert.deepEqual(own.services.map((item) => item.name), ["A-only haircut"]);
+  assert.deepEqual(other.services.map((item) => item.name), ["B-only haircut"]);
+  assert.equal(own.services.some((item) => String(item._id) === String(b._id)), false);
+  assert.equal(own.services.some((item) => String(item._id) === String(legacy._id)), false);
+  const overwritten = await Service.find(scopedServiceFilter({
+    businessId: String(businessA),
+    domainFilter: { business: String(businessB) },
+  }));
+  assert.deepEqual(overwritten.map((item) => String(item._id)), [String(a._id)]);
+  assert.equal(own.services.some((item) => item.name === "B-only haircut"), false);
+});
+
+test("Service Location Offering real database ownership and price overrides remain isolated", async () => {
+  const service = await Service.findOne({ business: businessA, name: "A-only haircut" });
+  const offerings = await LocationServiceOffering.insertMany([
+    { business: businessA, location: locationA1, service: service._id,
+      status: "active", available: true, priceOverride: 50 },
+    { business: businessA, location: locationA2, service: service._id,
+      status: "active", available: true, priceOverride: 70 },
+  ]);
+  const first = await LocationServiceOffering.findOne({
+    business: businessA, location: locationA1, service: service._id,
+  }).lean();
+  const second = await LocationServiceOffering.findOne({
+    business: businessA, location: locationA2, service: service._id,
+  }).lean();
+  assert.equal(resolveEffectiveServiceConfiguration({
+    businessId: businessA, locationId: locationA1, service, offering: first,
+  }).price, 50);
+  assert.equal(resolveEffectiveServiceConfiguration({
+    businessId: businessA, locationId: locationA2, service, offering: second,
+  }).price, 70);
+  assert.equal(await LocationServiceOffering.countDocuments({
+    business: businessB, location: locationB, service: service._id,
+  }), 0);
+  assert.equal(offerings.length, 2);
+  assert.throws(() => resolveEffectiveServiceConfiguration({
+    businessId: businessB, locationId: locationB, service, offering: first,
+  }), (error) => error.code === "SERVICE_NOT_FOUND");
+});
+
+test("Workforce management Mongo filters enforce selected Location and reject foreign personnel", async () => {
+  const [a1, a2, foreign, orphan] = await Stylist.insertMany([
+    { business: businessA, workingLocations: [locationA1],
+      firstName: "A", lastName: "One", email: "a1@acceptance.example" },
+    { business: businessA, workingLocations: [locationA2],
+      firstName: "A", lastName: "Two", email: "a2@acceptance.example" },
+    { business: businessB, workingLocations: [locationB],
+      firstName: "B", lastName: "Only", email: "b@acceptance.example" },
+    { firstName: "Legacy", lastName: "Unowned", email: "legacy@acceptance.example" },
+  ]);
+  const selected = authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
+  });
+  const own = await Stylist.find(scopedWorkforceFilter(selected)).lean();
+  assert.deepEqual(own.map((person) => String(person._id)), [String(a1._id)]);
+  const all = await Stylist.find(scopedWorkforceFilter(authority(businessA))).lean();
+  assert.equal(all.length, 2);
+  assert.ok(all.some((person) => String(person._id) === String(a2._id)));
+  assert.ok(!all.some((person) => String(person._id) === String(foreign._id)));
+  assert.ok(!all.some((person) => String(person._id) === String(orphan._id)));
+  assert.throws(() => assertWorkforceResourceAuthority(selected, foreign),
+    (error) => error.code === "RESOURCE_NOT_FOUND" && error.statusCode === 404);
+  assert.throws(() => assertWorkforceResourceAuthority(selected, a2),
+    (error) => error.code === "RESOURCE_NOT_FOUND");
+});
+
+test("Canonical management RBAC denies absent permissions and scopes even when a legacy user is marked super admin", async () => {
+  const allow = await checkPermission(authority(businessA, {
+    permissions: ["service:read", "employee:read", "product:read", "appointment:read"],
+    locationAccessMode: "all",
+  }), "service:read");
+  assert.equal(allow.allowed, true);
+  for (const permission of ["service:read", "employee:read", "product:read", "order:read", "appointment:read"]) {
+    const denied = await checkPermission(authority(businessA, { permissions: [] }), permission);
+    assert.equal(denied.allowed, false);
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.code, "INSUFFICIENT_PERMISSIONS");
+    assert.deepEqual(denied.body.missingPermissions, [permission]);
+  }
+  const needsLocation = await checkPermission(authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
+    locationId: null, permissions: ["appointment:read"],
+  }), "appointment:read");
+  assert.equal(needsLocation.allowed, false);
+  const selectedLocation = await checkPermission(authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
+    locationId: String(locationA1), permissions: ["appointment:read"],
+  }), "appointment:read");
+  assert.equal(selectedLocation.allowed, true);
+});
+
+test("Commerce/inventory canonical Product collection has tenant records, but legacy global catalogue listing remains an acceptance blocker", async () => {
+  await Product.insertMany([
+    { business: businessA, location: locationA1, name: "A Shampoo",
+      slug: "a-shampoo", sku: "A-SHAMPOO", price: 10, stockQuantity: 3, active: true },
+    { business: businessB, location: locationB, name: "B Shampoo",
+      slug: "b-shampoo", sku: "B-SHAMPOO", price: 20, stockQuantity: 4, active: true },
+  ]);
+  const scope = inventoryLocationFilter(authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA1)],
+    locationId: String(locationA1),
+  }));
+  const scoped = await Product.find(scope).lean();
+  assert.deepEqual(scoped.map((item) => item.name), ["A Shampoo"]);
+  const unscopedLegacyCatalogue = await listProducts({ facets: "false" });
+  assert.equal(unscopedLegacyCatalogue.items.length, 2);
+  assert.deepEqual(unscopedLegacyCatalogue.items.map((item) => item.name).sort(),
+    ["A Shampoo", "B Shampoo"]);
+  // Do not claim Commerce as tenant-isolation accepted: canonical legacy
+  // catalogue reads currently lack trusted Business filters.
+  assert.equal(Order.schema.path("business"), undefined);
 });
