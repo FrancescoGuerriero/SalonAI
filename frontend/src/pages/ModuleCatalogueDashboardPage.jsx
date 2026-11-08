@@ -256,9 +256,11 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
                   <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
                   <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.
-                  <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.</p>
+                  <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.
+                  <strong> Entries with reviewed existing implementation:</strong> {operationalAssessment.deliveryGaps.totals.withReviewedImplementationSources}.
+                  <strong> Entries without a reviewed implementation reference:</strong> {operationalAssessment.deliveryGaps.totals.implementationReviewNotRecorded}.</p>
                 <p className="text-stone-700">
-                  These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions.
+                  These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions. An unreviewed implementation reference does not mean a module is absent.
                 </p>
                 <ul className="grid gap-2 sm:grid-cols-4">
                   {operationalAssessment.deliveryGaps.priorities.map((group) => (
