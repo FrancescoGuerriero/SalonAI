@@ -15,7 +15,7 @@ import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
 import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
-import { listProducts, getProduct } from "../features/commerce/commerceService.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -437,5 +437,53 @@ test("Commerce list facets and product detail reads fail closed across tenants a
   });
   assert.deepEqual(management.items.map((item) => item.name), ["A Shampoo"]);
   await assert.rejects(listProducts({}, { management: true }), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+});
+
+test("Product creation and mutations enforce trusted Business and Location authority", async () => {
+  const own = authority(businessA, {
+    locationId: String(locationA1),
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const other = authority(businessB, {
+    locationId: String(locationB),
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationB)],
+  });
+  await assert.rejects(createProduct({
+    name: "No location", sku: "NO-LOCATION", price: 1,
+  }, authority(businessA)), (error) => error.code === "COMMERCE_WRITE_LOCATION_REQUIRED");
+  await assert.rejects(createProduct({
+    name: "Foreign location", sku: "FOREIGN-LOCATION", price: 1,
+  }, authority(businessA, {
+    locationId: String(locationB), locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  })), (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  const created = await createProduct({
+    business: businessB, location: locationB,
+    name: "A-owned conditioner", sku: "A-CONDITIONER", price: 15, active: true,
+  }, own);
+  assert.equal(String(created.business), String(businessA));
+  assert.equal(String(created.location), String(locationA1));
+  assert.equal(created.active, true);
+  await assert.rejects(updateProduct(created._id, { name: "Foreign mutation" }, other),
+    (error) => error.statusCode === 404);
+  await assert.rejects(updateProduct(created._id, { price: 1 }, authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA2)],
+  })), (error) => error.statusCode === 404);
+  const updated = await updateProduct(created._id, {
+    name: "Owner-controlled conditioner", business: businessB, location: locationB,
+  }, own);
+  assert.equal(updated.name, "Owner-controlled conditioner");
+  assert.equal(String(updated.business), String(businessA));
+  assert.equal(String(updated.location), String(locationA1));
+
+  const ownSummary = await inventorySummary({ effectiveAuthority: own });
+  const foreignSummary = await inventorySummary({ effectiveAuthority: other });
+  assert.ok(ownSummary.productCount >= 2);
+  assert.equal(foreignSummary.productCount, 1);
+  assert.equal(ownSummary.lowStockProducts.some((item) => item.sku === "B-SHAMPOO"), false);
+  await assert.rejects(inventorySummary(), (error) =>
     error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
 });
