@@ -54,6 +54,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
       dependencyEvidence: Object.freeze([...dependencyEvidence]),
       contractEvidence,
       integrationDeclarationState: contractEvidence?.declarationState || "not_verified",
+      relatedSourceReviewCount: contractEvidence?.relatedSourceReviews?.length || 0,
       dependencyPrerequisiteBlockers: Object.freeze(dependencyEvidence.filter((dependency) => dependency.state === "confirmed_prerequisite_blocker").map((dependency) => dependency.capabilityKey)),
       dependencyVerificationNeeded: Object.freeze(dependencyEvidence.filter((dependency) => dependency.state === "not_verified").map((dependency) => dependency.capabilityKey)),
       confirmedBlockers: Object.freeze(blocked),
@@ -74,6 +75,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
     taxonomyOnly: items.filter((item) => item.mappingReviewState === "taxonomy_only").length,
     aiEvidenceUnverified: items.filter((item) => item.aiEvidenceState === "tool_contract_not_verified").length,
     withDeclaredIntegrationContracts: items.filter((item) => item.integrationDeclarationState === "integration_contracts_declared").length,
+    withRelatedSourceReviews: items.filter((item) => item.relatedSourceReviewCount > 0).length,
   });
   const categories = [...new Set(rows.map((item) => item.category))].sort()
     .map((category) => Object.freeze({ category, ...aggregate(rows.filter((item) => item.category === category)) }));
