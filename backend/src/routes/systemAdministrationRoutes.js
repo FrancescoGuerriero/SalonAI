@@ -18,6 +18,7 @@ import { moduleCatalogueController } from "../features/moduleCatalogue/moduleCat
 import { inspectTrustedTenantModuleEvidence } from "../features/moduleCatalogue/moduleCatalogueTenantRuntimeEvidence.js";
 import { inspectModuleDeploymentProvenance } from "../features/moduleCatalogue/moduleCatalogueDeploymentProvenance.js";
 import { inspectBackendRuntimeReleaseIdentity } from "../features/moduleCatalogue/moduleCatalogueBackendRuntimeIdentity.js";
+import { inspectFullStackRuntimeSnapshot } from "../features/moduleCatalogue/moduleCatalogueFullStackRuntimeSnapshot.js";
 import {
   getConfigurationStudio,
   listAuditLogs,
@@ -37,6 +38,20 @@ router.use(protect);
 router.use(
   "/enterprise-sso",
   enterpriseSsoRoutes
+);
+
+// Read-only recent operator-collected full-stack snapshot; not live attestation.
+router.get(
+  "/module-catalogue/fullstack-runtime-snapshot",
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
+  requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const snapshot = await inspectFullStackRuntimeSnapshot({
+      effectiveAuthority: request.effectiveAuthority,
+    });
+    response.status(200).json({ success: true, snapshot });
+  })
 );
 
 // Current backend process identity is independent of full-stack runtime health.
