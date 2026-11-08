@@ -64,7 +64,10 @@ export async function invokeGovernedBusinessMetrics(
     enabledEntitlements,
     locationId,
   });
-  // The tool registry grants ai:use; this canonical Appointment-derived\n  // metric reader additionally requires the source-domain read permission.\n  assertEffectivePermission(effectiveAuthority, "appointment:read");\n  const businessId = decision.businessId;
+  // The tool registry grants ai:use; this canonical Appointment-derived
+  // metric reader additionally requires the source-domain read permission.
+  assertEffectivePermission(effectiveAuthority, "appointment:read");
+  const businessId = decision.businessId;
   const selectedLocationId = decision.locationId;
   const startedAt = new Date();
   const safeRequestId = String(requestId || "").slice(0, 160);
