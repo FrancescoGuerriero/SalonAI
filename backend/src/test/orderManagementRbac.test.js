@@ -88,6 +88,27 @@ test(
   }
 );
 
+test("customer Order routes and controllers require host-scoped self-service ownership", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const service = await source("../features/commerce/commerceService.js");
+  for (const [path, method] of [
+    ["/orders/mine", "listMyOrders"],
+    ["/orders/:id", "getOrder"],
+    ["/orders/:id/cancel", "cancelOrder"],
+  ]) {
+    assert.ok(routes.includes(
+      'router.' + (method === "cancelOrder" ? 'post' : 'get')
+      + '("' + path + '", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.' + method + '));'
+    ), "Missing protected host tenant context on " + path);
+  }
+  assert.match(controller, /listTenantCustomerOrders\(req\.user, req\.query, req\.publicTenantContext\)/);
+  assert.match(controller, /getTenantCustomerOrder\(req\.params\.id, req\.user, req\.publicTenantContext\)/);
+  assert.match(controller, /cancelTenantCustomerOrder\(req\.params\.id, req\.user, req\.publicTenantContext\)/);
+  assert.match(service, /tenantCustomerOrderMatch\(publicTenantContext, user, id\)/);
+  assert.match(service, /user: user\._id/);
+});
+
 test(
   "order management frontend uses canonical read and update permissions",
   async () => {
