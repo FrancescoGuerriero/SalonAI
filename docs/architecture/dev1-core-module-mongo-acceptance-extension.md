@@ -201,3 +201,26 @@ tenant scope can be validated. This PR must **not** merge or deploy until
 the mixed-cart behaviour is preserved with safe ownership boundaries
 or an explicitly approved migration/rollout decision is documented.
 No claim is made that existing Stripe payment functions are absent.
+
+## DEV1 status/refund/invoice management authorisation (review-only draft)
+
+Management Order status mutation, Stripe refund initiation, and Order invoice
+read/create now share a fail-closed management guard. The route resolves
+authenticated BusinessMembership, effective Location authority and the
+existing granular permission, then verifies the specific Order's Business
+and Location against those trusted claims **before invoking existing**
+status/refund/invoice services. The underlying Stripe, invoice and booking
+payment lifecycle has not been replaced.
+
+Isolated Mongo acceptance covers own, foreign Business, unauthorised
+Location, unowned legacy and missing tenant context. Route source tests
+ensure the guard is installed on all four management endpoints.
+
+**Important limitations:** The separate manager Order status service and
+refund/invoice services still accept unscoped direct internal invocations;
+provider webhooks are authenticated by Stripe and operate without a user
+membership. This route guard is not a replacement for full service-level
+cross-tenant auditing or a migration. Mixed cart checkout remains blocked
+on the draft branch; restoring the existing checkout compatibility requires
+the complete ServicePackage and Appointment ownership contract, and must
+precede merge. Do not activate/deploy this PR.
