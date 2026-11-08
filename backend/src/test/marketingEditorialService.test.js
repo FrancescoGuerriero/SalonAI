@@ -5,6 +5,7 @@ import {
   canAdvanceEditorial,
   marketingScope,
   monthBounds,
+  isPublishedOnPublisherDomain,
   recordManualBacklink,
 } from "../features/marketing/marketingEditorialService.js";
 
@@ -61,4 +62,11 @@ test("manual backlink creation rejects non-HTTPS and credential-bearing URLs bef
     recordManualBacklink({ sourceUrl: "https://user:pass@other.example/story", targetUrl: "https://salon.example.com" }, scope),
     /without credentials/
   );
+});
+
+test("published article evidence must belong to the recorded publisher domain", () => {
+  assert.equal(isPublishedOnPublisherDomain("https://publisher.example", "https://publisher.example/article"), true);
+  assert.equal(isPublishedOnPublisherDomain("https://www.publisher.example", "https://blog.publisher.example/article"), true);
+  assert.equal(isPublishedOnPublisherDomain("https://publisher.example", "https://publisher.example.attacker.invalid/article"), false);
+  assert.equal(isPublishedOnPublisherDomain("https://publisher.example", "https://other.example/article"), false);
 });
