@@ -16,12 +16,13 @@ const EBAY_ORIGINS = Object.freeze({
   sandbox: "https://api.sandbox.ebay.com",
 });
 const MAX_RESULTS = 50;
+const MAX_PAGES = 5;
 const NETWORK_TIMEOUT_MS = 12000;
 const unsupported = (message, code = "SELLER_CHANNEL_NOT_CONFIGURED") =>
   createServiceError(message, 409, { code });
 
-function required(value, name) {
-  if (typeof value !== "string" || !value.trim() || value.length > 300) {
+function required(value, name, maximumLength = 300) {
+  if (typeof value !== "string" || !value.trim() || value.length > maximumLength) {
     throw unsupported(`Seller channel ${name} is not configured.`);
   }
   return value.trim();
@@ -55,7 +56,7 @@ async function fetchJson(fetchImpl, url, init) {
 }
 
 async function secret(connection, role, getCredential) {
-  return required((await getCredential(connection, role)).secret, role);
+  return required((await getCredential(connection, role)).secret, role, 30000);
 }
 async function amazonToken(connection, fetchImpl, getCredential) {
   const clientId = required(connection.metadata?.clientId, "clientId");
@@ -69,7 +70,7 @@ async function amazonToken(connection, fetchImpl, getCredential) {
       client_secret: clientSecret, refresh_token: refreshToken,
     }).toString(),
   });
-  return required(token.access_token, "accessToken");
+  return required(token.access_token, "accessToken", 30000);
 }
 async function ebayToken(connection, fetchImpl, getCredential) {
   const clientId = required(connection.metadata?.clientId, "clientId");
@@ -86,7 +87,7 @@ async function ebayToken(connection, fetchImpl, getCredential) {
     },
     body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString(),
   });
-  return { token: required(token.access_token, "accessToken"), origin };
+  return { token: required(token.access_token, "accessToken", 30000), origin };
 }
 function amazonConfig(connection) {
   const region = connection.metadata?.region || "EU";
@@ -172,19 +173,68 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     url.searchParams.set("limit", String(take));
     url.searchParams.set("offset", "0");
   }
-  const response = await fetchJson(fetchImpl, url.toString(), { method: "GET", headers });
-  const items = provider === "amazon_seller_central"
-    ? kind === "listings" ? response.items : response.orders
-    : kind === "listings" ? response.inventoryItems : response.orders;
-  if (!Array.isArray(items)) throw unsupported("Unexpected seller result shape.", "SELLER_CHANNEL_BAD_RESPONSE");
-  // No buyer information, addresses, payment identifiers or provider access tokens.
-  const normalized = items.slice(0, take).map((item) =>
-    kind === "listings" ? safeListing(item, provider === "amazon_seller_central" ? "amazon" : "ebay")
-      : safeOrder(item, provider === "amazon_seller_central" ? "amazon" : "ebay"));
+  // Follow provider paging internally, never accept arbitrary external URLs.
+  // Cap both count and pages to bound API traffic and staging writes.
+  const normalized = [];
+  const seenCursors = new Set();
+  let pageCount = 0;
+  let nextPageAvailable = false;
+  while (normalized.length < take && pageCount < MAX_PAGES) {
+    const response = await fetchJson(fetchImpl, url.toString(), { method: "GET", headers });
+    const items = provider === "amazon_seller_central"
+      ? kind === "listings" ? response.items : response.orders
+      : kind === "listings" ? response.inventoryItems : response.orders;
+    if (!Array.isArray(items)) {
+      throw unsupported("Unexpected seller result shape.", "SELLER_CHANNEL_BAD_RESPONSE");
+    }
+    for (const item of items.slice(0, take - normalized.length)) {
+      // No buyer info, addresses, payment identifiers or raw provider payloads.
+      normalized.push(kind === "listings"
+        ? safeListing(item, provider === "amazon_seller_central" ? "amazon" : "ebay")
+        : safeOrder(item, provider === "amazon_seller_central" ? "amazon" : "ebay"));
+    }
+    pageCount += 1;
+    let nextCursor = null;
+    if (provider === "amazon_seller_central") {
+      nextCursor = response.pagination?.nextToken || response.nextToken || null;
+    } else if (kind === "listings" && typeof response.total === "number") {
+      const offset = Number(url.searchParams.get("offset") || "0") + items.length;
+      nextCursor = offset < response.total && items.length ? String(offset) : null;
+    } else if (typeof response.next === "string" && response.next) {
+      // eBay next can be a URL; do not fetch it or trust its host/query.
+      // Extract only the numeric offset and keep the fixed allowlisted endpoint.
+      const next = new URL(response.next, url.origin);
+      if (next.origin !== url.origin || next.pathname !== url.pathname) {
+        throw unsupported("Seller provider returned an unsafe pagination URL.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+      nextCursor = next.searchParams.get("offset");
+      if (!/^[0-9]{1,8}$/.test(nextCursor || "")) {
+        throw unsupported("Seller provider returned an invalid offset.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+    }
+    if (!nextCursor) {
+      nextPageAvailable = false;
+      break;
+    }
+    if (seenCursors.has(nextCursor)) {
+      throw unsupported("Seller provider repeated pagination cursor.", "SELLER_CHANNEL_PAGING_INVALID");
+    }
+    seenCursors.add(nextCursor);
+    nextPageAvailable = true;
+    if (provider === "amazon_seller_central") {
+      if (typeof nextCursor !== "string" || nextCursor.length > 4096) {
+        throw unsupported("Seller provider returned an invalid pagination token.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+      url.searchParams.set(kind === "listings" ? "pageToken" : "paginationToken", nextCursor);
+      if (kind === "orders") url.searchParams.delete("createdAfter");
+    } else {
+      url.searchParams.set("offset", nextCursor);
+    }
+  }
   return Object.freeze({
     provider, kind, source: "read_only_provider_snapshot", records: normalized,
-    recordCount: normalized.length, nextPageAvailable: Boolean(
-      response.pagination?.nextToken || response.next),
+    recordCount: normalized.length, pagesFetched: pageCount, nextPageAvailable,
+    completeWithinLimit: !nextPageAvailable,
     canonicalRecordsWritten: 0, ordersFulfilled: 0, returnsProcessed: 0,
     publicationEnabled: false,
   });
