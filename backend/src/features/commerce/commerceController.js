@@ -182,7 +182,7 @@ export async function cancelOrder(req, res) {
 }
 
 export async function listOrders(req, res) {
-  res.json(await service.listOrders(req.query));
+  res.json(await service.listTenantOrders(req.query, req.effectiveAuthority));
 }
 
 export async function updateOrderStatus(req, res) {
