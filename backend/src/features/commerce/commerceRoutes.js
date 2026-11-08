@@ -111,9 +111,9 @@ router.post(
   protect,
   asyncHandler(controller.confirmDemoCheckout)
 );
-router.get("/orders/mine", requireFeature("online-shop"), protect, asyncHandler(controller.listMyOrders));
-router.get("/orders/:id", requireFeature("online-shop"), protect, asyncHandler(controller.getOrder));
-router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, asyncHandler(controller.cancelOrder));
+router.get("/orders/mine", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.listMyOrders));
+router.get("/orders/:id", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.getOrder));
+router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.cancelOrder));
 router.get(
   "/orders",
   protect,
