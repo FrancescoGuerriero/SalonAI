@@ -19,6 +19,7 @@ export default function ModuleCatalogueDashboardPage() {
   const [catalogue, setCatalogue] = useState(null);
   const [tenantEvidence, setTenantEvidence] = useState(null);
   const [deploymentProvenance, setDeploymentProvenance] = useState(null);
+  const [backendRuntimeIdentity, setBackendRuntimeIdentity] = useState(null);
   const [tenantEvidenceError, setTenantEvidenceError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
@@ -30,6 +31,11 @@ export default function ModuleCatalogueDashboardPage() {
 
   useEffect(() => {
     let active = true;
+    API.get("/system-administration/module-catalogue/backend-runtime-identity")
+      .then(({ data }) => { if (active) setBackendRuntimeIdentity(data.runtimeIdentity); })
+      .catch(() => {
+        if (active) setBackendRuntimeIdentity({ outcome: "unavailable" });
+      });
     API.get("/system-administration/module-catalogue/deployment-provenance")
       .then(({ data }) => { if (active) setDeploymentProvenance(data.provenance); })
       .catch(() => {
@@ -120,6 +126,30 @@ export default function ModuleCatalogueDashboardPage() {
             onChange={(event) => setCandidates(event.target.checked)} />
           Include proposed capability candidates
         </label>
+      </section>
+      <section aria-label="Backend runtime identity" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-bold">Current backend release identity</h2>
+        <p className="text-sm text-stone-700">
+          Compares this backend process's release tag and commit with a reviewed deployment archive.
+          Even a match does not confirm the running container image, other services, tenant activation or production acceptance.
+        </p>
+        {backendRuntimeIdentity && (
+          <dl className="grid gap-2 text-sm sm:grid-cols-3">
+            <div><dt className="font-semibold">Backend identity comparison</dt>
+              <dd>{backendRuntimeIdentity.backendIdentityMatched === true
+                ? "Matches archived release identity"
+                : backendRuntimeIdentity.backendIdentityMatched === false
+                  ? "Mismatch — investigate deployment"
+                  : UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Process release</dt>
+              <dd>{backendRuntimeIdentity.releaseTag || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Process commit</dt>
+              <dd>{backendRuntimeIdentity.commitSha?.slice(0, 12) || UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Running image digests</dt><dd>{UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Other service runtime</dt><dd>{UNKNOWN}</dd></div>
+            <div><dt className="font-semibold">Production acceptance</dt><dd>{UNKNOWN}</dd></div>
+          </dl>
+        )}
       </section>
       <section aria-label="Deployment provenance" className="space-y-2 rounded-xl border border-stone-300 bg-white p-4">
         <h2 className="text-lg font-bold">Deployment provenance</h2>
