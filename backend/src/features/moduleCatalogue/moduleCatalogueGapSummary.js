@@ -31,6 +31,9 @@ export function summariseModuleOperationalGaps(assessments = []) {
       ? "tool_contract_not_verified" : "ai_integration_not_specified";
     const dependencyEvidence = Array.isArray(item.dependencyEvidence) ? item.dependencyEvidence : [];
     const contractEvidence = item.contractEvidence || null;
+    const implementationReference = item.implementationReference || null;
+    const implementationReviewState = implementationReference?.existingImplementationReview === true
+      ? "existing_source_reviewed" : "source_not_reviewed";
     return Object.freeze({
       moduleId: definition.moduleId,
       displayName: definition.displayName,
@@ -40,6 +43,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
       aiOpportunity: definition.aiOpportunity,
       aiEvidenceState,
       mappingReviewState,
+      implementationReviewState,
+      implementationRouteCount: implementationReference?.apiMounts?.length || 0,
       suggestedNextReview: mappingReviewState === "mapping_review_required"
         ? "review_capability_mapping"
         : dependencyEvidence.some((dependency) => dependency.state === "confirmed_prerequisite_blocker")
@@ -76,6 +81,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
     aiEvidenceUnverified: items.filter((item) => item.aiEvidenceState === "tool_contract_not_verified").length,
     withDeclaredIntegrationContracts: items.filter((item) => item.integrationDeclarationState === "integration_contracts_declared").length,
     withRelatedSourceReviews: items.filter((item) => item.relatedSourceReviewCount > 0).length,
+    withReviewedImplementationSources: items.filter((item) => item.implementationReviewState === "existing_source_reviewed").length,
+    implementationReviewNotRecorded: items.filter((item) => item.implementationReviewState === "source_not_reviewed").length,
   });
   const categories = [...new Set(rows.map((item) => item.category))].sort()
     .map((category) => Object.freeze({ category, ...aggregate(rows.filter((item) => item.category === category)) }));
