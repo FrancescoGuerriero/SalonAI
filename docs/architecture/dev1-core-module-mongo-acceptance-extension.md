@@ -173,3 +173,31 @@ exercise a valid same-Business location and deny foreign Business, mixed
 tenant products and absent trusted context. A passing preflight fixture does
 **not** prove successful provider checkout, atomic settlement or customer
 session integration. Those remain explicit acceptance blockers.
+
+## Correction: Stripe payment lifecycle is existing Stage 3 functionality
+
+The existing Stripe integration and payment lifecycle are **already
+implemented**. The relevant existing code includes
+`backend/src/providers/paymentProvider.js` (Stripe Checkout / PaymentIntent
+and refunds), `backend/src/features/commerce/stripeWebhookService.js`
+(signed provider webhooks, event deduplication and reconciliation),
+`backend/src/features/commerce/orderRefundService.js` (refund lifecycle),
+and the existing invoice, appointment-payment and membership payment paths.
+See `docs/roadmap/stage-3-deferred-implementation.md` for the recorded
+Stage 3 implementation versus production-activation distinction.
+
+DEV1 work here is strictly an **integration/tenant-boundary reconciliation**:
+preserve the existing provider operations, webhook signing and idempotency,
+refund/invoice behaviour, and payment state machine while propagating trusted
+Business/Location ownership end to end. Do not rebuild Stripe, add a
+competing payment service or classify implemented payment functionality as
+missing.
+
+**Compatibility blocker introduced on this draft branch:** product-only
+checkout currently rejects appointment and service-package mixed carts.
+The existing mixed-cart payment lifecycle remains implemented, but
+the new 409 restriction is a behavioural regression until cross-module
+tenant scope can be validated. This PR must **not** merge or deploy until
+the mixed-cart behaviour is preserved with safe ownership boundaries
+or an explicitly approved migration/rollout decision is documented.
+No claim is made that existing Stripe payment functions are absent.
