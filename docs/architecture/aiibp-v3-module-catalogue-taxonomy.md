@@ -436,3 +436,28 @@ marketplace (15), AI Stylist Copilot (21) and shared AI gateway candidates
 must be reviewed for reuse of existing capabilities, rather than receiving
 new entitlement registrations by default. No production acceptance,
 deployment or activation follows from this planning reconciliation.
+
+## DEV1 mapping-reuse evidence from existing guards
+
+For the highest-risk mapping ambiguities, the catalogue now records an
+immutable source-review boundary, alongside the existing unapproved mapping
+state. It distinguishes feature-control switches and RBAC permissions from
+registered `capabilityRegistry` pack keys:
+
+| Module | Observed source boundary | Registered packs for **review only** |
+| --- | --- | --- |
+| 05 Online Store | Commerce routes, `online-shop` feature switch, product/order permissions | `commerce` |
+| 15 Seller & Marketplace | Partner marketplace routes and `feature-control` permissions (partner apps, not Amazon/eBay seller channels) | None established |
+| 21 AI Stylist Copilot | `/api/ai` with `ai-tools` feature gate and `ai:use` permission | `ai` |
+| AI-CORE-04 Model Gateway | Data Hub gateway endpoints, `ai:use` and `feature-control:read` permissions | `ai` |
+
+Existing pack review candidates are verified against the canonical
+registry but **not assigned** to requirements. The presence of a route
+guard does not establish an entitlement relationship, permit activation,
+validate provider readiness, or satisfy tenant-specific operational
+acceptance. For Module 15, the existing partner marketplace is deliberately
+not represented as a deployed seller-channel connector.
+
+The read-only `mappingReconciliation.reviewedBoundary` response reports
+the source path, observed feature guards, permissions and pack candidates.
+The management dashboard makes these distinctions visible for review.
