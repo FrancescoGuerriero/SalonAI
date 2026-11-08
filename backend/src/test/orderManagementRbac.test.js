@@ -143,3 +143,17 @@ test(
     );
   }
 );
+
+test("checkout requires host-verified Business and rejects mixed dependency scope", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const service = await source("../features/commerce/commerceService.js");
+  assert.match(routes,
+    /"\/checkout", requireFeature\("online-shop"\), protect, servicePublicTenantContextMiddleware, asyncHandler\(controller\.createCheckout\)/);
+  assert.match(controller,
+    /createCheckout\(req\.body, req\.user, req\.publicTenantContext\)/);
+  assert.match(service,
+    /business: owner\.business,\s*location: checkoutLocationId,\s*user: user\._id/);
+  assert.match(service, /resolveProductCheckoutLocation\(/);
+  assert.match(service, /appointmentRequests\.length \|\| servicePackageRequests\.length/);
+});
