@@ -355,6 +355,20 @@ export default function ModuleCatalogueDashboardPage() {
                         <p><strong>Expected dependencies:</strong>{" "}
                           {assessment.expectedDependencies.join(", ") || "None registered"}
                         </p>
+                        {assessment.dependencyEvidence?.length > 0 && (
+                          <ul className="list-disc space-y-1 pl-5" aria-label="Dependency prerequisite evidence">
+                            {assessment.dependencyEvidence.map((dependency) => (
+                              <li key={dependency.capabilityKey}>
+                                <strong>{dependency.capabilityKey}:</strong>{" "}
+                                {dependency.state === "prerequisites_evidenced"
+                                  ? "Tenant prerequisite records present; operational acceptance not verified"
+                                  : dependency.state === "confirmed_prerequisite_blocker"
+                                    ? "Tenant prerequisite blocked"
+                                    : "Tenant prerequisite evidence not verified"}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                         <ul className="list-disc space-y-1 pl-5">
                           {assessment.checks.map((check) => (
                             <li key={check.key}>
