@@ -12,6 +12,10 @@ import {
 import { listCapabilityPacks } from "../../platform/capabilities/capabilityRegistry.js";
 import { assertBusinessResourceAuthority } from "../../services/effectiveAuthorityService.js";
 import { invokeGovernedBusinessMetrics } from "./aiWorkforceReadOnlyMetricsInvocation.js";
+import { resolveAiMetricsMonthlyLimit, reserveAiMetricsMonthlyAdmission } from "./aiWorkforceMonthlyQuotaService.js";
+import { getBuiltinAiAgentDefinition } from "./aiWorkforceBuiltinAgents.js";
+import { previewAiWorkforceToolInvocation } from "./aiWorkforceOrchestrationPreview.js";
+import { assertEffectivePermission } from "../../services/effectiveAuthorityService.js";
 
 function fail(message, code) {
   const error = new Error(message);
@@ -132,8 +136,11 @@ export async function resolveTrustedAiToolContext(
     fail("AI tools are disabled by the platform control.", "AI_FEATURE_DISABLED");
   }
 
+  const aiMetricsMonthlyLimit = resolveAiMetricsMonthlyLimit(subscriptionRecord);
+
   return Object.freeze({
     composition,
+    aiMetricsMonthlyLimit,
     enabledEntitlements: Object.freeze([...entitlements]),
     manifestRevision: manifest.manifestRevision,
     subscriptionRevision: subscriptionRecord.lifecycleRevision,
@@ -149,6 +156,29 @@ export async function invokeMetricsWithResolvedTenantAuthority(
   dependencies = {}
 ) {
   const trusted = await resolveTrustedAiToolContext(effectiveAuthority, dependencies);
+  // Reject unauthorised requests before charging a quota admission.
+  const actor = user?._id || user?.id;
+  if (!mongoose.isValidObjectId(actor) ||
+      !Number.isInteger(periodDays) || periodDays < 1 || periodDays > 365 ||
+      (timeoutMs !== undefined &&
+        (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > 30_000)) ||
+      signal?.aborted) {
+    fail("AI invocation parameters are invalid.", "AI_QUOTA_PRECHECK_FAILED");
+  }
+  previewAiWorkforceToolInvocation({
+    agent: getBuiltinAiAgentDefinition("business-adviser"),
+    toolKey: "business.metrics.read",
+    requestedAutonomy: "A0",
+    effectiveAuthority,
+    composition: trusted.composition,
+    enabledEntitlements: trusted.enabledEntitlements,
+    locationId,
+  });
+  assertEffectivePermission(effectiveAuthority, "appointment:read");
+  await reserveAiMetricsMonthlyAdmission({
+    businessId: String(effectiveAuthority.businessId),
+    monthlyLimit: trusted.aiMetricsMonthlyLimit,
+  }, { usage: dependencies.usage });
   return invokeGovernedBusinessMetrics(
     {
       effectiveAuthority,
