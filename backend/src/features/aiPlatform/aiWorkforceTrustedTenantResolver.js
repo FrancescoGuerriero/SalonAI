@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 import TenantProductManifest from "../../models/TenantProductManifest.js";
 import TenantSubscription from "../../models/TenantSubscription.js";
+import SystemSetting from "../../models/SystemSetting.js";
+import { featureSettingKey } from "../../services/featureControlService.js";
 import { resolveTenantEntitlements } from "../../platform/subscriptions/tenantSubscriptionLifecycle.js";
 import {
   calculateTenantProductManifestHash,
@@ -58,6 +60,7 @@ export async function resolveTrustedAiToolContext(
   {
     manifests = TenantProductManifest,
     subscriptions = TenantSubscription,
+    featureSettings = SystemSetting,
     now = new Date(),
   } = {}
 ) {
@@ -112,6 +115,21 @@ export async function resolveTrustedAiToolContext(
   });
   if (!composition.enabledCapabilityPackKeys.includes("ai")) {
     fail("AI capability is unavailable for the resolved tenant composition.", "AI_CAPABILITY_NOT_ENABLED");
+  }
+  // This internal service may never activate from an absent/unavailable
+  // settings database. Respect the existing admin switch without treating
+  // disconnected code defaults as a production authorisation decision.
+  if (featureSettings?.db?.readyState !== 1) {
+    fail("AI feature controls are unavailable.", "AI_FEATURE_CONTROLS_UNAVAILABLE");
+  }
+  const featureSetting = await featureSettings.findOne({
+    key: featureSettingKey("ai-tools"),
+  }).lean();
+  if (featureSetting && typeof featureSetting.value !== "boolean") {
+    fail("AI feature-control setting is invalid.", "AI_FEATURE_CONTROL_INVALID");
+  }
+  if (featureSetting?.value === false) {
+    fail("AI tools are disabled by the platform control.", "AI_FEATURE_DISABLED");
   }
 
   return Object.freeze({
