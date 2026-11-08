@@ -110,6 +110,27 @@ const REFERENCES = Object.freeze({
     apiMounts: ["/api/future/data-export-audit"],
     preservedCapability: "Existing data export audit route surface; full data management functionality not asserted",
   },
+  "19": {
+    routeSources: [
+      "backend/src/features/premium/whatsapp/whatsappRoutes.js",
+      "backend/src/features/premium/whatsapp/whatsappReceptionistAgentRunService.js",
+    ],
+    apiMounts: ["/api/whatsapp"],
+    preservedCapability: "Existing WhatsApp-facing AI Receptionist proposal flow; full autonomous booking not asserted",
+  },
+  "20": {
+    routeSources: ["backend/src/features/ai/aiRoutes.js", "backend/src/features/ai/aiRetentionTenantService.js"],
+    apiMounts: ["/api/future/ai"],
+    preservedCapability: "Existing tenant-scoped retention predictions; full retention manager acceptance not asserted",
+  },
+  "21": {
+    routeSources: [
+      "backend/src/features/aiRecommendations/aiRecommendationRoutes.js",
+      "backend/src/features/aiRecommendations/aiStylistCopilotService.js",
+    ],
+    apiMounts: ["/api/ai"],
+    preservedCapability: "Existing governed Stylist Copilot appointment brief; AI tool production sign-off unverified",
+  },
 });
 const frozen = (array) => Object.freeze([...array]);
 
