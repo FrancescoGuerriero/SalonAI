@@ -133,6 +133,20 @@ const addressSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
+    // Transitional ownership metadata. Legacy orders remain unowned until
+    // separately reviewed reconciliation; do not infer tenant from customer.
+    business: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
+      default: undefined,
+      index: true,
+    },
+    location: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location",
+      default: undefined,
+      index: true,
+    },
     orderNumber: {
       type: String,
       unique: true,
@@ -207,6 +221,8 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+orderSchema.index({ business: 1, location: 1, createdAt: -1 });
 
 orderSchema.pre("save", function assignOrderNumber() {
   if (!this.orderNumber) {
