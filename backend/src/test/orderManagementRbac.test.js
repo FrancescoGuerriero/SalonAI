@@ -53,15 +53,15 @@ test(
 
     assert.match(
       routes,
-      /"\/orders"[\s\S]{0,160}requirePermissions\(\s*"order:read"\s*\)/
+      /"\/orders"[\s\S]{0,360}requirePermissions\(\s*"order:read"\s*\)/
     );
     assert.match(
       routes,
-      /"\/orders\/:id\/status"[\s\S]{0,160}requirePermissions\(\s*"order:update"\s*\)/
+      /"\/orders\/:id\/status"[\s\S]{0,360}requirePermissions\(\s*"order:update"\s*\)/
     );
     assert.match(
       routes,
-      /"\/orders\/:id\/refunds"[\s\S]{0,160}requirePermissions\(\s*"order:refund"\s*\)/
+      /"\/orders\/:id\/refunds"[\s\S]{0,360}requirePermissions\(\s*"order:refund"\s*\)/
     );
   }
 );
@@ -87,6 +87,27 @@ test(
     );
   }
 );
+
+test("customer Order routes and controllers require host-scoped self-service ownership", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const service = await source("../features/commerce/commerceService.js");
+  for (const [path, method] of [
+    ["/orders/mine", "listMyOrders"],
+    ["/orders/:id", "getOrder"],
+    ["/orders/:id/cancel", "cancelOrder"],
+  ]) {
+    assert.ok(routes.includes(
+      'router.' + (method === "cancelOrder" ? 'post' : 'get')
+      + '("' + path + '", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.' + method + '));'
+    ), "Missing protected host tenant context on " + path);
+  }
+  assert.match(controller, /listTenantCustomerOrders\(req\.user, req\.query, req\.publicTenantContext\)/);
+  assert.match(controller, /getTenantCustomerOrder\(req\.params\.id, req\.user, req\.publicTenantContext\)/);
+  assert.match(controller, /cancelTenantCustomerOrder\(req\.params\.id, req\.user, req\.publicTenantContext\)/);
+  assert.match(service, /tenantCustomerOrderMatch\(publicTenantContext, user, id\)/);
+  assert.match(service, /user: user\._id/);
+});
 
 test(
   "order management frontend uses canonical read and update permissions",
@@ -122,3 +143,39 @@ test(
     );
   }
 );
+
+test("checkout requires host-verified Business and rejects mixed dependency scope", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const controller = await source("../features/commerce/commerceController.js");
+  const service = await source("../features/commerce/commerceService.js");
+  assert.match(routes,
+    /"\/checkout", requireFeature\("online-shop"\), protect, servicePublicTenantContextMiddleware, asyncHandler\(controller\.createCheckout\)/);
+  assert.match(controller,
+    /createCheckout\(req\.body, req\.user, req\.publicTenantContext\)/);
+  assert.match(service,
+    /business: owner\.business,\s*location: checkoutLocationId,\s*user: user\._id/);
+  assert.match(service, /resolveProductCheckoutLocation\(/);
+  assert.match(service, /appointmentRequests\.length \|\| servicePackageRequests\.length/);
+});
+
+test("order mutation and invoice routes validate canonical tenant ownership before performing actions", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const guard = await source("../features/commerce/commerceOrderAuthorityMiddleware.js");
+  for (const [route, permission] of [
+    ["/orders/:id/status", "order:update"],
+    ["/orders/:id/refunds", "order:refund"],
+    ["/orders/:id/invoice", "order:read"],
+  ]) {
+    const start = routes.indexOf('"' + route + '"');
+    assert.ok(start >= 0, "Missing " + route);
+    const excerpt = routes.slice(start, start + 360);
+    assert.ok(excerpt.includes("servicePublicTenantContextMiddleware"));
+    assert.ok(excerpt.includes("trustedTenantContextMiddleware"));
+    assert.ok(excerpt.includes("effectiveAuthorityMiddleware"));
+    assert.ok(excerpt.includes('requirePermissions("' + permission + '")'));
+    assert.ok(excerpt.includes("requireScopedCommerceOrder"));
+  }
+  assert.equal((routes.match(/requireScopedCommerceOrder,/g) || []).length, 4);
+  assert.match(guard, /commerceTenantFilter\(request\.effectiveAuthority\)/);
+  assert.match(guard, /Order\.exists\(\{ _id: id, \.\.\.owner \}\)/);
+});

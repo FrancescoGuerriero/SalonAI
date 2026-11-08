@@ -16,3 +16,211 @@ Tests use actual MongoDB collections and some real controller/service functions;
 Next DEV1 slice: canonical Commerce ownership and tenant-scoped read/write enforcement for Products and Orders, with full authenticated HTTP and cross-tenant tests; no rollout until verified. Avoid auto-backfilling or reassigning production orders.
 
 No production database access, module activation, external provider enablement, or monthly AI quotas.
+
+## DEV1 follow-on: Commerce ownership fixture (2026-11-08)
+
+Branch: `dev1/commerce-tenant-ownership-fixture-20261108`.
+
+- Added `commerceTenantFilter`, which requires a trusted Business and explicit
+  all/selected-location authority. It never treats client-supplied tenant IDs
+  or unowned documents as authoritative.
+- Added *optional* `business` and `location` fields/indexes to the canonical
+  Order model. This is a schema preparation step only: historical orders are not
+  backfilled, and existing checkout writers are **not yet** tenant-enabled.
+- Added a real Mongo fixture that checks Products and Orders against matching
+  tenant/location filters and ensures foreign and unowned Orders do not appear.
+- The older unscoped `listProducts` regression assertion remains intentionally
+  present. A passing test suite therefore **does not imply the live Commerce
+  API is tenant-isolated**.
+
+### Required before Commerce acceptance
+
+1. Make public catalogue tenant selection host-trusted; authenticate management
+   and order endpoints through the persisted membership/effective authority chain.
+2. Thread tenant/location ownership through product creation, retrieval,
+   inventory adjustment, checkout (including mixed appointments/packages),
+   order status, invoices, refunds and provider/webhook reconciliation.
+3. Reject cross-tenant IDs and absent/legacy ownership rather than silently
+   assigning them. Plan an explicitly audited, dry-run-first legacy migration.
+4. Add authenticated HTTP positive/negative RBAC and foreign-business/location
+   tests; then verify provider idempotency, rollback and inventory consistency.
+5. Keep the Module Management production acceptance indicator unverified until
+   deployed-tenant sign-off exists.
+
+No activation, deployment, production database access, provider configuration,
+or monthly AI quota work is part of this fixture.
+
+## DEV1 follow-on: tenant-bound Commerce catalogue reads
+
+This branch now routes canonical Commerce `GET /products`, `GET /products/:identifier`
+and authenticated `GET /inventory/products` through trusted tenant scope:
+
+- Public product browse/detail selects the Business from the host-verified
+  `servicePublicTenantContextMiddleware`; no client-supplied Business query
+  argument is trusted.
+- Inventory management resolves authenticated BusinessMembership and effective
+  location/permission authority before using `commerceTenantFilter`.
+- Product search, pagination count, categories, brands and collections all use
+  the same Business filter. Missing tenant context fails closed.
+- Mongo acceptance asserts positive and negative public detail/list reads,
+  management-scoped listing, and exclusion of cross-Business records.
+
+**Not yet safe for multi-tenant Commerce activation:** Product creation,
+mutation, stock adjustment, summary, checkout, legacy alternative commerce
+routes, Order listing/status, payments, invoices, refunds and webhook flows
+still require a single trusted owner propagated end-to-end. The public read
+changes may hide legacy unowned products until a separately audited migration;
+this is intentional fail-closed behaviour, not a data migration.
+
+Do not interpret fixture success as HTTP acceptance or live tenant sign-off.
+
+## DEV1 product writes and inventory authority slice
+
+Product create, update, publication, stock adjustment, stock history and
+inventory summary routes now pass through host-selected Business, authenticated
+BusinessMembership, effective authority and their existing granular permission
+checks. The canonical service binds new Product Business/Location to the
+verified scope, never trusting ownership fields from the request body.
+Mutations first query by Business and permitted Location. Product creation
+requires a selected Location, even when the user manages all locations.
+Product slug uniqueness checks are business-scoped.
+
+Inventory summary aggregation, low-stock counts and history reads use the
+same verified scope; foreign and legacy-unowned records are excluded.
+Mongo acceptance covers own and foreign writes, selected-location denials and
+summary isolation. Stock-adjustment persistence currently uses the existing
+separate Product/adjustment writes; transactional audit consistency remains
+a separate operational acceptance requirement. Until checkout, orders,
+payments, invoices, refunds and the alternative legacy endpoints are tenant
+isolated, Commerce is **not production accepted**. Unowned historic product
+records require a reviewed migration plan before they appear in the new
+tenant-scoped catalogue.
+
+No activation, deployment, production database access, provider changes or
+monthly AI quotas are included.
+
+## DEV1 management Order read boundary and regression repair (2026-11-08)
+
+The management `GET /orders` route is now routed through authenticated
+host-selected Business membership, effective authority, `order:read` and
+a new `listTenantOrders` service. The Mongo query, pagination totals and
+status/user/customer filters all retain a mandatory trusted Business and
+permitted Location predicate. Legacy unowned orders do not appear.
+
+The existing `listOrders` helper remains for older customer-order call
+sites; its isolation and the complete checkout/order lifecycle are **not**
+accepted by this change. Customer `GET /orders/:id`, cancellation,
+manager status writes, Stripe callbacks, invoices and refunds must receive
+consistent canonical tenant ownership and verification in a subsequent slice.
+Do not mistake this read-only boundary for complete Order isolation.
+
+The previous Stage 1–6 backend regression failed one source-contract test:
+`phase89AccountAdminStabilization.test.js` expected the original 3-layer
+product-create route, but tenant hardening correctly extended it to 6 layers.
+The test now asserts the trusted middleware order and checks delegated
+`product:create` at the new guard index. Fresh CI verification is required.
+
+No production deployment, historical record migration, activation or monthly
+AI quotas.
+
+## DEV1 customer self-service Order isolation
+
+Customer `GET /orders/mine`, `GET /orders/:id` and
+`POST /orders/:id/cancel` now require the existing login **and** a
+verified Business resolved from the request host. New service entry points
+filter by both `business` and the authenticated `user._id`; a management
+role never grants customer self-service access to another customer's order.
+Unowned orders are excluded rather than silently assigned to any Business.
+
+Cancellation validates that scoped ownership before invoking the existing
+pending-checkout cancellation handler. Mongo fixtures cover cross-tenant,
+cross-user, missing-host-context and own-order cancellation outcomes.
+
+**Still blocked:** checkout does not yet write trusted Order ownership;
+the above customer self-service APIs therefore fail closed for existing
+unowned orders. This deliberately does not migrate those records, enable
+payment providers or change order settlement. The manager status endpoint,
+invoices, refunds, demo checkout, webhooks and mixed cart ownership still
+need independent end-to-end tests and reviewed integration before production.
+
+## DEV1 product-only checkout ownership gate
+
+The canonical checkout path now requires host-trusted Business context and
+authenticated user identity before any cart processing. Product lookups
+are Business-scoped; all products must have a verified and single Location.
+New Order records receive that Business and Location from the validated
+product lookup rather than from the cart body. Inventory settlement and
+compensating stock increments use the Order's Business and Location.
+
+Appointment-payment and service-package mixed carts are deliberately
+rejected with 409 **before** creating payments/orders until complete
+cross-module tenant ownership can be verified (ServicePackage currently
+has no Business ownership field). This is a compatibility restriction on
+the draft branch, **not** a production release. The customer order lookup
+changes only become usable for new product-only orders when this source
+is independently integrated.
+
+Mongo acceptance asserts foreign product rejection and mixed-cart rejection
+without Order/Payment writes. Provider callbacks, customer-facing HTTP
+checkout, positive provider payment flow, settlement retries, invoices,
+refunds, order lifecycle changes and integration with customer context all
+need additional acceptance before this branch can merge or deploy.
+
+The product-only preflight is also exposed as
+`resolveProductCheckoutLocation`, which checks canonical Mongo Product
+ownership without creating any Order, Payment or provider session. Fixtures
+exercise a valid same-Business location and deny foreign Business, mixed
+tenant products and absent trusted context. A passing preflight fixture does
+**not** prove successful provider checkout, atomic settlement or customer
+session integration. Those remain explicit acceptance blockers.
+
+## Correction: Stripe payment lifecycle is existing Stage 3 functionality
+
+The existing Stripe integration and payment lifecycle are **already
+implemented**. The relevant existing code includes
+`backend/src/providers/paymentProvider.js` (Stripe Checkout / PaymentIntent
+and refunds), `backend/src/features/commerce/stripeWebhookService.js`
+(signed provider webhooks, event deduplication and reconciliation),
+`backend/src/features/commerce/orderRefundService.js` (refund lifecycle),
+and the existing invoice, appointment-payment and membership payment paths.
+See `docs/roadmap/stage-3-deferred-implementation.md` for the recorded
+Stage 3 implementation versus production-activation distinction.
+
+DEV1 work here is strictly an **integration/tenant-boundary reconciliation**:
+preserve the existing provider operations, webhook signing and idempotency,
+refund/invoice behaviour, and payment state machine while propagating trusted
+Business/Location ownership end to end. Do not rebuild Stripe, add a
+competing payment service or classify implemented payment functionality as
+missing.
+
+**Compatibility blocker introduced on this draft branch:** product-only
+checkout currently rejects appointment and service-package mixed carts.
+The existing mixed-cart payment lifecycle remains implemented, but
+the new 409 restriction is a behavioural regression until cross-module
+tenant scope can be validated. This PR must **not** merge or deploy until
+the mixed-cart behaviour is preserved with safe ownership boundaries
+or an explicitly approved migration/rollout decision is documented.
+No claim is made that existing Stripe payment functions are absent.
+
+## DEV1 status/refund/invoice management authorisation (review-only draft)
+
+Management Order status mutation, Stripe refund initiation, and Order invoice
+read/create now share a fail-closed management guard. The route resolves
+authenticated BusinessMembership, effective Location authority and the
+existing granular permission, then verifies the specific Order's Business
+and Location against those trusted claims **before invoking existing**
+status/refund/invoice services. The underlying Stripe, invoice and booking
+payment lifecycle has not been replaced.
+
+Isolated Mongo acceptance covers own, foreign Business, unauthorised
+Location, unowned legacy and missing tenant context. Route source tests
+ensure the guard is installed on all four management endpoints.
+
+**Important limitations:** The separate manager Order status service and
+refund/invoice services still accept unscoped direct internal invocations;
+provider webhooks are authenticated by Stripe and operate without a user
+membership. This route guard is not a replacement for full service-level
+cross-tenant auditing or a migration. Mixed cart checkout remains blocked
+on the draft branch; restoring the existing checkout compatibility requires
+the complete ServicePackage and Appointment ownership contract, and must
+precede merge. Do not activate/deploy this PR.

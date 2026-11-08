@@ -14,7 +14,9 @@ import Stylist from "../models/Stylist.js";
 import LocationServiceOffering from "../models/LocationServiceOffering.js";
 import Product from "../features/commerce/Product.js";
 import Order from "../features/commerce/Order.js";
-import { listProducts } from "../features/commerce/commerceService.js";
+import { requireScopedCommerceOrder } from "../features/commerce/commerceOrderAuthorityMiddleware.js";
+import { commerceTenantFilter } from "../features/commerce/commerceTenantOwnership.js";
+import { listProducts, getProduct, createProduct, updateProduct, inventorySummary, listTenantOrders, listTenantCustomerOrders, getTenantCustomerOrder, cancelTenantCustomerOrder, createCheckout, resolveProductCheckoutLocation } from "../features/commerce/commerceService.js";
 import { scopedServiceFilter } from "../services/serviceTenantAuthorityService.js";
 import { scopedWorkforceFilter, assertWorkforceResourceAuthority } from "../services/workforceAuthorityService.js";
 import { inventoryLocationFilter } from "../features/inventoryPurchasing/services/ownershipScope.js";
@@ -355,11 +357,282 @@ test("Commerce/inventory canonical Product collection has tenant records, but le
   }));
   const scoped = await Product.find(scope).lean();
   assert.deepEqual(scoped.map((item) => item.name), ["A Shampoo"]);
-  const unscopedLegacyCatalogue = await listProducts({ facets: "false" });
-  assert.equal(unscopedLegacyCatalogue.items.length, 2);
-  assert.deepEqual(unscopedLegacyCatalogue.items.map((item) => item.name).sort(),
-    ["A Shampoo", "B Shampoo"]);
-  // Do not claim Commerce as tenant-isolation accepted: canonical legacy
-  // catalogue reads currently lack trusted Business filters.
-  assert.equal(Order.schema.path("business"), undefined);
+  await assert.rejects(listProducts({ facets: "false" }),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  const tenantCatalogue = await listProducts({ facets: "false" }, {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  assert.deepEqual(tenantCatalogue.items.map((item) => item.name), ["A Shampoo"]);
+  const foreignCatalogue = await listProducts({ facets: "false" }, {
+    publicTenantContext: { businessId: String(businessB) },
+  });
+  assert.deepEqual(foreignCatalogue.items.map((item) => item.name), ["B Shampoo"]);
+  assert.ok(Order.schema.path("business"));
+  assert.ok(Order.schema.path("location"));
+});
+
+test("Commerce ownership predicate isolates canonical Product and Order records and excludes unowned legacy data", async () => {
+  const [ownOrder, otherLocationOrder, foreignOrder, legacyOrder] =
+    await mongoose.connection.db.collection("orders").insertMany([
+      { business: businessA, location: locationA1, status: "paid" },
+      { business: businessA, location: locationA2, status: "paid" },
+      { business: businessB, location: locationB, status: "paid" },
+      { location: locationA1, status: "paid" },
+    ]).then(({ insertedIds }) => Object.values(insertedIds));
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const ownProducts = await Product.find(commerceTenantFilter(selected)).lean();
+  const ownOrders = await Order.find(commerceTenantFilter(selected)).lean();
+  assert.deepEqual(ownProducts.map((item) => item.name), ["A Shampoo"]);
+  assert.deepEqual(ownOrders.map((item) => String(item._id)), [String(ownOrder)]);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(legacyOrder)), false);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(foreignOrder)), false);
+  assert.equal(ownOrders.some((item) => String(item._id) === String(otherLocationOrder)), false);
+
+  const all = await Order.find(commerceTenantFilter(authority(businessA))).lean();
+  assert.equal(all.length, 2);
+  assert.throws(() => commerceTenantFilter(null), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  assert.throws(() => commerceTenantFilter({ businessId: "not-a-business", locationAccessMode: "all" }));
+  assert.throws(() => commerceTenantFilter(authority(businessA, { locationAccessMode: "selected", allowedLocationIds: [] })),
+    (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  assert.throws(() => commerceTenantFilter(selected, { locationId: String(locationB) }),
+    (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  assert.throws(() => commerceTenantFilter(authority(businessA, { locationAccessMode: "unknown" })),
+    (error) => error.code === "COMMERCE_LOCATION_AUTHORITY_REQUIRED");
+});
+
+test("Commerce list facets and product detail reads fail closed across tenants and selected Locations", async () => {
+  const first = await listProducts({ facets: "true" }, {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  const second = await listProducts({ facets: "true" }, {
+    publicTenantContext: { businessId: String(businessB) },
+  });
+  assert.equal(first.pagination.total, 1);
+  assert.equal(second.pagination.total, 1);
+  assert.deepEqual(first.items.map((item) => item.name), ["A Shampoo"]);
+  assert.deepEqual(second.items.map((item) => item.name), ["B Shampoo"]);
+
+  const a = await Product.findOne({ business: businessA }).lean();
+  const b = await Product.findOne({ business: businessB }).lean();
+  const ownProduct = await getProduct(String(a._id), {
+    publicTenantContext: { businessId: String(businessA) },
+  });
+  assert.equal(String(ownProduct._id), String(a._id));
+  await assert.rejects(getProduct(String(b._id), {
+    publicTenantContext: { businessId: String(businessA) },
+  }), (error) => error.statusCode === 404);
+  await assert.rejects(getProduct(String(a._id)), (error) =>
+    error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const management = await listProducts({ facets: "false" }, {
+    management: true, effectiveAuthority: selected,
+  });
+  assert.deepEqual(management.items.map((item) => item.name), ["A Shampoo"]);
+  await assert.rejects(listProducts({}, { management: true }), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+});
+
+test("Product creation and mutations enforce trusted Business and Location authority", async () => {
+  const own = authority(businessA, {
+    locationId: String(locationA1),
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const other = authority(businessB, {
+    locationId: String(locationB),
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationB)],
+  });
+  await assert.rejects(createProduct({
+    name: "No location", sku: "NO-LOCATION", price: 1,
+  }, authority(businessA)), (error) => error.code === "COMMERCE_WRITE_LOCATION_REQUIRED");
+  await assert.rejects(createProduct({
+    name: "Foreign location", sku: "FOREIGN-LOCATION", price: 1,
+  }, authority(businessA, {
+    locationId: String(locationB), locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  })), (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+  const created = await createProduct({
+    business: businessB, location: locationB,
+    name: "A-owned conditioner", sku: "A-CONDITIONER", price: 15, active: true,
+  }, own);
+  assert.equal(String(created.business), String(businessA));
+  assert.equal(String(created.location), String(locationA1));
+  assert.equal(created.active, true);
+  await assert.rejects(updateProduct(created._id, { name: "Foreign mutation" }, other),
+    (error) => error.statusCode === 404);
+  await assert.rejects(updateProduct(created._id, { price: 1 }, authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [String(locationA2)],
+  })), (error) => error.statusCode === 404);
+  const updated = await updateProduct(created._id, {
+    name: "Owner-controlled conditioner", business: businessB, location: locationB,
+  }, own);
+  assert.equal(updated.name, "Owner-controlled conditioner");
+  assert.equal(String(updated.business), String(businessA));
+  assert.equal(String(updated.location), String(locationA1));
+
+  const ownSummary = await inventorySummary({ effectiveAuthority: own });
+  const foreignSummary = await inventorySummary({ effectiveAuthority: other });
+  assert.ok(ownSummary.productCount >= 2);
+  assert.equal(foreignSummary.productCount, 1);
+  assert.equal(ownSummary.lowStockProducts.some((item) => item.sku === "B-SHAMPOO"), false);
+  await assert.rejects(inventorySummary(), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+});
+
+test("Order management listing excludes foreign and unowned orders", async () => {
+  const ids = Object.values((await mongoose.connection.db.collection("orders").insertMany([
+    { business: businessA, location: locationA1, status: "processing" },
+    { business: businessA, location: locationA2, status: "processing" },
+    { business: businessB, location: locationB, status: "processing" },
+    { location: locationA1, status: "processing" },
+  ])).insertedIds).map(String);
+
+  const selected = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+    locationId: String(locationA1),
+  });
+  const scoped = await listTenantOrders({ status: "processing" }, selected);
+  assert.equal(scoped.pagination.total, 1);
+  assert.deepEqual(scoped.items.map((row) => String(row._id)), [ids[0]]);
+  assert.equal((await listTenantOrders({ status: "processing" }, authority(businessA))).pagination.total, 2);
+  assert.equal((await listTenantOrders({ status: "processing" }, authority(businessB))).pagination.total, 1);
+  await assert.rejects(listTenantOrders({ status: "processing" }), (error) =>
+    error.code === "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  await assert.rejects(listTenantOrders({ status: "processing" }, authority(businessA, {
+    locationAccessMode: "selected", allowedLocationIds: [],
+  })), (error) => error.code === "COMMERCE_LOCATION_NOT_FOUND");
+});
+
+test("Customer Order self-service denies foreign business, foreign user and legacy unowned records", async () => {
+  const ownCustomer = { _id: userA, role: "admin" };
+  const otherCustomer = { _id: userB, role: "admin" };
+  const [mine, foreignBusiness, foreignUser, legacy] = Object.values(
+    (await mongoose.connection.db.collection("orders").insertMany([
+      { business: businessA, location: locationA1, user: userA, status: "ready" },
+      { business: businessB, location: locationB, user: userA, status: "ready" },
+      { business: businessA, location: locationA1, user: userB, status: "ready" },
+      { location: locationA1, user: userA, status: "ready" },
+    ])).insertedIds
+  ).map(String);
+  const tenantA = { businessId: String(businessA) };
+  const onlyMine = await listTenantCustomerOrders(ownCustomer, { status: "ready" }, tenantA);
+  assert.equal(onlyMine.pagination.total, 1);
+  assert.deepEqual(onlyMine.items.map((item) => String(item._id)), [mine]);
+  assert.equal(String((await getTenantCustomerOrder(mine, ownCustomer, tenantA))._id), mine);
+  for (const id of [foreignBusiness, foreignUser, legacy]) {
+    await assert.rejects(getTenantCustomerOrder(id, ownCustomer, tenantA),
+      (error) => error.statusCode === 404);
+  }
+  await assert.rejects(listTenantCustomerOrders(ownCustomer, {}, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  await assert.rejects(listTenantCustomerOrders({}, {}, tenantA),
+    (error) => error.statusCode === 401);
+  assert.equal((await listTenantCustomerOrders(otherCustomer, { status: "ready" }, tenantA)).pagination.total, 1);
+});
+
+test("Customer cancellation refuses foreign Order IDs before any mutation", async () => {
+  const product = await Product.findOne({ business: businessA }).lean();
+  const makePending = (business, location, user, suffix) => Order.create({
+    business, location, user,
+    contact: { name: "Fixture Customer", email: suffix + "@acceptance.example" },
+    items: [{
+      itemType: "product", product: product._id, sku: "A-SHAMPOO",
+      name: "Shampoo", quantity: 1, unitPrice: 10, lineTotal: 10,
+    }],
+    subtotal: 10, total: 10, status: "pending_payment",
+  });
+  const own = await makePending(businessA, locationA1, userA, "own");
+  const foreign = await makePending(businessB, locationB, userA, "foreign");
+  const otherUser = await makePending(businessA, locationA1, userB, "other");
+  const customer = { _id: userA, role: "admin" };
+  const context = { businessId: String(businessA) };
+  for (const id of [foreign._id, otherUser._id]) {
+    await assert.rejects(cancelTenantCustomerOrder(id, customer, context),
+      (error) => error.statusCode === 404);
+    assert.equal((await Order.findById(id)).status, "pending_payment");
+  }
+  await assert.rejects(cancelTenantCustomerOrder(own._id, customer, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  assert.equal((await Order.findById(own._id)).status, "pending_payment");
+  const cancelled = await cancelTenantCustomerOrder(own._id, customer, context);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal((await Order.findById(own._id)).status, "cancelled");
+});
+
+test("Checkout refuses untrusted host, cross-Business products and unverified mixed cart before payment writes", async () => {
+  const a = await Product.findOne({ business: businessA, sku: "A-SHAMPOO" }).lean();
+  const b = await Product.findOne({ business: businessB, sku: "B-SHAMPOO" }).lean();
+  const user = { _id: userA, name: "Fixture", email: "fixture@acceptance.example" };
+  const payload = (id) => ({
+    items: [{ type: "product", product: id, quantity: 1 }],
+  });
+  const paymentsBefore = await mongoose.connection.db.collection("payments").countDocuments();
+  const ordersBefore = await Order.countDocuments();
+  await assert.rejects(createCheckout(payload(a._id), user, null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+  await assert.rejects(createCheckout(payload(b._id), user, { businessId: String(businessA) }),
+    (error) => error.statusCode === 404);
+  await assert.rejects(createCheckout({
+    items: [{ type: "service_package", servicePackageId: new mongoose.Types.ObjectId() }],
+  }, user, { businessId: String(businessA) }), (error) => error.statusCode === 409);
+  assert.equal(await Order.countDocuments(), ordersBefore);
+  assert.equal(await mongoose.connection.db.collection("payments").countDocuments(), paymentsBefore);
+});
+
+test("Payment-free product checkout ownership preflight accepts one tenant location only", async () => {
+  const [a, b] = await Promise.all([
+    Product.findOne({ business: businessA, sku: "A-SHAMPOO" }).lean(),
+    Product.findOne({ business: businessB, sku: "B-SHAMPOO" }).lean(),
+  ]);
+  const tenantA = { businessId: String(businessA) };
+  const valid = await resolveProductCheckoutLocation([{ product: a._id }], tenantA);
+  assert.equal(valid, String(locationA1));
+  await assert.rejects(resolveProductCheckoutLocation([{ product: a._id }, { product: b._id }], tenantA),
+    (error) => error.statusCode === 409);
+  await assert.rejects(resolveProductCheckoutLocation([{ product: b._id }], tenantA),
+    (error) => error.statusCode === 409);
+  await assert.rejects(resolveProductCheckoutLocation([{ product: a._id }], null),
+    (error) => error.code === "COMMERCE_PUBLIC_TENANT_REQUIRED");
+});
+
+test("Manager Order mutation guard denies other Business, other Location and unowned records before side effects", async () => {
+  const ids = Object.values((await mongoose.connection.db.collection("orders").insertMany([
+    { business: businessA, location: locationA1, status: "paid" },
+    { business: businessA, location: locationA2, status: "paid" },
+    { business: businessB, location: locationB, status: "paid" },
+    { location: locationA1, status: "paid" },
+  ])).insertedIds);
+  const scope = authority(businessA, {
+    locationAccessMode: "selected",
+    allowedLocationIds: [String(locationA1)],
+  });
+  const check = async (orderId, effectiveAuthority) => {
+    let nextError;
+    let called = false;
+    await requireScopedCommerceOrder({
+      params: { id: String(orderId) }, effectiveAuthority,
+    }, {}, (error) => { called = true; nextError = error; });
+    return { called, error: nextError };
+  };
+  const ok = await check(ids[0], scope);
+  assert.equal(ok.called, true);
+  assert.equal(ok.error, undefined);
+  for (const id of ids.slice(1)) {
+    const denied = await check(id, scope);
+    assert.equal(denied.error?.statusCode, 404);
+  }
+  assert.equal((await check(ids[0], authority(businessB))).error?.statusCode, 404);
+  assert.equal((await check(ids[0], null)).error?.code, "COMMERCE_TENANT_CONTEXT_REQUIRED");
+  assert.equal((await check("invalid", scope)).error?.statusCode, 400);
 });

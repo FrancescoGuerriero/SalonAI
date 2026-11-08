@@ -45,12 +45,12 @@ export async function createProduct(req, res) {
           ? req.body.reorderLevel
           : 5,
       active: false,
-    })
+    }, req.effectiveAuthority)
   );
 }
 
 export async function listProducts(req, res) {
-  res.json(await service.listProducts(req.query));
+  res.json(await service.listProducts(req.query, { publicTenantContext: req.publicTenantContext }));
 }
 
 export async function listInventoryProducts(req, res) {
@@ -59,6 +59,7 @@ export async function listInventoryProducts(req, res) {
       req.query,
       {
         management: true,
+        effectiveAuthority: req.effectiveAuthority,
         includeCost:
           hasRequestPermission(
             req,
@@ -70,7 +71,7 @@ export async function listInventoryProducts(req, res) {
 }
 
 export async function getProduct(req, res) {
-  res.json(await service.getProduct(req.params.identifier));
+  res.json(await service.getProduct(req.params.identifier, { publicTenantContext: req.publicTenantContext }));
 }
 
 export async function updateProduct(req, res) {
@@ -93,7 +94,8 @@ export async function updateProduct(req, res) {
   res.json(
     await service.updateProduct(
       req.params.id,
-      payload
+      payload,
+      req.effectiveAuthority
     )
   );
 }
@@ -115,22 +117,24 @@ export async function updateProductPublication(req, res) {
       {
         active:
           req.body.active,
-      }
+      },
+      req.effectiveAuthority
     )
   );
 }
 
 export async function adjustStock(req, res) {
-  res.json(await service.adjustStock(req.params.id, req.body, req.user));
+  res.json(await service.adjustStock(req.params.id, req.body, req.user, req.effectiveAuthority));
 }
 
 export async function listStockAdjustments(req, res) {
-  res.json(await service.listStockAdjustments(req.params.id, req.query));
+  res.json(await service.listStockAdjustments(req.params.id, req.query, req.effectiveAuthority));
 }
 
 export async function inventorySummary(req, res) {
   res.json(
     await service.inventorySummary({
+      effectiveAuthority: req.effectiveAuthority,
       includeCost:
         hasRequestPermission(
           req,
@@ -141,7 +145,7 @@ export async function inventorySummary(req, res) {
 }
 
 export async function createCheckout(req, res) {
-  const result = await service.createCheckout(req.body, req.user);
+  const result = await service.createCheckout(req.body, req.user, req.publicTenantContext);
   const invoice =
     result?.payment?.status === "paid" && result?.order?._id
       ? await reconcileOrderInvoiceSafely(result.order._id)
@@ -166,19 +170,19 @@ export async function confirmDemoCheckout(req, res) {
 }
 
 export async function listMyOrders(req, res) {
-  res.json(await service.listMyOrders(req.user, req.query));
+  res.json(await service.listTenantCustomerOrders(req.user, req.query, req.publicTenantContext));
 }
 
 export async function getOrder(req, res) {
-  res.json(await service.getOrder(req.params.id, req.user));
+  res.json(await service.getTenantCustomerOrder(req.params.id, req.user, req.publicTenantContext));
 }
 
 export async function cancelOrder(req, res) {
-  res.json(await service.cancelOrder(req.params.id, req.user));
+  res.json(await service.cancelTenantCustomerOrder(req.params.id, req.user, req.publicTenantContext));
 }
 
 export async function listOrders(req, res) {
-  res.json(await service.listOrders(req.query));
+  res.json(await service.listTenantOrders(req.query, req.effectiveAuthority));
 }
 
 export async function updateOrderStatus(req, res) {

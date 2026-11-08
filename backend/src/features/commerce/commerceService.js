@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { commerceTenantFilter, commercePublicTenantFilter, commerceWriteLocation } from "./commerceTenantOwnership.js";
 
 import Appointment from "../../models/Appointment.js";
 import Product from "./Product.js";
@@ -112,7 +113,7 @@ function productFields(
     : "-costPrice";
 }
 
-async function uniqueSlug(name, currentId = null) {
+async function uniqueSlug(name, currentId = null, businessId = null) {
   const base = slugify(name) || `product-${Date.now()}`;
   let slug = base;
   let suffix = 2;
@@ -120,6 +121,7 @@ async function uniqueSlug(name, currentId = null) {
   while (
     await Product.exists({
       slug,
+      ...(businessId ? { business: businessId } : {}),
       ...(currentId ? { _id: { $ne: currentId } } : {}),
     })
   ) {
@@ -189,9 +191,13 @@ function normaliseProductPayload(payload, { partial = false } = {}) {
   return output;
 }
 
-export async function createProduct(payload) {
+export async function createProduct(payload, effectiveAuthority) {
+  const owner = commerceWriteLocation(effectiveAuthority);
   const data = normaliseProductPayload(payload);
-  data.slug = await uniqueSlug(data.name);
+  // Ownership comes from verified authority, not supplied product fields.
+  data.business = owner.business;
+  data.location = owner.location;
+  data.slug = await uniqueSlug(data.name, null, owner.business);
   return Product.create(data);
 }
 
@@ -200,10 +206,14 @@ export async function listProducts(
   {
     management = false,
     includeCost = false,
+    effectiveAuthority = null,
+    publicTenantContext = null,
   } = {}
 ) {
   const { page, limit, skip } = paginationFromQuery(query);
-  const match = {};
+  const match = management
+    ? commerceTenantFilter(effectiveAuthority)
+    : commercePublicTenantFilter(publicTenantContext);
 
   if (!management) {
     match.active = true;
@@ -314,6 +324,7 @@ export async function listProducts(
         ? Product.distinct(
             "category",
             {
+              ...match,
               active: true,
             }
           )
@@ -324,6 +335,7 @@ export async function listProducts(
         ? Product.distinct(
             "brand",
             {
+              ...match,
               active: true,
             }
           )
@@ -334,6 +346,7 @@ export async function listProducts(
         ? Product.distinct(
             "collectionName",
             {
+              ...match,
               active: true,
             }
           )
@@ -369,10 +382,13 @@ export async function listProducts(
   };
 }
 
-export async function getProduct(identifier, { management = false } = {}) {
-  const match = mongoose.isValidObjectId(identifier)
+export async function getProduct(identifier, { management = false, effectiveAuthority = null, publicTenantContext = null } = {}) {
+  const match = {
+    ...(management ? commerceTenantFilter(effectiveAuthority) : commercePublicTenantFilter(publicTenantContext)),
+    ...(mongoose.isValidObjectId(identifier)
     ? { _id: identifier }
-    : { slug: String(identifier).toLowerCase() };
+    : { slug: String(identifier).toLowerCase() }),
+  };
 
   if (!management) {
     match.active = true;
@@ -386,13 +402,14 @@ export async function getProduct(identifier, { management = false } = {}) {
   return assertFound(await query.lean({ virtuals: true }), "Product not found.");
 }
 
-export async function updateProduct(id, payload) {
-  const product = assertFound(await Product.findById(id), "Product not found.");
+export async function updateProduct(id, payload, effectiveAuthority) {
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const product = assertFound(await Product.findOne({ _id: id, ...owner }), "Product not found.");
   const data = normaliseProductPayload(payload, { partial: true });
   delete data.stockQuantity;
 
   if (data.name && data.name !== product.name) {
-    data.slug = await uniqueSlug(data.name, product._id);
+    data.slug = await uniqueSlug(data.name, product._id, owner.business);
   }
 
   Object.assign(product, data);
@@ -400,7 +417,7 @@ export async function updateProduct(id, payload) {
   return product.toObject({ virtuals: true });
 }
 
-export async function adjustStock(id, payload, user) {
+export async function adjustStock(id, payload, user, effectiveAuthority) {
   const delta = Number(payload.delta);
   const reason = String(payload.reason || "").trim();
 
@@ -412,7 +429,8 @@ export async function adjustStock(id, payload, user) {
     throw createServiceError("A stock adjustment reason is required.", 400);
   }
 
-  const product = assertFound(await Product.findById(id), "Product not found.");
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const product = assertFound(await Product.findOne({ _id: id, ...owner }), "Product not found.");
   const previousQuantity = product.stockQuantity;
   const newQuantity = previousQuantity + delta;
 
@@ -436,9 +454,17 @@ export async function adjustStock(id, payload, user) {
   return { product: product.toObject({ virtuals: true }), adjustment };
 }
 
-export async function listStockAdjustments(productId, query = {}) {
+export async function listStockAdjustments(productId, query = {}, effectiveAuthority) {
   const { page, limit, skip } = paginationFromQuery(query);
-  const match = productId ? { product: productId } : {};
+  const owner = commerceTenantFilter(effectiveAuthority);
+  // Resolve allowed products first; never expose foreign or unowned adjustment history.
+  const allowedIds = await Product.find(owner).distinct("_id");
+  const match = { product: { $in: allowedIds } };
+  if (productId) {
+    const allowed = allowedIds.some((id) => String(id) === String(productId));
+    if (!allowed) return { items: [], pagination: paginationResult(page, limit, 0) };
+    match.product = productId;
+  }
   const [items, total] = await Promise.all([
     InventoryAdjustment.find(match)
       .populate("product", "name sku")
@@ -471,10 +497,12 @@ export function commerceConfig() {
 
 export async function inventorySummary({
   includeCost = false,
+  effectiveAuthority = null,
 } = {}) {
+  const owner = commerceTenantFilter(effectiveAuthority);
   const [totals, lowStockProducts, lowStockCount] = await Promise.all([
     Product.aggregate([
-      { $match: { active: true } },
+      { $match: { ...owner, active: true } },
       {
         $group: {
           _id: null,
@@ -486,6 +514,7 @@ export async function inventorySummary({
       },
     ]),
     Product.find({
+      ...owner,
       active: true,
       $expr: { $lte: ["$stockQuantity", "$reorderLevel"] },
     })
@@ -494,6 +523,7 @@ export async function inventorySummary({
       .limit(20)
       .lean(),
     Product.countDocuments({
+      ...owner,
       active: true,
       $expr: { $lte: ["$stockQuantity", "$reorderLevel"] },
     }),
@@ -558,7 +588,7 @@ function cartItemType(item = {}) {
   return explicit || "product";
 }
 
-async function buildProductOrderItems(items = []) {
+async function buildProductOrderItems(items = [], publicTenantContext = null) {
   const requested = new Map();
 
   for (const item of items) {
@@ -572,7 +602,9 @@ async function buildProductOrderItems(items = []) {
 
   if (requested.size === 0) return [];
 
+  const owner = commercePublicTenantFilter(publicTenantContext);
   const products = await Product.find({
+    ...owner,
     _id: { $in: [...requested.keys()] },
     active: true,
   });
@@ -767,7 +799,28 @@ function providerCheckoutItems({
   return providerItems;
 }
 
-export async function createCheckout(payload, user) {
+/** Payment-free ownership preflight for all product-only cart lines. */
+export async function resolveProductCheckoutLocation(productItems = [], publicTenantContext) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  const productIds = productItems.map((item) => item.product);
+  const products = await Product.find({
+    ...owner,
+    _id: { $in: productIds },
+    active: true,
+  }).select("location");
+  const locations = [...new Set(products.map((item) => String(item.location || "")))];
+  if (!productItems.length || products.length !== productItems.length
+    || locations.length !== 1 || !mongoose.isValidObjectId(locations[0])) {
+    throw createServiceError("All checkout products must belong to one verified Business Location.", 409);
+  }
+  return locations[0];
+}
+
+export async function createCheckout(payload, user, publicTenantContext) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  if (!mongoose.isValidObjectId(user?._id)) {
+    throw createServiceError("Authenticated customer identity is required.", 401);
+  }
   const rawItems = Array.isArray(payload.items) ? payload.items : [];
   if (rawItems.length === 0) {
     throw createServiceError("At least one cart item is required.", 400);
@@ -791,7 +844,18 @@ export async function createCheckout(payload, user) {
     );
   }
 
-  const productItems = await buildProductOrderItems(productRequests);
+  // Service packages have no canonical Business ownership. Mixed carts
+  // must remain blocked until every dependency has verified owner scope.
+  if (appointmentRequests.length || servicePackageRequests.length) {
+    throw createServiceError(
+      "Mixed appointment and service-package checkout requires tenant ownership verification.",
+      409
+    );
+  }
+  const productItems = await buildProductOrderItems(productRequests, publicTenantContext);
+  const checkoutLocationId = await resolveProductCheckoutLocation(
+    productItems, publicTenantContext
+  );
   const servicePackageItems =
     await buildPurchasableServicePackageOrderItems(
       servicePackageRequests,
@@ -869,6 +933,8 @@ export async function createCheckout(payload, user) {
     }
 
     order = await Order.create({
+      business: owner.business,
+      location: checkoutLocationId,
       user: user._id,
       customer: user.customerProfile || undefined,
       contact,
@@ -1030,6 +1096,8 @@ async function commitInventory(order) {
       const result = await Product.findOneAndUpdate(
         {
           _id: item.product,
+          business: order.business,
+          location: order.location,
           stockQuantity: { $gte: item.quantity },
         },
         { $inc: { stockQuantity: -item.quantity } },
@@ -1049,7 +1117,9 @@ async function commitInventory(order) {
     await order.save();
   } catch (error) {
     for (const item of [...committed].reverse()) {
-      await Product.findByIdAndUpdate(item.product, {
+      await Product.findOneAndUpdate({
+        _id: item.product, business: order.business, location: order.location,
+      }, {
         $inc: { stockQuantity: item.quantity },
       });
     }
@@ -1221,6 +1291,99 @@ export async function listOrders(query = {}) {
   ]);
 
   return { items, pagination: paginationResult(page, limit, total) };
+}
+
+/**
+ * Canonical management read: never call the legacy unscoped listOrders
+ * from an authenticated multi-tenant management route.
+ * Existing customer order pathways are deliberately unchanged in this slice.
+ */
+export async function listTenantOrders(query = {}, effectiveAuthority) {
+  const owner = commerceTenantFilter(effectiveAuthority);
+  const { page, limit, skip } = paginationFromQuery(query);
+  const match = { ...owner };
+  if (query.status) match.status = query.status;
+  if (query.customer) match.customer = query.customer;
+  if (query.user) match.user = query.user;
+
+  const [items, total] = await Promise.all([
+    Order.find(match)
+      .populate("user", "name email")
+      .populate("customer", "firstName lastName fullName name email")
+      .populate("payment", "provider status paidAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(match),
+  ]);
+  return { items, pagination: paginationResult(page, limit, total) };
+}
+
+/**
+ * Customer-facing order access is strictly the authenticated user's own
+ * order in the host-resolved Business. A management role does NOT bypass
+ * customer ownership on self-service endpoints.
+ */
+function tenantCustomerOrderMatch(publicTenantContext, user, orderId = null) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  if (!mongoose.isValidObjectId(user?._id)) {
+    throw createServiceError("Authenticated customer identity is required.", 401);
+  }
+  if (orderId !== null && !mongoose.isValidObjectId(orderId)) {
+    throw createServiceError("Invalid order ID.", 400);
+  }
+  return {
+    ...owner,
+    user: user._id,
+    ...(orderId !== null ? { _id: orderId } : {}),
+  };
+}
+
+export async function listTenantCustomerOrders(user, query = {}, publicTenantContext) {
+  const { page, limit, skip } = paginationFromQuery(query);
+  const match = tenantCustomerOrderMatch(publicTenantContext, user);
+  if (query.status) match.status = query.status;
+  const [items, total] = await Promise.all([
+    Order.find(match)
+      .populate("user", "name email")
+      .populate("customer", "firstName lastName fullName name email")
+      .populate("payment", "provider status paidAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(match),
+  ]);
+  return { items, pagination: paginationResult(page, limit, total) };
+}
+
+export async function getTenantCustomerOrder(id, user, publicTenantContext) {
+  return assertFound(
+    await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id))
+      .populate("payment", "provider status paidAt checkoutUrl")
+      .lean(),
+    "Order not found."
+  );
+}
+
+export async function cancelTenantCustomerOrder(id, user, publicTenantContext) {
+  const order = assertFound(
+    await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id)),
+    "Order not found."
+  );
+  if (!["pending_payment", "paid"].includes(order.status)) {
+    throw createServiceError("This order can no longer be cancelled online.", 409);
+  }
+  if (order.status === "paid") {
+    throw createServiceError("Paid orders require a manager-issued refund.", 409);
+  }
+  await cancelPendingOrderCheckout(order._id, {
+    paymentStatus: "cancelled",
+    rawStatus: "customer_cancelled",
+    failureReason: "Customer cancelled the checkout.",
+  });
+  return (await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id))).toObject();
 }
 
 export async function cancelOrder(id, user) {

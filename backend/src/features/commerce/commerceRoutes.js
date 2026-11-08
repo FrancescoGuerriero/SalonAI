@@ -8,6 +8,10 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./commerceController.js";
+import { servicePublicTenantContextMiddleware } from "../../middleware/serviceTenantMiddleware.js";
+import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
+import { effectiveAuthorityMiddleware } from "../../middleware/effectiveAuthorityMiddleware.js";
+import { requireScopedCommerceOrder } from "./commerceOrderAuthorityMiddleware.js";
 import {
   createOrderInvoice,
   readOrderInvoice,
@@ -17,20 +21,26 @@ import { requireFeature } from "../../services/featureControlService.js";
 const router = express.Router();
 
 router.get("/config", requireFeature("online-shop"), controller.getCommerceConfig);
-router.get("/products", requireFeature("online-shop"), asyncHandler(controller.listProducts));
+router.get("/products", requireFeature("online-shop"), servicePublicTenantContextMiddleware, asyncHandler(controller.listProducts));
 router.get(
   "/inventory/products",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:read"
   ),
   asyncHandler(controller.listInventoryProducts)
 );
-router.get("/products/:identifier", requireFeature("online-shop"), asyncHandler(controller.getProduct));
+router.get("/products/:identifier", requireFeature("online-shop"), servicePublicTenantContextMiddleware, asyncHandler(controller.getProduct));
 
 router.post(
   "/products",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:create"
   ),
@@ -39,6 +49,9 @@ router.post(
 router.patch(
   "/products/:id",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:update"
   ),
@@ -48,6 +61,9 @@ router.patch(
 router.patch(
   "/products/:id/publication",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:publish"
   ),
@@ -58,6 +74,9 @@ router.patch(
 router.post(
   "/products/:id/stock-adjustments",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "product:inventory:update"
   ),
@@ -66,6 +85,9 @@ router.post(
 router.get(
   "/products/:id/stock-adjustments",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "inventory:read"
   ),
@@ -74,50 +96,72 @@ router.get(
 router.get(
   "/inventory/summary",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions(
     "inventory:read"
   ),
   asyncHandler(controller.inventorySummary)
 );
 
-router.post("/checkout", requireFeature("online-shop"), protect, asyncHandler(controller.createCheckout));
+router.post("/checkout", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.createCheckout));
 router.post(
   "/checkout/:id/confirm-demo",
   requireFeature("online-shop"),
   protect,
   asyncHandler(controller.confirmDemoCheckout)
 );
-router.get("/orders/mine", requireFeature("online-shop"), protect, asyncHandler(controller.listMyOrders));
-router.get("/orders/:id", requireFeature("online-shop"), protect, asyncHandler(controller.getOrder));
-router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, asyncHandler(controller.cancelOrder));
+router.get("/orders/mine", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.listMyOrders));
+router.get("/orders/:id", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.getOrder));
+router.post("/orders/:id/cancel", requireFeature("online-shop"), protect, servicePublicTenantContextMiddleware, asyncHandler(controller.cancelOrder));
 router.get(
   "/orders",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:read"),
   asyncHandler(controller.listOrders)
 );
 router.patch(
   "/orders/:id/status",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:update"),
+  requireScopedCommerceOrder,
   asyncHandler(controller.updateOrderStatus)
 );
 router.post(
   "/orders/:id/refunds",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:refund"),
+  requireScopedCommerceOrder,
   asyncHandler(controller.refundOrderPayment)
 );
 router.get(
   "/orders/:id/invoice",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:read"),
+  requireScopedCommerceOrder,
   asyncHandler(readOrderInvoice)
 );
 router.post(
   "/orders/:id/invoice",
   protect,
+  servicePublicTenantContextMiddleware,
+  trustedTenantContextMiddleware,
+  effectiveAuthorityMiddleware,
   requirePermissions("order:update"),
+  requireScopedCommerceOrder,
   asyncHandler(createOrderInvoice)
 );
 
