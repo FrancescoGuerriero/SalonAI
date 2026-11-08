@@ -11,11 +11,6 @@ const FAILED = "failed_or_missing";
 function criterion(key, status, description) {
   return Object.freeze({ key, status, description });
 }
-function deniedOrUnknown(value, description) {
-  return criterion(description, value === true ? PASSED :
-    value === false ? FAILED : UNKNOWN, description);
-}
-
 /**
  * Read-only assessment of tenant-level prerequisites for module acceptance.
  * It neither authorises a capability nor creates a production sign-off.
