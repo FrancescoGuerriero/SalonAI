@@ -254,7 +254,8 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Entries requiring verification:</strong> {operationalAssessment.deliveryGaps.totals.verificationRequired}.
                   <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
-                  <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.</p>
+                  <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
+                  <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.</p>
                 <p className="text-stone-700">
                   These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions.
                 </p>
@@ -317,6 +318,26 @@ export default function ModuleCatalogueDashboardPage() {
                   <p><strong>AI opportunity:</strong> {item.aiOpportunity || UNKNOWN}</p>
                   <p><strong>Delivery owner:</strong> {item.owner} · <strong>Lifecycle:</strong> {item.lifecycle}</p>
                   <p><strong>Canonical capability:</strong> {item.capabilityPackKeys.join(", ") || "Unmapped / taxonomy-only"}</p>
+                  {(() => {
+                    const assessment = operationalAssessment?.entries?.find(
+                      (entry) => entry.moduleId === item.moduleId,
+                    );
+                    const contract = assessment?.contractEvidence;
+                    if (!contract) return null;
+                    return (
+                      <section className="space-y-1 rounded-lg border border-stone-300 p-3"
+                        aria-label={`Declared integration contracts for ${item.moduleId}`}>
+                        <h3 className="font-bold">Registered capability contracts</h3>
+                        <p><strong>Registry declarations:</strong>{" "}
+                          {contract.integrationContracts.join(", ") || "No integration contracts declared"}</p>
+                        <p><strong>Configuration definitions:</strong>{" "}
+                          {contract.configurationDefinitions.join(", ") || "None declared"}</p>
+                        <p><strong>API route and workflow acceptance:</strong> Not independently verified</p>
+                        <p><strong>AI tool-contract verification:</strong> Not independently verified</p>
+                        <p><strong>Provider readiness:</strong> Not independently verified</p>
+                      </section>
+                    );
+                  })()}
                   <p><strong>Dependencies:</strong> {item.dependencies.join(", ") || "None verified"}</p>
                   <p><strong>Scope and permissions:</strong> {item.scopeClass}; {item.permissions.join(", ") || "Not verified"}</p>
                   <section aria-label={`Delivery evidence for ${item.moduleId}`} className="space-y-2">
