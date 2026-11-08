@@ -23,7 +23,7 @@ const images = services.map((service, index) => ({
 function fixture() {
   const release = {
     schemaVersion: 1, releaseTag: "v8.15.18",
-    sourceCommit: "a".repeat(40), images,
+    sourceCommit: "a".repeat(40), images: images.map((image) => ({ ...image })),
   };
   const releaseRaw = JSON.stringify(release);
   return {
