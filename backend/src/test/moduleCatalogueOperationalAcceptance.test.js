@@ -6,6 +6,7 @@ import { inspectModuleDependencyEvidence } from "../features/moduleCatalogue/mod
 import { inspectModuleContractDeclarations } from "../features/moduleCatalogue/moduleCatalogueContractEvidence.js";
 import { buildModuleAcceptanceContract } from "../features/moduleCatalogue/moduleCatalogueAcceptanceContract.js";
 import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
+import { inspectExistingModuleImplementation } from "../platform/moduleCatalogue/moduleImplementationReferences.js";
 import {
   inspectModuleOperationalAcceptance,
 } from "../features/moduleCatalogue/moduleCatalogueOperationalAcceptance.js";
@@ -417,4 +418,38 @@ test("reviewed P0 test inventory covers tenant provisioning, integration registr
   assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
   assert.equal(byId("AI-CORE-03").reviewedTestSourceEvidence.length, 0);
   assert.equal(assessment.entries.every((entry) => entry.productionAccepted === null), true);
+});
+
+test("existing P1 business modules are recorded as source-present without reimplementation or activation", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture());
+  const mounted = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  const modules = [
+    ["01", "/api/appointments", "backend/src/routes/appointmentRoutes.js"],
+    ["02", "/api/stylists", "backend/src/routes/stylistRoutes.js"],
+    ["03", "/api/services", "backend/src/routes/serviceRoutes.js"],
+    ["04", "/api/commerce", "backend/src/features/commerce/commerceRoutes.js"],
+    ["09", "/api/message-delivery", "backend/src/routes/messageDeliveryRoutes.js"],
+  ];
+  for (const [id, mount, routeFile] of modules) {
+    const entry = assessment.entries.find((row) => row.moduleId === id);
+    const record = entry.implementationReference;
+    assert.equal(record.sourceState, "existing_implementation_source_reviewed");
+    assert.equal(record.existingImplementationReview, true);
+    assert.ok(record.apiMounts.includes(mount));
+    assert.ok(record.routeSources.includes(routeFile));
+    assert.ok(mounted.includes(`"${mount}"`), `Unregistered implementation mount ${mount}`);
+    assert.equal(record.runtimeVerified, null);
+    assert.equal(record.productionAccepted, null);
+    assert.equal(record.activationAuthorised, false);
+    assert.equal(Object.isFrozen(record.routeSources), true);
+    assert.equal(Object.isFrozen(record.apiMounts), true);
+    assert.equal(entry.checks.find((check) => check.key === "module_api_acceptance").status,
+      "not_verified");
+    const source = await readFile(new URL("../" + routeFile.slice("backend/src/".length), import.meta.url), "utf8");
+    assert.match(source, /router\.(get|post|patch|put|delete|use)\(/);
+  }
+  const unknown = inspectExistingModuleImplementation("12");
+  assert.equal(unknown.sourceState, "not_reviewed_in_this_inventory");
+  assert.equal(unknown.existingImplementationReview, null);
+  assert.equal(unknown.activationAuthorised, false);
 });
