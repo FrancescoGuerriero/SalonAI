@@ -47,6 +47,7 @@ const subscription = {
     { key: "ai", source: "plan" },
     { key: "appointments", source: "plan" },
     { key: "ai-tools", source: "plan" },
+    { key: "ai-a0-metrics-monthly", source: "plan", limit: 100 },
   ],
 };
 
@@ -54,6 +55,16 @@ function providers({ manifestRecord = record, subscriptionRecord = subscription,
   const calls = [];
   return {
     calls,
+    usage: {
+      updateOne: async (filter, update, options) => {
+        calls.push({ model: "usageInit", filter, update, options });
+        return { acknowledged: true };
+      },
+      findOneAndUpdate: (filter, update, options) => {
+        calls.push({ model: "usageReserve", filter, update, options });
+        return { lean: async () => ({ admittedCount: 1 }) };
+      },
+    },
     manifests: {
       findOne: (filter) => {
         calls.push({ model: "manifest", filter });
@@ -88,6 +99,7 @@ test("trusted resolver reads tenant-scoped authoritative records and intersects 
   assert.equal(result.manifestRevision, "1");
   assert.ok(result.composition.enabledCapabilityPackKeys.includes("ai"));
   assert.ok(result.enabledEntitlements.includes("ai-tools"));
+  assert.equal(result.aiMetricsMonthlyLimit, 100);
 });
 
 test("foreign, missing or inconsistent canonical records fail closed", async () => {
@@ -154,6 +166,7 @@ test("internal invocation consumes resolved backend data and audits without retu
   assert.equal(result.businessId, BUSINESS);
   assert.equal(result.mutationAuthorised, false);
   assert.equal(events.reads.length, 1);
+  assert.equal(source.calls.filter((event) => event.model === "usageReserve").length, 1);
   assert.equal(events.runs[0].status, "started");
   assert.equal(events.audits[0].after.status, "completed");
   assert.equal(Object.hasOwn(result, "enabledEntitlements"), false);
@@ -176,4 +189,39 @@ test("AI invocation fails closed for disabled, malformed or unavailable feature 
   }
   const allowed = await resolveTrustedAiToolContext(authority, providers({ featureValue: true }));
   assert.ok(allowed.composition.enabledCapabilityPackKeys.includes("ai"));
+});
+
+test("missing quota entitlement blocks internal AI invocation before metering or reads", async () => {
+  const noQuota = providers({ subscriptionRecord: {
+    ...subscription,
+    entitlementGrants: subscription.entitlementGrants.filter(
+      (grant) => grant.key !== "ai-a0-metrics-monthly",
+    ),
+  } });
+  await assert.rejects(
+    invokeMetricsWithResolvedTenantAuthority({
+      effectiveAuthority: authority,
+      user: { _id: USER },
+      locationId: LOCATION,
+    }, noQuota),
+    /bounded AI monthly quota/,
+  );
+  assert.equal(noQuota.calls.some((event) => event.model === "usageReserve"), false);
+});
+
+test("denied identities and source permissions do not consume tenant usage", async () => {
+  for (const changes of [
+    { user: {} },
+    { effectiveAuthority: { ...authority, permissions: ["ai:use"] } },
+    { effectiveAuthority: { ...authority, permissions: ["appointment:read"] } },
+  ]) {
+    const source = providers();
+    await assert.rejects(invokeMetricsWithResolvedTenantAuthority({
+      effectiveAuthority: authority,
+      user: { _id: USER },
+      locationId: LOCATION,
+      ...changes,
+    }, source));
+    assert.equal(source.calls.some((event) => event.model === "usageReserve"), false);
+  }
 });
