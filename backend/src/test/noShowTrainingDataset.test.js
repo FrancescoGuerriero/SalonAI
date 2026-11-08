@@ -221,7 +221,7 @@ test("training script benchmarks learned candidates against SalonAI rules", asyn
   const source =
     await readFile(
       new URL(
-        "../../../ai-service/train_no_show.py",
+        "../../../ai-service/train_no_show_core.py",
         import.meta.url
       ),
       "utf8"

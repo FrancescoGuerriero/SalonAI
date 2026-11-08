@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   APPOINTMENT_METRIC_KEYS,
   CANONICAL_METRIC_KEYS,
+  COMMERCE_METRIC_KEYS,
   OPERATIONAL_METRIC_KEYS,
   getMetricDefinition,
   listMetricDefinitions,
@@ -38,14 +39,15 @@ test("canonical metric catalogue v2 covers appointment and operational KPI contr
     "utilisation-rate",
     "conversion-rate",
   ]);
-  assert.equal(CANONICAL_METRIC_KEYS.length, 9);
+  assert.equal(COMMERCE_METRIC_KEYS.length, 3);
+  assert.equal(CANONICAL_METRIC_KEYS.length, APPOINTMENT_METRIC_KEYS.length + OPERATIONAL_METRIC_KEYS.length + COMMERCE_METRIC_KEYS.length);
 
   const definitions = listMetricDefinitions();
-  assert.equal(definitions.length, 9);
-  assert.equal(new Set(definitions.map((definition) => definition.key)).size, 9);
+  assert.equal(definitions.length, CANONICAL_METRIC_KEYS.length);
+  assert.equal(new Set(definitions.map((definition) => definition.key)).size, CANONICAL_METRIC_KEYS.length);
 
   for (const definition of definitions) {
-    assert.equal(definition.version, "2.0.0");
+    assert.equal(definition.version, "2.1.0");
     assert.equal(Object.isFrozen(definition), true);
     assert.ok(definition.evidence.sourceModel);
   }
@@ -86,7 +88,7 @@ test("canonical ratio calculator is deterministic, zero-safe and definition-gove
     8
   );
   assert.equal(result.value, 50);
-  assert.equal(result.version, "2.0.0");
+  assert.equal(result.version, "2.1.0");
   assert.equal(result.evidence.formula, "successful_conversions / eligible_opportunities * 100");
 
   assert.throws(
@@ -129,7 +131,7 @@ test("appointment calculator remains backwards compatible under catalogue v2", (
   assert.equal(comparison.current.revenue, 120);
   assert.equal(metricByKey(comparison, "no-show-rate").value, 25);
   assert.equal(metricByKey(comparison, "cancellation-rate").value, 25);
-  assert.equal(metricByKey(comparison, "revenue").version, "2.0.0");
+  assert.equal(metricByKey(comparison, "revenue").version, "2.1.0");
   assert.equal(metricByKey(comparison, "revenue").evidence.sourceModel, "Appointment");
 });
 
