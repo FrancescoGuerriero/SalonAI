@@ -245,10 +245,29 @@ export default function ModuleCatalogueDashboardPage() {
         </p>
         {assessmentError && <p role="status">{assessmentError}</p>}
         {operationalAssessment && (
-          <p className="text-sm">
-            {operationalAssessment.assessmentCount} assessed requirements and candidates.
-            No production sign-offs have been granted.
-          </p>
+          <div className="space-y-3 text-sm">
+            <p>{operationalAssessment.assessmentCount} assessed requirements and candidates.
+              No production sign-offs have been granted.</p>
+            {operationalAssessment.deliveryGaps && (
+              <div className="space-y-2" aria-label="Prioritised module delivery gaps">
+                <p><strong>Confirmed prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.blocked}.
+                  <strong> Entries requiring verification:</strong> {operationalAssessment.deliveryGaps.totals.verificationRequired}.
+                  <strong> Unmapped/taxonomy entries:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.</p>
+                <p className="text-stone-700">
+                  These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions.
+                </p>
+                <ul className="grid gap-2 sm:grid-cols-4">
+                  {operationalAssessment.deliveryGaps.priorities.map((group) => (
+                    <li key={group.priority} className="rounded-lg border border-stone-300 p-3">
+                      <strong>{group.priority}</strong>: {group.count} entries;
+                      {" "}{group.blocked} with confirmed blockers;
+                      {" "}{group.verificationRequired} awaiting checks
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </section>
       <section aria-label="Module requirements" className="space-y-3">
