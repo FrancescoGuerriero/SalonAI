@@ -65,7 +65,7 @@
     "dotenv": "^18.0.8",
     "exceljs": "^3.4.0",
     "express": "^5.1.0",
-    "express-rate-limit": "8.7.1",
+    "express-rate-limit": "8.7.3",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.7.2",
