@@ -35,6 +35,56 @@ const REFERENCES = Object.freeze({
     apiMounts: ["/api/communication-templates", "/api/communication-campaigns", "/api/message-delivery"],
     preservedCapability: "Existing templates, campaigns and provider messaging",
   },
+  "05": {
+    routeSources: ["backend/src/features/commerce/commerceRoutes.js"],
+    apiMounts: ["/api/commerce"],
+    preservedCapability: "Existing online storefront and product catalogue paths within Commerce",
+  },
+  "06": {
+    routeSources: ["backend/src/features/memberships/membershipRoutes.js"],
+    apiMounts: ["/api/future/memberships"],
+    preservedCapability: "Existing membership management route implementation",
+  },
+  "07": {
+    routeSources: ["backend/src/features/inventoryPurchasing/routes/inventoryPurchasingRoutes.js"],
+    apiMounts: ["/api/inventory-purchasing"],
+    preservedCapability: "Existing inventory purchasing management routes",
+  },
+  "08": {
+    routeSources: ["backend/src/features/premium/loyalty/loyaltyRoutes.js"],
+    apiMounts: ["/api/loyalty"],
+    preservedCapability: "Existing customer loyalty balances, awards and redemption routes",
+  },
+  "10": {
+    routeSources: ["backend/src/integrations/calendar/calendarOAuthCallbackRoutes.js", "backend/src/integrations/calendar/calendarConnectionRoutes.js"],
+    apiMounts: ["/api/calendar-oauth", "/api/future/calendar-connections"],
+    preservedCapability: "Existing calendar connection and provider OAuth callback routes",
+  },
+  "11": {
+    routeSources: ["backend/src/features/integrationPlatform/integrationApiRoutes.js", "backend/src/features/integrationPlatform/integrationPlatformRoutes.js"],
+    apiMounts: ["/api/future/integrations/v1", "/api/future/integrations"],
+    preservedCapability: "Existing integration service API and management routes",
+  },
+  "12": {
+    routeSources: ["backend/src/routes/customerRoutes.js"],
+    apiMounts: ["/api/customers"],
+    preservedCapability: "Existing customer data operations; full intelligence acceptance remains separate",
+  },
+  "13": {
+    routeSources: ["backend/src/features/customerExperience/customerExperienceRoutes.js"],
+    apiMounts: ["/api/customer-experience"],
+    preservedCapability: "Existing customer experience API surfaces",
+  },
+  "16": {
+    routeSources: ["backend/src/routes/dashboardInsightsRoutes.js"],
+    apiMounts: ["/api/dashboard/insights"],
+    preservedCapability: "Existing dashboard insights and analytics endpoint",
+  },
+  "18": {
+    routeSources: ["backend/src/features/aiRecommendations/aiRecommendationRoutes.js"],
+    apiMounts: ["/api/ai"],
+    preservedCapability: "Existing AI recommendation and adviser API routes",
+  },
 });
 const frozen = (array) => Object.freeze([...array]);
 
