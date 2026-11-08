@@ -1280,6 +1280,72 @@ export async function listTenantOrders(query = {}, effectiveAuthority) {
   return { items, pagination: paginationResult(page, limit, total) };
 }
 
+/**
+ * Customer-facing order access is strictly the authenticated user's own
+ * order in the host-resolved Business. A management role does NOT bypass
+ * customer ownership on self-service endpoints.
+ */
+function tenantCustomerOrderMatch(publicTenantContext, user, orderId = null) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  if (!mongoose.isValidObjectId(user?._id)) {
+    throw createServiceError("Authenticated customer identity is required.", 401);
+  }
+  if (orderId !== null && !mongoose.isValidObjectId(orderId)) {
+    throw createServiceError("Invalid order ID.", 400);
+  }
+  return {
+    ...owner,
+    user: user._id,
+    ...(orderId !== null ? { _id: orderId } : {}),
+  };
+}
+
+export async function listTenantCustomerOrders(user, query = {}, publicTenantContext) {
+  const { page, limit, skip } = paginationFromQuery(query);
+  const match = tenantCustomerOrderMatch(publicTenantContext, user);
+  if (query.status) match.status = query.status;
+  const [items, total] = await Promise.all([
+    Order.find(match)
+      .populate("user", "name email")
+      .populate("customer", "firstName lastName fullName name email")
+      .populate("payment", "provider status paidAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(match),
+  ]);
+  return { items, pagination: paginationResult(page, limit, total) };
+}
+
+export async function getTenantCustomerOrder(id, user, publicTenantContext) {
+  return assertFound(
+    await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id))
+      .populate("payment", "provider status paidAt checkoutUrl")
+      .lean(),
+    "Order not found."
+  );
+}
+
+export async function cancelTenantCustomerOrder(id, user, publicTenantContext) {
+  const order = assertFound(
+    await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id)),
+    "Order not found."
+  );
+  if (!["pending_payment", "paid"].includes(order.status)) {
+    throw createServiceError("This order can no longer be cancelled online.", 409);
+  }
+  if (order.status === "paid") {
+    throw createServiceError("Paid orders require a manager-issued refund.", 409);
+  }
+  await cancelPendingOrderCheckout(order._id, {
+    paymentStatus: "cancelled",
+    rawStatus: "customer_cancelled",
+    failureReason: "Customer cancelled the checkout.",
+  });
+  return (await Order.findOne(tenantCustomerOrderMatch(publicTenantContext, user, id))).toObject();
+}
+
 export async function cancelOrder(id, user) {
   const order = await findOwnedOrder(id, user);
   if (!["pending_payment", "paid"].includes(order.status)) {
