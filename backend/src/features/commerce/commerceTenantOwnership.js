@@ -54,3 +54,15 @@ export function commerceTenantFilter(effectiveAuthority, { locationId = null } =
       : { $in: allowed.map((value) => new mongoose.Types.ObjectId(value)) },
   };
 }
+
+/** Public catalogue ownership derives ONLY from the verified host mapping. */
+export function commercePublicTenantFilter(publicTenantContext) {
+  const businessId = String(publicTenantContext?.businessId || "");
+  if (!mongoose.isValidObjectId(businessId)) {
+    const error = new Error("An active host-trusted Commerce tenant is required.");
+    error.code = "COMMERCE_PUBLIC_TENANT_REQUIRED";
+    error.statusCode = 404;
+    throw error;
+  }
+  return { business: new mongoose.Types.ObjectId(businessId) };
+}
