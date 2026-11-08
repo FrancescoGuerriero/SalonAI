@@ -255,7 +255,8 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
                   <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
-                  <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.</p>
+                  <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.
+                  <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.</p>
                 <p className="text-stone-700">
                   These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions.
                 </p>
@@ -332,6 +333,10 @@ export default function ModuleCatalogueDashboardPage() {
                           {contract.integrationContracts.join(", ") || "No integration contracts declared"}</p>
                         <p><strong>Configuration definitions:</strong>{" "}
                           {contract.configurationDefinitions.join(", ") || "None declared"}</p>
+                        <p><strong>Related source reviews:</strong>{" "}
+                          {contract.relatedSourceReviews.length
+                            ? contract.relatedSourceReviews.map((record) => `PR #${record.prNumber}`).join(", ")
+                            : "No reviewed source PR mapped"}</p>
                         <p><strong>API route and workflow acceptance:</strong> Not independently verified</p>
                         <p><strong>AI tool-contract verification:</strong> Not independently verified</p>
                         <p><strong>Provider readiness:</strong> Not independently verified</p>
