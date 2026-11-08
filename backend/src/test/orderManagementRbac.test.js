@@ -53,15 +53,15 @@ test(
 
     assert.match(
       routes,
-      /"\/orders"[\s\S]{0,160}requirePermissions\(\s*"order:read"\s*\)/
+      /"\/orders"[\s\S]{0,360}requirePermissions\(\s*"order:read"\s*\)/
     );
     assert.match(
       routes,
-      /"\/orders\/:id\/status"[\s\S]{0,160}requirePermissions\(\s*"order:update"\s*\)/
+      /"\/orders\/:id\/status"[\s\S]{0,360}requirePermissions\(\s*"order:update"\s*\)/
     );
     assert.match(
       routes,
-      /"\/orders\/:id\/refunds"[\s\S]{0,160}requirePermissions\(\s*"order:refund"\s*\)/
+      /"\/orders\/:id\/refunds"[\s\S]{0,360}requirePermissions\(\s*"order:refund"\s*\)/
     );
   }
 );
@@ -156,4 +156,20 @@ test("checkout requires host-verified Business and rejects mixed dependency scop
     /business: owner\.business,\s*location: checkoutLocationId,\s*user: user\._id/);
   assert.match(service, /resolveProductCheckoutLocation\(/);
   assert.match(service, /appointmentRequests\.length \|\| servicePackageRequests\.length/);
+});
+
+test("existing refund, status, and invoice endpoints have verified Order ownership before provider or invoice operations", async () => {
+  const routes = await source("../features/commerce/commerceRoutes.js");
+  const guard = await source("../features/commerce/commerceOrderAuthorityMiddleware.js");
+  const checks = [
+    ["/orders/:id/status", "order:update"],
+    ["/orders/:id/refunds", "order:refund"],
+    ["/orders/:id/invoice", "order:read"],
+  ];
+  for (const [path, permission] of checks) {
+    assert.match(routes, new RegExp('"' + path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"[\\s\\S]{0,350}requirePermissions\\("' + permission + '"\\),\\s*requireScopedCommerceOrder'));
+  }
+  assert.equal((routes.match(/requireScopedCommerceOrder,/g) || []).length, 4);
+  assert.match(guard, /commerceTenantFilter\(request\.effectiveAuthority\)/);
+  assert.match(guard, /Order\.exists\(\{ _id: id, \.\.\.owner \}\)/);
 });
