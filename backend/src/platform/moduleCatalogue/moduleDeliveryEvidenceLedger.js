@@ -56,7 +56,7 @@ export function listVerifiedModuleDeliveryEvidence(moduleId) {
       verificationMode: "reviewed_gitHub_snapshot",
       deployed: null,
       productionAccepted: null,
-    }))));
+    })));
 }
 
 export function validateModuleDeliveryEvidenceLedger(knownModuleIds) {
