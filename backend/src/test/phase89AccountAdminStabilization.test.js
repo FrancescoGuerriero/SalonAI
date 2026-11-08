@@ -133,13 +133,19 @@ test(
     );
 
     assert.ok(route);
-    assert.equal(
-      route.stack.length,
-      3
+    assert.equal(route.stack.length, 6);
+    assert.deepEqual(
+      route.stack.slice(0, 4).map((layer) => layer.handle.name),
+      [
+        "protect",
+        "publicTenantContextMiddleware",
+        "trustedTenantContextMiddleware",
+        "effectiveAuthorityMiddleware",
+      ]
     );
 
     const permissionGuard =
-      route.stack[1].handle;
+      route.stack[4].handle;
 
     const denied =
       executeGuard(
