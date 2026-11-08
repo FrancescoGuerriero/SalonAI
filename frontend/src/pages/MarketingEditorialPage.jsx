@@ -61,7 +61,13 @@ export default function MarketingEditorialPage() {
       body.rightsConfirmed = true;
       body.originalityReviewed = true;
     }
+    if (status === "submitted") {
+      if (!window.confirm("Confirm that the article was submitted outside AIIBP. This action records only your confirmation and does not send anything.")) return;
+      body.submissionConfirmed = true;
+    }
     if (status === "published") {
+      if (!window.confirm("Confirm that the publisher has publicly published this article. The link is not independently verified by AIIBP.")) return;
+      body.publicationConfirmed = true;
       const url = window.prompt("Provide the article's externally published HTTPS URL. No article will be published by this action.");
       if (!url) return;
       body.publishedUrl = url;
