@@ -588,7 +588,7 @@ function cartItemType(item = {}) {
   return explicit || "product";
 }
 
-async function buildProductOrderItems(items = []) {
+async function buildProductOrderItems(items = [], publicTenantContext = null) {
   const requested = new Map();
 
   for (const item of items) {
@@ -602,7 +602,9 @@ async function buildProductOrderItems(items = []) {
 
   if (requested.size === 0) return [];
 
+  const owner = commercePublicTenantFilter(publicTenantContext);
   const products = await Product.find({
+    ...owner,
     _id: { $in: [...requested.keys()] },
     active: true,
   });
@@ -797,7 +799,11 @@ function providerCheckoutItems({
   return providerItems;
 }
 
-export async function createCheckout(payload, user) {
+export async function createCheckout(payload, user, publicTenantContext) {
+  const owner = commercePublicTenantFilter(publicTenantContext);
+  if (!mongoose.isValidObjectId(user?._id)) {
+    throw createServiceError("Authenticated customer identity is required.", 401);
+  }
   const rawItems = Array.isArray(payload.items) ? payload.items : [];
   if (rawItems.length === 0) {
     throw createServiceError("At least one cart item is required.", 400);
@@ -821,7 +827,26 @@ export async function createCheckout(payload, user) {
     );
   }
 
-  const productItems = await buildProductOrderItems(productRequests);
+  // Service packages have no canonical Business ownership. Mixed carts
+  // must remain blocked until every dependency has verified owner scope.
+  if (appointmentRequests.length || servicePackageRequests.length) {
+    throw createServiceError(
+      "Mixed appointment and service-package checkout requires tenant ownership verification.",
+      409
+    );
+  }
+  const productItems = await buildProductOrderItems(productRequests, publicTenantContext);
+  const selectedProducts = await Product.find({
+    ...owner,
+    _id: { $in: productItems.map((item) => item.product) },
+    active: true,
+  }).select("location");
+  const locations = [...new Set(selectedProducts.map((item) => String(item.location || "")))];
+  if (!productItems.length || selectedProducts.length !== productItems.length
+    || locations.length !== 1 || !mongoose.isValidObjectId(locations[0])) {
+    throw createServiceError("All checkout products must belong to one verified Business Location.", 409);
+  }
+  const checkoutLocationId = locations[0];
   const servicePackageItems =
     await buildPurchasableServicePackageOrderItems(
       servicePackageRequests,
@@ -899,6 +924,8 @@ export async function createCheckout(payload, user) {
     }
 
     order = await Order.create({
+      business: owner.business,
+      location: checkoutLocationId,
       user: user._id,
       customer: user.customerProfile || undefined,
       contact,
@@ -1060,6 +1087,8 @@ async function commitInventory(order) {
       const result = await Product.findOneAndUpdate(
         {
           _id: item.product,
+          business: order.business,
+          location: order.location,
           stockQuantity: { $gte: item.quantity },
         },
         { $inc: { stockQuantity: -item.quantity } },
@@ -1079,7 +1108,9 @@ async function commitInventory(order) {
     await order.save();
   } catch (error) {
     for (const item of [...committed].reverse()) {
-      await Product.findByIdAndUpdate(item.product, {
+      await Product.findOneAndUpdate({
+        _id: item.product, business: order.business, location: order.location,
+      }, {
         $inc: { stockQuantity: item.quantity },
       });
     }
