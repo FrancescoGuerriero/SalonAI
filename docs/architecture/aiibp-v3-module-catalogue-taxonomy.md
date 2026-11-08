@@ -286,3 +286,29 @@ Integration Hub (11) had no mapped test source and that the ledger only
 contained its earlier P0 IDs. Those assertions were corrected after
 inspecting the failed Stage 1–6 job, without weakening tenant or
 permission tests. This change preserves Commerce and Stripe behaviour.
+
+## DEV1 broader catalogue mapping of existing module sources
+
+Additional inspected references reuse the application's actual Express mounts,
+including nested `/api/future` routing. These records recognise existing
+source, **not** newly generated or fully production-accepted modules:
+
+| Catalogue ID | Existing source surface | Mounted API |
+| --- | --- | --- |
+| 05 E-commerce & Online Store | Commerce product/storefront routes | `/api/commerce` |
+| 06 Memberships | Membership management routes | `/api/future/memberships` |
+| 07 Inventory & Purchasing | Inventory purchasing routes | `/api/inventory-purchasing` |
+| 08 Loyalty | Loyalty routes | `/api/loyalty` |
+| 10 Calendar Integration | Calendar OAuth callback and connection routes | `/api/calendar-oauth`, `/api/future/calendar-connections` |
+| 11 Integration Hub | Integration credential API and management routes | `/api/future/integrations/v1`, `/api/future/integrations` |
+| 12 CRM & Customer Intelligence | Customer management routes (partial surface only) | `/api/customers` |
+| 13 Customer Experience | Existing customer-experience route composition | `/api/customer-experience` |
+| 16 Analytics & Business Intelligence | Existing dashboard insight routes | `/api/dashboard/insights` |
+| 18 AI Business Adviser | AI advisory/recommendation routes | `/api/ai` |
+
+Existing API mounts are source inventory only. They neither resolve
+catalogue-to-entitlement mappings nor demonstrate workflow completeness,
+tenant isolation, Stripe/payment safety, calendar provider availability,
+or production sign-off. Requirement 12's customer-route reference does
+**not** imply its entire intelligence layer has been implemented. Existing
+models, controllers, middleware and route registrations are unchanged.
