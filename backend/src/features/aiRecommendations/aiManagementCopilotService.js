@@ -44,7 +44,7 @@ export async function buildManagementCopilotPayload(
     asOfDate: options.asOfDate,
   });
 
-  const rows = await Appointment.find({
+  const query = Appointment.find({
     ...tenantFilter,
     $or: [
       {
@@ -62,8 +62,19 @@ export async function buildManagementCopilotPayload(
     ],
   })
     .select(APPOINTMENT_METRIC_PROJECTION)
-    .lean()
-    .exec();
+    .lean();
+  if (options.timeoutMs !== undefined) {
+    if (!Number.isInteger(options.timeoutMs) ||
+        options.timeoutMs < 500 || options.timeoutMs > 30_000) {
+      const error = new Error("Canonical AI metric query deadline is invalid.");
+      error.code = "AI_METRIC_QUERY_TIMEOUT_INVALID";
+      error.statusCode = 400;
+      throw error;
+    }
+    query.maxTimeMS(options.timeoutMs);
+  }
+  if (options.signal) query.setOptions({ signal: options.signal });
+  const rows = await query.exec();
 
   const comparison = calculateAppointmentMetricComparison({
     rows,

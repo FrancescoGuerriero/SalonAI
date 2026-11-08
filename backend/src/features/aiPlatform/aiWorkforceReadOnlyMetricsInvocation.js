@@ -7,6 +7,7 @@ import { previewAiWorkforceToolInvocation } from "./aiWorkforceOrchestrationPrev
 import { assertEffectivePermission } from "../../services/effectiveAuthorityService.js";
 import { buildManagementCopilotPayload } from "../aiRecommendations/aiManagementCopilotService.js";
 import { APPOINTMENT_METRIC_KEYS, getMetricDefinition } from "../analytics/metricCatalogue.js";
+import { withBoundedAiRead, DEFAULT_AI_READ_TIMEOUT_MS } from "./aiWorkforceReadDeadline.js";
 
 const TOOL_KEY = "business.metrics.read";
 const AGENT_KEY = "business-adviser";
@@ -66,6 +67,8 @@ export async function invokeGovernedBusinessMetrics(
     locationId = null,
     periodDays = 30,
     requestId = "",
+    timeoutMs = DEFAULT_AI_READ_TIMEOUT_MS,
+    signal = null,
   } = {},
   {
     readMetrics = buildManagementCopilotPayload,
@@ -98,6 +101,11 @@ export async function invokeGovernedBusinessMetrics(
   // The tool registry grants ai:use; this canonical Appointment-derived
   // metric reader additionally requires the source-domain read permission.
   assertEffectivePermission(effectiveAuthority, "appointment:read");
+  // Invalid deadlines or already cancelled requests must not create a run.
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > 30_000 ||
+      (signal && signal.aborted)) {
+    denied("AI read deadline is invalid or cancelled.", "AI_READ_DEADLINE_INVALID", 400);
+  }
   const businessId = decision.businessId;
   const selectedLocationId = decision.locationId;
   const startedAt = new Date();
@@ -129,14 +137,19 @@ export async function invokeGovernedBusinessMetrics(
   let metrics = null;
   let caughtError = null;
   try {
-    const payload = await readMetrics({
-      businessId,
-      locationId: selectedLocationId,
-      locationAccessMode: effectiveAuthority.locationAccessMode,
-      allowedLocationIds: effectiveAuthority.allowedLocationIds || [],
-      periodDays,
-      includeActionPlan: false,
-    });
+    const payload = await withBoundedAiRead(
+      ({ signal: readSignal, timeoutMs: readTimeoutMs }) => readMetrics({
+        businessId,
+        locationId: selectedLocationId,
+        locationAccessMode: effectiveAuthority.locationAccessMode,
+        allowedLocationIds: effectiveAuthority.allowedLocationIds || [],
+        periodDays,
+        includeActionPlan: false,
+        timeoutMs: readTimeoutMs,
+        signal: readSignal,
+      }),
+      { timeoutMs, signal },
+    );
     // A delegated reader must not be able to substitute another tenant or
     // location. Fail closed on missing/changed provenance.
     if (String(payload?.scope?.businessId || "") !== businessId ||
@@ -177,6 +190,9 @@ export async function invokeGovernedBusinessMetrics(
       after: {
         status: state, toolKey: TOOL_KEY, effectiveAutonomy: "A0",
         metricCount: metrics?.length || 0,
+        failureCategory: caughtError?.code === "AI_READ_TIMEOUT" ? "deadline" :
+          caughtError?.code === "AI_READ_CANCELLED" ? "cancelled" :
+          state === "failed" ? "read_or_evidence" : null,
       },
       metadata: {
         businessId, locationId: selectedLocationId,
