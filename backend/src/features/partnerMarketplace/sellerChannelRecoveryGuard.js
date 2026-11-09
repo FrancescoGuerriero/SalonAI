@@ -7,6 +7,7 @@ import { createServiceError } from "../../shared/serviceError.js";
  */
 export async function assertSellerRecoveryReviewed({
   runModel, businessId, connection, kind, recoveryAcknowledged = false,
+  resume = false,
 } = {}) {
   if (!runModel || !businessId || !connection?._id ||
       !["listings", "orders"].includes(kind)) {
@@ -22,6 +23,15 @@ export async function assertSellerRecoveryReviewed({
 
   const state = latest?.state || null;
   const requiresReview = Boolean(state && state !== "completed");
+  // An incomplete run may have staged records and advanced its cursor
+  // before crashing. An acknowledgement permits a fresh replay, never
+  // reusing a possibly advanced or stale saved continuation token.
+  if (requiresReview && resume === true) {
+    throw createServiceError(
+      "Cannot resume a seller import after an incomplete run; review it and start a fresh staged import.",
+      409, { code: "SELLER_RECOVERY_FRESH_IMPORT_REQUIRED" }
+    );
+  }
   if (requiresReview && recoveryAcknowledged !== true) {
     throw createServiceError(
       "Previous seller import is incomplete. Review import status and explicitly acknowledge a new attempt.",
