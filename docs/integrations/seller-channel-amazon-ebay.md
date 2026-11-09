@@ -89,3 +89,22 @@ audit record and response. Even when `sourcePageComplete=true`, this
 does not mean an account's historical orders, inventory, returns or
 fulfilment have been reconciled. A multi-run cursor/checkpoint service
 and approved canonical Commerce mapping are still required for full sync.
+
+## Tenant reconciliation review and durable observation checkpoint
+
+The new protected `GET /api/future/integrations/seller-channels/:connectionId/reconciliation`
+endpoint compares up to 50 staged listings with canonical Commerce SKUs
+within the authenticated business. It performs **no writes**. Numeric
+stock comparison requires the trusted server-side location authority;
+otherwise it reports `location_selection_required`. Missing products,
+ambiguous matches and conflicting quantities are explicitly identified,
+not silently corrected.
+
+Each explicit staging run updates a tenant- and connection-scoped
+`SellerChannelSyncCheckpoint` observation with last observed timestamp,
+kind, page count, staged count and whether the bounded source page was
+exhausted. `resumeSupported=false` is intentional: no durable provider
+cursor/replay is implemented yet, and source completeness does not prove
+historical inventory/order synchronization. The unique checkpoint index
+is `(business, connection, kind)`, and it is not a Commerce entitlement,
+stock adjustment or order reconciliation event.
