@@ -297,6 +297,7 @@ test("incomplete seller import requires an explicit recovery acknowledgement bef
     businessId, actorId, recoveryAcknowledged: true, ...h,
   });
   assert.equal(result.recoveryReviewAcknowledged, true);
+  assert.equal(h.runs[0].recoveryReviewAcknowledged, true);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(providerReads, 1);
   assert.equal(h.runs.length, 1);
