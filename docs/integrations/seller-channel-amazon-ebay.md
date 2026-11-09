@@ -240,3 +240,22 @@ initial bounded page and idempotently upsert staged records.
 This is a fail-closed safety rule rather than transactional crash recovery:
 the current stage/checkpoint/audit writes remain separate. Do not enable
 unattended scheduling until crash-consistent checkpoint commits are accepted.
+
+## Transactional source-staging candidate (not activated)
+
+A new optional **internal server-side** `atomicStaging: true` path uses
+MongoDB sessions and `withTransaction` to commit the normalized staging
+upserts, encrypted checkpoint update, audit event and completed import-journal
+state together. If the checkpoint or audit write fails, the transaction
+aborts instead of persisting a falsely advanced provider cursor. When
+transactions are unavailable, it fails closed rather than falling back to
+non-atomic writes. No network calls are made inside the transaction.
+
+**The public manual staging endpoint does not set this option.** This is an
+implementation candidate for dedicated replica-set/integration acceptance,
+not a production migration or activation. The import-run `started` and
+`provider_read` journal states remain outside the transaction by design,
+and failure diagnosis is updated outside after an aborted transaction.
+Real MongoDB replica-set tests, transient transaction retry behaviour,
+index verification and crash-boundary validation are still required.
+Neither atomic mode nor the existing mode writes canonical Commerce records.
