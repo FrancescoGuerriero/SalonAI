@@ -314,3 +314,21 @@ test("recovery acknowledgement must be strictly boolean true", async () => {
   }), /Previous seller import is incomplete/);
   assert.equal(h.writes.length, 0);
 });
+
+test("recovery acknowledgement cannot resume a cursor after incomplete seller staging", async () => {
+  const h = harness([]);
+  let providerReads = 0;
+  h.runModel.findOne = () => ({
+    select: () => ({ sort: () => ({ lean: async () => ({
+      state: "failed", failureClass: "audit", stagedCount: 2,
+    }) }) }),
+  });
+  h.readSnapshot = async () => { providerReads++; throw new Error("Must not call provider"); };
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, resume: true, recoveryAcknowledged: true, ...h,
+  }), /Cannot resume a seller import after an incomplete run/);
+  assert.equal(providerReads, 0);
+  assert.equal(h.runs.length, 0);
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.checkpoints.length, 0);
+});
