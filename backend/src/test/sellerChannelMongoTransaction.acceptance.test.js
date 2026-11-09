@@ -19,6 +19,18 @@ function safeAcceptanceUri(value) {
   return value;
 }
 
+test("seller transaction acceptance refuses remote databases and credentialed URIs", () => {
+  for (const value of [
+    "mongodb://example.com:27017/seller_txn_acceptance",
+    "mongodb://localhost:27017/production",
+    "mongodb://admin:secret@localhost:27017/seller_txn_acceptance",
+    "mongodb://localhost:27017/seller_txn_acceptance?authSource=admin",
+    "https://localhost/seller_txn_acceptance",
+  ]) assert.equal(safeAcceptanceUri(value), null);
+  assert.equal(safeAcceptanceUri("mongodb://127.0.0.1:27017/seller_txn_acceptance"),
+    "mongodb://127.0.0.1:27017/seller_txn_acceptance");
+});
+
 test("seller source transaction commits and rolls back against a local MongoDB replica set", {
   skip: !URI ? "Set SELLER_TXN_ACCEPTANCE_URI to a loopback replica set test database" : false,
   timeout: 45000,
