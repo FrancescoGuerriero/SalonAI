@@ -51,7 +51,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
   readSnapshot = fetchSellerChannelSnapshot,
   recordsModel = SellerChannelStagingRecord,
   checkpointModel = SellerChannelSyncCheckpoint,
-  auditModel = AuditLog,
+  auditModel = AuditLog, assertLeaseOwned = async () => {},
 } = {}) {
   requiredId(businessId, "business");
   requiredId(actorId, "actor");
@@ -124,9 +124,11 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
       upsert: true,
     },
   }));
+  await assertLeaseOwned();
   if (writes.length) await recordsModel.bulkWrite(writes, { ordered: true });
   // Source observation is complete only for this bounded request; do not
   // persist provider cursors or claim full historical reconciliation.
+  await assertLeaseOwned();
   await checkpointModel.findOneAndUpdate({
     business: businessId, connection: connection._id, kind,
   }, {
@@ -142,6 +144,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
     $setOnInsert: { business: businessId, connection: connection._id, kind },
   }, { upsert: true, new: true });
 
+  await assertLeaseOwned();
   await auditModel.create({
     actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
     resourceId: String(connection._id), requestId,
@@ -179,5 +182,5 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
   }
   return withSellerImportLease({
     businessId, connectionId: connection._id, kind, leaseModel: options.leaseModel,
-  }, () => stageSellerChannelSnapshotUnlocked(connection, kind, options));
+  }, (assertLeaseOwned) => stageSellerChannelSnapshotUnlocked(connection, kind, { ...options, assertLeaseOwned }));
 }
