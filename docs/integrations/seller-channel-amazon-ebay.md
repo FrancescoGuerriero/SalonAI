@@ -172,3 +172,22 @@ Operator sequence: inspect import status, ensure no active/expired lease
 blocks import, initiate a manual stage or explicit resume, then inspect
 status and the dry-run SKU reconciliation. No stock/order changes or
 external listing/shipping/refund actions are authorised by this workflow.
+
+## Lease ownership fencing before persistent writes
+
+Provider reads may be slow enough for a lease to expire while a request
+is active. Before writing staging records, updating the encrypted
+checkpoint and recording the audit event, the seller-import service now
+performs a conditional MongoDB lease renewal that requires **the original
+owner token and an unexpired lease**. If the record has expired or been
+replaced, the operation fails with `SELLER_IMPORT_LEASE_EXPIRED`
+(HTTP 409), rather than writing observations under another import's lock.
+Tests cover expiry, ownership and valid renewal.
+
+These guards substantially reduce stale-owner writes but do not form an
+atomic transaction across staging, checkpoint and audit: a database fault
+after a staging bulk write can still leave a partially recorded import.
+Those records remain tenant-scoped and idempotently upserted. Full
+crash-recovery guarantees require a separate transactional or fenced
+batch-commit design and production database acceptance before scheduled
+synchronisation can be enabled.
