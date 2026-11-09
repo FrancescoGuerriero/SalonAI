@@ -130,3 +130,23 @@ cursor is present; a completed run clears the cursor. This bounded manual
 resume flow does not prove historical inventory/order synchronization. The unique checkpoint index
 is `(business, connection, kind)`, and it is not a Commerce entitlement,
 stock adjustment or order reconciliation event.
+
+## Concurrent staging protection
+
+A manual staging/resume invocation now acquires a MongoDB-backed
+`SellerChannelImportLease` before contacting either marketplace provider.
+The lease is unique on `(business, connection, kind)`: competing imports
+for the same tenant-owned seller connection and record type receive HTTP 409
+instead of racing on the staging records or the encrypted checkpoint.
+A random owner token is used on release, and the lease is released in a
+`finally` block after success or failure. An `expiresAt` TTL index
+permits recovery of locks orphaned by a crashed process (ten-minute lease);
+TTL deletion is asynchronous, so operators may need to retry after expiry.
+A lease held past its expiration cannot prevent another import; the
+bounded provider read normally completes well inside ten minutes, but
+production acceptance must still verify request timeouts, database latency,
+index deployment and concurrent behavior.
+
+Both **unique and TTL indexes must be created and verified** before enabling
+manual live staging. This lease is not a distributed job scheduler or
+autonomous stock synchronization and does not authorise Commerce writes.
