@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 /**
- * Observation checkpoint only. Does not contain provider next-page tokens:
- * the bounded adapter has no safe resume contract yet.
+ * Observation checkpoint with AES-GCM protected provider cursor.
+ * Cursors are opaque internal server state, never exposed via public routes.
  */
 const checkpointSchema = new mongoose.Schema({
   business: { type: mongoose.Schema.Types.ObjectId, ref: "Business", required: true, index: true },
@@ -13,7 +13,10 @@ const checkpointSchema = new mongoose.Schema({
   stagedCount: { type: Number, min: 0, max: 50, required: true },
   pagesFetched: { type: Number, min: 0, max: 5, default: null },
   sourcePageComplete: { type: Boolean, default: false },
-  resumeSupported: { type: Boolean, default: false, immutable: true },
+  resumeSupported: { type: Boolean, default: false },
+  cursorCiphertext: { type: String, default: "" },
+  cursorIv: { type: String, default: "" },
+  cursorTag: { type: String, default: "" },
 }, { timestamps: true, optimisticConcurrency: true });
 checkpointSchema.index({ business: 1, connection: 1, kind: 1 }, { unique: true });
 
