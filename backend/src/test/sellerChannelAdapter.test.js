@@ -218,10 +218,9 @@ test("server-owned Amazon resume token is used for next bounded request and neve
   assert.equal(endpoint.searchParams.has("createdAfter"), false);
   assert.equal(resumed.internalResumeCursor, null);
   const publicRead = await fetchSellerChannelSnapshot(AMAZON, "orders", {
-    getCredential, fetchImpl: fetchFixture([
+    limit: 1, getCredential, fetchImpl: fetchFixture([
       { access_token: "short-lived" },
       { orders: [{ orderId: "FIRST" }], nextToken: "opaque-secret" },
-      { orders: [{ orderId: "SECOND" }], nextToken: null },
     ]),
   });
   assert.equal(Object.hasOwn(publicRead, "internalResumeCursor"), false);
