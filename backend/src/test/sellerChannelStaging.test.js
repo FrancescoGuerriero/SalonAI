@@ -13,9 +13,12 @@ const connection = {
   status: "connected",
 };
 function harness(records) {
-  const writes = [], audits = [];
+  const writes = [], audits = [], checkpoints = [];
   return {
-    writes, audits,
+    writes, audits, checkpoints,
+    checkpointModel: { findOneAndUpdate: async (filter, update, options) => {
+      checkpoints.push({ filter, update, options });
+    } },
     readSnapshot: async () => ({ provider: "ebay", kind: "listings", records }),
     recordsModel: { bulkWrite: async (operations) => { writes.push(...operations); } },
     auditModel: { create: async (record) => { audits.push(record); } },
@@ -31,6 +34,10 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(result.state, "staging_only");
   assert.equal(result.sourcePageComplete, false);
   assert.equal(h.writes.length, 1);
+  assert.equal(h.checkpoints.length, 1);
+  assert.equal(h.checkpoints[0].filter.business, businessId);
+  assert.equal(h.checkpoints[0].update.$set.sourcePageComplete, false);
+  assert.equal(h.checkpoints[0].update.$setOnInsert.resumeSupported, false);
   const op = h.writes[0].updateOne;
   assert.deepEqual(op.filter, {
     business: businessId, connection: connection._id, kind: "listings", externalId: "SKU-1",
@@ -105,4 +112,5 @@ test("staging signals a completely read provider page without claiming canonical
   assert.equal(result.sourcePageComplete, true);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(h.audits[0].metadata.sourcePageComplete, true);
+  assert.equal(h.checkpoints[0].update.$set.sourcePageComplete, true);
 });
