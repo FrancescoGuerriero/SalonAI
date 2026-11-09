@@ -23,6 +23,9 @@ function harness(records) {
   return {
     writes, audits, checkpoints, leases, leaseModel, runs,
     runModel: {
+      findOne: (_filter) => ({
+        select: () => ({ sort: () => ({ lean: async () => null }) }),
+      }),
       create: async (record) => { runs.push({ ...record }); },
       updateOne: async (filter, update) => {
         const run = runs.find((item) => item.runId === filter.runId);
@@ -265,4 +268,48 @@ test("provider failure is journalled without staging or a false checkpoint", asy
   assert.equal(h.runs[0].failureClass, "provider_or_validation");
   assert.equal(h.writes.length, 0);
   assert.equal(h.checkpoints.length, 0);
+});
+
+test("incomplete seller import requires an explicit recovery acknowledgement before provider reads", async () => {
+  const h = harness([{ sku: "SKU-RETRY", quantity: 2 }]);
+  let providerReads = 0;
+  const old = h.readSnapshot;
+  h.readSnapshot = async (...args) => {
+    providerReads++;
+    return old(...args);
+  };
+  h.runModel.findOne = (filter) => ({
+    select: () => ({ sort: () => ({ lean: async () => {
+      assert.equal(filter.business, businessId);
+      assert.equal(filter.connection, connection._id);
+      assert.equal(filter.kind, "listings");
+      return { state: "failed", failureClass: "checkpoint", stagedCount: 1 };
+    } }) }),
+  });
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...h,
+  }), /Previous seller import is incomplete/);
+  assert.equal(providerReads, 0);
+  assert.equal(h.runs.length, 0);
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.checkpoints.length, 0);
+  const result = await stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, recoveryAcknowledged: true, ...h,
+  });
+  assert.equal(result.recoveryReviewAcknowledged, true);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(providerReads, 1);
+  assert.equal(h.runs.length, 1);
+  assert.equal(h.runs[0].state, "completed");
+});
+
+test("recovery acknowledgement must be strictly boolean true", async () => {
+  const h = harness([]);
+  h.runModel.findOne = () => ({
+    select: () => ({ sort: () => ({ lean: async () => ({ state: "staged" }) }) }),
+  });
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, recoveryAcknowledged: "true", ...h,
+  }), /Previous seller import is incomplete/);
+  assert.equal(h.writes.length, 0);
 });
