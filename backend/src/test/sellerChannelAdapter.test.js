@@ -221,6 +221,7 @@ test("server-owned Amazon resume token is used for next bounded request and neve
     getCredential, fetchImpl: fetchFixture([
       { access_token: "short-lived" },
       { orders: [{ orderId: "FIRST" }], nextToken: "opaque-secret" },
+      { orders: [{ orderId: "SECOND" }], nextToken: null },
     ]),
   });
   assert.equal(Object.hasOwn(publicRead, "internalResumeCursor"), false);
