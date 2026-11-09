@@ -8,6 +8,7 @@ import { createServiceError } from "../../shared/serviceError.js";
 import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { encryptIntegrationSecret, decryptIntegrationSecret } from "../integrationPlatform/integrationSecrets.js";
 import { withSellerImportLease } from "./sellerChannelImportLeaseService.js";
+import { assertSellerRecoveryReviewed } from "./sellerChannelRecoveryGuard.js";
 
 function requiredId(value, field) {
   if (!mongoose.isValidObjectId(value)) {
@@ -190,6 +191,10 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
     businessId, connectionId: connection._id, kind, leaseModel: options.leaseModel,
   }, async (assertLeaseOwned) => {
     const runModel = options.runModel || SellerChannelImportRun;
+    const recovery = await assertSellerRecoveryReviewed({
+      runModel, businessId, connection, kind,
+      recoveryAcknowledged: options.recoveryAcknowledged === true,
+    });
     const runId = randomUUID();
     const scope = { business: businessId, connection: connection._id, kind, runId };
     await runModel.create({
@@ -209,7 +214,10 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
       await runModel.updateOne(scope, {
         $set: { state: "completed", finishedAt: new Date() },
       });
-      return result;
+      return Object.freeze({
+        ...result,
+        recoveryReviewAcknowledged: recovery.recoveryAcknowledged,
+      });
     } catch (error) {
       // This journal is diagnostic; preserve the original error if the
       // database also fails while recording an unsuccessful attempt.
