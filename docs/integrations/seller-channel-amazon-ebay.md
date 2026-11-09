@@ -226,3 +226,17 @@ resume. This acknowledgement records intent only: **it does not roll back,
 repair, delete, or automatically reconcile prior records**, nor does it make
 external shipping, payment or Commerce mutations. It is not a substitute
 for database transactions or production recovery acceptance.
+
+### Failed-run cursor safety
+
+If the latest import journal entry is failed or incomplete, an operator's
+`recoveryAcknowledged: true` authorises **only a fresh staged import**
+(without `?resume=true`). A saved continuation may have advanced before
+the journal or audit failed; attempting to reuse that cursor now returns
+HTTP 409 `SELLER_RECOVERY_FRESH_IMPORT_REQUIRED`, even with
+acknowledgement. The manual importer must restart at the provider's
+initial bounded page and idempotently upsert staged records.
+
+This is a fail-closed safety rule rather than transactional crash recovery:
+the current stage/checkpoint/audit writes remain separate. Do not enable
+unattended scheduling until crash-consistent checkpoint commits are accepted.
