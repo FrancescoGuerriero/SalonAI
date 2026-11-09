@@ -10,10 +10,18 @@ const connection = {
 };
 const now = new Date("2026-11-09T15:00:00Z");
 
-function models({ leases = [], checkpoints = [] } = {}) {
+function models({ leases = [], checkpoints = [], runs = [] } = {}) {
   const queried = [];
   return {
     queried,
+    runModel: {
+      findOne(filter) {
+        queried.push({ type: "run", filter });
+        return { select: () => ({ sort: () => ({
+          lean: async () => runs.find((item) => item.kind === filter.kind) || null,
+        }) }) };
+      },
+    },
     leaseModel: {
       find(filter) {
         queried.push({ type: "lease", filter });
@@ -92,4 +100,21 @@ test("status endpoint requires trusted ownership and read permission; never retu
   assert.doesNotMatch(service, /\.deleteOne\(|\.updateOne\(|\.bulkWrite\(/);
   assert.match(service, /\.select\("kind expiresAt"\)/);
   assert.match(service, /\.select\("kind lastObservedAt stagedCount pagesFetched sourcePageComplete resumeSupported"\)/);
+});
+
+test("partial or failed import runs are visible without exposing provider data", async () => {
+  const m = models({
+    runs: [{ kind: "orders", state: "failed", stagedCount: 3,
+      failureClass: "checkpoint", startedAt: new Date("2026-11-09T14:45:00Z"),
+      finishedAt: new Date("2026-11-09T14:47:00Z"),
+      cursorCiphertext: "secret", providerPayload: "buyer-private" }],
+  });
+  const result = await inspectSellerChannelImportStatus(connection, { businessId, now, ...m });
+  assert.equal(result.kinds[1].latestRunState, "failed");
+  assert.equal(result.kinds[1].latestRunFailureClass, "checkpoint");
+  assert.equal(result.kinds[1].recoveryReviewRequired, true);
+  assert.equal(result.kinds[0].recoveryReviewRequired, false);
+  assert.ok(!JSON.stringify(result).includes("buyer-private"));
+  assert.ok(!JSON.stringify(result).includes("secret"));
+  assert.equal(m.queried.find((row) => row.type === "run").filter.business, businessId);
 });
