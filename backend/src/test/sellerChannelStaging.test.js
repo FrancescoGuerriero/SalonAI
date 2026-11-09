@@ -13,7 +13,7 @@ const connection = {
   status: "connected",
 };
 function harness(records) {
-  const writes = [], audits = [], checkpoints = [], leases = [];
+  const writes = [], audits = [], checkpoints = [], leases = [], runs = [];
   const leaseModel = {
     create: async (record) => { leases.push(record); },
     findOneAndUpdate: async (filter) =>
@@ -21,7 +21,15 @@ function harness(records) {
     deleteOne: async (filter) => { leases.push({ released: filter }); },
   };
   return {
-    writes, audits, checkpoints, leases, leaseModel,
+    writes, audits, checkpoints, leases, leaseModel, runs,
+    runModel: {
+      create: async (record) => { runs.push({ ...record }); },
+      updateOne: async (filter, update) => {
+        const run = runs.find((item) => item.runId === filter.runId);
+        if (!run) throw new Error("Missing run");
+        Object.assign(run, update.$set);
+      },
+    },
     checkpointModel: { findOne: () => ({ lean: async () => null }), findOneAndUpdate: async (filter, update, options) => {
       checkpoints.push({ filter, update, options });
     } },
@@ -40,6 +48,8 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(result.state, "staging_only");
   assert.equal(result.sourcePageComplete, false);
   assert.equal(h.writes.length, 1);
+  assert.equal(h.runs[0].state, "completed");
+  assert.equal(h.runs[0].stagedCount, 1);
   assert.equal(h.leases.length, 2);
   assert.equal(h.leases[0].business, businessId);
   assert.equal(h.leases[1].released.owner, h.leases[0].owner);
@@ -224,4 +234,35 @@ test("staging fails closed after import lease ownership expires before provider 
   assert.equal(f.checkpoints.length, 0);
   assert.equal(f.audits.length, 0);
   assert.equal(f.leases.length, 2);
+});
+
+test("failed checkpoint is journalled and source staging is not misreported as complete", async () => {
+  const h = harness([{ sku: "SKU-RECOVERY", quantity: 1 }]);
+  h.checkpointModel.findOneAndUpdate = async () => {
+    throw new Error("Checkpoint database temporarily unavailable");
+  };
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...h,
+  }), /Checkpoint database temporarily unavailable/);
+  assert.equal(h.writes.length, 1);
+  assert.equal(h.runs.length, 1);
+  assert.equal(h.runs[0].state, "failed");
+  assert.equal(h.runs[0].failureClass, "checkpoint");
+  assert.equal(h.runs[0].stagedCount, 1);
+  assert.equal(h.audits.length, 0);
+  assert.equal(h.leases.length, 2);
+  assert.equal(h.runs[0].connection, connection._id);
+  assert.ok(!JSON.stringify(h.runs).includes("SKU-RECOVERY"));
+});
+
+test("provider failure is journalled without staging or a false checkpoint", async () => {
+  const h = harness([]);
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...h,
+    readSnapshot: async () => { throw new Error("No seller credentials"); },
+  }), /No seller credentials/);
+  assert.equal(h.runs[0].state, "failed");
+  assert.equal(h.runs[0].failureClass, "provider_or_validation");
+  assert.equal(h.writes.length, 0);
+  assert.equal(h.checkpoints.length, 0);
 });
