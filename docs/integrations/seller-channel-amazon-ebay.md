@@ -73,6 +73,28 @@ tests alone.
 
 ## Bounded pagination and staging completeness
 
+
+## Explicit resumable staging (server-owned cursor)
+
+Manual staging supports `POST .../:connectionId/stage/:kind?resume=true` to
+continue from the last provider page when the existing trusted connection
+has an unfinished checkpoint. This requires the same operator permissions
+and connected tenant-owned provider account as an initial staging request.
+Opaque Amazon page tokens and eBay numeric offsets are **never accepted in
+request parameters, API responses, or audit logs**. The checkpoint's provider
+cursor is encrypted using the already-required
+`INTEGRATION_SECRET_ENCRYPTION_KEY` with AES-256-GCM. On a completed bounded
+read, encrypted cursor fields are cleared and `resumeSupported` becomes
+false. Missing or invalid checkpoints fail closed, and the original snapshot
+records are still staged into a separate collection.
+
+Resume is a **manual partial-page continuation**, not autonomous historical
+backfill, long-running background sync, conflict-safe canonical inventory
+writeback, or production readiness. Encrypted cursor validity and expiry
+are provider-controlled; any rejected/expired token requires an explicit new
+import. Simultaneous staging requests and full checkpoint recovery need
+separate concurrency/operational acceptance before live activation.
+
 The connector now follows fixed-origin provider pagination internally for a
 maximum of **5 pages or 50 normalized records** per operator request.
 Amazon Orders `nextToken` is supplied to `paginationToken`; Amazon
