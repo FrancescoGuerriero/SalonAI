@@ -26,6 +26,14 @@ function sharedLeaseModel() {
       active.set(key(record), record);
       return record;
     },
+    async findOneAndUpdate(filter, update) {
+      const existing = active.get(key(filter));
+      if (!existing || existing.owner !== filter.owner ||
+          new Date(existing.expiresAt).getTime() <= new Date(filter.expiresAt.$gt).getTime()) return null;
+      const refreshed = { ...existing, expiresAt: update.$set.expiresAt };
+      active.set(key(filter), refreshed);
+      return refreshed;
+    },
     async deleteOne(filter) {
       released.push(filter);
       const previous = active.get(key(filter));
@@ -86,4 +94,31 @@ test("seller lease model defines unique ownership scope and a ten minute TTL", a
   assert.match(model, /expiresAt: 1.*expireAfterSeconds: 0/);
   assert.match(service, /TEN_MINUTES = 10 \* 60 \* 1000/);
   assert.match(service, /deleteOne\(\{ \.\.\.filter, owner \}\)/);
+});
+
+test("lease fencing refuses staging after ownership expires, without releasing another owner's lock", async () => {
+  const model = sharedLeaseModel();
+  const scope = { businessId, connectionId, kind, leaseModel: model };
+  await assert.rejects(withSellerImportLease(scope, async (assertLeaseOwned) => {
+    const key = [businessId, connectionId, kind].join(":");
+    const original = model.active.get(key);
+    model.active.set(key, {
+      ...original, expiresAt: new Date(Date.now() - 1000),
+    });
+    await assertLeaseOwned();
+  }), /ownership expired/);
+  assert.equal(model.active.size, 1);
+  assert.equal(model.released.length, 1);
+});
+test("lease fencing renews a valid owner before a protected write", async () => {
+  const model = sharedLeaseModel();
+  const result = await withSellerImportLease({
+    businessId, connectionId, kind, leaseModel: model,
+  }, async (assertLeaseOwned) => {
+    await assertLeaseOwned();
+    await assertLeaseOwned();
+    return "still owned";
+  });
+  assert.equal(result, "still owned");
+  assert.equal(model.active.size, 0);
 });
