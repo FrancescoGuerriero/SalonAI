@@ -14,6 +14,7 @@ const schema = new mongoose.Schema({
     "started", "provider_read", "staged", "checkpointed", "completed", "failed",
   ], required: true, default: "started", index: true },
   stagedCount: { type: Number, min: 0, max: 50, default: 0 },
+  recoveryReviewAcknowledged: { type: Boolean, default: false },
   failureClass: { type: String, enum: ["provider_or_validation", "staging", "checkpoint", "audit", "unknown"], default: undefined },
   startedAt: { type: Date, default: Date.now, required: true },
   finishedAt: { type: Date, default: null },
