@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import AuditLog from "../../models/AuditLog.js";
 import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.js";
+import SellerChannelSyncCheckpoint from "../../models/SellerChannelSyncCheckpoint.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 
@@ -47,6 +48,7 @@ export async function stageSellerChannelSnapshot(connection, kind, {
   businessId, actorId, requestId = "",
   readSnapshot = fetchSellerChannelSnapshot,
   recordsModel = SellerChannelStagingRecord,
+  checkpointModel = SellerChannelSyncCheckpoint,
   auditModel = AuditLog,
 } = {}) {
   requiredId(businessId, "business");
@@ -93,6 +95,19 @@ export async function stageSellerChannelSnapshot(connection, kind, {
     },
   }));
   if (writes.length) await recordsModel.bulkWrite(writes, { ordered: true });
+  // Source observation is complete only for this bounded request; do not
+  // persist provider cursors or claim full historical reconciliation.
+  await checkpointModel.findOneAndUpdate({
+    business: businessId, connection: connection._id, kind,
+  }, {
+    $set: {
+      provider: connection.provider, lastObservedAt: observed,
+      stagedCount: writes.length, pagesFetched: snapshot.pagesFetched ?? null,
+      sourcePageComplete: snapshot.completeWithinLimit === true,
+    },
+    $setOnInsert: { business: businessId, connection: connection._id, kind, resumeSupported: false },
+  }, { upsert: true, new: true });
+
   await auditModel.create({
     actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
     resourceId: String(connection._id), requestId,
