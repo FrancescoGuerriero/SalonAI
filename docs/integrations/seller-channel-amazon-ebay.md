@@ -191,3 +191,22 @@ Those records remain tenant-scoped and idempotently upserted. Full
 crash-recovery guarantees require a separate transactional or fenced
 batch-commit design and production database acceptance before scheduled
 synchronisation can be enabled.
+
+## Partial-import journal and recovery review
+
+Every operator-initiated, lease-protected staging request now creates a
+tenant-owned `SellerChannelImportRun` journal entry before provider reads.
+It records phase progression (`started`, `provider_read`, `staged`,
+`checkpointed`, `completed`) or a sanitized `failed` state. The
+journal stores no provider token, customer data, listing contents or raw
+exception message. If a process crashes, the last run can remain in an
+unfinished state; the operator-facing `import-status` endpoint surfaces
+`latestRunState`, `latestRunFailureClass` and
+`recoveryReviewRequired` without claiming completion.
+
+The journal is **diagnostic rather than transactional**. A crash after a
+staging bulk write can still leave idempotently staged records without
+a checkpoint; this must be inspected and replayed under a fresh lease.
+The import remains manual and produces no canonical Commerce writes.
+MongoDB unique indexes, failure recovery and multi-process acceptance
+must be verified before production activation.
