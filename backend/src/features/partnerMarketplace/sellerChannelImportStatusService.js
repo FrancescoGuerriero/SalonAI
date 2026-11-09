@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import SellerChannelImportLease from "../../models/SellerChannelImportLease.js";
 import SellerChannelSyncCheckpoint from "../../models/SellerChannelSyncCheckpoint.js";
+import SellerChannelImportRun from "../../models/SellerChannelImportRun.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 const KINDS = Object.freeze(["listings", "orders"]);
@@ -19,6 +20,7 @@ export async function inspectSellerChannelImportStatus(connection, {
   businessId, now = new Date(),
   leaseModel = SellerChannelImportLease,
   checkpointModel = SellerChannelSyncCheckpoint,
+  runModel = SellerChannelImportRun,
 } = {}) {
   if (!mongoose.isValidObjectId(businessId) ||
       !mongoose.isValidObjectId(connection?._id) ||
@@ -30,10 +32,14 @@ export async function inspectSellerChannelImportStatus(connection, {
     });
   }
   const scope = { business: businessId, connection: connection._id };
-  const [leases, checkpoints] = await Promise.all([
+  const [leases, checkpoints, latestRuns] = await Promise.all([
     leaseModel.find(scope).select("kind expiresAt").lean(),
     checkpointModel.find({ ...scope, provider: connection.provider })
       .select("kind lastObservedAt stagedCount pagesFetched sourcePageComplete resumeSupported").lean(),
+    Promise.all(KINDS.map((kind) => runModel.findOne({
+      ...scope, provider: connection.provider, kind,
+    }).select("kind state stagedCount startedAt finishedAt failureClass")
+      .sort({ startedAt: -1, _id: -1 }).lean())),
   ]);
   if (!Array.isArray(leases) || !Array.isArray(checkpoints)) {
     throw createServiceError("Seller import status could not be verified.", 503);
@@ -44,6 +50,7 @@ export async function inspectSellerChannelImportStatus(connection, {
     .map((row) => [row.kind, row]));
   const statuses = KINDS.map((kind) => {
     const checkpoint = byKind.get(kind);
+    const run = latestRuns.find((item) => item?.kind === kind);
     const lease = leases.find((row) => row.kind === kind);
     const expiration = lease?.expiresAt ? new Date(lease.expiresAt).getTime() : null;
     const lockState = expiration == null ? "idle" :
@@ -55,6 +62,11 @@ export async function inspectSellerChannelImportStatus(connection, {
       pagesFetched: checkpoint?.pagesFetched ?? null,
       sourcePageComplete: checkpoint?.sourcePageComplete === true,
       resumeAvailable: checkpoint?.resumeSupported === true,
+      latestRunState: run?.state || null,
+      latestRunFailureClass: run?.state === "failed" ? run.failureClass || "unknown" : null,
+      latestRunStartedAt: safeDate(run?.startedAt),
+      latestRunFinishedAt: safeDate(run?.finishedAt),
+      recoveryReviewRequired: Boolean(run && run.state !== "completed" && lockState !== "active"),
       historicalSyncComplete: false,
       canonicalRecordsWritten: 0,
     });
