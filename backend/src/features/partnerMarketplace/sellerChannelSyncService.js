@@ -199,6 +199,7 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
     const scope = { business: businessId, connection: connection._id, kind, runId };
     await runModel.create({
       ...scope, provider: connection.provider, state: "started", startedAt: new Date(),
+      recoveryReviewAcknowledged: recovery.recoveryAcknowledged,
     });
     let phase = "provider_or_validation";
     const recordProgress = async (state, extras = {}) => {
