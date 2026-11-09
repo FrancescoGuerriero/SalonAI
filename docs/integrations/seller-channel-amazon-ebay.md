@@ -150,3 +150,25 @@ index deployment and concurrent behavior.
 Both **unique and TTL indexes must be created and verified** before enabling
 manual live staging. This lease is not a distributed job scheduler or
 autonomous stock synchronization and does not authorise Commerce writes.
+
+## Operator import status (read-only)
+
+The protected `GET /api/future/integrations/seller-channels/:connectionId/import-status`
+requires `feature-control:read` and resolves the **existing trusted
+business-owned connection**. It reports the listings and orders import
+states independently: `idle`, `active`, or
+`expired_pending_cleanup` (MongoDB TTL cleanup may lag), plus the
+last bounded observation, staged count, pages fetched, and whether an
+encrypted continuation can be resumed.
+
+It does **not** call the external marketplace, unlock a lease, reveal
+the lock owner, return raw checkpoint records or release opaque cursors.
+An expired lease should be treated as *pending cleanup*, not permission
+to run another import immediately; the unique index remains the final
+admission authority. The import-status view does not certify historical
+synchronization or production readiness.
+
+Operator sequence: inspect import status, ensure no active/expired lease
+blocks import, initiate a manual stage or explicit resume, then inspect
+status and the dry-run SKU reconciliation. No stock/order changes or
+external listing/shipping/refund actions are authorised by this workflow.
