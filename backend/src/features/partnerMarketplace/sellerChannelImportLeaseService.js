@@ -35,8 +35,22 @@ export async function withSellerImportLease({
     }
     throw error;
   }
+  // Fencing check: a slow provider read may outlive its TTL. Refresh only
+  // this owner's unexpired lease before any staged/checkpoint writes.
+  const assertLeaseOwned = async () => {
+    const renewed = await leaseModel.findOneAndUpdate({
+      ...filter, owner, expiresAt: { $gt: new Date() },
+    }, {
+      $set: { expiresAt: new Date(Date.now() + TEN_MINUTES) },
+    }, { new: true });
+    if (!renewed) {
+      throw createServiceError("Seller import ownership expired; refuse staging.", 409, {
+        code: "SELLER_IMPORT_LEASE_EXPIRED",
+      });
+    }
+  };
   try {
-    return await callback();
+    return await callback(assertLeaseOwned);
   } finally {
     // Ownership predicate prevents a delayed request from releasing
     // a lock belonging to a newer request after TTL cleanup.
