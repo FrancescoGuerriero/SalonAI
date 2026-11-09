@@ -202,3 +202,46 @@ test("seller pagination returns bounded partial result instead of claiming compl
   assert.equal(result.completeWithinLimit, false);
   assert.equal(result.nextPageAvailable, true);
 });
+
+test("server-owned Amazon resume token is used for next bounded request and never appears publicly", async () => {
+  const calls = [];
+  const resumed = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    resumeCursor: "safe-amz-next", includeResumeCursor: true,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { orders: [{ orderId: "ORD-RESUMED" }] },
+    ], calls),
+  });
+  assert.equal(resumed.records[0].externalOrderId, "ORD-RESUMED");
+  const endpoint = new URL(calls[1].url);
+  assert.equal(endpoint.searchParams.get("paginationToken"), "safe-amz-next");
+  assert.equal(endpoint.searchParams.has("createdAfter"), false);
+  assert.equal(resumed.internalResumeCursor, null);
+  const publicRead = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { orders: [{ orderId: "FIRST" }], nextToken: "opaque-secret" },
+    ]),
+  });
+  assert.equal(Object.hasOwn(publicRead, "internalResumeCursor"), false);
+  assert.equal(publicRead.nextPageAvailable, true);
+  assert.ok(!JSON.stringify(publicRead).includes("opaque-secret"));
+});
+
+test("server-owned eBay pagination offset resumes only at the fixed allowed endpoint", async () => {
+  const calls = [];
+  const result = await fetchSellerChannelSnapshot(EBAY, "listings", {
+    resumeCursor: "24", includeResumeCursor: true,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { inventoryItems: [{ sku: "SKU-RESUME" }], total: 25 },
+    ], calls),
+  });
+  assert.equal(new URL(calls[1].url).searchParams.get("offset"), "24");
+  assert.equal(result.records[0].sku, "SKU-RESUME");
+  assert.equal(result.internalResumeCursor, null);
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    resumeCursor: "https://attacker.example", getCredential,
+    fetchImpl: () => { throw new Error("Network called for invalid resume"); },
+  }), /Invalid saved seller cursor/);
+});
