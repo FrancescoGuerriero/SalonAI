@@ -16,6 +16,8 @@ function harness(records) {
   const writes = [], audits = [], checkpoints = [], leases = [];
   const leaseModel = {
     create: async (record) => { leases.push(record); },
+    findOneAndUpdate: async (filter) =>
+      leases.find((lease) => lease.owner === filter.owner) || null,
     deleteOne: async (filter) => { leases.push({ released: filter }); },
   };
   return {
@@ -210,4 +212,16 @@ test("seller import lease releases its own lock when provider read fails", async
   assert.equal(f.leases[1].released.owner, f.leases[0].owner);
   assert.equal(f.checkpoints.length, 0);
   assert.equal(f.audits.length, 0);
+});
+
+test("staging fails closed after import lease ownership expires before provider results are written", async () => {
+  const f = harness([{ sku: "SKU-EXP", quantity: 3 }]);
+  f.leaseModel.findOneAndUpdate = async () => null;
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...f,
+  }), /ownership expired/);
+  assert.equal(f.writes.length, 0);
+  assert.equal(f.checkpoints.length, 0);
+  assert.equal(f.audits.length, 0);
+  assert.equal(f.leases.length, 2);
 });
