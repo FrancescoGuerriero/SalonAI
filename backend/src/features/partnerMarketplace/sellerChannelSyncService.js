@@ -9,6 +9,7 @@ import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { encryptIntegrationSecret, decryptIntegrationSecret } from "../integrationPlatform/integrationSecrets.js";
 import { withSellerImportLease } from "./sellerChannelImportLeaseService.js";
 import { assertSellerRecoveryReviewed } from "./sellerChannelRecoveryGuard.js";
+import { withSellerAtomicSourceCommit } from "./sellerChannelAtomicCommit.js";
 
 function requiredId(value, field) {
   if (!mongoose.isValidObjectId(value)) {
@@ -56,6 +57,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
   checkpointModel = SellerChannelSyncCheckpoint,
   auditModel = AuditLog, assertLeaseOwned = async () => {},
   recordProgress = async () => {},
+  atomicStaging = false, startSession,
 } = {}) {
   requiredId(businessId, "business");
   requiredId(actorId, "actor");
@@ -129,35 +131,51 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
       upsert: true,
     },
   }));
-  await assertLeaseOwned();
-  if (writes.length) await recordsModel.bulkWrite(writes, { ordered: true });
-  await recordProgress("staged", { stagedCount: writes.length });
-  // Source observation is complete only for this bounded request; do not
-  // persist provider cursors or claim full historical reconciliation.
-  await assertLeaseOwned();
-  await checkpointModel.findOneAndUpdate({
-    business: businessId, connection: connection._id, kind,
-  }, {
-    $set: {
-      provider: connection.provider, lastObservedAt: observed,
-      stagedCount: writes.length, pagesFetched: snapshot.pagesFetched ?? null,
-      sourcePageComplete: snapshot.completeWithinLimit === true,
-      resumeSupported: Boolean(secured),
-      cursorCiphertext: secured?.ciphertext || "",
-      cursorIv: secured?.iv || "",
-      cursorTag: secured?.tag || "",
-    },
-    $setOnInsert: { business: businessId, connection: connection._id, kind },
-  }, { upsert: true, new: true });
+  const commitSourceRecords = async (session = null) => {
+    const writeOptions = session ? { ordered: true, session } : { ordered: true };
+    await assertLeaseOwned();
+    if (writes.length) await recordsModel.bulkWrite(writes, writeOptions);
+    await recordProgress("staged", { stagedCount: writes.length }, session);
+    // A checkpoint must not advance ahead of staged source records.
+    await assertLeaseOwned();
+    await checkpointModel.findOneAndUpdate({
+      business: businessId, connection: connection._id, kind,
+    }, {
+      $set: {
+        provider: connection.provider, lastObservedAt: observed,
+        stagedCount: writes.length, pagesFetched: snapshot.pagesFetched ?? null,
+        sourcePageComplete: snapshot.completeWithinLimit === true,
+        resumeSupported: Boolean(secured),
+        cursorCiphertext: secured?.ciphertext || "",
+        cursorIv: secured?.iv || "",
+        cursorTag: secured?.tag || "",
+      },
+      $setOnInsert: { business: businessId, connection: connection._id, kind },
+    }, { upsert: true, new: true, ...(session ? { session } : {}) });
 
-  await recordProgress("checkpointed");
-  await assertLeaseOwned();
-  await auditModel.create({
-    actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
-    resourceId: String(connection._id), requestId,
-    metadata: { businessId: String(businessId), provider: connection.provider, kind, count: writes.length,
-      sourcePageComplete: snapshot.completeWithinLimit === true, pagesFetched: snapshot.pagesFetched ?? null },
-  });
+    await recordProgress("checkpointed", {}, session);
+    await assertLeaseOwned();
+    const audit = {
+      actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
+      resourceId: String(connection._id), requestId,
+      metadata: {
+        businessId: String(businessId), provider: connection.provider, kind, count: writes.length,
+        sourcePageComplete: snapshot.completeWithinLimit === true, pagesFetched: snapshot.pagesFetched ?? null,
+      },
+    };
+    if (session) {
+      await auditModel.create([audit], { session });
+      // Journal completion is in the SAME transaction as stage and checkpoint.
+      await recordProgress("completed", { finishedAt: new Date() }, session);
+    } else {
+      await auditModel.create(audit);
+    }
+  };
+  if (atomicStaging === true) {
+    await withSellerAtomicSourceCommit(commitSourceRecords, { startSession });
+  } else {
+    await commitSourceRecords();
+  }
   return Object.freeze({
     provider: connection.provider, kind, stagedCount: writes.length,
     uniqueExternalIds: writes.length, sourcePageComplete: snapshot.completeWithinLimit === true,
@@ -203,9 +221,9 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
       recoveryReviewAcknowledged: recovery.recoveryAcknowledged,
     });
     let phase = "provider_or_validation";
-    const recordProgress = async (state, extras = {}) => {
+    const recordProgress = async (state, extras = {}, session = null) => {
       await assertLeaseOwned();
-      await runModel.updateOne(scope, { $set: { state, ...extras } });
+      await runModel.updateOne(scope, { $set: { state, ...extras } }, session ? { session } : {});
       phase = state === "staged" ? "checkpoint" :
         state === "checkpointed" ? "audit" : "staging";
     };
@@ -213,9 +231,11 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
       const result = await stageSellerChannelSnapshotUnlocked(connection, kind, {
         ...options, assertLeaseOwned, recordProgress,
       });
-      await runModel.updateOne(scope, {
-        $set: { state: "completed", finishedAt: new Date() },
-      });
+      if (options.atomicStaging !== true) {
+        await runModel.updateOne(scope, {
+          $set: { state: "completed", finishedAt: new Date() },
+        });
+      }
       return Object.freeze({
         ...result,
         recoveryReviewAcknowledged: recovery.recoveryAcknowledged,
