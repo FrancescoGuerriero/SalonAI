@@ -194,6 +194,7 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
     const recovery = await assertSellerRecoveryReviewed({
       runModel, businessId, connection, kind,
       recoveryAcknowledged: options.recoveryAcknowledged === true,
+      resume: options.resume === true,
     });
     const runId = randomUUID();
     const scope = { business: businessId, connection: connection._id, kind, runId };
