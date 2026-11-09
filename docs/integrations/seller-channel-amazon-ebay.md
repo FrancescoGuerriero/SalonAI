@@ -125,8 +125,8 @@ not silently corrected.
 Each explicit staging run updates a tenant- and connection-scoped
 `SellerChannelSyncCheckpoint` observation with last observed timestamp,
 kind, page count, staged count and whether the bounded source page was
-exhausted. `resumeSupported=false` is intentional: no durable provider
-cursor/replay is implemented yet, and source completeness does not prove
-historical inventory/order synchronization. The unique checkpoint index
+exhausted. `resumeSupported` is true only when an encrypted continuation
+cursor is present; a completed run clears the cursor. This bounded manual
+resume flow does not prove historical inventory/order synchronization. The unique checkpoint index
 is `(business, connection, kind)`, and it is not a Commerce entitlement,
 stock adjustment or order reconciliation event.
