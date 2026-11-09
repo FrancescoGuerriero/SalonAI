@@ -73,6 +73,7 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
       businessId: request.effectiveAuthority.businessId,
       actorId: request.user?._id || request.user?.id,
       requestId: request.requestId || "",
+      resume: request.query.resume === "true",
     });
     response.status(200).json({ success: true, result });
   }));
