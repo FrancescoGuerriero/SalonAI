@@ -13,9 +13,13 @@ const connection = {
   status: "connected",
 };
 function harness(records) {
-  const writes = [], audits = [], checkpoints = [];
+  const writes = [], audits = [], checkpoints = [], leases = [];
+  const leaseModel = {
+    create: async (record) => { leases.push(record); },
+    deleteOne: async (filter) => { leases.push({ released: filter }); },
+  };
   return {
-    writes, audits, checkpoints,
+    writes, audits, checkpoints, leases, leaseModel,
     checkpointModel: { findOne: () => ({ lean: async () => null }), findOneAndUpdate: async (filter, update, options) => {
       checkpoints.push({ filter, update, options });
     } },
@@ -34,6 +38,9 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(result.state, "staging_only");
   assert.equal(result.sourcePageComplete, false);
   assert.equal(h.writes.length, 1);
+  assert.equal(h.leases.length, 2);
+  assert.equal(h.leases[0].business, businessId);
+  assert.equal(h.leases[1].released.owner, h.leases[0].owner);
   assert.equal(h.checkpoints.length, 1);
   assert.equal(h.checkpoints[0].filter.business, businessId);
   assert.equal(h.checkpoints[0].update.$set.sourcePageComplete, false);
@@ -175,4 +182,32 @@ test("resume refuses absent checkpoint before contacting provider", async () => 
   }), /No resumable seller checkpoint/);
   assert.equal(fetchCount, 0);
   assert.equal(f.writes.length, 0);
+});
+
+test("seller staging lease rejects a competing import before provider read", async () => {
+  const f = harness([]);
+  let fetched = 0;
+  f.leaseModel.create = async () => {
+    const conflict = new Error("duplicate key");
+    conflict.code = 11000;
+    throw conflict;
+  };
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...f,
+    readSnapshot: async () => { fetched++; throw new Error("Unexpected provider read"); },
+  }), /already running/);
+  assert.equal(fetched, 0);
+  assert.equal(f.writes.length, 0);
+});
+
+test("seller import lease releases its own lock when provider read fails", async () => {
+  const f = harness([]);
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+    businessId, actorId, ...f,
+    readSnapshot: async () => { throw new Error("Provider unavailable"); },
+  }), /Provider unavailable/);
+  assert.equal(f.leases.length, 2);
+  assert.equal(f.leases[1].released.owner, f.leases[0].owner);
+  assert.equal(f.checkpoints.length, 0);
+  assert.equal(f.audits.length, 0);
 });
