@@ -210,3 +210,19 @@ a checkpoint; this must be inspected and replayed under a fresh lease.
 The import remains manual and produces no canonical Commerce writes.
 MongoDB unique indexes, failure recovery and multi-process acceptance
 must be verified before production activation.
+
+## Recovery-review gate before retries
+
+A failed or unfinished `SellerChannelImportRun` cannot be silently replaced
+by another manual staging request. Under the same unique tenant/connection/kind
+lease, the service inspects the most recent run and **fails closed** with HTTP
+409 `SELLER_RECOVERY_REVIEW_REQUIRED` before contacting Amazon or eBay
+unless an authorised operator explicitly sends JSON
+`{"recoveryAcknowledged":true}` on the existing staging POST request.
+
+Operators should inspect `import-status`, review the failed phase and
+staged records, and choose a manual fresh import or explicit encrypted-cursor
+resume. This acknowledgement records intent only: **it does not roll back,
+repair, delete, or automatically reconcile prior records**, nor does it make
+external shipping, payment or Commerce mutations. It is not a substitute
+for database transactions or production recovery acceptance.
