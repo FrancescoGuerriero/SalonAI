@@ -10,6 +10,7 @@ import { createServiceError } from "../../shared/serviceError.js";
 import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
+import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
@@ -50,6 +51,15 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     productionAccepted: false,
   });
 });
+
+// Operational visibility only: no provider calls or cursor/lease-owner exposure.
+router.get("/:connectionId/import-status", requirePermissions("feature-control:read"),
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelImportStatus(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+    });
+    response.status(200).json({ success: true, result });
+  }));
 
 // Dry-run reconciliation uses exclusively the server-verified location authority.
 router.get("/:connectionId/reconciliation", requirePermissions("inventory:read"),
