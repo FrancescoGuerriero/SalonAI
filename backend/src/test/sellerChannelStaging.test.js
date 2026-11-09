@@ -16,7 +16,7 @@ function harness(records) {
   const writes = [], audits = [], checkpoints = [];
   return {
     writes, audits, checkpoints,
-    checkpointModel: { findOneAndUpdate: async (filter, update, options) => {
+    checkpointModel: { findOne: () => ({ lean: async () => null }), findOneAndUpdate: async (filter, update, options) => {
       checkpoints.push({ filter, update, options });
     } },
     readSnapshot: async () => ({ provider: "ebay", kind: "listings", records }),
@@ -37,7 +37,7 @@ test("manual seller sync stages tenant-owned records with idempotent keys and au
   assert.equal(h.checkpoints.length, 1);
   assert.equal(h.checkpoints[0].filter.business, businessId);
   assert.equal(h.checkpoints[0].update.$set.sourcePageComplete, false);
-  assert.equal(h.checkpoints[0].update.$setOnInsert.resumeSupported, false);
+  assert.equal(h.checkpoints[0].update.$set.resumeSupported, false);
   const op = h.writes[0].updateOne;
   assert.deepEqual(op.filter, {
     business: businessId, connection: connection._id, kind: "listings", externalId: "SKU-1",
@@ -113,4 +113,66 @@ test("staging signals a completely read provider page without claiming canonical
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(h.audits[0].metadata.sourcePageComplete, true);
   assert.equal(h.checkpoints[0].update.$set.sourcePageComplete, true);
+});
+
+test("encrypted seller continuation is scoped to the connection and never appears in response or audit", async () => {
+  const previous = process.env.INTEGRATION_SECRET_ENCRYPTION_KEY;
+  process.env.INTEGRATION_SECRET_ENCRYPTION_KEY = "test-only-seller-checkpoint-secret";
+  try {
+    const first = harness([{ sku: "SKU-A", quantity: 3 }]);
+    first.readSnapshot = async (_connection, _kind, options) => {
+      assert.equal(options.resumeCursor, null);
+      assert.equal(options.includeResumeCursor, true);
+      return {
+        provider: "ebay", kind: "listings", records: [{ sku: "SKU-A", quantity: 3 }],
+        nextPageAvailable: true, internalResumeCursor: "28",
+        pagesFetched: 5, completeWithinLimit: false,
+      };
+    };
+    const staged = await stageSellerChannelSnapshot(connection, "listings", {
+      businessId, actorId, ...first,
+    });
+    assert.equal(staged.resumeAvailable, true);
+    assert.equal(first.checkpoints[0].update.$set.resumeSupported, true);
+    assert.notEqual(first.checkpoints[0].update.$set.cursorCiphertext, "28");
+    assert.ok(!JSON.stringify(staged).includes("28"));
+    assert.ok(!JSON.stringify(first.audits).includes("28"));
+
+    const checkpoint = first.checkpoints[0].update.$set;
+    const second = harness([]);
+    second.checkpointModel.findOne = (filter) => ({
+      lean: async () => {
+        assert.equal(filter.business, businessId);
+        assert.equal(filter.connection, connection._id);
+        assert.equal(filter.provider, "ebay");
+        return checkpoint;
+      },
+    });
+    second.readSnapshot = async (_connection, _kind, options) => {
+      assert.equal(options.resumeCursor, "28");
+      return { provider: "ebay", kind: "listings", records: [],
+        completeWithinLimit: true, nextPageAvailable: false, pagesFetched: 1 };
+    };
+    const resumed = await stageSellerChannelSnapshot(connection, "listings", {
+      businessId, actorId, resume: true, ...second,
+    });
+    assert.equal(resumed.resumeAvailable, false);
+    assert.equal(second.checkpoints[0].update.$set.cursorCiphertext, "");
+    assert.equal(second.checkpoints[0].update.$set.resumeSupported, false);
+    assert.equal(resumed.canonicalRecordsWritten, 0);
+  } finally {
+    if (previous === undefined) delete process.env.INTEGRATION_SECRET_ENCRYPTION_KEY;
+    else process.env.INTEGRATION_SECRET_ENCRYPTION_KEY = previous;
+  }
+});
+
+test("resume refuses absent checkpoint before contacting provider", async () => {
+  const f = harness([]);
+  let fetchCount = 0;
+  await assert.rejects(stageSellerChannelSnapshot(connection, "orders", {
+    businessId, actorId, resume: true, ...f,
+    readSnapshot: async () => { fetchCount++; throw new Error("Provider should not be called"); },
+  }), /No resumable seller checkpoint/);
+  assert.equal(fetchCount, 0);
+  assert.equal(f.writes.length, 0);
 });
