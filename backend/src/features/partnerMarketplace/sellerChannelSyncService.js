@@ -4,6 +4,7 @@ import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.
 import SellerChannelSyncCheckpoint from "../../models/SellerChannelSyncCheckpoint.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { encryptIntegrationSecret, decryptIntegrationSecret } from "../integrationPlatform/integrationSecrets.js";
 
 function requiredId(value, field) {
   if (!mongoose.isValidObjectId(value)) {
@@ -45,7 +46,7 @@ function stageRecord(record, kind) {
  * authoritative; there is no automatic stock, payment or fulfilment write.
  */
 export async function stageSellerChannelSnapshot(connection, kind, {
-  businessId, actorId, requestId = "",
+  businessId, actorId, requestId = "", resume = false,
   readSnapshot = fetchSellerChannelSnapshot,
   recordsModel = SellerChannelStagingRecord,
   checkpointModel = SellerChannelSyncCheckpoint,
@@ -64,7 +65,26 @@ export async function stageSellerChannelSnapshot(connection, kind, {
       code: "SELLER_SYNC_UNSUPPORTED_KIND",
     });
   }
-  const snapshot = await readSnapshot(connection, kind);
+  let resumeCursor = null;
+  if (resume === true) {
+    const checkpoint = await checkpointModel.findOne({
+      business: businessId, connection: connection._id, kind, provider: connection.provider,
+    }).lean();
+    if (!checkpoint?.resumeSupported || !checkpoint.cursorCiphertext ||
+      !checkpoint.cursorIv || !checkpoint.cursorTag) {
+      throw createServiceError("No resumable seller checkpoint is available.", 409, {
+        code: "SELLER_SYNC_RESUME_UNAVAILABLE",
+      });
+    }
+    resumeCursor = decryptIntegrationSecret({
+      ciphertext: checkpoint.cursorCiphertext,
+      iv: checkpoint.cursorIv,
+      tag: checkpoint.cursorTag,
+    });
+  }
+  const snapshot = await readSnapshot(connection, kind, {
+    resumeCursor, includeResumeCursor: true,
+  });
   if (!Array.isArray(snapshot?.records) || snapshot.records.length > 50 ||
       snapshot.provider !== connection.provider || snapshot.kind !== kind) {
     throw createServiceError("Invalid seller channel snapshot.", 502, {
@@ -77,6 +97,15 @@ export async function stageSellerChannelSnapshot(connection, kind, {
       code: "SELLER_SYNC_DUPLICATE_SOURCE_IDS",
     });
   }
+  const hasContinuation = snapshot.nextPageAvailable === true;
+  const continuation = hasContinuation ? snapshot.internalResumeCursor : null;
+  if (hasContinuation && (typeof continuation !== "string" || !continuation ||
+    continuation.length > 4096)) {
+    throw createServiceError("Seller provider continuation is unavailable.", 502, {
+      code: "SELLER_SYNC_RESUME_CURSOR_MISSING",
+    });
+  }
+  const secured = continuation ? encryptIntegrationSecret(continuation) : null;
   const observed = new Date();
   const writes = staged.map((record) => ({
     updateOne: {
@@ -104,8 +133,12 @@ export async function stageSellerChannelSnapshot(connection, kind, {
       provider: connection.provider, lastObservedAt: observed,
       stagedCount: writes.length, pagesFetched: snapshot.pagesFetched ?? null,
       sourcePageComplete: snapshot.completeWithinLimit === true,
+      resumeSupported: Boolean(secured),
+      cursorCiphertext: secured?.ciphertext || "",
+      cursorIv: secured?.iv || "",
+      cursorTag: secured?.tag || "",
     },
-    $setOnInsert: { business: businessId, connection: connection._id, kind, resumeSupported: false },
+    $setOnInsert: { business: businessId, connection: connection._id, kind },
   }, { upsert: true, new: true });
 
   await auditModel.create({
@@ -117,7 +150,8 @@ export async function stageSellerChannelSnapshot(connection, kind, {
   return Object.freeze({
     provider: connection.provider, kind, stagedCount: writes.length,
     uniqueExternalIds: writes.length, sourcePageComplete: snapshot.completeWithinLimit === true,
-    pagesFetched: snapshot.pagesFetched ?? null, canonicalRecordsWritten: 0,
+    pagesFetched: snapshot.pagesFetched ?? null, resumeAvailable: Boolean(secured),
+    canonicalRecordsWritten: 0,
     listingPublicationEnabled: false, fulfillmentWritesEnabled: false,
     state: "staging_only", productionAccepted: false,
   });
