@@ -9,6 +9,7 @@ import asyncHandler from "../../shared/asyncHandler.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
+import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
@@ -49,6 +50,17 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     productionAccepted: false,
   });
 });
+
+// Dry-run reconciliation uses exclusively the server-verified location authority.
+router.get("/:connectionId/reconciliation", requirePermissions("inventory:read"),
+  requirePermissions("product:read"), asyncHandler(async (request, response) => {
+    const result = await previewSellerChannelInventory(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationId: request.effectiveAuthority.locationId || null,
+      limit: request.query.limit,
+    });
+    response.status(200).json({ success: true, result });
+  }));
 
 // Explicit operator action stages source records only, never canonical commerce data.
 router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:update"),
