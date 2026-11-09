@@ -283,8 +283,11 @@ The test refuses remote hosts, credentials, authentication-source query
 parameters and other database names. It creates uniquely named disposable
 collections and deletes only those collections. The normal `npm test`
 suite skips the live connection test unless the environment variable is
-explicitly supplied. **This test has been added to source; a successful
-real-replica-set execution is not claimed until run against such a database.**
+explicitly supplied. The dedicated GitHub Actions workflow
+`dev1-seller-transaction-acceptance.yml` provisions a separate MongoDB
+7 replica set and runs this same acceptance command against localhost.
+**A successful real-replica-set execution is not claimed until that
+workflow passes on the current commit.**
 
 This does not deploy collection indexes or activate `atomicStaging` for
 HTTP requests. Follow-up acceptance needs MongoDB transaction retry policy,
