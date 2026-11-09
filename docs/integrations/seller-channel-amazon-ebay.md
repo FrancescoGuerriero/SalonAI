@@ -259,3 +259,34 @@ and failure diagnosis is updated outside after an aborted transaction.
 Real MongoDB replica-set tests, transient transaction retry behaviour,
 index verification and crash-boundary validation are still required.
 Neither atomic mode nor the existing mode writes canonical Commerce records.
+
+## Opt-in real MongoDB replica-set acceptance
+
+A dedicated acceptance test exercises **the actual** seller staging service
+against a loopback MongoDB replica-set test database, rather than using
+in-memory transaction mocks. It commits staged listings, their checkpoint,
+audit entry, and completed journal in one session. On a second run, the test
+injects a checkpoint failure and verifies that its new listing is rolled
+back, the previous checkpoint/audit are preserved and the failed run is
+journalled outside the aborted transaction.
+
+Run manually from `backend` only with an **isolated local replica set**
+and the test database name `seller_txn_acceptance`:
+
+```powershell
+$env:SELLER_TXN_ACCEPTANCE_URI = "mongodb://127.0.0.1:27017/seller_txn_acceptance?replicaSet=rs0"
+npm run seller:transaction-acceptance
+Remove-Item Env:SELLER_TXN_ACCEPTANCE_URI
+```
+
+The test refuses remote hosts, credentials, authentication-source query
+parameters and other database names. It creates uniquely named disposable
+collections and deletes only those collections. The normal `npm test`
+suite skips the live connection test unless the environment variable is
+explicitly supplied. **This test has been added to source; a successful
+real-replica-set execution is not claimed until run against such a database.**
+
+This does not deploy collection indexes or activate `atomicStaging` for
+HTTP requests. Follow-up acceptance needs MongoDB transaction retry policy,
+production-like replica-set configuration, failure-injection at additional
+commit boundaries, and provider authorization.
