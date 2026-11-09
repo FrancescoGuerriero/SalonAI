@@ -5,6 +5,7 @@ import SellerChannelSyncCheckpoint from "../../models/SellerChannelSyncCheckpoin
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { encryptIntegrationSecret, decryptIntegrationSecret } from "../integrationPlatform/integrationSecrets.js";
+import { withSellerImportLease } from "./sellerChannelImportLeaseService.js";
 
 function requiredId(value, field) {
   if (!mongoose.isValidObjectId(value)) {
@@ -45,7 +46,7 @@ function stageRecord(record, kind) {
  * Human-invoked staging only. Canonical Product, Inventory and Order remain
  * authoritative; there is no automatic stock, payment or fulfilment write.
  */
-export async function stageSellerChannelSnapshot(connection, kind, {
+async function stageSellerChannelSnapshotUnlocked(connection, kind, {
   businessId, actorId, requestId = "", resume = false,
   readSnapshot = fetchSellerChannelSnapshot,
   recordsModel = SellerChannelStagingRecord,
@@ -155,4 +156,28 @@ export async function stageSellerChannelSnapshot(connection, kind, {
     listingPublicationEnabled: false, fulfillmentWritesEnabled: false,
     state: "staging_only", productionAccepted: false,
   });
+}
+
+/**
+ * Import lease surrounds provider fetch, stage, checkpoint and audit as one
+ * non-overlapping operation. It does not confer Commerce write authority.
+ */
+export async function stageSellerChannelSnapshot(connection, kind, options = {}) {
+  const businessId = options.businessId;
+  requiredId(businessId, "business");
+  requiredId(options.actorId, "actor");
+  if (!connection || String(connection.business) !== String(businessId) ||
+      connection.status !== "connected") {
+    throw createServiceError("Seller connection is not owned and connected for this business.", 403, {
+      code: "SELLER_SYNC_AUTHORITY_REQUIRED",
+    });
+  }
+  if (!["listings", "orders"].includes(kind)) {
+    throw createServiceError("Only listings and orders can be staged.", 400, {
+      code: "SELLER_SYNC_UNSUPPORTED_KIND",
+    });
+  }
+  return withSellerImportLease({
+    businessId, connectionId: connection._id, kind, leaseModel: options.leaseModel,
+  }, () => stageSellerChannelSnapshotUnlocked(connection, kind, options));
 }
