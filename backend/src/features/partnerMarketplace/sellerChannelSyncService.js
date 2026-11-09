@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import AuditLog from "../../models/AuditLog.js";
 import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.js";
 import SellerChannelSyncCheckpoint from "../../models/SellerChannelSyncCheckpoint.js";
+import SellerChannelImportRun from "../../models/SellerChannelImportRun.js";
 import { createServiceError } from "../../shared/serviceError.js";
 import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { encryptIntegrationSecret, decryptIntegrationSecret } from "../integrationPlatform/integrationSecrets.js";
@@ -52,6 +54,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
   recordsModel = SellerChannelStagingRecord,
   checkpointModel = SellerChannelSyncCheckpoint,
   auditModel = AuditLog, assertLeaseOwned = async () => {},
+  recordProgress = async () => {},
 } = {}) {
   requiredId(businessId, "business");
   requiredId(actorId, "actor");
@@ -92,6 +95,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
       code: "SELLER_SYNC_SNAPSHOT_INVALID",
     });
   }
+  await recordProgress("provider_read");
   const staged = snapshot.records.map((record) => stageRecord(record, kind));
   if (new Set(staged.map((record) => record.externalId)).size !== staged.length) {
     throw createServiceError("Seller snapshot contains duplicate external identifiers.", 502, {
@@ -126,6 +130,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
   }));
   await assertLeaseOwned();
   if (writes.length) await recordsModel.bulkWrite(writes, { ordered: true });
+  await recordProgress("staged", { stagedCount: writes.length });
   // Source observation is complete only for this bounded request; do not
   // persist provider cursors or claim full historical reconciliation.
   await assertLeaseOwned();
@@ -144,6 +149,7 @@ async function stageSellerChannelSnapshotUnlocked(connection, kind, {
     $setOnInsert: { business: businessId, connection: connection._id, kind },
   }, { upsert: true, new: true });
 
+  await recordProgress("checkpointed");
   await assertLeaseOwned();
   await auditModel.create({
     actor: actorId, action: "seller_channel.snapshot_staged", resourceType: "IntegrationConnection",
@@ -182,5 +188,42 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
   }
   return withSellerImportLease({
     businessId, connectionId: connection._id, kind, leaseModel: options.leaseModel,
-  }, (assertLeaseOwned) => stageSellerChannelSnapshotUnlocked(connection, kind, { ...options, assertLeaseOwned }));
+  }, async (assertLeaseOwned) => {
+    const runModel = options.runModel || SellerChannelImportRun;
+    const runId = randomUUID();
+    const scope = { business: businessId, connection: connection._id, kind, runId };
+    await runModel.create({
+      ...scope, provider: connection.provider, state: "started", startedAt: new Date(),
+    });
+    let phase = "provider_or_validation";
+    const recordProgress = async (state, extras = {}) => {
+      await assertLeaseOwned();
+      await runModel.updateOne(scope, { $set: { state, ...extras } });
+      phase = state === "staged" ? "checkpoint" :
+        state === "checkpointed" ? "audit" : "staging";
+    };
+    try {
+      const result = await stageSellerChannelSnapshotUnlocked(connection, kind, {
+        ...options, assertLeaseOwned, recordProgress,
+      });
+      await runModel.updateOne(scope, {
+        $set: { state: "completed", finishedAt: new Date() },
+      });
+      return result;
+    } catch (error) {
+      // This journal is diagnostic; preserve the original error if the
+      // database also fails while recording an unsuccessful attempt.
+      try {
+        await runModel.updateOne(scope, {
+          $set: {
+            state: "failed", failureClass: phase,
+            finishedAt: new Date(),
+          },
+        });
+      } catch {
+        // Read-only recovery status will identify an abandoned started run.
+      }
+      throw error;
+    }
+  });
 }
