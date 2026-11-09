@@ -1,0 +1,21 @@
+import mongoose from "mongoose";
+
+/**
+ * Observation checkpoint only. Does not contain provider next-page tokens:
+ * the bounded adapter has no safe resume contract yet.
+ */
+const checkpointSchema = new mongoose.Schema({
+  business: { type: mongoose.Schema.Types.ObjectId, ref: "Business", required: true, index: true },
+  connection: { type: mongoose.Schema.Types.ObjectId, ref: "IntegrationConnection", required: true, index: true },
+  provider: { type: String, enum: ["amazon_seller_central", "ebay"], required: true },
+  kind: { type: String, enum: ["listings", "orders"], required: true },
+  lastObservedAt: { type: Date, required: true },
+  stagedCount: { type: Number, min: 0, max: 50, required: true },
+  pagesFetched: { type: Number, min: 0, max: 5, default: null },
+  sourcePageComplete: { type: Boolean, default: false },
+  resumeSupported: { type: Boolean, default: false, immutable: true },
+}, { timestamps: true, optimisticConcurrency: true });
+checkpointSchema.index({ business: 1, connection: 1, kind: 1 }, { unique: true });
+
+export default mongoose.models.SellerChannelSyncCheckpoint ||
+  mongoose.model("SellerChannelSyncCheckpoint", checkpointSchema);
