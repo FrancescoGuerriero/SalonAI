@@ -133,6 +133,7 @@ function safeListing(item, provider) {
 }
 export async function fetchSellerChannelSnapshot(connection, kind, {
   fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
+  resumeCursor = null, includeResumeCursor = false,
 } = {}) {
   const provider = String(connection?.provider || "").toLowerCase();
   if (!["amazon_seller_central", "ebay"].includes(provider)) {
@@ -142,6 +143,12 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     throw unsupported("Unsupported read-only seller operation.");
   }
   const take = integer(limit);
+  // Resume cursors are server-owned, not accepted from API request parameters.
+  if (resumeCursor !== null && (
+    typeof resumeCursor !== "string" || !resumeCursor ||
+    resumeCursor.length > 4096 ||
+    (provider === "ebay" && !/^(0|[1-9][0-9]{0,7})$/.test(resumeCursor))
+  )) throw unsupported("Invalid saved seller cursor.", "SELLER_CHANNEL_PAGING_INVALID");
   let url;
   let headers;
   if (provider === "amazon_seller_central") {
@@ -164,6 +171,10 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
       url.searchParams.set("maxResultsPerPage", String(take));
       url.searchParams.set("includedData", "FULFILLMENT,PROCEEDS");
     }
+    if (resumeCursor !== null) {
+      url.searchParams.set(kind === "listings" ? "pageToken" : "paginationToken", resumeCursor);
+      if (kind === "orders") url.searchParams.delete("createdAfter");
+    }
   } else {
     const ebay = await ebayToken(connection, fetchImpl, getCredential);
     headers = { authorization: `Bearer ${ebay.token}`, accept: "application/json" };
@@ -171,7 +182,7 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
       ? "/sell/inventory/v1/inventory_item"
       : "/sell/fulfillment/v1/order", ebay.origin);
     url.searchParams.set("limit", String(take));
-    url.searchParams.set("offset", "0");
+    url.searchParams.set("offset", resumeCursor || "0");
   }
   // Follow provider paging internally, never accept arbitrary external URLs.
   // Cap both count and pages to bound API traffic and staging writes.
@@ -179,7 +190,14 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
   const seenCursors = new Set();
   let pageCount = 0;
   let nextPageAvailable = false;
+  let cursorForNextRun = null;
   while (normalized.length < take && pageCount < MAX_PAGES) {
+    if (provider === "amazon_seller_central") {
+      url.searchParams.set(kind === "listings" ? "pageSize" : "maxResultsPerPage",
+        String(Math.min(take - normalized.length, kind === "listings" ? 20 : 50)));
+    } else {
+      url.searchParams.set("limit", String(take - normalized.length));
+    }
     const response = await fetchJson(fetchImpl, url.toString(), { method: "GET", headers });
     const items = provider === "amazon_seller_central"
       ? kind === "listings" ? response.items : response.orders
@@ -214,12 +232,14 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     }
     if (!nextCursor) {
       nextPageAvailable = false;
+      cursorForNextRun = null;
       break;
     }
     if (seenCursors.has(nextCursor)) {
       throw unsupported("Seller provider repeated pagination cursor.", "SELLER_CHANNEL_PAGING_INVALID");
     }
     seenCursors.add(nextCursor);
+    cursorForNextRun = nextCursor;
     nextPageAvailable = true;
     if (provider === "amazon_seller_central") {
       if (typeof nextCursor !== "string" || nextCursor.length > 4096) {
@@ -235,6 +255,7 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     provider, kind, source: "read_only_provider_snapshot", records: normalized,
     recordCount: normalized.length, pagesFetched: pageCount, nextPageAvailable,
     completeWithinLimit: !nextPageAvailable,
+    ...(includeResumeCursor ? { internalResumeCursor: nextPageAvailable ? cursorForNextRun : null } : {}),
     canonicalRecordsWritten: 0, ordersFulfilled: 0, returnsProcessed: 0,
     publicationEnabled: false,
   });
