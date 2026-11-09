@@ -107,7 +107,23 @@ test("lease fencing refuses staging after ownership expires, without releasing a
     });
     await assertLeaseOwned();
   }), /ownership expired/);
+  assert.equal(model.active.size, 0);
+  assert.equal(model.released.length, 1);
+});
+test("expired import owner cannot delete a replacement worker's lease", async () => {
+  const model = sharedLeaseModel();
+  const scope = { businessId, connectionId, kind, leaseModel: model };
+  const key = [businessId, connectionId, kind].join(":");
+  await assert.rejects(withSellerImportLease(scope, async (assertLeaseOwned) => {
+    const previous = model.active.get(key);
+    model.active.set(key, {
+      ...previous, owner: "replacement-import-owner",
+      expiresAt: new Date(Date.now() + 600000),
+    });
+    await assertLeaseOwned();
+  }), /ownership expired/);
   assert.equal(model.active.size, 1);
+  assert.equal(model.active.get(key).owner, "replacement-import-owner");
   assert.equal(model.released.length, 1);
 });
 test("lease fencing renews a valid owner before a protected write", async () => {
