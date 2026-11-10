@@ -5,9 +5,12 @@ on:
     branches: [main]
     paths:
       - 'backend/src/test/sellerChannelMongoTransaction.acceptance.test.js'
+      - 'backend/src/test/sellerChannelAtomicCommit.test.js'
+      - 'backend/src/models/SellerChannelImportRun.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelAtomicCommit.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelSyncService.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelRecoveryGuard.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelImportLeaseService.js'
       - 'backend/src/models/SellerChannelImportRun.js'
       - 'backend/package.json'
       - 'backend/package-lock.json'
@@ -70,6 +73,10 @@ jobs:
       - name: Install locked backend dependencies
         working-directory: backend
         run: npm ci
+
+      - name: Run seller transaction unit tests
+        working-directory: backend
+        run: node --test src/test/sellerChannelAtomicCommit.test.js
 
       - name: Run real seller transaction rollback acceptance
         working-directory: backend
