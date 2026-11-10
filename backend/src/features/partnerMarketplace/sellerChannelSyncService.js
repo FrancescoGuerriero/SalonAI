@@ -241,17 +241,25 @@ export async function stageSellerChannelSnapshot(connection, kind, options = {})
         recoveryReviewAcknowledged: recovery.recoveryAcknowledged,
       });
     } catch (error) {
-      // This journal is diagnostic; preserve the original error if the
-      // database also fails while recording an unsuccessful attempt.
+      // A commit may have succeeded even when the client loses its reply.
+      // Never replace a transactionally committed "completed" journal with
+      // "failed". An unresolved commit must be reviewed, not resumed.
+      const commitUnknown = error?.hasErrorLabel?.("UnknownTransactionCommitResult") === true ||
+        error?.errorLabels?.includes?.("UnknownTransactionCommitResult") === true;
       try {
-        await runModel.updateOne(scope, {
+        await runModel.updateOne({
+          ...scope,
+          state: { $nin: ["completed", "commit_unknown"] },
+        }, {
           $set: {
-            state: "failed", failureClass: phase,
+            state: commitUnknown ? "commit_unknown" : "failed",
+            failureClass: commitUnknown ? "unknown" : phase,
             finishedAt: new Date(),
           },
         });
       } catch {
-        // Read-only recovery status will identify an abandoned started run.
+        // Preserve the original error; an unfinished journal remains
+        // fail-closed until an operator reviews its outcome.
       }
       throw error;
     }
