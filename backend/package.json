@@ -9,6 +9,7 @@
     "dev": "node --watch server.js",
     "check": "node scripts/checkSource.js",
     "test": "node --test src/test/*.test.js",
+    "seller:transaction-acceptance": "node --test src/test/sellerChannelMongoTransaction.acceptance.test.js",
     "validate": "node scripts/validate.js",
     "seed:future": "node scripts/seedFutureFeatures.js",
     "admin:set": "node scripts/setAdmin.js",

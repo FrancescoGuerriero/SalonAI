@@ -1,0 +1,87 @@
+name: DEV1 Seller Channel Mongo Transaction Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/test/sellerChannelMongoTransaction.acceptance.test.js'
+      - 'backend/src/test/sellerChannelAtomicCommit.test.js'
+      - 'backend/src/models/SellerChannelImportRun.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelAtomicCommit.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelSyncService.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelRecoveryGuard.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelImportLeaseService.js'
+      - 'backend/src/models/SellerChannelImportRun.js'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - '.github/workflows/dev1-seller-transaction-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev1-seller-transaction-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seller-txn-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      SELLER_TXN_ACCEPTANCE_URI: mongodb://127.0.0.1:27017/seller_txn_acceptance?replicaSet=rs0
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Start isolated MongoDB replica set
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name seller-txn-mongo \
+            --publish 127.0.0.1:27017:27017 \
+            mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            if docker exec seller-txn-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec seller-txn-mongo mongosh --quiet --eval \
+            'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in $(seq 1 30); do
+            if docker exec seller-txn-mongo mongosh --quiet \
+              'mongodb://127.0.0.1:27017/admin?replicaSet=rs0' \
+              --eval 'if (!db.hello().isWritablePrimary) quit(1)' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MongoDB replica set did not elect a primary" >&2
+          exit 1
+
+      - name: Install locked backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run seller transaction unit tests
+        working-directory: backend
+        run: node --test src/test/sellerChannelAtomicCommit.test.js
+
+      - name: Run real seller transaction rollback acceptance
+        working-directory: backend
+        run: npm run seller:transaction-acceptance
+
+      - name: Remove isolated test MongoDB
+        if: always()
+        run: docker rm -f seller-txn-mongo || true
