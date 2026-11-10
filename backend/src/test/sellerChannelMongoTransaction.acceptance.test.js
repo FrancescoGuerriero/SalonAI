@@ -82,8 +82,12 @@ test("seller source transaction commits and rolls back against a local MongoDB r
         return checkpoint.findOneAndUpdate(filter, change, options);
       },
     };
+    let failAudit = false;
     const auditModel = {
-      create: (docs, options) => audit.insertMany(docs, options),
+      create: (docs, options) => {
+        if (failAudit) throw new Error("injected-audit-failure");
+        return audit.insertMany(docs, options);
+      },
     };
     const common = {
       businessId, actorId, atomicStaging: true,
@@ -104,6 +108,8 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     assert.equal(await checkpoint.countDocuments({ business: businessId }), 1);
     assert.equal(await audit.countDocuments({}), 1);
     assert.equal(await journal.countDocuments({ state: "completed" }), 1);
+    const committedCheckpoint = await checkpoint.findOne({ business: businessId });
+    const committedRecord = await staging.findOne({ externalId: "SKU-COMMITTED" });
 
     failCheckpoint = true;
     await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
@@ -119,6 +125,31 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     assert.equal(await checkpoint.countDocuments({ business: businessId }), 1);
     assert.equal(await audit.countDocuments({}), 1);
     assert.equal(await journal.countDocuments({ state: "failed", failureClass: "checkpoint" }), 1);
+    assert.deepEqual(await checkpoint.findOne({ business: businessId }), committedCheckpoint);
+
+    // Audit failure happens after the source upsert and checkpoint update.
+    // Neither the new listing nor changes to a previously committed listing
+    // may survive an aborted transaction.
+    failCheckpoint = false;
+    failAudit = true;
+    await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+      ...common,
+      recoveryAcknowledged: true,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "listings",
+        records: [
+          { sku: "SKU-COMMITTED", quantity: 999 },
+          { sku: "SKU-AUDIT-ROLLED-BACK", quantity: 3 },
+        ],
+        nextPageAvailable: false, pagesFetched: 2, completeWithinLimit: true,
+      }),
+    }), /injected-audit-failure/);
+    assert.equal(await staging.countDocuments({ externalId: "SKU-AUDIT-ROLLED-BACK" }), 0);
+    assert.deepEqual(await staging.findOne({ externalId: "SKU-COMMITTED" }), committedRecord);
+    assert.deepEqual(await checkpoint.findOne({ business: businessId }), committedCheckpoint);
+    assert.equal(await audit.countDocuments({}), 1);
+    assert.equal(await journal.countDocuments({ state: "completed" }), 1);
+    assert.equal(await journal.countDocuments({ state: "failed" }), 2);
   } finally {
     // Delete only randomly named collections created by this test.
     for (const name of names) {
