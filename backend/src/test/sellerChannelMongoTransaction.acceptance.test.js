@@ -192,6 +192,74 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     assert.equal(await audit.countDocuments({}), 2);
     assert.equal(await journal.countDocuments({ state: "completed" }), 2);
     assert.equal(await journal.countDocuments({ state: "failed" }), 2);
+
+    // Simulate the client losing the commit acknowledgement *after* a real
+    // replica-set commit. The transaction's completed journal must win over
+    // the diagnostic error handler; a replay must not be forced.
+    const unknownCommitError = () => {
+      const error = new mongoose.mongo.MongoServerError({
+        ok: 0, code: 64, codeName: "WriteConcernFailed",
+        errmsg: "injected-commit-acknowledgement-loss",
+      });
+      error.addErrorLabel("UnknownTransactionCommitResult");
+      return error;
+    };
+    const committedButUnacknowledged = async () => {
+      const session = await db.startSession();
+      return {
+        withTransaction: async (callback) => {
+          await session.withTransaction(callback);
+          throw unknownCommitError();
+        },
+        endSession: () => session.endSession(),
+      };
+    };
+    await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+      ...common,
+      recoveryAcknowledged: true,
+      startSession: committedButUnacknowledged,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "listings",
+        records: [{ sku: "SKU-COMMIT-ACK-LOST", quantity: 11 }],
+        nextPageAvailable: false, pagesFetched: 1, completeWithinLimit: true,
+      }),
+    }), /injected-commit-acknowledgement-loss/);
+    assert.equal(await staging.countDocuments({ externalId: "SKU-COMMIT-ACK-LOST" }), 1);
+    assert.equal(await staging.countDocuments({ business: businessId }), 3);
+    assert.equal(await checkpoint.countDocuments({ business: businessId }), 1);
+    assert.equal(await audit.countDocuments({}), 3);
+    assert.equal(await journal.countDocuments({ state: "completed" }), 3);
+    assert.equal(await journal.countDocuments({ state: "commit_unknown" }), 0);
+
+    // When no commit can be established, the journal is commit_unknown and
+    // neither automatic retry nor checkpoint resume may proceed.
+    const noCommitReply = async () => ({
+      withTransaction: async () => { throw unknownCommitError(); },
+      endSession: async () => {},
+    });
+    await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+      ...common,
+      startSession: noCommitReply,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "listings",
+        records: [{ sku: "SKU-UNRESOLVED", quantity: 13 }],
+        nextPageAvailable: false, pagesFetched: 1, completeWithinLimit: true,
+      }),
+    }), /injected-commit-acknowledgement-loss/);
+    assert.equal(await staging.countDocuments({ externalId: "SKU-UNRESOLVED" }), 0);
+    assert.equal(await checkpoint.countDocuments({ business: businessId }), 1);
+    assert.equal(await audit.countDocuments({}), 3);
+    assert.equal(await journal.countDocuments({ state: "commit_unknown" }), 1);
+
+    let attemptedFetch = false;
+    await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
+      ...common,
+      readSnapshot: async () => {
+        attemptedFetch = true;
+        throw new Error("must not fetch an unreviewed retry");
+      },
+    }), { code: "SELLER_RECOVERY_REVIEW_REQUIRED" });
+    assert.equal(attemptedFetch, false);
   } finally {
     // Delete only randomly named collections created by this test.
     for (const name of names) {
