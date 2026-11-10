@@ -11,7 +11,7 @@ const schema = new mongoose.Schema({
   kind: { type: String, enum: ["listings", "orders"], required: true },
   runId: { type: String, required: true, immutable: true },
   state: { type: String, enum: [
-    "started", "provider_read", "staged", "checkpointed", "completed", "failed",
+    "started", "provider_read", "staged", "checkpointed", "completed", "failed", "commit_unknown",
   ], required: true, default: "started", index: true },
   stagedCount: { type: Number, min: 0, max: 50, default: 0 },
   recoveryReviewAcknowledged: { type: Boolean, default: false },
