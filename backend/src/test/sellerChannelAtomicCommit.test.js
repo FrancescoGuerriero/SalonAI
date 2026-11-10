@@ -9,7 +9,7 @@ const connection = {
   _id: "507f1f77bcf86cd799439025", business: businessId,
   status: "connected", provider: "ebay",
 };
-function fixture({ checkpointFails = false } = {}) {
+function fixture({ checkpointFails = false, uncertainCommit = null } = {}) {
   const persisted = { records: [], checkpoint: [], audits: [], journal: [] };
   const session = {
     pending: [],
@@ -18,7 +18,17 @@ function fixture({ checkpointFails = false } = {}) {
       this.transactions++;
       try {
         await callback();
+        if (uncertainCommit === "before") {
+          const error = new Error("commit reply unknown before applying");
+          error.hasErrorLabel = (label) => label === "UnknownTransactionCommitResult";
+          throw error;
+        }
         for (const apply of this.pending) apply();
+        if (uncertainCommit === "after") {
+          const error = new Error("commit reply unknown after applying");
+          error.hasErrorLabel = (label) => label === "UnknownTransactionCommitResult";
+          throw error;
+        }
       } catch (error) {
         this.aborted = true;
         throw error;
@@ -44,7 +54,11 @@ function fixture({ checkpointFails = false } = {}) {
       findOne: () => ({ select: () => ({ sort: () => ({ lean: async () => null }) }) }),
       create: async (record) => { persisted.journal.push({ ...record }); },
       updateOne: async (query, update, options = {}) => {
-        const apply = () => Object.assign(persisted.journal.find((r) => r.runId === query.runId), update.$set);
+        const apply = () => {
+          const current = persisted.journal.find((r) => r.runId === query.runId);
+          if (query.state?.$nin?.includes(current.state)) return;
+          Object.assign(current, update.$set);
+        };
         if (options.session) queue(options.session, apply);
         else apply();
       },
@@ -104,4 +118,27 @@ test("no transactional support fails closed before seller writes", async () => {
     startSession: async () => ({ endSession: async () => {} }),
   }), /requires MongoDB transactions/);
   assert.equal(invoked, false);
+});
+
+test("ambiguous commit cannot downgrade transactionally completed seller journal", async () => {
+  const f = fixture({ uncertainCommit: "after" });
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", f.state),
+    /commit reply unknown after applying/);
+  assert.equal(f.persisted.records.length, 1);
+  assert.equal(f.persisted.checkpoint.length, 1);
+  assert.equal(f.persisted.audits.length, 1);
+  assert.equal(f.persisted.journal[0].state, "completed");
+  assert.equal(f.session.ended, true);
+});
+
+test("unresolved seller commit remains fail-closed for operator review", async () => {
+  const f = fixture({ uncertainCommit: "before" });
+  await assert.rejects(stageSellerChannelSnapshot(connection, "listings", f.state),
+    /commit reply unknown before applying/);
+  assert.equal(f.persisted.records.length, 0);
+  assert.equal(f.persisted.checkpoint.length, 0);
+  assert.equal(f.persisted.audits.length, 0);
+  assert.equal(f.persisted.journal[0].state, "commit_unknown");
+  assert.equal(f.persisted.journal[0].failureClass, "unknown");
+  assert.equal(f.session.ended, true);
 });
