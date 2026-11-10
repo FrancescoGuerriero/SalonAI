@@ -150,6 +150,43 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     assert.equal(await audit.countDocuments({}), 1);
     assert.equal(await journal.countDocuments({ state: "completed" }), 1);
     assert.equal(await journal.countDocuments({ state: "failed" }), 2);
+
+    // Simulate a server-labeled transient error after the first attempt has
+    // written its staged source record but before the checkpoint completes.
+    // The driver's withTransaction implementation must abort and rerun the
+    // transaction body, leaving only one committed record, checkpoint,
+    // audit and completed journal for this import.
+    failAudit = false;
+    let transientAttempts = 0;
+    const transientCheckpointModel = {
+      findOneAndUpdate: async (filter, change, options) => {
+        transientAttempts++;
+        if (transientAttempts === 1) {
+          const error = new Error("injected-transient-transaction-error");
+          error.hasErrorLabel = (label) => label === "TransientTransactionError";
+          throw error;
+        }
+        return checkpoint.findOneAndUpdate(filter, change, options);
+      },
+    };
+    const recovered = await stageSellerChannelSnapshot(connection, "listings", {
+      ...common,
+      checkpointModel: transientCheckpointModel,
+      recoveryAcknowledged: true,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "listings",
+        records: [{ sku: "SKU-TRANSIENT-RETRIED", quantity: 7 }],
+        nextPageAvailable: false, pagesFetched: 1, completeWithinLimit: true,
+      }),
+    });
+    assert.equal(recovered.canonicalRecordsWritten, 0);
+    assert.equal(transientAttempts, 2);
+    assert.equal(await staging.countDocuments({ externalId: "SKU-TRANSIENT-RETRIED" }), 1);
+    assert.equal(await staging.countDocuments({ business: businessId }), 2);
+    assert.equal(await checkpoint.countDocuments({ business: businessId }), 1);
+    assert.equal(await audit.countDocuments({}), 2);
+    assert.equal(await journal.countDocuments({ state: "completed" }), 2);
+    assert.equal(await journal.countDocuments({ state: "failed" }), 2);
   } finally {
     // Delete only randomly named collections created by this test.
     for (const name of names) {
