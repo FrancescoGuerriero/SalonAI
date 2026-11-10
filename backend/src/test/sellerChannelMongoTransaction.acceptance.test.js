@@ -162,8 +162,13 @@ test("seller source transaction commits and rolls back against a local MongoDB r
       findOneAndUpdate: async (filter, change, options) => {
         transientAttempts++;
         if (transientAttempts === 1) {
-          const error = new Error("injected-transient-transaction-error");
-          error.hasErrorLabel = (label) => label === "TransientTransactionError";
+          // The MongoDB driver retries only native MongoError instances
+          // bearing TransientTransactionError, not arbitrary JavaScript Errors.
+          const error = new mongoose.mongo.MongoServerError({
+            ok: 0, code: 112, codeName: "WriteConflict",
+            errmsg: "injected-transient-transaction-error",
+          });
+          error.addErrorLabel("TransientTransactionError");
           throw error;
         }
         return checkpoint.findOneAndUpdate(filter, change, options);
