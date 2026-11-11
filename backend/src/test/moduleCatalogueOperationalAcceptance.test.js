@@ -790,3 +790,25 @@ test("seller marketplace is an established partner-app foundation, not an absent
   assert.ok(panel.includes("getMarketplaceCatalogue") && panel.includes("prepareMarketplaceInstallation"));
   assert.equal(seller.readyForProductionAcceptance, false);
 });
+
+test("catalogue exposes AI Core dependency blockers separately without granting activation", () => {
+  const summary = summariseModuleOperationalGaps([{
+    moduleId: "19", checks: [],
+    dependencyEvidence: [
+      { capabilityKey: "ai", state: "confirmed_prerequisite_blocker" },
+      { capabilityKey: "communications", state: "not_verified" },
+      { capabilityKey: "ai-agent-tools", state: "not_verified" },
+    ],
+  }]);
+  const row = summary.entries[0];
+  assert.deepEqual(row.aiDependencyKeys, ["ai", "ai-agent-tools"]);
+  assert.deepEqual(row.aiDependencyPrerequisiteBlockers, ["ai"]);
+  assert.deepEqual(row.aiDependencyVerificationNeeded, ["ai-agent-tools"]);
+  assert.equal(summary.totals.withAiDependencies, 1);
+  assert.equal(summary.totals.withBlockedAiDependencies, 1);
+  assert.equal(summary.totals.withUnverifiedAiDependencies, 1);
+  assert.deepEqual(summary.reviewQueue[0].aiDependencyPrerequisiteBlockers, ["ai"]);
+  assert.equal(row.activationAuthorised, false);
+  assert.equal(row.productionAccepted, null);
+  assert.equal(Object.isFrozen(row.aiDependencyKeys), true);
+});
