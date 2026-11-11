@@ -18,6 +18,12 @@ export function inspectModuleMappingReconciliation(entry, implementationReferenc
   const reviewedBoundary = inspectModuleMappingReviewEvidence(entry.moduleId);
   const apiMounts = freeze(existingSourceReviewed
     ? implementationReference.apiMounts || [] : []);
+  // Reviewed source evidence suggests reuse; never mutate entitlement mappings.
+  const reuseCandidates = freeze(reviewedBoundary.registeredPackCandidatesForReview
+    .filter((key) => !mappedCapabilityPackKeys.includes(key)));
+  const reuseReviewState = taxonomyOnly ? "not_applicable"
+    : reuseCandidates.length > 0 ? "registered_pack_reuse_review_required"
+      : "no_additional_registered_pack_candidate_reviewed";
 
   // Classification is descriptive and does NOT write to capabilityRegistry,
   // module manifests, subscription records or staff permission definitions.
@@ -37,6 +43,8 @@ export function inspectModuleMappingReconciliation(entry, implementationReferenc
     mappedCapabilityPackKeys,
     observedApiMounts: apiMounts,
     reviewedBoundary,
+    reuseReviewState,
+    registeredPackReuseCandidates: reuseCandidates,
     reviewAction: taxonomyOnly ? "retain_taxonomy_only"
       : mappedCapabilityPackKeys.length
         ? "verify_existing_entitlement_and_runtime_contract"
