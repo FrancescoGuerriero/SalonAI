@@ -30,6 +30,10 @@ export function summariseModuleOperationalGaps(assessments = []) {
     const aiEvidenceState = definition.aiOpportunity
       ? "tool_contract_not_verified" : "ai_integration_not_specified";
     const dependencyEvidence = Array.isArray(item.dependencyEvidence) ? item.dependencyEvidence : [];
+    const aiDependencies = dependencyEvidence.filter((row) =>
+      row.capabilityKey === "ai" || row.capabilityKey?.startsWith("ai-"));
+    const aiBlocked = aiDependencies.filter((row) => row.state === "confirmed_prerequisite_blocker").map((row) => row.capabilityKey);
+    const aiUnverified = aiDependencies.filter((row) => row.state === "not_verified").map((row) => row.capabilityKey);
     const contractEvidence = item.contractEvidence || null;
     const implementationReference = item.implementationReference || null;
     const mappingReconciliation = item.mappingReconciliation || null;
@@ -48,6 +52,9 @@ export function summariseModuleOperationalGaps(assessments = []) {
       mappingReconciliationState: mappingReconciliation?.reconciliationState || "not_reviewed",
       mappingReconciliationAction: mappingReconciliation?.reviewAction || "investigate_source_and_existing_capability_relationship",
       implementationRouteCount: implementationReference?.apiMounts?.length || 0,
+      aiDependencyKeys: Object.freeze(aiDependencies.map((row) => row.capabilityKey)),
+      aiDependencyPrerequisiteBlockers: Object.freeze(aiBlocked),
+      aiDependencyVerificationNeeded: Object.freeze(aiUnverified),
       suggestedNextReview: mappingReviewState === "mapping_review_required"
         ? "review_capability_mapping"
         : dependencyEvidence.some((dependency) => dependency.state === "confirmed_prerequisite_blocker")
@@ -87,6 +94,9 @@ export function summariseModuleOperationalGaps(assessments = []) {
     withReviewedImplementationSources: items.filter((item) => item.implementationReviewState === "existing_source_reviewed").length,
     implementationReviewNotRecorded: items.filter((item) => item.implementationReviewState === "source_not_reviewed").length,
     existingSourceWithoutMapping: items.filter((item) => item.mappingReconciliationState === "existing_source_without_canonical_mapping").length,
+    withAiDependencies: items.filter((item) => item.aiDependencyKeys.length > 0).length,
+    withBlockedAiDependencies: items.filter((item) => item.aiDependencyPrerequisiteBlockers.length > 0).length,
+    withUnverifiedAiDependencies: items.filter((item) => item.aiDependencyVerificationNeeded.length > 0).length,
   });
   const categories = [...new Set(rows.map((item) => item.category))].sort()
     .map((category) => Object.freeze({ category, ...aggregate(rows.filter((item) => item.category === category)) }));
@@ -107,6 +117,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
         moduleId: row.moduleId, displayName: row.displayName, priority: row.priority,
         nextReview: row.suggestedNextReview, mappingReviewState: row.mappingReviewState,
         confirmedBlockers: row.confirmedBlockers, dependencyPrerequisiteBlockers: row.dependencyPrerequisiteBlockers,
+        aiDependencyPrerequisiteBlockers: row.aiDependencyPrerequisiteBlockers,
+        aiDependencyVerificationNeeded: row.aiDependencyVerificationNeeded,
         activationAuthorised: false,
       }))),
     entries: Object.freeze(rows),
