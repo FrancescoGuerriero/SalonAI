@@ -808,7 +808,27 @@ test("catalogue exposes AI Core dependency blockers separately without granting 
   assert.equal(summary.totals.withBlockedAiDependencies, 1);
   assert.equal(summary.totals.withUnverifiedAiDependencies, 1);
   assert.deepEqual(summary.reviewQueue[0].aiDependencyPrerequisiteBlockers, ["ai"]);
+  assert.deepEqual(summary.reviewQueue[0].aiDependencyVerificationNeeded, ["ai-agent-tools"]);
   assert.equal(row.activationAuthorised, false);
   assert.equal(row.productionAccepted, null);
   assert.equal(Object.isFrozen(row.aiDependencyKeys), true);
+});
+
+test("unverified AI prerequisite alone appears in read-only catalogue review queue", async () => {
+  const summary = summariseModuleOperationalGaps([{
+    moduleId: "19",
+    checks: [],
+    dependencyEvidence: [{ capabilityKey: "ai", state: "not_verified" }],
+  }]);
+  assert.equal(summary.reviewQueue.length, 1);
+  assert.equal(summary.reviewQueue[0].nextReview, "verify_ai_dependency_prerequisites");
+  assert.deepEqual(summary.reviewQueue[0].aiDependencyPrerequisiteBlockers, []);
+  assert.deepEqual(summary.reviewQueue[0].aiDependencyVerificationNeeded, ["ai"]);
+  assert.equal(summary.totals.withBlockedAiDependencies, 0);
+  assert.equal(summary.totals.withUnverifiedAiDependencies, 1);
+  assert.equal(summary.reviewQueue[0].activationAuthorised, false);
+  const page = await readFile(new URL("../../../frontend/src/pages/ModuleCatalogueDashboardPage.jsx", import.meta.url), "utf8");
+  assert.match(page, /AI dependency verification needed:/);
+  assert.match(page, /AI evidence needed:/);
+  assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
 });
