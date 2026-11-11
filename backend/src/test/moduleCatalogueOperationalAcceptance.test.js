@@ -909,3 +909,50 @@ test("catalogue UI does not confuse registered AI tool source with operational a
   assert.match(page, /Tenant\/location and negative-permission acceptance/);
   assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
 });
+
+test("Receptionist and Retention registered A1 agent definitions are evidence, not operational acceptance", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const receptionist = result.entries.find((row) => row.moduleId === "19");
+  const retention = result.entries.find((row) => row.moduleId === "20");
+  const stylist = result.entries.find((row) => row.moduleId === "21");
+  const r = receptionist.contractEvidence.aiAgentRegistryEvidence;
+  const t = retention.contractEvidence.aiAgentRegistryEvidence;
+  assert.equal(r.agentKey, "ai-receptionist");
+  assert.equal(r.autonomyCeiling, "A1");
+  assert.equal(r.declaredRequiredEntitlement, "whatsapp-booking");
+  assert.deepEqual(r.allowedTools.map((tool) => tool.key), [
+    "service.catalogue.read", "availability.search",
+    "appointment.create.propose", "appointment.reschedule.propose",
+    "appointment.cancel.propose",
+  ]);
+  assert.ok(r.allowedTools.filter((tool) => tool.key.endsWith(".propose"))
+    .every((tool) => tool.requiresHumanApproval === true && tool.mutation === false));
+  assert.equal(t.agentKey, "ai-retention");
+  assert.equal(t.autonomyCeiling, "A1");
+  assert.deepEqual(t.allowedTools.map((tool) => tool.key), [
+    "retention.risk.read", "workflow.enrolment.propose",
+  ]);
+  assert.equal(t.allowedTools[1].requiresHumanApproval, true);
+  assert.equal(r.runtimeBindingVerified, false);
+  assert.equal(t.tenantAndLocationAcceptance, "not_verified");
+  assert.equal(r.humanApprovalWorkflowAcceptance, "not_verified");
+  assert.equal(stylist.contractEvidence.aiAgentRegistryEvidence, null);
+  assert.equal(stylist.contractEvidence.aiToolSourceEvidence, null);
+  assert.equal(result.deliveryGaps.totals.aiAgentRegistryReviewed, 2);
+  assert.equal(receptionist.activationAuthorised, false);
+  assert.equal(retention.productionAccepted, null);
+  assert.equal(Object.isFrozen(r.allowedTools), true);
+  assert.equal(Object.isFrozen(r.allowedTools[0]), true);
+});
+
+test("catalogue UI shows AI registry declaration without asserting tool execution", async () => {
+  const page = await readFile(
+    new URL("../../../frontend/src/pages/ModuleCatalogueDashboardPage.jsx", import.meta.url), "utf8",
+  );
+  assert.match(page, /Registered AI agent:/);
+  assert.match(page, /Runtime tool binding:/);
+  assert.match(page, /Agent registry declaration is not evidence of production activation/);
+  assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
+});
