@@ -832,3 +832,38 @@ test("unverified AI prerequisite alone appears in read-only catalogue review que
   assert.match(page, /AI evidence needed:/);
   assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
 });
+
+test("reviewed existing registered packs are candidates only, never entitlement assignments", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const store = result.entries.find((row) => row.moduleId === "05");
+  const stylist = result.entries.find((row) => row.moduleId === "21");
+  const marketplace = result.entries.find((row) => row.moduleId === "15");
+  assert.deepEqual(store.mappingReconciliation.registeredPackReuseCandidates, ["commerce"]);
+  assert.deepEqual(stylist.mappingReconciliation.registeredPackReuseCandidates, ["ai"]);
+  assert.deepEqual(marketplace.mappingReconciliation.registeredPackReuseCandidates, []);
+  assert.deepEqual(store.mappedCapabilityPackKeys, []);
+  assert.deepEqual(stylist.mappedCapabilityPackKeys, []);
+  assert.equal(store.mappingReconciliation.reuseReviewState, "registered_pack_reuse_review_required");
+  assert.equal(store.mappingReconciliation.changesEntitlements, false);
+  assert.equal(store.mappingReconciliation.createsCapabilityPack, false);
+  assert.equal(store.mappingReconciliation.activationAuthorised, false);
+  const summary = result.deliveryGaps;
+  const storeGap = summary.entries.find((row) => row.moduleId === "05");
+  assert.deepEqual(storeGap.registeredPackReuseCandidates, ["commerce"]);
+  assert.ok(summary.totals.withRegisteredPackReuseCandidates >= 2);
+  assert.ok(summary.reviewQueue.some((row) => row.moduleId === "05" &&
+    row.registeredPackReuseCandidates.includes("commerce")));
+  assert.equal(Object.isFrozen(storeGap.registeredPackReuseCandidates), true);
+  assert.equal(summary.activationAuthorised, false);
+});
+
+test("module dashboard labels reusable capability packs as review-only evidence", async () => {
+  const page = await readFile(
+    new URL("../../../frontend/src/pages/ModuleCatalogueDashboardPage.jsx", import.meta.url), "utf8",
+  );
+  assert.match(page, /Registered pack reuse candidates \(review only\)/);
+  assert.match(page, /Existing packs to review:/);
+  assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
+});
