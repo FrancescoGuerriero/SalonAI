@@ -255,6 +255,7 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
                   <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
+                  <strong> AI modules with reviewed registered-tool source:</strong> {operationalAssessment.deliveryGaps.totals.aiToolSourceReviewed}.
                   <strong> Modules with registered AI dependencies:</strong> {operationalAssessment.deliveryGaps.totals.withAiDependencies}.
                   <strong> AI dependency prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.withBlockedAiDependencies}.
                   <strong> AI dependency verification needed:</strong> {operationalAssessment.deliveryGaps.totals.withUnverifiedAiDependencies}.
@@ -355,6 +356,20 @@ export default function ModuleCatalogueDashboardPage() {
                             : "No reviewed source PR mapped"}</p>
                         <p><strong>API route and workflow acceptance:</strong> Not independently verified</p>
                         <p><strong>AI tool-contract verification:</strong> Not independently verified</p>
+                        {contract.aiToolSourceEvidence && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3"
+                            aria-label={`AI tool source review for ${item.moduleId}`}>
+                            <p><strong>Reviewed registered tool:</strong> {contract.aiToolSourceEvidence.toolKey}</p>
+                            <p><strong>Declared permission:</strong> {contract.aiToolSourceEvidence.requiredPermission}</p>
+                            <p><strong>Maximum tool autonomy:</strong> {contract.aiToolSourceEvidence.maximumAutonomy}</p>
+                            <p><strong>Direct mutation:</strong> {contract.aiToolSourceEvidence.mutation ? "Declared" : "Disabled in registry"}</p>
+                            <p><strong>Human approval requirement:</strong> {contract.aiToolSourceEvidence.requiresHumanApproval ? "Required in tool definition" : "Not required by tool definition"}</p>
+                            <p><strong>Reviewed service source:</strong> <code>{contract.aiToolSourceEvidence.serviceSource}</code></p>
+                            <p><strong>Tenant/location and negative-permission acceptance:</strong> Not independently verified</p>
+                            <p><strong>Prompt-injection and failure acceptance:</strong> Not independently verified</p>
+                            <p>Registered source evidence does not confirm live invocation or module production acceptance.</p>
+                          </div>
+                        )}
                         <p><strong>Provider readiness:</strong> Not independently verified</p>
                       </section>
                     );
