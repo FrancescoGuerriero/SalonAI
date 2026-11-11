@@ -5,6 +5,7 @@
  */
 import { listVerifiedModuleDeliveryEvidence } from "../../platform/moduleCatalogue/moduleDeliveryEvidenceLedger.js";
 import { getAiWorkforceTool } from "../aiPlatform/aiWorkforceToolRegistry.js";
+import { getBuiltinAiAgentDefinition } from "../aiPlatform/aiWorkforceBuiltinAgents.js";
 
 // Explicitly reviewed source relationship, NOT a dynamic or inferred binding.
 // Unlisted modules remain unknown, even when their names contain "AI".
@@ -17,6 +18,13 @@ const REVIEWED_AI_TOOL_SOURCES = Object.freeze({
   }),
 });
 
+
+// These are reviewed registry definitions only. A registered allowed-tool
+// declaration is not proof the runtime executes the tool or that a tenant is entitled.
+const REVIEWED_AI_AGENT_DEFINITIONS = Object.freeze({
+  "19": "ai-receptionist",
+  "20": "ai-retention",
+});
 
 const freeze = (items) => Object.freeze([...items]);
 export function inspectModuleContractDeclarations(capabilityDefinitions = [], aiOpportunity = "", moduleId = null) {
@@ -45,6 +53,34 @@ export function inspectModuleContractDeclarations(capabilityDefinitions = [], ai
   const registeredTool = reviewedToolSource ? getAiWorkforceTool(reviewedToolSource.toolKey) : null;
   // A registered definition and reviewed source do not prove runtime execution,
   // tenant/location isolation, human-approval tests, or production acceptance.
+  const reviewedAgentKey = REVIEWED_AI_AGENT_DEFINITIONS[String(moduleId)] || null;
+  const reviewedAgent = reviewedAgentKey ? getBuiltinAiAgentDefinition(reviewedAgentKey) : null;
+  const aiAgentRegistryEvidence = reviewedAgent ? Object.freeze({
+    state: "registered_agent_definition_reviewed",
+    agentKey: reviewedAgent.key,
+    agentVersion: reviewedAgent.version,
+    declaredLifecycle: reviewedAgent.lifecycle,
+    declaredRequiredEntitlement: reviewedAgent.requiredEntitlement,
+    autonomyCeiling: reviewedAgent.autonomyCeiling,
+    registrySource: "backend/src/features/aiPlatform/aiWorkforceBuiltinAgents.js",
+    toolRegistrySource: "backend/src/features/aiPlatform/aiWorkforceToolRegistry.js",
+    allowedTools: freeze(reviewedAgent.allowedTools.map((key) => {
+      const tool = getAiWorkforceTool(key);
+      if (!tool) throw new Error("Reviewed AI agent refers to an unregistered tool.");
+      return Object.freeze({
+        key: tool.key,
+        requiredPermission: tool.requiredPermission,
+        maximumAutonomy: tool.maximumAutonomy,
+        mutation: tool.mutation,
+        requiresHumanApproval: tool.requiresHumanApproval,
+      });
+    })),
+    runtimeBindingVerified: false,
+    tenantAndLocationAcceptance: "not_verified",
+    negativePermissionTests: "not_verified",
+    humanApprovalWorkflowAcceptance: "not_verified",
+    productionAccepted: null,
+  }) : null;
   const aiToolSourceEvidence = registeredTool ? Object.freeze({
     state: "registered_tool_and_source_reviewed",
     toolKey: registeredTool.key,
@@ -77,6 +113,7 @@ export function inspectModuleContractDeclarations(capabilityDefinitions = [], ai
     aiOpportunitySpecified: Boolean(String(aiOpportunity || "").trim()),
     aiToolContractVerification: "not_verified",
     aiToolSourceEvidence,
+    aiAgentRegistryEvidence,
     externalProviderReadiness: "not_verified",
     activationAuthorised: false,
   });
