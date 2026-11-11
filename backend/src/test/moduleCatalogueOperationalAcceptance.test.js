@@ -867,3 +867,45 @@ test("module dashboard labels reusable capability packs as review-only evidence"
   assert.match(page, /Existing packs to review:/);
   assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
 });
+
+test("AI Adviser tool source review records registered A0 contract without claiming tenant acceptance", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const adviser = assessment.entries.find((row) => row.moduleId === "18");
+  const evidence = adviser.contractEvidence.aiToolSourceEvidence;
+  assert.equal(evidence.state, "registered_tool_and_source_reviewed");
+  assert.equal(evidence.toolKey, "business.metrics.read");
+  assert.equal(evidence.requiredPermission, "ai:use");
+  assert.equal(evidence.maximumAutonomy, "A0");
+  assert.equal(evidence.mutation, false);
+  assert.equal(evidence.requiresHumanApproval, false);
+  assert.equal(evidence.liveInvocationAccepted, false);
+  assert.equal(evidence.tenantAndLocationAcceptance, "not_verified");
+  assert.equal(evidence.negativePermissionTests, "not_verified");
+  assert.equal(adviser.contractEvidence.aiToolContractVerification, "not_verified");
+  assert.equal(adviser.activationAuthorised, false);
+  assert.equal(adviser.productionAccepted, null);
+  assert.equal(assessment.entries.find((row) => row.moduleId === "21").contractEvidence.aiToolSourceEvidence, null);
+  const [service, routes, testSource] = await Promise.all([
+    readFile(new URL("../features/aiRecommendations/aiAdviserService.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/aiRecommendations/aiRecommendationRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("./aiAdviserV2.test.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(service, /requireAiWorkforceTool/);
+  assert.match(service, /business\.metrics\.read/);
+  assert.match(routes, /tenantAwareAiChain/);
+  assert.match(testSource, /Adviser A0 is read-only/);
+  assert.ok(assessment.deliveryGaps.totals.aiToolSourceReviewed >= 1);
+  assert.equal(Object.isFrozen(evidence), true);
+});
+
+test("catalogue UI does not confuse registered AI tool source with operational acceptance", async () => {
+  const page = await readFile(
+    new URL("../../../frontend/src/pages/ModuleCatalogueDashboardPage.jsx", import.meta.url), "utf8",
+  );
+  assert.match(page, /Reviewed registered tool:/);
+  assert.match(page, /Registered source evidence does not confirm live invocation/);
+  assert.match(page, /Tenant\/location and negative-permission acceptance/);
+  assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
+});
