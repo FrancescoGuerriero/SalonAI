@@ -51,6 +51,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
       implementationReviewState,
       mappingReconciliationState: mappingReconciliation?.reconciliationState || "not_reviewed",
       mappingReconciliationAction: mappingReconciliation?.reviewAction || "investigate_source_and_existing_capability_relationship",
+      registeredPackReuseCandidates: Object.freeze([...(mappingReconciliation?.registeredPackReuseCandidates || [])]),
+      registeredPackReuseReviewState: mappingReconciliation?.reuseReviewState || "not_reviewed",
       implementationRouteCount: implementationReference?.apiMounts?.length || 0,
       aiDependencyKeys: Object.freeze(aiDependencies.map((row) => row.capabilityKey)),
       aiDependencyPrerequisiteBlockers: Object.freeze(aiBlocked),
@@ -96,6 +98,7 @@ export function summariseModuleOperationalGaps(assessments = []) {
     withReviewedImplementationSources: items.filter((item) => item.implementationReviewState === "existing_source_reviewed").length,
     implementationReviewNotRecorded: items.filter((item) => item.implementationReviewState === "source_not_reviewed").length,
     existingSourceWithoutMapping: items.filter((item) => item.mappingReconciliationState === "existing_source_without_canonical_mapping").length,
+    withRegisteredPackReuseCandidates: items.filter((item) => item.registeredPackReuseCandidates.length > 0).length,
     withAiDependencies: items.filter((item) => item.aiDependencyKeys.length > 0).length,
     withBlockedAiDependencies: items.filter((item) => item.aiDependencyPrerequisiteBlockers.length > 0).length,
     withUnverifiedAiDependencies: items.filter((item) => item.aiDependencyVerificationNeeded.length > 0).length,
@@ -114,10 +117,12 @@ export function summariseModuleOperationalGaps(assessments = []) {
     priorities: Object.freeze(priorities),
     categories: Object.freeze(categories),
     reviewQueue: Object.freeze(rows.filter((row) => row.mappingReviewState === "mapping_review_required" ||
+      row.registeredPackReuseCandidates.length > 0 ||
       row.confirmedBlockers.length > 0 || row.dependencyPrerequisiteBlockers.length > 0 ||
       row.aiDependencyVerificationNeeded.length > 0)
       .map((row) => Object.freeze({
         moduleId: row.moduleId, displayName: row.displayName, priority: row.priority,
+        registeredPackReuseCandidates: row.registeredPackReuseCandidates,
         nextReview: row.suggestedNextReview, mappingReviewState: row.mappingReviewState,
         confirmedBlockers: row.confirmedBlockers, dependencyPrerequisiteBlockers: row.dependencyPrerequisiteBlockers,
         aiDependencyPrerequisiteBlockers: row.aiDependencyPrerequisiteBlockers,
