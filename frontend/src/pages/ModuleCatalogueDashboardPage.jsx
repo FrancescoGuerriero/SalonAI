@@ -256,6 +256,7 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
                   <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
                   <strong> AI modules with reviewed registered-tool source:</strong> {operationalAssessment.deliveryGaps.totals.aiToolSourceReviewed}.
+                  <strong> AI agent definitions reviewed:</strong> {operationalAssessment.deliveryGaps.totals.aiAgentRegistryReviewed}.
                   <strong> Modules with registered AI dependencies:</strong> {operationalAssessment.deliveryGaps.totals.withAiDependencies}.
                   <strong> AI dependency prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.withBlockedAiDependencies}.
                   <strong> AI dependency verification needed:</strong> {operationalAssessment.deliveryGaps.totals.withUnverifiedAiDependencies}.
@@ -356,6 +357,26 @@ export default function ModuleCatalogueDashboardPage() {
                             : "No reviewed source PR mapped"}</p>
                         <p><strong>API route and workflow acceptance:</strong> Not independently verified</p>
                         <p><strong>AI tool-contract verification:</strong> Not independently verified</p>
+                        {contract.aiAgentRegistryEvidence && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3"
+                            aria-label={`AI agent registry review for ${item.moduleId}`}>
+                            <p><strong>Registered AI agent:</strong> {contract.aiAgentRegistryEvidence.agentKey}</p>
+                            <p><strong>Declared autonomy ceiling:</strong> {contract.aiAgentRegistryEvidence.autonomyCeiling}</p>
+                            <p><strong>Declared feature entitlement:</strong> {contract.aiAgentRegistryEvidence.declaredRequiredEntitlement || "Not declared"}</p>
+                            <p><strong>Registered allowed tools:</strong></p>
+                            <ul className="list-disc pl-5">
+                              {contract.aiAgentRegistryEvidence.allowedTools.map((tool) => (
+                                <li key={tool.key}>
+                                  {tool.key} — {tool.requiredPermission}; {tool.maximumAutonomy};
+                                  {tool.requiresHumanApproval ? " human approval required" : " no tool-level approval required"}
+                                </li>
+                              ))}
+                            </ul>
+                            <p><strong>Runtime tool binding:</strong> Not independently verified</p>
+                            <p><strong>Tenant isolation, negative permissions and approval acceptance:</strong> Not independently verified</p>
+                            <p>Agent registry declaration is not evidence of production activation.</p>
+                          </div>
+                        )}
                         {contract.aiToolSourceEvidence && (
                           <div className="space-y-1 rounded-lg border border-stone-300 p-3"
                             aria-label={`AI tool source review for ${item.moduleId}`}>
