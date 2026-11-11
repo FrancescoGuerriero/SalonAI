@@ -255,6 +255,9 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
                   <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
                   <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
+                  <strong> Modules with registered AI dependencies:</strong> {operationalAssessment.deliveryGaps.totals.withAiDependencies}.
+                  <strong> AI dependency prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.withBlockedAiDependencies}.
+                  <strong> AI dependency verification needed:</strong> {operationalAssessment.deliveryGaps.totals.withUnverifiedAiDependencies}.
                   <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.
                   <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.
                   <strong> Entries with reviewed existing implementation:</strong> {operationalAssessment.deliveryGaps.totals.withReviewedImplementationSources}.
@@ -274,7 +277,7 @@ export default function ModuleCatalogueDashboardPage() {
                 </ul>
                 <div className="space-y-2" aria-label="Module catalogue next verification queue">
                   <h3 className="font-semibold">Priority review queue</h3>
-                  <p className="text-stone-700">Unmapped capabilities and confirmed tenant prerequisite blockers only; this list is not an activation or deployment schedule.</p>
+                  <p className="text-stone-700">Unmapped capabilities, confirmed prerequisite blockers and unverified AI dependencies; this is a read-only evidence review queue, not an activation or deployment schedule.</p>
                   {operationalAssessment.deliveryGaps.reviewQueue.length === 0
                     ? <p>No currently evidenced mapping or prerequisite review items.</p>
                     : <ol className="list-decimal space-y-1 pl-5">
@@ -282,6 +285,12 @@ export default function ModuleCatalogueDashboardPage() {
                           <li key={entry.moduleId}>
                             <strong>{entry.priority} · {entry.moduleId} — {entry.displayName}</strong>:
                             {" "}{entry.nextReview.replaceAll("_", " ")}
+                            {entry.aiDependencyPrerequisiteBlockers?.length > 0 && (
+                              <span> · AI blocked: {entry.aiDependencyPrerequisiteBlockers.join(", ")}</span>
+                            )}
+                            {entry.aiDependencyVerificationNeeded?.length > 0 && (
+                              <span> · AI evidence needed: {entry.aiDependencyVerificationNeeded.join(", ")}</span>
+                            )}
                           </li>
                         ))}
                       </ol>}
