@@ -262,7 +262,8 @@ export default function ModuleCatalogueDashboardPage() {
                   <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.
                   <strong> Entries with reviewed existing implementation:</strong> {operationalAssessment.deliveryGaps.totals.withReviewedImplementationSources}.
                   <strong> Entries without a reviewed implementation reference:</strong> {operationalAssessment.deliveryGaps.totals.implementationReviewNotRecorded}.
-                  <strong> Existing implementation with mapping review required:</strong> {operationalAssessment.deliveryGaps.totals.existingSourceWithoutMapping}.</p>
+                  <strong> Existing implementation with mapping review required:</strong> {operationalAssessment.deliveryGaps.totals.existingSourceWithoutMapping}.
+                  <strong> Entries with reviewed registered-pack reuse candidates:</strong> {operationalAssessment.deliveryGaps.totals.withRegisteredPackReuseCandidates}.</p>
                 <p className="text-stone-700">
                   These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions. An unreviewed implementation reference does not mean a module is absent.
                 </p>
@@ -285,6 +286,9 @@ export default function ModuleCatalogueDashboardPage() {
                           <li key={entry.moduleId}>
                             <strong>{entry.priority} · {entry.moduleId} — {entry.displayName}</strong>:
                             {" "}{entry.nextReview.replaceAll("_", " ")}
+                            {entry.registeredPackReuseCandidates?.length > 0 && (
+                              <span> · Existing packs to review: {entry.registeredPackReuseCandidates.join(", ")}</span>
+                            )}
                             {entry.aiDependencyPrerequisiteBlockers?.length > 0 && (
                               <span> · AI blocked: {entry.aiDependencyPrerequisiteBlockers.join(", ")}</span>
                             )}
@@ -410,6 +414,8 @@ export default function ModuleCatalogueDashboardPage() {
                               {assessment.mappingReconciliation.reconciliationState.replaceAll("_", " ")}</p>
                             <p><strong>Next review:</strong>{" "}
                               {assessment.mappingReconciliation.reviewAction.replaceAll("_", " ")}</p>
+                            <p><strong>Registered pack reuse candidates (review only):</strong>{" "}
+                              {assessment.mappingReconciliation.registeredPackReuseCandidates?.join(", ") || "None reviewed"}</p>
                             {assessment.mappingReconciliation.reviewedBoundary?.evidenceState === "source_boundary_reviewed" && (
                               <div className="space-y-1">
                                 <p><strong>Source review:</strong>{" "}
