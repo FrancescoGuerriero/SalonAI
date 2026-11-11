@@ -59,6 +59,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
         ? "review_capability_mapping"
         : dependencyEvidence.some((dependency) => dependency.state === "confirmed_prerequisite_blocker")
           ? "investigate_tenant_dependency_prerequisites"
+          : aiUnverified.length > 0
+            ? "verify_ai_dependency_prerequisites"
           : dependencyEvidence.some((dependency) => dependency.state === "not_verified")
             ? "verify_dependency_prerequisites"
             : blocked.length ? "resolve_confirmed_acceptance_blocker"
@@ -112,7 +114,8 @@ export function summariseModuleOperationalGaps(assessments = []) {
     priorities: Object.freeze(priorities),
     categories: Object.freeze(categories),
     reviewQueue: Object.freeze(rows.filter((row) => row.mappingReviewState === "mapping_review_required" ||
-      row.confirmedBlockers.length > 0 || row.dependencyPrerequisiteBlockers.length > 0)
+      row.confirmedBlockers.length > 0 || row.dependencyPrerequisiteBlockers.length > 0 ||
+      row.aiDependencyVerificationNeeded.length > 0)
       .map((row) => Object.freeze({
         moduleId: row.moduleId, displayName: row.displayName, priority: row.priority,
         nextReview: row.suggestedNextReview, mappingReviewState: row.mappingReviewState,
