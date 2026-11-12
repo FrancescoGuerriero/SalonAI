@@ -123,11 +123,15 @@ export function summariseModuleOperationalGaps(assessments = []) {
     reviewQueue: Object.freeze(rows.filter((row) => row.mappingReviewState === "mapping_review_required" ||
       row.registeredPackReuseCandidates.length > 0 ||
       row.confirmedBlockers.length > 0 || row.dependencyPrerequisiteBlockers.length > 0 ||
-      row.aiDependencyVerificationNeeded.length > 0)
+      row.aiDependencyVerificationNeeded.length > 0 ||
+      row.aiEvidenceState === "tool_contract_not_verified")
       .map((row) => Object.freeze({
         moduleId: row.moduleId, displayName: row.displayName, priority: row.priority,
         registeredPackReuseCandidates: row.registeredPackReuseCandidates,
         nextReview: row.suggestedNextReview, mappingReviewState: row.mappingReviewState,
+        aiEvidenceState: row.aiEvidenceState,
+        aiToolSourceReviewState: row.aiToolSourceReviewState,
+        aiAgentRegistryReviewState: row.aiAgentRegistryReviewState,
         confirmedBlockers: row.confirmedBlockers, dependencyPrerequisiteBlockers: row.dependencyPrerequisiteBlockers,
         aiDependencyPrerequisiteBlockers: row.aiDependencyPrerequisiteBlockers,
         aiDependencyVerificationNeeded: row.aiDependencyVerificationNeeded,
