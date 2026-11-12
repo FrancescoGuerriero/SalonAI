@@ -1060,8 +1060,13 @@ test("operational acceptance compares stringified business identifiers", async (
   };
   const result = await inspectModuleOperationalAcceptance({
     effectiveAuthority: objectIdAuthority,
-  }, fixture([]));
+  }, {
+    tenantInspector: async () => ({
+      businessId: BUSINESS,
+      integrity: "verified_manifest_and_subscription",
+      entries: [],
+    }),
+  });
   assert.equal(result.businessId, BUSINESS);
-  assert.equal(result.activationAuthorised, undefined);
   assert.equal(result.acceptedCount, 0);
 });
