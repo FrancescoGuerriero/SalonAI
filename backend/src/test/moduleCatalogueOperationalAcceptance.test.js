@@ -988,3 +988,30 @@ test("AI opportunity gaps remain visible in the review queue even with satisfied
   const receptionist = assessment.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === "19");
   assert.equal(receptionist.aiAgentRegistryReviewState, "registered_agent_definition_reviewed");
 });
+
+test("AI runtime acceptance checks are explicit, fail-closed and absent for non-AI modules", async () => {
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  const required = [
+    "ai_runtime_tool_execution",
+    "ai_negative_permission_and_isolation",
+    "ai_human_approval_and_audit",
+    "ai_failure_and_prompt_injection",
+  ];
+  for (const id of ["18", "19", "20"]) {
+    const module = result.entries.find((entry) => entry.moduleId === id);
+    for (const key of required) {
+      assert.equal(module.checks.find((check) => check.key === key)?.status, "not_verified");
+      assert.ok(module.outstandingVerification.includes(key));
+    }
+    assert.equal(module.activationAuthorised, false);
+    assert.equal(module.productionAccepted, null);
+  }
+  const appointments = result.entries.find((entry) => entry.moduleId === "01");
+  assert.ok(required.every((key) => !appointments.checks.some((check) => check.key === key)));
+  const queue = result.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === "18");
+  assert.ok(required.every((key) => queue !== undefined &&
+    result.deliveryGaps.entries.find((entry) => entry.moduleId === "18")
+      .outstandingVerification.includes(key)));
+});
