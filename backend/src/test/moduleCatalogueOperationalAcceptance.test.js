@@ -1017,3 +1017,51 @@ test("AI runtime acceptance checks are explicit, fail-closed and absent for non-
     result.deliveryGaps.entries.find((entry) => entry.moduleId === "18")
       .outstandingVerification.includes(key)));
 });
+
+test("operational acceptance rejects duplicate, malformed and foreign tenant evidence", async () => {
+  const conflicting = [
+    { moduleId: "18", manifestSelected: true, subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "18", manifestSelected: false, subscriptionEntitled: false, subscriptionStatus: "suspended" },
+  ];
+  await assert.rejects(
+    inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture(conflicting)),
+    /duplicate module entries/
+  );
+  await assert.rejects(
+    inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, fixture([null])),
+    /malformed or duplicate module entries/
+  );
+  await assert.rejects(
+    inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, {
+      tenantInspector: async () => ({
+        businessId: "507f1f77bcf86cd799439022",
+        integrity: "verified_manifest_and_subscription",
+        entries: [],
+      }),
+    }),
+    /another business/
+  );
+  await assert.rejects(
+    inspectModuleOperationalAcceptance({ effectiveAuthority: authority }, {
+      tenantInspector: async () => ({
+        businessId: BUSINESS,
+        integrity: "verified_manifest_and_subscription",
+        entries: null,
+      }),
+    }),
+    /missing or belongs to another business/
+  );
+});
+
+test("operational acceptance compares stringified business identifiers", async () => {
+  const objectIdAuthority = {
+    ...authority,
+    businessId: { toString: () => BUSINESS },
+  };
+  const result = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: objectIdAuthority,
+  }, fixture([]));
+  assert.equal(result.businessId, BUSINESS);
+  assert.equal(result.activationAuthorised, undefined);
+  assert.equal(result.acceptedCount, 0);
+});
