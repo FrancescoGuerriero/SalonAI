@@ -32,7 +32,21 @@ export async function inspectModuleOperationalAcceptance({
   // Do not swallow failures here: an unauthorised caller must receive 403,
   // not a public catalogue or tenant status.
   const trusted = await tenantInspector({ effectiveAuthority });
-  const tenantRows = new Map((trusted.entries || []).map((row) => [row.moduleId, row]));
+  // Never let a duplicate tenant row silently override a contradictory denial.
+  // This read projection is not an entitlement oracle, but must still fail closed.
+  if (!trusted || !Array.isArray(trusted.entries) ||
+      typeof trusted.businessId !== "string" ||
+      trusted.businessId !== effectiveAuthority?.businessId) {
+    throw new Error("Trusted module evidence is missing or belongs to another business.");
+  }
+  const tenantRows = new Map();
+  for (const row of trusted.entries) {
+    if (!row || typeof row.moduleId !== "string" || !row.moduleId.trim() ||
+        tenantRows.has(row.moduleId)) {
+      throw new Error("Trusted module evidence contains malformed or duplicate module entries.");
+    }
+    tenantRows.set(row.moduleId, row);
+  }
   const entries = listModuleCatalogue({ includeCandidates: true }).map((item) => {
     const mapped = item.capabilityPackKeys.length > 0 && !item.taxonomyOnly;
     const tenant = tenantRows.get(item.moduleId);
