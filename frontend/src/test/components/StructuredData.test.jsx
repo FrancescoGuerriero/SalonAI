@@ -40,10 +40,10 @@ afterEach(() => {
 });
 
 describe(
-  "Phase 9.2 structured data",
+  "Point 10 structured data",
   () => {
     it(
-      "builds Organization and WebSite schema for the home page",
+      "builds Organization WebSite and WebPage schema for the home page",
       () => {
         const data =
           buildStructuredData("/");
@@ -52,21 +52,13 @@ describe(
           "https://schema.org"
         );
 
-        expect(
-          data?.["@graph"].some(
-            (entry) =>
-              entry["@type"] ===
-              "Organization"
-          )
-        ).toBe(true);
-
-        expect(
-          data?.["@graph"].some(
-            (entry) =>
-              entry["@type"] ===
-              "WebSite"
-          )
-        ).toBe(true);
+        for (const type of ["Organization", "WebSite", "WebPage"]) {
+          expect(
+            data?.["@graph"].some(
+              (entry) => entry["@type"] === type
+            )
+          ).toBe(true);
+        }
 
         expect(
           data?.["@graph"].some(
@@ -211,32 +203,58 @@ describe(
     );
 
     it(
-      "does not publish unverified LocalBusiness fields",
+      "does not publish LocalBusiness fields when no public salon address is configured",
       () => {
-        const serialized =
-          JSON.stringify(
-            buildStructuredData("/")
-          );
-
-        expect(serialized).not.toContain(
-          '"HairSalon"'
+        const serialized = JSON.stringify(
+          buildStructuredData("/", {
+            name: "SalonAI",
+            streetAddress: "",
+            addressLocality: "",
+            postalCode: "",
+            addressCountry: "",
+            telephone: "",
+            googleBusinessUrl: "",
+            sameAs: [],
+          })
         );
 
-        expect(serialized).not.toContain(
-          '"LocalBusiness"'
+        expect(serialized).not.toContain('"HairSalon"');
+        expect(serialized).not.toContain('"LocalBusiness"');
+        expect(serialized).not.toContain('"streetAddress"');
+        expect(serialized).not.toContain('"telephone"');
+        expect(serialized).not.toContain('"openingHours"');
+      }
+    );
+
+    it(
+      "publishes HairSalon and LocalBusiness only from explicitly configured public facts",
+      () => {
+        const data = buildStructuredData("/", {
+          name: "Example Salon",
+          streetAddress: "10 Example Street",
+          addressLocality: "London",
+          postalCode: "E1 1AA",
+          addressCountry: "GB",
+          telephone: "+442000000000",
+          googleBusinessUrl: "https://www.google.com/maps/example",
+          sameAs: ["https://www.instagram.com/example"],
+        });
+
+        const salon = data?.["@graph"].find(
+          (entry) => Array.isArray(entry["@type"]) && entry["@type"].includes("HairSalon")
         );
 
-        expect(serialized).not.toContain(
-          '"streetAddress"'
-        );
-
-        expect(serialized).not.toContain(
-          '"telephone"'
-        );
-
-        expect(serialized).not.toContain(
-          '"openingHours"'
-        );
+        expect(salon?.["@type"]).toEqual(["HairSalon", "LocalBusiness"]);
+        expect(salon?.name).toBe("Example Salon");
+        expect(salon?.address?.streetAddress).toBe("10 Example Street");
+        expect(salon?.address?.addressLocality).toBe("London");
+        expect(salon?.address?.postalCode).toBe("E1 1AA");
+        expect(salon?.address?.addressCountry).toBe("GB");
+        expect(salon?.telephone).toBe("+442000000000");
+        expect(salon?.hasMap).toBe("https://www.google.com/maps/example");
+        expect(salon?.sameAs).toContain("https://www.instagram.com/example");
+        expect(JSON.stringify(salon)).not.toContain("openingHours");
+        expect(JSON.stringify(salon)).not.toContain("aggregateRating");
       }
     );
   }

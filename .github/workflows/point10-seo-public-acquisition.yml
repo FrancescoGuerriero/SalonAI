@@ -1,0 +1,62 @@
+name: Point 10 SEO Public Acquisition Gate
+
+on:
+  pull_request:
+    paths:
+      - "frontend/src/components/Seo.jsx"
+      - "frontend/src/components/StructuredData.jsx"
+      - "frontend/src/pages/SearchLandingPage.jsx"
+      - "frontend/src/test/components/StructuredData.test.jsx"
+      - "frontend/src/test/components/SearchLandingPages.test.jsx"
+      - "frontend/public/robots.txt"
+      - "frontend/public/sitemap.xml"
+      - "frontend/.env.example"
+      - "docs/roadmap/point-10-seo-public-acquisition.md"
+      - ".github/workflows/point10-seo-public-acquisition.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/src/components/Seo.jsx"
+      - "frontend/src/components/StructuredData.jsx"
+      - "frontend/src/pages/SearchLandingPage.jsx"
+      - "frontend/src/test/components/StructuredData.test.jsx"
+      - "frontend/src/test/components/SearchLandingPages.test.jsx"
+      - "frontend/public/robots.txt"
+      - "frontend/public/sitemap.xml"
+      - "frontend/.env.example"
+      - "docs/roadmap/point-10-seo-public-acquisition.md"
+      - ".github/workflows/point10-seo-public-acquisition.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  seo-contracts:
+    name: Point 10 public SEO contracts
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run structured-data contracts
+        run: npx vitest run --config vitest.config.js src/test/components/StructuredData.test.jsx src/test/components/SearchLandingPages.test.jsx
+
+      - name: Build public application
+        run: npm run build
+
+      - name: Enforce bundle budget
+        run: npm run check:bundle
