@@ -36,7 +36,7 @@ export async function inspectModuleOperationalAcceptance({
   // This read projection is not an entitlement oracle, but must still fail closed.
   if (!trusted || !Array.isArray(trusted.entries) ||
       typeof trusted.businessId !== "string" ||
-      trusted.businessId !== effectiveAuthority?.businessId) {
+      trusted.businessId !== String(effectiveAuthority?.businessId || "")) {
     throw new Error("Trusted module evidence is missing or belongs to another business.");
   }
   const tenantRows = new Map();
