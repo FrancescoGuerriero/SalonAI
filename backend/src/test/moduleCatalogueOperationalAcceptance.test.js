@@ -956,3 +956,35 @@ test("catalogue UI shows AI registry declaration without asserting tool executio
   assert.match(page, /Agent registry declaration is not evidence of production activation/);
   assert.doesNotMatch(page, /API\.(post|put|patch|delete)\(/);
 });
+
+test("AI opportunity gaps remain visible in the review queue even with satisfied prerequisites", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture([
+    { moduleId: "18", capabilityPackKeys: ["ai"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "19", capabilityPackKeys: ["ai-receptionist"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "20", capabilityPackKeys: ["ai-retention"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "09", capabilityPackKeys: ["communications"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+    { moduleId: "01", capabilityPackKeys: ["appointments"], manifestSelected: true,
+      subscriptionEntitled: true, subscriptionStatus: "active" },
+  ]));
+  for (const id of ["18", "19", "20"]) {
+    const row = assessment.deliveryGaps.entries.find((entry) => entry.moduleId === id);
+    const queued = assessment.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === id);
+    assert.ok(queued, `AI module ${id} must remain actionable until runtime tools are accepted`);
+    assert.equal(queued.aiEvidenceState, "tool_contract_not_verified");
+    assert.equal(queued.aiToolSourceReviewState, row.aiToolSourceReviewState);
+    assert.equal(queued.aiAgentRegistryReviewState, row.aiAgentRegistryReviewState);
+    assert.equal(queued.activationAuthorised, false);
+    assert.equal(row.productionAccepted, null);
+    assert.equal(Object.isFrozen(queued), true);
+  }
+  const adviser = assessment.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === "18");
+  assert.equal(adviser.aiToolSourceReviewState, "registered_tool_and_source_reviewed");
+  const receptionist = assessment.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === "19");
+  assert.equal(receptionist.aiAgentRegistryReviewState, "registered_agent_definition_reviewed");
+});
