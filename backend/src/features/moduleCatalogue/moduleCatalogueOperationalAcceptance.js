@@ -73,7 +73,7 @@ export async function inspectModuleOperationalAcceptance({
         "Database-backed cross-tenant and cross-location acceptance tests"),
       criterion("module_api_acceptance", UNKNOWN,
         "Module API and workflow acceptance tests"),
-      ...(item.aiOpportunity ? [
+      ...(item.category === "AI Intelligence, Agents and Automation" ? [
         criterion("ai_runtime_tool_execution", UNKNOWN,
           "Registered AI tools must be invoked and their results verified under trusted tenant authority"),
         criterion("ai_negative_permission_and_isolation", UNKNOWN,
