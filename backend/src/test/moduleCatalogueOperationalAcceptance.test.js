@@ -999,7 +999,7 @@ test("AI runtime acceptance checks are explicit, fail-closed and absent for non-
     "ai_human_approval_and_audit",
     "ai_failure_and_prompt_injection",
   ];
-  for (const id of ["18", "19", "20"]) {
+  for (const id of ["18", "19", "20", "21", "AI-CORE-01", "AI-CORE-02"]) {
     const module = result.entries.find((entry) => entry.moduleId === id);
     for (const key of required) {
       assert.equal(module.checks.find((check) => check.key === key)?.status, "not_verified");
@@ -1008,8 +1008,10 @@ test("AI runtime acceptance checks are explicit, fail-closed and absent for non-
     assert.equal(module.activationAuthorised, false);
     assert.equal(module.productionAccepted, null);
   }
-  const appointments = result.entries.find((entry) => entry.moduleId === "01");
-  assert.ok(required.every((key) => !appointments.checks.some((check) => check.key === key)));
+  for (const id of ["01", "02", "03", "04", "05", "09"]) {
+    const businessModule = result.entries.find((entry) => entry.moduleId === id);
+    assert.ok(required.every((key) => !businessModule.checks.some((check) => check.key === key)));
+  }
   const queue = result.deliveryGaps.reviewQueue.find((entry) => entry.moduleId === "18");
   assert.ok(required.every((key) => queue !== undefined &&
     result.deliveryGaps.entries.find((entry) => entry.moduleId === "18")
