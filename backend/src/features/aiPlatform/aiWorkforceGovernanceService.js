@@ -222,7 +222,17 @@ export async function observeAiActionOutcome(
     "AI action proposal not found."
   );
   assertProposalPermission(proposal, effectiveAuthority);
-  // A caller may not record outcomes on another location's proposal.
+  // A caller must not attach an unscoped proposal outcome to a location
+  // outside their membership or relabel an already-scoped proposal.
+  if (locationId !== null && locationId !== undefined && locationId !== "") {
+    const requested = objectId(locationId, "location");
+    aiWorkforceLocationMatch(effectiveAuthority, requested);
+    if (proposal.location && String(proposal.location) !== String(requested)) {
+      throw createServiceError("Outcome location must match the approved proposal.", 403, {
+        code: "AI_WORKFORCE_OUTCOME_LOCATION_MISMATCH",
+      });
+    }
+  }
   if (proposal.location) {
     aiWorkforceLocationMatch(effectiveAuthority, proposal.location);
   }
