@@ -251,6 +251,15 @@ export async function observeAiActionOutcome(
 ) {
   assertTenantAuthority({ businessId, effectiveAuthority });
   objectId(proposalId, "proposal");
+  // A retry key is scoped to a single business and proposal by the database
+  // unique index. It is not an authorisation token or an approval substitute.
+  const key = payload?.idempotencyKey;
+  if (key !== undefined && key !== null &&
+      (typeof key !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(key))) {
+    throw createServiceError("idempotencyKey must be 8-128 letters, digits, - or _.", 400, {
+      code: "AI_OUTCOME_IDEMPOTENCY_KEY_INVALID",
+    });
+  }
 
   // Perform the approval read and every persistent write in the same session.
   // An aborted transaction must never leave an outcome without a matching audit.
@@ -290,6 +299,7 @@ export async function observeAiActionOutcome(
       location: proposal.location ||
         (mongoose.isValidObjectId(locationId) ? locationId : null),
       proposal: proposal._id,
+      ...(key ? { idempotencyKey: key } : {}),
       agentRun: proposal.agentRun || null,
       agentKey: proposal.agentKey || "",
       status,
@@ -350,6 +360,18 @@ export async function observeAiActionOutcome(
     }], { session });
 
     return outcome.toObject();
+  }).catch((error) => {
+    // MongoDB's unique index arbitrates concurrent retries. Do not repeat
+    // writes, return a previous outcome without checking its payload, or
+    // turn a duplicate into a misleading success.
+    if (key && error?.code === 11000 &&
+        (error?.keyPattern?.idempotencyKey ||
+          String(error.message || "").includes("idempotencyKey"))) {
+      throw createServiceError("This AI outcome idempotency key was already submitted.", 409, {
+        code: "AI_OUTCOME_DUPLICATE_SUBMISSION",
+      });
+    }
+    throw error;
   });
 }
 
