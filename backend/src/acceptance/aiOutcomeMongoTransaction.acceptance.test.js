@@ -195,6 +195,23 @@ test("actual AI governance service persists approved outcome and audit in one tr
     assert.equal(await AiActionOutcome.countDocuments({
       business, proposal: proposal._id,
     }), 1);
+
+    // A new operation key represents a legitimate later human observation.
+    const later = await observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "later-observation-002",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor }, requestId: "ai-txn-later-observation",
+    });
+    assert.equal(later.status, "implemented");
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id,
+    }), 2);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id),
+    }), 2);
   } finally {
     await mongoose.disconnect();
   }
