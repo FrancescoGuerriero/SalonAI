@@ -55,9 +55,12 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: npm ci
-      - name: Run transaction tests and real rollback acceptance
+      - name: Run transaction unit tests
         working-directory: backend
-        run: node --test src/test/aiOutcomeAtomicCommit.test.js src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js
+        run: node --test src/test/aiOutcomeAtomicCommit.test.js
+      - name: Run real Mongoose and MongoDB rollback acceptance
+        working-directory: backend
+        run: node --test --test-concurrency=1 src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js
       - name: Remove test MongoDB
         if: always()
         run: docker rm -f ai-outcome-txn-mongo || true
