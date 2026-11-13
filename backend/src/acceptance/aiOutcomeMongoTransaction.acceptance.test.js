@@ -253,8 +253,12 @@ test("concurrent retries with one key commit exactly one outcome and one audit",
     const settled = await Promise.allSettled(requests);
     assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1,
       "exactly one simultaneous submission must commit");
-    assert.equal(settled.filter((item) => item.status === "rejected").length, 1,
+    const rejected = settled.filter((item) => item.status === "rejected");
+    assert.equal(rejected.length, 1,
       "the competing submission must not be reported as successful");
+    assert.equal(rejected[0].reason.statusCode, 409,
+      "a committed idempotency conflict has a stable client-facing status");
+    assert.equal(rejected[0].reason.details?.code, "AI_OUTCOME_DUPLICATE_SUBMISSION");
     assert.equal(await AiActionOutcome.countDocuments({
       business, proposal: proposal._id, idempotencyKey: "simultaneous-retry-001",
     }), 1);
