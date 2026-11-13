@@ -4,6 +4,10 @@ import mongoose from "mongoose";
 import { withAiOutcomeTransaction } from "../features/aiPlatform/aiOutcomeAtomicCommit.js";
 
 const uri = process.env.AI_OUTCOME_TXN_ACCEPTANCE_URI;
+// Destructive test data must never target an arbitrary or production database.
+if (uri && !/^mongodb:\/\/127\\.0\\.0\\.1:27017\/ai_outcome_txn_acceptance\\?replicaSet=rs0$/.test(uri)) {
+  throw new Error("AI outcome acceptance requires its isolated local test database.");
+}
 test("real replica set rolls back AI outcome, run and audit writes together", {
   skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
 }, async () => {
