@@ -53,10 +53,10 @@ test("AI outcome transaction rejects unsupported sessions without executing work
   await assert.rejects(withAiOutcomeTransaction(async () => {
     called = true;
   }, { startSession: async () => ({ endSession: async () => {} }) }),
-  (error) => error.code === "AI_OUTCOME_TRANSACTION_UNAVAILABLE");
+  (error) => error.details?.code === "AI_OUTCOME_TRANSACTION_UNAVAILABLE");
   assert.equal(called, false);
   await assert.rejects(withAiOutcomeTransaction(null),
-    (error) => error.code === "AI_OUTCOME_TRANSACTION_INVALID");
+    (error) => error.details?.code === "AI_OUTCOME_TRANSACTION_INVALID");
 });
 
 test("AI outcome transaction propagates commit failure and closes session", async () => {
