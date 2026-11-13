@@ -1,10 +1,10 @@
 /**
- * DEV1-reviewed test SOURCE inventory (2026-11-13).
+ * DEV1-reviewed test SOURCE inventory.
  * The listed test files and assertions were checked against this branch.
  * This is NOT a per-test run report, tenant acceptance or production sign-off.
  * No file-system search or external requests occur at API request time.
  */
-const REVIEWED_AT = "2026-11-13";
+const REVIEWED_AT = "2026-11-08";
 const TESTS = Object.freeze([
   {
     path: "backend/src/test/partnerMarketplaceFoundation.test.js",
@@ -116,7 +116,9 @@ export function listReviewedModuleTestEvidence(moduleId) {
         "reviewed_acceptance_source" : "reviewed_test_source",
       path: item.path,
       verifies: item.verifies,
-      reviewedAt: REVIEWED_AT,
+      reviewedAt: item.path === "backend/src/test/aiOutcomeAtomicCommit.test.js" ||
+        item.path === "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js"
+          ? "2026-11-13" : REVIEWED_AT,
       executedInThisInspection: false,
       perTestCiConclusion: null,
       tenantAcceptance: null,
