@@ -216,3 +216,56 @@ test("actual AI governance service persists approved outcome and audit in one tr
     await mongoose.disconnect();
   }
 });
+
+test("concurrent retries with one key commit exactly one outcome and one audit", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  try {
+    await AiActionOutcome.init();
+    const business = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const run = await AiAgentRun.create({
+      business, agentKey: "business-adviser", agentVersion: "1",
+      initiatedBy: actor, initiatorType: "user",
+      requestedAutonomy: "A1", effectiveAutonomy: "A1",
+    });
+    const proposal = await AiActionProposal.create({
+      business, agentRun: run._id, agentKey: "business-adviser",
+      createdBy: actor, actionType: "appointment_review", domain: "appointments",
+      requiredPermission: "appointment:read", targetType: "Appointment",
+      targetId: String(new mongoose.Types.ObjectId()),
+      summary: "Concurrent observation acceptance", status: "approved",
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    const context = {
+      businessId: String(business),
+      effectiveAuthority: {
+        businessId: String(business), locationAccessMode: "all",
+        permissions: ["appointment:read"],
+      },
+      user: { _id: actor },
+    };
+    const requests = [1, 2].map((n) => observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "simultaneous-retry-001",
+    }, { ...context, requestId: `simultaneous-${n}` }));
+    const settled = await Promise.allSettled(requests);
+    assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1,
+      "exactly one simultaneous submission must commit");
+    assert.equal(settled.filter((item) => item.status === "rejected").length, 1,
+      "the competing submission must not be reported as successful");
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id, idempotencyKey: "simultaneous-retry-001",
+    }), 1);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id),
+    }), 1);
+    const updatedRun = await AiAgentRun.findById(run._id).lean();
+    assert.equal(updatedRun.outcome.humanApproved, true);
+    assert.equal(updatedRun.outcome.taskSuccess, true);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
