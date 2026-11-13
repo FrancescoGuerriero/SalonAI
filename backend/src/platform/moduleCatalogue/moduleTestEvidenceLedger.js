@@ -82,6 +82,16 @@ const TESTS = Object.freeze([
     moduleIds: ["CORE-02"],
   },
   {
+    path: "backend/src/test/aiOutcomeAtomicCommit.test.js",
+    verifies: "AI outcome transaction commit, rollback, invalid-session denial and no non-atomic fallback",
+    moduleIds: ["18", "AI-CORE-05", "CORE-04"],
+  },
+  {
+    path: "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js",
+    verifies: "Replica-set rollback, real-model audit atomicity, governed outcome RBAC and concurrent retry uniqueness",
+    moduleIds: ["18", "AI-CORE-05", "CORE-04"],
+  },
+  {
     path: "backend/src/test/aiWorkforceReadOnlyMetricsInvocation.test.js",
     verifies: "Governed read-only metrics invocation, tenant/location denials, failure auditing and metric validation",
     moduleIds: ["16", "18", "AI-CORE-01", "AI-CORE-02"],
@@ -102,7 +112,8 @@ const freeze = (items) => Object.freeze([...items]);
 export function listReviewedModuleTestEvidence(moduleId) {
   return freeze(TESTS.filter((item) => item.moduleIds.includes(String(moduleId)))
     .map((item) => Object.freeze({
-      sourceType: "reviewed_test_source",
+      sourceType: item.path.startsWith("backend/src/acceptance/") ?
+        "reviewed_acceptance_source" : "reviewed_test_source",
       path: item.path,
       verifies: item.verifies,
       reviewedAt: REVIEWED_AT,
@@ -118,7 +129,7 @@ export function validateModuleTestEvidenceLedger(knownModuleIds = []) {
   const paths = new Set();
   for (const item of TESTS) {
     if (!/^backend\/src\/test\/[a-zA-Z0-9]+\.test\.js$/.test(item.path) ||
-      paths.has(item.path) || !item.moduleIds.length ||
+    if (!/^backend\/src\/(?:test\/[a-zA-Z0-9]+\.test\.js|acceptance\/[a-zA-Z0-9]+\.acceptance\.test\.js)$/.test(item.path) ||
       item.moduleIds.some((id) => !known.has(id)) ||
       !item.verifies.trim()) {
       throw new Error("Invalid module test source evidence mapping.");
