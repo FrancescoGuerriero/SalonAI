@@ -146,7 +146,7 @@ export function validateModuleTestEvidenceLedger(knownModuleIds = []) {
       item.moduleIds.some((id) => !known.has(id)) ||
       !item.verifies.trim() ||
       (item.workflowEvidence && (
-        !/^\\.github\\/workflows\\/[a-z0-9-]+\\.yml$/.test(item.workflowEvidence.workflowPath) ||
+        !/^\.github\/workflows\/[a-z0-9-]+\.yml$/.test(item.workflowEvidence.workflowPath) ||
         !/^[a-f0-9]{40}$/.test(item.workflowEvidence.commitSha) ||
         !Number.isSafeInteger(item.workflowEvidence.runId) ||
         item.workflowEvidence.runId <= 0 ||
