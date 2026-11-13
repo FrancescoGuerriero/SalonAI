@@ -1,10 +1,10 @@
 /**
- * DEV1-reviewed test SOURCE inventory (2026-11-08).
+ * DEV1-reviewed test SOURCE inventory (2026-11-13).
  * The listed test files and assertions were checked against this branch.
  * This is NOT a per-test run report, tenant acceptance or production sign-off.
  * No file-system search or external requests occur at API request time.
  */
-const REVIEWED_AT = "2026-11-08";
+const REVIEWED_AT = "2026-11-13";
 const TESTS = Object.freeze([
   {
     path: "backend/src/test/partnerMarketplaceFoundation.test.js",
