@@ -29,6 +29,14 @@ const aiActionOutcomeSchema = new Schema(
       required: true,
       index: true,
     },
+    // Optional client-supplied retry identity. Omitted legacy observations
+    // remain valid; a submitted key is unique per tenant and proposal.
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      maxlength: 128,
+      default: undefined,
+    },
     agentRun: {
       type: Schema.Types.ObjectId,
       ref: "AiAgentRun",
@@ -109,6 +117,10 @@ aiActionOutcomeSchema.index({
   proposal: 1,
   observedAt: -1,
 });
+aiActionOutcomeSchema.index(
+  { business: 1, proposal: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } }
+);
 aiActionOutcomeSchema.index({
   business: 1,
   agentKey: 1,
