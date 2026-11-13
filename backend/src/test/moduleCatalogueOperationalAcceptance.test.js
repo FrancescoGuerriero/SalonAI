@@ -1084,6 +1084,14 @@ test("AI transaction acceptance sources are traceable but never grant module sig
     assert.equal(source.sourceType, "reviewed_acceptance_source");
     assert.equal(source.executedInThisInspection, false);
     assert.equal(source.perTestCiConclusion, null);
+    assert.deepEqual(source.historicalWorkflowEvidence, {
+      workflowPath: ".github/workflows/dev1-ai-outcome-transaction-acceptance.yml",
+      runId: 43487131396,
+      commitSha: "64aad13914d8e4c74d3f5200b0810676cde0a852",
+      conclusion: "success",
+      scope: "historical_workflow_run",
+    });
+    assert.equal(Object.isFrozen(source.historicalWorkflowEvidence), true);
     assert.equal(source.tenantAcceptance, null);
     assert.equal(source.productionAccepted, null);
     assert.equal(item.activationAuthorised, false);
