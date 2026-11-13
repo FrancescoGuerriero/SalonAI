@@ -365,7 +365,8 @@ test("P0 catalogue items reference reviewed test source without claiming isolate
   assert.ok(ai.reviewedTestSourceEvidence.some((record) =>
     record.path === "backend/src/test/aiWorkforceReadOnlyMetricsInvocation.test.js"));
   for (const record of ai.reviewedTestSourceEvidence) {
-    assert.equal(record.sourceType, "reviewed_test_source");
+    assert.equal(record.sourceType, record.path.startsWith("backend/src/acceptance/") ?
+      "reviewed_acceptance_source" : "reviewed_test_source");
     assert.equal(record.executedInThisInspection, false);
     assert.equal(record.perTestCiConclusion, null);
     assert.equal(record.tenantAcceptance, null);
