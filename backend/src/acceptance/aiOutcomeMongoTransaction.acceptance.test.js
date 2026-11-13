@@ -142,9 +142,11 @@ test("actual AI governance service persists approved outcome and audit in one tr
     businessId: String(business), locationAccessMode: "all",
     permissions: ["appointment:read"],
   };
+  await AiActionOutcome.init();
   try {
     const saved = await observeAiActionOutcome(proposal._id, {
       status: "not_implemented", taskSuccess: false,
+      idempotencyKey: "replay-check-001",
     }, {
       businessId: String(business), effectiveAuthority: authority,
       user: { _id: actor }, requestId: "ai-txn-service-acceptance",
@@ -161,6 +163,27 @@ test("actual AI governance service persists approved outcome and audit in one tr
       resourceId: String(proposal._id),
       requestId: "ai-txn-service-acceptance",
     }), 1);
+
+    await assert.rejects(observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "replay-check-001",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor }, requestId: "ai-txn-duplicate-attempt",
+    }), (error) => error.statusCode === 409 &&
+      error.details?.code === "AI_OUTCOME_DUPLICATE_SUBMISSION");
+    assert.equal(await AiActionOutcome.countDocuments({ business, proposal: proposal._id }), 1);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed", resourceId: String(proposal._id),
+    }), 1);
+    await assert.rejects(observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "bad key",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor },
+    }), (error) => error.statusCode === 400 &&
+      error.details?.code === "AI_OUTCOME_IDEMPOTENCY_KEY_INVALID");
 
     await assert.rejects(observeAiActionOutcome(proposal._id, {
       status: "implemented", taskSuccess: true,
