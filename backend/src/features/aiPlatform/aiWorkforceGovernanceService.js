@@ -7,6 +7,7 @@ import AiActionOutcome, {
 import AiActionProposal from "./AiActionProposal.js";
 import AiAgentDefinition from "./AiAgentDefinition.js";
 import AiAgentRun from "./AiAgentRun.js";
+import { withAiOutcomeTransaction } from "./aiOutcomeAtomicCommit.js";
 import {
   AI_WORKFORCE_ACTIVE_AUTONOMY_CEILING,
 } from "./aiWorkforcePolicy.js";
@@ -251,73 +252,65 @@ export async function observeAiActionOutcome(
   assertTenantAuthority({ businessId, effectiveAuthority });
   objectId(proposalId, "proposal");
 
-  const proposal = assertFound(
-    await AiActionProposal.findOne({
-      _id: proposalId,
+  // Perform the approval read and every persistent write in the same session.
+  // An aborted transaction must never leave an outcome without a matching audit.
+  return withAiOutcomeTransaction(async (session) => {
+    const proposal = assertFound(
+      await AiActionProposal.findOne({
+        _id: proposalId,
+        business: businessId,
+      }).session(session),
+      "AI action proposal not found."
+    );
+    assertProposalPermission(proposal, effectiveAuthority);
+    assertAiOutcomeLocationScope(proposal, effectiveAuthority, locationId);
+
+    if (proposal.status !== "approved") {
+      throw createServiceError(
+        "Outcome observations can only be recorded for an approved AI proposal.",
+        409,
+        { code: "AI_WORKFORCE_OUTCOME_PROPOSAL_NOT_APPROVED" }
+      );
+    }
+
+    const status = text(payload.status).toLowerCase().replaceAll("-", "_");
+    if (!AI_ACTION_OUTCOME_STATUSES.includes(status)) {
+      throw createServiceError(
+        `status must be one of: ${AI_ACTION_OUTCOME_STATUSES.join(", ")}.`,
+        400, { field: "status" }
+      );
+    }
+    const observedBy = actorId(user);
+    if (!observedBy) {
+      throw createServiceError("An authenticated outcome observer is required.", 401);
+    }
+
+    const [outcome] = await AiActionOutcome.create([{
       business: businessId,
-    }),
-    "AI action proposal not found."
-  );
-  assertProposalPermission(proposal, effectiveAuthority);
-  assertAiOutcomeLocationScope(proposal, effectiveAuthority, locationId);
+      location: proposal.location ||
+        (mongoose.isValidObjectId(locationId) ? locationId : null),
+      proposal: proposal._id,
+      agentRun: proposal.agentRun || null,
+      agentKey: proposal.agentKey || "",
+      status,
+      taskSuccess: booleanOrNull(payload.taskSuccess),
+      policyViolation: payload.policyViolation === true,
+      overridden: payload.overridden === true,
+      reversed: status === "reversed" || payload.reversed === true,
+      businessMetricKey: text(payload.businessMetricKey).slice(0, 160),
+      businessMetricDelta: optionalNumber(payload.businessMetricDelta, "businessMetricDelta"),
+      evidenceRefs: uniqueStrings(payload.evidenceRefs),
+      note: text(payload.note).slice(0, 2000),
+      observedBy,
+      observedAt: new Date(),
+      metadata: payload.metadata && typeof payload.metadata === "object" &&
+        !Array.isArray(payload.metadata) ? payload.metadata : {},
+    }], { session });
 
-  if (proposal.status !== "approved") {
-    throw createServiceError(
-      "Outcome observations can only be recorded for an approved AI proposal.",
-      409,
-      { code: "AI_WORKFORCE_OUTCOME_PROPOSAL_NOT_APPROVED" }
-    );
-  }
-
-  const status = text(payload.status).toLowerCase().replaceAll("-", "_");
-  if (!AI_ACTION_OUTCOME_STATUSES.includes(status)) {
-    throw createServiceError(
-      `status must be one of: ${AI_ACTION_OUTCOME_STATUSES.join(", ")}.`,
-      400,
-      { field: "status" }
-    );
-  }
-
-  const observedBy = actorId(user);
-  if (!observedBy) {
-    throw createServiceError("An authenticated outcome observer is required.", 401);
-  }
-
-  const outcome = await AiActionOutcome.create({
-    business: businessId,
-    location:
-      proposal.location ||
-      (mongoose.isValidObjectId(locationId) ? locationId : null),
-    proposal: proposal._id,
-    agentRun: proposal.agentRun || null,
-    agentKey: proposal.agentKey || "",
-    status,
-    taskSuccess: booleanOrNull(payload.taskSuccess),
-    policyViolation: payload.policyViolation === true,
-    overridden: payload.overridden === true,
-    reversed: status === "reversed" || payload.reversed === true,
-    businessMetricKey: text(payload.businessMetricKey).slice(0, 160),
-    businessMetricDelta: optionalNumber(
-      payload.businessMetricDelta,
-      "businessMetricDelta"
-    ),
-    evidenceRefs: uniqueStrings(payload.evidenceRefs),
-    note: text(payload.note).slice(0, 2000),
-    observedBy,
-    observedAt: new Date(),
-    metadata:
-      payload.metadata &&
-      typeof payload.metadata === "object" &&
-      !Array.isArray(payload.metadata)
-        ? payload.metadata
-        : {},
-  });
-
-  if (proposal.agentRun) {
-    await AiAgentRun.updateOne(
-      { _id: proposal.agentRun, business: businessId },
-      {
-        $set: {
+    if (proposal.agentRun) {
+      const updated = await AiAgentRun.updateOne(
+        { _id: proposal.agentRun, business: businessId },
+        { $set: {
           "outcome.taskSuccess": outcome.taskSuccess,
           "outcome.humanApproved": true,
           "outcome.overridden": outcome.overridden,
@@ -325,33 +318,39 @@ export async function observeAiActionOutcome(
           "outcome.policyViolation": outcome.policyViolation,
           "outcome.businessMetricKey": outcome.businessMetricKey,
           "outcome.businessMetricDelta": outcome.businessMetricDelta,
-        },
+        } },
+        { session }
+      );
+      if (updated.matchedCount !== 1) {
+        throw createServiceError("AI outcome agent run is missing for this business.", 409, {
+          code: "AI_OUTCOME_RUN_MISMATCH",
+        });
       }
-    );
-  }
+    }
 
-  await AuditLog.create({
-    actor: observedBy,
-    action: "ai_workforce.proposal_outcome_observed",
-    resourceType: "AiActionProposal",
-    resourceId: String(proposal._id),
-    requestId: text(requestId),
-    after: {
-      outcomeId: String(outcome._id),
-      status: outcome.status,
-      taskSuccess: outcome.taskSuccess,
-      policyViolation: outcome.policyViolation,
-      reversed: outcome.reversed,
-    },
-    metadata: {
-      businessId: String(businessId),
-      agentKey: proposal.agentKey || "",
-      requiredPermission: proposal.requiredPermission,
-      automaticExecution: false,
-    },
+    await AuditLog.create([{
+      actor: observedBy,
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceType: "AiActionProposal",
+      resourceId: String(proposal._id),
+      requestId: text(requestId),
+      after: {
+        outcomeId: String(outcome._id),
+        status: outcome.status,
+        taskSuccess: outcome.taskSuccess,
+        policyViolation: outcome.policyViolation,
+        reversed: outcome.reversed,
+      },
+      metadata: {
+        businessId: String(businessId),
+        agentKey: proposal.agentKey || "",
+        requiredPermission: proposal.requiredPermission,
+        automaticExecution: false,
+      },
+    }], { session });
+
+    return outcome.toObject();
   });
-
-  return outcome.toObject();
 }
 
 export default {
