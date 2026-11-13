@@ -1,0 +1,63 @@
+name: DEV1 AI Outcome Mongo Transaction Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/features/aiPlatform/aiOutcomeAtomicCommit.js'
+      - 'backend/src/features/aiPlatform/aiWorkforceGovernanceService.js'
+      - 'backend/src/test/aiOutcomeAtomicCommit.test.js'
+      - 'backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js'
+      - '.github/workflows/dev1-ai-outcome-transaction-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev1-ai-outcome-transaction-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-outcome-transaction:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      AI_OUTCOME_TXN_ACCEPTANCE_URI: mongodb://127.0.0.1:27017/ai_outcome_txn_acceptance?replicaSet=rs0
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Start isolated Mongo replica set
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name ai-outcome-txn-mongo --publish 127.0.0.1:27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            if docker exec ai-outcome-txn-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          docker exec ai-outcome-txn-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in $(seq 1 30); do
+            if docker exec ai-outcome-txn-mongo mongosh --quiet 'mongodb://127.0.0.1:27017/admin?replicaSet=rs0' --eval 'if (!db.hello().isWritablePrimary) quit(1)' >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo 'Mongo replica set did not elect a primary' >&2
+          exit 1
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run transaction tests and real rollback acceptance
+        working-directory: backend
+        run: node --test src/test/aiOutcomeAtomicCommit.test.js src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js
+      - name: Remove test MongoDB
+        if: always()
+        run: docker rm -f ai-outcome-txn-mongo || true
