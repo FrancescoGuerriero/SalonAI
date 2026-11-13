@@ -188,6 +188,19 @@ export async function listAiWorkforceProposals(
     .slice(0, boundedLimit(query.limit));
 }
 
+export function filterAiOutcomesByProposalPermission(outcomes, effectiveAuthority) {
+  if (!Array.isArray(outcomes)) {
+    throw createServiceError("AI outcome provenance is unavailable.", 500, {
+      code: "AI_WORKFORCE_OUTCOME_PROVENANCE_UNAVAILABLE",
+    });
+  }
+  return outcomes.filter((outcome) =>
+    outcome?.proposal && typeof outcome.proposal === "object" &&
+    typeof outcome.proposal.requiredPermission === "string" &&
+    outcome.proposal.requiredPermission.trim() &&
+    hasEffectivePermission(effectiveAuthority, outcome.proposal.requiredPermission));
+}
+
 export async function listAiActionOutcomes(
   query = {},
   { businessId, effectiveAuthority } = {}
@@ -198,12 +211,18 @@ export async function listAiActionOutcomes(
   if (query.agentKey) match.agentKey = text(query.agentKey).toLowerCase();
   if (query.status) match.status = text(query.status).toLowerCase();
 
-  return AiActionOutcome.find(match)
+  const outcomes = await AiActionOutcome.find(match)
     .populate("proposal", "actionType domain targetType targetId summary status requiredPermission")
     .populate("agentRun", "agentKey agentVersion status startedAt completedAt")
     .sort({ observedAt: -1, _id: -1 })
-    .limit(boundedLimit(query.limit))
+    .limit(boundedLimit(query.limit) * 2)
     .lean();
+
+  // An outcome may disclose a protected proposal even when the caller cannot
+  // govern that proposal. Match the proposal listing's effective RBAC rule.
+  // Missing or unpopulated proposal provenance must fail closed.
+  return filterAiOutcomesByProposalPermission(outcomes, effectiveAuthority)
+    .slice(0, boundedLimit(query.limit));
 }
 
 /** Validate outcome provenance before creating any outcome or audit records. */
