@@ -90,6 +90,15 @@ const TESTS = Object.freeze([
     path: "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js",
     verifies: "Replica-set rollback, real-model audit atomicity, governed outcome RBAC and concurrent retry uniqueness",
     moduleIds: ["18", "AI-CORE-05", "CORE-04"],
+    // Historical workflow conclusion verified against GitHub for this exact
+    // commit. It does not assert the current branch head or per-test status.
+    workflowEvidence: Object.freeze({
+      workflowPath: ".github/workflows/dev1-ai-outcome-transaction-acceptance.yml",
+      runId: 43487131396,
+      commitSha: "64aad13914d8e4c74d3f5200b0810676cde0a852",
+      conclusion: "success",
+      scope: "historical_workflow_run",
+    }),
   },
   {
     path: "backend/src/test/aiWorkforceReadOnlyMetricsInvocation.test.js",
@@ -121,6 +130,8 @@ export function listReviewedModuleTestEvidence(moduleId) {
           ? "2026-11-13" : REVIEWED_AT,
       executedInThisInspection: false,
       perTestCiConclusion: null,
+      historicalWorkflowEvidence: item.workflowEvidence
+        ? Object.freeze({ ...item.workflowEvidence }) : null,
       tenantAcceptance: null,
       productionAccepted: null,
     })));
@@ -133,7 +144,15 @@ export function validateModuleTestEvidenceLedger(knownModuleIds = []) {
     if (!/^backend\/src\/(?:test\/[a-zA-Z0-9]+\.test\.js|acceptance\/[a-zA-Z0-9]+\.acceptance\.test\.js)$/.test(item.path) ||
       paths.has(item.path) || !item.moduleIds.length ||
       item.moduleIds.some((id) => !known.has(id)) ||
-      !item.verifies.trim()) {
+      !item.verifies.trim() ||
+      (item.workflowEvidence && (
+        !/^\\.github\\/workflows\\/[a-z0-9-]+\\.yml$/.test(item.workflowEvidence.workflowPath) ||
+        !/^[a-f0-9]{40}$/.test(item.workflowEvidence.commitSha) ||
+        !Number.isSafeInteger(item.workflowEvidence.runId) ||
+        item.workflowEvidence.runId <= 0 ||
+        item.workflowEvidence.conclusion !== "success" ||
+        item.workflowEvidence.scope !== "historical_workflow_run"
+      ))) {
       throw new Error("Invalid module test source evidence mapping.");
     }
     paths.add(item.path);
