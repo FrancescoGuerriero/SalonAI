@@ -1070,3 +1070,28 @@ test("operational acceptance compares stringified business identifiers", async (
   assert.equal(result.businessId, BUSINESS);
   assert.equal(result.acceptedCount, 0);
 });
+
+test("AI transaction acceptance sources are traceable but never grant module sign-off", async () => {
+  const assessment = await inspectModuleOperationalAcceptance({
+    effectiveAuthority: authority,
+  }, fixture());
+  for (const id of ["18", "AI-CORE-05", "CORE-04"]) {
+    const item = assessment.entries.find((row) => row.moduleId === id);
+    const source = item.reviewedTestSourceEvidence.find((record) =>
+      record.path === "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js");
+    assert.ok(source, `Missing AI transaction acceptance source for ${id}`);
+    assert.equal(source.sourceType, "reviewed_acceptance_source");
+    assert.equal(source.executedInThisInspection, false);
+    assert.equal(source.perTestCiConclusion, null);
+    assert.equal(source.tenantAcceptance, null);
+    assert.equal(source.productionAccepted, null);
+    assert.equal(item.activationAuthorised, false);
+    assert.equal(item.readyForProductionAcceptance, false);
+    assert.equal(item.checks.find((check) => check.key === "production_signoff").status,
+      "not_verified");
+    assert.ok(item.reviewedTestSourceEvidence.some((record) =>
+      record.path === "backend/src/test/aiOutcomeAtomicCommit.test.js"));
+  }
+  assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
+  assert.equal(assessment.acceptedCount, 0);
+});
