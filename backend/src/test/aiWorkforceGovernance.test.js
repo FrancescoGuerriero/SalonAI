@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import AiActionOutcome from "../features/aiPlatform/AiActionOutcome.js";
-import { assertAiOutcomeLocationScope } from "../features/aiPlatform/aiWorkforceGovernanceService.js";
+import { assertAiOutcomeLocationScope, filterAiOutcomesByProposalPermission } from "../features/aiPlatform/aiWorkforceGovernanceService.js";
 
 const BUSINESS_ID = "507f1f77bcf86cd799439021";
 const PROPOSAL_ID = "507f1f77bcf86cd799439022";
@@ -125,4 +125,29 @@ test("AI proposal outcome cannot relabel a legitimate proposal's location", () =
   assert.doesNotThrow(() => assertAiOutcomeLocationScope(
     { location: locationA }, authority, locationA,
   ));
+});
+
+test("AI outcome listing hides proposals outside effective RBAC", () => {
+  const authority = {
+    businessId: BUSINESS_ID,
+    locationAccessMode: "all",
+    permissions: ["ai:use", "appointment:read"],
+  };
+  const outcomes = [
+    { _id: "allowed", proposal: { requiredPermission: "appointment:read" } },
+    { _id: "denied", proposal: { requiredPermission: "appointment:cancel" } },
+    { _id: "empty", proposal: { requiredPermission: "" } },
+    { _id: "unpopulated", proposal: PROPOSAL_ID },
+    { _id: "missing", proposal: null },
+  ];
+  const visible = filterAiOutcomesByProposalPermission(outcomes, authority);
+  assert.deepEqual(visible.map((row) => row._id), ["allowed"]);
+  assert.equal(outcomes.length, 5);
+  assert.deepEqual(filterAiOutcomesByProposalPermission(outcomes, {
+    ...authority, permissions: [],
+  }), []);
+  assert.throws(
+    () => filterAiOutcomesByProposalPermission(null, authority),
+    /provenance is unavailable/,
+  );
 });
