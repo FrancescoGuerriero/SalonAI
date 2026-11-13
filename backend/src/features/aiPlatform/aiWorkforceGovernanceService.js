@@ -360,16 +360,27 @@ export async function observeAiActionOutcome(
     }], { session });
 
     return outcome.toObject();
-  }).catch((error) => {
-    // MongoDB's unique index arbitrates concurrent retries. Do not repeat
-    // writes, return a previous outcome without checking its payload, or
-    // turn a duplicate into a misleading success.
-    if (key && error?.code === 11000 &&
-        (error?.keyPattern?.idempotencyKey ||
-          String(error.message || "").includes("idempotencyKey"))) {
-      throw createServiceError("This AI outcome idempotency key was already submitted.", 409, {
-        code: "AI_OUTCOME_DUPLICATE_SUBMISSION",
-      });
+  }).catch(async (error) => {
+    // Concurrent transactions can fail with a write conflict (112) before
+    // reaching the unique index (11000). Only classify either as an
+    // idempotency conflict if the exact tenant/proposal/key already exists.
+    // Never replay writes or disclose the previously submitted payload.
+    if (key && (error?.code === 11000 || error?.code === 112 ||
+        error?.hasErrorLabel?.("TransientTransactionError") === true)) {
+      let committed = false;
+      try {
+        committed = Boolean(await AiActionOutcome.exists({
+          business: businessId, proposal: proposalId, idempotencyKey: key,
+        }));
+      } catch {
+        // A database outage must not be disguised as a duplicate submission.
+        throw error;
+      }
+      if (committed) {
+        throw createServiceError("This AI outcome idempotency key was already submitted.", 409, {
+          code: "AI_OUTCOME_DUPLICATE_SUBMISSION",
+        });
+      }
     }
     throw error;
   });
