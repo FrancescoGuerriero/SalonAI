@@ -128,8 +128,8 @@ export function validateModuleTestEvidenceLedger(knownModuleIds = []) {
   const known = new Set(knownModuleIds);
   const paths = new Set();
   for (const item of TESTS) {
-    if (!/^backend\/src\/test\/[a-zA-Z0-9]+\.test\.js$/.test(item.path) ||
-    if (!/^backend\/src\/(?:test\/[a-zA-Z0-9]+\.test\.js|acceptance\/[a-zA-Z0-9]+\.acceptance\.test\.js)$/.test(item.path) ||
+    if (!/^backend\\/src\\/(?:test\\/[a-zA-Z0-9]+\\.test\\.js|acceptance\\/[a-zA-Z0-9]+\\.acceptance\\.test\\.js)$/.test(item.path) ||
+      paths.has(item.path) || !item.moduleIds.length ||
       item.moduleIds.some((id) => !known.has(id)) ||
       !item.verifies.trim()) {
       throw new Error("Invalid module test source evidence mapping.");
