@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import AiActionOutcome from "../features/aiPlatform/AiActionOutcome.js";
 import AiActionProposal from "../features/aiPlatform/AiActionProposal.js";
 import { observeAiActionOutcome } from "../features/aiPlatform/aiWorkforceGovernanceService.js";
+import { inspectAiOutcomeAuditIntegrity } from "../features/aiPlatform/aiOutcomeAuditReconciliation.js";
 import AiAgentRun from "../features/aiPlatform/AiAgentRun.js";
 import AuditLog from "../models/AuditLog.js";
 import { withAiOutcomeTransaction } from "../features/aiPlatform/aiOutcomeAtomicCommit.js";
@@ -269,6 +270,52 @@ test("concurrent retries with one key commit exactly one outcome and one audit",
     const updatedRun = await AiAgentRun.findById(run._id).lean();
     assert.equal(updatedRun.outcome.humanApproved, true);
     assert.equal(updatedRun.outcome.taskSuccess, true);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
+
+test("real AI outcome reconciliation identifies a tampered audit without repairing it", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  try {
+    const business = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const proposal = await AiActionProposal.create({
+      business, createdBy: actor, actionType: "appointment_review",
+      domain: "appointments", requiredPermission: "appointment:read",
+      targetType: "Appointment", targetId: String(new mongoose.Types.ObjectId()),
+      summary: "Read-only reconciliation acceptance",
+      status: "approved", expiresAt: new Date(Date.now() + 60000),
+    });
+    const effectiveAuthority = {
+      businessId: String(business), locationAccessMode: "all",
+      permissions: ["ai:use", "reports:read", "appointment:read"],
+    };
+    const saved = await observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "audit-reconciliation-001",
+    }, {
+      businessId: String(business), effectiveAuthority,
+      user: { _id: actor }, requestId: "audit-reconciliation-ci",
+    });
+    const inspect = () => inspectAiOutcomeAuditIntegrity({ effectiveAuthority });
+    const clean = await inspect();
+    assert.equal(clean.inspectedCount, 1);
+    assert.equal(clean.discrepancyCount, 0);
+
+    const changed = await AuditLog.updateOne({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id), "after.outcomeId": String(saved._id),
+    }, { $set: { "after.status": "reversed" } });
+    assert.equal(changed.matchedCount, 1);
+    const inconsistent = await inspect();
+    assert.equal(inconsistent.discrepancyCount, 1);
+    assert.equal(inconsistent.discrepancies[0].issue,
+      "outcome_audit_provenance_mismatch");
+    assert.equal(inconsistent.repairPerformed, false);
+    assert.equal(inconsistent.productionAccepted, null);
   } finally {
     await mongoose.disconnect();
   }
