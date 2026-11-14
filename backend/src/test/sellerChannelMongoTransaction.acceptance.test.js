@@ -260,7 +260,8 @@ test("seller source transaction commits and rolls back against a local MongoDB r
         attemptedFetch = true;
         throw new Error("must not fetch an unreviewed retry");
       },
-    }), { code: "SELLER_RECOVERY_REVIEW_REQUIRED" });
+    }), (error) => error.statusCode === 409 &&
+      error.details?.code === "SELLER_RECOVERY_REVIEW_REQUIRED");
     assert.equal(attemptedFetch, false);
   } finally {
     // Delete only randomly named collections created by this test.
