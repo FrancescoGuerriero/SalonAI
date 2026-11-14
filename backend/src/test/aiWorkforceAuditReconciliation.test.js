@@ -110,3 +110,18 @@ test("fresh in-progress runs and empty batches remain read-only", async () => {
   assert.equal(empty.inspectedCount, 0);
   assert.equal(deps.calls.length, 1);
 });
+
+test("terminal audit on a started agent run is reported rather than accepted silently", async () => {
+  const recentStarted = run(RUN1, "started", "2026-11-08T12:59:30Z");
+  const staleStarted = run(RUN2, "started", "2026-11-08T12:50:00Z");
+  const result = await inspectAiMetricsRunAuditIntegrity(options, fixture(
+    [recentStarted, staleStarted],
+    [audit(RUN1), audit(RUN2)],
+  ));
+  assert.equal(result.discrepancyCount, 2);
+  assert.deepEqual(result.discrepancies.map((item) => item.issue), [
+    "started_run_has_terminal_audit", "started_run_has_terminal_audit",
+  ]);
+  assert.equal(result.readOnly, true);
+  assert.equal(result.repairPerformed, false);
+});

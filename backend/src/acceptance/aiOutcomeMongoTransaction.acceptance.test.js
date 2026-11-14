@@ -1,0 +1,338 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import mongoose from "mongoose";
+import AiActionOutcome from "../features/aiPlatform/AiActionOutcome.js";
+import AiActionProposal from "../features/aiPlatform/AiActionProposal.js";
+import { observeAiActionOutcome } from "../features/aiPlatform/aiWorkforceGovernanceService.js";
+import { inspectAiOutcomeAuditIntegrity } from "../features/aiPlatform/aiOutcomeAuditReconciliation.js";
+import AiAgentRun from "../features/aiPlatform/AiAgentRun.js";
+import AuditLog from "../models/AuditLog.js";
+import { withAiOutcomeTransaction } from "../features/aiPlatform/aiOutcomeAtomicCommit.js";
+
+const uri = process.env.AI_OUTCOME_TXN_ACCEPTANCE_URI;
+// Destructive test data must never target an arbitrary or production database.
+if (uri && uri !== "mongodb://127.0.0.1:27017/ai_outcome_txn_acceptance?replicaSet=rs0") {
+  throw new Error("AI outcome acceptance requires its isolated local test database.");
+}
+test("real replica set rolls back AI outcome, run and audit writes together", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  const connection = await mongoose.createConnection(uri, {
+    serverSelectionTimeoutMS: 10000,
+  }).asPromise();
+  try {
+    const outcomes = connection.collection("ai_outcome_txn_test_outcomes");
+    const runs = connection.collection("ai_outcome_txn_test_runs");
+    const audits = connection.collection("ai_outcome_txn_test_audits");
+    await Promise.all([outcomes.deleteMany({}), runs.deleteMany({}), audits.deleteMany({})]);
+
+    const startSession = () => connection.startSession();
+    await assert.rejects(withAiOutcomeTransaction(async (session) => {
+      await outcomes.insertOne({ caseId: "abort-audit" }, { session });
+      await runs.insertOne({ caseId: "abort-audit" }, { session });
+      await audits.insertOne({ caseId: "abort-audit" }, { session });
+      throw new Error("audit write rejected");
+    }, { startSession }), /audit write rejected/);
+
+    for (const collection of [outcomes, runs, audits]) {
+      assert.equal(await collection.countDocuments({ caseId: "abort-audit" }), 0);
+    }
+
+    const result = await withAiOutcomeTransaction(async (session) => {
+      await outcomes.insertOne({ caseId: "committed" }, { session });
+      await runs.insertOne({ caseId: "committed" }, { session });
+      await audits.insertOne({ caseId: "committed" }, { session });
+      return "committed";
+    }, { startSession });
+    assert.equal(result, "committed");
+    for (const collection of [outcomes, runs, audits]) {
+      assert.equal(await collection.countDocuments({ caseId: "committed" }), 1);
+    }
+  } finally {
+    await connection.dropDatabase();
+    await connection.close();
+  }
+});
+
+test("real Mongoose outcome, agent-run update and audit validation roll back atomically", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  const business = new mongoose.Types.ObjectId();
+  const actor = new mongoose.Types.ObjectId();
+  const proposalId = new mongoose.Types.ObjectId();
+  const run = await AiAgentRun.create({
+    business, agentKey: "business-adviser", agentVersion: "1",
+    initiatedBy: actor, initiatorType: "user",
+    requestedAutonomy: "A0", effectiveAutonomy: "A0",
+  });
+  const createOutcome = (session) => AiActionOutcome.create([{
+    business, proposal: proposalId, agentRun: run._id,
+    status: "implemented", observedBy: actor, taskSuccess: true,
+  }], { session });
+
+  try {
+    await assert.rejects(withAiOutcomeTransaction(async (session) => {
+      await createOutcome(session);
+      const updated = await AiAgentRun.updateOne(
+        { _id: run._id, business },
+        { $set: { "outcome.taskSuccess": true, "outcome.humanApproved": true } },
+        { session },
+      );
+      assert.equal(updated.matchedCount, 1);
+      // AuditLog.action is required. Validation failure must abort all writes.
+      await AuditLog.create([{
+        actor, resourceType: "AiActionProposal", resourceId: String(proposalId),
+      }], { session });
+    }), /action.*required/i);
+
+    assert.equal(await AiActionOutcome.countDocuments({ business, proposal: proposalId }), 0);
+    const rolledBackRun = await AiAgentRun.findById(run._id).lean();
+    assert.equal(rolledBackRun.outcome.taskSuccess, null);
+    assert.equal(rolledBackRun.outcome.humanApproved, null);
+    assert.equal(await AuditLog.countDocuments({
+      resourceType: "AiActionProposal", resourceId: String(proposalId),
+    }), 0);
+
+    await withAiOutcomeTransaction(async (session) => {
+      await createOutcome(session);
+      const updated = await AiAgentRun.updateOne(
+        { _id: run._id, business },
+        { $set: { "outcome.taskSuccess": true, "outcome.humanApproved": true } },
+        { session },
+      );
+      assert.equal(updated.matchedCount, 1);
+      await AuditLog.create([{
+        actor, action: "ai_workforce.proposal_outcome_observed",
+        resourceType: "AiActionProposal", resourceId: String(proposalId),
+      }], { session });
+    });
+
+    assert.equal(await AiActionOutcome.countDocuments({ business, proposal: proposalId }), 1);
+    const committedRun = await AiAgentRun.findById(run._id).lean();
+    assert.equal(committedRun.outcome.taskSuccess, true);
+    assert.equal(committedRun.outcome.humanApproved, true);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed", resourceId: String(proposalId),
+    }), 1);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
+
+test("actual AI governance service persists approved outcome and audit in one transaction", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  const business = new mongoose.Types.ObjectId();
+  const actor = new mongoose.Types.ObjectId();
+  const run = await AiAgentRun.create({
+    business, agentKey: "business-adviser", agentVersion: "1",
+    initiatedBy: actor, initiatorType: "user",
+    requestedAutonomy: "A1", effectiveAutonomy: "A1",
+  });
+  const proposal = await AiActionProposal.create({
+    business, agentRun: run._id, agentKey: "business-adviser",
+    createdBy: actor, actionType: "appointment_review",
+    domain: "appointments", requiredPermission: "appointment:read",
+    targetType: "Appointment", targetId: String(new mongoose.Types.ObjectId()),
+    summary: "Review an appointment", status: "approved",
+    expiresAt: new Date(Date.now() + 60_000),
+  });
+  const authority = {
+    businessId: String(business), locationAccessMode: "all",
+    permissions: ["appointment:read"],
+  };
+  await AiActionOutcome.init();
+  try {
+    const saved = await observeAiActionOutcome(proposal._id, {
+      status: "not_implemented", taskSuccess: false,
+      idempotencyKey: "replay-check-001",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor }, requestId: "ai-txn-service-acceptance",
+    });
+    assert.equal(saved.status, "not_implemented");
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id,
+    }), 1);
+    const updated = await AiAgentRun.findById(run._id).lean();
+    assert.equal(updated.outcome.humanApproved, true);
+    assert.equal(updated.outcome.taskSuccess, false);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id),
+      requestId: "ai-txn-service-acceptance",
+    }), 1);
+
+    await assert.rejects(observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "replay-check-001",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor }, requestId: "ai-txn-duplicate-attempt",
+    }), (error) => error.statusCode === 409 &&
+      error.details?.code === "AI_OUTCOME_DUPLICATE_SUBMISSION");
+    assert.equal(await AiActionOutcome.countDocuments({ business, proposal: proposal._id }), 1);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed", resourceId: String(proposal._id),
+    }), 1);
+    await assert.rejects(observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "bad key",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor },
+    }), (error) => error.statusCode === 400 &&
+      error.details?.code === "AI_OUTCOME_IDEMPOTENCY_KEY_INVALID");
+
+    await assert.rejects(observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+    }, {
+      businessId: String(business),
+      effectiveAuthority: { ...authority, permissions: [] },
+      user: { _id: actor },
+    }), /permission/);
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id,
+    }), 1);
+
+    // A new operation key represents a legitimate later human observation.
+    const later = await observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "later-observation-002",
+    }, {
+      businessId: String(business), effectiveAuthority: authority,
+      user: { _id: actor }, requestId: "ai-txn-later-observation",
+    });
+    assert.equal(later.status, "implemented");
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id,
+    }), 2);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id),
+    }), 2);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
+
+test("concurrent retries with one key commit exactly one outcome and one audit", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  try {
+    await AiActionOutcome.init();
+    const business = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const run = await AiAgentRun.create({
+      business, agentKey: "business-adviser", agentVersion: "1",
+      initiatedBy: actor, initiatorType: "user",
+      requestedAutonomy: "A1", effectiveAutonomy: "A1",
+    });
+    const proposal = await AiActionProposal.create({
+      business, agentRun: run._id, agentKey: "business-adviser",
+      createdBy: actor, actionType: "appointment_review", domain: "appointments",
+      requiredPermission: "appointment:read", targetType: "Appointment",
+      targetId: String(new mongoose.Types.ObjectId()),
+      summary: "Concurrent observation acceptance", status: "approved",
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    const context = {
+      businessId: String(business),
+      effectiveAuthority: {
+        businessId: String(business), locationAccessMode: "all",
+        permissions: ["appointment:read"],
+      },
+      user: { _id: actor },
+    };
+    const requests = [1, 2].map((n) => observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "simultaneous-retry-001",
+    }, { ...context, requestId: `simultaneous-${n}` }));
+    const settled = await Promise.allSettled(requests);
+    assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1,
+      "exactly one simultaneous submission must commit");
+    const rejected = settled.filter((item) => item.status === "rejected");
+    assert.equal(rejected.length, 1,
+      "the competing submission must not be reported as successful");
+    assert.equal(rejected[0].reason.statusCode, 409,
+      "a committed idempotency conflict has a stable client-facing status");
+    assert.equal(rejected[0].reason.details?.code, "AI_OUTCOME_DUPLICATE_SUBMISSION");
+    assert.equal(await AiActionOutcome.countDocuments({
+      business, proposal: proposal._id, idempotencyKey: "simultaneous-retry-001",
+    }), 1);
+    assert.equal(await AuditLog.countDocuments({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id),
+    }), 1);
+    const updatedRun = await AiAgentRun.findById(run._id).lean();
+    assert.equal(updatedRun.outcome.humanApproved, true);
+    assert.equal(updatedRun.outcome.taskSuccess, true);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
+
+test("real AI outcome reconciliation identifies a tampered audit without repairing it", {
+  skip: !uri ? "AI_OUTCOME_TXN_ACCEPTANCE_URI requires a local replica set" : false,
+}, async () => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  try {
+    const business = new mongoose.Types.ObjectId();
+    const actor = new mongoose.Types.ObjectId();
+    const proposal = await AiActionProposal.create({
+      business, createdBy: actor, actionType: "appointment_review",
+      domain: "appointments", requiredPermission: "appointment:read",
+      targetType: "Appointment", targetId: String(new mongoose.Types.ObjectId()),
+      summary: "Read-only reconciliation acceptance",
+      status: "approved", expiresAt: new Date(Date.now() + 60000),
+    });
+    const effectiveAuthority = {
+      businessId: String(business), locationAccessMode: "all",
+      permissions: ["ai:use", "reports:read", "appointment:read"],
+    };
+    const saved = await observeAiActionOutcome(proposal._id, {
+      status: "implemented", taskSuccess: true,
+      idempotencyKey: "audit-reconciliation-001",
+    }, {
+      businessId: String(business), effectiveAuthority,
+      user: { _id: actor }, requestId: "audit-reconciliation-ci",
+    });
+    const inspect = () => inspectAiOutcomeAuditIntegrity({ effectiveAuthority });
+    const clean = await inspect();
+    assert.equal(clean.inspectedCount, 1);
+    assert.equal(clean.discrepancyCount, 0);
+
+    const changed = await AuditLog.updateOne({
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceId: String(proposal._id), "after.outcomeId": String(saved._id),
+    }, { $set: { "after.status": "reversed" } });
+    assert.equal(changed.matchedCount, 1);
+    const inconsistent = await inspect();
+    assert.equal(inconsistent.discrepancyCount, 1);
+    assert.equal(inconsistent.discrepancies[0].issue,
+      "outcome_audit_provenance_mismatch");
+    assert.equal(inconsistent.repairPerformed, false);
+    assert.equal(inconsistent.productionAccepted, null);
+
+    // An audit referencing a nonexistent outcome is independently flagged.
+    // The test database is isolated; no production record is modified.
+    await AuditLog.create({
+      actor, action: "ai_workforce.proposal_outcome_observed",
+      resourceType: "AiActionProposal", resourceId: String(proposal._id),
+      after: { outcomeId: String(new mongoose.Types.ObjectId()),
+        status: "implemented", taskSuccess: true,
+        policyViolation: false, reversed: false },
+      metadata: { businessId: String(business), automaticExecution: false },
+    });
+    const withOrphan = await inspect();
+    assert.deepEqual(withOrphan.discrepancies.map((item) => item.issue), [
+      "orphan_outcome_audit", "outcome_audit_provenance_mismatch",
+    ]);
+    assert.equal(withOrphan.repairPerformed, false);
+  } finally {
+    await mongoose.disconnect();
+  }
+});
