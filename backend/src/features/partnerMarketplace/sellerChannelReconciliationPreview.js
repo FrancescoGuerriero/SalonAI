@@ -52,7 +52,8 @@ export async function previewSellerChannelInventory(connection, {
       String(product.location || "") === String(locationId));
     const remote = row.sourceRecord?.quantity;
     const local = exact.length === 1 ? exact[0].stockQuantity : null;
-    const comparable = locationId !== null && exact.length === 1 &&
+    const comparable = (skuCounts.get(sku) || 0) === 1 &&
+      locationId !== null && exact.length === 1 &&
       Number.isSafeInteger(remote) && Number.isSafeInteger(local) &&
       remote >= 0 && local >= 0;
     return Object.freeze({
