@@ -76,7 +76,50 @@ export async function inspectAiOutcomeAuditIntegrity({
     byOutcome.set(referenced, [...(byOutcome.get(referenced) || []), entry]);
   }
 
+  // The main outcome query is bounded. Do not call every audit reference
+  // missing from that page an orphan: it may belong to an older outcome.
+  // Resolve unmatched references against tenant-owned records first.
+  const unlisted = evidence.filter((entry) =>
+    !ids.has(String(entry?.after?.outcomeId || "")));
+  const referencedIds = [...new Set(unlisted.map((entry) =>
+    String(entry?.after?.outcomeId || "")).filter((id) => mongoose.isValidObjectId(id)))];
+  const referencedRows = referencedIds.length ? await outcomes.find({
+    business: businessId,
+    _id: { $in: referencedIds },
+  }).select("_id proposal").lean() : [];
+  if (!Array.isArray(referencedRows)) {
+    reject("AI audit reference lookup is unavailable.",
+      "AI_OUTCOME_RECONCILIATION_REFERENCES_UNAVAILABLE");
+  }
+  const ownedReferences = new Map();
+  for (const related of referencedRows) {
+    const id = String(related?._id || "");
+    if (!mongoose.isValidObjectId(id) ||
+        String(related?.proposal || "") === "" || ownedReferences.has(id)) {
+      reject("AI audit reference lookup is malformed.",
+        "AI_OUTCOME_RECONCILIATION_INVALID_REFERENCES");
+    }
+    ownedReferences.set(id, String(related.proposal));
+  }
+
   const discrepancies = [];
+  for (const entry of unlisted) {
+    const id = String(entry?.after?.outcomeId || "");
+    const proposal = String(entry?.resourceId || "");
+    // Only report the proposal already inside the caller's visible sample.
+    // Never return the foreign or malformed outcome ID from an audit row.
+    if (!proposals.has(proposal)) continue;
+    const linkedProposal = ownedReferences.get(id);
+    if (!mongoose.isValidObjectId(id) || !linkedProposal) {
+      discrepancies.push(Object.freeze({
+        outcomeId: null, proposalId: proposal, issue: "orphan_outcome_audit",
+      }));
+    } else if (linkedProposal !== proposal) {
+      discrepancies.push(Object.freeze({
+        outcomeId: null, proposalId: proposal, issue: "audit_outcome_proposal_mismatch",
+      }));
+    }
+  }
   for (const row of rows) {
     const id = String(row._id);
     const matching = byOutcome.get(id) || [];
