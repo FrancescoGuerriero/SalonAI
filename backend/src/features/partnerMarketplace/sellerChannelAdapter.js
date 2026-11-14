@@ -207,9 +207,20 @@ export async function fetchSellerChannelSnapshot(connection, kind, {
     }
     for (const item of items.slice(0, take - normalized.length)) {
       // No buyer info, addresses, payment identifiers or raw provider payloads.
-      normalized.push(kind === "listings"
+      const record = kind === "listings"
         ? safeListing(item, provider === "amazon_seller_central" ? "amazon" : "ebay")
-        : safeOrder(item, provider === "amazon_seller_central" ? "amazon" : "ebay"));
+        : safeOrder(item, provider === "amazon_seller_central" ? "amazon" : "ebay");
+      const identity = kind === "listings" ? record.sku : record.externalOrderId;
+      if (!identity.trim() || identity.length > 200) {
+        throw unsupported("Seller provider record has an invalid identifier.",
+          "SELLER_CHANNEL_SOURCE_ID_INVALID");
+      }
+      if (normalized.some((previous) =>
+        (kind === "listings" ? previous.sku : previous.externalOrderId) === identity)) {
+        throw unsupported("Seller provider repeated a source identifier across pages.",
+          "SELLER_CHANNEL_SOURCE_ID_DUPLICATE");
+      }
+      normalized.push(record);
     }
     pageCount += 1;
     let nextCursor = null;
