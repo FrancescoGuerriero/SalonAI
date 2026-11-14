@@ -85,6 +85,9 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
       requestId: request.requestId || "",
       resume: request.query.resume === "true",
       recoveryAcknowledged: request.body?.recoveryAcknowledged === true,
+      // Operator staging is atomic or fails closed. Never expose the
+      // non-transactional legacy service path through the HTTP API.
+      atomicStaging: true,
     });
     response.status(200).json({ success: true, result });
   }));
