@@ -121,7 +121,7 @@ test("AI proposal outcome cannot relabel a legitimate proposal's location", () =
   assert.throws(() => assertAiOutcomeLocationScope(
     { location: locationA }, authority, locationB,
   ), (error) => error.statusCode === 403 &&
-    error.code === "AI_WORKFORCE_OUTCOME_LOCATION_MISMATCH");
+    error.details?.code === "AI_WORKFORCE_OUTCOME_LOCATION_MISMATCH");
   assert.doesNotThrow(() => assertAiOutcomeLocationScope(
     { location: locationA }, authority, locationA,
   ));
