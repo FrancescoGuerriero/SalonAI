@@ -82,6 +82,11 @@ const TESTS = Object.freeze([
     moduleIds: ["CORE-02"],
   },
   {
+    path: "backend/src/test/aiOutcomeAuditReconciliation.test.js",
+    verifies: "Read-only tenant-scoped outcome audit reconciliation, missing/duplicate/mismatched evidence and authority denial",
+    moduleIds: ["18", "AI-CORE-05", "CORE-04"],
+  },
+  {
     path: "backend/src/test/aiOutcomeAtomicCommit.test.js",
     verifies: "AI outcome transaction commit, rollback, invalid-session denial and no non-atomic fallback",
     moduleIds: ["18", "AI-CORE-05", "CORE-04"],
@@ -125,7 +130,8 @@ export function listReviewedModuleTestEvidence(moduleId) {
         "reviewed_acceptance_source" : "reviewed_test_source",
       path: item.path,
       verifies: item.verifies,
-      reviewedAt: item.path === "backend/src/test/aiOutcomeAtomicCommit.test.js" ||
+      reviewedAt: item.path === "backend/src/test/aiOutcomeAuditReconciliation.test.js" ||
+        item.path === "backend/src/test/aiOutcomeAtomicCommit.test.js" ||
         item.path === "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js"
           ? "2026-11-13" : REVIEWED_AT,
       executedInThisInspection: false,
