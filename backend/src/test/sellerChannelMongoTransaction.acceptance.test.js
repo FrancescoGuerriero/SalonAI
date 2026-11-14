@@ -263,6 +263,53 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     }), (error) => error.statusCode === 409 &&
       error.details?.code === "SELLER_RECOVERY_REVIEW_REQUIRED");
     assert.equal(attemptedFetch, false);
+
+    // Order observations use the same atomic boundaries but never create
+    // Commerce orders, charge payments or trigger fulfilment.
+    const stagedOrder = await stageSellerChannelSnapshot(connection, "orders", {
+      ...common,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "orders",
+        records: [{
+          externalOrderId: "EB-ORDER-COMMITTED", status: "NOT_STARTED",
+          fulfillmentStatus: "NOT_STARTED", total: "19.95", currency: "GBP",
+          placedAt: "2026-11-10T11:00:00Z",
+        }],
+        nextPageAvailable: false, pagesFetched: 1, completeWithinLimit: true,
+      }),
+    });
+    assert.equal(stagedOrder.canonicalRecordsWritten, 0);
+    assert.equal(stagedOrder.fulfillmentWritesEnabled, false);
+    const committedOrder = await staging.findOne({
+      business: businessId, kind: "orders", externalId: "EB-ORDER-COMMITTED",
+    });
+    assert.equal(committedOrder.sourceRecord.status, "NOT_STARTED");
+    assert.equal(committedOrder.sourceRecord.fulfillmentStatus, "NOT_STARTED");
+    assert.equal(committedOrder.sourceRecord.amount, "19.95");
+    assert.equal(committedOrder.sourceRecord.currency, "GBP");
+    const orderCheckpoint = await checkpoint.findOne({ business: businessId, kind: "orders" });
+    assert.ok(orderCheckpoint);
+    assert.equal(await audit.countDocuments({ "metadata.kind": "orders" }), 1);
+
+    failAudit = true;
+    await assert.rejects(stageSellerChannelSnapshot(connection, "orders", {
+      ...common,
+      readSnapshot: async () => ({
+        provider: "ebay", kind: "orders",
+        records: [{
+          externalOrderId: "EB-ORDER-ROLLBACK", status: "FULFILLED",
+          fulfillmentStatus: "FULFILLED", total: "50.00", currency: "GBP",
+        }],
+        nextPageAvailable: false, pagesFetched: 1, completeWithinLimit: true,
+      }),
+    }), /injected-audit-failure/);
+    assert.equal(await staging.countDocuments({
+      business: businessId, kind: "orders", externalId: "EB-ORDER-ROLLBACK",
+    }), 0);
+    assert.deepEqual(await checkpoint.findOne({ business: businessId, kind: "orders" }),
+      orderCheckpoint);
+    assert.equal(await audit.countDocuments({ "metadata.kind": "orders" }), 1);
+    assert.equal(await journal.countDocuments({ state: "failed", kind: "orders" }), 1);
   } finally {
     // Delete only randomly named collections created by this test.
     for (const name of names) {
