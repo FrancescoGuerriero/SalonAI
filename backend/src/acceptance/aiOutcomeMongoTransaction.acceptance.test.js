@@ -316,6 +316,22 @@ test("real AI outcome reconciliation identifies a tampered audit without repairi
       "outcome_audit_provenance_mismatch");
     assert.equal(inconsistent.repairPerformed, false);
     assert.equal(inconsistent.productionAccepted, null);
+
+    // An audit referencing a nonexistent outcome is independently flagged.
+    // The test database is isolated; no production record is modified.
+    await AuditLog.create({
+      actor, action: "ai_workforce.proposal_outcome_observed",
+      resourceType: "AiActionProposal", resourceId: String(proposal._id),
+      after: { outcomeId: String(new mongoose.Types.ObjectId()),
+        status: "implemented", taskSuccess: true,
+        policyViolation: false, reversed: false },
+      metadata: { businessId: String(business), automaticExecution: false },
+    });
+    const withOrphan = await inspect();
+    assert.deepEqual(withOrphan.discrepancies.map((item) => item.issue), [
+      "orphan_outcome_audit", "outcome_audit_provenance_mismatch",
+    ]);
+    assert.equal(withOrphan.repairPerformed, false);
   } finally {
     await mongoose.disconnect();
   }
