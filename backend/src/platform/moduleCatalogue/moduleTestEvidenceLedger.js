@@ -93,14 +93,14 @@ const TESTS = Object.freeze([
   },
   {
     path: "backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js",
-    verifies: "Replica-set rollback, real-model audit atomicity, governed outcome RBAC and concurrent retry uniqueness",
+    verifies: "Replica-set rollback, audit atomicity, concurrent retry uniqueness, tampered outcome audit and orphan audit acceptance",
     moduleIds: ["18", "AI-CORE-05", "CORE-04"],
     // Historical workflow conclusion verified against GitHub for this exact
     // commit. It does not assert the current branch head or per-test status.
     workflowEvidence: Object.freeze({
       workflowPath: ".github/workflows/dev1-ai-outcome-transaction-acceptance.yml",
-      runId: 43487131396,
-      commitSha: "64aad13914d8e4c74d3f5200b0810676cde0a852",
+      runId: 43610073973,
+      commitSha: "4a697145d575d0e9f9612ddcaef089f637184cb4",
       conclusion: "success",
       scope: "historical_workflow_run",
     }),
