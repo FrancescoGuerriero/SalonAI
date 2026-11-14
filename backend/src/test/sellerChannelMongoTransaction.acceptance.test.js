@@ -206,13 +206,14 @@ test("seller source transaction commits and rolls back against a local MongoDB r
     };
     const committedButUnacknowledged = async () => {
       const session = await db.startSession();
-      return {
-        withTransaction: async (callback) => {
-          await session.withTransaction(callback);
-          throw unknownCommitError();
-        },
-        endSession: () => session.endSession(),
+      const performTransaction = session.withTransaction.bind(session);
+      // The driver receives an actual ClientSession for collection writes;
+      // only its transaction acknowledgement is fault-injected.
+      session.withTransaction = async (callback) => {
+        await performTransaction(callback);
+        throw unknownCommitError();
       };
+      return session;
     };
     await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
       ...common,
@@ -233,10 +234,11 @@ test("seller source transaction commits and rolls back against a local MongoDB r
 
     // When no commit can be established, the journal is commit_unknown and
     // neither automatic retry nor checkpoint resume may proceed.
-    const noCommitReply = async () => ({
-      withTransaction: async () => { throw unknownCommitError(); },
-      endSession: async () => {},
-    });
+    const noCommitReply = async () => {
+      const session = await db.startSession();
+      session.withTransaction = async () => { throw unknownCommitError(); };
+      return session;
+    };
     await assert.rejects(stageSellerChannelSnapshot(connection, "listings", {
       ...common,
       startSession: noCommitReply,
