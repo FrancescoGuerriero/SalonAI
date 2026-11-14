@@ -33,7 +33,7 @@ const audit = (id, overrides = {}) => ({
   ...overrides,
 });
 
-function fixture(rows, auditRows) {
+function fixture(rows, auditRows, referencedRows = []) {
   const calls = [];
   const chain = (value) => ({
     sort() { return this; },
@@ -43,7 +43,10 @@ function fixture(rows, auditRows) {
   });
   return {
     calls,
-    outcomes: { find(filter) { calls.push({ kind: "outcomes", filter }); return chain(rows); } },
+    outcomes: { find(filter) {
+      calls.push({ kind: "outcomes", filter });
+      return chain(filter._id ? referencedRows : rows);
+    } },
     audits: { find(filter) { calls.push({ kind: "audits", filter }); return chain(auditRows); } },
   };
 }
@@ -120,4 +123,42 @@ test("empty outcome set avoids an audit lookup", async () => {
   const report = await inspectAiOutcomeAuditIntegrity({ effectiveAuthority: authority }, deps);
   assert.equal(report.inspectedCount, 0);
   assert.equal(deps.calls.length, 1);
+});
+
+test("orphan and wrong-proposal audit references are detected without exposing unknown IDs", async () => {
+  const OTHER_PROPOSAL = "507f1f77bcf86cd799439023";
+  const deps = fixture([outcome(ONE)], [
+    audit(ONE),
+    audit(TWO),
+    audit(THREE),
+    audit("not-an-object-id"),
+  ], [
+    { _id: THREE, proposal: OTHER_PROPOSAL },
+  ]);
+  const report = await inspectAiOutcomeAuditIntegrity({ effectiveAuthority: authority }, deps);
+  assert.deepEqual(report.discrepancies.map((item) => item.issue), [
+    "orphan_outcome_audit", "audit_outcome_proposal_mismatch", "orphan_outcome_audit",
+  ]);
+  assert.ok(report.discrepancies.every((row) => row.outcomeId === null));
+  assert.equal(deps.calls[2].filter.business, BUSINESS);
+  assert.deepEqual(deps.calls[2].filter._id.$in, [TWO, THREE]);
+  assert.equal(report.readOnly, true);
+});
+
+test("older outcomes outside the bounded sample are not mislabelled as orphans", async () => {
+  const deps = fixture([outcome(ONE)], [audit(ONE), audit(TWO)], [
+    { _id: TWO, proposal: PROPOSAL },
+  ]);
+  const report = await inspectAiOutcomeAuditIntegrity({ effectiveAuthority: authority, limit: 1 }, deps);
+  assert.equal(report.discrepancyCount, 0);
+  assert.equal(report.truncated, true);
+  assert.equal(deps.calls.length, 3);
+});
+
+test("unavailable orphan-reference evidence fails closed", async () => {
+  await assert.rejects(
+    inspectAiOutcomeAuditIntegrity({ effectiveAuthority: authority },
+      fixture([outcome(ONE)], [audit(TWO)], null)),
+    /reference lookup is unavailable/,
+  );
 });
