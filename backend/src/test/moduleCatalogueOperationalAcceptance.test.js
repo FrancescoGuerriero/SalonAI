@@ -1086,8 +1086,8 @@ test("AI transaction acceptance sources are traceable but never grant module sig
     assert.equal(source.perTestCiConclusion, null);
     assert.deepEqual(source.historicalWorkflowEvidence, {
       workflowPath: ".github/workflows/dev1-ai-outcome-transaction-acceptance.yml",
-      runId: 43487131396,
-      commitSha: "64aad13914d8e4c74d3f5200b0810676cde0a852",
+      runId: 43610073973,
+      commitSha: "4a697145d575d0e9f9612ddcaef089f637184cb4",
       conclusion: "success",
       scope: "historical_workflow_run",
     });
@@ -1100,6 +1100,12 @@ test("AI transaction acceptance sources are traceable but never grant module sig
       "not_verified");
     assert.ok(item.reviewedTestSourceEvidence.some((record) =>
       record.path === "backend/src/test/aiOutcomeAtomicCommit.test.js"));
+    const reconciliation = item.reviewedTestSourceEvidence.find((record) =>
+      record.path === "backend/src/test/aiOutcomeAuditReconciliation.test.js");
+    assert.ok(reconciliation);
+    assert.equal(reconciliation.perTestCiConclusion, null);
+    assert.equal(reconciliation.tenantAcceptance, null);
+    assert.equal(reconciliation.productionAccepted, null);
   }
   assert.equal(assessment.testEvidenceIntegrity.perTestExecutionVerified, false);
   assert.equal(assessment.acceptedCount, 0);
