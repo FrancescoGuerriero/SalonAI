@@ -28,7 +28,12 @@ export async function previewSellerChannelInventory(connection, {
   if (!Array.isArray(staged)) throw createServiceError("Unexpected staged inventory response.", 502);
 
   const rawSkus = staged.map((row) => String(row.sourceRecord?.sku || "").trim());
-  const skus = [...new Set(rawSkus.map((sku) => sku.toUpperCase()).filter(Boolean))];
+  const normalizedSkus = rawSkus.map((sku) => sku.toUpperCase());
+  const skus = [...new Set(normalizedSkus.filter(Boolean))];
+  const skuCounts = new Map();
+  for (const sku of normalizedSkus) {
+    if (sku) skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
+  }
   const canonical = skus.length ? await productModel.find({
     business: businessId, sku: { $in: skus },
   }).select("sku stockQuantity location").lean() : [];
@@ -53,6 +58,7 @@ export async function previewSellerChannelInventory(connection, {
     return Object.freeze({
       sku, externalId: String(row.externalId || ""),
       state: !sku ? "invalid_staged_sku" :
+        (skuCounts.get(sku) || 0) > 1 ? "ambiguous_staged_sku" :
         !matching.length ? "no_canonical_product" :
           locationId === null ? "location_selection_required" :
             !exact.length ? "no_product_for_location" :
