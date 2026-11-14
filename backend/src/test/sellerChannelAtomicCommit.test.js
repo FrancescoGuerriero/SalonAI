@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { withSellerAtomicSourceCommit } from "../features/partnerMarketplace/sellerChannelAtomicCommit.js";
 import { stageSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelSyncService.js";
@@ -141,4 +142,15 @@ test("unresolved seller commit remains fail-closed for operator review", async (
   assert.equal(f.persisted.journal[0].state, "commit_unknown");
   assert.equal(f.persisted.journal[0].failureClass, "unknown");
   assert.equal(f.session.ended, true);
+});
+
+test("operator staging route explicitly requires an atomic source transaction", async () => {
+  const routes = await readFile(
+    new URL("../features/partnerMarketplace/sellerChannelRoutes.js", import.meta.url), "utf8");
+  const stage = routes.match(/router\.post\("\/:connectionId\/stage\/:kind",[\s\S]*?(?=router\.get\("\/:connectionId\/fulfillments)/)?.[0];
+  assert.ok(stage, "Seller staging endpoint must remain registered");
+  assert.match(stage, /atomicStaging:\s*true/);
+  assert.match(stage, /requirePermissions\("feature-control:update"\)/);
+  assert.match(stage, /requirePermissions\(permission\)/);
+  assert.doesNotMatch(stage, /atomicStaging:\s*(?:false|request\.)/);
 });
