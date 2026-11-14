@@ -85,3 +85,26 @@ test("dry-run endpoint is trusted-tenant scoped and never updates Commerce Produ
   assert.match(source, /business: businessId, sku:/);
   assert.doesNotMatch(source, /\.bulkWrite\(|\.updateOne\(|\.save\(/);
 });
+
+test("duplicate marketplace SKUs differing only in case never produce an actionable stock delta", async () => {
+  const staged = [
+    { externalId: "remote-one", sourceRecord: { sku: "same-sku", quantity: 8 } },
+    { externalId: "remote-two", sourceRecord: { sku: "SAME-SKU", quantity: 9 } },
+  ];
+  const canonical = [
+    { _id: "507f1f77bcf86cd799439027", sku: "SAME-SKU",
+      location: locationId, stockQuantity: 8 },
+  ];
+  const f = fixture(staged, canonical);
+  const report = await previewSellerChannelInventory(connection, {
+    businessId, locationId, ...f,
+  });
+  assert.deepEqual(report.records.map((row) => row.state),
+    ["ambiguous_staged_sku", "ambiguous_staged_sku"]);
+  assert.ok(report.records.every((row) =>
+    row.canonicalQuantity === null && row.quantityDifference === null &&
+    row.canonicalProductId === null));
+  assert.deepEqual(f.queries.products[0].sku.$in, ["SAME-SKU"]);
+  assert.equal(report.canonicalRecordsWritten, 0);
+  assert.equal(report.stockUpdatesApplied, 0);
+});
