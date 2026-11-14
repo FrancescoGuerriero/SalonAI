@@ -6,6 +6,8 @@ on:
     paths:
       - 'backend/src/features/aiPlatform/aiOutcomeAtomicCommit.js'
       - 'backend/src/features/aiPlatform/aiWorkforceGovernanceService.js'
+      - 'backend/src/features/aiPlatform/aiOutcomeAuditReconciliation.js'
+      - 'backend/src/test/aiOutcomeAuditReconciliation.test.js'
       - 'backend/src/test/aiOutcomeAtomicCommit.test.js'
       - 'backend/src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js'
       - '.github/workflows/dev1-ai-outcome-transaction-acceptance.yml'
@@ -57,7 +59,7 @@ jobs:
         run: npm ci
       - name: Run transaction unit tests
         working-directory: backend
-        run: node --test src/test/aiOutcomeAtomicCommit.test.js
+        run: node --test src/test/aiOutcomeAtomicCommit.test.js src/test/aiOutcomeAuditReconciliation.test.js
       - name: Run real Mongoose and MongoDB rollback acceptance
         working-directory: backend
         run: node --test --test-concurrency=1 src/acceptance/aiOutcomeMongoTransaction.acceptance.test.js
