@@ -78,3 +78,419 @@ change entitlements or subscriptions, introduce monthly AI quotas, connect
 providers, expose an API route, or deploy/activate production features.
 
 Sole development owner: **DEV1**.
+
+## DEV1 priority-first delivery-gap assessment (2026-11-08)
+
+The existing read-only, membership-protected
+`GET /system-administration/module-catalogue/operational-acceptance`
+response now includes `assessment.deliveryGaps`. It derives only from the
+server's previously verified tenant manifest/subscription evidence and the
+existing twelve-prerequisite assessment for each entry. It reports:
+
+- **48 entries**: 27 roadmap requirements and 21 candidates, with their
+  original identifiers, categories, priority and AI opportunities preserved.
+- Per-entry **confirmed prerequisite blockers** only when an existing check
+  returns `failed_or_missing`; unavailable checks remain
+  `not_verified`, never silently treated as failed or passed.
+- P0/P1/P2/P3 and category-level counts, including unmapped/taxonomy items,
+  to prioritise technical follow-up without changing the underlying roadmap.
+- A read-only management dashboard summary; no new write endpoint, plan,
+  subscription, capability registration or deployment operation.
+
+The result is **not** a production-readiness score: existing deployment,
+runtime, cross-module behaviour, provider verification and sign-off remain
+independent evidence requirements. `activationAuthorised` is always false,
+and `productionAcceptedCount` is null because tenant-wide production
+acceptance was not independently inspected. The existing authoritative
+platform capability registry and tenant entitlements remain unchanged.
+
+Commerce/Stripe draft PR #608 remains separate and is not part of this
+Module Catalogue slice. No monthly AI usage quotas are introduced.
+
+## DEV1 tenant dependency-prerequisite diagnostics
+
+The existing operational-acceptance response now includes
+`entries[].dependencyEvidence`, with each canonical capability prerequisite
+and its manifest-selection, subscription-entitlement and lifecycle evidence
+derived from the already trusted, all-location tenant inspector.
+
+- `prerequisites_evidenced` means the corresponding tenant records agree
+  on composition, entitlement and active/trial lifecycle; it **does not**
+  confirm runtime operation, provider access, permission tests or production sign-off.
+- `confirmed_prerequisite_blocker` means a trusted source explicitly
+  denies selection/entitlement or records an ineligible subscription lifecycle.
+- `not_verified` means evidence is absent, incomplete or contradictory.
+  It never means a module is broken or ready to deploy.
+
+The P0–P3 summary also includes per-module dependency prerequisite blockers
+and unresolved dependency verification keys. The dashboard presents this
+information without creating activation controls or altering module contracts.
+Existing `dependency_acceptance` checks remain `not_verified`, because
+commercial prerequisites are distinct from end-to-end workflow acceptance.
+
+## DEV1 capability mapping and AI tool-evidence review queue
+
+The existing read-only tenant acceptance summary now separates three
+different catalogue meanings:
+
+- `canonical_mapping_recorded`: a module requirement references one or more
+  registered canonical capability packs. **Not** evidence of deployment.
+- `mapping_review_required`: a planned requirement/candidate has no
+  independently mapped canonical capability pack. It stays unregistered.
+- `taxonomy_only`: an intentional structural/research entry, currently
+  requirement 22 or 26, **not** a missing deployable module.
+
+Entries with specified `aiOpportunity` are also labelled
+`tool_contract_not_verified` until separately reviewed evidence can attest
+to governed AI tools. This does **not** mean the existing AI implementation
+is missing or that a proposed AI feature is deployable. Entries without an
+AI opportunity are labelled `ai_integration_not_specified`.
+
+The `deliveryGaps.reviewQueue` is priority-ordered using the existing
+P0–P3 planning priority and selects **only** entries needing capability
+mapping review or with confirmed prerequisite blockers. It never assigns
+runtime status, writes entitlements, creates modules or authorises
+activation. The dashboard renders the queue and shows mapping, taxonomy
+and unverified AI opportunity counts separately. No monthly AI quotas.
+
+## DEV1 canonical API and AI integration contract declarations
+
+The existing tenant-protected operational acceptance response includes
+`entries[].contractEvidence`. It inventories **only** declarations already
+present in the canonical capability registry: `integrationContracts`,
+`configurationDefinitions`, `requiredPermissions`, and registered
+capability keys. No API route or AI agent is inferred from a module title or
+roadmap opportunity.
+
+`integration_contracts_declared` is a source-definition observation, not
+endpoint validation. `integration_contracts_not_declared` does not mean
+that APIs or AI capabilities are absent. `capability_mapping_missing`
+means that this planning entry has no mapped pack, not that the underlying
+implementation is missing. All route, provider, operational, AI tool and
+production acceptance states remain `not_verified`.
+
+The read-only management dashboard exposes the declaration inventory per
+module. No actual endpoint is executed or provider credential consulted; no
+deployment, entitlement or catalogue activation is implied. In particular,
+this does not create or replace existing Stripe, booking or AI integrations.
+
+## DEV1 reviewed API/AI source-work traceability
+
+The existing operational acceptance `contractEvidence.relatedSourceReviews`
+now links module requirements to PRs in the **previously reviewed,
+immutable Module Delivery Evidence Ledger**. This adds source provenance
+without live external calls or client-supplied URLs. Each related record
+includes a PR number, GitHub source URL, type, reviewed date and
+`related_work_merged` outcome; it is *not* an assertion that a particular
+API route, AI tool or full module has been delivered.
+
+The summary counts entries with source reviews separately from entries
+with registered integration declarations. Both can be present while
+`apiRouteVerification`, `apiOperationalAcceptance`,
+`aiToolContractVerification` and provider readiness all remain
+`not_verified`. Source review records must be refreshed independently
+after inspecting the exact PR and associated checks. A snapshot does not
+replace a live tenant-specific API acceptance test, signed deployment
+identity or explicit production sign-off. No module activation is added.
+
+## DEV1 module-specific API/RBAC/AI acceptance contracts
+
+The protected operational-acceptance response now contains
+`entries[].acceptanceContract` for every requirement and candidate.
+Contracts distinguish registered mapped capabilities from unmapped
+planning requirements and taxonomy-only entries. They provide a
+**verification checklist, not claims of implemented endpoints**:
+
+- Authenticated route inventory and positive/negative effective-permission
+  tests, with explicit foreign-Business and unauthorised-Location rejection.
+- Subscription/feature and dependency workflow acceptance.
+- Governed AI tool registry binding, tenant/permission enforcement, approval
+  and audit (where applicable), and negative/failure/prompt-injection tests
+  for entries with AI opportunities.
+- Provider/contract tests only where canonical registered integration
+  declarations exist, plus runtime identity and production sign-off.
+
+The API route inventory and AI tool bindings are explicitly **not verified**;
+the catalogue never fabricates endpoint paths, overrides RBAC, enables
+capabilities, or claims a completed production sign-off. This is a
+prioritisation/acceptance contract for DEV1 to fill with independently
+reviewed module-specific test evidence. Source/CI snapshots alone do not
+satisfy this contract.
+
+## DEV1 P0 acceptance test-source cross-reference
+
+The existing protected Module Catalogue assessment now returns
+`reviewedTestSourceEvidence` per entry, sourced from the immutable
+`moduleTestEvidenceLedger.js`. Source inspection on 2026-11-08 mapped
+the existing catalogue and AI test suites to P0 capabilities:
+
+- `CORE-02`: canonical catalogue, trusted tenant evidence, module
+  operational checklist and backend runtime identity tests.
+- `16`, `18`, `AI-CORE-01`, `AI-CORE-02`: governed read-only AI metrics
+  invocation tests, including foreign tenant/location denials and
+  error/audit behaviour, and AI Adviser route/tool boundary tests where mapped.
+
+These links are **reviewed test-file source evidence**, not per-test
+execution attestations. Recorded workflow green states cover a commit's
+workflow result; individual tests were not independently reconciled with
+CI job logs in this slice. The ledger explicitly returns
+`executedInThisInspection: false`, `perTestCiConclusion: null`,
+`tenantAcceptance: null` and `productionAccepted: null`.
+A module with no listed test has no reviewed mapping **in this ledger**;
+that does not imply the repository contains no tests for that module.
+
+This slice does not modify acceptance thresholds, activate packs,
+change production infrastructure, or introduce subscription/AI quotas.
+
+## DEV1 additional P0 reviewed test-source links
+
+Source inspection extended the immutable test-source ledger to:
+- `CORE-01`: BusinessMembership, trusted-tenant and selected-location control-plane tests.
+- `11` / `CORE-03`: integration registry and credential/scoping tests.
+- `CORE-04`: available tenant policy/configuration, integration authorization and AI audit-reconciliation tests; **not** a claim that all secrets, events and policies have complete test coverage.
+- `AI-CORE-01` / `AI-CORE-02`: AI Workforce agent/tool ceilings, governance and run-audit tests.
+- `AI-CORE-04`: bounded AI reads, timeout/cancellation and audit failure classification; this does **not** prove complete model gateway, costing or safety functionality.
+- `AI-CORE-05`: AI human approval, proposal mutation prohibitions and audit reconciliation tests.
+
+The reviewed test-source inventory is intentionally partial, with no inferred
+absence of unlisted tests. Each reference records a source-level contract;
+per-test execution verification, all-location tenant acceptance, production
+approval, AI external-provider availability and deployment remain unverified.
+No capability pack or production configuration was changed.
+
+## DEV1 existing P1 business module implementation references
+
+The Module Catalogue now explicitly recognises the **existing implementation**
+of the following modules without adding duplicate registration, endpoint,
+entity, subscription or business logic:
+
+| Requirement | Existing implementation source | Observed API mount |
+| --- | --- | --- |
+| 01 Appointments & Booking | `routes/appointmentRoutes.js` and `features/appointments/appointmentManagementRoutes.js` | `/api/appointments` |
+| 02 Workforce & Staff | `routes/stylistRoutes.js` | `/api/stylists` |
+| 03 Service Catalogue | `routes/serviceRoutes.js` | `/api/services` |
+| 04 Commerce | `features/commerce/commerceRoutes.js` | `/api/commerce` |
+| 09 Communications | `routes/communicationTemplateRoutes.js`, `routes/communicationCampaignRoutes.js`, `routes/messageDeliveryRoutes.js` | `/api/communication-templates`, `/api/communication-campaigns`, `/api/message-delivery` |
+
+These are **source-level references to pre-existing modules**, not newly
+built modules or an exhaustive route inventory. The read-only
+`implementationReference` response carries the observed source files
+and mounts, never replacing the existing route implementations. The
+acceptance checklist remains independent: a source file existing is not
+evidence that every tenant boundary, provider, payment flow, and live
+deployment acceptance test has passed. Unreviewed entries are marked
+`not_reviewed_in_this_inventory`, not `not_implemented`.
+
+The prior P0 ledger expansion exposed two outdated tests that assumed
+Integration Hub (11) had no mapped test source and that the ledger only
+contained its earlier P0 IDs. Those assertions were corrected after
+inspecting the failed Stage 1–6 job, without weakening tenant or
+permission tests. This change preserves Commerce and Stripe behaviour.
+
+## DEV1 broader catalogue mapping of existing module sources
+
+Additional inspected references reuse the application's actual Express mounts,
+including nested `/api/future` routing. These records recognise existing
+source, **not** newly generated or fully production-accepted modules:
+
+| Catalogue ID | Existing source surface | Mounted API |
+| --- | --- | --- |
+| 05 E-commerce & Online Store | Commerce product/storefront routes | `/api/commerce` |
+| 06 Memberships | Membership management routes | `/api/future/memberships` |
+| 07 Inventory & Purchasing | Inventory purchasing routes | `/api/inventory-purchasing` |
+| 08 Loyalty | Loyalty routes | `/api/loyalty` |
+| 10 Calendar Integration | Calendar OAuth callback and connection routes | `/api/calendar-oauth`, `/api/future/calendar-connections` |
+| 11 Integration Hub | Integration credential API and management routes | `/api/future/integrations/v1`, `/api/future/integrations` |
+| 12 CRM & Customer Intelligence | Customer management routes (partial surface only) | `/api/customers` |
+| 13 Customer Experience | Existing customer-experience route composition | `/api/customer-experience` |
+| 16 Analytics & Business Intelligence | Existing dashboard insight routes | `/api/dashboard/insights` |
+| 18 AI Business Adviser | AI advisory/recommendation routes | `/api/ai` |
+
+Existing API mounts are source inventory only. They neither resolve
+catalogue-to-entitlement mappings nor demonstrate workflow completeness,
+tenant isolation, Stripe/payment safety, calendar provider availability,
+or production sign-off. Requirement 12's customer-route reference does
+**not** imply its entire intelligence layer has been implemented. Existing
+models, controllers, middleware and route registrations are unchanged.
+
+## DEV1 further existing source-route references
+
+The additive, read-only implementation inventory now also recognises
+the following source surfaces. These entries are not newly created modules.
+
+| Requirement | Reviewed existing route | Scope limitation |
+| --- | --- | --- |
+| 14 Marketing, Advertising & SEO | `/api/marketing-editorial` | Editorial functionality only; not evidence of complete marketing or SEO coverage |
+| 17 Business Planning & Forecasting | `/api/future/revenue-forecast` | Revenue forecast and snapshots only |
+| 23 Clinical Records | `/api/future/clinical` | Existing restricted clinical source; no clinical/regulated production acceptance |
+| 24 Finance & Accounting Integrations | `/api/future/settlements` | Existing settlement workflows, not full accounting integration coverage |
+| 27 Data Management & Audit Centre | `/api/future/data-export-audit` | Existing export/audit surface; not full data-management completeness |
+
+Mounts are checked against `app.js` and nested `futureFeatureRoutes.js`,
+and route sources are checked for Express handlers. The catalogue continues
+to distinguish **source present** from **capability pack mapping**, **test
+acceptance**, **deployment** and **production sign-off**. Requirement 25
+(Fulfilment & Delivery) remains unreviewed in this inventory and is not
+labelled unimplemented as a consequence. No existing module code changed.
+
+## DEV1 existing AI application source references
+
+Requirements **19 AI Receptionist**, **20 AI Retention Manager** and
+**21 AI Stylist Copilot** are now recognised as already having implemented
+source surfaces. The catalogue references their existing entry points
+rather than creating new AI modules:
+
+| Requirement | Existing API / feature source | Scope of observation |
+| --- | --- | --- |
+| 19 AI Receptionist | `/api/whatsapp`, `whatsappReceptionistAgentRunService.js` | Existing A1 WhatsApp receptionist/proposal flow, not fully autonomous booking |
+| 20 AI Retention Manager | `/api/future/ai`, `aiRetentionTenantService.js` | Existing tenant-scoped retention AI prediction paths, not full campaign automation |
+| 21 AI Stylist Copilot | `/api/ai`, `aiStylistCopilotService.js` | Existing governed stylist-copilot appointment brief and model client |
+
+The module catalogue still does not infer AI tool registration,
+provider readiness, permission acceptance, production deployment, or
+complete end-to-end workflows from a route or service file. Existing
+catalogue IDs and capability pack mappings are unchanged. Any unreviewed
+marketplace, fulfilment or other entries remain unverified, not
+automatically unimplemented.
+
+The reviewed test-source ledger also maps existing
+`aiReceptionistWorkforce.test.js`, `aiRetentionTenantBoundary.test.js`
+and `aiStylistCopilot.test.js` to requirements 19, 20 and 21 respectively.
+Test-file presence alone cannot confirm that all acceptance criteria or
+live provider integrations work in production.
+
+## DEV1 partner marketplace versus seller-channel integrations
+
+The implementation inventory now references the **existing AIIBP partner-app
+marketplace foundation** at
+`/api/future/integrations/marketplace`, composed from
+`app.js` → `futureFeatureRoutes.js` →
+`integrationPlatformRoutes.js` → `partnerMarketplaceRoutes.js`.
+
+This is a source-level implementation reference for module 15, **not**
+evidence that Amazon Seller Central, eBay seller listings, order feeds,
+shipping, returns or marketplace settlement connectors are installed or
+ready for production. Existing marketplace tests explicitly keep tenant
+installation in a preparation/reconciliation state and do not provision
+provider connections or execute commercial billing.
+
+The catalogue also recognises limited existing shared-platform surfaces:
+
+| Candidate | Source-backed implementation reference | Explicit limitation |
+| --- | --- | --- |
+| CORE-02 Module composition | `/api/system-administration`, catalogue management endpoints | Does not imply tenant entitlement activation |
+| CORE-03 API Gateway & Integration Registry | `/api/future/integrations`, `/api/future/integrations/v1` | Does not imply a complete gateway |
+| CORE-04 Secrets, Events, Audit & Policy | `/api/future/security` | Existing audit/security read endpoints, not full policy or secret coverage |
+
+Requirement 25 Fulfilment & Delivery remains unreviewed in this
+source inventory. Lack of a reviewed reference is not proof of missing
+implementation. These references do not create any new modules, routes
+or capability packs and do not change Stripe, CRM, AI, booking or
+production configuration.
+
+## DEV1 existing shared AI implementation coverage
+
+The read-only inventory now recognises the following **existing** shared
+AI platform route surfaces. It neither creates a parallel AI runtime nor
+grants activation:
+
+| Candidate | Existing API source and mount | Scope limitation |
+| --- | --- | --- |
+| AI-CORE-01 Orchestration & Policy | `/api/ai` workforce registry/governance routes, `aiWorkforceBuiltinAgents.js` | Not proof of complete shared orchestration acceptance |
+| AI-CORE-02 Agent Registry, Tools & Evaluations | `/api/ai` workforce registry, runs, proposals, and builtin agent definitions | Not proof of complete evaluation coverage |
+| AI-CORE-04 Model Gateway, Cost & Safety | `/api/future/integrations/data-hub` AI gateway evidence, plan and evaluation routes | Not proof of all gateway, provider, cost or model-safety workflows |
+| AI-CORE-05 Human Approval & Execution Ledger | `/api/ai` adviser proposals/review and workforce outcome routes | Not proof of an end-to-end execution ledger |
+
+Existing Python AI gateway and registry source is separately available,
+but this source-level reference set does not claim live Python integration
+acceptance. AI-CORE-03 Tenant Knowledge/RAG and other unreviewed catalogue
+entries remain `source_not_reviewed` rather than being called missing.
+
+`deliveryGaps.totals.withReviewedImplementationSources` and
+`implementationReviewNotRecorded` count the two source-review states
+without redefining canonical module mappings or entitlement permissions.
+These counts do **not** measure ready modules, production deployments,
+or the completion of the underlying requirements.
+
+## DEV1 source versus canonical capability reconciliation
+
+A new read-only `mappingReconciliation` observation per catalogue entry
+explicitly separates an existing source route from a canonical registered
+capability pack, without adding any entitlements. The states are:
+
+- `registered_mapping_and_existing_source`: both the existing pack reference
+  and a reviewed source entry point are present.
+- `registered_mapping_source_not_reviewed`: existing pack recorded, but no
+  source reference reviewed in this inventory.
+- `existing_source_without_canonical_mapping`: module source has been
+  inspected, but the requirement lacks an independently approved mapping to
+  a canonical pack; **do not build a duplicate module or auto-map a pack**.
+- `mapping_and_source_review_required`: neither evidence has been recorded;
+  this is not proof that underlying functionality is absent.
+- `taxonomy_only`: a classification or research slot, not a deployable pack.
+
+The read-only dashboard also counts
+`deliveryGaps.totals.existingSourceWithoutMapping` separately from missing
+source observations. In particular, existing storefront (05), partner
+marketplace (15), AI Stylist Copilot (21) and shared AI gateway candidates
+must be reviewed for reuse of existing capabilities, rather than receiving
+new entitlement registrations by default. No production acceptance,
+deployment or activation follows from this planning reconciliation.
+
+## DEV1 mapping-reuse evidence from existing guards
+
+For the highest-risk mapping ambiguities, the catalogue now records an
+immutable source-review boundary, alongside the existing unapproved mapping
+state. It distinguishes feature-control switches and RBAC permissions from
+registered `capabilityRegistry` pack keys:
+
+| Module | Observed source boundary | Registered packs for **review only** |
+| --- | --- | --- |
+| 05 Online Store | Commerce routes, `online-shop` feature switch, product/order permissions | `commerce` |
+| 15 Seller & Marketplace | Partner marketplace routes and `feature-control` permissions (partner apps, not Amazon/eBay seller channels) | None established |
+| 21 AI Stylist Copilot | `/api/ai` with `ai-tools` feature gate and `ai:use` permission | `ai` |
+| AI-CORE-04 Model Gateway | Data Hub gateway endpoints, `ai:use` and `feature-control:read` permissions | `ai` |
+
+Existing pack review candidates are verified against the canonical
+registry but **not assigned** to requirements. The presence of a route
+guard does not establish an entitlement relationship, permit activation,
+validate provider readiness, or satisfy tenant-specific operational
+acceptance. For Module 15, the existing partner marketplace is deliberately
+not represented as a deployed seller-channel connector.
+
+The read-only `mappingReconciliation.reviewedBoundary` response reports
+the source path, observed feature guards, permissions and pack candidates.
+The management dashboard makes these distinctions visible for review.
+
+## DEV1 correction: Seller & Marketplace Management already has an established foundation
+
+Requirement **15 Seller & Marketplace Management** must not be described
+as an absent or newly proposed module. The source repository already
+contains an **established partner-app marketplace foundation**:
+
+- `MarketplaceApp` and `MarketplaceInstallation` persistence models.
+- Partner-app submission, platform approval, catalogue and trusted tenant
+  installation preparation controllers/services.
+- Installation connection reconciliation using the existing Integration
+  Platform as the source of connection authority.
+- Existing admin UI `PartnerMarketplacePanel.jsx` and partner marketplace
+  regression tests.
+- Mounted routes under `/api/future/integrations/marketplace`.
+
+The catalogue records this with
+`mappingReconciliation.reviewedBoundary.establishedFoundation =
+"partner_app_marketplace"` and an immutable list of reviewed workflows.
+The canonical module entry, actual routes, application logic and original
+entitlement architecture remain unchanged.
+
+**Separate scope**: This foundation is not itself proof that Amazon/eBay
+seller listing publication, feed synchronisation, orders, returns,
+shipping/fulfilment or external provider connections have passed
+acceptance. Those are additional seller-channel integration checks, not
+a reason to recreate or classify the established marketplace foundation
+as missing. `extensionEvidenceStatus` remains
+`seller_channel_integrations_not_verified`.
+
+A missing explicit module-to-pack mapping is an administrative
+reconciliation issue only; it must not erase the existing source
+implementation or create a new capability pack automatically.

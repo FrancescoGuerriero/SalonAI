@@ -2,7 +2,14 @@ import {
   listModuleCatalogue,
 } from "../../platform/moduleCatalogue/canonicalModuleCatalogue.js";
 import { getCapabilityPack } from "../../platform/capabilities/capabilityRegistry.js";
+import { summariseModuleOperationalGaps } from "./moduleCatalogueGapSummary.js";
+import { inspectModuleDependencyEvidence } from "./moduleCatalogueDependencyEvidence.js";
+import { inspectModuleContractDeclarations } from "./moduleCatalogueContractEvidence.js";
+import { buildModuleAcceptanceContract } from "./moduleCatalogueAcceptanceContract.js";
+import { listReviewedModuleTestEvidence, validateModuleTestEvidenceLedger } from "../../platform/moduleCatalogue/moduleTestEvidenceLedger.js";
 import { inspectTrustedTenantModuleEvidence } from "./moduleCatalogueTenantRuntimeEvidence.js";
+import { inspectExistingModuleImplementation } from "../../platform/moduleCatalogue/moduleImplementationReferences.js";
+import { inspectModuleMappingReconciliation } from "./moduleCatalogueMappingReconciliation.js";
 
 const UNKNOWN = "not_verified";
 const PASSED = "evidence_present";
@@ -25,13 +32,35 @@ export async function inspectModuleOperationalAcceptance({
   // Do not swallow failures here: an unauthorised caller must receive 403,
   // not a public catalogue or tenant status.
   const trusted = await tenantInspector({ effectiveAuthority });
-  const tenantRows = new Map((trusted.entries || []).map((row) => [row.moduleId, row]));
+  // Never let a duplicate tenant row silently override a contradictory denial.
+  // This read projection is not an entitlement oracle, but must still fail closed.
+  if (!trusted || !Array.isArray(trusted.entries) ||
+      typeof trusted.businessId !== "string" ||
+      trusted.businessId !== String(effectiveAuthority?.businessId || "")) {
+    throw new Error("Trusted module evidence is missing or belongs to another business.");
+  }
+  const tenantRows = new Map();
+  for (const row of trusted.entries) {
+    if (!row || typeof row.moduleId !== "string" || !row.moduleId.trim() ||
+        tenantRows.has(row.moduleId)) {
+      throw new Error("Trusted module evidence contains malformed or duplicate module entries.");
+    }
+    tenantRows.set(row.moduleId, row);
+  }
   const entries = listModuleCatalogue({ includeCandidates: true }).map((item) => {
     const mapped = item.capabilityPackKeys.length > 0 && !item.taxonomyOnly;
     const tenant = tenantRows.get(item.moduleId);
     const definitions = mapped ? item.capabilityPackKeys.map(getCapabilityPack) : [];
     const prerequisiteKeys = [...new Set(definitions.flatMap((def) => def.dependencies))];
     const requiredPermissions = [...new Set(definitions.flatMap((def) => def.requiredPermissions))];
+    const dependencyEvidence = inspectModuleDependencyEvidence(prerequisiteKeys, trusted.entries || []);
+    const contractEvidence = inspectModuleContractDeclarations(definitions, item.aiOpportunity, item.moduleId);
+    const implementationReference = inspectExistingModuleImplementation(item.moduleId);
+    const mappingReconciliation = inspectModuleMappingReconciliation(item, implementationReference);
+    const acceptanceContract = buildModuleAcceptanceContract(item, {
+      expectedDependencies: prerequisiteKeys, requiredPermissionDefinitions: requiredPermissions,
+      contractEvidence,
+    });
 
     const checks = [
       criterion("canonical_capability_mapping", mapped ? PASSED : UNKNOWN,
@@ -58,6 +87,16 @@ export async function inspectModuleOperationalAcceptance({
         "Database-backed cross-tenant and cross-location acceptance tests"),
       criterion("module_api_acceptance", UNKNOWN,
         "Module API and workflow acceptance tests"),
+      ...(item.category === "AI Intelligence, Agents and Automation" ? [
+        criterion("ai_runtime_tool_execution", UNKNOWN,
+          "Registered AI tools must be invoked and their results verified under trusted tenant authority"),
+        criterion("ai_negative_permission_and_isolation", UNKNOWN,
+          "AI tool access denied for missing permission, foreign business and unauthorised location"),
+        criterion("ai_human_approval_and_audit", UNKNOWN,
+          "Mutating or approval-gated AI proposals require independently verified approval and audit"),
+        criterion("ai_failure_and_prompt_injection", UNKNOWN,
+          "AI tool failures and adversarial instructions must not bypass authority or trigger mutation"),
+      ] : []),
       criterion("provider_readiness", UNKNOWN,
         "External provider integration independently verified when applicable"),
       criterion("deployment_runtime", UNKNOWN,
@@ -74,6 +113,12 @@ export async function inspectModuleOperationalAcceptance({
       category: item.category,
       mappedCapabilityPackKeys: Object.freeze([...item.capabilityPackKeys]),
       expectedDependencies: Object.freeze(prerequisiteKeys),
+      dependencyEvidence,
+      contractEvidence,
+      acceptanceContract,
+      implementationReference,
+      mappingReconciliation,
+      reviewedTestSourceEvidence: listReviewedModuleTestEvidence(item.moduleId),
       requiredPermissionDefinitions: Object.freeze(requiredPermissions),
       checks: Object.freeze(checks),
       confirmedBlockers: Object.freeze(blocking),
@@ -89,6 +134,8 @@ export async function inspectModuleOperationalAcceptance({
     readOnly: true,
     manifestIntegrity: trusted.integrity,
     assessmentCount: entries.length,
+    testEvidenceIntegrity: validateModuleTestEvidenceLedger(entries.map((entry) => entry.moduleId)),
+    deliveryGaps: summariseModuleOperationalGaps(entries),
     acceptedCount: 0,
     assessmentNotApproval: true,
     entries: Object.freeze(entries),

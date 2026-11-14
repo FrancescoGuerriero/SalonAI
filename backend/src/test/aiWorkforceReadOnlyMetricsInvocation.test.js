@@ -126,3 +126,38 @@ test("AI metric evidence rejects unknown keys, duplicates, stale versions and no
     ...valid, permissions: ["ai:use"],
   }), /permission/i);
 });
+
+test("selected-location AI read is limited to the authorised location, with no run on denial", async () => {
+  for (const attempted of [
+    { ...input, locationId: OTHER_LOCATION },
+    { ...input, effectiveAuthority: { ...authority, locationId: OTHER_LOCATION } },
+    { ...input, effectiveAuthority: { ...authority, allowedLocationIds: [OTHER_LOCATION] } },
+    { ...input, effectiveAuthority: { ...authority, allowedLocationIds: [] } },
+    { ...input, effectiveAuthority: { ...authority, permissions: ["ai:use"] } },
+    { ...input, composition: { ...composition, manifest: { ...composition.manifest, businessId: FOREIGN } } },
+  ]) {
+    const { calls, dependencies } = harness();
+    await assert.rejects(invokeGovernedBusinessMetrics(attempted, dependencies));
+    assert.equal(calls.reads.length, 0, "denied invocation must not query metrics");
+    assert.equal(calls.creates.length, 0, "denied invocation must not start a run");
+    assert.equal(calls.audits.length, 0, "pre-authorisation denial must not claim an invocation");
+  }
+});
+
+test("runtime AI reader rejects contradictory provenance and never returns unaudited results", async () => {
+  const cases = [
+    { scope: { businessId: FOREIGN, locationId: LOCATION, tenantScoped: true } },
+    { scope: { businessId: BUSINESS, locationId: OTHER_LOCATION, tenantScoped: true } },
+    { scope: { businessId: BUSINESS, locationId: LOCATION, tenantScoped: false } },
+    { scope: { businessId: BUSINESS, locationId: LOCATION, tenantScoped: true }, metrics: null },
+  ];
+  for (const payload of cases) {
+    const { calls, dependencies } = harness({ payload: { metrics: [], ...payload } });
+    await assert.rejects(invokeGovernedBusinessMetrics(input, dependencies));
+    assert.equal(calls.creates.length, 1, "authorised invocation has one auditable run");
+    assert.equal(calls.updates.length, 1);
+    assert.equal(calls.updates[0][1].$set.status, "failed");
+    assert.equal(calls.audits.length, 1);
+    assert.equal(calls.audits[0].after.status, "failed");
+  }
+});

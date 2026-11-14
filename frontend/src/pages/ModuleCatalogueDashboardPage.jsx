@@ -245,10 +245,65 @@ export default function ModuleCatalogueDashboardPage() {
         </p>
         {assessmentError && <p role="status">{assessmentError}</p>}
         {operationalAssessment && (
-          <p className="text-sm">
-            {operationalAssessment.assessmentCount} assessed requirements and candidates.
-            No production sign-offs have been granted.
-          </p>
+          <div className="space-y-3 text-sm">
+            <p>{operationalAssessment.assessmentCount} assessed requirements and candidates.
+              No production sign-offs have been granted.</p>
+            {operationalAssessment.deliveryGaps && (
+              <div className="space-y-2" aria-label="Prioritised module delivery gaps">
+                <p><strong>Confirmed prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.blocked}.
+                  <strong> Entries requiring verification:</strong> {operationalAssessment.deliveryGaps.totals.verificationRequired}.
+                  <strong> Capability mappings requiring review:</strong> {operationalAssessment.deliveryGaps.totals.unmapped}.
+                  <strong> Taxonomy-only entries:</strong> {operationalAssessment.deliveryGaps.totals.taxonomyOnly}.
+                  <strong> AI opportunities without verified tool contracts:</strong> {operationalAssessment.deliveryGaps.totals.aiEvidenceUnverified}.
+                  <strong> AI modules with reviewed registered-tool source:</strong> {operationalAssessment.deliveryGaps.totals.aiToolSourceReviewed}.
+                  <strong> AI agent definitions reviewed:</strong> {operationalAssessment.deliveryGaps.totals.aiAgentRegistryReviewed}.
+                  <strong> Modules with registered AI dependencies:</strong> {operationalAssessment.deliveryGaps.totals.withAiDependencies}.
+                  <strong> AI dependency prerequisite blockers:</strong> {operationalAssessment.deliveryGaps.totals.withBlockedAiDependencies}.
+                  <strong> AI dependency verification needed:</strong> {operationalAssessment.deliveryGaps.totals.withUnverifiedAiDependencies}.
+                  <strong> Registered integration declarations:</strong> {operationalAssessment.deliveryGaps.totals.withDeclaredIntegrationContracts}.
+                  <strong> Modules with reviewed source history:</strong> {operationalAssessment.deliveryGaps.totals.withRelatedSourceReviews}.
+                  <strong> Entries with reviewed existing implementation:</strong> {operationalAssessment.deliveryGaps.totals.withReviewedImplementationSources}.
+                  <strong> Entries without a reviewed implementation reference:</strong> {operationalAssessment.deliveryGaps.totals.implementationReviewNotRecorded}.
+                  <strong> Existing implementation with mapping review required:</strong> {operationalAssessment.deliveryGaps.totals.existingSourceWithoutMapping}.
+                  <strong> Entries with reviewed registered-pack reuse candidates:</strong> {operationalAssessment.deliveryGaps.totals.withRegisteredPackReuseCandidates}.</p>
+                <p className="text-stone-700">
+                  These are tenant-evidence assessment counts, not completed modules, deployment results or activation decisions. An unreviewed implementation reference does not mean a module is absent.
+                </p>
+                <ul className="grid gap-2 sm:grid-cols-4">
+                  {operationalAssessment.deliveryGaps.priorities.map((group) => (
+                    <li key={group.priority} className="rounded-lg border border-stone-300 p-3">
+                      <strong>{group.priority}</strong>: {group.count} entries;
+                      {" "}{group.blocked} with confirmed blockers;
+                      {" "}{group.verificationRequired} awaiting checks
+                    </li>
+                  ))}
+                </ul>
+                <div className="space-y-2" aria-label="Module catalogue next verification queue">
+                  <h3 className="font-semibold">Priority review queue</h3>
+                  <p className="text-stone-700">Unmapped capabilities, confirmed prerequisite blockers and unverified AI dependencies; this is a read-only evidence review queue, not an activation or deployment schedule.</p>
+                  {operationalAssessment.deliveryGaps.reviewQueue.length === 0
+                    ? <p>No currently evidenced mapping or prerequisite review items.</p>
+                    : <ol className="list-decimal space-y-1 pl-5">
+                        {operationalAssessment.deliveryGaps.reviewQueue.map((entry) => (
+                          <li key={entry.moduleId}>
+                            <strong>{entry.priority} · {entry.moduleId} — {entry.displayName}</strong>:
+                            {" "}{entry.nextReview.replaceAll("_", " ")}
+                            {entry.registeredPackReuseCandidates?.length > 0 && (
+                              <span> · Existing packs to review: {entry.registeredPackReuseCandidates.join(", ")}</span>
+                            )}
+                            {entry.aiDependencyPrerequisiteBlockers?.length > 0 && (
+                              <span> · AI blocked: {entry.aiDependencyPrerequisiteBlockers.join(", ")}</span>
+                            )}
+                            {entry.aiDependencyVerificationNeeded?.length > 0 && (
+                              <span> · AI evidence needed: {entry.aiDependencyVerificationNeeded.join(", ")}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ol>}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </section>
       <section aria-label="Module requirements" className="space-y-3">
@@ -282,6 +337,64 @@ export default function ModuleCatalogueDashboardPage() {
                   <p><strong>AI opportunity:</strong> {item.aiOpportunity || UNKNOWN}</p>
                   <p><strong>Delivery owner:</strong> {item.owner} · <strong>Lifecycle:</strong> {item.lifecycle}</p>
                   <p><strong>Canonical capability:</strong> {item.capabilityPackKeys.join(", ") || "Unmapped / taxonomy-only"}</p>
+                  {(() => {
+                    const assessment = operationalAssessment?.entries?.find(
+                      (entry) => entry.moduleId === item.moduleId,
+                    );
+                    const contract = assessment?.contractEvidence;
+                    if (!contract) return null;
+                    return (
+                      <section className="space-y-1 rounded-lg border border-stone-300 p-3"
+                        aria-label={`Declared integration contracts for ${item.moduleId}`}>
+                        <h3 className="font-bold">Registered capability contracts</h3>
+                        <p><strong>Registry declarations:</strong>{" "}
+                          {contract.integrationContracts.join(", ") || "No integration contracts declared"}</p>
+                        <p><strong>Configuration definitions:</strong>{" "}
+                          {contract.configurationDefinitions.join(", ") || "None declared"}</p>
+                        <p><strong>Related source reviews:</strong>{" "}
+                          {contract.relatedSourceReviews.length
+                            ? contract.relatedSourceReviews.map((record) => `PR #${record.prNumber}`).join(", ")
+                            : "No reviewed source PR mapped"}</p>
+                        <p><strong>API route and workflow acceptance:</strong> Not independently verified</p>
+                        <p><strong>AI tool-contract verification:</strong> Not independently verified</p>
+                        {contract.aiAgentRegistryEvidence && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3"
+                            aria-label={`AI agent registry review for ${item.moduleId}`}>
+                            <p><strong>Registered AI agent:</strong> {contract.aiAgentRegistryEvidence.agentKey}</p>
+                            <p><strong>Declared autonomy ceiling:</strong> {contract.aiAgentRegistryEvidence.autonomyCeiling}</p>
+                            <p><strong>Declared feature entitlement:</strong> {contract.aiAgentRegistryEvidence.declaredRequiredEntitlement || "Not declared"}</p>
+                            <p><strong>Registered allowed tools:</strong></p>
+                            <ul className="list-disc pl-5">
+                              {contract.aiAgentRegistryEvidence.allowedTools.map((tool) => (
+                                <li key={tool.key}>
+                                  {tool.key} — {tool.requiredPermission}; {tool.maximumAutonomy};
+                                  {tool.requiresHumanApproval ? " human approval required" : " no tool-level approval required"}
+                                </li>
+                              ))}
+                            </ul>
+                            <p><strong>Runtime tool binding:</strong> Not independently verified</p>
+                            <p><strong>Tenant isolation, negative permissions and approval acceptance:</strong> Not independently verified</p>
+                            <p>Agent registry declaration is not evidence of production activation.</p>
+                          </div>
+                        )}
+                        {contract.aiToolSourceEvidence && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3"
+                            aria-label={`AI tool source review for ${item.moduleId}`}>
+                            <p><strong>Reviewed registered tool:</strong> {contract.aiToolSourceEvidence.toolKey}</p>
+                            <p><strong>Declared permission:</strong> {contract.aiToolSourceEvidence.requiredPermission}</p>
+                            <p><strong>Maximum tool autonomy:</strong> {contract.aiToolSourceEvidence.maximumAutonomy}</p>
+                            <p><strong>Direct mutation:</strong> {contract.aiToolSourceEvidence.mutation ? "Declared" : "Disabled in registry"}</p>
+                            <p><strong>Human approval requirement:</strong> {contract.aiToolSourceEvidence.requiresHumanApproval ? "Required in tool definition" : "Not required by tool definition"}</p>
+                            <p><strong>Reviewed service source:</strong> <code>{contract.aiToolSourceEvidence.serviceSource}</code></p>
+                            <p><strong>Tenant/location and negative-permission acceptance:</strong> Not independently verified</p>
+                            <p><strong>Prompt-injection and failure acceptance:</strong> Not independently verified</p>
+                            <p>Registered source evidence does not confirm live invocation or module production acceptance.</p>
+                          </div>
+                        )}
+                        <p><strong>Provider readiness:</strong> Not independently verified</p>
+                      </section>
+                    );
+                  })()}
                   <p><strong>Dependencies:</strong> {item.dependencies.join(", ") || "None verified"}</p>
                   <p><strong>Scope and permissions:</strong> {item.scopeClass}; {item.permissions.join(", ") || "Not verified"}</p>
                   <section aria-label={`Delivery evidence for ${item.moduleId}`} className="space-y-2">
@@ -330,12 +443,100 @@ export default function ModuleCatalogueDashboardPage() {
                     return (
                       <section className="space-y-2" aria-label={`Acceptance prerequisites for ${item.moduleId}`}>
                         <h3 className="font-bold">Operational acceptance checklist</h3>
+                        {assessment.mappingReconciliation && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Canonical capability mapping reconciliation</h4>
+                            <p><strong>Evidence state:</strong>{" "}
+                              {assessment.mappingReconciliation.reconciliationState.replaceAll("_", " ")}</p>
+                            <p><strong>Next review:</strong>{" "}
+                              {assessment.mappingReconciliation.reviewAction.replaceAll("_", " ")}</p>
+                            <p><strong>Registered pack reuse candidates (review only):</strong>{" "}
+                              {assessment.mappingReconciliation.registeredPackReuseCandidates?.join(", ") || "None reviewed"}</p>
+                            {assessment.mappingReconciliation.reviewedBoundary?.evidenceState === "source_boundary_reviewed" && (
+                              <div className="space-y-1">
+                                <p><strong>Source review:</strong>{" "}
+                                  <code>{assessment.mappingReconciliation.reviewedBoundary.reviewedSourcePath}</code></p>
+                                <p><strong>Observed feature gates:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.observedFeatureGates.join(", ") || "None in reviewed route"}</p>
+                                <p><strong>Observed permissions:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.observedPermissions.join(", ") || "None recorded"}</p>
+                                <p><strong>Existing registered packs for review, not assignment:</strong>{" "}
+                                  {assessment.mappingReconciliation.reviewedBoundary.registeredPackCandidatesForReview.join(", ") || "No pack suggested"}</p>
+                                {assessment.mappingReconciliation.reviewedBoundary.establishedFoundation === "partner_app_marketplace" && (
+                                  <div className="space-y-1">
+                                    <p><strong>Existing foundation:</strong> Partner-app marketplace established</p>
+                                    <p><strong>Existing workflows:</strong>{" "}
+                                      {assessment.mappingReconciliation.reviewedBoundary.existingWorkflows
+                                        .map((workflow) => workflow.replaceAll("_", " ")).join(", ")}</p>
+                                    <p><strong>Seller-channel extension:</strong> Not independently verified (Amazon/eBay listings, orders and fulfilment)</p>
+                                  </div>
+                                )}
+                                <p>{assessment.mappingReconciliation.reviewedBoundary.boundary}</p>
+                              </div>
+                            )}
+                            <p>Source presence is not an entitlement; no new capability pack, activation or production approval is implied.</p>
+                          </div>
+                        )}
+                        {assessment.implementationReference?.existingImplementationReview === true && (
+                          <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Existing module implementation</h4>
+                            <p>Source reviewed — preserve existing behaviour; no module recreation is required.</p>
+                            <p><strong>Current capabilities:</strong> {assessment.implementationReference.preservedCapability}</p>
+                            <p><strong>Mounted API paths:</strong>{" "}
+                              {assessment.implementationReference.apiMounts.join(", ")}</p>
+                            <ul className="list-disc pl-5">
+                              {assessment.implementationReference.routeSources.map((path) => (
+                                <li key={path}><code>{path}</code></li>
+                              ))}
+                            </ul>
+                            <p>Runtime and production acceptance: not independently verified.</p>
+                          </div>
+                        )}
+                        <div className="space-y-1 rounded-lg border border-stone-300 p-3">
+                          <h4 className="font-semibold">Reviewed module test sources</h4>
+                          <p>Source reviewed only; per-test CI execution, tenant acceptance and deployment are not verified by these links.</p>
+                          {assessment.reviewedTestSourceEvidence?.length ? (
+                            <ul className="list-disc pl-5">
+                              {assessment.reviewedTestSourceEvidence.map((record) => (
+                                <li key={record.path}>
+                                  <code>{record.path}</code> — {record.verifies}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : <p>No module-specific reviewed test file is recorded yet.</p>}
+                        </div>
+                        {assessment.acceptanceContract && (
+                          <div className="space-y-2 rounded-lg border border-stone-300 p-3">
+                            <h4 className="font-semibold">Module API, tenancy and AI evidence required</h4>
+                            <p>Contract: {assessment.acceptanceContract.contractType.replaceAll("_", " ")}.
+                              Route inventory: not verified; production approval: not granted.</p>
+                            <ul className="list-disc pl-5">
+                              {assessment.acceptanceContract.verificationItems.map((item) => (
+                                <li key={item}>{item.replaceAll("_", " ")}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <p>Outstanding checks: {assessment.outstandingVerification.length};
                           confirmed blockers: {assessment.confirmedBlockers.length}.
                           Production approval: not granted.</p>
                         <p><strong>Expected dependencies:</strong>{" "}
                           {assessment.expectedDependencies.join(", ") || "None registered"}
                         </p>
+                        {assessment.dependencyEvidence?.length > 0 && (
+                          <ul className="list-disc space-y-1 pl-5" aria-label="Dependency prerequisite evidence">
+                            {assessment.dependencyEvidence.map((dependency) => (
+                              <li key={dependency.capabilityKey}>
+                                <strong>{dependency.capabilityKey}:</strong>{" "}
+                                {dependency.state === "prerequisites_evidenced"
+                                  ? "Tenant prerequisite records present; operational acceptance not verified"
+                                  : dependency.state === "confirmed_prerequisite_blocker"
+                                    ? "Tenant prerequisite blocked"
+                                    : "Tenant prerequisite evidence not verified"}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                         <ul className="list-disc space-y-1 pl-5">
                           {assessment.checks.map((check) => (
                             <li key={check.key}>

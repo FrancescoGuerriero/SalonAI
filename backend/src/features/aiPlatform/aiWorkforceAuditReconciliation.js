@@ -81,6 +81,10 @@ export async function inspectAiMetricsRunAuditIntegrity({
     let issue = null;
     if (!Number.isFinite(age) || age < 0) {
       issue = "invalid_start_time";
+    } else if (run.status === "started" && entries.length > 0) {
+      // A terminal invocation audit with a still-started run means the
+      // state transition is incomplete or the audit provenance is inconsistent.
+      issue = "started_run_has_terminal_audit";
     } else if (run.status === "started" && age >= staleAfterMs) {
       issue = "stale_started_run";
     } else if (run.status !== "started" && entries.length === 0) {

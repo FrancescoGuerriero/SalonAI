@@ -7,6 +7,7 @@ import AiActionOutcome, {
 import AiActionProposal from "./AiActionProposal.js";
 import AiAgentDefinition from "./AiAgentDefinition.js";
 import AiAgentRun from "./AiAgentRun.js";
+import { withAiOutcomeTransaction } from "./aiOutcomeAtomicCommit.js";
 import {
   AI_WORKFORCE_ACTIVE_AUTONOMY_CEILING,
 } from "./aiWorkforcePolicy.js";
@@ -188,6 +189,19 @@ export async function listAiWorkforceProposals(
     .slice(0, boundedLimit(query.limit));
 }
 
+export function filterAiOutcomesByProposalPermission(outcomes, effectiveAuthority) {
+  if (!Array.isArray(outcomes)) {
+    throw createServiceError("AI outcome provenance is unavailable.", 500, {
+      code: "AI_WORKFORCE_OUTCOME_PROVENANCE_UNAVAILABLE",
+    });
+  }
+  return outcomes.filter((outcome) =>
+    outcome?.proposal && typeof outcome.proposal === "object" &&
+    typeof outcome.proposal.requiredPermission === "string" &&
+    outcome.proposal.requiredPermission.trim() &&
+    hasEffectivePermission(effectiveAuthority, outcome.proposal.requiredPermission));
+}
+
 export async function listAiActionOutcomes(
   query = {},
   { businessId, effectiveAuthority } = {}
@@ -198,12 +212,36 @@ export async function listAiActionOutcomes(
   if (query.agentKey) match.agentKey = text(query.agentKey).toLowerCase();
   if (query.status) match.status = text(query.status).toLowerCase();
 
-  return AiActionOutcome.find(match)
+  const outcomes = await AiActionOutcome.find(match)
     .populate("proposal", "actionType domain targetType targetId summary status requiredPermission")
     .populate("agentRun", "agentKey agentVersion status startedAt completedAt")
     .sort({ observedAt: -1, _id: -1 })
-    .limit(boundedLimit(query.limit))
+    .limit(boundedLimit(query.limit) * 2)
     .lean();
+
+  // An outcome may disclose a protected proposal even when the caller cannot
+  // govern that proposal. Match the proposal listing's effective RBAC rule.
+  // Missing or unpopulated proposal provenance must fail closed.
+  return filterAiOutcomesByProposalPermission(outcomes, effectiveAuthority)
+    .slice(0, boundedLimit(query.limit));
+}
+
+/** Validate outcome provenance before creating any outcome or audit records. */
+export function assertAiOutcomeLocationScope(proposal, effectiveAuthority, locationId = null) {
+  // A caller must not attach an unscoped proposal outcome to a location
+  // outside their membership or relabel an already-scoped proposal.
+  if (locationId !== null && locationId !== undefined && locationId !== "") {
+    const requested = objectId(locationId, "location");
+    aiWorkforceLocationMatch(effectiveAuthority, requested);
+    if (proposal.location && String(proposal.location) !== String(requested)) {
+      throw createServiceError("Outcome location must match the approved proposal.", 403, {
+        code: "AI_WORKFORCE_OUTCOME_LOCATION_MISMATCH",
+      });
+    }
+  }
+  if (proposal.location) {
+    aiWorkforceLocationMatch(effectiveAuthority, proposal.location);
+  }
 }
 
 export async function observeAiActionOutcome(
@@ -213,77 +251,76 @@ export async function observeAiActionOutcome(
 ) {
   assertTenantAuthority({ businessId, effectiveAuthority });
   objectId(proposalId, "proposal");
+  // A retry key is scoped to a single business and proposal by the database
+  // unique index. It is not an authorisation token or an approval substitute.
+  const key = payload?.idempotencyKey;
+  if (key !== undefined && key !== null &&
+      (typeof key !== "string" || !/^[a-zA-Z0-9_-]{8,128}$/.test(key))) {
+    throw createServiceError("idempotencyKey must be 8-128 letters, digits, - or _.", 400, {
+      code: "AI_OUTCOME_IDEMPOTENCY_KEY_INVALID",
+    });
+  }
 
-  const proposal = assertFound(
-    await AiActionProposal.findOne({
-      _id: proposalId,
+  // Perform the approval read and every persistent write in the same session.
+  // An aborted transaction must never leave an outcome without a matching audit.
+  return withAiOutcomeTransaction(async (session) => {
+    const proposal = assertFound(
+      await AiActionProposal.findOne({
+        _id: proposalId,
+        business: businessId,
+      }).session(session),
+      "AI action proposal not found."
+    );
+    assertProposalPermission(proposal, effectiveAuthority);
+    assertAiOutcomeLocationScope(proposal, effectiveAuthority, locationId);
+
+    if (proposal.status !== "approved") {
+      throw createServiceError(
+        "Outcome observations can only be recorded for an approved AI proposal.",
+        409,
+        { code: "AI_WORKFORCE_OUTCOME_PROPOSAL_NOT_APPROVED" }
+      );
+    }
+
+    const status = text(payload.status).toLowerCase().replaceAll("-", "_");
+    if (!AI_ACTION_OUTCOME_STATUSES.includes(status)) {
+      throw createServiceError(
+        `status must be one of: ${AI_ACTION_OUTCOME_STATUSES.join(", ")}.`,
+        400, { field: "status" }
+      );
+    }
+    const observedBy = actorId(user);
+    if (!observedBy) {
+      throw createServiceError("An authenticated outcome observer is required.", 401);
+    }
+
+    const [outcome] = await AiActionOutcome.create([{
       business: businessId,
-    }),
-    "AI action proposal not found."
-  );
-  assertProposalPermission(proposal, effectiveAuthority);
-  // A caller may not record outcomes on another location's proposal.
-  if (proposal.location) {
-    aiWorkforceLocationMatch(effectiveAuthority, proposal.location);
-  }
+      location: proposal.location ||
+        (mongoose.isValidObjectId(locationId) ? locationId : null),
+      proposal: proposal._id,
+      ...(key ? { idempotencyKey: key } : {}),
+      agentRun: proposal.agentRun || null,
+      agentKey: proposal.agentKey || "",
+      status,
+      taskSuccess: booleanOrNull(payload.taskSuccess),
+      policyViolation: payload.policyViolation === true,
+      overridden: payload.overridden === true,
+      reversed: status === "reversed" || payload.reversed === true,
+      businessMetricKey: text(payload.businessMetricKey).slice(0, 160),
+      businessMetricDelta: optionalNumber(payload.businessMetricDelta, "businessMetricDelta"),
+      evidenceRefs: uniqueStrings(payload.evidenceRefs),
+      note: text(payload.note).slice(0, 2000),
+      observedBy,
+      observedAt: new Date(),
+      metadata: payload.metadata && typeof payload.metadata === "object" &&
+        !Array.isArray(payload.metadata) ? payload.metadata : {},
+    }], { session });
 
-  if (proposal.status !== "approved") {
-    throw createServiceError(
-      "Outcome observations can only be recorded for an approved AI proposal.",
-      409,
-      { code: "AI_WORKFORCE_OUTCOME_PROPOSAL_NOT_APPROVED" }
-    );
-  }
-
-  const status = text(payload.status).toLowerCase().replaceAll("-", "_");
-  if (!AI_ACTION_OUTCOME_STATUSES.includes(status)) {
-    throw createServiceError(
-      `status must be one of: ${AI_ACTION_OUTCOME_STATUSES.join(", ")}.`,
-      400,
-      { field: "status" }
-    );
-  }
-
-  const observedBy = actorId(user);
-  if (!observedBy) {
-    throw createServiceError("An authenticated outcome observer is required.", 401);
-  }
-
-  const outcome = await AiActionOutcome.create({
-    business: businessId,
-    location:
-      proposal.location ||
-      (mongoose.isValidObjectId(locationId) ? locationId : null),
-    proposal: proposal._id,
-    agentRun: proposal.agentRun || null,
-    agentKey: proposal.agentKey || "",
-    status,
-    taskSuccess: booleanOrNull(payload.taskSuccess),
-    policyViolation: payload.policyViolation === true,
-    overridden: payload.overridden === true,
-    reversed: status === "reversed" || payload.reversed === true,
-    businessMetricKey: text(payload.businessMetricKey).slice(0, 160),
-    businessMetricDelta: optionalNumber(
-      payload.businessMetricDelta,
-      "businessMetricDelta"
-    ),
-    evidenceRefs: uniqueStrings(payload.evidenceRefs),
-    note: text(payload.note).slice(0, 2000),
-    observedBy,
-    observedAt: new Date(),
-    metadata:
-      payload.metadata &&
-      typeof payload.metadata === "object" &&
-      !Array.isArray(payload.metadata)
-        ? payload.metadata
-        : {},
-  });
-
-  if (proposal.agentRun) {
-    await AiAgentRun.updateOne(
-      { _id: proposal.agentRun, business: businessId },
-      {
-        $set: {
+    if (proposal.agentRun) {
+      const updated = await AiAgentRun.updateOne(
+        { _id: proposal.agentRun, business: businessId },
+        { $set: {
           "outcome.taskSuccess": outcome.taskSuccess,
           "outcome.humanApproved": true,
           "outcome.overridden": outcome.overridden,
@@ -291,33 +328,62 @@ export async function observeAiActionOutcome(
           "outcome.policyViolation": outcome.policyViolation,
           "outcome.businessMetricKey": outcome.businessMetricKey,
           "outcome.businessMetricDelta": outcome.businessMetricDelta,
-        },
+        } },
+        { session }
+      );
+      if (updated.matchedCount !== 1) {
+        throw createServiceError("AI outcome agent run is missing for this business.", 409, {
+          code: "AI_OUTCOME_RUN_MISMATCH",
+        });
       }
-    );
-  }
+    }
 
-  await AuditLog.create({
-    actor: observedBy,
-    action: "ai_workforce.proposal_outcome_observed",
-    resourceType: "AiActionProposal",
-    resourceId: String(proposal._id),
-    requestId: text(requestId),
-    after: {
-      outcomeId: String(outcome._id),
-      status: outcome.status,
-      taskSuccess: outcome.taskSuccess,
-      policyViolation: outcome.policyViolation,
-      reversed: outcome.reversed,
-    },
-    metadata: {
-      businessId: String(businessId),
-      agentKey: proposal.agentKey || "",
-      requiredPermission: proposal.requiredPermission,
-      automaticExecution: false,
-    },
+    await AuditLog.create([{
+      actor: observedBy,
+      action: "ai_workforce.proposal_outcome_observed",
+      resourceType: "AiActionProposal",
+      resourceId: String(proposal._id),
+      requestId: text(requestId),
+      after: {
+        outcomeId: String(outcome._id),
+        status: outcome.status,
+        taskSuccess: outcome.taskSuccess,
+        policyViolation: outcome.policyViolation,
+        reversed: outcome.reversed,
+      },
+      metadata: {
+        businessId: String(businessId),
+        agentKey: proposal.agentKey || "",
+        requiredPermission: proposal.requiredPermission,
+        automaticExecution: false,
+      },
+    }], { session });
+
+    return outcome.toObject();
+  }).catch(async (error) => {
+    // Concurrent transactions can fail with a write conflict (112) before
+    // reaching the unique index (11000). Only classify either as an
+    // idempotency conflict if the exact tenant/proposal/key already exists.
+    // Never replay writes or disclose the previously submitted payload.
+    if (key && (error?.code === 11000 || error?.code === 112 ||
+        error?.hasErrorLabel?.("TransientTransactionError") === true)) {
+      let committed = false;
+      try {
+        committed = Boolean(await AiActionOutcome.exists({
+          business: businessId, proposal: proposalId, idempotencyKey: key,
+        }));
+      } catch {
+        // A database outage must not be disguised as a duplicate submission.
+        throw error;
+      }
+      if (committed) {
+        throw createServiceError("This AI outcome idempotency key was already submitted.", 409, {
+          code: "AI_OUTCOME_DUPLICATE_SUBMISSION",
+        });
+      }
+    }
+    throw error;
   });
-
-  return outcome.toObject();
 }
 
 export default {
