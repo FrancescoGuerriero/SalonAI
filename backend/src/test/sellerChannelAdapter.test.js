@@ -245,3 +245,40 @@ test("server-owned eBay pagination offset resumes only at the fixed allowed endp
     fetchImpl: () => { throw new Error("Network called for invalid resume"); },
   }), /Invalid saved seller cursor/);
 });
+
+test("order snapshots reject repeated external IDs across pages before any staging", async () => {
+  const calls = [];
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    getCredential, limit: 3,
+    fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { orders: [{ orderId: "EB-DUP", orderFulfillmentStatus: "NOT_STARTED" }],
+        next: "/sell/fulfillment/v1/order?offset=1" },
+      { orders: [{ orderId: "EB-DUP", orderFulfillmentStatus: "FULFILLED" }] },
+    ], calls),
+  }), (error) => error.details?.code === "SELLER_CHANNEL_SOURCE_ID_DUPLICATE");
+  assert.equal(calls.length, 3);
+  assert.ok(calls.slice(1).every((call) => call.options.method === "GET"));
+});
+
+test("Amazon and eBay missing source identifiers fail closed without inventing orders", async () => {
+  for (const [connection, kind, response] of [
+    [AMAZON, "orders", { orders: [{ fulfillment: { fulfillmentStatus: "SHIPPED" } }] }],
+    [EBAY, "orders", { orders: [{ orderFulfillmentStatus: "FULFILLED" }] }],
+    [EBAY, "listings", { inventoryItems: [{ availability: {} }] }],
+  ]) {
+    await assert.rejects(fetchSellerChannelSnapshot(connection, kind, {
+      getCredential,
+      fetchImpl: fetchFixture([{ access_token: "token" }, response]),
+    }), (error) => error.details?.code === "SELLER_CHANNEL_SOURCE_ID_INVALID");
+  }
+});
+
+test("seller adapter does not infer returns support or execute a refund", async () => {
+  let called = false;
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "returns", {
+    getCredential,
+    fetchImpl: async () => { called = true; throw new Error("unexpected request"); },
+  }), (error) => error.statusCode === 409);
+  assert.equal(called, false);
+});
