@@ -8,6 +8,8 @@ on:
       - 'backend/src/test/sellerChannelAtomicCommit.test.js'
       - 'backend/src/test/sellerChannelAdapter.test.js'
       - 'backend/src/test/sellerChannelReconciliationPreview.test.js'
+      - 'backend/src/test/sellerChannelOrderStateInspection.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderStateInspection.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelAdapter.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelReconciliationPreview.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelRoutes.js'
@@ -80,7 +82,7 @@ jobs:
 
       - name: Run seller transaction unit tests
         working-directory: backend
-        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js
+        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelOrderStateInspection.test.js
 
       - name: Run real seller transaction rollback acceptance
         working-directory: backend
