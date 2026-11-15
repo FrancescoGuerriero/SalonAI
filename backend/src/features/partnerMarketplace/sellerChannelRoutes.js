@@ -11,6 +11,7 @@ import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sel
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
+import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
@@ -68,6 +69,18 @@ router.get("/:connectionId/reconciliation", requirePermissions("inventory:read")
       businessId: request.effectiveAuthority.businessId,
       locationId: request.effectiveAuthority.locationId || null,
       limit: request.query.limit,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// The staging data has no location field. Only trusted tenant-wide members
+// can inspect order states; never infer location entitlement from provider data.
+router.get("/:connectionId/order-states", requirePermissions("order:read"),
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderStates(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
     });
     response.status(200).json({ success: true, result });
   }));
