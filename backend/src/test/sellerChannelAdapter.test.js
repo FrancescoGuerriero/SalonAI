@@ -282,3 +282,42 @@ test("seller adapter does not infer returns support or execute a refund", async 
   }), (error) => error.statusCode === 409);
   assert.equal(called, false);
 });
+
+test("eBay shipping details fail closed on duplicate, missing and oversized fulfillment sets", async () => {
+  const invalid = [
+    { fulfillments: [{ fulfillmentId: "SAME" }, { fulfillmentId: "SAME" }] },
+    { fulfillments: [{ fulfillmentId: "" }] },
+    { fulfillments: Array.from({ length: 51 }, (_, i) => ({
+      fulfillmentId: `SHIP-${i}`,
+    })) },
+  ];
+  const codes = [
+    "SELLER_CHANNEL_FULFILLMENT_ID_DUPLICATE",
+    "SELLER_CHANNEL_FULFILLMENT_ID_INVALID",
+    "SELLER_CHANNEL_BAD_RESPONSE",
+  ];
+  for (let i = 0; i < invalid.length; i++) {
+    const calls = [];
+    await assert.rejects(fetchEbayShippingFulfillments(EBAY, "EB-001", {
+      getCredential,
+      fetchImpl: fetchFixture([{ access_token: "ebay-token" }, invalid[i]], calls),
+    }), (error) => error.details?.code === codes[i]);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].options.method, "GET");
+  }
+});
+
+test("eBay shipping detail returns a frozen, complete read-only observation", async () => {
+  const result = await fetchEbayShippingFulfillments(EBAY, "EB-001", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { fulfillments: [{ fulfillmentId: "FULF-1" }, { fulfillmentId: "FULF-2" }] },
+    ]),
+  });
+  assert.deepEqual(result.records.map((row) => row.fulfillmentId),
+    ["FULF-1", "FULF-2"]);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.ok(result.records.every((row) => Object.isFrozen(row)));
+  assert.equal(result.shippingUpdatesPosted, 0);
+  assert.equal(result.refundsProcessed, 0);
+});
