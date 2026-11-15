@@ -291,18 +291,35 @@ export async function fetchEbayShippingFulfillments(connection, orderId, {
   const body = await fetchJson(fetchImpl, url.toString(), {
     method: "GET", headers: { authorization: `Bearer ${token}`, accept: "application/json" },
   });
-  if (!Array.isArray(body.fulfillments)) {
-    throw unsupported("Unexpected eBay shipping fulfillment response.", "SELLER_CHANNEL_BAD_RESPONSE");
+  if (!Array.isArray(body.fulfillments) || body.fulfillments.length > MAX_RESULTS) {
+    // Never label a silently truncated fulfilment list as a complete record.
+    throw unsupported("Unexpected or unbounded eBay shipping fulfillment response.",
+      "SELLER_CHANNEL_BAD_RESPONSE");
   }
-  return Object.freeze({
-    provider: "ebay", kind: "shipping_fulfillments", source: "read_only_provider_snapshot",
-    externalOrderId: identifier,
-    records: body.fulfillments.slice(0, 50).map((item) => ({
-      fulfillmentId: String(item.fulfillmentId || ""),
+  const fulfillmentIds = new Set();
+  const records = body.fulfillments.map((item) => {
+    const fulfillmentId = item?.fulfillmentId;
+    if (typeof fulfillmentId !== "string" || !fulfillmentId.trim() ||
+        fulfillmentId.length > 200) {
+      throw unsupported("eBay shipping fulfillment identifier is invalid.",
+        "SELLER_CHANNEL_FULFILLMENT_ID_INVALID");
+    }
+    if (fulfillmentIds.has(fulfillmentId)) {
+      throw unsupported("eBay repeated a shipping fulfillment identifier.",
+        "SELLER_CHANNEL_FULFILLMENT_ID_DUPLICATE");
+    }
+    fulfillmentIds.add(fulfillmentId);
+    return Object.freeze({
+      fulfillmentId,
       shippedDate: safeDate(item.shippedDate),
       carrierCode: item.shippingCarrierCode || null,
       trackingNumber: item.shipmentTrackingNumber || null,
-    })),
+    });
+  });
+  return Object.freeze({
+    provider: "ebay", kind: "shipping_fulfillments", source: "read_only_provider_snapshot",
+    externalOrderId: identifier,
+    records: Object.freeze(records),
     canonicalRecordsWritten: 0, shippingUpdatesPosted: 0, refundsProcessed: 0,
   });
 }
