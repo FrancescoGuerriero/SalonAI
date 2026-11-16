@@ -12,20 +12,11 @@ import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
+import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
 
-// Seller provider accounts and staged records carry no authoritative location
-// scope. Do not grant access to tenant-wide data from a selected-location role.
-export function requireSellerTenantWideLocation(request, _response, next) {
-  if (request.effectiveAuthority?.locationAccessMode !== "all") {
-    return next(createServiceError("Seller provider accounts require tenant-wide location access.", 403, {
-      code: "SELLER_CHANNEL_TENANT_WIDE_LOCATION_REQUIRED",
-    }));
-  }
-  return next();
-}
 
 async function ownedConnection(request) {
   const businessId = request.effectiveAuthority?.businessId;
