@@ -67,7 +67,7 @@ router.get("/:connectionId/import-status", requirePermissions("feature-control:r
 
 // Dry-run reconciliation uses exclusively the server-verified location authority.
 router.get("/:connectionId/reconciliation", requirePermissions("inventory:read"),
-  requirePermissions("product:read"), asyncHandler(async (request, response) => {
+  requirePermissions("product:read"), requireSellerTenantWideLocation, asyncHandler(async (request, response) => {
     const result = await previewSellerChannelInventory(await ownedConnection(request), {
       businessId: request.effectiveAuthority.businessId,
       locationId: request.effectiveAuthority.locationId || null,
