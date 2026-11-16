@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import mongoose from "mongoose";
 import { stageSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelSyncService.js";
+import { inspectSellerChannelOrderStates } from "../features/partnerMarketplace/sellerChannelOrderStateInspection.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -316,6 +317,87 @@ test("seller source transaction commits and rolls back against a local MongoDB r
       try { await db.db.dropCollection(name); } catch (error) {
         if (error?.codeName !== "NamespaceNotFound") throw error;
       }
+    }
+    await db.close();
+  }
+});
+
+test("real MongoDB staged seller order inspection preserves tenant boundaries and read-only state", {
+  skip: !URI ? "Set SELLER_TXN_ACCEPTANCE_URI to a loopback replica set test database" : false,
+  timeout: 30000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing any non-loopback or non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const collectionName = "seller_order_inspection_" + randomUUID().replaceAll("-", "");
+  const businessId = "507f1f77bcf86cd799439021";
+  const foreignId = "507f1f77bcf86cd799439099";
+  const connectionId = "507f1f77bcf86cd799439025";
+  const otherConnectionId = "507f1f77bcf86cd799439026";
+  try {
+    await db.createCollection(collectionName);
+    const collection = db.db.collection(collectionName);
+    const record = (business, connection, externalId, status = "FULFILLED") => ({
+      business, connection, provider: "ebay", kind: "orders", externalId,
+      sourceRecord: { status, fulfillmentStatus: status },
+      lastObservedAt: new Date("2026-11-16T09:00:00Z"),
+    });
+    await collection.insertMany([
+      record(businessId, connectionId, "VISIBLE-ORDER"),
+      record(foreignId, connectionId, "FOREIGN-TENANT-ORDER"),
+      record(businessId, otherConnectionId, "OTHER-CONNECTION-ORDER"),
+      { ...record(businessId, connectionId, "LISTING-ONLY"), kind: "listings" },
+    ]);
+    const calls = [];
+    const stagedModel = {
+      find(filter) {
+        calls.push(filter);
+        return {
+          sort(specification) {
+            return {
+              limit(limit) {
+                return { lean: () => collection.find(filter)
+                  .sort(specification).limit(limit).toArray() };
+              },
+            };
+          },
+        };
+      },
+    };
+    const connection = {
+      _id: connectionId, business: businessId,
+      provider: "ebay", status: "connected",
+    };
+    const options = { businessId, locationAccessMode: "all", stagedModel };
+    const before = await collection.countDocuments({});
+    const report = await inspectSellerChannelOrderStates(connection, options);
+    assert.deepEqual(report.records.map((entry) => entry.externalOrderId), ["VISIBLE-ORDER"]);
+    assert.equal(report.records[0].reviewState, "observation_only");
+    assert.equal(report.inspectedCount, 1);
+    assert.equal(report.refundsIssued, 0);
+    assert.equal(report.fulfillmentWrites, 0);
+    assert.equal(report.canonicalRecordsWritten, 0);
+    assert.equal(report.readOnly, true);
+    assert.equal(await collection.countDocuments({}), before);
+    assert.deepEqual(calls[0], {
+      business: businessId, connection: connectionId,
+      provider: "ebay", kind: "orders",
+    });
+
+    const queryCount = calls.length;
+    await assert.rejects(inspectSellerChannelOrderStates(connection, {
+      ...options, locationAccessMode: "selected",
+    }), (error) => error.details?.code === "SELLER_ORDER_STATES_LOCATION_SCOPE_REQUIRED");
+    await assert.rejects(inspectSellerChannelOrderStates(connection, {
+      ...options, businessId: foreignId,
+    }), (error) => error.details?.code === "SELLER_ORDER_STATES_TENANT_REQUIRED");
+    assert.equal(calls.length, queryCount, "rejected authority must never reach MongoDB");
+    assert.equal(await collection.countDocuments({}), before);
+  } finally {
+    try { await db.db.dropCollection(collectionName); } catch (error) {
+      if (error?.codeName !== "NamespaceNotFound") throw error;
     }
     await db.close();
   }
