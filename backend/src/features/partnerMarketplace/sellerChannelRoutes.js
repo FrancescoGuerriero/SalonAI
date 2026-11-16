@@ -57,6 +57,7 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
 
 // Operational visibility only: no provider calls or cursor/lease-owner exposure.
 router.get("/:connectionId/import-status", requirePermissions("feature-control:read"),
+  requireSellerTenantWideLocation,
   asyncHandler(async (request, response) => {
     const result = await inspectSellerChannelImportStatus(await ownedConnection(request), {
       businessId: request.effectiveAuthority.businessId,
