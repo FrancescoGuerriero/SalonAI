@@ -30,6 +30,7 @@ test("seller snapshots, fulfilment reads and staging all enforce tenant-wide gua
   const routes = await readFile(new URL(
     "../features/partnerMarketplace/sellerChannelRoutes.js", import.meta.url), "utf8");
   assert.match(routes, /router\.get\("\/:connectionId\/import-status", requirePermissions\("feature-control:read"\),\s*requireSellerTenantWideLocation/);
+  assert.match(routes, /router\.get\("\/:connectionId\/reconciliation", requirePermissions\("inventory:read"\),\s*requirePermissions\("product:read"\), requireSellerTenantWideLocation/);
   assert.match(routes, /router\.get\("\/:connectionId\/fulfillments\/:orderId", requirePermissions\("order:read"\),\s*requireSellerTenantWideLocation/);
   assert.match(routes, /router\.post\("\/:connectionId\/stage\/:kind", requirePermissions\("feature-control:update"\),\s*requireSellerTenantWideLocation/);
   const generic = routes.slice(routes.indexOf('router.get("/:connectionId/:kind"'));
