@@ -16,6 +16,17 @@ import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspec
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
 
+// Seller provider accounts and staged records carry no authoritative location
+// scope. Do not grant access to tenant-wide data from a selected-location role.
+export function requireSellerTenantWideLocation(request, _response, next) {
+  if (request.effectiveAuthority?.locationAccessMode !== "all") {
+    return next(createServiceError("Seller provider accounts require tenant-wide location access.", 403, {
+      code: "SELLER_CHANNEL_TENANT_WIDE_LOCATION_REQUIRED",
+    }));
+  }
+  return next();
+}
+
 async function ownedConnection(request) {
   const businessId = request.effectiveAuthority?.businessId;
   if (!businessId || !mongoose.isValidObjectId(businessId)) {
@@ -87,6 +98,7 @@ router.get("/:connectionId/order-states", requirePermissions("order:read"),
 
 // Explicit operator action stages source records only, never canonical commerce data.
 router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:update"),
+  requireSellerTenantWideLocation,
   (request, response, next) => {
     const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
     return requirePermissions(permission)(request, response, next);
@@ -106,6 +118,7 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
   }));
 
 router.get("/:connectionId/fulfillments/:orderId", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
   asyncHandler(async (request, response) => {
     const snapshot = await fetchEbayShippingFulfillments(await ownedConnection(request), request.params.orderId);
     response.status(200).json({ success: true, snapshot });
@@ -114,7 +127,7 @@ router.get("/:connectionId/fulfillments/:orderId", requirePermissions("order:rea
 router.get("/:connectionId/:kind", (request, response, next) => {
   const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
   return requirePermissions(permission)(request, response, next);
-}, asyncHandler(async (request, response) => {
+}, requireSellerTenantWideLocation, asyncHandler(async (request, response) => {
   const snapshot = await fetchSellerChannelSnapshot(await ownedConnection(request), request.params.kind, {
     limit: request.query.limit,
   });
