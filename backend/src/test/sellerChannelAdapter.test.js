@@ -445,3 +445,38 @@ test("eBay returns pagination fails closed on contradictory totals or no progres
     }), (error) => error.details?.code === "SELLER_RETURNS_PAGING_INVALID");
   }
 });
+
+test("eBay returns may be filtered by a provider order ID without Commerce writes", async () => {
+  const calls = [];
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const result = await fetchEbayReturnStatuses(production, {
+    orderId: "EB-01!23", offset: 2, limit: 2,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-3", orderId: "EB-01!23", status: "RETURN_STARTED" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  const url = new URL(calls[1].url);
+  assert.equal(url.searchParams.get("order_id"), "EB-01!23");
+  assert.equal(url.searchParams.get("offset"), "2");
+  assert.equal(result.orderIdFilter, "EB-01!23");
+  assert.equal(result.nextOffset, null);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(calls[1].options.method, "GET");
+});
+
+test("eBay returns reject unsafe provider order filters before any API calls", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const orderId of ["", "../something", "X?limit=200", "X&offset=99",
+    "https://malicious.example", "x".repeat(121), 123]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      orderId, getCredential, fetchImpl: async () => {
+        calls++; throw Error("unexpected call");
+      },
+    }), (error) => error.details?.code === "SELLER_RETURNS_ORDER_ID_INVALID");
+  }
+  assert.equal(calls, 0);
+});
