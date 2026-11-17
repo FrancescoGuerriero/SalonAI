@@ -480,3 +480,38 @@ test("eBay returns reject unsafe provider order filters before any API calls", a
   }
   assert.equal(calls, 0);
 });
+
+test("eBay returns status filter supports operational triage without mutating returns", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const state of ["ALL_OPEN", "CLOSED", "SELLER_ACTION_DUE",
+    "SELLER_ACTION_OVERDUE", "RETURN_STARTED", "ITEM_SHIPPED"]) {
+    const calls = [];
+    const result = await fetchEbayReturnStatuses(production, {
+      returnState: state, getCredential, fetchImpl: fetchFixture([
+        { access_token: "token" },
+        { members: [{ returnId: "R-1", state: "INITIAL", status: "RETURN_STARTED" }],
+          paginationOutput: { totalEntries: 1, totalPages: 1 } },
+      ], calls),
+    });
+    assert.equal(new URL(calls[1].url).searchParams.get("return_state"), state);
+    assert.equal(result.returnStateFilter, state);
+    assert.equal(result.returnsProcessed, 0);
+    assert.equal(result.refundsIssued, 0);
+    assert.equal(result.canonicalRecordsWritten, 0);
+    assert.equal(calls[1].options.method, "GET");
+  }
+});
+
+test("eBay returns filters reject unknown and unsupported provider states before network access", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const state of ["UNKNOWN", "ALL_OPEN_REPLACEMENT", "ALL", "closed", "",
+    "ALL_OPEN&order_id=OTHER", 42, null]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      returnState: state, getCredential, fetchImpl: async () => {
+        calls++; throw Error("unexpected provider request");
+      },
+    }), (error) => error.details?.code === "SELLER_RETURNS_STATE_INVALID");
+  }
+  assert.equal(calls, 0);
+});
