@@ -115,6 +115,7 @@ router.get("/:connectionId/returns", requirePermissions("order:read"),
   asyncHandler(async (request, response) => {
     const snapshot = await fetchEbayReturnStatuses(await ownedConnection(request), {
       limit: request.query.limit ?? 25,
+      offset: request.query.offset ?? 0,
     });
     response.status(200).json({ success: true, snapshot });
   }));
