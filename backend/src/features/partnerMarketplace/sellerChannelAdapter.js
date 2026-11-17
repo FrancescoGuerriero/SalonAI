@@ -331,6 +331,7 @@ export async function fetchEbayShippingFulfillments(connection, orderId, {
  */
 export async function fetchEbayReturnStatuses(connection, {
   fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
+  offset = 0,
 } = {}) {
   if (connection?.provider !== "ebay" ||
       connection?.metadata?.environment !== "production") {
@@ -341,10 +342,14 @@ export async function fetchEbayReturnStatuses(connection, {
   if (!Number.isInteger(take) || take < 1 || take > MAX_RESULTS) {
     throw unsupported("Invalid eBay returns result limit.", "SELLER_RETURNS_LIMIT_INVALID");
   }
+  const skip = Number(offset);
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > 100000) {
+    throw unsupported("Invalid eBay returns offset.", "SELLER_RETURNS_OFFSET_INVALID");
+  }
   const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
   const url = new URL("/post-order/v2/return/search", origin);
   url.searchParams.set("limit", String(take));
-  url.searchParams.set("offset", "0");
+  url.searchParams.set("offset", String(skip));
   const body = await fetchJson(fetchImpl, url.toString(), {
     method: "GET", headers: {
       authorization: `Bearer ${token}`, accept: "application/json",
@@ -370,21 +375,31 @@ export async function fetchEbayReturnStatuses(connection, {
       status: typeof member.status === "string" ? member.status.slice(0, 120) : null,
     });
   });
-  // eBay supplies paginationOutput; a full page alone cannot prove
-  // completion. Flag further pages conservatively for operator visibility.
+  // The provider may omit paginationOutput; a full page is then ambiguous.
+  // Never advance by untrusted URLs or claim completion without evidence.
   const pagination = body.paginationOutput;
-  const totalPages = Number(pagination?.totalPages);
-  const totalEntries = Number(pagination?.totalEntries);
-  const incomplete = (Number.isFinite(totalPages) && totalPages > 1) ||
-    (Number.isFinite(totalEntries) && totalEntries > records.length) ||
+  const totalEntries = pagination?.totalEntries == null ? null : Number(pagination.totalEntries);
+  if (totalEntries !== null && (!Number.isSafeInteger(totalEntries) || totalEntries < 0 ||
+      totalEntries < skip + records.length)) {
+    throw unsupported("Inconsistent eBay returns pagination evidence.",
+      "SELLER_RETURNS_PAGING_INVALID");
+  }
+  const remaining = totalEntries !== null ? skip + records.length < totalEntries :
     records.length === take;
+  if (remaining && records.length === 0) {
+    throw unsupported("eBay returns pagination made no progress.",
+      "SELLER_RETURNS_PAGING_INVALID");
+  }
+  const nextOffset = remaining && records.length ? skip + records.length : null;
   return Object.freeze({
     provider: "ebay", kind: "returns",
     source: "read_only_provider_snapshot",
     records: Object.freeze(records),
     inspectedCount: records.length,
-    nextPageAvailable: incomplete,
-    completeWithinLimit: !incomplete,
+    offset: skip,
+    nextOffset,
+    nextPageAvailable: remaining,
+    completeWithinLimit: !remaining,
     refundsIssued: 0, returnsProcessed: 0, canonicalRecordsWritten: 0,
     productionAccepted: false,
   });
