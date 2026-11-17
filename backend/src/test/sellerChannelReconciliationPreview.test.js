@@ -108,3 +108,39 @@ test("duplicate marketplace SKUs differing only in case never produce an actiona
   assert.equal(report.canonicalRecordsWritten, 0);
   assert.equal(report.stockUpdatesApplied, 0);
 });
+
+test("inventory reconciliation summarises matched, mismatched and unresolved records without stock mutation", async () => {
+  const f = fixture([
+    { externalId: "ONE", sourceRecord: { sku: "ONE", quantity: 3 } },
+    { externalId: "TWO", sourceRecord: { sku: "TWO", quantity: 8 } },
+    { externalId: "UNKNOWN", sourceRecord: { sku: "UNKNOWN", quantity: 2 } },
+    { externalId: "MISSING", sourceRecord: { sku: "", quantity: 0 } },
+  ], [
+    { _id: "507f1f77bcf86cd799439027", sku: "ONE", location: locationId, stockQuantity: 3 },
+    { _id: "507f1f77bcf86cd799439028", sku: "TWO", location: locationId, stockQuantity: 6 },
+  ]);
+  const result = await previewSellerChannelInventory(connection, {
+    businessId, locationId, limit: 10, ...f,
+  });
+  assert.deepEqual(result.summary, {
+    matched: 1, quantityDiffers: 1, unresolved: 2,
+    potentialStockChanges: 0, examinedRowsOnly: true, possiblyTruncated: false,
+  });
+  assert.equal(result.records.find((row) => row.sku === "TWO").quantityDifference, 2);
+  assert.equal(result.stockUpdatesApplied, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.ok(Object.isFrozen(result.summary));
+});
+
+test("inventory reconciliation flags full preview as possibly truncated rather than fully synced", async () => {
+  const f = fixture([
+    { externalId: "SKU-ONLY", sourceRecord: { sku: "SKU-ONLY", quantity: null } },
+  ]);
+  const result = await previewSellerChannelInventory(connection, {
+    businessId, locationId, limit: 1, ...f,
+  });
+  assert.equal(result.reviewedCount, 1);
+  assert.equal(result.summary.possiblyTruncated, true);
+  assert.equal(result.summary.unresolved, 1);
+  assert.equal(result.summary.potentialStockChanges, 0);
+});
