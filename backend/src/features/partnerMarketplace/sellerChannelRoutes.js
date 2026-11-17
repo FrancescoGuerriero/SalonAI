@@ -7,7 +7,7 @@ import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import { createServiceError } from "../../shared/serviceError.js";
-import { fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { fetchEbayReturnDetail, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
@@ -107,6 +107,15 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
       atomicStaging: true,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// Read one eBay return summary without forwarding buyer details or refunds.
+router.get("/:connectionId/returns/:returnId", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnDetail(await ownedConnection(request),
+      request.params.returnId);
+    response.status(200).json({ success: true, snapshot });
   }));
 
 // Read-only eBay production return statuses. No refund or return action.
