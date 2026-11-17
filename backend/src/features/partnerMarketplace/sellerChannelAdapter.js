@@ -331,7 +331,7 @@ export async function fetchEbayShippingFulfillments(connection, orderId, {
  */
 export async function fetchEbayReturnStatuses(connection, {
   fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
-  offset = 0,
+  offset = 0, orderId = null,
 } = {}) {
   if (connection?.provider !== "ebay" ||
       connection?.metadata?.environment !== "production") {
@@ -346,10 +346,16 @@ export async function fetchEbayReturnStatuses(connection, {
   if (!Number.isSafeInteger(skip) || skip < 0 || skip > 100000) {
     throw unsupported("Invalid eBay returns offset.", "SELLER_RETURNS_OFFSET_INVALID");
   }
+  if (orderId !== null && (
+    typeof orderId !== "string" || !/^[a-zA-Z0-9!_.-]{1,120}$/.test(orderId)
+  )) {
+    throw unsupported("Invalid eBay returns order filter.", "SELLER_RETURNS_ORDER_ID_INVALID");
+  }
   const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
   const url = new URL("/post-order/v2/return/search", origin);
   url.searchParams.set("limit", String(take));
   url.searchParams.set("offset", String(skip));
+  if (orderId !== null) url.searchParams.set("order_id", orderId);
   const body = await fetchJson(fetchImpl, url.toString(), {
     method: "GET", headers: {
       authorization: `Bearer ${token}`, accept: "application/json",
@@ -397,6 +403,7 @@ export async function fetchEbayReturnStatuses(connection, {
     records: Object.freeze(records),
     inspectedCount: records.length,
     offset: skip,
+    orderIdFilter: orderId,
     nextOffset,
     nextPageAvailable: remaining,
     completeWithinLimit: !remaining,
