@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { fetchEbayReturnDetail, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
+import { fetchEbayReturnDetail, fetchEbayReturnReviewBatch, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
 
 const AMAZON = {
   provider: "amazon_seller_central",
@@ -559,4 +559,69 @@ test("eBay return detail rejects cross-return identity, invalid IDs and unsuppor
       getCredential, fetchImpl: fetchFixture([{ access_token: "token" }, body]),
     }), (error) => error.details?.code === "SELLER_RETURNS_DETAIL_INVALID");
   }
+});
+
+test("bounded eBay returns review fetches successive pages and retains partial completion evidence", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const calls = [];
+  const result = await fetchEbayReturnReviewBatch(production, {
+    limit: 2, maxPages: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }, { returnId: "RET-2" }],
+        paginationOutput: { totalEntries: 5 } },
+      { access_token: "token" },
+      { members: [{ returnId: "RET-3" }, { returnId: "RET-4" }],
+        paginationOutput: { totalEntries: 5 } },
+    ], calls),
+  });
+  assert.deepEqual(result.records.map((entry) => entry.returnId),
+    ["RET-1", "RET-2", "RET-3", "RET-4"]);
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.nextOffset, 4);
+  assert.equal(result.nextPageAvailable, true);
+  assert.equal(result.completeWithinLimit, false);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.equal(new URL(calls[3].url).searchParams.get("offset"), "2");
+  assert.ok(calls.filter((call) => call.url.includes("/return/search"))
+    .every((call) => call.options.method === "GET"));
+});
+
+test("returns review halts on complete provider page and rejects duplicate IDs across pages", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const complete = await fetchEbayReturnReviewBatch(production, {
+    limit: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 1 } },
+    ]),
+  });
+  assert.equal(complete.pagesFetched, 1);
+  assert.equal(complete.completeWithinLimit, true);
+  await assert.rejects(fetchEbayReturnReviewBatch(production, {
+    limit: 2, maxPages: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 3 } },
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 3 } },
+    ]),
+  }), (error) => error.details?.code === "SELLER_RETURNS_REVIEW_DUPLICATE");
+});
+
+test("returns review refuses unbounded page requests and non-progressing provider cursors", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let contacted = 0;
+  for (const maxPages of [0, 4, -1, "unexpected"]) {
+    await assert.rejects(fetchEbayReturnReviewBatch(production, {
+      maxPages, fetchImpl: async () => { contacted++; throw Error("unwanted network"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_PAGES_INVALID");
+  }
+  assert.equal(contacted, 0);
+  await assert.rejects(fetchEbayReturnReviewBatch(production, {
+    limit: 2, readPage: async () => ({
+      provider: "ebay", kind: "returns", offset: 0, orderIdFilter: null,
+      returnStateFilter: "ALL_OPEN", records: [{ returnId: "R-1" }],
+      nextPageAvailable: true, nextOffset: 0,
+    }),
+  }), (error) => error.details?.code === "SELLER_RETURNS_PAGING_INVALID");
 });
