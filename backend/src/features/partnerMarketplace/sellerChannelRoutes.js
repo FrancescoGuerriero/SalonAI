@@ -117,6 +117,7 @@ router.get("/:connectionId/returns", requirePermissions("order:read"),
       limit: request.query.limit ?? 25,
       offset: request.query.offset ?? 0,
       orderId: request.query.orderId ?? null,
+      returnState: request.query.returnState ?? "ALL_OPEN",
     });
     response.status(200).json({ success: true, snapshot });
   }));
