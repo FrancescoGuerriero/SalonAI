@@ -7,7 +7,7 @@ import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import { createServiceError } from "../../shared/serviceError.js";
-import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
@@ -46,7 +46,7 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     readOnly: true, sellerChannelProviders: ["amazon_seller_central", "ebay"],
     supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments"],
     fulfillmentOperations: "ebay_read_only",
-    returns: "not_implemented",
+    returns: "ebay_production_read_only",
     listingPublication: "not_implemented",
     stockWriteback: "not_implemented",
     manualStaging: "listings_and_orders_only",
@@ -107,6 +107,16 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
       atomicStaging: true,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// Read-only eBay production return statuses. No refund or return action.
+router.get("/:connectionId/returns", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnStatuses(await ownedConnection(request), {
+      limit: request.query.limit ?? 25,
+    });
+    response.status(200).json({ success: true, snapshot });
   }));
 
 router.get("/:connectionId/fulfillments/:orderId", requirePermissions("order:read"),
