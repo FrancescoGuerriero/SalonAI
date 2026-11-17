@@ -7,7 +7,7 @@ import { requirePermissions } from "../../middleware/permissionMiddleware.js";
 import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
 import asyncHandler from "../../shared/asyncHandler.js";
 import { createServiceError } from "../../shared/serviceError.js";
-import { fetchEbayReturnDetail, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { fetchEbayReturnDetail, fetchEbayReturnReviewBatch, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
@@ -44,7 +44,7 @@ async function ownedConnection(request) {
 router.get("/capabilities", requirePermissions("feature-control:read"), (_request, response) => {
   response.json({
     readOnly: true, sellerChannelProviders: ["amazon_seller_central", "ebay"],
-    supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments", "returns", "return_detail"],
+    supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments", "returns", "return_detail", "returns_review"],
     fulfillmentOperations: "ebay_read_only",
     returns: "ebay_production_read_only",
     listingPublication: "not_implemented",
@@ -107,6 +107,20 @@ router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:up
       atomicStaging: true,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// Bounded multi-page return review; status data only, no provider writes.
+router.get("/:connectionId/returns-review", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnReviewBatch(await ownedConnection(request), {
+      limit: request.query.limit ?? 25,
+      offset: request.query.offset ?? 0,
+      orderId: request.query.orderId ?? null,
+      returnState: request.query.returnState ?? "ALL_OPEN",
+      maxPages: request.query.maxPages ?? 3,
+    });
+    response.status(200).json({ success: true, snapshot });
   }));
 
 // Read one eBay return summary without forwarding buyer details or refunds.
