@@ -323,3 +323,69 @@ export async function fetchEbayShippingFulfillments(connection, orderId, {
     canonicalRecordsWritten: 0, shippingUpdatesPosted: 0, refundsProcessed: 0,
   });
 }
+
+/**
+ * Read-only eBay Post-Order returns lookup. Production-only per eBay's API
+ * contract; never submits a return decision, refund or shipping update.
+ * The response intentionally excludes usernames, messages and addresses.
+ */
+export async function fetchEbayReturnStatuses(connection, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
+} = {}) {
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("eBay return searches require a production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const take = Number(limit);
+  if (!Number.isInteger(take) || take < 1 || take > MAX_RESULTS) {
+    throw unsupported("Invalid eBay returns result limit.", "SELLER_RETURNS_LIMIT_INVALID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL("/post-order/v2/return/search", origin);
+  url.searchParams.set("limit", String(take));
+  url.searchParams.set("offset", "0");
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: {
+      authorization: `Bearer ${token}`, accept: "application/json",
+    },
+  });
+  if (!Array.isArray(body.members) || body.members.length > take) {
+    throw unsupported("Unexpected eBay return search response.", "SELLER_RETURNS_BAD_RESPONSE");
+  }
+  const seen = new Set();
+  const records = body.members.map((member) => {
+    const id = member?.returnId;
+    if (typeof id !== "string" || !id.trim() || id.length > 200 ||
+        seen.has(id)) {
+      throw unsupported("Invalid or repeated eBay return identifier.",
+        "SELLER_RETURNS_ID_INVALID");
+    }
+    seen.add(id);
+    return Object.freeze({
+      returnId: id,
+      externalOrderId: typeof member.orderId === "string" ?
+        member.orderId.slice(0, 200) : null,
+      state: typeof member.state === "string" ? member.state.slice(0, 120) : null,
+      status: typeof member.status === "string" ? member.status.slice(0, 120) : null,
+    });
+  });
+  // eBay supplies paginationOutput; a full page alone cannot prove
+  // completion. Flag further pages conservatively for operator visibility.
+  const pagination = body.paginationOutput;
+  const totalPages = Number(pagination?.totalPages);
+  const totalEntries = Number(pagination?.totalEntries);
+  const incomplete = (Number.isFinite(totalPages) && totalPages > 1) ||
+    (Number.isFinite(totalEntries) && totalEntries > records.length) ||
+    records.length === take;
+  return Object.freeze({
+    provider: "ebay", kind: "returns",
+    source: "read_only_provider_snapshot",
+    records: Object.freeze(records),
+    inspectedCount: records.length,
+    nextPageAvailable: incomplete,
+    completeWithinLimit: !incomplete,
+    refundsIssued: 0, returnsProcessed: 0, canonicalRecordsWritten: 0,
+    productionAccepted: false,
+  });
+}
