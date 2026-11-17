@@ -44,7 +44,7 @@ async function ownedConnection(request) {
 router.get("/capabilities", requirePermissions("feature-control:read"), (_request, response) => {
   response.json({
     readOnly: true, sellerChannelProviders: ["amazon_seller_central", "ebay"],
-    supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments"],
+    supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments", "returns", "return_detail"],
     fulfillmentOperations: "ebay_read_only",
     returns: "ebay_production_read_only",
     listingPublication: "not_implemented",
