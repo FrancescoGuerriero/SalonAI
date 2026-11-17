@@ -72,11 +72,26 @@ export async function previewSellerChannelInventory(connection, {
       canonicalProductId: comparable ? String(exact[0]._id) : null,
     });
   });
+  // Summarise only examined rows. A capped preview is never evidence that
+  // the full marketplace catalogue has been reconciled.
+  const counts = Object.create(null);
+  for (const record of rows) {
+    counts[record.state] = (counts[record.state] || 0) + 1;
+  }
+  const summary = Object.freeze({
+    matched: counts.matched || 0,
+    quantityDiffers: counts.quantity_differs || 0,
+    unresolved: rows.length - (counts.matched || 0) - (counts.quantity_differs || 0),
+    potentialStockChanges: 0,
+    examinedRowsOnly: true,
+    possiblyTruncated: staged.length === count,
+  });
   return Object.freeze({
     businessId: String(businessId), connectionId: String(connection._id),
     locationSelected: locationId !== null,
     kind: "listings", comparisonMode: "dry_run_only",
     records: Object.freeze(rows), reviewedCount: rows.length,
+    summary,
     canonicalRecordsWritten: 0, stockUpdatesApplied: 0,
     productionAccepted: false,
   });
