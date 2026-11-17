@@ -15,6 +15,11 @@ const EBAY_ORIGINS = Object.freeze({
   production: "https://api.ebay.com",
   sandbox: "https://api.sandbox.ebay.com",
 });
+const EBAY_RETURN_STATE_FILTERS = Object.freeze([
+  "ALL_OPEN", "ALL_OPEN_RETURN", "CLOSED", "ITEM_DELIVERED",
+  "ITEM_SHIPPED", "RETURN_STARTED", "SELLER_ACTION_DUE",
+  "SELLER_ACTION_OVERDUE", "SELLER_NO_ACTION", "EBAY_PLUS",
+]);
 const MAX_RESULTS = 50;
 const MAX_PAGES = 5;
 const NETWORK_TIMEOUT_MS = 12000;
@@ -331,7 +336,7 @@ export async function fetchEbayShippingFulfillments(connection, orderId, {
  */
 export async function fetchEbayReturnStatuses(connection, {
   fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
-  offset = 0, orderId = null,
+  offset = 0, orderId = null, returnState = "ALL_OPEN",
 } = {}) {
   if (connection?.provider !== "ebay" ||
       connection?.metadata?.environment !== "production") {
@@ -351,11 +356,17 @@ export async function fetchEbayReturnStatuses(connection, {
   )) {
     throw unsupported("Invalid eBay returns order filter.", "SELLER_RETURNS_ORDER_ID_INVALID");
   }
+  if (typeof returnState !== "string" ||
+      !EBAY_RETURN_STATE_FILTERS.includes(returnState)) {
+    throw unsupported("Unsupported eBay returns state filter.",
+      "SELLER_RETURNS_STATE_INVALID");
+  }
   const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
   const url = new URL("/post-order/v2/return/search", origin);
   url.searchParams.set("limit", String(take));
   url.searchParams.set("offset", String(skip));
   if (orderId !== null) url.searchParams.set("order_id", orderId);
+  url.searchParams.set("return_state", returnState);
   const body = await fetchJson(fetchImpl, url.toString(), {
     method: "GET", headers: {
       authorization: `Bearer ${token}`, accept: "application/json",
@@ -404,6 +415,7 @@ export async function fetchEbayReturnStatuses(connection, {
     inspectedCount: records.length,
     offset: skip,
     orderIdFilter: orderId,
+    returnStateFilter: returnState,
     nextOffset,
     nextPageAvailable: remaining,
     completeWithinLimit: !remaining,
