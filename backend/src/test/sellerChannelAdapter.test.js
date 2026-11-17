@@ -389,3 +389,59 @@ test("eBay returns explicitly signal incomplete first page instead of claiming c
   assert.equal(result.nextPageAvailable, true);
   assert.equal(result.completeWithinLimit, false);
 });
+
+test("eBay returns navigate later pages using a bounded numeric offset", async () => {
+  const calls = [];
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const first = await fetchEbayReturnStatuses(production, {
+    limit: 2, offset: 0, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "R1" }, { returnId: "R2" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  assert.equal(first.nextOffset, 2);
+  assert.equal(first.nextPageAvailable, true);
+  const second = await fetchEbayReturnStatuses(production, {
+    limit: 2, offset: first.nextOffset, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "R3" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  assert.equal(second.offset, 2);
+  assert.equal(second.nextOffset, null);
+  assert.equal(second.completeWithinLimit, true);
+  assert.deepEqual(second.records.map((entry) => entry.returnId), ["R3"]);
+  assert.equal(new URL(calls[1].url).searchParams.get("offset"), "0");
+  assert.equal(new URL(calls[3].url).searchParams.get("offset"), "2");
+  assert.ok(calls.filter((call) => call.url.includes("/return/search"))
+    .every((call) => call.options.method === "GET"));
+});
+
+test("eBay returns paging rejects negative and injected offsets before network access", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const offset of [-1, "1&order_id=OTHER", "https://example.org", 1.5, 100001]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      offset, getCredential, fetchImpl: async () => { calls++; throw Error("network used"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_OFFSET_INVALID");
+  }
+  assert.equal(calls, 0);
+});
+
+test("eBay returns pagination fails closed on contradictory totals or no progress", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const [offset, response] of [
+    [2, { members: [{ returnId: "R3" }], paginationOutput: { totalEntries: 2 } }],
+    [0, { members: [], paginationOutput: { totalEntries: 3 } }],
+    [0, { members: [{ returnId: "R1" }], paginationOutput: { totalEntries: -1 } }],
+  ]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      offset, limit: 2, getCredential,
+      fetchImpl: fetchFixture([{ access_token: "token" }, response]),
+    }), (error) => error.details?.code === "SELLER_RETURNS_PAGING_INVALID");
+  }
+});
