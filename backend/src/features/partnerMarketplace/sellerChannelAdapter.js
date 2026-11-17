@@ -467,3 +467,91 @@ export async function fetchEbayReturnDetail(connection, returnId, {
     canonicalRecordsWritten: 0, productionAccepted: false,
   });
 }
+
+/**
+ * Bounded returns review: collect up to three pages / fifty source records.
+ * No write operations, stored cursors, provider URLs or raw buyer data.
+ */
+export async function fetchEbayReturnReviewBatch(connection, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+  limit = 25, offset = 0, orderId = null, returnState = "ALL_OPEN",
+  maxPages = 3,
+  readPage = fetchEbayReturnStatuses,
+} = {}) {
+  const pages = Number(maxPages);
+  if (!Number.isInteger(pages) || pages < 1 || pages > 3) {
+    throw unsupported("Invalid eBay returns review page count.",
+      "SELLER_RETURNS_PAGES_INVALID");
+  }
+  // Validate request dimensions before issuing the first provider read.
+  const take = Number(limit);
+  const skip = Number(offset);
+  if (!Number.isInteger(take) || take < 1 || take > MAX_RESULTS ||
+      !Number.isSafeInteger(skip) || skip < 0 || skip > 100000 ||
+      (orderId !== null && (typeof orderId !== "string" ||
+        !/^[a-zA-Z0-9!_.-]{1,120}$/.test(orderId))) ||
+      !EBAY_RETURN_STATE_FILTERS.includes(returnState)) {
+    throw unsupported("Invalid eBay returns review request.",
+      "SELLER_RETURNS_REVIEW_INVALID");
+  }
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("Returns review requires an eBay production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const records = [];
+  const seen = new Set();
+  let cursor = skip;
+  let last = null;
+  let fetched = 0;
+  while (fetched < pages && records.length < MAX_RESULTS) {
+    const page = await readPage(connection, {
+      fetchImpl, getCredential, limit: Math.min(take, MAX_RESULTS - records.length),
+      offset: cursor, orderId, returnState,
+    });
+    if (page?.provider !== "ebay" || page?.kind !== "returns" ||
+        page?.offset !== cursor || !Array.isArray(page.records) ||
+        page.records.length > Math.min(take, MAX_RESULTS - records.length) ||
+        page.orderIdFilter !== orderId || page.returnStateFilter !== returnState) {
+      throw unsupported("Inconsistent eBay returns review page.",
+        "SELLER_RETURNS_REVIEW_PAGE_INVALID");
+    }
+    for (const record of page.records) {
+      if (typeof record?.returnId !== "string" || !record.returnId ||
+          seen.has(record.returnId)) {
+        throw unsupported("Duplicate or invalid return in review pages.",
+          "SELLER_RETURNS_REVIEW_DUPLICATE");
+      }
+      seen.add(record.returnId);
+      records.push(Object.freeze({
+        returnId: record.returnId,
+        externalOrderId: record.externalOrderId ?? null,
+        state: record.state ?? null,
+        status: record.status ?? null,
+      }));
+    }
+    fetched += 1;
+    last = page;
+    if (!page.nextPageAvailable) break;
+    if (!Number.isSafeInteger(page.nextOffset) ||
+        page.nextOffset <= cursor || page.nextOffset > 100000 ||
+        page.records.length === 0) {
+      throw unsupported("eBay returns review pagination did not advance.",
+        "SELLER_RETURNS_PAGING_INVALID");
+    }
+    cursor = page.nextOffset;
+  }
+  const hasMore = last?.nextPageAvailable === true;
+  return Object.freeze({
+    provider: "ebay", kind: "returns_review",
+    source: "read_only_provider_snapshot",
+    records: Object.freeze(records),
+    inspectedCount: records.length, pagesFetched: fetched,
+    orderIdFilter: orderId, returnStateFilter: returnState,
+    nextOffset: hasMore ? last.nextOffset : null,
+    nextPageAvailable: hasMore,
+    completeWithinLimit: !hasMore,
+    refundsIssued: 0, returnsProcessed: 0,
+    canonicalRecordsWritten: 0, productionAccepted: false,
+  });
+}
