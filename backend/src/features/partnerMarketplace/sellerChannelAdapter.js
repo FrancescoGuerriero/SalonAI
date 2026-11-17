@@ -423,3 +423,47 @@ export async function fetchEbayReturnStatuses(connection, {
     productionAccepted: false,
   });
 }
+
+/**
+ * Fetch one eBay Post-Order return summary without exposing raw buyer,
+ * address, refund/payment or message fields. No return actions are enabled.
+ */
+export async function fetchEbayReturnDetail(connection, returnId, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+} = {}) {
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("eBay return details require a production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  if (typeof returnId !== "string" ||
+      !/^[a-zA-Z0-9!_.-]{1,120}$/.test(returnId)) {
+    throw unsupported("Invalid eBay return identifier.",
+      "SELLER_RETURNS_ID_INVALID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL(`/post-order/v2/return/${encodeURIComponent(returnId)}`, origin);
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: {
+      authorization: `Bearer ${token}`, accept: "application/json",
+    },
+  });
+  const summary = body.summary;
+  if (!summary || typeof summary !== "object" ||
+      String(summary.returnId || "") !== returnId) {
+    throw unsupported("eBay return detail identity mismatch.",
+      "SELLER_RETURNS_DETAIL_INVALID");
+  }
+  const record = Object.freeze({
+    returnId,
+    externalOrderId: typeof summary.orderId === "string" ?
+      summary.orderId.slice(0, 200) : null,
+    state: typeof summary.state === "string" ? summary.state.slice(0, 120) : null,
+    status: typeof summary.status === "string" ? summary.status.slice(0, 120) : null,
+  });
+  return Object.freeze({
+    provider: "ebay", kind: "return_detail", source: "read_only_provider_snapshot",
+    record, refundsIssued: 0, returnsProcessed: 0,
+    canonicalRecordsWritten: 0, productionAccepted: false,
+  });
+}
