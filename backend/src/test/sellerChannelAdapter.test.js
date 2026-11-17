@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
+import { fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
 
 const AMAZON = {
   provider: "amazon_seller_central",
@@ -320,4 +320,72 @@ test("eBay shipping detail returns a frozen, complete read-only observation", as
   assert.ok(result.records.every((row) => Object.isFrozen(row)));
   assert.equal(result.shippingUpdatesPosted, 0);
   assert.equal(result.refundsProcessed, 0);
+});
+
+test("eBay production returns provide bounded status-only data without buyer information or refunds", async () => {
+  const calls = [];
+  const result = await fetchEbayReturnStatuses({
+    ...EBAY, metadata: { ...EBAY.metadata, environment: "production" },
+  }, {
+    limit: 5, getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { members: [
+        { returnId: "RETURN-1", orderId: "ORDER-1", status: "RETURN_STARTED",
+          state: "OPEN", buyerLoginName: "private-buyer", buyerTotalRefund: { value: "22" } },
+      ], paginationOutput: { totalPages: 1, totalEntries: 1 } },
+    ], calls),
+  });
+  assert.deepEqual(result.records, [{
+    returnId: "RETURN-1", externalOrderId: "ORDER-1",
+    state: "OPEN", status: "RETURN_STARTED",
+  }]);
+  assert.equal(result.completeWithinLimit, true);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.returnsProcessed, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.ok(!JSON.stringify(result).includes("private-buyer"));
+  assert.ok(!JSON.stringify(result).includes("buyerTotalRefund"));
+  assert.ok(calls[1].url.startsWith("https://api.ebay.com/post-order/v2/return/search?"));
+  assert.equal(calls[1].options.method, "GET");
+  assert.equal(calls[1].options.redirect, "error");
+});
+
+test("returns searches reject sandbox, Amazon, invalid limits and malformed provider results", async () => {
+  let called = false;
+  const invalidFetch = async () => { called = true; throw new Error("Unexpected network request"); };
+  for (const connection of [EBAY, AMAZON]) {
+    await assert.rejects(fetchEbayReturnStatuses(connection, {
+      fetchImpl: invalidFetch, getCredential,
+    }), (error) => error.details?.code === "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const limit of [0, -1, 51, 1.5, "bad"]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      limit, fetchImpl: invalidFetch, getCredential,
+    }), (error) => error.details?.code === "SELLER_RETURNS_LIMIT_INVALID");
+  }
+  assert.equal(called, false);
+  for (const body of [
+    { members: null },
+    { members: [{ returnId: "" }] },
+    { members: [{ returnId: "SAME" }, { returnId: "SAME" }] },
+    { members: Array.from({ length: 3 }, (_, n) => ({ returnId: String(n) })) },
+  ]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      limit: 2, getCredential,
+      fetchImpl: fetchFixture([{ access_token: "ebay-token" }, body]),
+    }));
+  }
+});
+
+test("eBay returns explicitly signal incomplete first page instead of claiming comprehensive sync", async () => {
+  const result = await fetchEbayReturnStatuses({
+    ...EBAY, metadata: { ...EBAY.metadata, environment: "production" },
+  }, { limit: 2, getCredential, fetchImpl: fetchFixture([
+    { access_token: "ebay-token" },
+    { members: [{ returnId: "R1" }], paginationOutput: { totalPages: 3, totalEntries: 5 } },
+  ]) });
+  assert.equal(result.nextPageAvailable, true);
+  assert.equal(result.completeWithinLimit, false);
 });
