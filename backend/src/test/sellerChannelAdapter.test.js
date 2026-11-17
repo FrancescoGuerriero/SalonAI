@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
+import { fetchEbayReturnDetail, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
 
 const AMAZON = {
   provider: "amazon_seller_central",
@@ -514,4 +514,49 @@ test("eBay returns filters reject unknown and unsupported provider states before
     }), (error) => error.details?.code === "SELLER_RETURNS_STATE_INVALID");
   }
   assert.equal(calls, 0);
+});
+
+test("eBay return detail exposes only source status and order ID without PII", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const calls = [];
+  const result = await fetchEbayReturnDetail(production, "RET-123", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { summary: { returnId: "RET-123", orderId: "EB-123",
+        state: "INITIAL", status: "RETURN_STARTED",
+        buyerLoginName: "private-buyer", buyerTotalRefund: { value: "99" } },
+        detail: { buyerAddress: "private-address" } },
+    ], calls),
+  });
+  assert.deepEqual(result.record, {
+    returnId: "RET-123", externalOrderId: "EB-123",
+    state: "INITIAL", status: "RETURN_STARTED",
+  });
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.returnsProcessed, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.record), true);
+  assert.ok(!JSON.stringify(result).includes("private-buyer"));
+  assert.ok(!JSON.stringify(result).includes("private-address"));
+  assert.equal(calls[1].options.method, "GET");
+  assert.equal(new URL(calls[1].url).pathname, "/post-order/v2/return/RET-123");
+});
+
+test("eBay return detail rejects cross-return identity, invalid IDs and unsupported environments", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const returnId of ["", "../unsafe", "R?offset=10", "x".repeat(121), null]) {
+    await assert.rejects(fetchEbayReturnDetail(production, returnId, {
+      getCredential, fetchImpl: async () => { calls++; throw Error("unexpected network"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_ID_INVALID");
+  }
+  await assert.rejects(fetchEbayReturnDetail(EBAY, "RET-123", {
+    getCredential, fetchImpl: async () => { calls++; throw Error("unexpected network"); },
+  }), (error) => error.details?.code === "SELLER_RETURNS_PRODUCTION_ONLY");
+  assert.equal(calls, 0);
+  for (const body of [{ summary: { returnId: "OTHER" } }, { summary: null }]) {
+    await assert.rejects(fetchEbayReturnDetail(production, "RET-123", {
+      getCredential, fetchImpl: fetchFixture([{ access_token: "token" }, body]),
+    }), (error) => error.details?.code === "SELLER_RETURNS_DETAIL_INVALID");
+  }
 });
