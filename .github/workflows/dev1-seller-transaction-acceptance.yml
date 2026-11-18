@@ -8,7 +8,9 @@ on:
       - 'backend/src/test/sellerChannelAtomicCommit.test.js'
       - 'backend/src/test/sellerChannelAdapter.test.js'
       - 'backend/src/test/sellerChannelReconciliationPreview.test.js'
-      - 'backend/src/test/sellerChannelOrderStateInspection.test.js src/test/sellerChannelLocationGuard.test.js'
+      - 'backend/src/test/sellerChannelInventoryCsv.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelInventoryCsv.js'
+      - 'backend/src/test/sellerChannelOrderStateInspection.test.js'
       - 'backend/src/test/sellerChannelLocationGuard.test.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelLocationGuard.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelOrderStateInspection.js'
@@ -84,7 +86,7 @@ jobs:
 
       - name: Run seller transaction unit tests
         working-directory: backend
-        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelOrderStateInspection.test.js
+        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelOrderStateInspection.test.js src/test/sellerChannelLocationGuard.test.js src/test/sellerChannelInventoryCsv.test.js
 
       - name: Run real seller transaction rollback acceptance
         working-directory: backend
