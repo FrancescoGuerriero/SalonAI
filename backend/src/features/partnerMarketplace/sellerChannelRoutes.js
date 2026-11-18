@@ -10,6 +10,7 @@ import { createServiceError } from "../../shared/serviceError.js";
 import { fetchEbayReturnDetail, fetchEbayReturnReviewBatch, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
 import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
+import { buildSellerInventoryReviewCsv } from "./sellerChannelInventoryCsv.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
@@ -63,6 +64,22 @@ router.get("/:connectionId/import-status", requirePermissions("feature-control:r
       businessId: request.effectiveAuthority.businessId,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// An operator-downloadable variance report; never a stock import or update.
+router.get("/:connectionId/reconciliation-export", requirePermissions("inventory:read"),
+  requirePermissions("product:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const preview = await previewSellerChannelInventory(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationId: request.effectiveAuthority.locationId || null,
+      limit: request.query.limit ?? 50,
+    });
+    const csv = buildSellerInventoryReviewCsv(preview);
+    response.set("Content-Type", "text/csv; charset=utf-8");
+    response.set("Content-Disposition", 'attachment; filename="seller-inventory-review.csv"');
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).send(csv);
   }));
 
 // Dry-run reconciliation uses exclusively the server-verified location authority.
