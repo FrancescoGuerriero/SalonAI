@@ -70,7 +70,7 @@ export async function inspectSellerChannelOrderStates(connection, {
       // differences do not imply a conflict or canonical Commerce mismatch.
       reviewState: !state || !fulfillment ? "insufficient_provider_state" : "observation_only",
       lastObservedAt: row.lastObservedAt || null,
-      returnsStatus: "not_implemented",
+      returnsStatus: "not_correlated",
     });
   });
   const summary = Object.freeze({
