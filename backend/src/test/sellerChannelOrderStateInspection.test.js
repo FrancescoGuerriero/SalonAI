@@ -28,10 +28,16 @@ test("tenant-wide seller order observations stay read-only and do not infer retu
     row("EB-003", { status: "NOT_STARTED", fulfillmentStatus: "FULFILLED" })]);
   const result = await inspectSellerChannelOrderStates(connection, { ...options, ...deps });
   assert.deepEqual(result.records.map((r) => r.reviewState), [
-    "observation_only", "insufficient_provider_state", "provider_state_disagreement",
+    "observation_only", "insufficient_provider_state", "observation_only",
   ]);
   assert.equal(result.records[1].observedOrderState, null);
   assert.equal(result.records[2].observedFulfillmentState, "FULFILLED");
+  assert.deepEqual(result.summary, {
+    observations: 3, sufficientProviderState: 2,
+    missingProviderState: 1, requiresCommerceLinkage: 3,
+    examinedRecordsOnly: true, possiblyTruncated: false,
+  });
+  assert.equal(Object.isFrozen(result.summary), true);
   assert.ok(result.records.every((r) => r.returnsStatus === "not_implemented"));
   assert.equal(result.canonicalOrdersCompared, false);
   assert.equal(result.canonicalRecordsWritten, 0);
@@ -84,4 +90,29 @@ test("order-state route applies trusted tenant, order-read and no write paths", 
   assert.match(routes, /locationAccessMode: request\.effectiveAuthority\.locationAccessMode/);
   assert.match(routes, /businessId: request\.effectiveAuthority\.businessId/);
   assert.match(routes, /inspectSellerChannelOrderStates\(await ownedConnection\(request\)/);
+});
+
+test("provider order and fulfilment lifecycle differences are observations, not Commerce conflicts", async () => {
+  const deps = fixture([
+    row("EB-PAID", { status: "PAID", fulfillmentStatus: "NOT_STARTED" }),
+    row("EB-SHIPPED", { status: "COMPLETED", fulfillmentStatus: "IN_PROGRESS" }),
+  ]);
+  const result = await inspectSellerChannelOrderStates(connection, { ...options, ...deps });
+  assert.deepEqual(result.records.map((entry) => entry.reviewState),
+    ["observation_only", "observation_only"]);
+  assert.deepEqual(result.records.map((entry) => entry.observedOrderState),
+    ["PAID", "COMPLETED"]);
+  assert.equal(result.summary.requiresCommerceLinkage, 2);
+  assert.equal(result.canonicalOrdersCompared, false);
+  assert.equal(result.canonicalRecordsWritten, 0);
+});
+
+test("seller order inspection marks a full page as possibly incomplete", async () => {
+  const deps = fixture([row("EB-001"), row("EB-002")]);
+  const result = await inspectSellerChannelOrderStates(connection, {
+    ...options, limit: 2, ...deps,
+  });
+  assert.equal(result.inspectedCount, 2);
+  assert.equal(result.summary.possiblyTruncated, true);
+  assert.equal(result.truncated, true);
 });
