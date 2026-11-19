@@ -66,13 +66,25 @@ export async function inspectSellerChannelOrderStates(connection, {
       externalOrderId,
       observedOrderState: state,
       observedFulfillmentState: fulfillment,
-      reviewState: !state || !fulfillment ? "insufficient_provider_state" :
-        state !== fulfillment ? "provider_state_disagreement" : "observation_only",
+      // Provider order and fulfilment lifecycles are distinct dimensions;
+      // differences do not imply a conflict or canonical Commerce mismatch.
+      reviewState: !state || !fulfillment ? "insufficient_provider_state" : "observation_only",
       lastObservedAt: row.lastObservedAt || null,
       returnsStatus: "not_implemented",
     });
   });
+  const summary = Object.freeze({
+    observations: observations.length,
+    sufficientProviderState: observations.filter((item) =>
+      item.reviewState === "observation_only").length,
+    missingProviderState: observations.filter((item) =>
+      item.reviewState === "insufficient_provider_state").length,
+    requiresCommerceLinkage: observations.length,
+    examinedRecordsOnly: true,
+    possiblyTruncated: observations.length === count,
+  });
   return Object.freeze({
+    summary,
     businessId: String(businessId),
     connectionId: String(connection._id),
     provider: connection.provider,
