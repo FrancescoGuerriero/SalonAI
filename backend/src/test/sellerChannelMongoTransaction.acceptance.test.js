@@ -436,6 +436,7 @@ test("MongoDB enforces seller order-link uniqueness without changing Commerce or
     for (const [fields, options] of unique) {
       await collection.createIndex(fields, { unique: options.unique });
     }
+    const preexistingCommerceOrders = await db.db.collection("orders").countDocuments({});
     await collection.insertOne(link(businessA, connectionA, "EB-100", orderA));
     await assert.rejects(
       collection.insertOne(link(businessA, connectionA, "EB-100", orderB)),
@@ -455,7 +456,7 @@ test("MongoDB enforces seller order-link uniqueness without changing Commerce or
     assert.equal(await collection.countDocuments({}), 3);
     assert.equal(await collection.countDocuments({ business: businessA }), 2);
     assert.equal(await collection.countDocuments({ business: businessB }), 1);
-    assert.equal(await db.db.collection("orders").countDocuments({}), 0);
+    assert.equal(await db.db.collection("orders").countDocuments({}), preexistingCommerceOrders);
   } finally {
     await db.dropCollection(collectionName).catch((error) => {
       if (error.codeName !== "NamespaceNotFound") throw error;
