@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { stageSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelSyncService.js";
 import { inspectSellerChannelOrderStates } from "../features/partnerMarketplace/sellerChannelOrderStateInspection.js";
 import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
+import { inspectSellerCommerceOrderOwnership } from "../features/partnerMarketplace/sellerChannelCommerceOwnership.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -459,6 +460,77 @@ test("MongoDB enforces seller order-link uniqueness without changing Commerce or
     assert.equal(await db.db.collection("orders").countDocuments({}), preexistingCommerceOrders);
   } finally {
     await db.dropCollection(collectionName).catch((error) => {
+      if (error.codeName !== "NamespaceNotFound") throw error;
+    });
+    await db.close();
+  }
+});
+
+
+test("real MongoDB Commerce ownership preflight excludes unowned and foreign orders", {
+  skip: !URI ? "Set SELLER_TXN_ACCEPTANCE_URI to an isolated loopback MongoDB replica set" : false,
+  timeout: 45000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const name = "seller_commerce_owner_accept_" + randomUUID().replaceAll("-", "");
+  const collection = db.db.collection(name);
+  const businessId = new mongoose.Types.ObjectId();
+  const foreignBusiness = new mongoose.Types.ObjectId();
+  const connectionId = new mongoose.Types.ObjectId();
+  const orders = [
+    { _id: new mongoose.Types.ObjectId(), total: 125.4, currency: "GBP" },
+    { _id: new mongoose.Types.ObjectId(), business: foreignBusiness,
+      total: 125.4, currency: "GBP" },
+    { _id: new mongoose.Types.ObjectId(), business: businessId,
+      total: 125.4, currency: "GBP" },
+  ];
+  const sellerConnection = { _id: connectionId, business: businessId,
+    status: "connected", provider: "ebay" };
+  const source = { business: businessId, connection: connectionId,
+    provider: "ebay", externalId: "EB-100", kind: "orders",
+    sourceRecord: { amount: "125.40", currency: "GBP",
+      placedAt: new Date("2026-10-01T12:00:00Z") } };
+  try {
+    await db.createCollection(name);
+    await collection.insertMany(orders);
+    const stagedModel = { findOne: () => ({ select: () => ({
+      lean: async () => source,
+    }) }) };
+    const actualQueries = [];
+    const orderModel = { findOne: (query) => {
+      actualQueries.push(query);
+      return { select: () => ({ lean: async () => collection.findOne(query) }) };
+    } };
+    for (let i = 0; i < orders.length; i++) {
+      const linkModel = { findOne: () => ({ select: () => ({
+        lean: async () => ({
+          business: businessId, connection: connectionId, provider: "ebay",
+          externalOrderId: "EB-100", commerceOrder: orders[i]._id,
+          evidenceSource: "operator_proposal",
+          verificationStatus: "pending_verification",
+        }),
+      }) }) };
+      const review = await inspectSellerCommerceOrderOwnership(
+        sellerConnection, "EB-100", {
+          businessId, locationAccessMode: "all",
+          stagedModel, linkModel, orderModel,
+        });
+      assert.equal(review.commerceBusinessOwnershipConfirmed, i === 2);
+      assert.equal(review.financialEvidenceMatches, i === 2);
+      assert.equal(review.associationApproved, false);
+      assert.equal(review.canonicalRecordsWritten, 0);
+      assert.equal(review.linksWritten, 0);
+      assert.deepEqual(actualQueries.at(-1), {
+        _id: orders[i]._id, business: businessId,
+      });
+    }
+    assert.equal(await collection.countDocuments({}), 3);
+  } finally {
+    await db.dropCollection(name).catch((error) => {
       if (error.codeName !== "NamespaceNotFound") throw error;
     });
     await db.close();
