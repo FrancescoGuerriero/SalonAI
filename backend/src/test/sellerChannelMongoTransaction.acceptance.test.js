@@ -4,6 +4,7 @@ import test from "node:test";
 import mongoose from "mongoose";
 import { stageSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelSyncService.js";
 import { inspectSellerChannelOrderStates } from "../features/partnerMarketplace/sellerChannelOrderStateInspection.js";
+import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -399,6 +400,66 @@ test("real MongoDB staged seller order inspection preserves tenant boundaries an
     try { await db.db.dropCollection(collectionName); } catch (error) {
       if (error?.codeName !== "NamespaceNotFound") throw error;
     }
+    await db.close();
+  }
+});
+
+
+test("MongoDB enforces seller order-link uniqueness without changing Commerce orders", {
+  skip: !URI ? "Set SELLER_TXN_ACCEPTANCE_URI to a loopback replica set test database" : false,
+  timeout: 45000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing any non-loopback or non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const collectionName = "seller_order_link_accept_" + randomUUID().replaceAll("-", "");
+  const collection = db.db.collection(collectionName);
+  const businessA = new mongoose.Types.ObjectId();
+  const businessB = new mongoose.Types.ObjectId();
+  const connectionA = new mongoose.Types.ObjectId();
+  const connectionB = new mongoose.Types.ObjectId();
+  const orderA = new mongoose.Types.ObjectId();
+  const orderB = new mongoose.Types.ObjectId();
+  const link = (business, connection, externalOrderId, commerceOrder) => ({
+    business, connection, provider: "ebay", externalOrderId,
+    commerceOrder, evidenceSource: "operator_proposal",
+    verificationStatus: "pending_verification",
+  });
+  try {
+    await db.createCollection(collectionName);
+    // Exercise the actual unique index declarations used by the application.
+    const unique = SellerChannelOrderLink.schema.indexes().filter(([, options]) =>
+      options.unique === true);
+    assert.equal(unique.length, 2);
+    for (const [fields, options] of unique) {
+      await collection.createIndex(fields, { unique: options.unique });
+    }
+    await collection.insertOne(link(businessA, connectionA, "EB-100", orderA));
+    await assert.rejects(
+      collection.insertOne(link(businessA, connectionA, "EB-100", orderB)),
+      (error) => error.code === 11000,
+      "One marketplace account/order ID must not be proposed twice",
+    );
+    await assert.rejects(
+      collection.insertOne(link(businessA, connectionB, "EB-101", orderA)),
+      (error) => error.code === 11000,
+      "A Commerce order must not be linked to two seller orders in one business",
+    );
+    // Same external reference in a separate account, using another canonical
+    // order, must not be mistaken for a conflicting marketplace order.
+    await collection.insertOne(link(businessA, connectionB, "EB-100", orderB));
+    // Existing single-business behaviour is unaffected by foreign business IDs.
+    await collection.insertOne(link(businessB, connectionA, "EB-100", orderA));
+    assert.equal(await collection.countDocuments({}), 3);
+    assert.equal(await collection.countDocuments({ business: businessA }), 2);
+    assert.equal(await collection.countDocuments({ business: businessB }), 1);
+    assert.equal(await db.db.collection("orders").countDocuments({}), 0);
+  } finally {
+    await db.dropCollection(collectionName).catch((error) => {
+      if (error.codeName !== "NamespaceNotFound") throw error;
+    });
     await db.close();
   }
 });
