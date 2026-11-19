@@ -38,7 +38,7 @@ test("tenant-wide seller order observations stay read-only and do not infer retu
     examinedRecordsOnly: true, possiblyTruncated: false,
   });
   assert.equal(Object.isFrozen(result.summary), true);
-  assert.ok(result.records.every((r) => r.returnsStatus === "not_implemented"));
+  assert.ok(result.records.every((r) => r.returnsStatus === "not_correlated"));
   assert.equal(result.canonicalOrdersCompared, false);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(result.refundsIssued, 0);
