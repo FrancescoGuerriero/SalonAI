@@ -133,6 +133,9 @@ const addressSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
+    // Optional for legacy compatibility: existing orders without trusted ownership
+    // must never pass marketplace linkage verification.
+    business: { type: mongoose.Schema.Types.ObjectId, ref: "Business", index: true, default: undefined },
     orderNumber: {
       type: String,
       unique: true,
