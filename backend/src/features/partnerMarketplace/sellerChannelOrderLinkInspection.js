@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.js";
 import SellerChannelOrderLink from "../../models/SellerChannelOrderLink.js";
+import { inspectSellerOrderSourceEvidence } from "./sellerChannelOrderEvidence.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 function failure(message, code, status = 502) {
@@ -42,6 +43,7 @@ export async function inspectSellerChannelOrderLinks(connection, {
     throw failure("Invalid marketplace order evidence.", "SELLER_ORDER_LINK_EVIDENCE_INVALID");
   }
   const ids = [];
+  const evidenceByOrder = new Map();
   const seenStaged = new Set();
   for (const row of rows) {
     const id = row?.externalId;
@@ -53,6 +55,7 @@ export async function inspectSellerChannelOrderLinks(connection, {
     }
     seenStaged.add(id);
     ids.push(id);
+    evidenceByOrder.set(id, inspectSellerOrderSourceEvidence(row.sourceRecord));
   }
   const links = ids.length ? await linkModel.find({
     business: businessId, connection: connection._id,
@@ -88,6 +91,7 @@ export async function inspectSellerChannelOrderLinks(connection, {
       proposedCommerceOrderId: link ? String(link.commerceOrder) : null,
       orderOwnershipVerified: false,
       commerceStateCompared: false,
+      sourceEvidence: evidenceByOrder.get(externalOrderId),
     });
   }));
   const linkedProposals = byExternalId.size;
