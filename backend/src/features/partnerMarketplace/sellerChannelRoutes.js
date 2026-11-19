@@ -14,6 +14,7 @@ import { buildSellerInventoryReviewCsv } from "./sellerChannelInventoryCsv.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
 import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
+import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
 const router = Router();
@@ -92,6 +93,22 @@ router.get("/:connectionId/reconciliation", requirePermissions("inventory:read")
       limit: request.query.limit,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// Operator review export is generated only from the protected read-only inspector.
+router.get("/:connectionId/order-links-export", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderLinks(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
+    });
+    const csv = buildSellerOrderLinkReviewCsv(result);
+    response.set("Content-Type", "text/csv; charset=utf-8");
+    response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).send(csv);
   }));
 
 // Link proposal visibility never implies a verified Commerce order match.
