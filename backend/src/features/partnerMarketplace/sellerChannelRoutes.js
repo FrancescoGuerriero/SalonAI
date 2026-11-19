@@ -14,6 +14,7 @@ import { buildSellerInventoryReviewCsv } from "./sellerChannelInventoryCsv.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
 import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
+import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwnership.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -109,6 +110,19 @@ router.get("/:connectionId/order-links-export", requirePermissions("order:read")
     response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
     response.set("Cache-Control", "private, no-store");
     response.status(200).send(csv);
+  }));
+
+// Explicit, non-executable Commerce ownership and financial comparison.
+router.get("/:connectionId/order-links/:externalOrderId/ownership-review",
+  requirePermissions("order:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerCommerceOrderOwnership(
+      await ownedConnection(request), request.params.externalOrderId, {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
   }));
 
 // Link proposal visibility never implies a verified Commerce order match.
