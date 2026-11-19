@@ -13,6 +13,7 @@ import { previewSellerChannelInventory } from "./sellerChannelReconciliationPrev
 import { buildSellerInventoryReviewCsv } from "./sellerChannelInventoryCsv.js";
 import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
+import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
 const router = Router();
@@ -89,6 +90,18 @@ router.get("/:connectionId/reconciliation", requirePermissions("inventory:read")
       businessId: request.effectiveAuthority.businessId,
       locationId: request.effectiveAuthority.locationId || null,
       limit: request.query.limit,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// Link proposal visibility never implies a verified Commerce order match.
+router.get("/:connectionId/order-links", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderLinks(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
     });
     response.status(200).json({ success: true, result });
   }));
