@@ -142,3 +142,35 @@ test("order link review route is read-only and gated by existing order permissio
   assert.match(routes, /inspectSellerChannelOrderLinks\(await ownedConnection\(request\)/);
   assert.doesNotMatch(service, /\.create\(|\.save\(|\.updateOne\(|\.bulkWrite\(/);
 });
+
+test("order linkage inspection exposes provider evidence without verifying Commerce ownership", async () => {
+  const source = row("EB-REVIEW", { sourceRecord: {
+    amount: "22.50", currency: "GBP", placedAt: new Date("2026-10-01T12:00:00Z"),
+    buyerEmail: "private@example.invalid",
+  } });
+  const f = fixture([source], [proposal("EB-REVIEW")]);
+  const review = await inspectSellerChannelOrderLinks(connection, { ...options, ...f });
+  assert.deepEqual(review.records[0].sourceEvidence, {
+    state: "source_evidence_present",
+    sourceAmount: "22.50",
+    sourceCurrency: "GBP",
+    sourcePlacedAt: "2026-10-01T12:00:00.000Z",
+    commerceAmountCompared: false,
+    commerceOwnershipVerified: false,
+  });
+  assert.equal(review.records[0].orderOwnershipVerified, false);
+  assert.equal(review.canonicalOrdersCompared, false);
+  assert.equal(review.summary.verified, 0);
+  assert.ok(!JSON.stringify(review).includes("private@example.invalid"));
+});
+
+test("order linkage inspection highlights invalid source amounts without approving a proposal", async () => {
+  const f = fixture([row("EB-INVALID", {
+    sourceRecord: { amount: "1e9", currency: "GBP", placedAt: new Date("2026-10-01") },
+  })], [proposal("EB-INVALID")]);
+  const review = await inspectSellerChannelOrderLinks(connection, { ...options, ...f });
+  assert.equal(review.records[0].sourceEvidence.state, "invalid_source_evidence");
+  assert.equal(review.records[0].sourceEvidence.sourceAmount, null);
+  assert.equal(review.records[0].linkStatus, "proposal_pending_verification");
+  assert.equal(review.summary.verified, 0);
+});
