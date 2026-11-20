@@ -23,8 +23,8 @@ test("marketplace order linkage export only exposes explicitly unverified refere
       proposedCommerceOrderId: "507f1f77bcf86cd799439027", orderOwnershipVerified: false,
       commerceStateCompared: false },
   ]));
-  assert.match(csv, /"EB-100","unlinked","","false","false"/);
-  assert.match(csv, /"AM-200","proposal_pending_verification","507f1f77bcf86cd799439027","false","false"/);
+  assert.match(csv, /"EB-100","unlinked","","","false","false"/);
+  assert.match(csv, /"AM-200","proposal_pending_verification","","507f1f77bcf86cd799439027","false","false"/);
   assert.ok(!csv.includes("secret@example.test"));
   assert.equal(csv.trim().split("\r\n").length, 3);
 });
@@ -79,4 +79,19 @@ test("seller order-link CSV route reuses trusted order scope and no-cache header
   assert.match(routes, /router\.get\("\/:connectionId\/order-links-export", requirePermissions\("order:read"\),\s*requireSellerTenantWideLocation/);
   assert.match(routes, /buildSellerOrderLinkReviewCsv\(result\)/);
   assert.match(routes, /"private, no-store"/);
+});
+
+test("CSV retains safe hold reason without exporting customer data", () => {
+  const csv = buildSellerOrderLinkReviewCsv(review([{
+    externalOrderId: "EB-HOLD", linkStatus: "reviewed_hold",
+    reviewReason: "financial_mismatch",
+    proposedCommerceOrderId: "507f1f77bcf86cd799439027",
+    orderOwnershipVerified: false, commerceStateCompared: false,
+  }]));
+  assert.match(csv, /"reviewed_hold","financial_mismatch"/);
+  assert.throws(() => buildSellerOrderLinkReviewCsv(review([{
+    externalOrderId: "EB-HOLD", linkStatus: "reviewed_hold",
+    reviewReason: "=MALICIOUS", proposedCommerceOrderId: "507f1f77bcf86cd799439027",
+    orderOwnershipVerified: false, commerceStateCompared: false,
+  }])));
 });
