@@ -49,7 +49,7 @@ test("batch distinguishes unlinked and proposed orders without approving either"
   });
   assert.deepEqual(seen, ["EB-2"]);
   assert.deepEqual(result.summary, {
-    unlinked: 1, proposalsInspected: 1, approved: 0,
+    unlinked: 1, reviewedHold: 0, proposalsInspected: 1, approved: 0,
     possiblyTruncated: false,
   });
   assert.equal(result.records[0].status, "unlinked");
@@ -104,4 +104,21 @@ test("new batch route preserves read-only business-wide order RBAC", async () =>
   assert.match(routes, /router\.get\("\/:connectionId\/order-ownership-batch",\s*requirePermissions\("order:read"\), requireSellerTenantWideLocation/);
   assert.match(routes, /inspectSellerCommerceOrderBatch\(await ownedConnection\(request\)/);
   assert.match(routes, /"private, no-store"/);
+});
+
+test("held proposals bypass ownership preflight and never obtain approval", async () => {
+  let calls = 0;
+  const result = await inspectSellerCommerceOrderBatch(connection, {
+    businessId, locationAccessMode: "all",
+    inspectLinks: async () => review([{
+      ...pending("EB-HOLD"), linkStatus: "reviewed_hold",
+      reviewReason: "correspondence_unproven",
+    }]),
+    inspectOwnership: async () => { calls++; throw new Error("must not run"); },
+  });
+  assert.equal(calls, 0);
+  assert.equal(result.summary.reviewedHold, 1);
+  assert.equal(result.summary.proposalsInspected, 0);
+  assert.equal(result.records[0].status, "reviewed_hold");
+  assert.equal(result.records[0].associationApproved, false);
 });
