@@ -3,6 +3,7 @@ import { createServiceError } from "../../shared/serviceError.js";
 const COLUMNS = Object.freeze([
   ["externalOrderId", "Marketplace Order ID"],
   ["linkStatus", "Link Review State"],
+  ["reviewReason", "Review Hold Reason"],
   ["proposedCommerceOrderId", "Proposed Commerce Order ID"],
   ["orderOwnershipVerified", "Commerce Ownership Verified"],
   ["commerceStateCompared", "Commerce State Compared"],
@@ -38,11 +39,14 @@ export function buildSellerOrderLinkReviewCsv(review) {
   for (const record of review.records) {
     if (!record || typeof record.externalOrderId !== "string" ||
         !record.externalOrderId.trim() || record.externalOrderId.length > 200 ||
-        !["unlinked", "proposal_pending_verification"].includes(record.linkStatus) ||
+        !["unlinked", "proposal_pending_verification", "reviewed_hold"].includes(record.linkStatus) ||
         record.orderOwnershipVerified !== false ||
         record.commerceStateCompared !== false ||
         (record.linkStatus === "unlinked" && record.proposedCommerceOrderId !== null) ||
-        (record.linkStatus === "proposal_pending_verification" &&
+        (record.linkStatus === "reviewed_hold" &&
+          !["source_evidence_missing", "financial_mismatch", "ownership_unproven",
+            "correspondence_unproven", "other"].includes(record.reviewReason)) ||
+        (record.linkStatus !== "unlinked" &&
           !/^[0-9a-fA-F]{24}$/.test(record.proposedCommerceOrderId || ""))) {
       throw invalid();
     }
