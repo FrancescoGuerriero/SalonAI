@@ -361,5 +361,8 @@ test("Commerce/inventory canonical Product collection has tenant records, but le
     ["A Shampoo", "B Shampoo"]);
   // Do not claim Commerce as tenant-isolation accepted: canonical legacy
   // catalogue reads currently lack trusted Business filters.
-  assert.equal(Order.schema.path("business"), undefined);
+  // Optional ownership is now declared, but legacy unowned orders remain
+  // ineligible for trusted Commerce/marketplace association.
+  assert.ok(Order.schema.path("business"));
+  assert.equal(Order.schema.path("business").isRequired, false);
 });
