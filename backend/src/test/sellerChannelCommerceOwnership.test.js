@@ -34,6 +34,9 @@ test("only trusted business-owned Commerce order can pass financial preflight", 
   assert.equal(result.status, "requires_operator_correspondence_review");
   assert.equal(result.commerceBusinessOwnershipConfirmed, true);
   assert.equal(result.financialEvidenceMatches, true);
+  assert.equal(result.commerceLifecycleState, "paid");
+  assert.equal(result.commerceTerminalStateBlocked, false);
+  assert.equal(result.currencyEvidenceMatches, true);
   assert.equal(result.orderCorrespondenceVerified, false);
   assert.equal(result.associationApproved, false);
   assert.equal(result.canonicalRecordsWritten, 0);
@@ -71,7 +74,8 @@ test("amount mismatch, currency mismatch and incomplete source evidence cannot b
   const wrongCurrency = await inspectSellerCommerceOrderOwnership(connection, "EB-100", {
     ...options, ...fixture(source, link, { ...commerce, currency: "EUR" }),
   });
-  assert.equal(wrongCurrency.status, "financial_evidence_incomplete");
+  assert.equal(wrongCurrency.status, "currency_disagrees");
+  assert.equal(wrongCurrency.currencyEvidenceMatches, false);
   assert.equal(wrongCurrency.financialEvidenceComparable, false);
   const missing = await inspectSellerCommerceOrderOwnership(connection, "EB-100", {
     ...options, ...fixture({ ...source, sourceRecord: {} }),
@@ -126,4 +130,23 @@ test("ownership preflight route is read-only and restricted to business-wide ord
   assert.match(routes, /router\.get\("\/:connectionId\/order-links\/:externalOrderId\/ownership-review",\s*requirePermissions\("order:read"\), requireSellerTenantWideLocation/);
   assert.match(routes, /inspectSellerCommerceOrderOwnership\(/);
   assert.doesNotMatch(service, /\.save\(|\.updateOne\(|\.create\(|\.bulkWrite\(/);
+});
+
+test("cancelled, refunded and unrecognised Commerce states cannot be treated as review-ready", async () => {
+  for (const state of ["cancelled", "refunded"]) {
+    const f = fixture(source, link, { ...commerce, status: state });
+    const report = await inspectSellerCommerceOrderOwnership(connection, "EB-100", {
+      ...options, ...f,
+    });
+    assert.equal(report.status, "commerce_order_terminal_blocked");
+    assert.equal(report.commerceLifecycleState, state);
+    assert.equal(report.commerceTerminalStateBlocked, true);
+    assert.equal(report.associationApproved, false);
+    assert.equal(report.canonicalRecordsWritten, 0);
+  }
+  const unknown = await inspectSellerCommerceOrderOwnership(connection, "EB-100", {
+    ...options, ...fixture(source, link, { ...commerce, status: "unknown" }),
+  });
+  assert.equal(unknown.status, "commerce_state_unrecognised");
+  assert.equal(unknown.associationApproved, false);
 });
