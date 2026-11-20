@@ -40,7 +40,7 @@ test("unlinked marketplace orders stay explicit and never match Commerce by infe
   const result = await inspectSellerChannelOrderLinks(connection, { ...options, ...f });
   assert.deepEqual(result.records.map((r) => r.linkStatus), ["unlinked", "unlinked"]);
   assert.deepEqual(result.summary, {
-    unlinked: 2, pendingVerification: 0, verified: 0, possiblyTruncated: false,
+    unlinked: 2, pendingVerification: 0, reviewedHold: 0, verified: 0, possiblyTruncated: false,
   });
   assert.equal(result.canonicalOrdersCompared, false);
   assert.equal(result.linksWritten, 0);
@@ -66,7 +66,7 @@ test("explicit association proposals remain unverified and never claim Commerce 
   assert.equal(result.records[0].commerceStateCompared, false);
   assert.equal(result.records[1].proposedCommerceOrderId, null);
   assert.deepEqual(result.summary, {
-    unlinked: 1, pendingVerification: 1, verified: 0, possiblyTruncated: false,
+    unlinked: 1, pendingVerification: 1, reviewedHold: 0, verified: 0, possiblyTruncated: false,
   });
   assert.equal(result.productionAccepted, false);
   assert.equal(result.readOnly, true);
@@ -173,4 +173,18 @@ test("order linkage inspection highlights invalid source amounts without approvi
   assert.equal(review.records[0].sourceEvidence.sourceAmount, null);
   assert.equal(review.records[0].linkStatus, "proposal_pending_verification");
   assert.equal(review.summary.verified, 0);
+});
+
+test("held link remains non-executable and is reported separately", async () => {
+  const f = fixture([row("EB-HOLD")], [proposal("EB-HOLD", {
+    verificationStatus: "reviewed_hold",
+    reviewReason: "correspondence_unproven",
+  })]);
+  const result = await inspectSellerChannelOrderLinks(connection, { ...options, ...f });
+  assert.equal(result.records[0].linkStatus, "reviewed_hold");
+  assert.equal(result.records[0].reviewReason, "correspondence_unproven");
+  assert.equal(result.summary.reviewedHold, 1);
+  assert.equal(result.summary.pendingVerification, 0);
+  assert.equal(result.summary.verified, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
 });
