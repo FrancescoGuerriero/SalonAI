@@ -9,13 +9,21 @@ const schema = new mongoose.Schema({
   // A proposed reference is NOT proof that the existing Commerce Order belongs
   // to the business or corresponds to the marketplace order.
   verificationStatus: {
-    type: String, enum: ["pending_verification"], default: "pending_verification",
+    type: String, enum: ["pending_verification", "reviewed_hold"], default: "pending_verification",
     required: true,
   },
   evidenceSource: {
     type: String, enum: ["operator_proposal"], default: "operator_proposal",
     required: true,
   },
+  reviewReason: {
+    type: String,
+    enum: ["", "source_evidence_missing", "financial_mismatch",
+      "ownership_unproven", "correspondence_unproven", "other"],
+    default: "",
+  },
+  reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  reviewedAt: { type: Date, default: null },
 }, { timestamps: true, optimisticConcurrency: true });
 
 schema.index({ business: 1, connection: 1, externalOrderId: 1 }, { unique: true });
