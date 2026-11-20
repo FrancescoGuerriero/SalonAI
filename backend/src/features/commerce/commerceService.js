@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Appointment from "../../models/Appointment.js";
 import Product from "./Product.js";
 import Order from "./Order.js";
+import { resolveCheckoutOrderBusiness } from "./checkoutOrderOwnership.js";
 import Payment from "./Payment.js";
 import InventoryAdjustment from "./InventoryAdjustment.js";
 import {
@@ -767,7 +768,8 @@ function providerCheckoutItems({
   return providerItems;
 }
 
-export async function createCheckout(payload, user) {
+export async function createCheckout(payload, user, { tenantContext = null } = {}) {
+  const orderBusinessId = resolveCheckoutOrderBusiness(user, tenantContext);
   const rawItems = Array.isArray(payload.items) ? payload.items : [];
   if (rawItems.length === 0) {
     throw createServiceError("At least one cart item is required.", 400);
@@ -869,6 +871,7 @@ export async function createCheckout(payload, user) {
     }
 
     order = await Order.create({
+      business: orderBusinessId,
       user: user._id,
       customer: user.customerProfile || undefined,
       contact,

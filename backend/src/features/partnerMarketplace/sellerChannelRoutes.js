@@ -1,0 +1,258 @@
+import { Router } from "express";
+import mongoose from "mongoose";
+import IntegrationConnection from "../../models/IntegrationConnection.js";
+import { protect } from "../../middleware/authMiddleware.js";
+import { effectiveAuthorityMiddleware } from "../../middleware/effectiveAuthorityMiddleware.js";
+import { requirePermissions } from "../../middleware/permissionMiddleware.js";
+import { trustedTenantContextMiddleware } from "../../platform/tenancy/trustedTenantMiddleware.js";
+import asyncHandler from "../../shared/asyncHandler.js";
+import { createServiceError } from "../../shared/serviceError.js";
+import { fetchEbayReturnDetail, fetchEbayReturnReviewBatch, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
+import { stageSellerChannelSnapshot } from "./sellerChannelSyncService.js";
+import { previewSellerChannelInventory } from "./sellerChannelReconciliationPreview.js";
+import { buildSellerInventoryReviewCsv } from "./sellerChannelInventoryCsv.js";
+import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusService.js";
+import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
+import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
+import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwnership.js";
+import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershipBatch.js";
+import { transitionSellerOrderReview } from "./sellerChannelOrderReviewTransition.js";
+import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
+import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
+
+const router = Router();
+router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
+
+
+async function ownedConnection(request) {
+  const businessId = request.effectiveAuthority?.businessId;
+  if (!businessId || !mongoose.isValidObjectId(businessId)) {
+    throw createServiceError("Trusted business authority is required.", 403, {
+      code: "SELLER_CHANNEL_TENANT_AUTHORITY_REQUIRED",
+    });
+  }
+  if (!mongoose.isValidObjectId(request.params.connectionId)) {
+    throw createServiceError("Invalid seller connection identifier.", 400);
+  }
+  const connection = await IntegrationConnection.findOne({
+    _id: request.params.connectionId, business: businessId,
+    provider: { $in: ["amazon_seller_central", "ebay"] },
+    status: "connected",
+  });
+  if (!connection) {
+    throw createServiceError("Connected seller account not found for this business.", 404, {
+      code: "SELLER_CHANNEL_CONNECTION_NOT_FOUND",
+    });
+  }
+  return connection;
+}
+
+router.get("/capabilities", requirePermissions("feature-control:read"), (_request, response) => {
+  response.json({
+    readOnly: true, sellerChannelProviders: ["amazon_seller_central", "ebay"],
+    supportedReadOperations: ["listings", "orders", "fulfillments", "shipping_fulfillments", "returns", "return_detail", "returns_review"],
+    fulfillmentOperations: "ebay_read_only",
+    returns: "ebay_production_read_only",
+    listingPublication: "not_implemented",
+    stockWriteback: "not_implemented",
+    manualStaging: "listings_and_orders_only",
+    sourceOfTruth: "existing_integration_platform",
+    productionAccepted: false,
+  });
+});
+
+// Operational visibility only: no provider calls or cursor/lease-owner exposure.
+router.get("/:connectionId/import-status", requirePermissions("feature-control:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelImportStatus(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// An operator-downloadable variance report; never a stock import or update.
+router.get("/:connectionId/reconciliation-export", requirePermissions("inventory:read"),
+  requirePermissions("product:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const preview = await previewSellerChannelInventory(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationId: request.effectiveAuthority.locationId || null,
+      limit: request.query.limit ?? 50,
+    });
+    const csv = buildSellerInventoryReviewCsv(preview);
+    response.set("Content-Type", "text/csv; charset=utf-8");
+    response.set("Content-Disposition", 'attachment; filename="seller-inventory-review.csv"');
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).send(csv);
+  }));
+
+// Dry-run reconciliation uses exclusively the server-verified location authority.
+router.get("/:connectionId/reconciliation", requirePermissions("inventory:read"),
+  requirePermissions("product:read"), requireSellerTenantWideLocation, asyncHandler(async (request, response) => {
+    const result = await previewSellerChannelInventory(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationId: request.effectiveAuthority.locationId || null,
+      limit: request.query.limit,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// Operator review export is generated only from the protected read-only inspector.
+router.get("/:connectionId/order-links-export", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderLinks(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
+    });
+    const csv = buildSellerOrderLinkReviewCsv(result);
+    response.set("Content-Type", "text/csv; charset=utf-8");
+    response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).send(csv);
+  }));
+
+// Operator holds/reopens a pending proposal atomically with audit evidence.
+// This endpoint cannot approve an association or execute marketplace writes.
+router.post("/:connectionId/order-links/:externalOrderId/review",
+  requirePermissions("order:update"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await transitionSellerOrderReview(
+      await ownedConnection(request), request.params.externalOrderId, {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+        actorId: request.user?._id || request.user?.id,
+        action: request.body?.action,
+        reason: request.body?.reason ?? "",
+        requestId: request.requestId || "",
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
+
+// Review at most ten proposals per request; no approval or Commerce writes.
+router.get("/:connectionId/order-ownership-batch",
+  requirePermissions("order:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerCommerceOrderBatch(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 10,
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
+
+// Explicit, non-executable Commerce ownership and financial comparison.
+router.get("/:connectionId/order-links/:externalOrderId/ownership-review",
+  requirePermissions("order:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerCommerceOrderOwnership(
+      await ownedConnection(request), request.params.externalOrderId, {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
+
+// Link proposal visibility never implies a verified Commerce order match.
+router.get("/:connectionId/order-links", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderLinks(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// The staging data has no location field. Only trusted tenant-wide members
+// can inspect order states; never infer location entitlement from provider data.
+router.get("/:connectionId/order-states", requirePermissions("order:read"),
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerChannelOrderStates(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// Explicit operator action stages source records only, never canonical commerce data.
+router.post("/:connectionId/stage/:kind", requirePermissions("feature-control:update"),
+  requireSellerTenantWideLocation,
+  (request, response, next) => {
+    const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
+    return requirePermissions(permission)(request, response, next);
+  }, asyncHandler(async (request, response) => {
+    const connection = await ownedConnection(request);
+    const result = await stageSellerChannelSnapshot(connection, request.params.kind, {
+      businessId: request.effectiveAuthority.businessId,
+      actorId: request.user?._id || request.user?.id,
+      requestId: request.requestId || "",
+      resume: request.query.resume === "true",
+      recoveryAcknowledged: request.body?.recoveryAcknowledged === true,
+      // Operator staging is atomic or fails closed. Never expose the
+      // non-transactional legacy service path through the HTTP API.
+      atomicStaging: true,
+    });
+    response.status(200).json({ success: true, result });
+  }));
+
+// Bounded multi-page return review; status data only, no provider writes.
+router.get("/:connectionId/returns-review", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnReviewBatch(await ownedConnection(request), {
+      limit: request.query.limit ?? 25,
+      offset: request.query.offset ?? 0,
+      orderId: request.query.orderId ?? null,
+      returnState: request.query.returnState ?? "ALL_OPEN",
+      maxPages: request.query.maxPages ?? 3,
+    });
+    response.status(200).json({ success: true, snapshot });
+  }));
+
+// Read one eBay return summary without forwarding buyer details or refunds.
+router.get("/:connectionId/returns/:returnId", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnDetail(await ownedConnection(request),
+      request.params.returnId);
+    response.status(200).json({ success: true, snapshot });
+  }));
+
+// Read-only eBay production return statuses. No refund or return action.
+router.get("/:connectionId/returns", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayReturnStatuses(await ownedConnection(request), {
+      limit: request.query.limit ?? 25,
+      offset: request.query.offset ?? 0,
+      orderId: request.query.orderId ?? null,
+      returnState: request.query.returnState ?? "ALL_OPEN",
+    });
+    response.status(200).json({ success: true, snapshot });
+  }));
+
+router.get("/:connectionId/fulfillments/:orderId", requirePermissions("order:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const snapshot = await fetchEbayShippingFulfillments(await ownedConnection(request), request.params.orderId);
+    response.status(200).json({ success: true, snapshot });
+  }));
+
+router.get("/:connectionId/:kind", (request, response, next) => {
+  const permission = request.params.kind === "listings" ? "inventory:read" : "order:read";
+  return requirePermissions(permission)(request, response, next);
+}, requireSellerTenantWideLocation, asyncHandler(async (request, response) => {
+  const snapshot = await fetchSellerChannelSnapshot(await ownedConnection(request), request.params.kind, {
+    limit: request.query.limit,
+  });
+  response.status(200).json({ success: true, snapshot });
+}));
+export default router;

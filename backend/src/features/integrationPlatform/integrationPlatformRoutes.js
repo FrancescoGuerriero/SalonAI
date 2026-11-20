@@ -5,6 +5,7 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import partnerMarketplaceRoutes from "../partnerMarketplace/partnerMarketplaceRoutes.js";
+import sellerChannelRoutes from "../partnerMarketplace/sellerChannelRoutes.js";
 import dataHubRoutes from "./dataHubRoutes.js";
 import marketingConnectedAccountsRoutes from "./marketingConnectedAccountsRoutes.js";
 import marketingDataCoreRoutes from "./marketingDataCoreRoutes.js";
@@ -19,6 +20,9 @@ router.use(
   "/marketplace",
   partnerMarketplaceRoutes
 );
+
+// Dedicated seller channel reads; marketplace submission and installation unchanged.
+router.use("/seller-channels", sellerChannelRoutes);
 
 router.use(
   "/marketing-data",

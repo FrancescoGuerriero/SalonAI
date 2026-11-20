@@ -1,0 +1,627 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFile } from "node:fs/promises";
+import { fetchEbayReturnDetail, fetchEbayReturnReviewBatch, fetchEbayReturnStatuses, fetchEbayShippingFulfillments, fetchSellerChannelSnapshot } from "../features/partnerMarketplace/sellerChannelAdapter.js";
+
+const AMAZON = {
+  provider: "amazon_seller_central",
+  metadata: { clientId: "client-amazon", sellerId: "SELLER123", marketplaceId: "A1F83G8C2ARO7P", region: "EU" },
+};
+const EBAY = { provider: "ebay", metadata: { clientId: "client-ebay", environment: "sandbox" } };
+const getCredential = async (_connection, role) => ({
+  secret: { client_secret: "supersecret", refresh_token: "refresh" }[role],
+});
+function fakeResponse(body, status = 200) {
+  return { ok: status >= 200 && status < 300, status, json: async () => body };
+}
+function fetchFixture(responses, captured = []) {
+  return async (url, options) => {
+    captured.push({ url: String(url), options });
+    const body = responses.shift();
+    assert.ok(body, `Unexpected outbound request ${url}`);
+    return fakeResponse(body);
+  };
+}
+
+test("Amazon seller listings use allowlisted SP-API origin and sanitize raw provider data", async () => {
+  const calls = [];
+  const result = await fetchSellerChannelSnapshot(AMAZON, "listings", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { items: [{ sku: "AB-01", asin: "B001", summaries: [{ status: ["BUYABLE"] }],
+        attributes: { buyerEmail: "must-not-leak" } }] },
+    ], calls),
+  });
+  assert.equal(result.recordCount, 1);
+  assert.equal(result.records[0].sku, "AB-01");
+  assert.ok(!JSON.stringify(result).includes("must-not-leak"));
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(result.publicationEnabled, false);
+  assert.ok(calls[0].url === "https://api.amazon.com/auth/o2/token");
+  assert.ok(calls[1].url.startsWith("https://sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/SELLER123?"));
+  assert.equal(calls[1].options.headers["x-amz-access-token"], "short-lived");
+  assert.equal(calls[1].options.redirect, "error");
+});
+
+test("Amazon orders normalize dates and totals without buyer identities", async () => {
+  const result = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { orders: [{ orderId: "111-222", fulfillment: { fulfillmentStatus: "SHIPPED" },
+        createdTime: "2026-10-01T11:00:00Z", proceeds: { grandTotal: { amount: "10.00", currencyCode: "GBP" } },
+        buyer: { email: "private@example.com" } }] },
+    ]),
+  });
+  assert.equal(result.records[0].externalOrderId, "111-222");
+  assert.equal(result.records[0].status, "SHIPPED");
+  assert.equal(result.records[0].total, "10.00");
+  assert.ok(!JSON.stringify(result).includes("private@example.com"));
+  assert.equal(result.ordersFulfilled, 0);
+});
+
+test("eBay seller inventory and fulfilment status require OAuth refresh and never expose buyer addresses", async () => {
+  const calls = [];
+  const inventory = await fetchSellerChannelSnapshot(EBAY, "listings", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { inventoryItems: [{ sku: "SKU-2", availability: { shipToLocationAvailability: { quantity: 7 } } }] },
+    ], calls),
+  });
+  assert.equal(inventory.records[0].quantity, 7);
+  assert.equal(calls[0].url, "https://api.sandbox.ebay.com/identity/v1/oauth2/token");
+  assert.ok(calls[0].options.headers.authorization.startsWith("Basic "));
+  assert.ok(calls[1].url.startsWith("https://api.sandbox.ebay.com/sell/inventory/v1/inventory_item?"));
+  const orders = await fetchSellerChannelSnapshot(EBAY, "fulfillments", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { orders: [{ orderId: "EB-001", orderFulfillmentStatus: "FULFILLED",
+        pricingSummary: { total: { value: "45", currency: "GBP" } },
+        buyer: { username: "redacted" },
+        fulfillmentStartInstructions: [{ shippingStep: { shipTo: { address: "redacted" } } }] }] },
+    ]),
+  });
+  assert.equal(orders.records[0].fulfillmentStatus, "FULFILLED");
+  assert.ok(!JSON.stringify(orders).includes("redacted"));
+  assert.equal(orders.canonicalRecordsWritten, 0);
+});
+
+test("seller channel fails closed on unknown provider, Amazon region, operation and no Amazon fulfillment scope", async () => {
+  const calls = [];
+  const fetchImpl = async () => { calls.push(true); throw new Error("Unexpected network call"); };
+  for (const [connection, kind] of [
+    [{ provider: "untrusted" }, "orders"],
+    [{ ...AMAZON, metadata: { ...AMAZON.metadata, region: "https://evil.test" } }, "listings"],
+    [AMAZON, "publish"],
+    [AMAZON, "fulfillments"],
+  ]) {
+    await assert.rejects(fetchSellerChannelSnapshot(connection, kind, { fetchImpl, getCredential }));
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("seller channel routes keep trusted tenant ownership and permission boundary", async () => {
+  const [routes, integration, adapter] = await Promise.all([
+    readFile(new URL("../features/partnerMarketplace/sellerChannelRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/integrationPlatform/integrationPlatformRoutes.js", import.meta.url), "utf8"),
+    readFile(new URL("../features/partnerMarketplace/sellerChannelAdapter.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(routes, /trustedTenantContextMiddleware/);
+  assert.match(routes, /effectiveAuthorityMiddleware/);
+  assert.match(routes, /business: businessId/);
+  assert.match(routes, /status: "connected"/);
+  assert.match(routes, /"inventory:read"/);
+  assert.match(routes, /"order:read"/);
+  assert.match(integration, /sellerChannelRoutes/);
+  assert.match(integration, /"\/seller-channels"/);
+  assert.doesNotMatch(routes, /\.create\(|\.updateOne\(|\.findOneAndUpdate\(/);
+  assert.doesNotMatch(adapter, /MarketplaceInstallation\.create|IntegrationConnection\.create/);
+});
+
+test("eBay shipping fulfilment detail reads packages without posting shipments", async () => {
+  const calls = [];
+  const result = await fetchEbayShippingFulfillments(EBAY, "EB-01!123", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { fulfillments: [{
+        fulfillmentId: "FULF-1", shippingCarrierCode: "UPS",
+        shipmentTrackingNumber: "TRACK-1", shippedDate: "2026-11-01T11:00:00Z",
+        destinationAddress: { recipient: "private" },
+      }] },
+    ], calls),
+  });
+  assert.equal(result.records[0].carrierCode, "UPS");
+  assert.equal(result.records[0].trackingNumber, "TRACK-1");
+  assert.equal(result.shippingUpdatesPosted, 0);
+  assert.ok(!JSON.stringify(result).includes("private"));
+  assert.ok(calls[1].url.includes("/sell/fulfillment/v1/order/EB-01!123/shipping_fulfillment"));
+  assert.equal(calls[1].options.method, "GET");
+  await assert.rejects(fetchEbayShippingFulfillments(AMAZON, "x", {
+    getCredential, fetchImpl: () => { throw new Error("Unexpected call"); },
+  }));
+});
+
+test("Amazon Orders v2026 paginates with bounded tokens and never echoes OAuth credentials", async () => {
+  const calls = [];
+  const veryLongToken = "access-" + "a".repeat(1100);
+  const result = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    limit: 3,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: veryLongToken },
+      { orders: [{ orderId: "A1", fulfillment: { fulfillmentStatus: "SHIPPED" } }],
+        nextToken: "second-page" },
+      { orders: [{ orderId: "A2", fulfillment: { fulfillmentStatus: "UNSHIPPED" } }] },
+    ], calls),
+  });
+  assert.deepEqual(result.records.map((r) => r.externalOrderId), ["A1", "A2"]);
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.completeWithinLimit, true);
+  assert.equal(result.nextPageAvailable, false);
+  assert.ok(calls[1].url.includes("/orders/2026-01-01/orders?"));
+  assert.ok(calls[2].url.includes("paginationToken=second-page"));
+  assert.ok(!JSON.stringify(result).includes(veryLongToken));
+});
+
+test("Amazon listings pages continue via pageToken and enforce maximum API page size", async () => {
+  const calls = [];
+  const result = await fetchSellerChannelSnapshot(AMAZON, "listings", {
+    limit: 30, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { items: [{ sku: "SKU-A" }], pagination: { nextToken: "page-2" } },
+      { items: [{ sku: "SKU-B" }] },
+    ], calls),
+  });
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.records[1].sku, "SKU-B");
+  assert.equal(new URL(calls[1].url).searchParams.get("pageSize"), "20");
+  assert.equal(new URL(calls[2].url).searchParams.get("pageToken"), "page-2");
+});
+
+test("eBay pagination never follows an untrusted provider-controlled URL", async () => {
+  let calls = 0;
+  const get = async (_url) => {
+    calls += 1;
+    return fakeResponse(calls === 1 ? { access_token: "ebay-token" } :
+      { orders: [{ orderId: "EB-1" }], next: "https://example.invalid/steal" });
+  };
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    fetchImpl: get, getCredential,
+  }), /unsafe pagination URL/);
+  assert.equal(calls, 2);
+});
+
+test("seller pagination returns bounded partial result instead of claiming complete sync", async () => {
+  let i = 0;
+  const responses = [{ access_token: "ebay-token" },
+    ...Array.from({ length: 5 }, () => ({ orders: [{ orderId: `EB-${++i}` }], next: "/sell/fulfillment/v1/order?offset=" + i }))];
+  const result = await fetchSellerChannelSnapshot(EBAY, "orders", {
+    limit: 25, fetchImpl: fetchFixture(responses), getCredential,
+  });
+  assert.equal(result.recordCount, 5);
+  assert.equal(result.pagesFetched, 5);
+  assert.equal(result.completeWithinLimit, false);
+  assert.equal(result.nextPageAvailable, true);
+});
+
+test("server-owned Amazon resume token is used for next bounded request and never appears publicly", async () => {
+  const calls = [];
+  const resumed = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    resumeCursor: "safe-amz-next", includeResumeCursor: true,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { orders: [{ orderId: "ORD-RESUMED" }] },
+    ], calls),
+  });
+  assert.equal(resumed.records[0].externalOrderId, "ORD-RESUMED");
+  const endpoint = new URL(calls[1].url);
+  assert.equal(endpoint.searchParams.get("paginationToken"), "safe-amz-next");
+  assert.equal(endpoint.searchParams.has("createdAfter"), false);
+  assert.equal(resumed.internalResumeCursor, null);
+  const publicRead = await fetchSellerChannelSnapshot(AMAZON, "orders", {
+    limit: 1, getCredential, fetchImpl: fetchFixture([
+      { access_token: "short-lived" },
+      { orders: [{ orderId: "FIRST" }], nextToken: "opaque-secret" },
+    ]),
+  });
+  assert.equal(Object.hasOwn(publicRead, "internalResumeCursor"), false);
+  assert.equal(publicRead.nextPageAvailable, true);
+  assert.ok(!JSON.stringify(publicRead).includes("opaque-secret"));
+});
+
+test("server-owned eBay pagination offset resumes only at the fixed allowed endpoint", async () => {
+  const calls = [];
+  const result = await fetchSellerChannelSnapshot(EBAY, "listings", {
+    resumeCursor: "24", includeResumeCursor: true,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { inventoryItems: [{ sku: "SKU-RESUME" }], total: 25 },
+    ], calls),
+  });
+  assert.equal(new URL(calls[1].url).searchParams.get("offset"), "24");
+  assert.equal(result.records[0].sku, "SKU-RESUME");
+  assert.equal(result.internalResumeCursor, null);
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    resumeCursor: "https://attacker.example", getCredential,
+    fetchImpl: () => { throw new Error("Network called for invalid resume"); },
+  }), /Invalid saved seller cursor/);
+});
+
+test("order snapshots reject repeated external IDs across pages before any staging", async () => {
+  const calls = [];
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "orders", {
+    getCredential, limit: 3,
+    fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { orders: [{ orderId: "EB-DUP", orderFulfillmentStatus: "NOT_STARTED" }],
+        next: "/sell/fulfillment/v1/order?offset=1" },
+      { orders: [{ orderId: "EB-DUP", orderFulfillmentStatus: "FULFILLED" }] },
+    ], calls),
+  }), (error) => error.details?.code === "SELLER_CHANNEL_SOURCE_ID_DUPLICATE");
+  assert.equal(calls.length, 3);
+  assert.ok(calls.slice(1).every((call) => call.options.method === "GET"));
+});
+
+test("Amazon and eBay missing source identifiers fail closed without inventing orders", async () => {
+  for (const [connection, kind, response] of [
+    [AMAZON, "orders", { orders: [{ fulfillment: { fulfillmentStatus: "SHIPPED" } }] }],
+    [EBAY, "orders", { orders: [{ orderFulfillmentStatus: "FULFILLED" }] }],
+    [EBAY, "listings", { inventoryItems: [{ availability: {} }] }],
+  ]) {
+    await assert.rejects(fetchSellerChannelSnapshot(connection, kind, {
+      getCredential,
+      fetchImpl: fetchFixture([{ access_token: "token" }, response]),
+    }), (error) => error.details?.code === "SELLER_CHANNEL_SOURCE_ID_INVALID");
+  }
+});
+
+test("seller adapter does not infer returns support or execute a refund", async () => {
+  let called = false;
+  await assert.rejects(fetchSellerChannelSnapshot(EBAY, "returns", {
+    getCredential,
+    fetchImpl: async () => { called = true; throw new Error("unexpected request"); },
+  }), (error) => error.statusCode === 409);
+  assert.equal(called, false);
+});
+
+test("eBay shipping details fail closed on duplicate, missing and oversized fulfillment sets", async () => {
+  const invalid = [
+    { fulfillments: [{ fulfillmentId: "SAME" }, { fulfillmentId: "SAME" }] },
+    { fulfillments: [{ fulfillmentId: "" }] },
+    { fulfillments: Array.from({ length: 51 }, (_, i) => ({
+      fulfillmentId: `SHIP-${i}`,
+    })) },
+  ];
+  const codes = [
+    "SELLER_CHANNEL_FULFILLMENT_ID_DUPLICATE",
+    "SELLER_CHANNEL_FULFILLMENT_ID_INVALID",
+    "SELLER_CHANNEL_BAD_RESPONSE",
+  ];
+  for (let i = 0; i < invalid.length; i++) {
+    const calls = [];
+    await assert.rejects(fetchEbayShippingFulfillments(EBAY, "EB-001", {
+      getCredential,
+      fetchImpl: fetchFixture([{ access_token: "ebay-token" }, invalid[i]], calls),
+    }), (error) => error.details?.code === codes[i]);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].options.method, "GET");
+  }
+});
+
+test("eBay shipping detail returns a frozen, complete read-only observation", async () => {
+  const result = await fetchEbayShippingFulfillments(EBAY, "EB-001", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { fulfillments: [{ fulfillmentId: "FULF-1" }, { fulfillmentId: "FULF-2" }] },
+    ]),
+  });
+  assert.deepEqual(result.records.map((row) => row.fulfillmentId),
+    ["FULF-1", "FULF-2"]);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.ok(result.records.every((row) => Object.isFrozen(row)));
+  assert.equal(result.shippingUpdatesPosted, 0);
+  assert.equal(result.refundsProcessed, 0);
+});
+
+test("eBay production returns provide bounded status-only data without buyer information or refunds", async () => {
+  const calls = [];
+  const result = await fetchEbayReturnStatuses({
+    ...EBAY, metadata: { ...EBAY.metadata, environment: "production" },
+  }, {
+    limit: 5, getCredential, fetchImpl: fetchFixture([
+      { access_token: "ebay-token" },
+      { members: [
+        { returnId: "RETURN-1", orderId: "ORDER-1", status: "RETURN_STARTED",
+          state: "OPEN", buyerLoginName: "private-buyer", buyerTotalRefund: { value: "22" } },
+      ], paginationOutput: { totalPages: 1, totalEntries: 1 } },
+    ], calls),
+  });
+  assert.deepEqual(result.records, [{
+    returnId: "RETURN-1", externalOrderId: "ORDER-1",
+    state: "OPEN", status: "RETURN_STARTED",
+  }]);
+  assert.equal(result.completeWithinLimit, true);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.returnsProcessed, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.ok(!JSON.stringify(result).includes("private-buyer"));
+  assert.ok(!JSON.stringify(result).includes("buyerTotalRefund"));
+  assert.ok(calls[1].url.startsWith("https://api.ebay.com/post-order/v2/return/search?"));
+  assert.equal(calls[1].options.method, "GET");
+  assert.equal(calls[1].options.redirect, "error");
+});
+
+test("returns searches reject sandbox, Amazon, invalid limits and malformed provider results", async () => {
+  let called = false;
+  const invalidFetch = async () => { called = true; throw new Error("Unexpected network request"); };
+  for (const connection of [EBAY, AMAZON]) {
+    await assert.rejects(fetchEbayReturnStatuses(connection, {
+      fetchImpl: invalidFetch, getCredential,
+    }), (error) => error.details?.code === "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const limit of [0, -1, 51, 1.5, "bad"]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      limit, fetchImpl: invalidFetch, getCredential,
+    }), (error) => error.details?.code === "SELLER_RETURNS_LIMIT_INVALID");
+  }
+  assert.equal(called, false);
+  for (const body of [
+    { members: null },
+    { members: [{ returnId: "" }] },
+    { members: [{ returnId: "SAME" }, { returnId: "SAME" }] },
+    { members: Array.from({ length: 3 }, (_, n) => ({ returnId: String(n) })) },
+  ]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      limit: 2, getCredential,
+      fetchImpl: fetchFixture([{ access_token: "ebay-token" }, body]),
+    }));
+  }
+});
+
+test("eBay returns explicitly signal incomplete first page instead of claiming comprehensive sync", async () => {
+  const result = await fetchEbayReturnStatuses({
+    ...EBAY, metadata: { ...EBAY.metadata, environment: "production" },
+  }, { limit: 2, getCredential, fetchImpl: fetchFixture([
+    { access_token: "ebay-token" },
+    { members: [{ returnId: "R1" }], paginationOutput: { totalPages: 3, totalEntries: 5 } },
+  ]) });
+  assert.equal(result.nextPageAvailable, true);
+  assert.equal(result.completeWithinLimit, false);
+});
+
+test("eBay returns navigate later pages using a bounded numeric offset", async () => {
+  const calls = [];
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const first = await fetchEbayReturnStatuses(production, {
+    limit: 2, offset: 0, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "R1" }, { returnId: "R2" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  assert.equal(first.nextOffset, 2);
+  assert.equal(first.nextPageAvailable, true);
+  const second = await fetchEbayReturnStatuses(production, {
+    limit: 2, offset: first.nextOffset, getCredential,
+    fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "R3" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  assert.equal(second.offset, 2);
+  assert.equal(second.nextOffset, null);
+  assert.equal(second.completeWithinLimit, true);
+  assert.deepEqual(second.records.map((entry) => entry.returnId), ["R3"]);
+  assert.equal(new URL(calls[1].url).searchParams.get("offset"), "0");
+  assert.equal(new URL(calls[3].url).searchParams.get("offset"), "2");
+  assert.ok(calls.filter((call) => call.url.includes("/return/search"))
+    .every((call) => call.options.method === "GET"));
+});
+
+test("eBay returns paging rejects negative and injected offsets before network access", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const offset of [-1, "1&order_id=OTHER", "https://example.org", 1.5, 100001]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      offset, getCredential, fetchImpl: async () => { calls++; throw Error("network used"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_OFFSET_INVALID");
+  }
+  assert.equal(calls, 0);
+});
+
+test("eBay returns pagination fails closed on contradictory totals or no progress", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const [offset, response] of [
+    [2, { members: [{ returnId: "R3" }], paginationOutput: { totalEntries: 2 } }],
+    [0, { members: [], paginationOutput: { totalEntries: 3 } }],
+    [0, { members: [{ returnId: "R1" }], paginationOutput: { totalEntries: -1 } }],
+  ]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      offset, limit: 2, getCredential,
+      fetchImpl: fetchFixture([{ access_token: "token" }, response]),
+    }), (error) => error.details?.code === "SELLER_RETURNS_PAGING_INVALID");
+  }
+});
+
+test("eBay returns may be filtered by a provider order ID without Commerce writes", async () => {
+  const calls = [];
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const result = await fetchEbayReturnStatuses(production, {
+    orderId: "EB-01!23", offset: 2, limit: 2,
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-3", orderId: "EB-01!23", status: "RETURN_STARTED" }],
+        paginationOutput: { totalEntries: 3, totalPages: 2 } },
+    ], calls),
+  });
+  const url = new URL(calls[1].url);
+  assert.equal(url.searchParams.get("order_id"), "EB-01!23");
+  assert.equal(url.searchParams.get("offset"), "2");
+  assert.equal(result.orderIdFilter, "EB-01!23");
+  assert.equal(result.nextOffset, null);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(calls[1].options.method, "GET");
+});
+
+test("eBay returns reject unsafe provider order filters before any API calls", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const orderId of ["", "../something", "X?limit=200", "X&offset=99",
+    "https://malicious.example", "x".repeat(121), 123]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      orderId, getCredential, fetchImpl: async () => {
+        calls++; throw Error("unexpected call");
+      },
+    }), (error) => error.details?.code === "SELLER_RETURNS_ORDER_ID_INVALID");
+  }
+  assert.equal(calls, 0);
+});
+
+test("eBay returns status filter supports operational triage without mutating returns", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  for (const state of ["ALL_OPEN", "CLOSED", "SELLER_ACTION_DUE",
+    "SELLER_ACTION_OVERDUE", "RETURN_STARTED", "ITEM_SHIPPED"]) {
+    const calls = [];
+    const result = await fetchEbayReturnStatuses(production, {
+      returnState: state, getCredential, fetchImpl: fetchFixture([
+        { access_token: "token" },
+        { members: [{ returnId: "R-1", state: "INITIAL", status: "RETURN_STARTED" }],
+          paginationOutput: { totalEntries: 1, totalPages: 1 } },
+      ], calls),
+    });
+    assert.equal(new URL(calls[1].url).searchParams.get("return_state"), state);
+    assert.equal(result.returnStateFilter, state);
+    assert.equal(result.returnsProcessed, 0);
+    assert.equal(result.refundsIssued, 0);
+    assert.equal(result.canonicalRecordsWritten, 0);
+    assert.equal(calls[1].options.method, "GET");
+  }
+});
+
+test("eBay returns filters reject unknown and unsupported provider states before network access", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const state of ["UNKNOWN", "ALL_OPEN_REPLACEMENT", "ALL", "closed", "",
+    "ALL_OPEN&order_id=OTHER", 42, null]) {
+    await assert.rejects(fetchEbayReturnStatuses(production, {
+      returnState: state, getCredential, fetchImpl: async () => {
+        calls++; throw Error("unexpected provider request");
+      },
+    }), (error) => error.details?.code === "SELLER_RETURNS_STATE_INVALID");
+  }
+  assert.equal(calls, 0);
+});
+
+test("eBay return detail exposes only source status and order ID without PII", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const calls = [];
+  const result = await fetchEbayReturnDetail(production, "RET-123", {
+    getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { summary: { returnId: "RET-123", orderId: "EB-123",
+        state: "INITIAL", status: "RETURN_STARTED",
+        buyerLoginName: "private-buyer", buyerTotalRefund: { value: "99" } },
+        detail: { buyerAddress: "private-address" } },
+    ], calls),
+  });
+  assert.deepEqual(result.record, {
+    returnId: "RET-123", externalOrderId: "EB-123",
+    state: "INITIAL", status: "RETURN_STARTED",
+  });
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.returnsProcessed, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.record), true);
+  assert.ok(!JSON.stringify(result).includes("private-buyer"));
+  assert.ok(!JSON.stringify(result).includes("private-address"));
+  assert.equal(calls[1].options.method, "GET");
+  assert.equal(new URL(calls[1].url).pathname, "/post-order/v2/return/RET-123");
+});
+
+test("eBay return detail rejects cross-return identity, invalid IDs and unsupported environments", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let calls = 0;
+  for (const returnId of ["", "../unsafe", "R?offset=10", "x".repeat(121), null]) {
+    await assert.rejects(fetchEbayReturnDetail(production, returnId, {
+      getCredential, fetchImpl: async () => { calls++; throw Error("unexpected network"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_ID_INVALID");
+  }
+  await assert.rejects(fetchEbayReturnDetail(EBAY, "RET-123", {
+    getCredential, fetchImpl: async () => { calls++; throw Error("unexpected network"); },
+  }), (error) => error.details?.code === "SELLER_RETURNS_PRODUCTION_ONLY");
+  assert.equal(calls, 0);
+  for (const body of [{ summary: { returnId: "OTHER" } }, { summary: null }]) {
+    await assert.rejects(fetchEbayReturnDetail(production, "RET-123", {
+      getCredential, fetchImpl: fetchFixture([{ access_token: "token" }, body]),
+    }), (error) => error.details?.code === "SELLER_RETURNS_DETAIL_INVALID");
+  }
+});
+
+test("bounded eBay returns review fetches successive pages and retains partial completion evidence", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const calls = [];
+  const result = await fetchEbayReturnReviewBatch(production, {
+    limit: 2, maxPages: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }, { returnId: "RET-2" }],
+        paginationOutput: { totalEntries: 5 } },
+      { access_token: "token" },
+      { members: [{ returnId: "RET-3" }, { returnId: "RET-4" }],
+        paginationOutput: { totalEntries: 5 } },
+    ], calls),
+  });
+  assert.deepEqual(result.records.map((entry) => entry.returnId),
+    ["RET-1", "RET-2", "RET-3", "RET-4"]);
+  assert.equal(result.pagesFetched, 2);
+  assert.equal(result.nextOffset, 4);
+  assert.equal(result.nextPageAvailable, true);
+  assert.equal(result.completeWithinLimit, false);
+  assert.equal(result.refundsIssued, 0);
+  assert.equal(result.canonicalRecordsWritten, 0);
+  assert.equal(Object.isFrozen(result.records), true);
+  assert.equal(new URL(calls[3].url).searchParams.get("offset"), "2");
+  assert.ok(calls.filter((call) => call.url.includes("/return/search"))
+    .every((call) => call.options.method === "GET"));
+});
+
+test("returns review halts on complete provider page and rejects duplicate IDs across pages", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  const complete = await fetchEbayReturnReviewBatch(production, {
+    limit: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 1 } },
+    ]),
+  });
+  assert.equal(complete.pagesFetched, 1);
+  assert.equal(complete.completeWithinLimit, true);
+  await assert.rejects(fetchEbayReturnReviewBatch(production, {
+    limit: 2, maxPages: 2, getCredential, fetchImpl: fetchFixture([
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 3 } },
+      { access_token: "token" },
+      { members: [{ returnId: "RET-1" }], paginationOutput: { totalEntries: 3 } },
+    ]),
+  }), (error) => error.details?.code === "SELLER_RETURNS_REVIEW_DUPLICATE");
+});
+
+test("returns review refuses unbounded page requests and non-progressing provider cursors", async () => {
+  const production = { ...EBAY, metadata: { ...EBAY.metadata, environment: "production" } };
+  let contacted = 0;
+  for (const maxPages of [0, 4, -1, "unexpected"]) {
+    await assert.rejects(fetchEbayReturnReviewBatch(production, {
+      maxPages, fetchImpl: async () => { contacted++; throw Error("unwanted network"); },
+    }), (error) => error.details?.code === "SELLER_RETURNS_PAGES_INVALID");
+  }
+  assert.equal(contacted, 0);
+  await assert.rejects(fetchEbayReturnReviewBatch(production, {
+    limit: 2, readPage: async () => ({
+      provider: "ebay", kind: "returns", offset: 0, orderIdFilter: null,
+      returnStateFilter: "ALL_OPEN", records: [{ returnId: "R-1" }],
+      nextPageAvailable: true, nextOffset: 0,
+    }),
+  }), (error) => error.details?.code === "SELLER_RETURNS_PAGING_INVALID");
+});

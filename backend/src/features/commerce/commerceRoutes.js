@@ -8,6 +8,7 @@ import {
   requirePermissions,
 } from "../../middleware/permissionMiddleware.js";
 import * as controller from "./commerceController.js";
+import { optionalCheckoutTenantMiddleware } from "./optionalCheckoutTenantMiddleware.js";
 import {
   createOrderInvoice,
   readOrderInvoice,
@@ -80,7 +81,8 @@ router.get(
   asyncHandler(controller.inventorySummary)
 );
 
-router.post("/checkout", requireFeature("online-shop"), protect, asyncHandler(controller.createCheckout));
+router.post("/checkout", requireFeature("online-shop"), protect,
+  optionalCheckoutTenantMiddleware, asyncHandler(controller.createCheckout));
 router.post(
   "/checkout/:id/confirm-demo",
   requireFeature("online-shop"),
