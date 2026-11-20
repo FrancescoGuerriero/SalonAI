@@ -6,6 +6,7 @@ import { stageSellerChannelSnapshot } from "../features/partnerMarketplace/selle
 import { inspectSellerChannelOrderStates } from "../features/partnerMarketplace/sellerChannelOrderStateInspection.js";
 import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
 import { inspectSellerCommerceOrderOwnership } from "../features/partnerMarketplace/sellerChannelCommerceOwnership.js";
+import { transitionSellerOrderReview } from "../features/partnerMarketplace/sellerChannelOrderReviewTransition.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -533,6 +534,94 @@ test("real MongoDB Commerce ownership preflight excludes unowned and foreign ord
     await db.dropCollection(name).catch((error) => {
       if (error.codeName !== "NamespaceNotFound") throw error;
     });
+    await db.close();
+  }
+});
+
+
+test("real MongoDB seller review hold and audit are atomic, including failed audit rollback", {
+  skip: !URI ? "Requires isolated loopback MongoDB replica set" : false,
+  timeout: 45000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing any non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const prefix = "seller_review_accept_" + randomUUID().replaceAll("-", "");
+  const names = ["staged", "links", "audit"].map((suffix) => prefix + "_" + suffix);
+  const businessId = new mongoose.Types.ObjectId();
+  const connectionId = new mongoose.Types.ObjectId();
+  const actorId = new mongoose.Types.ObjectId();
+  const commerceOrder = new mongoose.Types.ObjectId();
+  const connection = { _id: connectionId, business: businessId,
+    status: "connected", provider: "ebay" };
+  try {
+    for (const name of names) await db.createCollection(name);
+    const [staged, links, audits] = names.map((name) => db.db.collection(name));
+    await staged.insertOne({
+      business: businessId, connection: connectionId, provider: "ebay",
+      kind: "orders", externalId: "EB-100",
+    });
+    await links.insertOne({
+      business: businessId, connection: connectionId, provider: "ebay",
+      externalOrderId: "EB-100", commerceOrder,
+      verificationStatus: "pending_verification",
+      evidenceSource: "operator_proposal", reviewReason: "",
+    });
+    const stagedModel = { findOne: (filter) => ({
+      session: (session) => ({ select: () => ({
+        lean: () => staged.findOne(filter, { session }),
+      }) }),
+    }) };
+    const linkModel = { findOneAndUpdate: (filter, update, options) => ({
+      lean: () => links.findOneAndUpdate(filter, update, {
+        session: options.session, returnDocument: "after",
+      }),
+    }) };
+    let failAudit = false;
+    const auditModel = { create: async (records, options) => {
+      if (failAudit) throw new Error("injected-review-audit-failure");
+      return audits.insertMany(records, { session: options.session });
+    } };
+    const common = { businessId, locationAccessMode: "all", actorId,
+      reason: "correspondence_unproven",
+      stagedModel, linkModel, auditModel,
+      startSession: () => db.startSession(),
+    };
+    failAudit = true;
+    await assert.rejects(transitionSellerOrderReview(connection, "EB-100", {
+      ...common, action: "hold",
+    }), /injected-review-audit-failure/);
+    assert.equal((await links.findOne({ externalOrderId: "EB-100" })).verificationStatus,
+      "pending_verification");
+    assert.equal(await audits.countDocuments({}), 0);
+    failAudit = false;
+    const held = await transitionSellerOrderReview(connection, "EB-100", {
+      ...common, action: "hold",
+    });
+    assert.equal(held.reviewStatus, "reviewed_hold");
+    assert.equal(await audits.countDocuments({}), 1);
+    assert.equal((await links.findOne({ externalOrderId: "EB-100" })).verificationStatus,
+      "reviewed_hold");
+    await assert.rejects(transitionSellerOrderReview(connection, "EB-100", {
+      ...common, action: "hold",
+    }), (error) => error.details?.code === "SELLER_REVIEW_CONFLICT");
+    assert.equal(await audits.countDocuments({}), 1);
+    const reopened = await transitionSellerOrderReview(connection, "EB-100", {
+      ...common, action: "reopen", reason: "",
+    });
+    assert.equal(reopened.reviewStatus, "pending_verification");
+    assert.equal(await audits.countDocuments({}), 2);
+    assert.equal((await links.findOne({ externalOrderId: "EB-100" })).verificationStatus,
+      "pending_verification");
+    assert.equal(await db.db.collection("orders").countDocuments({}), 0);
+  } finally {
+    for (const name of names) {
+      await db.dropCollection(name).catch((error) => {
+        if (error.codeName !== "NamespaceNotFound") throw error;
+      });
+    }
     await db.close();
   }
 });
