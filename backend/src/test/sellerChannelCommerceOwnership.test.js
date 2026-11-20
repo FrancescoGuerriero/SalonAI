@@ -43,13 +43,19 @@ test("only trusted business-owned Commerce order can pass financial preflight", 
 });
 
 test("legacy and foreign-business orders cannot pass ownership check", async () => {
-  for (const value of [null, { ...commerce, business: undefined }]) {
-    const f = fixture(source, link, value);
-    const report = await inspectSellerCommerceOrderOwnership(connection, "EB-100", { ...options, ...f });
-    assert.equal(report.status, "commerce_ownership_unverified");
-    assert.equal(report.commerceBusinessOwnershipConfirmed, false);
-    assert.equal(report.associationApproved, false);
-  }
+  const notFound = fixture(source, link, null);
+  const missing = await inspectSellerCommerceOrderOwnership(connection, "EB-100", {
+    ...options, ...notFound,
+  });
+  assert.equal(missing.status, "commerce_ownership_unverified");
+  assert.equal(missing.commerceBusinessOwnershipConfirmed, false);
+  assert.equal(missing.associationApproved, false);
+  // The real scoped MongoDB query will not return unowned records. A mocked
+  // database returning such a record is inconsistent and must be rejected.
+  const legacy = fixture(source, link, { ...commerce, business: undefined });
+  await assert.rejects(inspectSellerCommerceOrderOwnership(connection, "EB-100", {
+    ...options, ...legacy,
+  }), (error) => error.details?.code === "SELLER_ORDER_OWNERSHIP_INVALID_EVIDENCE");
   const foreign = fixture(source, link, { ...commerce, business: otherBusiness });
   await assert.rejects(inspectSellerCommerceOrderOwnership(connection, "EB-100", {
     ...options, ...foreign,
