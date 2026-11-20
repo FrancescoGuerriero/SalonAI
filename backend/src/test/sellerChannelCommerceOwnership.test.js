@@ -105,7 +105,8 @@ test("staged reference, provider and permission checks fail before Commerce look
     assert.equal(f.queries.orders.length, 0);
   }
   for (const badLink of [null, { ...link, commerceOrder: "wrong" },
-    { ...link, verificationStatus: "approved" }]) {
+    { ...link, verificationStatus: "approved" },
+    { ...link, verificationStatus: "reviewed_hold", reviewReason: "financial_mismatch" }]) {
     const f = fixture(source, badLink);
     await assert.rejects(inspectSellerCommerceOrderOwnership(connection, "EB-100", {
       ...options, ...f,
