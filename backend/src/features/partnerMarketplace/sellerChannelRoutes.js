@@ -15,6 +15,7 @@ import { inspectSellerChannelImportStatus } from "./sellerChannelImportStatusSer
 import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspection.js";
 import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
 import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwnership.js";
+import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershipBatch.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -110,6 +111,19 @@ router.get("/:connectionId/order-links-export", requirePermissions("order:read")
     response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
     response.set("Cache-Control", "private, no-store");
     response.status(200).send(csv);
+  }));
+
+// Review at most ten proposals per request; no approval or Commerce writes.
+router.get("/:connectionId/order-ownership-batch",
+  requirePermissions("order:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerCommerceOrderBatch(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 10,
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
   }));
 
 // Explicit, non-executable Commerce ownership and financial comparison.
