@@ -769,6 +769,7 @@ function providerCheckoutItems({
 }
 
 export async function createCheckout(payload, user, { tenantContext = null } = {}) {
+  const orderBusinessId = resolveCheckoutOrderBusiness(user, tenantContext);
   const rawItems = Array.isArray(payload.items) ? payload.items : [];
   if (rawItems.length === 0) {
     throw createServiceError("At least one cart item is required.", 400);
@@ -870,7 +871,7 @@ export async function createCheckout(payload, user, { tenantContext = null } = {
     }
 
     order = await Order.create({
-      business: resolveCheckoutOrderBusiness(user, tenantContext),
+      business: orderBusinessId,
       user: user._id,
       customer: user.customerProfile || undefined,
       contact,
