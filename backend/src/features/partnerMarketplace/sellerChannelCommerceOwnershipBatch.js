@@ -32,9 +32,10 @@ export async function inspectSellerCommerceOrderBatch(connection, {
   }
   const result = [];
   let proposed = 0;
+  let held = 0;
   for (const row of review.records) {
     if (!row || typeof row.externalOrderId !== "string" ||
-        !["unlinked", "proposal_pending_verification"].includes(row.linkStatus) ||
+        !["unlinked", "proposal_pending_verification", "reviewed_hold"].includes(row.linkStatus) ||
         row.orderOwnershipVerified !== false ||
         row.commerceStateCompared !== false) {
       throw createServiceError("Invalid seller order link row.", 502, {
@@ -48,6 +49,22 @@ export async function inspectSellerCommerceOrderBatch(connection, {
         commerceBusinessOwnershipConfirmed: false,
         financialEvidenceMatches: false,
         associationApproved: false,
+      }));
+      continue;
+    }
+    if (row.linkStatus === "reviewed_hold") {
+      if (!["source_evidence_missing", "financial_mismatch", "ownership_unproven",
+        "correspondence_unproven", "other"].includes(row.reviewReason) ||
+        !/^[0-9a-fA-F]{24}$/.test(row.proposedCommerceOrderId || "")) {
+        throw createServiceError("Invalid held order proposal.", 502, {
+          code: "SELLER_ORDER_BATCH_EVIDENCE_INVALID",
+        });
+      }
+      held++;
+      result.push(Object.freeze({
+        externalOrderId: row.externalOrderId, status: "reviewed_hold",
+        commerceBusinessOwnershipConfirmed: false,
+        financialEvidenceMatches: false, associationApproved: false,
       }));
       continue;
     }
@@ -78,7 +95,8 @@ export async function inspectSellerCommerceOrderBatch(connection, {
     provider: connection.provider, kind: "order_ownership_batch",
     records: Object.freeze(result), inspectedCount: result.length,
     summary: Object.freeze({
-      unlinked: result.length - proposed,
+      unlinked: result.length - proposed - held,
+      reviewedHold: held,
       proposalsInspected: proposed,
       approved: 0,
       possiblyTruncated: review.summary?.possiblyTruncated === true,
