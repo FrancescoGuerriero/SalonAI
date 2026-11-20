@@ -60,7 +60,7 @@ export async function inspectSellerChannelOrderLinks(connection, {
   const links = ids.length ? await linkModel.find({
     business: businessId, connection: connection._id,
     provider: connection.provider, externalOrderId: { $in: ids },
-  }).select("externalOrderId commerceOrder verificationStatus evidenceSource business connection provider")
+  }).select("externalOrderId commerceOrder verificationStatus evidenceSource reviewReason business connection provider")
     .lean() : [];
   if (!Array.isArray(links) || links.length > ids.length) {
     throw failure("Invalid order link evidence.", "SELLER_ORDER_LINK_EVIDENCE_INVALID");
@@ -76,7 +76,10 @@ export async function inspectSellerChannelOrderLinks(connection, {
         link.provider !== connection.provider ||
         !mongoose.isValidObjectId(commerceId) ||
         usedCommerceIds.has(String(commerceId)) ||
-        link.verificationStatus !== "pending_verification" ||
+        !["pending_verification", "reviewed_hold"].includes(link.verificationStatus) ||
+        (link.verificationStatus === "reviewed_hold" &&
+          !["source_evidence_missing", "financial_mismatch", "ownership_unproven",
+            "correspondence_unproven", "other"].includes(link.reviewReason)) ||
         link.evidenceSource !== "operator_proposal") {
       throw failure("Inconsistent order association evidence.", "SELLER_ORDER_LINK_EVIDENCE_INVALID");
     }
@@ -87,7 +90,9 @@ export async function inspectSellerChannelOrderLinks(connection, {
     const link = byExternalId.get(externalOrderId);
     return Object.freeze({
       externalOrderId,
-      linkStatus: link ? "proposal_pending_verification" : "unlinked",
+      linkStatus: !link ? "unlinked" :
+        link.verificationStatus === "reviewed_hold" ? "reviewed_hold" : "proposal_pending_verification",
+      reviewReason: link?.verificationStatus === "reviewed_hold" ? link.reviewReason : null,
       proposedCommerceOrderId: link ? String(link.commerceOrder) : null,
       orderOwnershipVerified: false,
       commerceStateCompared: false,
@@ -104,7 +109,8 @@ export async function inspectSellerChannelOrderLinks(connection, {
     inspectedCount: records.length,
     summary: Object.freeze({
       unlinked: records.length - linkedProposals,
-      pendingVerification: linkedProposals,
+      pendingVerification: links.filter((item) => item.verificationStatus === "pending_verification").length,
+      reviewedHold: links.filter((item) => item.verificationStatus === "reviewed_hold").length,
       verified: 0,
       possiblyTruncated: rows.length === count,
     }),
