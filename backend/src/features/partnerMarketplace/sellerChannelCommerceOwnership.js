@@ -68,6 +68,10 @@ export async function inspectSellerCommerceOrderOwnership(connection, externalOr
       "SELLER_ORDER_OWNERSHIP_INVALID_EVIDENCE", 502);
   }
   const source = inspectSellerOrderSourceEvidence(staged.sourceRecord);
+  const commerceStatus = owned && typeof order.status === "string" ? order.status : null;
+  const statusBlocked = owned && (commerceStatus === "cancelled" || commerceStatus === "refunded");
+  const statusKnown = ["pending_payment", "paid", "processing", "ready", "completed",
+    "cancelled", "refunded"].includes(commerceStatus);
   const localCurrency = owned && typeof order.currency === "string" ?
     order.currency.toUpperCase() : null;
   const cents = owned && typeof order.total === "number" && order.total >= 0 &&
@@ -80,16 +84,25 @@ export async function inspectSellerCommerceOrderOwnership(connection, externalOr
         const [major, fraction = ""] = source.sourceAmount.split(".");
         return Number(major) * 100 + Number(fraction.padEnd(2, "0"));
       })() : null;
-  const amountComparable = cents !== null && Number.isSafeInteger(sourceCents) &&
-    source.sourceCurrency === localCurrency;
+  const amountValid = cents !== null && Number.isSafeInteger(sourceCents);
+  const currencyComparable = typeof localCurrency === "string" && /^[A-Z]{3}$/.test(localCurrency) &&
+    typeof source.sourceCurrency === "string" && /^[A-Z]{3}$/.test(source.sourceCurrency);
+  const currencyMatches = currencyComparable && source.sourceCurrency === localCurrency;
+  const amountComparable = amountValid && currencyMatches;
   const amountMatches = amountComparable && sourceCents === cents;
   return Object.freeze({
     externalOrderId, proposedCommerceOrderId: String(link.commerceOrder),
     status: !owned ? "commerce_ownership_unverified" :
-      source.state !== "source_evidence_present" || !amountComparable ?
+      !statusKnown ? "commerce_state_unrecognised" :
+      statusBlocked ? "commerce_order_terminal_blocked" :
+      source.state !== "source_evidence_present" || !amountValid || !currencyComparable ?
         "financial_evidence_incomplete" :
-        !amountMatches ? "financial_evidence_disagrees" : "requires_operator_correspondence_review",
+      !currencyMatches ? "currency_disagrees" :
+      !amountMatches ? "financial_evidence_disagrees" : "requires_operator_correspondence_review",
     commerceBusinessOwnershipConfirmed: owned,
+    commerceLifecycleState: commerceStatus,
+    commerceTerminalStateBlocked: statusBlocked,
+    currencyEvidenceMatches: currencyMatches,
     financialEvidenceComparable: amountComparable,
     financialEvidenceMatches: amountMatches,
     sourceEvidenceState: source.state,
