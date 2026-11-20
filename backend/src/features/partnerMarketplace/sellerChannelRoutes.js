@@ -16,6 +16,7 @@ import { inspectSellerChannelOrderStates } from "./sellerChannelOrderStateInspec
 import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspection.js";
 import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwnership.js";
 import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershipBatch.js";
+import { transitionSellerOrderReview } from "./sellerChannelOrderReviewTransition.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -111,6 +112,24 @@ router.get("/:connectionId/order-links-export", requirePermissions("order:read")
     response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
     response.set("Cache-Control", "private, no-store");
     response.status(200).send(csv);
+  }));
+
+// Operator holds/reopens a pending proposal atomically with audit evidence.
+// This endpoint cannot approve an association or execute marketplace writes.
+router.post("/:connectionId/order-links/:externalOrderId/review",
+  requirePermissions("order:update"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await transitionSellerOrderReview(
+      await ownedConnection(request), request.params.externalOrderId, {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+        actorId: request.user?._id || request.user?.id,
+        action: request.body?.action,
+        reason: request.body?.reason ?? "",
+        requestId: request.requestId || "",
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
   }));
 
 // Review at most ten proposals per request; no approval or Commerce writes.
