@@ -364,5 +364,5 @@ test("Commerce/inventory canonical Product collection has tenant records, but le
   // Optional ownership is now declared, but legacy unowned orders remain
   // ineligible for trusted Commerce/marketplace association.
   assert.ok(Order.schema.path("business"));
-  assert.equal(Order.schema.path("business").isRequired, false);
+  assert.notEqual(Order.schema.path("business").options.required, true);
 });
