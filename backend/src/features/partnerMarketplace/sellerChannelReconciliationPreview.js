@@ -4,8 +4,11 @@ import SellerChannelStagingRecord from "../../models/SellerChannelStagingRecord.
 import { createServiceError } from "../../shared/serviceError.js";
 
 /**
- * Dry-run SKU reconciliation: staging vs canonical Commerce Product.
- * Never infers location stock, publishes listings, or writes Commerce.
+ * Read-only SKU candidate review: staging vs canonical Commerce Product.
+ * Marketplace inventory quantities have no verified provider-location-to-
+ * Commerce-location binding in this integration. Even when a trusted Commerce
+ * location is selected, quantities cannot be treated as comparable stock.
+ * Never infers inventory synchronization, publishes or writes Commerce.
  */
 export async function previewSellerChannelInventory(connection, {
   businessId, locationId = null, stagedModel = SellerChannelStagingRecord,
@@ -89,11 +92,13 @@ export async function previewSellerChannelInventory(connection, {
       String(product.location || "") === String(locationId));
     const remote = row.sourceRecord?.quantity;
     const local = exact.length === 1 ? exact[0].stockQuantity : null;
-    const comparable = (skuCounts.get(sku) || 0) === 1 &&
+    // This identifies a *candidate* SKU at a selected trusted Commerce location.
+    // It does not establish that the provider quantity belongs to that location.
+    const candidate = (skuCounts.get(sku) || 0) === 1 &&
       locationId !== null && exact.length === 1 &&
       Number.isSafeInteger(remote) && Number.isSafeInteger(local) &&
       remote >= 0 && local >= 0;
-    if (comparable && !mongoose.isValidObjectId(exact[0]._id)) {
+    if (candidate && !mongoose.isValidObjectId(exact[0]._id)) {
       throw createServiceError("Missing canonical product identity.", 502, {
         code: "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
       });
@@ -106,12 +111,16 @@ export async function previewSellerChannelInventory(connection, {
           locationId === null ? "location_selection_required" :
             !exact.length ? "no_product_for_location" :
               exact.length > 1 ? "ambiguous_product_match" :
-                !comparable ? "quantity_not_comparable" :
-                  remote === local ? "matched" : "quantity_differs",
-      marketplaceQuantity: Number.isSafeInteger(remote) ? remote : null,
-      canonicalQuantity: comparable ? local : null,
-      quantityDifference: comparable ? remote - local : null,
-      canonicalProductId: comparable ? String(exact[0]._id) : null,
+                !candidate ? "quantity_not_comparable" :
+                  "marketplace_location_mapping_required",
+      marketplaceQuantity: Number.isSafeInteger(remote) && remote >= 0 ? remote : null,
+      // Suppress canonical quantity and differences until an independently
+      // verified provider-location mapping is implemented and accepted.
+      canonicalQuantity: null,
+      quantityDifference: null,
+      canonicalProductId: null,
+      marketplaceLocationMappingVerified: false,
+      quantityComparisonAccepted: false,
     });
   });
   // Summarise only examined rows. A capped preview is never evidence that
@@ -121,9 +130,10 @@ export async function previewSellerChannelInventory(connection, {
     counts[record.state] = (counts[record.state] || 0) + 1;
   }
   const summary = Object.freeze({
-    matched: counts.matched || 0,
-    quantityDiffers: counts.quantity_differs || 0,
-    unresolved: rows.length - (counts.matched || 0) - (counts.quantity_differs || 0),
+    matched: 0,
+    quantityDiffers: 0,
+    mappingRequired: counts.marketplace_location_mapping_required || 0,
+    unresolved: rows.length,
     potentialStockChanges: 0,
     examinedRowsOnly: true,
     possiblyTruncated: staged.length === count,
@@ -131,6 +141,8 @@ export async function previewSellerChannelInventory(connection, {
   return Object.freeze({
     businessId: String(businessId), connectionId: String(connection._id),
     locationSelected: locationId !== null,
+    marketplaceLocationMappingVerified: false,
+    quantityComparisonAccepted: false,
     kind: "listings", comparisonMode: "dry_run_only",
     records: Object.freeze(rows), reviewedCount: rows.length,
     summary,
