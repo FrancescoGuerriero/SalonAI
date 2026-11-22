@@ -246,7 +246,9 @@ export async function listSellerLocationMappingProposals(connection, {
         (row.reviewStatus === "withdrawn" && (
           !WITHDRAW_REASONS.includes(row.withdrawalReason) ||
           !mongoose.isValidObjectId(row.withdrawnBy) ||
-          !Number.isFinite(new Date(row.withdrawnAt).getTime())
+          row.withdrawnAt == null ||
+          !Number.isFinite(new Date(row.withdrawnAt).getTime()) ||
+          new Date(row.withdrawnAt).getTime() > Date.now() + 300000
         )) ||
         (row.reviewStatus === "pending_provider_location_evidence" &&
           (row.withdrawnBy != null || row.withdrawnAt != null ||
