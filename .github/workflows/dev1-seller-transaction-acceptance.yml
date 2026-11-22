@@ -1,0 +1,135 @@
+name: DEV1 Seller Channel Mongo Transaction Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/test/sellerChannelMongoTransaction.acceptance.test.js'
+      - 'backend/src/test/sellerChannelAtomicCommit.test.js'
+      - 'backend/src/test/sellerChannelAdapter.test.js'
+      - 'backend/src/test/sellerChannelReconciliationPreview.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelLocationMappingProposal.js'
+      - 'backend/src/models/SellerChannelLocationMappingProposal.js'
+      - 'backend/src/test/sellerChannelLocationMappingProposal.test.js'
+      - 'backend/src/test/sellerChannelInventoryCsv.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelInventoryCsv.js'
+      - 'backend/src/test/sellerChannelOrderStateInspection.test.js'
+      - 'backend/src/test/sellerChannelOrderEvidence.test.js'
+      - 'backend/src/test/sellerChannelOrderReviewTransition.test.js'
+      - 'backend/src/test/sellerChannelOrderProposal.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderProposal.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderReviewTransition.js'
+      - 'backend/src/models/SellerChannelOrderLink.js'
+      - 'backend/src/test/sellerChannelCommerceOwnership.test.js'
+      - 'backend/src/test/checkoutOrderOwnership.test.js'
+      - 'backend/src/test/optionalCheckoutTenantMiddleware.test.js'
+      - 'backend/src/features/commerce/optionalCheckoutTenantMiddleware.js'
+      - 'backend/src/features/commerce/commerceRoutes.js'
+      - 'backend/src/features/commerce/checkoutOrderOwnership.js'
+      - 'backend/src/features/commerce/commerceService.js'
+      - 'backend/src/features/commerce/commerceController.js'
+      - 'backend/src/test/sellerChannelCommerceOwnershipBatch.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelCommerceOwnershipBatch.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelCommerceOwnership.js'
+      - 'backend/src/features/commerce/Order.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderEvidence.js'
+      - 'backend/src/test/sellerChannelOrderLinkCsv.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderLinkCsv.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderLinkInspection.js'
+      - 'backend/src/models/SellerChannelOrderLink.js'
+      - 'backend/src/test/sellerChannelLocationGuard.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelLocationGuard.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelOrderStateInspection.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelAdapter.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelReconciliationPreview.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelRoutes.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelReadiness.js'
+      - 'backend/src/test/sellerChannelReadiness.test.js'
+      - 'backend/src/features/futureFeatureRoutes.js'
+      - 'backend/src/test/sellerChannelRouteMount.test.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelConnectionList.js'
+      - 'backend/src/test/sellerChannelConnectionList.test.js'
+      - 'backend/src/test/sellerConnectorContracts.test.js'
+      - 'backend/src/features/integrationPlatform/marketingVerifiedConnectorExtensionsWave4.js'
+      - 'backend/src/features/integrationPlatform/marketingAccountVerificationExtensionsWave4.js'
+      - 'frontend/src/Services/sellerChannelApi.js'
+      - 'frontend/src/components/admin/SellerChannelsPanel.jsx'
+      - 'frontend/src/components/admin/PartnerMarketplacePanel.jsx'
+      - 'backend/src/models/SellerChannelImportRun.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelAtomicCommit.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelSyncService.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelRecoveryGuard.js'
+      - 'backend/src/features/partnerMarketplace/sellerChannelImportLeaseService.js'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - '.github/workflows/dev1-seller-transaction-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev1-seller-transaction-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  seller-txn-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      SELLER_TXN_ACCEPTANCE_URI: mongodb://127.0.0.1:27017/seller_txn_acceptance?replicaSet=rs0
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Start isolated MongoDB replica set
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name seller-txn-mongo \
+            --publish 127.0.0.1:27017:27017 \
+            mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            if docker exec seller-txn-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec seller-txn-mongo mongosh --quiet --eval \
+            'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          for i in $(seq 1 30); do
+            if docker exec seller-txn-mongo mongosh --quiet \
+              'mongodb://127.0.0.1:27017/admin?replicaSet=rs0' \
+              --eval 'if (!db.hello().isWritablePrimary) quit(1)' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MongoDB replica set did not elect a primary" >&2
+          exit 1
+
+      - name: Install locked backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run seller transaction unit tests
+        working-directory: backend
+        run: node --test src/test/sellerConnectorContracts.test.js src/test/sellerChannelConnectionList.test.js src/test/sellerChannelRouteMount.test.js src/test/sellerChannelReadiness.test.js src/test/sellerChannelOrderProposal.test.js src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelLocationMappingProposal.test.js src/test/sellerChannelOrderStateInspection.test.js src/test/sellerChannelOrderLinkInspection.test.js src/test/sellerChannelOrderEvidence.test.js src/test/sellerChannelOrderLinkCsv.test.js src/test/sellerChannelLocationGuard.test.js src/test/sellerChannelInventoryCsv.test.js src/test/sellerChannelCommerceOwnership.test.js src/test/checkoutOrderOwnership.test.js src/test/optionalCheckoutTenantMiddleware.test.js src/test/sellerChannelCommerceOwnershipBatch.test.js src/test/sellerChannelOrderReviewTransition.test.js
+
+      - name: Run real seller transaction rollback acceptance
+        working-directory: backend
+        run: npm run seller:transaction-acceptance
+
+      - name: Remove isolated test MongoDB
+        if: always()
+        run: docker rm -f seller-txn-mongo || true

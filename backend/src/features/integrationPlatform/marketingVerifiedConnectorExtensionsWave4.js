@@ -33,6 +33,25 @@ export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4 = Object.freeze({
     ],
     scopes: ["advertising::campaign_management"],
   }),
+  ebay: Object.freeze({
+    key: "ebay",
+    label: "eBay Seller",
+    category: "Marketplace & commerce",
+    description: "Connect an eBay seller with OAuth user consent. Validate read access before marketplace operations.",
+    documentationUrl: "https://developer.ebay.com/develop/guides/sell/authorization",
+    fields: [
+      { key: "clientId", label: "eBay application client ID", required: true, secret: false, placeholder: "Your eBay application key" },
+      { key: "environment", label: "eBay API environment", required: true, secret: false, placeholder: "sandbox", help: "Use sandbox or production; their credentials and user tokens are distinct." },
+    ],
+    credentials: [
+      { key: "clientSecret", label: "eBay application client secret", role: "client_secret", required: true, secret: true },
+      { key: "refreshToken", label: "OAuth seller authorization refresh token", role: "refresh_token", required: true, secret: true },
+    ],
+    scopes: [
+      "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
+      "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
+    ],
+  }),
   amazon_seller_central: Object.freeze({
     key: "amazon_seller_central",
     label: "Amazon Seller Central (Amazon SP)",
@@ -42,6 +61,8 @@ export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4 = Object.freeze({
     fields: [
       { key: "clientId", label: "LWA client ID", required: true, secret: false, placeholder: "amzn1.application-oa2-client..." },
       { key: "region", label: "SP-API region", required: true, secret: false, placeholder: "EU", help: "Use NA, EU or FE." },
+      { key: "sellerId", label: "Seller account ID", required: true, secret: false, placeholder: "A1234567890" },
+      { key: "marketplaceId", label: "Marketplace ID", required: true, secret: false, placeholder: "A1F83G8C2ARO7P", help: "Use the marketplace identifier for the selected region." },
     ],
     credentials: [
       { key: "clientSecret", label: "LWA client secret", role: "client_secret", required: true, secret: true },

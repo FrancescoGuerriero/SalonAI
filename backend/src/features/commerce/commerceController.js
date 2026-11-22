@@ -141,7 +141,9 @@ export async function inventorySummary(req, res) {
 }
 
 export async function createCheckout(req, res) {
-  const result = await service.createCheckout(req.body, req.user);
+  const result = await service.createCheckout(req.body, req.user, {
+    tenantContext: req.tenantContext ?? null,
+  });
   const invoice =
     result?.payment?.status === "paid" && result?.order?._id
       ? await reconcileOrderInvoiceSafely(result.order._id)

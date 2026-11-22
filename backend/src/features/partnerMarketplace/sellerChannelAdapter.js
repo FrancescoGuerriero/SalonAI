@@ -1,0 +1,557 @@
+/**
+ * Amazon SP-API / eBay Sell read adapter.
+ * Read-only, tenant-scoped and network allowlisted. Never mutates canonical
+ * inventory, commerce, orders, marketplace apps or settlement records.
+ */
+import { createServiceError } from "../../shared/serviceError.js";
+import { resolveProviderCredential } from "../integrationPlatform/providerCredentialService.js";
+
+const AMAZON_ORIGINS = Object.freeze({
+  NA: "https://sellingpartnerapi-na.amazon.com",
+  EU: "https://sellingpartnerapi-eu.amazon.com",
+  FE: "https://sellingpartnerapi-fe.amazon.com",
+});
+const EBAY_ORIGINS = Object.freeze({
+  production: "https://api.ebay.com",
+  sandbox: "https://api.sandbox.ebay.com",
+});
+const EBAY_RETURN_STATE_FILTERS = Object.freeze([
+  "ALL_OPEN", "ALL_OPEN_RETURN", "CLOSED", "ITEM_DELIVERED",
+  "ITEM_SHIPPED", "RETURN_STARTED", "SELLER_ACTION_DUE",
+  "SELLER_ACTION_OVERDUE", "SELLER_NO_ACTION", "EBAY_PLUS",
+]);
+const MAX_RESULTS = 50;
+const MAX_PAGES = 5;
+const NETWORK_TIMEOUT_MS = 12000;
+const unsupported = (message, code = "SELLER_CHANNEL_NOT_CONFIGURED") =>
+  createServiceError(message, 409, { code });
+
+function required(value, name, maximumLength = 300) {
+  if (typeof value !== "string" || !value.trim() || value.length > maximumLength) {
+    throw unsupported(`Seller channel ${name} is not configured.`);
+  }
+  return value.trim();
+}
+function integer(value, fallback = 25) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, MAX_RESULTS) : fallback;
+}
+async function fetchJson(fetchImpl, url, init) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+  try {
+    const result = await fetchImpl(url, { ...init, redirect: "error", signal: controller.signal });
+    if (!result.ok) {
+      // Do not echo provider error bodies; these may contain personal data or tokens.
+      throw createServiceError(`Seller provider returned HTTP ${result.status}.`, result.status === 429 ? 429 : 502, {
+        code: "SELLER_CHANNEL_PROVIDER_ERROR", providerStatus: result.status,
+      });
+    }
+    const body = await result.json();
+    if (!body || typeof body !== "object") throw unsupported("Unexpected seller API response.", "SELLER_CHANNEL_BAD_RESPONSE");
+    return body;
+  } catch (error) {
+    if (error?.name === "AbortError") throw createServiceError("Seller provider timed out.", 504, {
+      code: "SELLER_CHANNEL_TIMEOUT",
+    });
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function secret(connection, role, getCredential) {
+  return required((await getCredential(connection, role)).secret, role, 30000);
+}
+async function amazonToken(connection, fetchImpl, getCredential) {
+  const clientId = required(connection.metadata?.clientId, "clientId");
+  const clientSecret = await secret(connection, "client_secret", getCredential);
+  const refreshToken = await secret(connection, "refresh_token", getCredential);
+  const token = await fetchJson(fetchImpl, "https://api.amazon.com/auth/o2/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token", client_id: clientId,
+      client_secret: clientSecret, refresh_token: refreshToken,
+    }).toString(),
+  });
+  return required(token.access_token, "accessToken", 30000);
+}
+async function ebayToken(connection, fetchImpl, getCredential) {
+  const clientId = required(connection.metadata?.clientId, "clientId");
+  const clientSecret = await secret(connection, "client_secret", getCredential);
+  const refreshToken = await secret(connection, "refresh_token", getCredential);
+  const env = connection.metadata?.environment || "production";
+  const origin = EBAY_ORIGINS[env];
+  if (!origin) throw unsupported("Unsupported eBay environment.");
+  const token = await fetchJson(fetchImpl, `${origin}/identity/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+    },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString(),
+  });
+  return { token: required(token.access_token, "accessToken", 30000), origin };
+}
+function amazonConfig(connection) {
+  const region = connection.metadata?.region || "EU";
+  const origin = AMAZON_ORIGINS[region];
+  if (!origin) throw unsupported("Unsupported Amazon SP-API region.");
+  const sellerId = required(connection.metadata?.sellerId, "sellerId");
+  const marketplaceId = required(connection.metadata?.marketplaceId, "marketplaceId");
+  return { origin, sellerId, marketplaceId };
+}
+function safeDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+function safeOrder(order, provider) {
+  if (provider === "amazon") return {
+    provider, externalOrderId: String(order.orderId || ""),
+    status: String(order.fulfillment?.fulfillmentStatus || ""),
+    placedAt: safeDate(order.createdTime),
+    total: order.proceeds?.grandTotal?.amount ?? null,
+    currency: order.proceeds?.grandTotal?.currencyCode ?? null,
+    fulfillmentStatus: order.fulfillment?.fulfillmentStatus || null,
+  };
+  return {
+    provider, externalOrderId: String(order.orderId || ""),
+    status: String(order.orderFulfillmentStatus || ""),
+    placedAt: safeDate(order.creationDate),
+    total: order.pricingSummary?.total?.value ?? null,
+    currency: order.pricingSummary?.total?.currency ?? null,
+    fulfillmentStatus: order.orderFulfillmentStatus || null,
+  };
+}
+function safeListing(item, provider) {
+  if (provider === "amazon") return {
+    provider, sku: String(item.sku || ""), externalListingId: item.asin || null,
+    status: Array.isArray(item.summaries) ? item.summaries[0]?.status || null : null,
+    quantity: null, // SP-API listings do not always expose sellable quantity.
+  };
+  return {
+    provider, sku: String(item.sku || ""), externalListingId: null,
+    status: null, quantity: item.availability?.shipToLocationAvailability?.quantity ?? null,
+  };
+}
+export async function fetchSellerChannelSnapshot(connection, kind, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
+  resumeCursor = null, includeResumeCursor = false,
+} = {}) {
+  const provider = String(connection?.provider || "").toLowerCase();
+  if (!["amazon_seller_central", "ebay"].includes(provider)) {
+    throw unsupported("Connection is not an Amazon Seller Central or eBay seller channel.");
+  }
+  if (!["listings", "orders", "fulfillments"].includes(kind)) {
+    throw unsupported("Unsupported read-only seller operation.");
+  }
+  const take = integer(limit);
+  // Resume cursors are server-owned, not accepted from API request parameters.
+  if (resumeCursor !== null && (
+    typeof resumeCursor !== "string" || !resumeCursor ||
+    resumeCursor.length > 4096 ||
+    (provider === "ebay" && !/^(0|[1-9][0-9]{0,7})$/.test(resumeCursor))
+  )) throw unsupported("Invalid saved seller cursor.", "SELLER_CHANNEL_PAGING_INVALID");
+  let url;
+  let headers;
+  if (provider === "amazon_seller_central") {
+    const config = amazonConfig(connection);
+    if (kind === "fulfillments") {
+      throw unsupported("Amazon fulfillment needs a separately authorised fulfillment API scope.",
+        "SELLER_CHANNEL_SCOPE_NOT_IMPLEMENTED");
+    }
+    const accessToken = await amazonToken(connection, fetchImpl, getCredential);
+    headers = { "x-amz-access-token": accessToken, accept: "application/json" };
+    url = new URL(kind === "listings"
+      ? `/listings/2021-08-01/items/${encodeURIComponent(config.sellerId)}`
+      : "/orders/2026-01-01/orders", config.origin);
+    if (kind === "listings") {
+      url.searchParams.set("marketplaceIds", config.marketplaceId);
+      url.searchParams.set("pageSize", String(Math.min(take, 20)));
+    } else {
+      url.searchParams.set("marketplaceIds", config.marketplaceId);
+      url.searchParams.set("createdAfter", new Date(Date.now() - 7 * 86400000).toISOString());
+      url.searchParams.set("maxResultsPerPage", String(take));
+      url.searchParams.set("includedData", "FULFILLMENT,PROCEEDS");
+    }
+    if (resumeCursor !== null) {
+      url.searchParams.set(kind === "listings" ? "pageToken" : "paginationToken", resumeCursor);
+      if (kind === "orders") url.searchParams.delete("createdAfter");
+    }
+  } else {
+    const ebay = await ebayToken(connection, fetchImpl, getCredential);
+    headers = { authorization: `Bearer ${ebay.token}`, accept: "application/json" };
+    url = new URL(kind === "listings"
+      ? "/sell/inventory/v1/inventory_item"
+      : "/sell/fulfillment/v1/order", ebay.origin);
+    url.searchParams.set("limit", String(take));
+    url.searchParams.set("offset", resumeCursor || "0");
+  }
+  // Follow provider paging internally, never accept arbitrary external URLs.
+  // Cap both count and pages to bound API traffic and staging writes.
+  const normalized = [];
+  const seenCursors = new Set();
+  let pageCount = 0;
+  let nextPageAvailable = false;
+  let cursorForNextRun = null;
+  while (normalized.length < take && pageCount < MAX_PAGES) {
+    if (provider === "amazon_seller_central") {
+      url.searchParams.set(kind === "listings" ? "pageSize" : "maxResultsPerPage",
+        String(Math.min(take - normalized.length, kind === "listings" ? 20 : 50)));
+    } else {
+      url.searchParams.set("limit", String(take - normalized.length));
+    }
+    const response = await fetchJson(fetchImpl, url.toString(), { method: "GET", headers });
+    const items = provider === "amazon_seller_central"
+      ? kind === "listings" ? response.items : response.orders
+      : kind === "listings" ? response.inventoryItems : response.orders;
+    if (!Array.isArray(items)) {
+      throw unsupported("Unexpected seller result shape.", "SELLER_CHANNEL_BAD_RESPONSE");
+    }
+    for (const item of items.slice(0, take - normalized.length)) {
+      // No buyer info, addresses, payment identifiers or raw provider payloads.
+      const record = kind === "listings"
+        ? safeListing(item, provider === "amazon_seller_central" ? "amazon" : "ebay")
+        : safeOrder(item, provider === "amazon_seller_central" ? "amazon" : "ebay");
+      const identity = kind === "listings" ? record.sku : record.externalOrderId;
+      if (!identity.trim() || identity.length > 200) {
+        throw unsupported("Seller provider record has an invalid identifier.",
+          "SELLER_CHANNEL_SOURCE_ID_INVALID");
+      }
+      if (normalized.some((previous) =>
+        (kind === "listings" ? previous.sku : previous.externalOrderId) === identity)) {
+        throw unsupported("Seller provider repeated a source identifier across pages.",
+          "SELLER_CHANNEL_SOURCE_ID_DUPLICATE");
+      }
+      normalized.push(record);
+    }
+    pageCount += 1;
+    let nextCursor = null;
+    if (provider === "amazon_seller_central") {
+      nextCursor = response.pagination?.nextToken || response.nextToken || null;
+    } else if (kind === "listings" && typeof response.total === "number") {
+      const offset = Number(url.searchParams.get("offset") || "0") + items.length;
+      nextCursor = offset < response.total && items.length ? String(offset) : null;
+    } else if (typeof response.next === "string" && response.next) {
+      // eBay next can be a URL; do not fetch it or trust its host/query.
+      // Extract only the numeric offset and keep the fixed allowlisted endpoint.
+      const next = new URL(response.next, url.origin);
+      if (next.origin !== url.origin || next.pathname !== url.pathname) {
+        throw unsupported("Seller provider returned an unsafe pagination URL.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+      nextCursor = next.searchParams.get("offset");
+      if (!/^[0-9]{1,8}$/.test(nextCursor || "")) {
+        throw unsupported("Seller provider returned an invalid offset.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+    }
+    if (!nextCursor) {
+      nextPageAvailable = false;
+      cursorForNextRun = null;
+      break;
+    }
+    if (seenCursors.has(nextCursor)) {
+      throw unsupported("Seller provider repeated pagination cursor.", "SELLER_CHANNEL_PAGING_INVALID");
+    }
+    seenCursors.add(nextCursor);
+    cursorForNextRun = nextCursor;
+    nextPageAvailable = true;
+    if (provider === "amazon_seller_central") {
+      if (typeof nextCursor !== "string" || nextCursor.length > 4096) {
+        throw unsupported("Seller provider returned an invalid pagination token.", "SELLER_CHANNEL_PAGING_INVALID");
+      }
+      url.searchParams.set(kind === "listings" ? "pageToken" : "paginationToken", nextCursor);
+      if (kind === "orders") url.searchParams.delete("createdAfter");
+    } else {
+      url.searchParams.set("offset", nextCursor);
+    }
+  }
+  return Object.freeze({
+    provider, kind, source: "read_only_provider_snapshot", records: normalized,
+    recordCount: normalized.length, pagesFetched: pageCount, nextPageAvailable,
+    completeWithinLimit: !nextPageAvailable,
+    ...(includeResumeCursor ? { internalResumeCursor: nextPageAvailable ? cursorForNextRun : null } : {}),
+    canonicalRecordsWritten: 0, ordersFulfilled: 0, returnsProcessed: 0,
+    publicationEnabled: false,
+  });
+}
+
+/**
+ * eBay shipping labels / package status are read separately from order lists.
+ * No carrier booking, shipment creation, refund or tracking mutation is made.
+ */
+export async function fetchEbayShippingFulfillments(connection, orderId, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+} = {}) {
+  if (connection?.provider !== "ebay") {
+    throw unsupported("Shipping fulfillment detail requires an eBay seller connection.");
+  }
+  const identifier = required(orderId, "orderId");
+  if (identifier.length > 120 || !/^[a-zA-Z0-9!_.-]+$/.test(identifier)) {
+    throw unsupported("Invalid eBay order identifier.", "SELLER_CHANNEL_INVALID_ORDER_ID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL(`/sell/fulfillment/v1/order/${encodeURIComponent(identifier)}/shipping_fulfillment`, origin);
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+  });
+  if (!Array.isArray(body.fulfillments) || body.fulfillments.length > MAX_RESULTS) {
+    // Never label a silently truncated fulfilment list as a complete record.
+    throw unsupported("Unexpected or unbounded eBay shipping fulfillment response.",
+      "SELLER_CHANNEL_BAD_RESPONSE");
+  }
+  const fulfillmentIds = new Set();
+  const records = body.fulfillments.map((item) => {
+    const fulfillmentId = item?.fulfillmentId;
+    if (typeof fulfillmentId !== "string" || !fulfillmentId.trim() ||
+        fulfillmentId.length > 200) {
+      throw unsupported("eBay shipping fulfillment identifier is invalid.",
+        "SELLER_CHANNEL_FULFILLMENT_ID_INVALID");
+    }
+    if (fulfillmentIds.has(fulfillmentId)) {
+      throw unsupported("eBay repeated a shipping fulfillment identifier.",
+        "SELLER_CHANNEL_FULFILLMENT_ID_DUPLICATE");
+    }
+    fulfillmentIds.add(fulfillmentId);
+    return Object.freeze({
+      fulfillmentId,
+      shippedDate: safeDate(item.shippedDate),
+      carrierCode: item.shippingCarrierCode || null,
+      trackingNumber: item.shipmentTrackingNumber || null,
+    });
+  });
+  return Object.freeze({
+    provider: "ebay", kind: "shipping_fulfillments", source: "read_only_provider_snapshot",
+    externalOrderId: identifier,
+    records: Object.freeze(records),
+    canonicalRecordsWritten: 0, shippingUpdatesPosted: 0, refundsProcessed: 0,
+  });
+}
+
+/**
+ * Read-only eBay Post-Order returns lookup. Production-only per eBay's API
+ * contract; never submits a return decision, refund or shipping update.
+ * The response intentionally excludes usernames, messages and addresses.
+ */
+export async function fetchEbayReturnStatuses(connection, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential, limit = 25,
+  offset = 0, orderId = null, returnState = "ALL_OPEN",
+} = {}) {
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("eBay return searches require a production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const take = Number(limit);
+  if (!Number.isInteger(take) || take < 1 || take > MAX_RESULTS) {
+    throw unsupported("Invalid eBay returns result limit.", "SELLER_RETURNS_LIMIT_INVALID");
+  }
+  const skip = Number(offset);
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > 100000) {
+    throw unsupported("Invalid eBay returns offset.", "SELLER_RETURNS_OFFSET_INVALID");
+  }
+  if (orderId !== null && (
+    typeof orderId !== "string" || !/^[a-zA-Z0-9!_.-]{1,120}$/.test(orderId)
+  )) {
+    throw unsupported("Invalid eBay returns order filter.", "SELLER_RETURNS_ORDER_ID_INVALID");
+  }
+  if (typeof returnState !== "string" ||
+      !EBAY_RETURN_STATE_FILTERS.includes(returnState)) {
+    throw unsupported("Unsupported eBay returns state filter.",
+      "SELLER_RETURNS_STATE_INVALID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL("/post-order/v2/return/search", origin);
+  url.searchParams.set("limit", String(take));
+  url.searchParams.set("offset", String(skip));
+  if (orderId !== null) url.searchParams.set("order_id", orderId);
+  url.searchParams.set("return_state", returnState);
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: {
+      authorization: `Bearer ${token}`, accept: "application/json",
+    },
+  });
+  if (!Array.isArray(body.members) || body.members.length > take) {
+    throw unsupported("Unexpected eBay return search response.", "SELLER_RETURNS_BAD_RESPONSE");
+  }
+  const seen = new Set();
+  const records = body.members.map((member) => {
+    const id = member?.returnId;
+    if (typeof id !== "string" || !id.trim() || id.length > 200 ||
+        seen.has(id)) {
+      throw unsupported("Invalid or repeated eBay return identifier.",
+        "SELLER_RETURNS_ID_INVALID");
+    }
+    seen.add(id);
+    return Object.freeze({
+      returnId: id,
+      externalOrderId: typeof member.orderId === "string" ?
+        member.orderId.slice(0, 200) : null,
+      state: typeof member.state === "string" ? member.state.slice(0, 120) : null,
+      status: typeof member.status === "string" ? member.status.slice(0, 120) : null,
+    });
+  });
+  // The provider may omit paginationOutput; a full page is then ambiguous.
+  // Never advance by untrusted URLs or claim completion without evidence.
+  const pagination = body.paginationOutput;
+  const totalEntries = pagination?.totalEntries == null ? null : Number(pagination.totalEntries);
+  if (totalEntries !== null && (!Number.isSafeInteger(totalEntries) || totalEntries < 0 ||
+      totalEntries < skip + records.length)) {
+    throw unsupported("Inconsistent eBay returns pagination evidence.",
+      "SELLER_RETURNS_PAGING_INVALID");
+  }
+  const remaining = totalEntries !== null ? skip + records.length < totalEntries :
+    records.length === take;
+  if (remaining && records.length === 0) {
+    throw unsupported("eBay returns pagination made no progress.",
+      "SELLER_RETURNS_PAGING_INVALID");
+  }
+  const nextOffset = remaining && records.length ? skip + records.length : null;
+  return Object.freeze({
+    provider: "ebay", kind: "returns",
+    source: "read_only_provider_snapshot",
+    records: Object.freeze(records),
+    inspectedCount: records.length,
+    offset: skip,
+    orderIdFilter: orderId,
+    returnStateFilter: returnState,
+    nextOffset,
+    nextPageAvailable: remaining,
+    completeWithinLimit: !remaining,
+    refundsIssued: 0, returnsProcessed: 0, canonicalRecordsWritten: 0,
+    productionAccepted: false,
+  });
+}
+
+/**
+ * Fetch one eBay Post-Order return summary without exposing raw buyer,
+ * address, refund/payment or message fields. No return actions are enabled.
+ */
+export async function fetchEbayReturnDetail(connection, returnId, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+} = {}) {
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("eBay return details require a production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  if (typeof returnId !== "string" ||
+      !/^[a-zA-Z0-9!_.-]{1,120}$/.test(returnId)) {
+    throw unsupported("Invalid eBay return identifier.",
+      "SELLER_RETURNS_ID_INVALID");
+  }
+  const { token, origin } = await ebayToken(connection, fetchImpl, getCredential);
+  const url = new URL(`/post-order/v2/return/${encodeURIComponent(returnId)}`, origin);
+  const body = await fetchJson(fetchImpl, url.toString(), {
+    method: "GET", headers: {
+      authorization: `Bearer ${token}`, accept: "application/json",
+    },
+  });
+  const summary = body.summary;
+  if (!summary || typeof summary !== "object" ||
+      String(summary.returnId || "") !== returnId) {
+    throw unsupported("eBay return detail identity mismatch.",
+      "SELLER_RETURNS_DETAIL_INVALID");
+  }
+  const record = Object.freeze({
+    returnId,
+    externalOrderId: typeof summary.orderId === "string" ?
+      summary.orderId.slice(0, 200) : null,
+    state: typeof summary.state === "string" ? summary.state.slice(0, 120) : null,
+    status: typeof summary.status === "string" ? summary.status.slice(0, 120) : null,
+  });
+  return Object.freeze({
+    provider: "ebay", kind: "return_detail", source: "read_only_provider_snapshot",
+    record, refundsIssued: 0, returnsProcessed: 0,
+    canonicalRecordsWritten: 0, productionAccepted: false,
+  });
+}
+
+/**
+ * Bounded returns review: collect up to three pages / fifty source records.
+ * No write operations, stored cursors, provider URLs or raw buyer data.
+ */
+export async function fetchEbayReturnReviewBatch(connection, {
+  fetchImpl = fetch, getCredential = resolveProviderCredential,
+  limit = 25, offset = 0, orderId = null, returnState = "ALL_OPEN",
+  maxPages = 3,
+  readPage = fetchEbayReturnStatuses,
+} = {}) {
+  const pages = Number(maxPages);
+  if (!Number.isInteger(pages) || pages < 1 || pages > 3) {
+    throw unsupported("Invalid eBay returns review page count.",
+      "SELLER_RETURNS_PAGES_INVALID");
+  }
+  // Validate request dimensions before issuing the first provider read.
+  const take = Number(limit);
+  const skip = Number(offset);
+  if (!Number.isInteger(take) || take < 1 || take > MAX_RESULTS ||
+      !Number.isSafeInteger(skip) || skip < 0 || skip > 100000 ||
+      (orderId !== null && (typeof orderId !== "string" ||
+        !/^[a-zA-Z0-9!_.-]{1,120}$/.test(orderId))) ||
+      !EBAY_RETURN_STATE_FILTERS.includes(returnState)) {
+    throw unsupported("Invalid eBay returns review request.",
+      "SELLER_RETURNS_REVIEW_INVALID");
+  }
+  if (connection?.provider !== "ebay" ||
+      connection?.metadata?.environment !== "production") {
+    throw unsupported("Returns review requires an eBay production seller connection.",
+      "SELLER_RETURNS_PRODUCTION_ONLY");
+  }
+  const records = [];
+  const seen = new Set();
+  let cursor = skip;
+  let last = null;
+  let fetched = 0;
+  while (fetched < pages && records.length < MAX_RESULTS) {
+    const page = await readPage(connection, {
+      fetchImpl, getCredential, limit: Math.min(take, MAX_RESULTS - records.length),
+      offset: cursor, orderId, returnState,
+    });
+    if (page?.provider !== "ebay" || page?.kind !== "returns" ||
+        page?.offset !== cursor || !Array.isArray(page.records) ||
+        page.records.length > Math.min(take, MAX_RESULTS - records.length) ||
+        page.orderIdFilter !== orderId || page.returnStateFilter !== returnState) {
+      throw unsupported("Inconsistent eBay returns review page.",
+        "SELLER_RETURNS_REVIEW_PAGE_INVALID");
+    }
+    for (const record of page.records) {
+      if (typeof record?.returnId !== "string" || !record.returnId ||
+          seen.has(record.returnId)) {
+        throw unsupported("Duplicate or invalid return in review pages.",
+          "SELLER_RETURNS_REVIEW_DUPLICATE");
+      }
+      seen.add(record.returnId);
+      records.push(Object.freeze({
+        returnId: record.returnId,
+        externalOrderId: record.externalOrderId ?? null,
+        state: record.state ?? null,
+        status: record.status ?? null,
+      }));
+    }
+    fetched += 1;
+    last = page;
+    if (!page.nextPageAvailable) break;
+    if (!Number.isSafeInteger(page.nextOffset) ||
+        page.nextOffset <= cursor || page.nextOffset > 100000 ||
+        page.records.length === 0) {
+      throw unsupported("eBay returns review pagination did not advance.",
+        "SELLER_RETURNS_PAGING_INVALID");
+    }
+    cursor = page.nextOffset;
+  }
+  const hasMore = last?.nextPageAvailable === true;
+  return Object.freeze({
+    provider: "ebay", kind: "returns_review",
+    source: "read_only_provider_snapshot",
+    records: Object.freeze(records),
+    inspectedCount: records.length, pagesFetched: fetched,
+    orderIdFilter: orderId, returnStateFilter: returnState,
+    nextOffset: hasMore ? last.nextOffset : null,
+    nextPageAvailable: hasMore,
+    completeWithinLimit: !hasMore,
+    refundsIssued: 0, returnsProcessed: 0,
+    canonicalRecordsWritten: 0, productionAccepted: false,
+  });
+}
