@@ -18,6 +18,7 @@ import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwne
 import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershipBatch.js";
 import { transitionSellerOrderReview } from "./sellerChannelOrderReviewTransition.js";
 import { proposeSellerCommerceOrderLink } from "./sellerChannelOrderProposal.js";
+import { inspectSellerConnectionReadiness } from "./sellerChannelReadiness.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -61,6 +62,18 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     productionAccepted: false,
   });
 });
+
+// Explicit merchant-triggered, bounded live API diagnostic. Read-only.
+router.post("/:connectionId/diagnose", requirePermissions("feature-control:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await inspectSellerConnectionReadiness(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
 
 // Operational visibility only: no provider calls or cursor/lease-owner exposure.
 router.get("/:connectionId/import-status", requirePermissions("feature-control:read"),
