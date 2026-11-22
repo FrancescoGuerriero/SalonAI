@@ -42,6 +42,8 @@ export const VERIFIED_MARKETING_CONNECTOR_EXTENSIONS_WAVE4 = Object.freeze({
     fields: [
       { key: "clientId", label: "LWA client ID", required: true, secret: false, placeholder: "amzn1.application-oa2-client..." },
       { key: "region", label: "SP-API region", required: true, secret: false, placeholder: "EU", help: "Use NA, EU or FE." },
+      { key: "sellerId", label: "Seller account ID", required: true, secret: false, placeholder: "A1234567890" },
+      { key: "marketplaceId", label: "Marketplace ID", required: true, secret: false, placeholder: "A1F83G8C2ARO7P", help: "Use the marketplace identifier for the selected region." },
     ],
     credentials: [
       { key: "clientSecret", label: "LWA client secret", role: "client_secret", required: true, secret: true },
