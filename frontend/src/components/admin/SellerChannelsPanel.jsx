@@ -231,6 +231,13 @@ export default function SellerChannelsPanel() {
                 {row.sku || "Missing SKU"}: {label(row.state)}
                 {row.marketplaceQuantity != null ? ` (provider quantity observed: ${row.marketplaceQuantity})` : ""}
                 {row.quantityComparisonAccepted === false ? " — not reconciled" : ""}
+                {canProposeMapping && row.externalId ? (
+                  <button type="button" disabled={!!busy}
+                    className="ml-2 rounded-lg border border-black/20 px-2 py-1 text-xs disabled:opacity-50"
+                    onClick={() => setMappingListingId(row.externalId)}>
+                    Use staged listing for proposal
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
