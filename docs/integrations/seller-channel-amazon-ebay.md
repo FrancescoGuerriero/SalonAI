@@ -62,6 +62,20 @@ with representative accounts. Amazon order reads use the current Orders API v202
 Do not activate production or enable external writes based on green unit
 tests alone.
 
+
+## Unverified marketplace-to-Commerce location proposals
+
+The existing Partner Marketplace panel now supports **explicit operator location-candidate proposals**.
+The isolated seller API exposes:
+- `GET /api/future/seller-channels/:connectionId/location-mapping-proposals?limit=25` for scoped, credential-free candidate review;
+- `POST /api/future/seller-channels/:connectionId/location-mapping-proposals` with `externalListingId`, `commerceProductId`, and `commerceLocationId` supplied by the authorised operator. The location must be active and owned by the trusted business; the product must be owned by the same business/location and have the staged listing SKU.
+
+The read endpoint requires `inventory:read`, `product:read`, and business-wide location authority. The proposal endpoint additionally requires `feature-control:update`. Both use the existing authenticated, effective-tenant middleware. A real replica-set transaction creates a `SellerChannelLocationMappingProposal` and matching `AuditLog` or rolls both back. A unique index on `(business, connection, externalListingId)` must be deployed. Duplicate candidates are refused, not silently overwritten.
+
+**Important:** The proposal has only `pending_provider_location_evidence` status. Existing normalized Amazon/eBay listing snapshots do not prove the physical or fulfilment-stock source location. An operator-entered Commerce location does not supply that proof. The proposal is **never consumed by inventory reconciliation or publication**, and no approved/revoked mapping state is available. The API returns `locationMappingVerified:false`, `quantityComparisonAccepted:false`, `providerWritesEnabled:false`, and zero canonical/stock writes.
+
+Before any comparison could be accepted, DEV 1 must separately obtain provider-authorised location evidence, define single-vs-aggregated location semantics, check for source/Commerce staleness, implement an independently reviewed approval and revocation lifecycle, and validate index/transaction rollout and merchant acceptance. Do not use proposed mappings as an alternative route to bypass the current `marketplace_location_mapping_required` safeguard.
+
 ## Official documentation
 - https://developer-docs.amazon/sp-api/docs/connecting-to-the-selling-partner-api
 - https://developer-docs.amazon/sp-api/lang-en_us/reference/searchorders
