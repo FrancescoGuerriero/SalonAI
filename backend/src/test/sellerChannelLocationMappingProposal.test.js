@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import {
   proposeSellerLocationMapping, listSellerLocationMappingProposals,
+  withdrawSellerLocationMappingProposal,
 } from "../features/partnerMarketplace/sellerChannelLocationMappingProposal.js";
 
 const businessId = "507f1f77bcf86cd799439021";
@@ -226,12 +227,141 @@ test("invalid proposed mapping evidence fails closed on list reads", async () =>
   }
 });
 
+function withdrawFixture({ row, error = null, auditError = null } = {}) {
+  const queries = [];
+  const audited = [];
+  let ended = 0;
+  const output = row === undefined ? {
+    _id: proposalId, business: businessId, connection: connectionId,
+    provider: "ebay", externalListingId: "SOURCE-SKU",
+    evidenceSource: "operator_candidate", reviewStatus: "withdrawn",
+    withdrawnBy: actorId, withdrawalReason: "source_changed",
+  } : row;
+  return {
+    queries, audited, get ended() { return ended; },
+    proposalModel: { findOneAndUpdate: (filter, update, options) => {
+      queries.push({ filter, update, options });
+      return { lean: async () => {
+        if (error) throw error;
+        return output;
+      } };
+    } },
+    auditModel: { create: async (records, { session }) => {
+      assert.ok(session);
+      if (auditError) throw auditError;
+      audited.push(...records);
+    } },
+    startSession: async () => ({
+      withTransaction: (work) => work(),
+      endSession: async () => { ended++; },
+    }),
+  };
+}
+
+test("operator can terminally withdraw a pending mapping candidate with atomic audit", async () => {
+  const f = withdrawFixture();
+  const report = await withdrawSellerLocationMappingProposal(connection, {
+    businessId, locationAccessMode: "all", actorId,
+    externalListingId: "SOURCE-SKU", reason: "source_changed", ...f,
+  });
+  assert.equal(f.queries.length, 1);
+  assert.equal(f.queries[0].filter.business, businessId);
+  assert.equal(f.queries[0].filter.connection, connectionId);
+  assert.equal(f.queries[0].filter.provider, "ebay");
+  assert.equal(f.queries[0].filter.reviewStatus, "pending_provider_location_evidence");
+  assert.equal(f.queries[0].update.$set.reviewStatus, "withdrawn");
+  assert.equal(f.queries[0].options.runValidators, true);
+  assert.ok(f.queries[0].options.session);
+  assert.equal(f.audited.length, 1);
+  assert.equal(f.audited[0].action, "seller_location_mapping_withdrawn");
+  assert.equal(f.audited[0].before.reviewStatus, "pending_provider_location_evidence");
+  assert.equal(report.reviewStatus, "withdrawn");
+  assert.equal(report.quantityComparisonAccepted, false);
+  assert.equal(report.canonicalRecordsWritten, 0);
+  assert.equal(report.stockUpdatesApplied, 0);
+  assert.equal(report.providerWritesEnabled, false);
+  assert.equal(f.ended, 1);
+});
+
+test("withdrawal rejects invalid authority, identity, reason and arbitrary content before session", async () => {
+  for (const [conn, options] of [
+    [connection, { businessId: foreign }],
+    [connection, { locationAccessMode: "selected" }],
+    [{ ...connection, status: "revoked" }, {}],
+    [{ ...connection, provider: "stripe" }, {}],
+    [connection, { actorId: "invalid" }],
+    [connection, { reason: "approved" }],
+    [connection, { reason: "" }],
+    [connection, { externalListingId: "\r\n=HYPERLINK(1)" }],
+    [connection, { requestId: "x".repeat(121) }],
+  ]) {
+    const f = withdrawFixture();
+    await assert.rejects(withdrawSellerLocationMappingProposal(conn, {
+      businessId, locationAccessMode: "all", actorId, externalListingId: "SOURCE-SKU",
+      reason: "source_changed", ...options, ...f,
+    }));
+    assert.equal(f.queries.length, 0);
+  }
+});
+
+test("withdrawal refuses stale, missing or inconsistent conditional updates without audit", async () => {
+  const valid = withdrawFixture().proposalModel;
+  assert.ok(valid);
+  for (const row of [
+    null, { _id: proposalId, business: foreign, connection: connectionId,
+      provider: "ebay", externalListingId: "SOURCE-SKU",
+      evidenceSource: "operator_candidate", reviewStatus: "withdrawn",
+      withdrawnBy: actorId, withdrawalReason: "source_changed" },
+    { _id: proposalId, business: businessId, connection: connectionId,
+      provider: "ebay", externalListingId: "SOURCE-SKU",
+      evidenceSource: "operator_candidate", reviewStatus: "approved",
+      withdrawnBy: actorId, withdrawalReason: "source_changed" },
+  ]) {
+    const f = withdrawFixture({ row });
+    await assert.rejects(withdrawSellerLocationMappingProposal(connection, {
+      businessId, locationAccessMode: "all", actorId, externalListingId: "SOURCE-SKU",
+      reason: "source_changed", ...f,
+    }), (e) => e.details?.code === "SELLER_LOCATION_WITHDRAW_CONFLICT");
+    assert.equal(f.audited.length, 0);
+    assert.equal(f.ended, 1);
+  }
+  const f = withdrawFixture({ auditError: new Error("injected-audit-failure") });
+  await assert.rejects(withdrawSellerLocationMappingProposal(connection, {
+    businessId, locationAccessMode: "all", actorId,
+    externalListingId: "SOURCE-SKU", reason: "source_changed", ...f,
+  }), /injected-audit-failure/);
+  assert.equal(f.ended, 1);
+});
+
+test("withdrawn location candidates remain unapproved and visible in scoped review", async () => {
+  const queryModel = { find: () => ({
+    select: () => ({ sort: () => ({ limit: () => ({ lean: async () => [{
+      business: businessId, connection: connectionId, provider: "ebay",
+      externalListingId: "SOURCE-SKU", sourceSku: "SKU-01",
+      commerceProduct: productId, commerceLocation: locationId,
+      reviewStatus: "withdrawn", evidenceSource: "operator_candidate",
+      withdrawalReason: "source_changed", withdrawnBy: actorId,
+      withdrawnAt: new Date("2026-11-22T18:00:00Z"),
+    }] }) }) }),
+  }) };
+  const report = await listSellerLocationMappingProposals(connection, {
+    businessId, locationAccessMode: "all", proposalModel: queryModel,
+  });
+  assert.equal(report.records[0].reviewStatus, "withdrawn");
+  assert.equal(report.records[0].withdrawalReason, "source_changed");
+  assert.equal(report.records[0].withdrawnAt, "2026-11-22T18:00:00.000Z");
+  assert.equal(report.records[0].locationMappingVerified, false);
+  assert.equal(report.records[0].quantityComparisonAccepted, false);
+});
+
 test("seller location proposal routes enforce all permissions and forbid stock operations", async () => {
   const routes = await readFile(new URL(
     "../features/partnerMarketplace/sellerChannelRoutes.js", import.meta.url), "utf8");
   const service = await readFile(new URL(
     "../features/partnerMarketplace/sellerChannelLocationMappingProposal.js", import.meta.url), "utf8");
   assert.match(routes, /router\.post\("\/:connectionId\/location-mapping-proposals"/);
+  assert.match(routes, /location-mapping-proposals\/:externalListingId\/withdraw/);
+  assert.match(routes, /withdrawSellerLocationMappingProposal/);
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
   assert.match(routes, /requirePermissions\("inventory:read"\)/);
   assert.match(routes, /requirePermissions\("product:read"\)/);
