@@ -7,6 +7,7 @@ import { inspectSellerChannelOrderStates } from "../features/partnerMarketplace/
 import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
 import { inspectSellerCommerceOrderOwnership } from "../features/partnerMarketplace/sellerChannelCommerceOwnership.js";
 import { transitionSellerOrderReview } from "../features/partnerMarketplace/sellerChannelOrderReviewTransition.js";
+import { proposeSellerCommerceOrderLink } from "../features/partnerMarketplace/sellerChannelOrderProposal.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -616,6 +617,79 @@ test("real MongoDB seller review hold and audit are atomic, including failed aud
     assert.equal((await links.findOne({ externalOrderId: "EB-100" })).verificationStatus,
       "pending_verification");
     assert.equal(await db.db.collection("orders").countDocuments({}), 0);
+  } finally {
+    for (const name of names) {
+      await db.dropCollection(name).catch((error) => {
+        if (error.codeName !== "NamespaceNotFound") throw error;
+      });
+    }
+    await db.close();
+  }
+});
+
+
+test("real MongoDB seller proposal is atomic, rejects duplicate references and rolls back failed audit", {
+  skip: !URI ? "Requires isolated loopback MongoDB replica set" : false,
+  timeout: 45000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const prefix = "seller_proposal_accept_" + randomUUID().replaceAll("-", "");
+  const names = ["staged", "orders", "links", "audit"].map((name) => prefix + "_" + name);
+  const businessId = new mongoose.Types.ObjectId();
+  const connectionId = new mongoose.Types.ObjectId();
+  const actorId = new mongoose.Types.ObjectId();
+  const orderId = new mongoose.Types.ObjectId();
+  const conn = { _id: connectionId, business: businessId, status: "connected",
+    provider: "ebay" };
+  try {
+    for (const name of names) await db.createCollection(name);
+    const [staged, orders, links, audits] = names.map((name) => db.db.collection(name));
+    await links.createIndex({ business: 1, connection: 1, externalOrderId: 1 },
+      { unique: true });
+    await links.createIndex({ business: 1, commerceOrder: 1 }, { unique: true });
+    await staged.insertOne({ business: businessId, connection: connectionId,
+      provider: "ebay", kind: "orders", externalId: "EB-100" });
+    await orders.insertOne({ _id: orderId, business: businessId });
+    const read = (collection) => ({ findOne: (query) => ({
+      session: (session) => ({ select: () => ({
+        lean: () => collection.findOne(query, { session }),
+      }) }),
+    }) });
+    const linkModel = {
+      ...read(links),
+      create: (docs, { session }) => links.insertMany(docs, { session }).then(
+        (result) => docs.map((doc, i) => ({ _id: result.insertedIds[i], ...doc }))),
+    };
+    let auditFailure = false;
+    const auditModel = { create: (rows, { session }) => {
+      if (auditFailure) throw new Error("injected-proposal-audit-failure");
+      return audits.insertMany(rows, { session });
+    } };
+    const options = {
+      businessId, locationAccessMode: "all", actorId, commerceOrderId: orderId,
+      stagedModel: read(staged), orderModel: read(orders),
+      linkModel, auditModel, startSession: () => db.startSession(),
+    };
+    auditFailure = true;
+    await assert.rejects(proposeSellerCommerceOrderLink(conn, "EB-100", options),
+      /injected-proposal-audit-failure/);
+    assert.equal(await links.countDocuments({}), 0);
+    assert.equal(await audits.countDocuments({}), 0);
+    auditFailure = false;
+    const created = await proposeSellerCommerceOrderLink(conn, "EB-100", options);
+    assert.equal(created.reviewStatus, "pending_verification");
+    assert.equal(created.associationApproved, false);
+    assert.equal(await links.countDocuments({}), 1);
+    assert.equal(await audits.countDocuments({}), 1);
+    await assert.rejects(proposeSellerCommerceOrderLink(conn, "EB-100", options),
+      (error) => error.details?.code === "SELLER_PROPOSAL_CONFLICT");
+    assert.equal(await links.countDocuments({}), 1);
+    assert.equal(await audits.countDocuments({}), 1);
+    assert.equal(await orders.countDocuments({}), 1);
   } finally {
     for (const name of names) {
       await db.dropCollection(name).catch((error) => {
