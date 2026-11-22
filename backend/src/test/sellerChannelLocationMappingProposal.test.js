@@ -238,4 +238,13 @@ test("seller location proposal routes enforce all permissions and forbid stock o
   assert.match(routes, /requireSellerTenantWideLocation/);
   assert.match(service, /withSellerAtomicSourceCommit/);
   assert.doesNotMatch(service, /\.bulkWrite\(|\.updateOne\(|\.save\(/);
+  const [api, panel] = await Promise.all([
+    readFile(new URL("../../../frontend/src/Services/sellerChannelApi.js", import.meta.url), "utf8"),
+    readFile(new URL("../../../frontend/src/components/admin/SellerChannelsPanel.jsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(api, /listSellerLocationMappingCandidates/);
+  assert.match(api, /proposeSellerLocationMappingCandidate/);
+  assert.match(panel, /canProposeMapping = canStage && canReadMappings/);
+  assert.match(panel, /Save pending mapping candidate \(no stock changes\)/);
+  assert.match(panel, /Provider location and stock remain unverified/);
 });
