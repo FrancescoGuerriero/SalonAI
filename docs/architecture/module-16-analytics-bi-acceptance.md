@@ -42,6 +42,22 @@ The same acceptance suite serves an isolated HTTP endpoint using the **productio
 
 All results remain deterministic and non-PII. This is database-backed acceptance, **not deployment evidence**.
 
+### Real authentication, persisted tenancy and role enforcement
+
+A second isolated real-Mongo test mounts the **actual canonical `premiumAnalyticsRoutes`** rather than a replacement route. The unmodified production middlewares verify a signed access JWT against the persisted User, resolve the request hostname against active BusinessDomain/Business records, verify active BusinessMembership ownership and location grants, resolve built-in role permissions, and then call the canonical management BI controller.
+
+The test seeds separate authenticated users, two businesses and their active domains, a deliberately suspended cross-business membership, distinct location-limited memberships, an unprivileged receptionist, inactive user, suspended membership, and unowned legacy appointment facts. It checks the following real HTTP behaviours:
+
+- Valid signed token + active tenant A admin membership returns only the permitted A location.
+- Tenant B admin returns only B metrics and cannot access tenant A through foreign Host selection.
+- Changing the Host to B with only a suspended B membership is denied.
+- `x-forwarded-host`, arbitrary tenant headers and query-based business/location IDs cannot override a server-resolved host and persisted membership.
+- Receptionist lacking the effective BI permission is refused. Disabled users, suspended memberships, malformed tokens and unknown/disabled domains are refused.
+- Root legacy Premium Analytics remains HTTP 410 with no unscoped aggregates.
+
+**Test scope:** The test uses actual JWT verification, persisted DB membership and role resolution, domain-host selection and the production premium route middleware chain. It mounts the route in a minimal isolated Express harness (instead of the full application `requireFeature` mount); live reverse-proxy deployment, tenant entitlement and subscription enforcement remain separately unverified. Test tokens are signed only with the CI environment's configured test secret; no actual user credentials or production accounts are used.
+
+
 ## Next Module 16 acceptance stages
 
 A. Confirm source-integrity and all existing CI checks.
