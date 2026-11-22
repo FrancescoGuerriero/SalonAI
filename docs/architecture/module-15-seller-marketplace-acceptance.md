@@ -6,7 +6,7 @@ Owner: DEV1. Branch: `dev1/seller-channels-amazon-ebay-20261108`. PR: #611.
 
 - Tenant-owned Amazon Seller Central and eBay connection records; provider read adapters for eligible listings, orders, and the implemented eBay fulfilment/return review surfaces.
 - Explicit, manual listings/orders source staging, with checkpoint/lease handling, isolated transaction support, recovery guards, and real MongoDB rollback acceptance.
-- Read-only SKU inventory variance preview and formula-safe CSV report. Canonical Commerce Product remains authoritative.
+- Read-only marketplace SKU candidate review and formula-safe CSV report. Canonical Commerce Product remains authoritative. No stock variance is accepted until a provider listing/location-to-Commerce location mapping is independently verified.
 - Read-only marketplace order state inspection; explicit order association proposal, review statuses, financial/ownership preflight, batch review, and CSV review.
 - Operator-created *pending* order association proposal with scoped staged order and scoped Commerce order lookup, duplicate protection, and an audit event in one MongoDB transaction.
 - Operator hold/reopen for proposed association with structured reason, transactionally committed audit, and collision rejection.
@@ -38,7 +38,7 @@ Owner: DEV1. Branch: `dev1/seller-channels-amazon-ebay-20261108`. PR: #611.
 1. Connect each Amazon Seller Central and eBay seller through the Integration Platform using their own consent and secure credential bindings. Never paste secrets in a GitHub issue or chat.
 2. On the Partner Marketplace screen, choose a connected account and run **Test read access**. Record the check time and listing/order read outcomes. Zero returned records can be valid but does not establish that the entire inventory or transaction history was covered.
 3. Stage listings and orders explicitly. Verify staging checkpoints and recovery evidence with the scoped import-status endpoint.
-4. Review inventory variance only with a trusted canonical stock location. Do not treat a tenant-global listing count as a location-specific inventory balance.
+4. Review SKU candidates using only a trusted canonical Commerce location. **A selected Commerce location is not marketplace-location proof**: the current Amazon/eBay source snapshots do not establish provider-location ownership. Until an auditable mapping exists, the review returns `marketplace_location_mapping_required`, no confirmed matches, and **null canonical quantities and stock differences**. Do not interpret source quantities as location inventory.
 5. Propose a marketplace/Commerce link only for an order carrying explicit trusted business ownership. Hold ambiguous links; preserve the operator audit.
 6. Capture sandbox then production provider-side acceptance evidence for catalog creation/publication, quantity updates, order mapping, shipment posting and return/refund requests before enabling any corresponding write path.
 7. Repeat the complete CI matrix on the exact release commit and obtain owner sign-off. **Do not claim full module acceptance from a passing CI build alone.**
@@ -54,6 +54,7 @@ The eBay Inventory API requires an inventory item, a valid merchant location, an
 | Association approval | Authoritative same-transaction correlation, immutable provider evidence, stale-evidence detection, actor/decision audit, two-person control where required, and conflicting association race tests |
 | Listing publication | Approved publish/update/unpublish capability with idempotency, field validation, rollback/retry and provider production acceptance |
 | Stock writeback | Canonical Commerce inventory authority, reservation/stock semantics, provider-specific idempotency and conflict reconciliation, manual/automated safety controls |
+| Provider location mapping | Explicit source listing/inventory location evidence, canonical Commerce location ownership, audited mapping lifecycle and invalidation, handling of multi-location and aggregated provider quantities, and provider-side acceptance; current source snapshots do **not** establish this mapping |
 | Orders | Trusted marketplace transaction ingestion to Commerce; payment/tax/shipping/returns provenance, duplicate/idempotent processing and cancellation reconciliation |
 | Fulfilment and returns | Provider write permissions, lifecycle mapping, shipment updates, refund/return controls and production acceptance |
 | UI / operations | User-facing seller connection setup, actionable operations and review screens, support diagnostics, merchant acceptance and release sign-off |
