@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { test } from "node:test";
 import express from "express";
+import jwt from "jsonwebtoken";
+import { env } from "../config/env.js";
+import premiumAnalyticsRoutes from "../features/premium/analytics/premiumAnalyticsRoutes.js";
 import mongoose from "mongoose";
 import { buildManagementBiSnapshot } from "../features/analytics/managementBiService.js";
 import { getManagementBi } from "../features/premium/analytics/premiumAnalyticsController.js";
@@ -210,6 +213,191 @@ test("Module 16 real MongoDB tenant, location and KPI HTTP acceptance", {
     });
     assert.equal(await database.collection("appointments").countDocuments(), sourceCount);
     assert.equal(await database.collection("locations").countDocuments(), 4);
+  } finally {
+    if (server) await new Promise((resolve, reject) =>
+      server.close((error) => error ? reject(error) : resolve()));
+    if (mongoose.connection.readyState === 1) await mongoose.connection.dropDatabase();
+    await mongoose.disconnect();
+  }
+});
+
+
+test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP acceptance", {
+  skip: !URI ? "Set AIIBP_BI_ACCEPTANCE_MONGO_URI for isolated CI acceptance" : false,
+  timeout: 60000,
+}, async (t) => {
+  assert.equal(URI, SAFE_URI, "Refusing a non-isolated MongoDB target");
+  const USERS = Object.freeze({
+    a: objectId("507f1f77bcf86cd799439041"),
+    b: objectId("507f1f77bcf86cd799439042"),
+    a2: objectId("507f1f77bcf86cd799439043"),
+    denied: objectId("507f1f77bcf86cd799439044"),
+    suspended: objectId("507f1f77bcf86cd799439045"),
+    inactive: objectId("507f1f77bcf86cd799439046"),
+    outsider: objectId("507f1f77bcf86cd799439047"),
+  });
+  await mongoose.connect(URI, { serverSelectionTimeoutMS: 10000 });
+  let server;
+  try {
+    await mongoose.connection.dropDatabase();
+    const db = mongoose.connection.db;
+    await db.collection("businesses").insertMany([
+      { _id: A, name: "Tenant A", slug: "test-tenant-a", businessType: "salon", status: "active" },
+      { _id: B, name: "Tenant B", slug: "test-tenant-b", businessType: "salon", status: "active" },
+    ]);
+    await db.collection("businessdomains").insertMany([
+      { business: A, host: "tenant-a.example.test", status: "active", role: "primary" },
+      { business: B, host: "tenant-b.example.test", status: "active", role: "primary" },
+      { business: A, host: "disabled.example.test", status: "disabled", role: "alias" },
+    ]);
+    await db.collection("locations").insertMany([
+      { _id: A1, business: A, name: "Tenant A / one", status: "active" },
+      { _id: A2, business: A, name: "Tenant A / two", status: "active" },
+      { _id: B1, business: B, name: "Tenant B / one", status: "active" },
+    ]);
+    await db.collection("appointments").insertMany([
+      { business: A, location: A1, startsAt: date("2026-11-22T10:00:00Z"),
+        status: "completed", totalPrice: 40 },
+      { business: A, location: A1, startsAt: date("2026-11-22T11:00:00Z"),
+        status: "no-show", totalPrice: 20 },
+      { business: A, location: A2, startsAt: date("2026-11-22T12:00:00Z"),
+        status: "completed", totalPrice: 60 },
+      { business: B, location: B1, startsAt: date("2026-11-22T12:00:00Z"),
+        status: "completed", totalPrice: 999 },
+      { business: A, startsAt: date("2026-11-22T12:00:00Z"),
+        status: "completed", totalPrice: 8888 },
+    ]);
+    await db.collection("users").insertMany(Object.entries(USERS).map(([name, _id]) => ({
+      _id, name: "Test " + name, email: name + "@example.test",
+      role: name === "denied" ? "receptionist" : "admin",
+      isActive: name !== "inactive", passwordAuthEnabled: false,
+      permissions: [], rolePermissions: [],
+    })));
+    await db.collection("businessmemberships").insertMany([
+      { user: USERS.a, business: A, status: "active", roleKey: "admin",
+        isDefault: true, locationAccessMode: "selected", locations: [A1] },
+      // Deliberately suspended second membership: must not grant cross-tenant
+      // access or enable compatibility-wide User permission shortcuts.
+      { user: USERS.a, business: B, status: "suspended", roleKey: "admin",
+        isDefault: false, locationAccessMode: "all", locations: [] },
+      { user: USERS.b, business: B, status: "active", roleKey: "admin",
+        isDefault: true, locationAccessMode: "all", locations: [] },
+      { user: USERS.a2, business: A, status: "active", roleKey: "admin",
+        isDefault: true, locationAccessMode: "selected", locations: [A2] },
+      { user: USERS.denied, business: A, status: "active", roleKey: "receptionist",
+        isDefault: true, locationAccessMode: "selected", locations: [A1] },
+      { user: USERS.suspended, business: A, status: "suspended", roleKey: "admin",
+        isDefault: true, locationAccessMode: "all", locations: [] },
+      { user: USERS.inactive, business: A, status: "active", roleKey: "admin",
+        isDefault: true, locationAccessMode: "all", locations: [] },
+    ]);
+
+    const app = express();
+    // Mount the canonical production route unchanged: it applies its real
+    // JWT protect, public business-host resolver, persisted membership,
+    // effective role resolver, and premium-analytics permission middleware.
+    app.use("/api/premium-analytics", premiumAnalyticsRoutes);
+    app.use((error, _req, res, _next) => {
+      res.status(error.statusCode || 500).json({
+        success: false, code: error.code || error.details?.code || "BI_HTTP_FAILURE",
+      });
+    });
+    server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const base = "http://127.0.0.1:" + server.address().port;
+    const token = (user, claims = {}) => jwt.sign({
+      id: String(user), tokenType: "access", ...claims,
+    }, env.jwtSecret, { expiresIn: "5m" });
+    const request = async ({
+      user, host = "tenant-a.example.test", bearer,
+      path = "/management?periodDays=3&asOfDate=2026-11-22",
+      extraHeaders = {},
+    } = {}) => {
+      const headers = { host, ...extraHeaders };
+      if (bearer || user) headers.authorization = "Bearer " + (bearer || token(user));
+      const response = await fetch(base + "/api/premium-analytics" + path, { headers });
+      return { status: response.status, body: await response.json() };
+    };
+
+    await t.test("real signed JWT + persisted tenant A membership resolves allowed location only", async () => {
+      const result = await request({ user: USERS.a });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.equal(result.body.success, true);
+      assert.equal(result.body.snapshot.authority.businessId, String(A));
+      assert.deepEqual(result.body.snapshot.authority.locationIds, [String(A1)]);
+      assert.equal(byKey(result.body.snapshot, "bookings").value, 2);
+      assert.equal(byKey(result.body.snapshot, "revenue").value, 40);
+      assert.equal(result.body.snapshot.externalWriteAuthorised, false);
+      assert.equal(result.body.snapshot.evidence.containsCustomerPii, false);
+    });
+    await t.test("host B selects only business B for a B member", async () => {
+      const result = await request({ user: USERS.b, host: "tenant-b.example.test" });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.equal(result.body.snapshot.authority.businessId, String(B));
+      assert.deepEqual(result.body.snapshot.authority.locationIds, [String(B1)]);
+      assert.equal(byKey(result.body.snapshot, "revenue").value, 999);
+    });
+    await t.test("different restricted membership cannot read another A location", async () => {
+      const result = await request({ user: USERS.a2 });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.deepEqual(result.body.snapshot.authority.locationIds, [String(A2)]);
+      assert.equal(byKey(result.body.snapshot, "revenue").value, 60);
+    });
+    await t.test("membership cannot cross tenant merely by changing Host", async () => {
+      const result = await request({ user: USERS.a, host: "tenant-b.example.test" });
+      assert.equal(result.status, 404, JSON.stringify(result.body));
+      assert.equal(result.body.code, "TENANT_MEMBERSHIP_NOT_FOUND");
+    });
+    await t.test("untrusted tenant headers and query inputs cannot override selected host", async () => {
+      const result = await request({
+        user: USERS.a,
+        path: "/management?periodDays=3&asOfDate=2026-11-22" +
+          "&businessId=" + String(B) + "&locationId=" + String(B1),
+        extraHeaders: {
+          "x-forwarded-host": "tenant-b.example.test",
+          "x-tenant-business-id": String(B),
+          "x-tenant-location-id": String(B1),
+        },
+      });
+      assert.equal(result.status, 200, JSON.stringify(result.body));
+      assert.equal(result.body.snapshot.authority.businessId, String(A));
+      assert.deepEqual(result.body.snapshot.authority.locationIds, [String(A1)]);
+      assert.equal(byKey(result.body.snapshot, "revenue").value, 40);
+    });
+    await t.test("real permission registry denies a receptionist without analytics grants", async () => {
+      const result = await request({ user: USERS.denied });
+      assert.equal(result.status, 403, JSON.stringify(result.body));
+      assert.equal(result.body.code, "INSUFFICIENT_PERMISSIONS");
+    });
+    await t.test("missing, invalid and nonexistent user tokens never reach tenant data", async () => {
+      for (const options of [
+        {},
+        { bearer: "bad.token.value" },
+        { user: USERS.outsider },
+      ]) {
+        const result = await request(options);
+        assert.equal(result.status, 401, JSON.stringify(result.body));
+        assert.equal(result.body.snapshot, undefined);
+      }
+    });
+    await t.test("disabled user and suspended business membership fail closed", async () => {
+      const disabled = await request({ user: USERS.inactive });
+      const suspended = await request({ user: USERS.suspended });
+      assert.equal(disabled.status, 403, JSON.stringify(disabled.body));
+      assert.equal(suspended.status, 404, JSON.stringify(suspended.body));
+      assert.equal(suspended.body.code, "TENANT_MEMBERSHIP_NOT_FOUND");
+    });
+    await t.test("non-active or unknown mapped tenant domains never select another tenant", async () => {
+      const disabled = await request({ user: USERS.a, host: "disabled.example.test" });
+      const unknown = await request({ user: USERS.a, host: "unknown.example.test" });
+      assert.equal(disabled.status, 404, JSON.stringify(disabled.body));
+      assert.equal(unknown.status, 404, JSON.stringify(unknown.body));
+    });
+    await t.test("legacy root remains retired and returns no global BI data", async () => {
+      const result = await request({ user: USERS.a, path: "/" });
+      assert.equal(result.status, 410, JSON.stringify(result.body));
+      assert.equal(result.body.code, "PREMIUM_ANALYTICS_LEGACY_UNSCOPED_DISABLED");
+    });
   } finally {
     if (server) await new Promise((resolve, reject) =>
       server.close((error) => error ? reject(error) : resolve()));
