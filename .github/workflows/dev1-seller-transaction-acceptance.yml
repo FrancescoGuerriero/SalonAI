@@ -11,11 +11,10 @@ on:
       - 'backend/src/test/sellerChannelInventoryCsv.test.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelInventoryCsv.js'
       - 'backend/src/test/sellerChannelOrderStateInspection.test.js'
-      - 'backend/src/test/sellerChannelOrderLinkInspection.test.js src/test/sellerChannelOrderReviewTransition.test.js'
+      - 'backend/src/test/sellerChannelOrderEvidence.test.js'
       - 'backend/src/test/sellerChannelOrderReviewTransition.test.js'
       - 'backend/src/features/partnerMarketplace/sellerChannelOrderReviewTransition.js'
       - 'backend/src/models/SellerChannelOrderLink.js'
-      - 'backend/src/test/sellerChannelOrderEvidence.test.js src/test/sellerChannelCommerceOwnership.test.js src/test/checkoutOrderOwnership.test.js src/test/optionalCheckoutTenantMiddleware.test.js src/test/sellerChannelCommerceOwnershipBatch.test.js'
       - 'backend/src/test/sellerChannelCommerceOwnership.test.js'
       - 'backend/src/test/checkoutOrderOwnership.test.js'
       - 'backend/src/test/optionalCheckoutTenantMiddleware.test.js'
@@ -108,7 +107,7 @@ jobs:
 
       - name: Run seller transaction unit tests
         working-directory: backend
-        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelOrderStateInspection.test.js src/test/sellerChannelOrderLinkInspection.test.js src/test/sellerChannelOrderEvidence.test.js src/test/sellerChannelOrderLinkCsv.test.js src/test/sellerChannelLocationGuard.test.js src/test/sellerChannelInventoryCsv.test.js
+        run: node --test src/test/sellerChannelAtomicCommit.test.js src/test/sellerChannelAdapter.test.js src/test/sellerChannelReconciliationPreview.test.js src/test/sellerChannelOrderStateInspection.test.js src/test/sellerChannelOrderLinkInspection.test.js src/test/sellerChannelOrderEvidence.test.js src/test/sellerChannelOrderLinkCsv.test.js src/test/sellerChannelLocationGuard.test.js src/test/sellerChannelInventoryCsv.test.js src/test/sellerChannelCommerceOwnership.test.js src/test/checkoutOrderOwnership.test.js src/test/optionalCheckoutTenantMiddleware.test.js src/test/sellerChannelCommerceOwnershipBatch.test.js src/test/sellerChannelOrderReviewTransition.test.js
 
       - name: Run real seller transaction rollback acceptance
         working-directory: backend
