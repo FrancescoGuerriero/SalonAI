@@ -138,7 +138,7 @@ export default function SellerChannelsPanel() {
                 setInventory(await getSellerReconciliation(selected));
               })}
               className="rounded-lg border border-black/20 px-3 py-2 text-sm disabled:opacity-50">
-              Inventory differences
+              Review inventory mappings
             </button>
             {canOrderRead ? (
               <button type="button" disabled={!!busy}
@@ -197,16 +197,19 @@ export default function SellerChannelsPanel() {
 
       {inventory ? (
         <div className="mt-5 rounded-xl border border-black/10 p-4">
-          <h3 className="text-sm font-bold">Inventory reconciliation — dry run</h3>
+          <h3 className="text-sm font-bold">Marketplace SKU mapping review — read-only</h3>
           <p className="mt-1 text-xs text-stone-600">
-            {inventory.locationSelected ? "Location-scoped review" :
-              "No trusted stock location selected; quantity comparisons cannot be accepted."}
+            {inventory.locationSelected
+              ? "A Commerce location is selected, but the marketplace quantity has no verified mapping to that location."
+              : "No trusted stock location is selected, and marketplace quantities have no verified location mapping."}
+            {" "}No stock differences or matches are confirmed; no inventory updates are enabled.
           </p>
           <ul className="mt-2 space-y-2 text-sm">
             {(inventory.records || []).map((row, i) => (
               <li key={`${row.sku}-${i}`}>
                 {row.sku || "Missing SKU"}: {label(row.state)}
-                {row.quantityDifference != null ? ` (difference ${row.quantityDifference})` : ""}
+                {row.marketplaceQuantity != null ? ` (provider quantity observed: ${row.marketplaceQuantity})` : ""}
+                {row.quantityComparisonAccepted === false ? " — not reconciled" : ""}
               </li>
             ))}
           </ul>
