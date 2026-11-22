@@ -40,6 +40,18 @@ export async function proposeSellerLocationMappingCandidate(connectionId, candid
   return data?.result;
 }
 
+export async function withdrawSellerLocationMappingCandidate(connectionId, externalListingId, reason) {
+  if (!["operator_error", "source_changed", "commerce_moved",
+    "provider_disconnected", "other"].includes(reason)) {
+    throw new Error("Unsupported mapping withdrawal reason");
+  }
+  const { data } = await API.post(
+    `${scoped(connectionId)}/location-mapping-proposals/${encodeURIComponent(externalListingId)}/withdraw`,
+    { reason }
+  );
+  return data?.result;
+}
+
 export async function getSellerReconciliation(connectionId) {
   const { data } = await API.get(`${scoped(connectionId)}/reconciliation`, {
     params: { limit: 25 },
