@@ -33,15 +33,21 @@ function fixture(staged = [], canonical = []) {
   return { stagedModel, productModel, queries };
 }
 
-test("seller SKU comparison is dry-run and location-scoped with no inventory writes", async () => {
+test("seller SKU review does not claim verified location inventory or stock variance", async () => {
   const f = fixture([
     { externalId: "SKU-01", sourceRecord: { sku: "SKU-01", quantity: 6 } },
   ], [{ _id: "507f1f77bcf86cd799439027", sku: "SKU-01", location: locationId, stockQuantity: 3 }]);
   const result = await previewSellerChannelInventory(connection, {
     businessId, locationId, ...f,
   });
-  assert.equal(result.records[0].state, "quantity_differs");
-  assert.equal(result.records[0].quantityDifference, 3);
+  assert.equal(result.records[0].state, "marketplace_location_mapping_required");
+  assert.equal(result.records[0].quantityDifference, null);
+  assert.equal(result.records[0].canonicalQuantity, null);
+  assert.equal(result.records[0].canonicalProductId, null);
+  assert.equal(result.marketplaceLocationMappingVerified, false);
+  assert.equal(result.quantityComparisonAccepted, false);
+  assert.equal(result.records[0].marketplaceLocationMappingVerified, false);
+  assert.equal(result.records[0].quantityComparisonAccepted, false);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.equal(result.stockUpdatesApplied, 0);
   assert.equal(result.comparisonMode, "dry_run_only");
@@ -120,7 +126,7 @@ test("duplicate marketplace SKUs differing only in case never produce an actiona
   assert.equal(report.stockUpdatesApplied, 0);
 });
 
-test("inventory reconciliation summarises matched, mismatched and unresolved records without stock mutation", async () => {
+test("inventory reconciliation reports candidate mappings as unresolved and never issues stock deltas", async () => {
   const f = fixture([
     { externalId: "ONE", sourceRecord: { sku: "ONE", quantity: 3 } },
     { externalId: "TWO", sourceRecord: { sku: "TWO", quantity: 8 } },
@@ -134,10 +140,12 @@ test("inventory reconciliation summarises matched, mismatched and unresolved rec
     businessId, locationId, limit: 10, ...f,
   });
   assert.deepEqual(result.summary, {
-    matched: 1, quantityDiffers: 1, unresolved: 2,
+    matched: 0, quantityDiffers: 0, mappingRequired: 2, unresolved: 4,
     potentialStockChanges: 0, examinedRowsOnly: true, possiblyTruncated: false,
   });
-  assert.equal(result.records.find((row) => row.sku === "TWO").quantityDifference, 2);
+  assert.equal(result.records.find((row) => row.sku === "TWO").quantityDifference, null);
+  assert.equal(result.records.find((row) => row.sku === "ONE").quantityDifference, null);
+  assert.ok(result.records.every((row) => row.quantityComparisonAccepted === false));
   assert.equal(result.stockUpdatesApplied, 0);
   assert.equal(result.canonicalRecordsWritten, 0);
   assert.ok(Object.isFrozen(result.summary));
@@ -153,6 +161,7 @@ test("inventory reconciliation flags full preview as possibly truncated rather t
   assert.equal(result.reviewedCount, 1);
   assert.equal(result.summary.possiblyTruncated, true);
   assert.equal(result.summary.unresolved, 1);
+  assert.equal(result.summary.mappingRequired, 0);
   assert.equal(result.summary.potentialStockChanges, 0);
 });
 
@@ -203,7 +212,37 @@ test("case-normalised Commerce SKU evidence still matches and remains read-only"
       location: locationId, stockQuantity: 3 }],
   );
   const report = await previewSellerChannelInventory(connection, { businessId, locationId, ...f });
-  assert.equal(report.records[0].state, "matched");
-  assert.equal(report.records[0].canonicalQuantity, 3);
+  assert.equal(report.records[0].state, "marketplace_location_mapping_required");
+  assert.equal(report.records[0].canonicalQuantity, null);
+  assert.equal(report.records[0].quantityDifference, null);
   assert.equal(report.stockUpdatesApplied, 0);
+});
+
+test("equal and unequal marketplace quantities both require verified location mapping", async () => {
+  for (const marketplaceQuantity of [3, 6]) {
+    const f = fixture([
+      { externalId: "SOURCE-SKU", sourceRecord: { sku: "SOURCE-SKU", quantity: marketplaceQuantity } },
+    ], [{ _id: "507f1f77bcf86cd799439027", sku: "SOURCE-SKU",
+      location: locationId, stockQuantity: 3 }]);
+    const report = await previewSellerChannelInventory(connection, { businessId, locationId, ...f });
+    assert.equal(report.records[0].state, "marketplace_location_mapping_required");
+    assert.equal(report.records[0].marketplaceQuantity, marketplaceQuantity);
+    assert.equal(report.records[0].canonicalQuantity, null);
+    assert.equal(report.records[0].quantityDifference, null);
+    assert.equal(report.summary.matched, 0);
+    assert.equal(report.summary.quantityDiffers, 0);
+    assert.equal(report.summary.mappingRequired, 1);
+  }
+});
+
+test("no trusted Commerce location means source quantity is observation only", async () => {
+  const f = fixture([{ externalId: "ONE", sourceRecord: { sku: "ONE", quantity: 3 } }],
+    [{ _id: "507f1f77bcf86cd799439027", sku: "ONE",
+      location: locationId, stockQuantity: 3 }]);
+  const report = await previewSellerChannelInventory(connection, { businessId, ...f });
+  assert.equal(report.records[0].state, "location_selection_required");
+  assert.equal(report.records[0].quantityDifference, null);
+  assert.equal(report.records[0].canonicalQuantity, null);
+  assert.equal(report.summary.mappingRequired, 0);
+  assert.equal(report.quantityComparisonAccepted, false);
 });
