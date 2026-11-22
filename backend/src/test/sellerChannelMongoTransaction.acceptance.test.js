@@ -8,7 +8,9 @@ import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
 import { inspectSellerCommerceOrderOwnership } from "../features/partnerMarketplace/sellerChannelCommerceOwnership.js";
 import { transitionSellerOrderReview } from "../features/partnerMarketplace/sellerChannelOrderReviewTransition.js";
 import { proposeSellerCommerceOrderLink } from "../features/partnerMarketplace/sellerChannelOrderProposal.js";
-import { proposeSellerLocationMapping } from "../features/partnerMarketplace/sellerChannelLocationMappingProposal.js";
+import {
+  proposeSellerLocationMapping, withdrawSellerLocationMappingProposal,
+} from "../features/partnerMarketplace/sellerChannelLocationMappingProposal.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -756,6 +758,11 @@ test("real MongoDB seller location candidate commits with audit and rolls back a
       ...read(proposals),
       create: (docs, { session }) => proposals.insertMany(docs, { session }).then(
         (result) => docs.map((doc, i) => ({ _id: result.insertedIds[i], ...doc }))),
+      findOneAndUpdate: (query, change, options) => ({
+        lean: () => proposals.findOneAndUpdate(query, change, {
+          session: options.session, returnDocument: "after",
+        }),
+      }),
     };
     let failAudit = false;
     const auditModel = { create: (docs, { session }) => {
@@ -801,6 +808,43 @@ test("real MongoDB seller location candidate commits with audit and rolls back a
     assert.equal(await audits.countDocuments({}), 1);
     assert.equal(await products.countDocuments({}), 2);
     assert.equal(await locations.countDocuments({}), 1);
+
+    // Withdrawal must be a single transaction with its audit: a failed audit
+    // cannot leave a candidate withdrawn without matching evidence.
+    const withdrawal = {
+      businessId, locationAccessMode: "all", actorId,
+      externalListingId: "SKU-01", reason: "source_changed",
+      proposalModel, auditModel, startSession: () => db.startSession(),
+    };
+    failAudit = true;
+    await assert.rejects(
+      withdrawSellerLocationMappingProposal(connection, withdrawal),
+      /injected-location-audit-failure/,
+    );
+    assert.equal((await proposals.findOne({
+      externalListingId: "SKU-01",
+    })).reviewStatus, "pending_provider_location_evidence");
+    assert.equal(await audits.countDocuments({}), 1);
+
+    failAudit = false;
+    const withdrawn = await withdrawSellerLocationMappingProposal(connection, withdrawal);
+    assert.equal(withdrawn.reviewStatus, "withdrawn");
+    assert.equal(withdrawn.quantityComparisonAccepted, false);
+    assert.equal(withdrawn.stockUpdatesApplied, 0);
+    assert.equal((await proposals.findOne({
+      externalListingId: "SKU-01",
+    })).reviewStatus, "withdrawn");
+    assert.equal(await audits.countDocuments({}), 2);
+    await assert.rejects(withdrawSellerLocationMappingProposal(connection, withdrawal),
+      (error) => error.details?.code === "SELLER_LOCATION_WITHDRAW_CONFLICT");
+    assert.equal(await audits.countDocuments({}), 2);
+
+    // Historic candidate identity stays reserved: do not overwrite history
+    // with a new proposal even after withdrawal.
+    await assert.rejects(proposeSellerLocationMapping(connection, options),
+      (error) => error.details?.code === "SELLER_LOCATION_PROPOSAL_CONFLICT");
+    assert.equal(await proposals.countDocuments({}), 1);
+    assert.equal(await products.countDocuments({}), 2);
   } finally {
     for (const name of names) {
       await db.dropCollection(name).catch((error) => {
