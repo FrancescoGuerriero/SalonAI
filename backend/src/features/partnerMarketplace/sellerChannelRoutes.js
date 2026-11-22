@@ -17,6 +17,7 @@ import { inspectSellerChannelOrderLinks } from "./sellerChannelOrderLinkInspecti
 import { inspectSellerCommerceOrderOwnership } from "./sellerChannelCommerceOwnership.js";
 import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershipBatch.js";
 import { transitionSellerOrderReview } from "./sellerChannelOrderReviewTransition.js";
+import { proposeSellerCommerceOrderLink } from "./sellerChannelOrderProposal.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -112,6 +113,22 @@ router.get("/:connectionId/order-links-export", requirePermissions("order:read")
     response.set("Content-Disposition", 'attachment; filename="seller-order-link-review.csv"');
     response.set("Cache-Control", "private, no-store");
     response.status(200).send(csv);
+  }));
+
+// Operator-originated proposal only; ownership proven, correspondence unverified.
+router.post("/:connectionId/order-links/:externalOrderId/propose",
+  requirePermissions("order:update"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await proposeSellerCommerceOrderLink(
+      await ownedConnection(request), request.params.externalOrderId, {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+        actorId: request.user?._id || request.user?.id,
+        commerceOrderId: request.body?.commerceOrderId,
+        requestId: request.requestId || "",
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(201).json({ success: true, result });
   }));
 
 // Operator holds/reopens a pending proposal atomically with audit evidence.
