@@ -207,6 +207,10 @@ test("invalid proposed mapping evidence fails closed on list reads", async () =>
     { reviewStatus: "approved" },
     { evidenceSource: "provider_verified" },
     { commerceLocation: "invalid" },
+    { reviewStatus: "withdrawn", withdrawalReason: "source_changed",
+      withdrawnBy: actorId, withdrawnAt: null },
+    { reviewStatus: "withdrawn", withdrawalReason: "invalid",
+      withdrawnBy: actorId, withdrawnAt: new Date("2026-11-22T18:00:00Z") },
   ]) {
     const row = {
       business: businessId, connection: connectionId, provider: "ebay",
@@ -362,6 +366,7 @@ test("seller location proposal routes enforce all permissions and forbid stock o
   assert.match(routes, /router\.post\("\/:connectionId\/location-mapping-proposals"/);
   assert.match(routes, /location-mapping-proposals\/:externalListingId\/withdraw/);
   assert.match(routes, /withdrawSellerLocationMappingProposal/);
+  assert.match(routes, /reason: request\.body\?\.reason/);
   assert.match(routes, /requirePermissions\("feature-control:update"\)/);
   assert.match(routes, /requirePermissions\("inventory:read"\)/);
   assert.match(routes, /requirePermissions\("product:read"\)/);
@@ -374,9 +379,12 @@ test("seller location proposal routes enforce all permissions and forbid stock o
   ]);
   assert.match(api, /listSellerLocationMappingCandidates/);
   assert.match(api, /proposeSellerLocationMappingCandidate/);
+  assert.match(api, /withdrawSellerLocationMappingCandidate/);
   assert.match(panel, /canProposeMapping = canStage && canReadMappings/);
   assert.match(panel, /Save pending mapping candidate \(no stock changes\)/);
   assert.match(panel, /Use staged listing for proposal/);
   assert.match(panel, /setMappingListingId\(row.externalId\)/);
   assert.match(panel, /Provider location and stock remain unverified/);
+  assert.match(panel, /Withdraw candidate \(audited, permanent\)/);
+  assert.match(panel, /candidate.reviewStatus === "pending_provider_location_evidence"/);
 });
