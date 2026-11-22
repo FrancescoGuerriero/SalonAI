@@ -17,6 +17,14 @@ Owner: DEV1. Requirement `16` in the existing AIIBP v3 Module Catalogue. The reg
 4. The canonical Appointment query continues to filter by the verified business, authorised Location IDs and bounded current/previous UTC windows. It now selects the `business` field and checks each returned row's business and location before calculating metrics. Inconsistent rows fail with `POINT10_APPOINTMENT_EVIDENCE_INVALID` instead of contributing to revenue or bookings.
 5. Output still contains aggregate, non-PII management evidence and zero external-write/automation authority. These checks are defence-in-depth against stale, mis-scoped or inconsistent database records; they do **not** replace trusted tenant middleware.
 
+## Legacy Premium Analytics privacy closure
+
+The older `GET /api/premium-analytics` compatibility endpoint aggregated loyalty, gift-card, referral, notification, campaign, and retention data without a business/location predicate. Because those historical aggregates cannot safely be attributed to an effective tenant, the root controller **now rejects requests with HTTP 410** and `PREMIUM_ANALYTICS_LEGACY_UNSCOPED_DISABLED`; it performs no database queries. This is an intentional compatibility-breaking security change, not a claim that its legacy metrics are now tenant-ready.
+
+The current Premium Analytics frontend already uses `GET /api/premium-analytics/management`, which remains available under trusted tenancy and effective RBAC. External clients still using the legacy JSON shape must migrate to the governed management endpoint or a separately validated business-owned reporting contract. Do not re-enable the historic cross-tenant aggregation as a fallback.
+
+`managementBiLegacySurface.test.js` verifies retirement, no unscoped operational reads, authenticated routing and the management UI migration path.
+
 ## Validation and restrictions
 
 - `backend/src/test/managementBiScopeEvidence.test.js` verifies business-wide and selected scope, deterministic evidence identities, cross-tenant and missing/duplicate locations, mismatched Appointment business/location, and rejection before aggregation.
