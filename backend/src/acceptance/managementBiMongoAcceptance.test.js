@@ -304,7 +304,6 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
     });
     server = http.createServer(app);
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const base = "http://127.0.0.1:" + server.address().port;
     const token = (user, claims = {}) => jwt.sign({
       id: String(user), tokenType: "access", ...claims,
     }, env.jwtSecret, { expiresIn: "5m" });
@@ -313,10 +312,34 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
       path = "/management?periodDays=3&asOfDate=2026-11-22",
       extraHeaders = {},
     } = {}) => {
-      const headers = { host, ...extraHeaders };
-      if (bearer || user) headers.authorization = "Bearer " + (bearer || token(user));
-      const response = await fetch(base + "/api/premium-analytics" + path, { headers });
-      return { status: response.status, body: await response.json() };
+      // Node's fetch/undici may rewrite the Host header to the loopback
+      // transport origin. Use explicit HTTP/1 to deliver the canonical
+      // tenant hostname while connecting only to the test's local server.
+      const headers = { Host: host, ...extraHeaders };
+      if (bearer || user) headers.Authorization = "Bearer " + (bearer || token(user));
+      return new Promise((resolve, reject) => {
+        const client = http.request({
+          hostname: "127.0.0.1", port: server.address().port,
+          path: "/api/premium-analytics" + path,
+          method: "GET", headers,
+        }, (response) => {
+          const chunks = [];
+          response.on("data", (chunk) => chunks.push(chunk));
+          response.on("error", reject);
+          response.on("end", () => {
+            try {
+              resolve({
+                status: response.statusCode,
+                body: JSON.parse(Buffer.concat(chunks).toString("utf8")),
+              });
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+        client.on("error", reject);
+        client.end();
+      });
     };
 
     await t.test("real signed JWT + persisted tenant A membership resolves allowed location only", async () => {
