@@ -4,6 +4,8 @@ import mongoose from "mongoose";
  * Operator-nominated SKU / location candidate only. No provider stock-location
  * provenance is present in the current staged listing records. This model
  * therefore has no approved/verified state and is never a stock authority.
+ * Withdrawal is final: candidates remain in the audit history and the
+ * uniqueness constraint prevents silently replacing an old proposal.
  */
 const schema = new mongoose.Schema({
   business: {
@@ -26,8 +28,17 @@ const schema = new mongoose.Schema({
   proposedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   sourceObservedAt: { type: Date, required: true },
   reviewStatus: {
-    type: String, required: true, enum: ["pending_provider_location_evidence"],
+    type: String, required: true,
+    enum: ["pending_provider_location_evidence", "withdrawn"],
     default: "pending_provider_location_evidence",
+  },
+  withdrawnBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  withdrawnAt: { type: Date, default: null },
+  withdrawalReason: {
+    type: String,
+    enum: ["", "operator_error", "source_changed", "commerce_moved",
+      "provider_disconnected", "other"],
+    default: "",
   },
   evidenceSource: {
     type: String, required: true, enum: ["operator_candidate"],
