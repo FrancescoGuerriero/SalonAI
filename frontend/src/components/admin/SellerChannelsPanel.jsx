@@ -5,6 +5,7 @@ import {
   listSellerConnections, diagnoseSellerConnection, getSellerImportStatus,
   stageSellerRecords, getSellerReconciliation, getSellerOrderLinks,
   getSellerOwnershipBatch, reviewSellerOrderLink, proposeSellerOrderLink,
+  listSellerLocationMappingCandidates, proposeSellerLocationMappingCandidate,
 } from "../../Services/sellerChannelApi.js";
 
 const label = (value) => String(value || "").replaceAll("_", " ");
@@ -17,11 +18,18 @@ export default function SellerChannelsPanel() {
   const canOrderRead = hasPermission(user, "order:read");
   const canStage = hasPermission(user, "feature-control:update");
   const canReview = hasPermission(user, "order:update");
+  const canReadMappings = hasPermission(user, "inventory:read") &&
+    hasPermission(user, "product:read");
+  const canProposeMapping = canStage && canReadMappings;
   const [connections, setConnections] = useState([]);
   const [selected, setSelected] = useState("");
   const [diagnostic, setDiagnostic] = useState(null);
   const [importStatus, setImportStatus] = useState(null);
   const [inventory, setInventory] = useState(null);
+  const [mappingCandidates, setMappingCandidates] = useState(null);
+  const [mappingListingId, setMappingListingId] = useState("");
+  const [mappingProductId, setMappingProductId] = useState("");
+  const [mappingLocationId, setMappingLocationId] = useState("");
   const [orders, setOrders] = useState(null);
   const [batch, setBatch] = useState(null);
   const [proposalExternalId, setProposalExternalId] = useState("");
@@ -53,6 +61,10 @@ export default function SellerChannelsPanel() {
     setDiagnostic(null);
     setImportStatus(null);
     setInventory(null);
+    setMappingCandidates(null);
+    setMappingListingId("");
+    setMappingProductId("");
+    setMappingLocationId("");
     setOrders(null);
     setBatch(null);
     setNotice("");
@@ -140,6 +152,15 @@ export default function SellerChannelsPanel() {
               className="rounded-lg border border-black/20 px-3 py-2 text-sm disabled:opacity-50">
               Review inventory mappings
             </button>
+            {canReadMappings ? (
+              <button type="button" disabled={!!busy}
+                onClick={() => run("mapping-candidates", async () => {
+                  setMappingCandidates(await listSellerLocationMappingCandidates(selected));
+                })}
+                className="rounded-lg border border-black/20 px-3 py-2 text-sm disabled:opacity-50">
+                Review pending location candidates
+              </button>
+            ) : null}
             {canOrderRead ? (
               <button type="button" disabled={!!busy}
                 onClick={() => run("orders", async () => {
@@ -213,6 +234,72 @@ export default function SellerChannelsPanel() {
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {connections.length && canReadMappings ? (
+        <div className="mt-5 rounded-xl border border-black/10 p-4">
+          <h3 className="text-sm font-bold">Marketplace location candidates — not approved</h3>
+          <p className="mt-1 text-xs text-stone-600">
+            A candidate links a staged listing SKU with an active Commerce location for
+            manual investigation only. Marketplace fulfilment-location provenance is
+            not verified. Proposals never confirm stock, publish listings or update inventory.
+          </p>
+          {canProposeMapping ? (
+            <form className="mt-3 grid gap-2 sm:grid-cols-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                run("mapping-propose", async () => {
+                  await proposeSellerLocationMappingCandidate(selected, {
+                    externalListingId: mappingListingId.trim(),
+                    commerceProductId: mappingProductId.trim(),
+                    commerceLocationId: mappingLocationId.trim(),
+                  });
+                  setMappingCandidates(await listSellerLocationMappingCandidates(selected));
+                  setMappingListingId("");
+                  setMappingProductId("");
+                  setMappingLocationId("");
+                  setNotice("Audited candidate saved. Provider location and stock remain unverified.");
+                });
+              }}>
+              <label className="text-xs font-semibold">
+                Staged listing reference
+                <input value={mappingListingId} required maxLength={200}
+                  onChange={(event) => setMappingListingId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm"
+                  placeholder="Source listing reference" />
+              </label>
+              <label className="text-xs font-semibold">
+                Commerce product ID
+                <input value={mappingProductId} required maxLength={24}
+                  onChange={(event) => setMappingProductId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm"
+                  placeholder="24-character product ID" />
+              </label>
+              <label className="text-xs font-semibold">
+                Commerce location ID
+                <input value={mappingLocationId} required maxLength={24}
+                  onChange={(event) => setMappingLocationId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm"
+                  placeholder="24-character location ID" />
+              </label>
+              <button type="submit" disabled={!!busy}
+                className="rounded-lg border border-black/20 px-3 py-2 text-sm font-semibold disabled:opacity-50 sm:col-span-3">
+                Save pending mapping candidate (no stock changes)
+              </button>
+            </form>
+          ) : null}
+          {mappingCandidates ? (
+            <ul className="mt-3 space-y-2 text-sm">
+              {mappingCandidates.records?.length ? mappingCandidates.records.map((candidate) => (
+                <li key={candidate.externalListingId}>
+                  {candidate.sourceSku} — {label(candidate.reviewStatus)}
+                  {" "}({candidate.proposedCommerceLocationId}).
+                  No provider-location verification or approved quantity comparison.
+                </li>
+              )) : <li>No pending location candidates found for this account.</li>}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
