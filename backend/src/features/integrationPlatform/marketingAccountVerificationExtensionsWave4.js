@@ -200,13 +200,29 @@ async function verifyAmazonSellerCentral(connection) {
       code: "MARKETING_PROVIDER_VERIFICATION_FAILED",
     });
   }
-  const first = list[0] || {};
+  const marketplaceId = text(connection.metadata?.marketplaceId, 80);
+  const sellerId = text(connection.metadata?.sellerId, 120);
+  if (!marketplaceId || !sellerId) {
+    throw createServiceError("Amazon seller and marketplace IDs are required.", 400, {
+      code: "SELLER_MARKETPLACE_IDENTITY_REQUIRED",
+    });
+  }
+  const matching = list.find((entry) => entry.marketplace?.id === marketplaceId);
+  if (!matching) {
+    throw createServiceError("Configured Amazon marketplace is not accessible.", 409, {
+      code: "SELLER_MARKETPLACE_MEMBERSHIP_NOT_CONFIRMED",
+    });
+  }
   return {
-    accountId: first.marketplace?.id || region,
-    accountName: first.participation?.storeName || first.marketplace?.name || "Amazon Seller Central",
-    country: first.marketplace?.countryCode,
+    accountId: marketplaceId,
+    accountName: matching.participation?.storeName || matching.marketplace?.name || "Amazon Seller Central",
+    country: matching.marketplace?.countryCode,
     region,
     marketplaceCount: list.length,
+    marketplaceParticipationVerified: true,
+    sellerIdProvided: true,
+    sellerIdentityIndependentlyVerified: false,
+    writePermissionVerified: false,
   };
 }
 
