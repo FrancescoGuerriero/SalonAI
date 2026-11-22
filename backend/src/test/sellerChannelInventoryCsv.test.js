@@ -5,18 +5,27 @@ import { buildSellerInventoryReviewCsv } from "../features/partnerMarketplace/se
 
 const report = (records) => ({
   kind: "listings", comparisonMode: "dry_run_only",
-  canonicalRecordsWritten: 0, stockUpdatesApplied: 0, records,
+  canonicalRecordsWritten: 0, stockUpdatesApplied: 0,
+  marketplaceLocationMappingVerified: false, quantityComparisonAccepted: false,
+  records: records.map((row) => row === null ? row : ({
+    marketplaceLocationMappingVerified: false,
+    quantityComparisonAccepted: false, ...row,
+  })),
 });
 
-test("seller inventory exports verified dry-run quantities and escapes CSV correctly", () => {
+test("seller inventory exports unmapped candidate observations without stock deltas", () => {
   const csv = buildSellerInventoryReviewCsv(report([
-    { sku: "SKU, ONE", externalId: 'A"1', state: "quantity_differs",
-      marketplaceQuantity: 8, canonicalQuantity: 6, quantityDifference: 2,
-      canonicalProductId: "507f1f77bcf86cd799439027" },
+    { sku: "SKU, ONE", externalId: 'A"1',
+      state: "marketplace_location_mapping_required",
+      marketplaceQuantity: 8, canonicalQuantity: null, quantityDifference: null,
+      canonicalProductId: null },
     { sku: "MISSING", externalId: "none", state: "no_canonical_product",
       marketplaceQuantity: null, canonicalQuantity: null, quantityDifference: null },
   ]));
-  assert.match(csv, /"SKU, ONE","A""1","quantity_differs","8","6","2"/);
+  assert.match(csv, /"SKU, ONE","A""1","marketplace_location_mapping_required","8","",""/);
+  assert.ok(csv.includes('"Marketplace Location Mapping Verified"'));
+  assert.ok(csv.includes('"Quantity Comparison Accepted"'));
+  assert.ok(csv.includes('"false","false"'));
   assert.match(csv, /"MISSING","none","no_canonical_product","","",""/);
   assert.equal(csv.split("\r\n").length, 4);
   assert.ok(!csv.includes("undefined"));
@@ -45,6 +54,16 @@ test("inventory export rejects non-readonly, overly large and malformed previews
     { ...report([]), records: null },
     { ...report([]), kind: "orders" },
     report([null]),
+    { ...report([]), marketplaceLocationMappingVerified: true },
+    { ...report([]), quantityComparisonAccepted: true },
+    report([{ sku: "ONE", state: "quantity_differs", quantityDifference: 3 }]),
+    report([{ sku: "ONE", state: "marketplace_location_mapping_required",
+      canonicalQuantity: 5 }]),
+    report([{ sku: "ONE", state: "marketplace_location_mapping_required",
+      canonicalProductId: "507f1f77bcf86cd799439027" }]),
+    report([{ sku: "ONE", state: "marketplace_location_mapping_required",
+      marketplaceLocationMappingVerified: true }]),
+    report([{ sku: "ONE", state: "matched" }]),
   ]) {
     assert.throws(() => buildSellerInventoryReviewCsv(bad),
       (error) => error.details?.code === "SELLER_INVENTORY_EXPORT_INVALID");
