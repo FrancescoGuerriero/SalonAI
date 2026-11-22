@@ -27,6 +27,16 @@ function requireAuthority(connection, { businessId, locationAccessMode }) {
 const normalizedSku = (value) =>
   typeof value === "string" ? value.trim().toUpperCase() : "";
 
+const WITHDRAW_REASONS = Object.freeze([
+  "operator_error", "source_changed", "commerce_moved",
+  "provider_disconnected", "other",
+]);
+
+const validExternalListingId = (value) =>
+  typeof value === "string" &&
+  /^[^\u0000-\u001f\u007f]{1,200}$/u.test(value) &&
+  value.trim() === value;
+
 /**
  * Create an AUDITED OPERATOR CANDIDATE, not a verified provider-location
  * mapping. Staged listings expose SKU and (sometimes aggregated) quantity,
@@ -46,9 +56,7 @@ export async function proposeSellerLocationMapping(connection, {
   if (!mongoose.isValidObjectId(actorId) ||
       !mongoose.isValidObjectId(commerceProductId) ||
       !mongoose.isValidObjectId(commerceLocationId) ||
-      typeof externalListingId !== "string" ||
-      !/^[^\u0000-\u001f\u007f]{1,200}$/u.test(externalListingId) ||
-      externalListingId.trim() !== externalListingId ||
+      !validExternalListingId(externalListingId) ||
       typeof requestId !== "string" || requestId.length > 120) {
     throw fail("SELLER_LOCATION_PROPOSAL_INPUT_INVALID", 400);
   }
@@ -136,6 +144,72 @@ export async function proposeSellerLocationMapping(connection, {
   }, { startSession });
 }
 
+
+/**
+ * Terminal, audited withdrawal of a still-pending candidate. No delete,
+ * replacement, approval, stock comparison or provider write is possible.
+ * The conditional state update prevents concurrent withdrawal races.
+ */
+export async function withdrawSellerLocationMappingProposal(connection, {
+  businessId, locationAccessMode, actorId, externalListingId,
+  reason, requestId = "",
+  proposalModel = SellerChannelLocationMappingProposal,
+  auditModel = AuditLog, startSession = () => mongoose.startSession(),
+} = {}) {
+  requireAuthority(connection, { businessId, locationAccessMode });
+  if (!mongoose.isValidObjectId(actorId) ||
+      !validExternalListingId(externalListingId) ||
+      !WITHDRAW_REASONS.includes(reason) ||
+      typeof requestId !== "string" || requestId.length > 120) {
+    throw fail("SELLER_LOCATION_WITHDRAW_INPUT_INVALID", 400);
+  }
+  return withSellerAtomicSourceCommit(async (session) => {
+    const timestamp = new Date();
+    const updated = await proposalModel.findOneAndUpdate({
+      business: businessId, connection: connection._id,
+      provider: connection.provider, externalListingId,
+      evidenceSource: "operator_candidate",
+      reviewStatus: "pending_provider_location_evidence",
+    }, {
+      $set: {
+        reviewStatus: "withdrawn",
+        withdrawnBy: actorId, withdrawnAt: timestamp,
+        withdrawalReason: reason,
+      },
+    }, { new: true, session, runValidators: true }).lean();
+    if (!updated || !mongoose.isValidObjectId(updated._id) ||
+        String(updated.business) !== String(businessId) ||
+        String(updated.connection) !== String(connection._id) ||
+        updated.provider !== connection.provider ||
+        updated.externalListingId !== externalListingId ||
+        updated.evidenceSource !== "operator_candidate" ||
+        updated.reviewStatus !== "withdrawn" ||
+        String(updated.withdrawnBy) !== String(actorId) ||
+        updated.withdrawalReason !== reason) {
+      throw fail("SELLER_LOCATION_WITHDRAW_CONFLICT");
+    }
+    await auditModel.create([{
+      actor: actorId, action: "seller_location_mapping_withdrawn",
+      resourceType: "SellerChannelLocationMappingProposal",
+      resourceId: String(updated._id), requestId,
+      before: { reviewStatus: "pending_provider_location_evidence" },
+      after: { reviewStatus: "withdrawn", withdrawalReason: reason },
+      metadata: {
+        businessId: String(businessId), connectionId: String(connection._id),
+        provider: connection.provider,
+      },
+    }], { session });
+    return Object.freeze({
+      externalListingId, reviewStatus: "withdrawn",
+      withdrawalReason: reason, auditRecorded: true,
+      locationMappingVerified: false, quantityComparisonAccepted: false,
+      associationApproved: false, providerWritesEnabled: false,
+      canonicalRecordsWritten: 0, stockUpdatesApplied: 0,
+      productionAccepted: false,
+    });
+  }, { startSession });
+}
+
 /**
  * Read-only, scoped review of candidate records; intentionally exposes no
  * canonical stock quantities or provider credentials.
@@ -152,7 +226,7 @@ export async function listSellerLocationMappingProposals(connection, {
   const rows = await proposalModel.find({
     business: businessId, connection: connection._id, provider: connection.provider,
   }).select(
-    "business connection provider externalListingId sourceSku commerceProduct commerceLocation reviewStatus evidenceSource sourceObservedAt",
+    "business connection provider externalListingId sourceSku commerceProduct commerceLocation reviewStatus evidenceSource sourceObservedAt withdrawalReason withdrawnBy withdrawnAt",
   ).sort({ createdAt: -1, _id: -1 }).limit(count).lean();
   if (!Array.isArray(rows) || rows.length > count) {
     throw fail("SELLER_LOCATION_PROPOSAL_EVIDENCE_INVALID", 502);
@@ -167,8 +241,16 @@ export async function listSellerLocationMappingProposals(connection, {
         normalizedSku(row.sourceSku) !== row.sourceSku ||
         !mongoose.isValidObjectId(row.commerceProduct) ||
         !mongoose.isValidObjectId(row.commerceLocation) ||
-        row.reviewStatus !== "pending_provider_location_evidence" ||
-        row.evidenceSource !== "operator_candidate") {
+        !["pending_provider_location_evidence", "withdrawn"].includes(row.reviewStatus) ||
+        row.evidenceSource !== "operator_candidate" ||
+        (row.reviewStatus === "withdrawn" && (
+          !WITHDRAW_REASONS.includes(row.withdrawalReason) ||
+          !mongoose.isValidObjectId(row.withdrawnBy) ||
+          !Number.isFinite(new Date(row.withdrawnAt).getTime())
+        )) ||
+        (row.reviewStatus === "pending_provider_location_evidence" &&
+          (row.withdrawnBy != null || row.withdrawnAt != null ||
+            (row.withdrawalReason != null && row.withdrawalReason !== "")))) {
       throw fail("SELLER_LOCATION_PROPOSAL_EVIDENCE_INVALID", 502);
     }
     seen.add(row.externalListingId);
@@ -178,6 +260,9 @@ export async function listSellerLocationMappingProposals(connection, {
       proposedCommerceProductId: String(row.commerceProduct),
       proposedCommerceLocationId: String(row.commerceLocation),
       reviewStatus: row.reviewStatus,
+      withdrawalReason: row.reviewStatus === "withdrawn" ? row.withdrawalReason : null,
+      withdrawnAt: row.reviewStatus === "withdrawn" ?
+        new Date(row.withdrawnAt).toISOString() : null,
       sourceLocationVerified: false, locationMappingVerified: false,
       quantityComparisonAccepted: false, associationApproved: false,
       canonicalRecordsWritten: 0, providerWritesEnabled: false,
