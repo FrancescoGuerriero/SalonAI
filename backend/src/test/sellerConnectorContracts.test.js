@@ -42,3 +42,17 @@ test("eBay seller verifier uses fixed official origins and performs no external 
   assert.match(verifier, /merchantIdentityVerified: false/);
   assert.doesNotMatch(verifier, /bulk_update_price_quantity|shipping_fulfillment|\/publish/);
 });
+
+test("Amazon seller verification checks configured marketplace participation, not the first response row", async () => {
+  const source = await readFile(new URL(
+    "../features/integrationPlatform/marketingAccountVerificationExtensionsWave4.js",
+    import.meta.url), "utf8");
+  const start = source.indexOf("async function verifyAmazonSellerCentral(");
+  const end = source.indexOf("async function verifyEbaySeller(", start);
+  assert.ok(start > 0 && end > start);
+  const verifier = source.slice(start, end);
+  assert.match(verifier, /entry\.marketplace\?\.id === marketplaceId/);
+  assert.match(verifier, /SELLER_MARKETPLACE_MEMBERSHIP_NOT_CONFIRMED/);
+  assert.match(verifier, /sellerIdentityIndependentlyVerified: false/);
+  assert.match(verifier, /writePermissionVerified: false/);
+});
