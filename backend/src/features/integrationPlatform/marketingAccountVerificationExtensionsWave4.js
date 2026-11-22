@@ -210,6 +210,55 @@ async function verifyAmazonSellerCentral(connection) {
   };
 }
 
+async function verifyEbaySeller(connection) {
+  const environment = text(connection.metadata?.environment, 24).toLowerCase();
+  const origin = environment === "sandbox" ? "https://api.sandbox.ebay.com" :
+    environment === "production" ? "https://api.ebay.com" : null;
+  if (!origin) throw createServiceError("eBay environment must be sandbox or production.", 400);
+  const clientId = text(connection.metadata?.clientId, 500);
+  if (!clientId) throw createServiceError("eBay client ID is required.", 400);
+  const clientSecret = await credential(connection, "client_secret");
+  const refreshToken = await credential(connection, "refresh_token");
+  const tokenResult = await requestJson(`${origin}/identity/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      accept: "application/json",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token", refresh_token: refreshToken,
+    }).toString(),
+  });
+  const accessToken = text(tokenResult.access_token, 20000);
+  if (!accessToken) {
+    throw createServiceError("eBay did not issue a seller access token.", 409, {
+      code: "MARKETING_PROVIDER_VERIFICATION_FAILED",
+    });
+  }
+  const url = new URL(`${origin}/sell/fulfillment/v1/order`);
+  url.searchParams.set("limit", "1");
+  const orders = await requestJson(url, {
+    headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
+  });
+  if (!Array.isArray(orders.orders) && !Number.isInteger(orders.total)) {
+    throw createServiceError("eBay seller order access returned an unrecognised response.", 409, {
+      code: "MARKETING_PROVIDER_VERIFICATION_FAILED",
+    });
+  }
+  await storeProviderCredential(connection.app, connection._id, {
+    role: "access_token", secret: accessToken,
+    expiresAt: new Date(Date.now() + Math.max(60, finite(tokenResult.expires_in || 7200) - 60) * 1000),
+    metadata: { refreshedBy: "ebay_seller_verification" },
+  }, { businessId: connection.business });
+  return {
+    accountName: "eBay seller account",
+    environment, orderReadAccessVerified: true,
+    writePermissionVerified: false,
+    merchantIdentityVerified: false,
+  };
+}
+
 async function verifyAmazonVendorCentral(connection) {
   const token = await spAccessToken(connection, "amazon_vendor_central_verification");
   const { key: region, origin } = amazonRegionOrigin(connection.metadata?.region, AMAZON_SP_ORIGINS);
@@ -384,6 +433,7 @@ export const MARKETING_ACCOUNT_VERIFIER_EXTENSIONS_WAVE4 = Object.freeze({
   amazon_ads: verifyAmazonAds,
   amazon_dsp: verifyAmazonDsp,
   amazon_seller_central: verifyAmazonSellerCentral,
+  ebay: verifyEbaySeller,
   amazon_vendor_central: verifyAmazonVendorCentral,
   amazon_sqs: verifyAmazonSqs,
   apple_search_ads: verifyAppleSearchAds,
