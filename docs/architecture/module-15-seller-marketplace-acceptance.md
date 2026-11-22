@@ -11,6 +11,11 @@ Owner: DEV1. Branch: `dev1/seller-channels-amazon-ebay-20261108`. PR: #611.
 - Operator-created *pending* order association proposal with scoped staged order and scoped Commerce order lookup, duplicate protection, and an audit event in one MongoDB transaction.
 - Operator hold/reopen for proposed association with structured reason, transactionally committed audit, and collision rejection.
 - Checkout can assign business ownership **only** from authenticated, server-resolved tenant context; legacy unowned orders remain unverified.
+- Seller API is mounted at `/api/future/seller-channels`; its own trusted tenant and permission middleware is applied inside the authenticated router.
+- Tenant-scoped merchant seller connection list and on-demand read-only Amazon/eBay `POST /:connectionId/diagnose` endpoint, including status redaction and clear read-vs-write distinction.
+- Existing Partner Marketplace management panel now includes seller account discovery, read diagnostics, staging controls, inventory and order-link review, and pending proposal/hold/reopen controls.
+- Amazon Seller Central connector now captures the seller ID and marketplace ID required for the SP-API adapter.
+- An eBay OAuth seller connector definition and read-only live account verifier are registered using the canonical Integration Platform; no auto-creation of external consent or credentials.
 
 ## Security and data invariants
 
@@ -27,6 +32,18 @@ Owner: DEV1. Branch: `dev1/seller-channels-amazon-ebay-20261108`. PR: #611.
 - Real loopback replica-set tests cover staging rollback, index uniqueness, Commerce business filtering, operator hold/reopen rollback, and operator proposal rollback/duplicate protection.
 - The broader Stage 1–6, Fast CI, Module Mongo acceptance, Data Hub and CodeQL checks are independent release gates. Check the **exact PR head commit** before citing them as passed.
 - Existing test fixtures are not proof of live Amazon/eBay API permissions, rate-limit behaviour, or in-market transactions.
+
+## Merchant test sequence (requires authorised seller accounts)
+
+1. Connect each Amazon Seller Central and eBay seller through the Integration Platform using their own consent and secure credential bindings. Never paste secrets in a GitHub issue or chat.
+2. On the Partner Marketplace screen, choose a connected account and run **Test read access**. Record the check time and listing/order read outcomes. Zero returned records can be valid but does not establish that the entire inventory or transaction history was covered.
+3. Stage listings and orders explicitly. Verify staging checkpoints and recovery evidence with the scoped import-status endpoint.
+4. Review inventory variance only with a trusted canonical stock location. Do not treat a tenant-global listing count as a location-specific inventory balance.
+5. Propose a marketplace/Commerce link only for an order carrying explicit trusted business ownership. Hold ambiguous links; preserve the operator audit.
+6. Capture sandbox then production provider-side acceptance evidence for catalog creation/publication, quantity updates, order mapping, shipment posting and return/refund requests before enabling any corresponding write path.
+7. Repeat the complete CI matrix on the exact release commit and obtain owner sign-off. **Do not claim full module acceptance from a passing CI build alone.**
+
+The eBay Inventory API requires an inventory item, a valid merchant location, an offer and seller business policies before publishing. Amazon requires product-type definitions and correct SP-API authorization for listing writes. Neither is safely inferred from existing generic Commerce Product records.
 
 ## Unaccepted production functionality — must not be silently marked complete
 
