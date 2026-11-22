@@ -6,6 +6,7 @@ import {
   stageSellerRecords, getSellerReconciliation, getSellerOrderLinks,
   getSellerOwnershipBatch, reviewSellerOrderLink, proposeSellerOrderLink,
   listSellerLocationMappingCandidates, proposeSellerLocationMappingCandidate,
+  withdrawSellerLocationMappingCandidate,
 } from "../../Services/sellerChannelApi.js";
 
 const label = (value) => String(value || "").replaceAll("_", " ");
@@ -30,6 +31,7 @@ export default function SellerChannelsPanel() {
   const [mappingListingId, setMappingListingId] = useState("");
   const [mappingProductId, setMappingProductId] = useState("");
   const [mappingLocationId, setMappingLocationId] = useState("");
+  const [mappingWithdrawReason, setMappingWithdrawReason] = useState("source_changed");
   const [orders, setOrders] = useState(null);
   const [batch, setBatch] = useState(null);
   const [proposalExternalId, setProposalExternalId] = useState("");
@@ -297,15 +299,46 @@ export default function SellerChannelsPanel() {
             </form>
           ) : null}
           {mappingCandidates ? (
-            <ul className="mt-3 space-y-2 text-sm">
-              {mappingCandidates.records?.length ? mappingCandidates.records.map((candidate) => (
-                <li key={candidate.externalListingId}>
-                  {candidate.sourceSku} — {label(candidate.reviewStatus)}
-                  {" "}({candidate.proposedCommerceLocationId}).
-                  No provider-location verification or approved quantity comparison.
-                </li>
-              )) : <li>No pending location candidates found for this account.</li>}
-            </ul>
+            <div className="mt-3 space-y-3 text-sm">
+              {canProposeMapping ? (
+                <label className="block text-xs font-semibold">
+                  Reason for withdrawing a pending candidate
+                  <select value={mappingWithdrawReason}
+                    onChange={(event) => setMappingWithdrawReason(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm sm:max-w-md">
+                    <option value="source_changed">Source listing changed</option>
+                    <option value="commerce_moved">Commerce product or location changed</option>
+                    <option value="operator_error">Operator selected an incorrect candidate</option>
+                    <option value="provider_disconnected">Provider connection changed</option>
+                    <option value="other">Other reason</option>
+                  </select>
+                </label>
+              ) : null}
+              <ul className="space-y-2">
+                {mappingCandidates.records?.length ? mappingCandidates.records.map((candidate) => (
+                  <li key={candidate.externalListingId}>
+                    {candidate.sourceSku} — {label(candidate.reviewStatus)}
+                    {" "}({candidate.proposedCommerceLocationId}).
+                    {candidate.reviewStatus === "withdrawn" ?
+                      ` Withdrawn: ${label(candidate.withdrawalReason)}.` : ""}
+                    {" "}No provider-location verification or approved quantity comparison.
+                    {canProposeMapping &&
+                      candidate.reviewStatus === "pending_provider_location_evidence" ? (
+                      <button type="button" disabled={!!busy}
+                        className="ml-2 rounded-lg border border-black/20 px-2 py-1 text-xs disabled:opacity-50"
+                        onClick={() => run("mapping-withdraw", async () => {
+                          await withdrawSellerLocationMappingCandidate(
+                            selected, candidate.externalListingId, mappingWithdrawReason);
+                          setMappingCandidates(await listSellerLocationMappingCandidates(selected));
+                          setNotice("Candidate withdrawn with audit. No stock changes were made.");
+                        })}>
+                        Withdraw candidate (audited, permanent)
+                      </button>
+                    ) : null}
+                  </li>
+                )) : <li>No location candidates found for this account.</li>}
+              </ul>
+            </div>
           ) : null}
         </div>
       ) : null}
