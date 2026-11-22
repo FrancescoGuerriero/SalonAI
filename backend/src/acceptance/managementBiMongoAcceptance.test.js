@@ -392,16 +392,18 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
       assert.equal(result.status, 403, JSON.stringify(result.body));
       assert.equal(result.body.code, "INSUFFICIENT_PERMISSIONS");
     });
-    await t.test("missing, invalid and nonexistent user tokens never reach tenant data", async () => {
-      for (const options of [
-        {},
-        { bearer: "bad.token.value" },
-        { user: USERS.outsider },
-      ]) {
+    await t.test("missing and invalid tokens fail authentication before tenant lookup", async () => {
+      for (const options of [{}, { bearer: "bad.token.value" }]) {
         const result = await request(options);
         assert.equal(result.status, 401, JSON.stringify(result.body));
         assert.equal(result.body.snapshot, undefined);
       }
+    });
+    await t.test("valid authenticated user without a tenant membership is denied", async () => {
+      const result = await request({ user: USERS.outsider });
+      assert.equal(result.status, 404, JSON.stringify(result.body));
+      assert.equal(result.body.code, "TENANT_MEMBERSHIP_NOT_FOUND");
+      assert.equal(result.body.snapshot, undefined);
     });
     await t.test("disabled user and suspended business membership fail closed", async () => {
       const disabled = await request({ user: USERS.inactive });
