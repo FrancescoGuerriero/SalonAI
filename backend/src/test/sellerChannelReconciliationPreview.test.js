@@ -12,7 +12,7 @@ const connection = {
 };
 
 function fixture(staged = [], canonical = []) {
-  const queries = { staged: [], products: [] };
+  const queries = { staged: [], products: [], productProjection: [] };
   const stagedModel = {
     find: (query) => {
       queries.staged.push(query);
@@ -26,8 +26,10 @@ function fixture(staged = [], canonical = []) {
   const productModel = {
     find: (query) => {
       queries.products.push(query);
-      return { select: () => ({ lean: async () => canonical.map((row) =>
-        row === null ? row : ({ business: businessId, ...row })) }) };
+      return { select: (fields) => {
+        queries.productProjection.push(fields);
+        return { lean: async () => canonical.map((row) =>
+        row === null ? row : ({ business: businessId, ...row })) }; } ;
     },
   };
   return { stagedModel, productModel, queries };
@@ -52,6 +54,7 @@ test("seller SKU review does not claim verified location inventory or stock vari
   assert.equal(result.stockUpdatesApplied, 0);
   assert.equal(result.comparisonMode, "dry_run_only");
   assert.equal(f.queries.products[0].business, businessId);
+  assert.match(f.queries.productProjection[0], /\\bbusiness\\b/);
   assert.deepEqual(f.queries.products[0].sku.$in, ["SKU-01"]);
   assert.equal(f.queries.staged[0].connection, connection._id);
   assert.equal(f.queries.staged[0].provider, connection.provider);
