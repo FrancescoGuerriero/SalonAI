@@ -3,12 +3,26 @@ import { fetchSellerChannelSnapshot } from "./sellerChannelAdapter.js";
 import { createServiceError } from "../../shared/serviceError.js";
 
 const READ_KINDS = Object.freeze(["listings", "orders"]);
+const SAFE_DIAGNOSTIC_CODES = new Set([
+  "SELLER_CHANNEL_NOT_CONFIGURED", "SELLER_CHANNEL_PROVIDER_ERROR",
+  "SELLER_CHANNEL_BAD_RESPONSE", "SELLER_CHANNEL_TIMEOUT",
+  "SELLER_CHANNEL_PAGING_INVALID", "SELLER_CHANNEL_SCOPE_NOT_IMPLEMENTED",
+  "SELLER_CHANNEL_SOURCE_ID_INVALID", "SELLER_CHANNEL_SOURCE_ID_DUPLICATE",
+  "SELLER_DIAGNOSTIC_RESPONSE_INVALID",
+]);
 const DENIED_WRITES = Object.freeze([
   "listing_publication", "inventory_writeback", "commerce_order_ingestion",
   "order_association_approval", "fulfillment_writeback", "returns_and_refunds",
 ]);
 function fail(code, status = 403) {
   return createServiceError("Seller account diagnostic denied.", status, { code });
+}
+function publicDiagnosticCode(error) {
+  // Provider/SDK error metadata is untrusted. Do not echo arbitrary strings
+  // (which could include identifiers, URLs, credentials or response bodies).
+  const code = error?.details?.code;
+  return typeof code === "string" && SAFE_DIAGNOSTIC_CODES.has(code)
+    ? code : "SELLER_DIAGNOSTIC_CHECK_FAILED";
 }
 function validConnection(connection, businessId, locationAccessMode) {
   if (!mongoose.isValidObjectId(businessId) ||
@@ -39,6 +53,12 @@ export async function inspectSellerConnectionReadiness(connection, {
       const result = await fetchSnapshot(connection, kind, { limit: 1 });
       if (result?.source !== "read_only_provider_snapshot" ||
           result?.kind !== kind ||
+          result?.provider !== (connection.provider === "ebay" ? "ebay" : "amazon_seller_central") &&
+            result?.provider !== (connection.provider === "ebay" ? "ebay" : "amazon") ||
+          !Number.isInteger(result?.pagesFetched) ||
+          result.pagesFetched < 1 || result.pagesFetched > 5 ||
+          typeof result?.nextPageAvailable !== "boolean" ||
+          result?.completeWithinLimit !== !result.nextPageAvailable ||
           result?.canonicalRecordsWritten !== 0 ||
           result?.ordersFulfilled !== 0 ||
           result?.returnsProcessed !== 0 ||
@@ -59,8 +79,7 @@ export async function inspectSellerConnectionReadiness(connection, {
       // application code allows the operator to troubleshoot safely.
       checks.push(Object.freeze({
         kind, status: "read_access_unconfirmed",
-        errorCode: typeof error?.details?.code === "string" ?
-          error.details.code : "SELLER_DIAGNOSTIC_CHECK_FAILED",
+        errorCode: publicDiagnosticCode(error),
       }));
     }
   }
