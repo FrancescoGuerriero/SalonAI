@@ -19,6 +19,7 @@ import loyaltyRoutes from "./loyalty/loyaltyRoutes.js";
 import membershipRoutes from "./memberships/membershipRoutes.js";
 import integrationApiRoutes from "./integrationPlatform/integrationApiRoutes.js";
 import integrationPlatformRoutes from "./integrationPlatform/integrationPlatformRoutes.js";
+import sellerChannelRoutes from "./partnerMarketplace/sellerChannelRoutes.js";
 import leadRoutes from "./leads/leadRoutes.js";
 import workflowRoutes from "./workflows/workflowRoutes.js";
 import settlementRoutes from "./finance/settlementRoutes.js";
@@ -105,6 +106,8 @@ router.use(
   "/integrations",
   integrationPlatformRoutes
 );
+// Module 15: seller operations enforce their own trusted tenant and RBAC checks.
+router.use("/seller-channels", sellerChannelRoutes);
 router.use(
   "/leads",
   leadRoutes
