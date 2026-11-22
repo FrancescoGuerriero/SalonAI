@@ -22,6 +22,9 @@ import { inspectSellerConnectionReadiness } from "./sellerChannelReadiness.js";
 import { listSellerChannelConnections } from "./sellerChannelConnectionList.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
+import {
+  proposeSellerLocationMapping, listSellerLocationMappingProposals,
+} from "./sellerChannelLocationMappingProposal.js";
 
 const router = Router();
 router.use(protect, trustedTenantContextMiddleware, effectiveAuthorityMiddleware);
@@ -96,6 +99,37 @@ router.get("/:connectionId/import-status", requirePermissions("feature-control:r
       businessId: request.effectiveAuthority.businessId,
     });
     response.status(200).json({ success: true, result });
+  }));
+
+// Explicit, audited mapping CANDIDATES, never a verified provider location.
+router.get("/:connectionId/location-mapping-proposals",
+  requirePermissions("inventory:read"), requirePermissions("product:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await listSellerLocationMappingProposals(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      limit: request.query.limit ?? 50,
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
+
+router.post("/:connectionId/location-mapping-proposals",
+  requirePermissions("feature-control:update"), requirePermissions("inventory:read"),
+  requirePermissions("product:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await proposeSellerLocationMapping(await ownedConnection(request), {
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+      actorId: request.user?._id || request.user?.id,
+      externalListingId: request.body?.externalListingId,
+      commerceProductId: request.body?.commerceProductId,
+      commerceLocationId: request.body?.commerceLocationId,
+      requestId: request.requestId || "",
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(201).json({ success: true, result });
   }));
 
 // An operator-downloadable variance report; never a stock import or update.
