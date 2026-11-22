@@ -7,6 +7,7 @@ on:
       - "backend/src/features/premium/analytics/**"
       - "backend/src/test/point10BusinessIntelligencePythonContracts.test.js"
       - "backend/src/test/managementBiScopeEvidence.test.js"
+      - "backend/src/test/managementBiLegacySurface.test.js"
       - "frontend/src/pages/PremiumAnalyticsPage.jsx"
       - "ai-service/app/api/routes/ai_gateway.py"
       - "ai-service/app/governance/ai_registry.py"
@@ -21,6 +22,7 @@ on:
       - "backend/src/features/premium/analytics/**"
       - "backend/src/test/point10BusinessIntelligencePythonContracts.test.js"
       - "backend/src/test/managementBiScopeEvidence.test.js"
+      - "backend/src/test/managementBiLegacySurface.test.js"
       - "frontend/src/pages/PremiumAnalyticsPage.jsx"
       - "ai-service/app/api/routes/ai_gateway.py"
       - "ai-service/app/governance/ai_registry.py"
@@ -51,7 +53,7 @@ jobs:
         run: npm ci
       - name: Run Point 10 contracts
         working-directory: backend
-        run: node --test src/test/point10BusinessIntelligencePythonContracts.test.js src/test/managementBiScopeEvidence.test.js
+        run: node --test src/test/point10BusinessIntelligencePythonContracts.test.js src/test/managementBiScopeEvidence.test.js src/test/managementBiLegacySurface.test.js
       - name: Verify backend source
         working-directory: backend
         run: npm run check
