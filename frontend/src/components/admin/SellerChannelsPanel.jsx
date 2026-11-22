@@ -4,7 +4,7 @@ import { hasPermission } from "../../utils/permissions.js";
 import {
   listSellerConnections, diagnoseSellerConnection, getSellerImportStatus,
   stageSellerRecords, getSellerReconciliation, getSellerOrderLinks,
-  getSellerOwnershipBatch, reviewSellerOrderLink,
+  getSellerOwnershipBatch, reviewSellerOrderLink, proposeSellerOrderLink,
 } from "../../Services/sellerChannelApi.js";
 
 const label = (value) => String(value || "").replaceAll("_", " ");
@@ -24,6 +24,8 @@ export default function SellerChannelsPanel() {
   const [inventory, setInventory] = useState(null);
   const [orders, setOrders] = useState(null);
   const [batch, setBatch] = useState(null);
+  const [proposalExternalId, setProposalExternalId] = useState("");
+  const [proposalCommerceId, setProposalCommerceId] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -217,6 +219,39 @@ export default function SellerChannelsPanel() {
           <p className="mt-1 text-xs text-stone-600">
             These references are not verified order associations. Approval and order execution are disabled.
           </p>
+          {canReview ? (
+            <form className="mt-3 grid gap-2 sm:grid-cols-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                run("propose", async () => {
+                  await proposeSellerOrderLink(selected,
+                    proposalExternalId.trim(), proposalCommerceId.trim());
+                  setOrders(await getSellerOrderLinks(selected));
+                  setBatch(await getSellerOwnershipBatch(selected));
+                  setProposalExternalId("");
+                  setProposalCommerceId("");
+                  setNotice("Pending proposal created. Transaction correspondence remains unverified.");
+                });
+              }}>
+              <label className="text-xs font-semibold">
+                Staged marketplace order ID
+                <input value={proposalExternalId} required maxLength={120}
+                  onChange={(event) => setProposalExternalId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm" />
+              </label>
+              <label className="text-xs font-semibold">
+                Business-owned Commerce order ID
+                <input value={proposalCommerceId} required
+                  pattern="[a-fA-F0-9]{24}" maxLength={24}
+                  onChange={(event) => setProposalCommerceId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-black/20 p-2 text-sm" />
+              </label>
+              <button type="submit" disabled={!!busy}
+                className="rounded-lg border border-black/20 px-3 py-2 text-sm disabled:opacity-50 sm:col-span-2">
+                Create pending association proposal (no approval)
+              </button>
+            </form>
+          ) : null}
           <ul className="mt-3 space-y-3">
             {(orders.records || []).map((row) => (
               <li key={row.externalOrderId} className="rounded-lg border border-black/10 p-3 text-sm">
