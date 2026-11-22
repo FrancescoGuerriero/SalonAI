@@ -65,7 +65,7 @@ export async function previewSellerChannelInventory(connection, {
   }
   const canonical = skus.length ? await productModel.find({
     business: businessId, sku: { $in: skus },
-  }).select("sku stockQuantity location").lean() : [];
+  }).select("business sku stockQuantity location").lean() : [];
   if (!Array.isArray(canonical)) {
     throw createServiceError("Unexpected Commerce inventory response.", 502, {
       code: "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
