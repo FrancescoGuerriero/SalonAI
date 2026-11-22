@@ -10,9 +10,9 @@ const connection = {
   provider: "ebay", status: "connected",
 };
 const result = (kind, data = {}) => ({
-  source: "read_only_provider_snapshot", kind,
-  records: [], recordCount: 0,
-  nextPageAvailable: false,
+  source: "read_only_provider_snapshot", kind, provider: "ebay",
+  records: [], recordCount: 0, pagesFetched: 1,
+  nextPageAvailable: false, completeWithinLimit: true,
   canonicalRecordsWritten: 0, ordersFulfilled: 0,
   returnsProcessed: 0, publicationEnabled: false,
   ...data,
@@ -80,6 +80,11 @@ test("malformed API results never claim a confirmed read", async () => {
     { ...result("listings"), publicationEnabled: true },
     { ...result("listings"), records: [], recordCount: 1 },
     { ...result("listings"), nextPageAvailable: true, ordersFulfilled: 1 },
+    { ...result("listings"), provider: "amazon_seller_central" },
+    { ...result("listings"), pagesFetched: 0 },
+    { ...result("listings"), pagesFetched: 6 },
+    { ...result("listings"), completeWithinLimit: false },
+    { ...result("listings"), nextPageAvailable: "false" },
   ]) {
     const report = await inspectSellerConnectionReadiness(connection, {
       businessId, locationAccessMode: "all",
@@ -87,6 +92,32 @@ test("malformed API results never claim a confirmed read", async () => {
     });
     assert.equal(report.allReadChecksPassed, false);
     assert.equal(report.checks[0].status, "read_access_unconfirmed");
+  }
+});
+
+test("diagnostics never expose arbitrary provider or SDK error-code contents", async () => {
+  const privateValues = [
+    "secret-access-token",
+    "https://attacker.example.invalid/credential?token=private",
+    "SELLER_CHANNEL_SECRET_ACCESS_TOKEN",
+    "seller account email: private@example.invalid",
+  ];
+  for (const leaked of privateValues) {
+    const report = await inspectSellerConnectionReadiness(connection, {
+      businessId, locationAccessMode: "all",
+      fetchSnapshot: async (_conn, kind) => {
+        if (kind === "listings") {
+          throw Object.assign(new Error("Provider failure"), {
+            details: { code: leaked },
+          });
+        }
+        return result(kind);
+      },
+    });
+    assert.equal(report.allReadChecksPassed, false);
+    assert.equal(report.checks[0].status, "read_access_unconfirmed");
+    assert.equal(report.checks[0].errorCode, "SELLER_DIAGNOSTIC_CHECK_FAILED");
+    assert.ok(!JSON.stringify(report).includes(leaked));
   }
 });
 
