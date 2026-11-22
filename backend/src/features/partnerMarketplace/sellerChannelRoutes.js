@@ -24,6 +24,7 @@ import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 import {
   proposeSellerLocationMapping, listSellerLocationMappingProposals,
+  withdrawSellerLocationMappingProposal,
 } from "./sellerChannelLocationMappingProposal.js";
 
 const router = Router();
@@ -130,6 +131,24 @@ router.post("/:connectionId/location-mapping-proposals",
     });
     response.set("Cache-Control", "private, no-store");
     response.status(201).json({ success: true, result });
+  }));
+
+// Withdrawal is terminal and audited, never a location verification.
+router.post("/:connectionId/location-mapping-proposals/:externalListingId/withdraw",
+  requirePermissions("feature-control:update"), requirePermissions("inventory:read"),
+  requirePermissions("product:read"), requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await withdrawSellerLocationMappingProposal(
+      await ownedConnection(request), {
+        businessId: request.effectiveAuthority.businessId,
+        locationAccessMode: request.effectiveAuthority.locationAccessMode,
+        actorId: request.user?._id || request.user?.id,
+        externalListingId: request.params.externalListingId,
+        reason: request.body?.reason,
+        requestId: request.requestId || "",
+      });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
   }));
 
 // An operator-downloadable variance report; never a stock import or update.
