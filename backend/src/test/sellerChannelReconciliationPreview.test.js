@@ -6,20 +6,28 @@ import { previewSellerChannelInventory } from "../features/partnerMarketplace/se
 const businessId = "507f1f77bcf86cd799439021";
 const foreign = "507f1f77bcf86cd799439022";
 const locationId = "507f1f77bcf86cd799439023";
-const connection = { _id: "507f1f77bcf86cd799439025", business: businessId, status: "connected" };
+const connection = {
+  _id: "507f1f77bcf86cd799439025", business: businessId,
+  provider: "ebay", status: "connected",
+};
 
 function fixture(staged = [], canonical = []) {
   const queries = { staged: [], products: [] };
   const stagedModel = {
     find: (query) => {
       queries.staged.push(query);
-      return { sort: () => ({ limit: () => ({ lean: async () => staged }) }) };
+      return { sort: () => ({ limit: () => ({ lean: async () => staged.map((row) =>
+        row === null ? row : ({
+          business: businessId, connection: connection._id,
+          provider: connection.provider, kind: "listings", ...row,
+        })) }) }) };
     },
   };
   const productModel = {
     find: (query) => {
       queries.products.push(query);
-      return { select: () => ({ lean: async () => canonical }) };
+      return { select: () => ({ lean: async () => canonical.map((row) =>
+        row === null ? row : ({ business: businessId, ...row })) }) };
     },
   };
   return { stagedModel, productModel, queries };
@@ -40,6 +48,7 @@ test("seller SKU comparison is dry-run and location-scoped with no inventory wri
   assert.equal(f.queries.products[0].business, businessId);
   assert.deepEqual(f.queries.products[0].sku.$in, ["SKU-01"]);
   assert.equal(f.queries.staged[0].connection, connection._id);
+  assert.equal(f.queries.staged[0].provider, connection.provider);
 });
 
 test("missing trusted location blocks numeric stock comparison, not source discovery", async () => {
@@ -55,6 +64,8 @@ test("foreign tenant, disconnected account and malformed location fail closed", 
   const f = fixture();
   await assert.rejects(previewSellerChannelInventory(connection, { businessId: foreign, ...f }));
   await assert.rejects(previewSellerChannelInventory({ ...connection, status: "degraded" }, { businessId, ...f }));
+  await assert.rejects(previewSellerChannelInventory({ ...connection, provider: "stripe" }, { businessId, ...f }));
+  await assert.rejects(previewSellerChannelInventory({ ...connection, _id: "invalid" }, { businessId, ...f }));
   await assert.rejects(previewSellerChannelInventory(connection, { businessId, locationId: "invalid", ...f }));
   assert.equal(f.queries.staged.length, 0);
 });
@@ -143,4 +154,56 @@ test("inventory reconciliation flags full preview as possibly truncated rather t
   assert.equal(result.summary.possiblyTruncated, true);
   assert.equal(result.summary.unresolved, 1);
   assert.equal(result.summary.potentialStockChanges, 0);
+});
+
+test("seller inventory fails closed on cross-tenant, cross-provider and duplicate staged evidence", async () => {
+  const valid = { externalId: "SKU-01", sourceRecord: { sku: "SKU-01", quantity: 3 } };
+  const scenarios = [
+    [ { ...valid, business: foreign } ],
+    [ { ...valid, connection: "507f1f77bcf86cd799439099" } ],
+    [ { ...valid, provider: "amazon_seller_central" } ],
+    [ { ...valid, kind: "orders" } ],
+    [ { ...valid, externalId: "" } ],
+    [ valid, { ...valid } ],
+    [ null ],
+    [ { ...valid, sourceRecord: null } ],
+  ];
+  for (const records of scenarios) {
+    const f = fixture(records);
+    await assert.rejects(
+      previewSellerChannelInventory(connection, { businessId, locationId, ...f }),
+      (error) => error.details?.code === "SELLER_INVENTORY_STAGED_EVIDENCE_INVALID",
+    );
+    assert.equal(f.queries.products.length, 0);
+  }
+});
+
+test("seller inventory rejects canonical Commerce evidence outside the trusted tenant and SKU set", async () => {
+  const staged = [{ externalId: "ONE", sourceRecord: { sku: "ONE", quantity: 5 } }];
+  const cases = [
+    [{ _id: "507f1f77bcf86cd799439027", business: foreign, sku: "ONE",
+      location: locationId, stockQuantity: 5 }],
+    [{ _id: "507f1f77bcf86cd799439027", sku: "UNREQUESTED",
+      location: locationId, stockQuantity: 5 }],
+    [{ _id: null, sku: "ONE", location: locationId, stockQuantity: 5 }],
+  ];
+  for (const products of cases) {
+    const f = fixture(staged, products);
+    await assert.rejects(
+      previewSellerChannelInventory(connection, { businessId, locationId, ...f }),
+      (error) => error.details?.code === "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
+    );
+  }
+});
+
+test("case-normalised Commerce SKU evidence still matches and remains read-only", async () => {
+  const f = fixture(
+    [{ externalId: "a", sourceRecord: { sku: "sku-01", quantity: 3 } }],
+    [{ _id: "507f1f77bcf86cd799439027", sku: " sku-01 ",
+      location: locationId, stockQuantity: 3 }],
+  );
+  const report = await previewSellerChannelInventory(connection, { businessId, locationId, ...f });
+  assert.equal(report.records[0].state, "matched");
+  assert.equal(report.records[0].canonicalQuantity, 3);
+  assert.equal(report.stockUpdatesApplied, 0);
 });
