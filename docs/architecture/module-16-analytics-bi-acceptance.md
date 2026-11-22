@@ -32,6 +32,16 @@ The current Premium Analytics frontend already uses `GET /api/premium-analytics/
 - CI on the **exact PR head**, cross-tenant integration acceptance, current deployment identity, live tenant entitlement and independently authorised production sign-off are separate gates.
 - No parallel analytics service, tenant-level AI usage quota, product/entitlement changes, browser-to-Python shortcut, provider call, external write, model training, or production deployment is introduced.
 
+## Real MongoDB and guarded HTTP acceptance (new)
+
+The separate `DEV1 Module 16 BI Mongo Acceptance` GitHub Actions gate starts an **ephemeral MongoDB 7** service on the CI runner's loopback interface. Its test requires exactly `mongodb://127.0.0.1:27017/aiibp_bi_acceptance_ci`, refuses other connection strings and drops the isolated test database on completion. It never connects to the live database.
+
+`backend/src/acceptance/managementBiMongoAcceptance.test.js` seeds two businesses, two active locations for one business, a separate other-tenant location and an archived location. Appointment fixtures include completed work, no-shows, cancellations, an `appointmentDate` fallback, exact current/previous UTC window boundaries, an excluded future record, a foreign business, and legacy records without verified business/location ownership. It checks exact canonical bookings, completed revenue, no-show and cancellation rates for business-wide, single-location and other-tenant queries, plus source row counts and zero writes.
+
+The same acceptance suite serves an isolated HTTP endpoint using the **production trusted-context and effective-permission middleware factories**, the actual `getManagementBi` controller and real MongoDB models. It verifies the response contract, explicit permission denial, missing principal denial and tenant/location-specific results. Only the test harness substitutes authentication and server-selected tenant identities; it does **not** assert production JWT validation, customer session selection or live role-registry acceptance. Production router wiring remains protected and unchanged.
+
+All results remain deterministic and non-PII. This is database-backed acceptance, **not deployment evidence**.
+
 ## Next Module 16 acceptance stages
 
 A. Confirm source-integrity and all existing CI checks.
