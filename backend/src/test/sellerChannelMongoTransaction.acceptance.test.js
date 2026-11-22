@@ -8,6 +8,7 @@ import SellerChannelOrderLink from "../models/SellerChannelOrderLink.js";
 import { inspectSellerCommerceOrderOwnership } from "../features/partnerMarketplace/sellerChannelCommerceOwnership.js";
 import { transitionSellerOrderReview } from "../features/partnerMarketplace/sellerChannelOrderReviewTransition.js";
 import { proposeSellerCommerceOrderLink } from "../features/partnerMarketplace/sellerChannelOrderProposal.js";
+import { proposeSellerLocationMapping } from "../features/partnerMarketplace/sellerChannelLocationMappingProposal.js";
 
 // Deliberately opt-in: never connect a standard CI run to a live database.
 // Only an explicitly named loopback MongoDB replica-set test database is valid.
@@ -690,6 +691,116 @@ test("real MongoDB seller proposal is atomic, rejects duplicate references and r
     assert.equal(await links.countDocuments({}), 1);
     assert.equal(await audits.countDocuments({}), 1);
     assert.equal(await orders.countDocuments({}), 1);
+  } finally {
+    for (const name of names) {
+      await db.dropCollection(name).catch((error) => {
+        if (error.codeName !== "NamespaceNotFound") throw error;
+      });
+    }
+    await db.close();
+  }
+});
+
+test("real MongoDB seller location candidate commits with audit and rolls back audit failure", {
+  skip: !URI ? "Requires isolated loopback MongoDB replica set" : false,
+  timeout: 45000,
+}, async () => {
+  const checkedUri = safeAcceptanceUri(URI);
+  assert.ok(checkedUri, "Refusing non-acceptance MongoDB URI");
+  const db = await mongoose.createConnection(checkedUri, {
+    serverSelectionTimeoutMS: 5000, socketTimeoutMS: 12000,
+  }).asPromise();
+  const prefix = "seller_location_candidate_" + randomUUID().replaceAll("-", "");
+  const names = ["staged", "products", "locations", "proposals", "audits"]
+    .map((name) => prefix + "_" + name);
+  const businessId = new mongoose.Types.ObjectId();
+  const connectionId = new mongoose.Types.ObjectId();
+  const actorId = new mongoose.Types.ObjectId();
+  const commerceLocationId = new mongoose.Types.ObjectId();
+  const firstProductId = new mongoose.Types.ObjectId();
+  const secondProductId = new mongoose.Types.ObjectId();
+  const connection = { _id: connectionId, business: businessId,
+    provider: "ebay", status: "connected" };
+  try {
+    for (const name of names) await db.createCollection(name);
+    const [staged, products, locations, proposals, audits] =
+      names.map((name) => db.db.collection(name));
+    await proposals.createIndex(
+      { business: 1, connection: 1, externalListingId: 1 }, { unique: true },
+    );
+    await locations.insertOne({
+      _id: commerceLocationId, business: businessId, status: "active",
+    });
+    await products.insertMany([
+      { _id: firstProductId, business: businessId,
+        location: commerceLocationId, sku: "SKU-01" },
+      { _id: secondProductId, business: businessId,
+        location: commerceLocationId, sku: "SKU-02" },
+    ]);
+    await staged.insertMany([
+      { business: businessId, connection: connectionId, provider: "ebay",
+        kind: "listings", externalId: "SKU-01",
+        sourceRecord: { sku: "SKU-01", quantity: 3 },
+        lastObservedAt: new Date() },
+      { business: businessId, connection: connectionId, provider: "ebay",
+        kind: "listings", externalId: "SKU-02",
+        sourceRecord: { sku: "SKU-02", quantity: 7 },
+        lastObservedAt: new Date() },
+    ]);
+    const read = (collection) => ({ findOne: (query) => ({
+      session: (session) => ({ select: () => ({
+        lean: () => collection.findOne(query, { session }),
+      }) }),
+    }) });
+    const proposalModel = {
+      ...read(proposals),
+      create: (docs, { session }) => proposals.insertMany(docs, { session }).then(
+        (result) => docs.map((doc, i) => ({ _id: result.insertedIds[i], ...doc }))),
+    };
+    let failAudit = false;
+    const auditModel = { create: (docs, { session }) => {
+      if (failAudit) throw new Error("injected-location-audit-failure");
+      return audits.insertMany(docs, { session });
+    } };
+    const options = {
+      businessId, locationAccessMode: "all", actorId,
+      commerceProductId: firstProductId, commerceLocationId,
+      externalListingId: "SKU-01",
+      stagedModel: read(staged), productModel: read(products),
+      locationModel: read(locations), proposalModel, auditModel,
+      startSession: () => db.startSession(),
+    };
+
+    failAudit = true;
+    await assert.rejects(
+      proposeSellerLocationMapping(connection, options),
+      /injected-location-audit-failure/,
+    );
+    assert.equal(await proposals.countDocuments({}), 0);
+    assert.equal(await audits.countDocuments({}), 0);
+
+    failAudit = false;
+    const proposed = await proposeSellerLocationMapping(connection, options);
+    assert.equal(proposed.reviewStatus, "pending_provider_location_evidence");
+    assert.equal(proposed.locationMappingVerified, false);
+    assert.equal(proposed.quantityComparisonAccepted, false);
+    assert.equal(proposed.stockUpdatesApplied, 0);
+    assert.equal(await proposals.countDocuments({}), 1);
+    assert.equal(await audits.countDocuments({}), 1);
+
+    await assert.rejects(proposeSellerLocationMapping(connection, options),
+      (error) => error.details?.code === "SELLER_LOCATION_PROPOSAL_CONFLICT");
+    assert.equal(await proposals.countDocuments({}), 1);
+    assert.equal(await audits.countDocuments({}), 1);
+
+    failAudit = true;
+    await assert.rejects(proposeSellerLocationMapping(connection, {
+      ...options, externalListingId: "SKU-02", commerceProductId: secondProductId,
+    }), /injected-location-audit-failure/);
+    assert.equal(await proposals.countDocuments({}), 1);
+    assert.equal(await audits.countDocuments({}), 1);
+    assert.equal(await products.countDocuments({}), 2);
+    assert.equal(await locations.countDocuments({}), 1);
   } finally {
     for (const name of names) {
       await db.dropCollection(name).catch((error) => {
