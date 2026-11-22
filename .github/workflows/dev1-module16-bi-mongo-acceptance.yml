@@ -1,0 +1,72 @@
+name: DEV1 Module 16 BI Mongo Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/features/analytics/managementBiService.js'
+      - 'backend/src/features/analytics/appointmentMetricCalculator.js'
+      - 'backend/src/features/analytics/metricCatalogue.js'
+      - 'backend/src/features/premium/analytics/**'
+      - 'backend/src/acceptance/managementBiMongoAcceptance.test.js'
+      - 'backend/src/models/Location.js'
+      - 'backend/src/models/Appointment.js'
+      - 'backend/src/platform/tenancy/trustedTenantMiddleware.js'
+      - 'backend/src/middleware/effectiveAuthorityMiddleware.js'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - '.github/workflows/dev1-module16-bi-mongo-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/features/analytics/managementBiService.js'
+      - 'backend/src/features/analytics/appointmentMetricCalculator.js'
+      - 'backend/src/features/analytics/metricCatalogue.js'
+      - 'backend/src/features/premium/analytics/**'
+      - 'backend/src/acceptance/managementBiMongoAcceptance.test.js'
+      - 'backend/src/models/Location.js'
+      - 'backend/src/models/Appointment.js'
+      - 'backend/src/platform/tenancy/trustedTenantMiddleware.js'
+      - 'backend/src/middleware/effectiveAuthorityMiddleware.js'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - '.github/workflows/dev1-module16-bi-mongo-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mongo-bi-acceptance:
+    name: Module 16 real Mongo tenant and HTTP BI isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 127.0.0.1:27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AIIBP_BI_ACCEPTANCE_MONGO_URI: mongodb://127.0.0.1:27017/aiibp_bi_acceptance_ci
+      NODE_ENV: test
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install locked backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run Module 16 real MongoDB tenant and KPI acceptance
+        working-directory: backend
+        run: node --test src/acceptance/managementBiMongoAcceptance.test.js
