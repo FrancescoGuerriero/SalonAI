@@ -12,8 +12,10 @@ export async function previewSellerChannelInventory(connection, {
   productModel = Product, limit = 50,
 } = {}) {
   if (!mongoose.isValidObjectId(businessId) ||
+    !mongoose.isValidObjectId(connection?._id) ||
     String(connection?.business) !== String(businessId) ||
-    connection.status !== "connected") {
+    connection?.status !== "connected" ||
+    !["amazon_seller_central", "ebay"].includes(connection?.provider)) {
     throw createServiceError("Trusted connected seller tenant authority is required.", 403);
   }
   // Product stock is location-bound; never compare it to a cross-location
@@ -23,11 +25,35 @@ export async function previewSellerChannelInventory(connection, {
   }
   const count = Number.isSafeInteger(Number(limit)) ? Math.min(50, Math.max(1, Number(limit))) : 50;
   const staged = await stagedModel.find({
-    business: businessId, connection: connection._id, kind: "listings",
+    business: businessId, connection: connection._id,
+    provider: connection.provider, kind: "listings",
   }).sort({ lastObservedAt: -1, _id: -1 }).limit(count).lean();
-  if (!Array.isArray(staged)) throw createServiceError("Unexpected staged inventory response.", 502);
+  if (!Array.isArray(staged) || staged.length > count) {
+    throw createServiceError("Unexpected staged inventory response.", 502, {
+      code: "SELLER_INVENTORY_STAGED_EVIDENCE_INVALID",
+    });
+  }
 
-  const rawSkus = staged.map((row) => String(row.sourceRecord?.sku || "").trim());
+  // A filtered query is not sufficient evidence of tenant ownership.
+  // Validate every returned record before comparing canonical quantities.
+  const seenExternalIds = new Set();
+  for (const row of staged) {
+    const externalId = row?.externalId;
+    if (String(row?.business) !== String(businessId) ||
+        String(row?.connection) !== String(connection._id) ||
+        row?.provider !== connection.provider || row?.kind !== "listings" ||
+        typeof externalId !== "string" || !externalId.trim() ||
+        externalId.length > 200 || seenExternalIds.has(externalId) ||
+        !row.sourceRecord || typeof row.sourceRecord !== "object" ||
+        Array.isArray(row.sourceRecord)) {
+      throw createServiceError("Inconsistent staged seller inventory evidence.", 502, {
+        code: "SELLER_INVENTORY_STAGED_EVIDENCE_INVALID",
+      });
+    }
+    seenExternalIds.add(externalId);
+  }
+
+  const rawSkus = staged.map((row) => String(row.sourceRecord.sku || "").trim());
   const normalizedSkus = rawSkus.map((sku) => sku.toUpperCase());
   const skus = [...new Set(normalizedSkus.filter(Boolean))];
   const skuCounts = new Map();
@@ -37,10 +63,21 @@ export async function previewSellerChannelInventory(connection, {
   const canonical = skus.length ? await productModel.find({
     business: businessId, sku: { $in: skus },
   }).select("sku stockQuantity location").lean() : [];
-  if (!Array.isArray(canonical)) throw createServiceError("Unexpected Commerce inventory response.", 502);
+  if (!Array.isArray(canonical)) {
+    throw createServiceError("Unexpected Commerce inventory response.", 502, {
+      code: "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
+    });
+  }
   const bySku = new Map();
   for (const product of canonical) {
-    const sku = String(product.sku || "").toUpperCase();
+    const sku = typeof product?.sku === "string" ?
+      product.sku.trim().toUpperCase() : "";
+    if (String(product?.business) !== String(businessId) ||
+        !sku || !skus.includes(sku)) {
+      throw createServiceError("Inconsistent Commerce inventory evidence.", 502, {
+        code: "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
+      });
+    }
     const rows = bySku.get(sku) || [];
     rows.push(product);
     bySku.set(sku, rows);
@@ -56,6 +93,11 @@ export async function previewSellerChannelInventory(connection, {
       locationId !== null && exact.length === 1 &&
       Number.isSafeInteger(remote) && Number.isSafeInteger(local) &&
       remote >= 0 && local >= 0;
+    if (comparable && !mongoose.isValidObjectId(exact[0]._id)) {
+      throw createServiceError("Missing canonical product identity.", 502, {
+        code: "SELLER_INVENTORY_COMMERCE_EVIDENCE_INVALID",
+      });
+    }
     return Object.freeze({
       sku, externalId: String(row.externalId || ""),
       state: !sku ? "invalid_staged_sku" :
