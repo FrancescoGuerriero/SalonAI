@@ -19,6 +19,7 @@ import { inspectSellerCommerceOrderBatch } from "./sellerChannelCommerceOwnershi
 import { transitionSellerOrderReview } from "./sellerChannelOrderReviewTransition.js";
 import { proposeSellerCommerceOrderLink } from "./sellerChannelOrderProposal.js";
 import { inspectSellerConnectionReadiness } from "./sellerChannelReadiness.js";
+import { listSellerChannelConnections } from "./sellerChannelConnectionList.js";
 import { buildSellerOrderLinkReviewCsv } from "./sellerChannelOrderLinkCsv.js";
 import { requireSellerTenantWideLocation } from "./sellerChannelLocationGuard.js";
 
@@ -62,6 +63,18 @@ router.get("/capabilities", requirePermissions("feature-control:read"), (_reques
     productionAccepted: false,
   });
 });
+
+// Read-only discovery, without credentials, metadata or provider account tokens.
+router.get("/connections", requirePermissions("feature-control:read"),
+  requireSellerTenantWideLocation,
+  asyncHandler(async (request, response) => {
+    const result = await listSellerChannelConnections({
+      businessId: request.effectiveAuthority.businessId,
+      locationAccessMode: request.effectiveAuthority.locationAccessMode,
+    });
+    response.set("Cache-Control", "private, no-store");
+    response.status(200).json({ success: true, result });
+  }));
 
 // Explicit merchant-triggered, bounded live API diagnostic. Read-only.
 router.post("/:connectionId/diagnose", requirePermissions("feature-control:read"),
