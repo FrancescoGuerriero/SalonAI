@@ -246,5 +246,7 @@ test("seller location proposal routes enforce all permissions and forbid stock o
   assert.match(api, /proposeSellerLocationMappingCandidate/);
   assert.match(panel, /canProposeMapping = canStage && canReadMappings/);
   assert.match(panel, /Save pending mapping candidate \(no stock changes\)/);
+  assert.match(panel, /Use staged listing for proposal/);
+  assert.match(panel, /setMappingListingId\(row.externalId\)/);
   assert.match(panel, /Provider location and stock remain unverified/);
 });
