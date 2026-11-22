@@ -19,6 +19,7 @@ import {
   prepareMarketplaceInstallation,
   reconcileMarketplaceInstallation,
 } from "../../Services/partnerMarketplaceApi.js";
+import SellerChannelsPanel from "./SellerChannelsPanel.jsx";
 import useAuth from "../../hooks/useAuth.js";
 import { hasPermission } from "../../utils/permissions.js";
 
@@ -398,6 +399,7 @@ export default function PartnerMarketplacePanel() {
           );
         })}
       </div>
+      <SellerChannelsPanel />
     </section>
   );
 }
