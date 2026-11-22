@@ -24,6 +24,22 @@ export async function stageSellerRecords(connectionId, kind) {
   return data?.result;
 }
 
+export async function listSellerLocationMappingCandidates(connectionId) {
+  const { data } = await API.get(`${scoped(connectionId)}/location-mapping-proposals`, {
+    params: { limit: 25 },
+  });
+  return data?.result;
+}
+
+export async function proposeSellerLocationMappingCandidate(connectionId, candidate) {
+  const { externalListingId, commerceProductId, commerceLocationId } = candidate || {};
+  const { data } = await API.post(
+    `${scoped(connectionId)}/location-mapping-proposals`,
+    { externalListingId, commerceProductId, commerceLocationId }
+  );
+  return data?.result;
+}
+
 export async function getSellerReconciliation(connectionId) {
   const { data } = await API.get(`${scoped(connectionId)}/reconciliation`, {
     params: { limit: 25 },
