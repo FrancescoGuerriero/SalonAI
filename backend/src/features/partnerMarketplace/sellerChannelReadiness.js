@@ -53,8 +53,7 @@ export async function inspectSellerConnectionReadiness(connection, {
       const result = await fetchSnapshot(connection, kind, { limit: 1 });
       if (result?.source !== "read_only_provider_snapshot" ||
           result?.kind !== kind ||
-          result?.provider !== (connection.provider === "ebay" ? "ebay" : "amazon_seller_central") &&
-            result?.provider !== (connection.provider === "ebay" ? "ebay" : "amazon") ||
+          result?.provider !== connection.provider ||
           !Number.isInteger(result?.pagesFetched) ||
           result.pagesFetched < 1 || result.pagesFetched > 5 ||
           typeof result?.nextPageAvailable !== "boolean" ||
