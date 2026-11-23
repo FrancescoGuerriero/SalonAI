@@ -326,6 +326,7 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
     ]);
 
     const app = express();
+    app.use(express.json());
     // Mount the canonical production route unchanged: it applies its real
     // JWT protect, public business-host resolver, persisted membership,
     // effective role resolver, and premium-analytics permission middleware.
@@ -343,18 +344,18 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
     const request = async ({
       user, host = "tenant-a.example.test", bearer,
       path = "/management?periodDays=3&asOfDate=2026-11-22",
-      extraHeaders = {},
+      method = "GET", body = undefined, extraHeaders = {},
     } = {}) => {
-      // Node's fetch/undici may rewrite the Host header to the loopback
-      // transport origin. Use explicit HTTP/1 to deliver the canonical
-      // tenant hostname while connecting only to the test's local server.
+      // Node fetch can overwrite Host when contacting a loopback server.
+      // Explicit HTTP/1 preserves the test's simulated tenant-domain Host.
       const headers = { Host: host, ...extraHeaders };
       if (bearer || user) headers.Authorization = "Bearer " + (bearer || token(user));
+      if (body !== undefined) headers["Content-Type"] = "application/json";
       return new Promise((resolve, reject) => {
         const client = http.request({
           hostname: "127.0.0.1", port: server.address().port,
           path: "/api/premium-analytics" + path,
-          method: "GET", headers,
+          method, headers,
         }, (response) => {
           const chunks = [];
           response.on("data", (chunk) => chunks.push(chunk));
@@ -371,6 +372,7 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
           });
         });
         client.on("error", reject);
+        if (body !== undefined) client.write(JSON.stringify(body));
         client.end();
       });
     };
@@ -460,6 +462,15 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
         assert.equal(noGrant.status, 403, JSON.stringify(noGrant.body));
         assert.equal(noGrant.body.code, "BI_CAPABILITY_NOT_ENTITLED");
         assert.equal(noGrant.body.snapshot, undefined);
+
+        const blockedPython = await request({
+          user: USERS.a, method: "POST",
+          path: "/management/python-analysis",
+          body: { periodDays: 3, asOfDate: "2026-11-22" },
+        });
+        assert.equal(blockedPython.status, 403, JSON.stringify(blockedPython.body));
+        assert.equal(blockedPython.body.code, "BI_CAPABILITY_NOT_ENTITLED");
+        assert.equal(blockedPython.body.executionAuthorised, undefined);
 
         await subs.updateOne({ business: A }, {
           $set: { status: "suspended", entitlementGrants: [{ key: "analytics", source: "plan" }] },
