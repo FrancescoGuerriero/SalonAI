@@ -102,9 +102,18 @@ test("subscription state and analytics grants cannot elevate a selected-location
   await assert.rejects(
     check(mock(manifest(), subscription({ grants: ["appointments"] }))),
     errorCode("BI_CAPABILITY_NOT_ENTITLED"));
-  await assert.rejects(
-    check(mock(manifest({ capabilities: [] }))),
-    errorCode("BI_CAPABILITY_NOT_ENABLED"));
+  // All registered service verticals include analytics in their defaults.
+  // A subscription entitlement can therefore enable that vertical default
+  // even when the manifest does not additionally list it.
+  const verticalDefault = await check(mock(manifest({ capabilities: [] })));
+  assert.equal(verticalDefault.entitled, true);
+
+  const draft = { ...manifest(), status: "draft" };
+  draft.manifestHash = calculateTenantProductManifestHash({
+    ...draft, businessId: BUSINESS, manifestRevision: "4",
+  });
+  await assert.rejects(check(mock(draft)),
+    errorCode("BI_TENANT_COMPOSITION_INVALID"));
   await assert.rejects(
     check(mock(manifest(), { ...subscription(), planVersion: "unknown" })),
     errorCode("BI_TENANT_COMPOSITION_INVALID"));
