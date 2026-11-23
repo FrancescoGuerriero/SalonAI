@@ -5,6 +5,8 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import premiumAnalyticsRoutes from "../features/premium/analytics/premiumAnalyticsRoutes.js";
+import { normaliseTenantProductManifest } from "../platform/productComposition/tenantProductManifest.js";
+import { calculateTenantProductManifestHash } from "../platform/productComposition/tenantProductManifestPersistence.js";
 import mongoose from "mongoose";
 import { buildManagementBiSnapshot } from "../features/analytics/managementBiService.js";
 import { getManagementBi } from "../features/premium/analytics/premiumAnalyticsController.js";
@@ -30,6 +32,29 @@ const authority = (business, locationAccessMode, locationId = null, allowedLocat
   allowedLocationIds: allowedLocationIds?.map(String) || null,
 });
 const byKey = (snapshot, key) => snapshot.metrics.find((row) => row.key === key);
+
+function analyticsManifest(business) {
+  const canonical = normaliseTenantProductManifest({
+    schemaVersion: "1", platformVersion: "3.0.0",
+    businessId: String(business), verticalId: "salon",
+    planKey: "standard", status: "active",
+    manifestRevision: "1", deploymentProfile: "shared-saas",
+    capabilityPackKeys: ["analytics"],
+  });
+  return {
+    ...canonical, business,
+    manifestRevision: Number(canonical.manifestRevision),
+    manifestHash: calculateTenantProductManifestHash(canonical),
+  };
+}
+
+function analyticsSubscription(business) {
+  return {
+    business, planKey: "standard", planVersion: "1",
+    status: "active", lifecycleRevision: 1,
+    entitlementGrants: [{ key: "analytics", source: "plan" }],
+  };
+}
 
 function createHttpAcceptanceApp() {
   const allA = authority(A, "all");
@@ -245,6 +270,14 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
       { _id: A, name: "Tenant A", slug: "test-tenant-a", businessType: "salon", status: "active" },
       { _id: B, name: "Tenant B", slug: "test-tenant-b", businessType: "salon", status: "active" },
     ]);
+    // The production router now requires canonical persisted analytics
+    // composition AND the lifecycle-eligible subscription entitlement.
+    await db.collection("tenantproductmanifests").insertMany([
+      analyticsManifest(A), analyticsManifest(B),
+    ]);
+    await db.collection("tenantsubscriptions").insertMany([
+      analyticsSubscription(A), analyticsSubscription(B),
+    ]);
     await db.collection("businessdomains").insertMany([
       { business: A, host: "tenant-a.example.test", status: "active", role: "primary" },
       { business: B, host: "tenant-b.example.test", status: "active", role: "primary" },
@@ -417,6 +450,72 @@ test("Module 16 production JWT, persisted membership, tenant host and RBAC HTTP 
       const unknown = await request({ user: USERS.a, host: "unknown.example.test" });
       assert.equal(disabled.status, 404, JSON.stringify(disabled.body));
       assert.equal(unknown.status, 404, JSON.stringify(unknown.body));
+    });
+    await t.test("subscription removal, suspension and compromised manifest never expose BI", async () => {
+      const subs = db.collection("tenantsubscriptions");
+      const manifests = db.collection("tenantproductmanifests");
+      try {
+        await subs.updateOne({ business: A }, { $set: { entitlementGrants: [] } });
+        const noGrant = await request({ user: USERS.a });
+        assert.equal(noGrant.status, 403, JSON.stringify(noGrant.body));
+        assert.equal(noGrant.body.code, "BI_CAPABILITY_NOT_ENTITLED");
+        assert.equal(noGrant.body.snapshot, undefined);
+
+        await subs.updateOne({ business: A }, {
+          $set: { status: "suspended", entitlementGrants: [{ key: "analytics", source: "plan" }] },
+        });
+        const suspended = await request({ user: USERS.a });
+        assert.equal(suspended.status, 403, JSON.stringify(suspended.body));
+        assert.equal(suspended.body.code, "BI_SUBSCRIPTION_INACTIVE");
+        assert.equal(suspended.body.snapshot, undefined);
+
+        await subs.updateOne({ business: A }, { $set: { status: "active" } });
+        await manifests.updateOne({ business: A }, { $set: { manifestHash: "0".repeat(64) } });
+        const tampered = await request({ user: USERS.a });
+        assert.equal(tampered.status, 403, JSON.stringify(tampered.body));
+        assert.equal(tampered.body.code, "BI_MANIFEST_UNTRUSTED");
+        assert.equal(tampered.body.snapshot, undefined);
+
+        await manifests.updateOne({ business: A }, {
+          $set: { manifestHash: analyticsManifest(A).manifestHash,
+            effectiveFrom: date("2099-01-01T00:00:00Z") },
+        });
+        const future = await request({ user: USERS.a });
+        assert.equal(future.status, 403, JSON.stringify(future.body));
+        assert.equal(future.body.code, "BI_MANIFEST_UNTRUSTED");
+
+        await manifests.updateOne({ business: A }, {
+          $set: { effectiveFrom: null },
+        });
+        const restored = await request({ user: USERS.a });
+        assert.equal(restored.status, 200, JSON.stringify(restored.body));
+        assert.equal(byKey(restored.body.snapshot, "revenue").value, 40);
+
+        await subs.deleteOne({ business: A });
+        const missingSubscription = await request({ user: USERS.a });
+        assert.equal(missingSubscription.status, 403, JSON.stringify(missingSubscription.body));
+        assert.equal(missingSubscription.body.code, "BI_TENANT_RECORDS_REQUIRED");
+      } finally {
+        await subs.deleteOne({ business: A });
+        await subs.insertOne(analyticsSubscription(A));
+        await manifests.updateOne({ business: A }, {
+          $set: { manifestHash: analyticsManifest(A).manifestHash,
+            effectiveFrom: null },
+        });
+      }
+    });
+    await t.test("tenant B missing analytics grant cannot borrow tenant A's subscription", async () => {
+      const subs = db.collection("tenantsubscriptions");
+      try {
+        await subs.updateOne({ business: B }, { $set: { entitlementGrants: [] } });
+        const denied = await request({ user: USERS.b, host: "tenant-b.example.test" });
+        assert.equal(denied.status, 403, JSON.stringify(denied.body));
+        assert.equal(denied.body.code, "BI_CAPABILITY_NOT_ENTITLED");
+      } finally {
+        await subs.updateOne({ business: B }, {
+          $set: { entitlementGrants: [{ key: "analytics", source: "plan" }] },
+        });
+      }
     });
     await t.test("legacy root remains retired and returns no global BI data", async () => {
       const result = await request({ user: USERS.a, path: "/" });
