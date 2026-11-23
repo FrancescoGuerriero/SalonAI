@@ -25,6 +25,21 @@ The current Premium Analytics frontend already uses `GET /api/premium-analytics/
 
 `managementBiLegacySurface.test.js` verifies retirement, no unscoped operational reads, authenticated routing and the management UI migration path.
 
+## Runtime Analytics entitlement enforcement
+
+The canonical management read and governed Python analysis endpoints now require the server-side `requireManagementBiEntitlement` middleware **after** the trusted tenant and effective permission middleware. This is not a separate analytics capability catalogue: the checker reuses the existing persisted `TenantProductManifest`, `TenantSubscription`, hash verifier, canonical tenant subscription lifecycle, registered capability packs and validated composition resolver.
+
+A request is denied before any BI appointment query or Python invocation unless all of the following hold:
+
+- An authenticated trusted Business and location-scoped effective authority have already been resolved, and the required `premium-analytics:read` permission has been granted (plus `ai:use` for Python).
+- An active, properly owned tenant product manifest and a properly owned subscription record exist; the manifest hash, plan, registered composition and effective date are valid.
+- The tenant subscription is lifecycle-eligible according to **existing** `resolveTenantEntitlements` rules (`trial`, `active` and `past_due` remain eligible); the `analytics` capability is explicitly entitled, and enabled in the canonical vertical composition. Suspended, cancelled and missing grants fail closed.
+- The global `premium-analytics` platform switch remains enforced by `app.js` `requireFeature`, not replaced or reinterpreted by this middleware.
+
+The verifier is **read-only** and has no tenant-wide subscription-inspection endpoint. Selected-location employees with legitimate BI permissions may access only their own scoped aggregates without needing `feature-control:read`. Refused responses contain error codes, not subscription details or customer records. `managementBiEntitlement.test.js` covers missing/foreign source records, hashes, plan mismatches, future effective dates, lifecycle states, missing grants, vertical defaults and the fail-closed middleware. The isolated MongoDB HTTP suite verifies the same denied states with the canonical production router.
+
+**Rollout risk:** Enforcing this gate is intentionally stricter than the former permission-only endpoint. Tenant installations without populated, integrity-verified product manifests and subscriptions will receive HTTP 403 until their already-defined tenant provision/migration workflow supplies verified evidence. Do not bypass the gate, automatically backfill live tenants, or claim that local CI proves live subscription activation. Capture deployment-specific migration readiness and tenant entitlement acceptance separately.
+
 ## Validation and restrictions
 
 - `backend/src/test/managementBiScopeEvidence.test.js` verifies business-wide and selected scope, deterministic evidence identities, cross-tenant and missing/duplicate locations, mismatched Appointment business/location, and rejection before aggregation.
