@@ -47,19 +47,46 @@ function checksum(value) {
   return crypto.createHash("sha256").update(stableJson(value)).digest("hex");
 }
 
-async function resolveManagementScope(effectiveAuthority = {}) {
+async function resolveManagementScope(effectiveAuthority = {}, {
+  locationModel = Location,
+} = {}) {
   const businessId = validObjectId(effectiveAuthority.businessId, "Business authority");
-  const selectedLocationId = idText(effectiveAuthority.locationId) || null;
+  if (!["all", "selected"].includes(effectiveAuthority.locationAccessMode)) {
+    throw biError("A trusted location access mode is required.", 403,
+      "POINT10_LOCATION_AUTHORITY_REQUIRED");
+  }
+  const selectedLocationId = effectiveAuthority.locationId
+    ? validObjectId(effectiveAuthority.locationId, "Selected location") : null;
   let locationIds = [];
 
   if (effectiveAuthority.locationAccessMode === "all") {
-    const locations = await Location.find({
+    const locations = await locationModel.find({
       business: businessId,
       status: { $ne: "archived" },
     })
-      .select("_id")
+      .select("_id business status")
       .lean();
-    locationIds = locations.map((item) => idText(item._id)).filter(Boolean);
+    if (!Array.isArray(locations)) {
+      throw biError("Management BI location evidence is unavailable.", 502,
+        "POINT10_LOCATION_EVIDENCE_INVALID");
+    }
+    const seen = new Set();
+    for (const location of locations) {
+      const id = idText(location?._id);
+      if (!mongoose.isValidObjectId(id) ||
+          idText(location?.business) !== businessId ||
+          !location?.status || location.status === "archived" ||
+          seen.has(id)) {
+        throw biError("Inconsistent business location evidence.", 502,
+          "POINT10_LOCATION_EVIDENCE_INVALID");
+      }
+      seen.add(id);
+    }
+    locationIds = [...seen].sort();
+    if (selectedLocationId && !seen.has(selectedLocationId)) {
+      throw biError("Selected location is not part of the active business scope.", 403,
+        "POINT10_LOCATION_AUTHORITY_REQUIRED");
+    }
   } else {
     locationIds = [
       ...new Set(
@@ -70,7 +97,11 @@ async function resolveManagementScope(effectiveAuthority = {}) {
             : []),
         ].filter(Boolean)
       ),
-    ];
+    ].sort();
+    if (locationIds.some((id) => !mongoose.isValidObjectId(id))) {
+      throw biError("Invalid authorised location evidence.", 403,
+        "POINT10_LOCATION_AUTHORITY_REQUIRED");
+    }
   }
 
   if (!locationIds.length) {
@@ -121,17 +152,31 @@ export async function buildManagementBiSnapshot({
   effectiveAuthority = {},
   periodDays = 30,
   asOfDate = new Date(),
+} = {}, {
+  locationModel = Location,
+  appointmentModel = Appointment,
 } = {}) {
-  const scope = await resolveManagementScope(effectiveAuthority);
+  const scope = await resolveManagementScope(effectiveAuthority, { locationModel });
   const period = buildCanonicalMetricPeriod({ periodDays, asOfDate });
 
-  const rows = await Appointment.find({
+  const rows = await appointmentModel.find({
     business: scope.businessId,
     location: { $in: scope.locationIds },
     ...appointmentWindowFilter(period),
   })
-    .select(`${APPOINTMENT_METRIC_PROJECTION} location`)
+    .select(`${APPOINTMENT_METRIC_PROJECTION} business location`)
     .lean();
+
+  // Database predicates alone do not constitute verifiable source evidence.
+  // An inconsistent returned record must not contribute to trusted BI or AI
+  // evidence, even if a mocked, stale or misconfigured query returned it.
+  const authorisedLocations = new Set(scope.locationIds);
+  if (!Array.isArray(rows) || rows.some((row) =>
+    !row || idText(row.business) !== scope.businessId ||
+    !authorisedLocations.has(idText(row.location)))) {
+    throw biError("Inconsistent appointment ownership evidence.", 502,
+      "POINT10_APPOINTMENT_EVIDENCE_INVALID");
+  }
 
   const comparison = calculateAppointmentMetricComparison({ rows, period });
   const metrics = comparison.metrics.map(metricTrend);

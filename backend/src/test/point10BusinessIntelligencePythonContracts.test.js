@@ -21,7 +21,11 @@ test("Point 10 excludes ambiguous legacy location facts and scopes by effective 
   assert.match(service, /effectiveAuthority\.businessId/);
   assert.match(service, /effectiveAuthority\.locationAccessMode === "all"/);
   assert.match(service, /effectiveAuthority\.allowedLocationIds/);
-  assert.match(service, /Location\.find\(\{/);
+  assert.match(service, /locationModel\.find\(\{/);
+  assert.match(service, /appointmentModel\.find\(\{/);
+  assert.match(service, /POINT10_APPOINTMENT_EVIDENCE_INVALID/);
+  assert.match(service, /POINT10_LOCATION_EVIDENCE_INVALID/);
+  assert.match(service, /APPOINTMENT_METRIC_PROJECTION} business location/);
   assert.match(service, /location:\s*\{ \$in: scope\.locationIds \}/);
   assert.match(service, /ambiguousLegacyLocationExcluded:\s*true/);
   assert.match(service, /containsCustomerPii:\s*false/);

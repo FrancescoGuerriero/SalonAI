@@ -1,33 +1,21 @@
-import LoyaltyAccount from "../loyalty/LoyaltyAccount.js";
-import GiftCard from "../giftCards/GiftCard.js";
-import Referral from "../referrals/Referral.js";
-import Notification from "../notifications/Notification.js";
-import EmailCampaign from "../emailCampaigns/EmailCampaign.js";
-import RetentionJourney from "../automation/RetentionJourney.js";
+import { createServiceError } from "../../../shared/serviceError.js";
 import { buildManagementBiSnapshot } from "../../analytics/managementBiService.js";
 import { analyseManagementBiWithPython } from "../../analytics/managementBiPythonService.js";
 
-export async function getPremiumAnalytics(req, res) {
-  const [loyaltyAccounts, giftCards, referrals, notifications, campaigns, journeys] = await Promise.all([
-    LoyaltyAccount.countDocuments(),
-    GiftCard.aggregate([{ $group: { _id: null, issued: { $sum: "$originalValue" }, liability: { $sum: "$balance" }, count: { $sum: 1 } } }]),
-    Referral.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-    Notification.aggregate([{ $group: { _id: { channel: "$channel", status: "$status" }, count: { $sum: 1 } } }]),
-    EmailCampaign.find().select("name status metrics").lean(),
-    RetentionJourney.countDocuments({ enabled: true }),
-  ]);
-
-  res.json({
-    success: true,
-    generatedAt: new Date().toISOString(),
-    loyalty: { accounts: loyaltyAccounts },
-    giftCards: giftCards[0] || { issued: 0, liability: 0, count: 0 },
-    referrals,
-    notifications,
-    campaigns,
-    activeJourneys: journeys,
-    legacyUnscopedCompatibilitySurface: true,
-  });
+/**
+ * The legacy root endpoint assembled unscoped whole-database aggregates from
+ * operational collections without authoritative Business ownership. It must
+ * never return shared data in a multi-tenant application.
+ *
+ * Existing clients should migrate to GET /api/premium-analytics/management,
+ * which uses effective business/location authority and canonical metrics.
+ */
+export async function getPremiumAnalytics() {
+  throw createServiceError(
+    "The legacy analytics response is retired. Use the tenant-scoped management BI endpoint.",
+    410,
+    { code: "PREMIUM_ANALYTICS_LEGACY_UNSCOPED_DISABLED" },
+  );
 }
 
 export async function getManagementBi(req, res) {
